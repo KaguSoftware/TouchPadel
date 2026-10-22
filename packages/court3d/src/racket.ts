@@ -96,6 +96,15 @@ const PLUG_PROUD = 0.0005;
  * rather than trusting any number written here.
  */
 const MARK_R = 0.06714;
+/**
+ * The mark's shapes, parsed ONCE per process. Parsing the sticker's SVG paths
+ * is most of what a racket kit costs to build (about 8 of its 10 ms in node),
+ * and the answer never changes: one radius, verbatim paths. The phone builds a
+ * court per tab (Book, Play, Coaches), so every court after the first used to
+ * pay for the same parse again. Shared read-only: ShapeGeometry only reads a
+ * shape (extractPoints copies), and nothing here keeps or mutates one.
+ */
+let smileyShapes: ReturnType<typeof buildSmileyShapes> | null = null;
 
 /**
  * Where the decal sits through the plate. The plate's front flat face is at
@@ -451,7 +460,7 @@ export function buildRacketKit(
   // takes that floor; `full`'s 8 segments quarter it to 0.09 mm of model, the
   // same 2:1 the rest of the racket's curves keep (24 / 12).
   const markSegments = full ? 8 : 4;
-  const smiley = buildSmileyShapes(MARK_R);
+  const smiley = (smileyShapes ??= buildSmileyShapes(MARK_R));
   /** The mark's meshes, kept so the shadow pass can be told to skip them. */
   const decals: THREE.Mesh[] = [];
   const decal = (

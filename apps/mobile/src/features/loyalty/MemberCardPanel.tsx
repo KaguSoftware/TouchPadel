@@ -156,7 +156,7 @@ export function MemberCardPanel({
   testID: string;
   /** Space under the last thing: the home indicator on a pushed screen, the tab bar on a tab. */
   bottomPad: number;
-  /** After "Get a new code": the Club tab puts the guest's points here. */
+  /** Above the code: the Club tab puts the guest's points card here. */
   children?: ReactNode;
 }) {
   const { t } = useLocale();
@@ -170,7 +170,7 @@ export function MemberCardPanel({
   const now = useNow();
 
   const live = card ? memberToken(card, now) : null;
-  const qrSize = Math.min(QR_MAX, width - space.l * 2 - space.xl * 2);
+  const qrSize = Math.min(QR_MAX, width - space.l * 2 - space.m * 2);
   // The code under the QR runs exactly the width of the QR's black squares (Sait,
   // 2026-10-20), not the drawing's, which carries the white quiet zone. An
   // unspaced twin measures the code's natural width at 20 pt: a narrower code
@@ -226,6 +226,8 @@ export function MemberCardPanel({
         }}
         showsVerticalScrollIndicator={false}
       >
+        {/* What the card has earned, first (Majed, 2026-10-22): the Club tab's points card. */}
+        {children}
         {/* The code: on white, edge to edge of its own card, in both themes. */}
         <View
           style={{
@@ -234,10 +236,11 @@ export function MemberCardPanel({
             borderRadius: radius.sheet,
             borderWidth: 1,
             borderColor: colors.line,
-            paddingTop: space.xl,
-            paddingBottom: space.l,
-            paddingStart: space.xl,
-            paddingEnd: space.xl,
+            // Tight round the code (Majed, 2026-10-22): the QR's own quiet zone is margin enough.
+            paddingTop: space.m,
+            paddingBottom: space.m,
+            paddingStart: space.m,
+            paddingEnd: space.m,
           }}
         >
           {/* What to do with it, on the white above the code (Sait, 2026-10-20). */}
@@ -371,7 +374,6 @@ export function MemberCardPanel({
           // behind the Club tab do not show through it.
           style={{ backgroundColor: colors.bg }}
         />
-        {children}
       </ScrollView>
     );
   })();

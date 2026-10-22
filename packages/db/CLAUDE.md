@@ -17,8 +17,17 @@ is a line in that file.
 
 ## Migrations
 
-- Ordinal strictly greater than the current max, never a reused one. Latest is `0359`
-  (0359 tournament_classes, 2026-10-22 (Ameen; written as 0356 and renumbered at the merge, because
+- Ordinal strictly greater than the current max, never a reused one. Latest is `0360`
+  (0360 marketing_insights, 2026-10-22 (Majed: the marketing role's Insights page, the whole
+  place with as few exact numbers as possible): the client `marketing_insights(p_from, p_to,
+  p_cmp_from, p_cmp_to)` (marketing and owner) runs the owner's analytics_* reads and returns only
+  levels, trends, rounded shares and about-N counts, through the service-role wording helpers
+  `mkt_level`, `mkt_trend`, `mkt_rate_trend`, `mkt_about` and `mkt_share`; **0360 holds
+  `analytics_guard`** (0034 no longer: it also lets marketing through while the transaction-local
+  `app.marketing_read` assertion stands, which only marketing_insights sets and clears) **and
+  `set_staff_access` plus `staff_blocked_areas_chk`** (0345 no longer: the `insights` area);
+  `tests/marketing-insights.test.ts`;
+  0359 tournament_classes, 2026-10-22 (Ameen; written as 0356 and renumbered at the merge, because
   0355–0357 were already taken): `tournaments.classes text[]`, one to three of A, B, C in
   A-B-C order, never null by the validated `tournaments_classes` CHECK, which also ties `class` to
   the first of them (kept for builds before it); the plan takes `classes` or an older desk's

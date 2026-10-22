@@ -172,6 +172,7 @@ export const shellAr: DeepMessages<typeof shellEn> = {
     assistant: 'المساعد',
     files: 'الملفات',
     myTasks: 'مهامي',
+    insights: 'المؤشرات',
     protocols: 'البروتوكولات',
     suggestions: 'أفكار الموظفين',
     // Wave 5, people records (wave5-addendum-2026-09-25 §5.2).

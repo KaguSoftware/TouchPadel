@@ -5,7 +5,8 @@
  * assets rather than a download, so `useFonts` in app/_layout.tsx registers
  * every one of them before the splash lifts and none can arrive late.
  *
- * Only the five weights `FontRole` names are required here. Metro bundles what
+ * Only the weights `FontRole` names are required here (Thin since 2026-10-22: the points card's
+ * embossed name runs a hairline of it down the middle of every Black stroke). Metro bundles what
  * is `require`d, so the Medium and italic faces `scripts/sync-fonts.mjs` also
  * copies into assets/fonts cost nothing sitting unreferenced — while
  * registering them would hold first paint on two faces nothing renders in.
@@ -18,6 +19,7 @@
 import * as Font from 'expo-font';
 
 export const BRAND_FONTS: Record<string, Font.FontSource> = {
+  LamaSans_100Thin: require('../../assets/fonts/LamaSans-Thin.ttf'),
   LamaSans_400Regular: require('../../assets/fonts/LamaSans-Regular.ttf'),
   LamaSans_600SemiBold: require('../../assets/fonts/LamaSans-SemiBold.ttf'),
   LamaSans_700Bold: require('../../assets/fonts/LamaSans-Bold.ttf'),

@@ -59,6 +59,8 @@ export const ACCESS_AREAS = {
   kds: ['/kds'],
   shop: ['/shop'],
   tasks: ['/tasks'],
+  // The marketing role's Insights page (0360).
+  insights: ['/insights'],
   incidents: ['/incidents'],
   ops: ['/ops'],
   stock: ['/stock'],

@@ -36,6 +36,7 @@ import { GlassView } from 'expo-glass-effect';
 import { liquidGlass } from '../../src/lib/liquidGlass';
 import { SymbolView } from 'expo-symbols';
 import { Court3D } from '../../src/components/Court3D';
+import { prewarmStageCourts } from '../../src/components/CourtStage';
 import { BookingSheet } from '../../src/components/BookingSheet';
 
 const android = Platform.OS === 'android';
@@ -621,6 +622,12 @@ export default function BookHomeScreen() {
       return () => clearTimeout(timer);
     }, [sheetPrewarmed, courtPainted, glUnavailable]),
   );
+  // AND ONLY THEN the other tabs' courts, in the background (courtPrewarm.ts):
+  // after this court has painted and the sheet, the tab's biggest job, has been
+  // handed its slot. Never without GL: there would be nothing to build for.
+  useEffect(() => {
+    if (sheetPrewarmed && courtPainted && !glUnavailable) prewarmStageCourts();
+  }, [sheetPrewarmed, courtPainted, glUnavailable]);
   const onUnavailable = useCallback(() => setGlUnavailable(true), []);
   const onCourtSize = useCallback((size: { width: number; height: number }) => {
     setCourtSize((prev) =>

@@ -7,6 +7,14 @@ import { Platform } from 'react-native';
 import * as Device from 'expo-device';
 import { courtQualityFor, type CourtOS, type CourtQuality } from './quality';
 
+/**
+ * Android's frames are bound by the JS thread: it gets the lean update (the
+ * same picture to the bit, scene.ts). iOS is unchanged. One answer for every
+ * court built here, on its tab (Court3D) or ahead of it (CourtStage's
+ * prewarm), so the two always build the same scene.
+ */
+export const COURT_LEAN = Platform.OS === 'android';
+
 let detected: CourtQuality | null = null;
 
 export function detectCourtQuality(): CourtQuality {

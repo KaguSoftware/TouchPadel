@@ -157,6 +157,14 @@ export const ownerEn = {
       since: 'Since {time}',
       nobody: 'Nobody here right now',
     },
+    desserts: {
+      title: 'Dessert case',
+      onShow: 'On show',
+      notAvailable: 'Not available',
+      reading: 'Reading the menu…',
+      none: 'No desserts on the menu',
+      failed: 'Could not read the menu',
+    },
     rooms: {
       reception: 'Reception',
       bar: 'Vitamin bar',
@@ -533,6 +541,7 @@ export const ownerEn = {
         kds: 'Kitchen',
         shop: 'Touch Shop',
         tasks: 'My tasks',
+        insights: 'Insights',
         incidents: 'Incidents',
         ops: 'Operations',
         stock: 'Stock',

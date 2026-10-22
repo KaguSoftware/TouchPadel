@@ -213,6 +213,8 @@ export const shellEn = {
     // The team workspace's one row (driver, marketing), and the till's and
     // the desk's last row.
     myTasks: 'My tasks',
+    // The marketing role's Insights page (0360), on the team rail and in Customers & marketing.
+    insights: 'Insights',
     // Protocols and the staff suggestion box, on the manager's rail and in
     // Observe (build-contracts-2026-09-23 §5.1).
     protocols: 'Protocols',

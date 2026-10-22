@@ -163,9 +163,6 @@ export function AssistantPageScreen() {
           <Button kind="primary" icon="plus" className="tp-assistant-green tp-assistant-new" onClick={startNew} aria-label={tr('ws.owner.assistant.newChat')} title={tr('ws.owner.assistant.newChat')} />
         </aside>
       )}
-      {/* Only on a new chat, in the page's corner; an open chat does not
-          offer it (Sait, 2026-10-20). */}
-      {isNew && !isFree && goFreeButton && <div style={{ position: 'absolute', insetBlockStart: 0, insetInlineEnd: 0, zIndex: 1 }}>{goFreeButton}</div>}
       <section aria-label={tr('ws.owner.assistant.title')} style={{ flex: 1, minBlockSize: 0, minInlineSize: 0 }}>
         {mode === 'free' ? (
           <FreeThread
@@ -182,6 +179,7 @@ export function AssistantPageScreen() {
           <Thread
             conversationId={conversationId}
             onConversation={(next) => goTo(next)}
+            toolbarEnd={goFreeButton}
             newScopes={newScopes}
             onNewScopesChange={setNewScopes}
             autoFocus

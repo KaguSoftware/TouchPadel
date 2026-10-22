@@ -1,19 +1,19 @@
 import { useState } from 'react';
-import { Pressable, View } from 'react-native';
+import { View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { formatNumber, isolateLtr } from '@touch/i18n';
-import { Text } from '../../src/i18n/text';
 import { useLocale } from '../../src/i18n/LocaleProvider';
 import { useTabBarHeight } from '../../src/components/useTabBarHeight';
 import { AccountButton } from '../../src/components/AccountButton';
 import { Screen, SegmentedControl, TAB_TITLE_TOP, Title } from '../../src/components/ui';
 import { EmptyState, SkeletonList } from '../../src/components/states';
-import { ChevronIcon, TagIcon } from '../../src/components/icons';
-import { radius, space, useTheme } from '../../src/theme';
+import { space } from '../../src/theme';
 import { useAuth } from '../../src/features/auth/context';
 import { useMyLoyalty } from '../../src/features/loyalty/hooks';
 import { loyaltyOn } from '../../src/features/loyalty/logic';
 import { MemberCardPanel } from '../../src/features/loyalty/MemberCardPanel';
+import { PointsCard } from '../../src/features/loyalty/PointsCard';
+import { useOwnProfile } from '../../src/features/profile/hooks';
+import { nameFieldsOf } from '../../src/features/profile/names';
 import { CafeMenuView } from '../../src/features/cafe/CafeMenuView';
 
 type ClubView = 'card' | 'menu';
@@ -32,13 +32,16 @@ type ClubView = 'card' | 'menu';
  * card whatever was picked last: there is one member card screen, and it is this one.
  */
 export default function ClubScreen() {
-  const { t, locale } = useLocale();
-  const { colors, fonts } = useTheme();
+  const { t } = useLocale();
   const router = useRouter();
   const tabBarHeight = useTabBarHeight();
   const { session } = useAuth();
   const member = !!session && !session.user.is_anonymous;
   const loyalty = useMyLoyalty(member);
+  // The name embossed on the points card, as Profile has it (the email fallback stays hidden).
+  const profile = useOwnProfile(member);
+  const name = nameFieldsOf(profile.data, session?.user.email ?? null);
+  const holder = `${name.first} ${name.last}`.trim();
   // Signed out, the card view is still offered (it is how a guest learns there is one); signed
   // in, only while the owner has loyalty on.
   const offersCard = !member || loyalty.isPending || loyaltyOn(loyalty.data);
@@ -74,54 +77,14 @@ export default function ClubScreen() {
     if (loyalty.isPending) return <SkeletonList rows={1} height={300} />;
     return (
       <MemberCardPanel testID="club.card" bottomPad={bottomPad}>
-        {/* The points this card has earned, and the way to what they buy. */}
+        {/* The points this card has earned, as a card of their own, and the way to what they buy. */}
         {loyalty.data ? (
-          <Pressable
+          <PointsCard
             testID="club.loyalty"
-            accessibilityRole="button"
-            accessibilityLabel={t('loyalty.guest.home.title')}
+            loyalty={loyalty.data}
+            holder={holder}
             onPress={() => router.push({ pathname: '/loyalty', params: { from: 'club' } })}
-            style={({ pressed }) => ({
-              flexDirection: 'row',
-              alignItems: 'center',
-              gap: space.sm,
-              padding: space.l,
-              borderRadius: radius.card,
-              borderWidth: 1,
-              borderColor: colors.line,
-              backgroundColor: pressed ? colors.sub : colors.card,
-            })}
-          >
-            <View
-              style={{
-                width: 36,
-                height: 36,
-                borderRadius: radius.cell,
-                backgroundColor: colors.gtint,
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <TagIcon size={17} color={colors.gstrong} />
-            </View>
-            <Text
-              style={{ flex: 1, fontFamily: fonts.display800, fontSize: 15, color: colors.ink }}
-            >
-              {t('loyalty.guest.home.title')}
-            </Text>
-            <Text
-              testID="club.loyalty.balance"
-              style={{
-                fontFamily: fonts.display800,
-                fontSize: 15,
-                color: colors.gstrong,
-                fontVariant: ['tabular-nums'],
-              }}
-            >
-              {isolateLtr(formatNumber(loyalty.data.balance, locale))}
-            </Text>
-            <ChevronIcon size={16} color={colors.fnt2} />
-          </Pressable>
+          />
         ) : null}
       </MemberCardPanel>
     );

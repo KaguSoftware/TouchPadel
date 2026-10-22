@@ -456,6 +456,7 @@ export function Thread({
   return (
     <div
       style={{
+        position: 'relative',
         display: 'flex',
         flexDirection: 'column',
         minBlockSize: 0,
@@ -463,6 +464,9 @@ export function Thread({
         gap: 'var(--tp-sp-3)',
       }}
     >
+      {/* The start screen has no toolbar: the caller's end control sits in the corner, level with the chat strip's buttons
+          (the strip reaches sp-4 above the page and pads its buttons sp-3 in). */}
+      {isNew && toolbarEnd && <div style={{ position: 'absolute', insetBlockStart: 'calc(var(--tp-sp-3) - var(--tp-sp-4))', insetInlineEnd: 0, zIndex: 1 }}>{toolbarEnd}</div>}
       {!isNew && (
         <div
           role="toolbar"

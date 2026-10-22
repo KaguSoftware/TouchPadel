@@ -43,6 +43,7 @@ import { attendanceRoute } from './routes/attendance';
 import { rewardsRoute } from './routes/rewards';
 import { safeRoute } from './routes/safe';
 import { filesRoute } from './routes/files';
+import { insightsRoute } from './routes/insights';
 import { reportsRoute } from './routes/reports';
 import { reportsChildren } from './routes/reports/_children';
 import { analyticsChildren } from './routes/analytics/_children';
@@ -86,6 +87,7 @@ const routeTree = rootRoute.addChildren([
   rewardsRoute,
   safeRoute,
   filesRoute,
+  insightsRoute,
 ]);
 
 /** Send the operator back to the screen their role starts on; fall back to `/`. */

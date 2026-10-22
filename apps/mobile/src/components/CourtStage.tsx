@@ -40,12 +40,54 @@
  * (projectTop), and a caption that says what they are.
  */
 import { useState } from 'react';
-import { Animated, View } from 'react-native';
+import { Animated, AppState, View } from 'react-native';
 import { TOP_VIEW } from '@touch/court3d/camera';
 import type { CourtSceneKind } from '@touch/court3d/scene';
 import type { JoinSeats } from '@touch/court3d/join';
+import { startCourtPrewarm, type CourtBuildSpec } from '../features/courtTransition/courtPrewarm';
+import { COURT_LEAN } from '../features/courtTransition/deviceQuality';
+import { buildPhoneCourt } from '../features/courtTransition/phoneCourt';
 import { useReduceMotion } from '../lib/useReduceMotion';
+import { addBreadcrumb, describeError } from '../lib/telemetry';
 import { Court3D } from './Court3D';
+
+/** Every stage court is seen from above on the lite tier (see the header). */
+const STAGE_VIEW = 'top' as const;
+const STAGE_QUALITY = 'lite' as const;
+
+/**
+ * The stage courts the guest has not opened yet, built in the background once
+ * the Book tab has done its own heavy work (courtPrewarm.ts has the why and the
+ * pacing): Play's open match first, then Coaches' drill. Each is built exactly
+ * as its CourtStage will ask for it, so the tab takes it as its own.
+ */
+const PREWARM: readonly CourtBuildSpec[] = (['join', 'drill'] as const).map((scene) => ({
+  scene,
+  view: STAGE_VIEW,
+  quality: STAGE_QUALITY,
+  lean: COURT_LEAN,
+}));
+
+export function prewarmStageCourts(): void {
+  startCourtPrewarm(PREWARM, {
+    build: (spec, instancing) =>
+      buildPhoneCourt(spec.quality, spec.lean, { scene: spec.scene, view: spec.view, instancing }),
+    sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+    // The timeout only bounds a thread that is never idle: the build then
+    // lands in the next slot it can get, as one ordinary task.
+    idle: () => new Promise((resolve) => requestIdleCallback(() => resolve(), { timeout: 10000 })),
+    foreground: () =>
+      new Promise((resolve) => {
+        if (AppState.currentState === 'active') return resolve();
+        const sub = AppState.addEventListener('change', (state) => {
+          if (state !== 'active') return;
+          sub.remove();
+          resolve();
+        });
+      }),
+    onError: (error) => addBreadcrumb('court3d.prewarm.failed', { error: describeError(error) }),
+  });
+}
 
 /**
  * The hero's height on a page with a court behind it: the window onto the
@@ -118,10 +160,10 @@ export function CourtStage({ top, height, patternBox, scene, join }: CourtStageP
         progress={progress}
         direction={1}
         reduceMotion={reduceMotion}
-        view="top"
+        view={STAGE_VIEW}
         scene={scene}
         join={join}
-        quality="lite"
+        quality={STAGE_QUALITY}
         onUnavailable={() => setUnavailable(true)}
         patternBox={patternBox}
         style={{ flex: 1 }}

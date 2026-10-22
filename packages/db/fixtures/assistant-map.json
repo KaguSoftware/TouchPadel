@@ -1,5 +1,5 @@
 {
-  "generated_from": "ef0e279acf16c6486b65a18e363207be59546322",
+  "generated_from": "21e96a2a11f7ccd44e5def25867698db1405600a",
   "chunks": [
     {
       "kind": "page",
@@ -416,6 +416,14 @@
       "title": "/incidents — Incident reports",
       "body": "Incidents: the court desk and the cashier report an accident, an injury, a fight or damage here (\"Report an incident\": what kind, when, where, the court for a court, what happened, who was involved and photos uploaded through app.staff_media_slot, sent with \"Send report\" through app.submit_incident) and see \"My reports\" with the manager's note once reviewed (app.my_incidents); the manager and owner get To review, Reviewed and All from app.incidents_page, each report opening with its photos, where \"Mark reviewed\" saves a note the reporter reads (app.review_incident) and the owner's \"Redact\" replaces the report's text at once (app.redact_incident). Reports are kept a year and never read by the owner assistant.\nRoles: court_desk, cashier, manager, owner.\nReached from: Court desk: \"Incident reports\"; Café cashier: \"Incident reports\"; Management › Team: \"Staff inbox › Incident reports\".",
       "route": "/incidents"
+    },
+    {
+      "kind": "page",
+      "ref": "page:/insights",
+      "lang": "en",
+      "title": "/insights — Insights",
+      "body": "\"Insights\" (app.marketing_insights): the whole place for the marketing role, also open to the owner, as levels (Empty to Full), trends (Up, Steady, Down), rounded shares and \"about N\", never an amount or exact count (those stay on /analytics). Sections: At a glance; When to push (court week, quietest and fullest hours); Who plays; How they book; Offers (how much each was used); Café and shop; Tournaments and loyalty; Where the money comes from (shares only).\nRoles: marketing, owner.\nReached from: Management › Customers & marketing: \"Insights\"; Team: \"Insights\".",
+      "route": "/insights"
     },
     {
       "kind": "page",
@@ -1342,7 +1350,7 @@
       "ref": "nav:management:customers",
       "lang": "ar",
       "title": "الإدارة › الزبائن والتسويق",
-      "body": "الزبائن ونقاط الولاء والتسويق وتطبيق الضيوف\nالصفحة الرئيسية: /desk/customers\nالصفوف: الزبائن → /desk/customers; نقاط الولاء → /admin/loyalty; التسويق → /marketing (المنشورات والحملات, الخصومات والعروض, تيليغرام); تطبيق الضيوف → /admin/hero",
+      "body": "الزبائن ونقاط الولاء والتسويق وتطبيق الضيوف\nالصفحة الرئيسية: /desk/customers\nالصفوف: الزبائن → /desk/customers; نقاط الولاء → /admin/loyalty; التسويق → /marketing (المنشورات والحملات, الخصومات والعروض, تيليغرام); المؤشرات → /insights; تطبيق الضيوف → /admin/hero",
       "route": "/desk/customers"
     },
     {
@@ -1350,7 +1358,7 @@
       "ref": "nav:management:customers",
       "lang": "en",
       "title": "Management › Customers & marketing",
-      "body": "Customers, loyalty points, marketing and the guest app\nHome: /desk/customers\nRows: Customers → /desk/customers; Loyalty points → /admin/loyalty; Marketing → /marketing (Posts & campaigns, Discounts & offers, Telegram); Guest app → /admin/hero",
+      "body": "Customers, loyalty points, marketing and the guest app\nHome: /desk/customers\nRows: Customers → /desk/customers; Loyalty points → /admin/loyalty; Marketing → /marketing (Posts & campaigns, Discounts & offers, Telegram); Insights → /insights; Guest app → /admin/hero",
       "route": "/desk/customers"
     },
     {
@@ -1400,6 +1408,22 @@
       "title": "Management › Customers & marketing: Customers",
       "body": "Rail row \"Customers\" in the Management workspace › Customers & marketing opens /desk/customers. Arabic label: \"الزبائن\". Roles: court_desk, cashier, manager, owner.",
       "route": "/desk/customers"
+    },
+    {
+      "kind": "nav",
+      "ref": "nav:management:customers:/insights",
+      "lang": "ar",
+      "title": "الإدارة › الزبائن والتسويق: المؤشرات",
+      "body": "صف \"المؤشرات\" في مساحة \"الإدارة\" › الزبائن والتسويق يفتح /insights. الاسم بالإنجليزية: \"Insights\". الأدوار: marketing, owner.",
+      "route": "/insights"
+    },
+    {
+      "kind": "nav",
+      "ref": "nav:management:customers:/insights",
+      "lang": "en",
+      "title": "Management › Customers & marketing: Insights",
+      "body": "Rail row \"Insights\" in the Management workspace › Customers & marketing opens /insights. Arabic label: \"المؤشرات\". Roles: marketing, owner.",
+      "route": "/insights"
     },
     {
       "kind": "nav",
@@ -1902,7 +1926,7 @@
       "ref": "nav:team",
       "lang": "ar",
       "title": "مساحة العمل: الفريق",
-      "body": "مساحة العمل \"الفريق\" تبدأ من /tasks.\nالصفوف: مهامي → /tasks",
+      "body": "مساحة العمل \"الفريق\" تبدأ من /tasks.\nالصفوف: مهامي → /tasks; المؤشرات → /insights",
       "route": "/tasks"
     },
     {
@@ -1910,8 +1934,24 @@
       "ref": "nav:team",
       "lang": "en",
       "title": "Workspace: Team",
-      "body": "Workspace \"Team\" opens at /tasks.\nRows: My tasks → /tasks",
+      "body": "Workspace \"Team\" opens at /tasks.\nRows: My tasks → /tasks; Insights → /insights",
       "route": "/tasks"
+    },
+    {
+      "kind": "nav",
+      "ref": "nav:team:-:/insights",
+      "lang": "ar",
+      "title": "الفريق: المؤشرات",
+      "body": "صف \"المؤشرات\" في مساحة \"الفريق\" يفتح /insights. الاسم بالإنجليزية: \"Insights\". الأدوار: marketing, owner.",
+      "route": "/insights"
+    },
+    {
+      "kind": "nav",
+      "ref": "nav:team:-:/insights",
+      "lang": "en",
+      "title": "Team: Insights",
+      "body": "Rail row \"Insights\" in the Team workspace opens /insights. Arabic label: \"المؤشرات\". Roles: marketing, owner.",
+      "route": "/insights"
     },
     {
       "kind": "nav",
@@ -4091,6 +4131,14 @@
     },
     {
       "kind": "action",
+      "ref": "action:app.marketing_insights",
+      "lang": "en",
+      "title": "app.marketing_insights",
+      "body": "0360. Marketing and owner (the operator's /insights): the whole place for a business-day range against a comparison window, as levels (0 empty .. 4 full), trends (up, steady, down, unknown), shares rounded to 10 (the revenue mix to 5), counts as about-N or few (under 10), and ranked slots and names. Reads the owner's analytics_* through app.analytics_guard with a transaction-local app.marketing_read assertion it clears before returning. No money figure, no exact count, no guest identity. FORBIDDEN, INVALID_RANGE.\nSignature: app.marketing_insights(p_from date, p_to date, p_cmp_from date, p_cmp_to date) returns jsonb.\nGranted to: authenticated. Guard: staff role in (marketing, owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, INVALID_RANGE.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0360 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
       "ref": "action:app.marketing_notes_for",
       "lang": "en",
       "title": "app.marketing_notes_for",
@@ -5446,7 +5494,7 @@
       "ref": "action:app.set_staff_access",
       "lang": "en",
       "title": "app.set_staff_access",
-      "body": "0345. Owner-only, never one's own row (CANNOT_EDIT_SELF) and never an owner's (INVALID_ARGUMENT). Replaces the person's second jobs (front-line roles that app.is_staff counts beside the main role) and blocked pages (operator and phone screen rule only). STAFF_NOT_FOUND for an unknown id. Audited as staff.access_set.\nSignature: app.set_staff_access(p_staff_id uuid, p_extra_roles staff_role[], p_blocked_areas text[]) returns jsonb.\nGranted to: authenticated. Guard: staff role in (owner).\nAudit actions written: staff.access_set.\nError codes: FORBIDDEN, CANNOT_EDIT_SELF, STAFF_NOT_FOUND, INVALID_ARGUMENT.\nCalled from: apps/operator/src/features/admin/staff/StaffAccountEditor.tsx (pages /admin).\nDefined in migration 0345 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "0345. Owner-only, never one's own row (CANNOT_EDIT_SELF) and never an owner's (INVALID_ARGUMENT). Replaces the person's second jobs (front-line roles that app.is_staff counts beside the main role) and blocked pages (operator and phone screen rule only). STAFF_NOT_FOUND for an unknown id. Audited as staff.access_set.\nSignature: app.set_staff_access(p_staff_id uuid, p_extra_roles staff_role[], p_blocked_areas text[]) returns jsonb.\nGranted to: authenticated. Guard: staff role in (owner).\nAudit actions written: staff.access_set.\nError codes: FORBIDDEN, CANNOT_EDIT_SELF, STAFF_NOT_FOUND, INVALID_ARGUMENT.\nCalled from: apps/operator/src/features/admin/staff/StaffAccountEditor.tsx (pages /admin).\nDefined in migration 0360 (last definition). The assistant cannot call this; it only explains it.",
       "route": "/admin"
     },
     {
@@ -20259,6 +20307,198 @@
     },
     {
       "kind": "label",
+      "ref": "label:ws.insights",
+      "lang": "ar",
+      "title": "ws.insights (packages/i18n/src/catalogs/ws/insights.ar.ts)",
+      "body": "title: المؤشرات\nperiod: {range}، مقارنةً بالفترة {compare}\nunknown: لا تكفي البيانات بعد\nslot: {day} {hour}\nofferLive: فعّال\nofferOff: متوقف\nofferUses: الاستخدام: {uses}\nnotRecordedList: منشورات إنستغرام وسائر مواقع التواصل، ودعوات الأصدقاء، والحضور المباشر، والتقييمات، كلها لا تُسجَّل في أي مكان بعد، فلا تستطيع هذه الصفحة أن تقول ماذا تجلب.",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.insights",
+      "lang": "en",
+      "title": "ws.insights (packages/i18n/src/catalogs/ws/insights.en.ts)",
+      "body": "title: Insights\nperiod: {range}, compared with {compare}\nunknown: Not enough data yet\nslot: {day} {hour}\nofferLive: Live\nofferOff: Off\nofferUses: Uses: {uses}\nnotRecordedList: Instagram and other social posts, friend referrals, walk-ins and reviews are not recorded anywhere yet, so this page cannot say what they bring.",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.insights.cards",
+      "lang": "ar",
+      "title": "ws.insights.cards (packages/i18n/src/catalogs/ws/insights.ar.ts)",
+      "body": "courts: الملاعب\nhowFull: مدى الامتلاء\nbookings: الحجوزات\nplayers: اللاعبون\nactivePlayers: يلعبون\nnewPlayers: لاعبون جدد\ncafe: الكافيه\ncrossover: لاعبون يشترون من الكافيه\nspend: إنفاق الكافيه لكل حجز\nmoney: الإيرادات\noverall: الإجمالي\ncourtsMoney: الملاعب\ncafeMoney: الكافيه\nheat: أسبوع الملاعب\nheatHint: مرّر المؤشر على ساعة لترى مدى امتلائها.\nquiet: أهدأ الساعات\nfull: أكثر الساعات امتلاءً\nlosses: الإلغاءات وعدم الحضور\ncancellations: الإلغاءات\nnoShows: عدم الحضور\nnewReturning: الجدد والعائدون\nreturning: العائدون\nregulars: الزبائن الدائمون\nlapsing: زبائن دائمون انقطعوا\nlapsingSub: دون حجز منذ {days} يومًا\nfrequency: كم مرة يلعبون\nsource: التطبيق أم المكتب\napp: التطبيق\ndesk: المكتب\nappTrend: الحجز عبر التطبيق\nlead: قبل كم يحجزون\nnotRecorded: لا يُسجَّل بعد\nofferList: عروض هذه الفترة\ncafeHeat: أسبوع الكافيه\ncafeHeatHint: مرّر المؤشر على ساعة لترى مدى ازدحام الكافيه فيها.\ntop: الأكثر مبيعًا\nbottom: الأقل مبيعًا\nshop: مبيعات متجر تتش\ntournaments: البطولات\nheld: أقيمت\nfill: مدى الامتلاء\nreturningPlayers: عادوا\nnextTournament: القادمة: {name}، {date}\nnoNext: لا بطولة مجدولة.\nloyalty: الولاء\nmembers: الأعضاء\nnewMembers: جدد في هذه الفترة\nredeeming: يستخدمون نقاطهم\nholding: لديهم نقاط لم تُستخدم\nloyaltyOff: برنامج الولاء متوقف.\nmix: حصة كل جزء من الإيرادات\nmixCourts: الملاعب\nmixCafe: الكافيه\nmixShop: متجر تتش",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.insights.cards",
+      "lang": "en",
+      "title": "ws.insights.cards (packages/i18n/src/catalogs/ws/insights.en.ts)",
+      "body": "courts: Courts\nhowFull: How full\nbookings: Bookings\nplayers: Players\nactivePlayers: Playing\nnewPlayers: New players\ncafe: Café\ncrossover: Court players who buy\nspend: Café spend per booking\nmoney: Money\noverall: Overall\ncourtsMoney: Courts\ncafeMoney: Café\nheat: Court week\nheatHint: Point at an hour to read how full it runs.\nquiet: Quietest hours\nfull: Fullest hours\nlosses: Cancellations and no-shows\ncancellations: Cancellations\nnoShows: No-shows\nnewReturning: New and returning\nreturning: Returning\nregulars: Regulars\nlapsing: Lapsing regulars\nlapsingSub: No booking in {days} days\nfrequency: How often they play\nsource: App or desk\napp: App\ndesk: Desk\nappTrend: Bookings through the app\nlead: How far ahead they book\nnotRecorded: Not recorded yet\nofferList: Offers in this period\ncafeHeat: Café week\ncafeHeatHint: Point at an hour to read how busy the café runs.\ntop: Best sellers\nbottom: Least sold\nshop: Touch Shop sales\ntournaments: Tournaments\nheld: Held\nfill: How full\nreturningPlayers: Came back\nnextTournament: Next: {name}, {date}\nnoNext: No tournament scheduled.\nloyalty: Loyalty\nmembers: Members\nnewMembers: New this period\nredeeming: Using their points\nholding: Holding unused points\nloyaltyOff: Loyalty is switched off.\nmix: Share of the money\nmixCourts: Courts\nmixCafe: Café\nmixShop: Touch Shop",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.insights.count",
+      "lang": "ar",
+      "title": "ws.insights.count (packages/i18n/src/catalogs/ws/insights.ar.ts)",
+      "body": "none: لا أحد\nfew: قلة\nabout: نحو {n}",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.insights.count",
+      "lang": "en",
+      "title": "ws.insights.count (packages/i18n/src/catalogs/ws/insights.en.ts)",
+      "body": "none: None\nfew: A few\nabout: About {n}",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.insights.leadBuckets",
+      "lang": "ar",
+      "title": "ws.insights.leadBuckets (packages/i18n/src/catalogs/ws/insights.ar.ts)",
+      "body": "lt2h: أقل من ساعتين",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.insights.leadBuckets",
+      "lang": "en",
+      "title": "ws.insights.leadBuckets (packages/i18n/src/catalogs/ws/insights.en.ts)",
+      "body": "lt2h: Under 2 hours",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.insights.leads",
+      "lang": "ar",
+      "title": "ws.insights.leads (packages/i18n/src/catalogs/ws/insights.ar.ts)",
+      "body": "fillQuiet: أهدأ الساعات: {slots}. هناك أكبر مساحة لأن تنجح العروض والمنشورات.\nprotectFull: أكثر الساعات امتلاءً: {slots}. هذه تمتلئ وحدها، فاصرف الجهد إلى غيرها.\nboth: روّج لساعات {quiet}، واترك {full} فهي تمتلئ وحدها.\nnone: لا ساعة تبرز بعد: الملاعب على المستوى نفسه تقريبًا طوال الأسبوع.\nglance: الملاعب: {level}. اللاعبون: {players}. الكافيه: {crossover} من لاعبي الملاعب يشترون منه.\nplayers: {returning} من اللاعبين المعروفين عائدون، و{lapsing} من الزبائن الدائمين انقطعوا.\nplayersNoLapsing: {returning} من اللاعبين المعروفين عائدون، ولم ينقطع أي زبون دائم.\nplayersThin: عدد اللاعبين المعروفين في هذه الفترة قليل لا يكفي لتقسيمهم.\nchannels: {app} من الحجوزات تأتي عبر التطبيق.\nchannelsAllDesk: كل حجوزات هذه الفترة تمت في المكتب، ولم يأتِ أي منها عبر التطبيق.\nchannelsAllApp: كل حجوزات هذه الفترة جاءت عبر التطبيق.\nchannelsThin: عدد الحجوزات في هذه الفترة قليل لا يكفي لتقسيمها.\noffers: أكثر عرض استُخدم: {name}.\noffersNone: لم يُستخدم أي عرض في هذه الفترة.\ncafe: {crossover} من لاعبي الملاعب يشترون من الكافيه أيضًا. الأكثر مبيعًا: {top}.\ncafeThin: مبيعات الكافيه المرتبطة بالحجوزات قليلة لا تكفي للحكم.\nevents: امتلاء البطولات: {fill}، و{returning} من لاعبيها شاركوا في بطولة من قبل.\neventsNone: لا بطولة في هذه الفترة.\nmix: الملاعب تجلب {courts} من الإيرادات، والكافيه {cafe}.\nmixNone: لا إيرادات مسجّلة في هذه الفترة.",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.insights.leads",
+      "lang": "en",
+      "title": "ws.insights.leads (packages/i18n/src/catalogs/ws/insights.en.ts)",
+      "body": "fillQuiet: The quietest hours are {slots}. Offers and posts there have the most room to work.\nprotectFull: The fullest hours are {slots}. They sell themselves; spend the effort elsewhere.\nboth: Push {quiet}; leave {full} alone, it fills by itself.\nnone: No hour stands out yet: the courts run at about the same level all week.\nglance: Courts: {level}. Players: {players}. Café: {crossover} of court players buy.\nplayers: {returning} of known players are returning ones; {lapsing} regulars have gone quiet.\nplayersNoLapsing: {returning} of known players are returning ones, and no regular has gone quiet.\nplayersThin: Too few known players in this period to split them.\nchannels: {app} of bookings come through the app.\nchannelsAllDesk: Every booking in this period was made at the desk; none came through the app.\nchannelsAllApp: Every booking in this period came through the app.\nchannelsThin: Too few bookings in this period to split them.\noffers: {name} was used the most.\noffersNone: No offer was used in this period.\ncafe: {crossover} of court players also buy at the café. Best seller: {top}.\ncafeThin: Too few café sales linked to bookings to say.\nevents: Tournaments ran {fill}; {returning} of their players had played one before.\neventsNone: No tournament in this period.\nmix: Courts bring {courts} of the money, the café {cafe}.\nmixNone: No money recorded in this period.",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.insights.levels",
+      "lang": "ar",
+      "title": "ws.insights.levels (packages/i18n/src/catalogs/ws/insights.ar.ts)",
+      "body": "empty: فارغ\nlight: خفيف\nsteady: متوسط\nbusy: مزدحم\nfull: ممتلئ",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.insights.levels",
+      "lang": "en",
+      "title": "ws.insights.levels (packages/i18n/src/catalogs/ws/insights.en.ts)",
+      "body": "empty: Empty\nlight: Light\nsteady: Steady\nbusy: Busy\nfull: Full",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.insights.notices",
+      "lang": "ar",
+      "title": "ws.insights.notices (packages/i18n/src/catalogs/ws/insights.ar.ts)",
+      "body": "legacy: جزء من هذه الفترة مأخوذ من التقارير الورقية التي سبقت النظام، وهي لا تحوي ساعات ولا قنوات حجز ولا تفاصيل لاعبين، فتلك الأجزاء تغطي فقط الأيام التي سجّلها النظام.",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.insights.notices",
+      "lang": "en",
+      "title": "ws.insights.notices (packages/i18n/src/catalogs/ws/insights.en.ts)",
+      "body": "legacy: Part of this period comes from the paper reports kept before the system. They hold no hours, channels or player details, so those parts cover only the days the system recorded.",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.insights.share",
+      "lang": "ar",
+      "title": "ws.insights.share (packages/i18n/src/catalogs/ws/insights.ar.ts)",
+      "body": "none: لا شيء\noneInTen: نحو واحد من كل عشرة\noneInFive: نحو واحد من كل خمسة\nquarter: نحو الربع\nthird: نحو الثلث\ntwoInFive: نحو اثنين من كل خمسة\nhalf: نحو النصف\noverHalf: أكثر من النصف بقليل\ntwoThirds: نحو الثلثين\nthreeQuarters: نحو ثلاثة أرباع\nfourInFive: نحو أربعة من كل خمسة\nnineInTen: الجميع تقريبًا\nall: الجميع",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.insights.share",
+      "lang": "en",
+      "title": "ws.insights.share (packages/i18n/src/catalogs/ws/insights.en.ts)",
+      "body": "none: None\noneInTen: About 1 in 10\noneInFive: About 1 in 5\nquarter: About a quarter\nthird: About a third\ntwoInFive: About 2 in 5\nhalf: About half\noverHalf: Just over half\ntwoThirds: About two thirds\nthreeQuarters: About three quarters\nfourInFive: About 4 in 5\nnineInTen: Nearly all\nall: All",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.insights.trend",
+      "lang": "ar",
+      "title": "ws.insights.trend (packages/i18n/src/catalogs/ws/insights.ar.ts)",
+      "body": "up: ارتفاع\nsteady: ثابت\ndown: انخفاض\nunknown: لا مقارنة",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.insights.trend",
+      "lang": "en",
+      "title": "ws.insights.trend (packages/i18n/src/catalogs/ws/insights.en.ts)",
+      "body": "up: Up\nsteady: Steady\ndown: Down\nunknown: No comparison",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.insights.trendLine",
+      "lang": "ar",
+      "title": "ws.insights.trendLine (packages/i18n/src/catalogs/ws/insights.ar.ts)",
+      "body": "up: أعلى من فترة المقارنة\nsteady: قريب من فترة المقارنة\ndown: أقل من فترة المقارنة\nunknown: لا تكفي البيانات للمقارنة",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.insights.trendLine",
+      "lang": "en",
+      "title": "ws.insights.trendLine (packages/i18n/src/catalogs/ws/insights.en.ts)",
+      "body": "up: Up on the comparison\nsteady: About the same as the comparison\ndown: Down on the comparison\nunknown: Not enough to compare",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.insights.verdict",
+      "lang": "ar",
+      "title": "ws.insights.verdict (packages/i18n/src/catalogs/ws/insights.ar.ts)",
+      "body": "strong: استُخدم كثيرًا\nsome: استُخدم\nlittle: استُخدم قليلًا\nunused: لم يُستخدم",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.insights.verdict",
+      "lang": "en",
+      "title": "ws.insights.verdict (packages/i18n/src/catalogs/ws/insights.en.ts)",
+      "body": "strong: Used a lot\nsome: Used\nlittle: Used a little\nunused: Not used",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.insights.zones",
+      "lang": "ar",
+      "title": "ws.insights.zones (packages/i18n/src/catalogs/ws/insights.ar.ts)",
+      "body": "glance: نظرة سريعة\nglanceDesc: المكان كله في أربع بطاقات: مدى امتلاء الملاعب، وعدد من يلعبون، وكم منهم يشتري من الكافيه، واتجاه الإيرادات. كل رقم هنا كلمة أو نسبة تقريبية، مقارنةً بالفترة المختارة في الشريط.\nwhen: متى تروّج\nwhenDesc: مدى امتلاء الملاعب في كل ساعة من الأسبوع. املأ الساعات الهادئة بالعروض والمنشورات، واترك الساعات الممتلئة فهي تمتلئ وحدها.\nwhenNav: الأوقات\nplayers: من يلعب\nplayersDesc: اللاعبون الذين يعرفهم النظام (بحساب في التطبيق أو بسجل زبون في المكتب). الجديد هو من يحجز لأول مرة منذ ستة أشهر، والزبائن الدائمون يحجزون مرة بعد مرة، ومن انقطع منهم لم يحجز منذ مدة ويستحق أن نستعيده.\nplayersNav: اللاعبون\nchannels: كيف يحجزون\nchannelsDesc: هل تأتي الحجوزات من التطبيق أم من المكتب، وقبل كم من الوقت يحجز الناس. المصادر الأخرى (إنستغرام، الأصدقاء، الحضور المباشر) لا تُسجَّل بعد.\nchannelsNav: الحجز\noffers: العروض\noffersDesc: كم استُخدم كل عرض في الفترة. الاستخدام حقيقة مسجّلة، أما هل جلب العرض أناسًا ما كانوا ليأتوا من دونه فذلك ما لا يستطيع النظام معرفته.\ncafe: الكافيه والمتجر\ncafeDesc: كم من لاعبي الملاعب يشترون من الكافيه أيضًا، ومتى يزدحم الكافيه، وما الأكثر مبيعًا والأقل.\ncafeNav: الكافيه\nevents: البطولات والولاء\neventsDesc: مدى امتلاء البطولات، وكم من لاعبيها عادوا إلى بطولة أخرى، وهل يستخدم أعضاء برنامج الولاء نقاطهم.\neventsNav: الفعاليات\nmix: من أين تأتي الإيرادات\nmixDesc: كل جزء بنسبته من المجموع، دون أي مبلغ، مع اتجاه حركته.\nmixNav: توزيع الإيرادات",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.insights.zones",
+      "lang": "en",
+      "title": "ws.insights.zones (packages/i18n/src/catalogs/ws/insights.en.ts)",
+      "body": "glance: At a glance\nglanceDesc: The whole place in four cards: how full the courts are, how many people play, how many of them buy at the café, and which way the money is going. Each figure is a word or a rounded share, compared with the window in the bar.\nwhen: When to push\nwhenDesc: How full the courts are at each hour of the week. Fill the quiet hours with offers and posts; leave the full ones alone, they sell themselves.\nwhenNav: When\nplayers: Who plays\nplayersDesc: Players the system knows (an app account or a customer record at the desk). New means their first booking in the last six months; regulars book again and again; lapsing regulars have not booked for a while and are worth winning back.\nplayersNav: Players\nchannels: How they book\nchannelsDesc: Whether bookings come from the app or the desk, and how far ahead people book. Other sources (Instagram, friends, walk-ins) are not recorded yet.\nchannelsNav: Booking\noffers: Offers\noffersDesc: How much each offer was used in the period. A use is a fact; whether the offer brought in people who would not have come anyway is not something the system can tell.\ncafe: Café and shop\ncafeDesc: How many court players also buy at the café, when the café is busy, and what sells best and least.\ncafeNav: Café\nevents: Tournaments and loyalty\neventsDesc: How full tournaments ran and how many players came back for another, and whether loyalty members use their points.\neventsNav: Events\nmix: Where the money comes from\nmixDesc: Each part as a share of the whole, never an amount, and which way it moved.\nmixNav: Money mix",
+      "route": null
+    },
+    {
+      "kind": "label",
       "ref": "label:ws.kit.actions",
       "lang": "ar",
       "title": "ws.kit.actions (packages/i18n/src/catalogs/ws/kit.ar.ts)",
@@ -22374,7 +22614,7 @@
       "ref": "label:ws.owner.staff#3",
       "lang": "ar",
       "title": "ws.owner.staff (packages/i18n/src/catalogs/ws/owner.ar.ts)",
-      "body": "refusals.pinWeak: هذا الرقم السري سهل التخمين. تجنّب الأرقام المكررة والمتتالية مثل 123456.\nrefusals.pinFormat: الرقم السري من 6 إلى 12 رقمًا.\nrefusals.emailInUse: يوجد حساب بهذا البريد الإلكتروني بالفعل.\nrefusals.roleRetired: دور «المطبخ» لم يعد يُمنح لأحد. اختر باريستا أو مساعد شيف.\nrefusals.lastOwner: هذا هو المالك الوحيد. اجعل شخصًا آخر مالكًا أولًا.\nstations.title: المحطات\nstations.lead: يظهر الشخص بين خيارات التغطية على شاشة الاستراحة في هذه المحطات.\nstations.management: المديرون والمالكون يستطيعون تغطية أي محطة.\nstations.none: لم تتصل أي محطة بعد. تظهر المحطة هنا بعد تشغيل تطبيقها.\nstations.save: حفظ المحطات\nstations.saved: حُفظت المحطات.\naccess.title: الصلاحيات\naccess.lead: يحدّد الدور الصفحات المؤشَّرة. أضف وظيفة ثانية لمن يقوم بعملين، أو أزل التأشير عن صفحة لمنعه من فتحها.\naccess.owner: المالك يفتح كل شيء، فلا شيء هنا للتأشير.\naccess.jobsTitle: وظائف إضافية\naccess.jobsHint: كل وظيفة تضيف شاشاتها وأزرارها إلى جانب دوره.\naccess.management: المدير يفتح أصلًا كاشير الكافيه ومكتب الملاعب وشاشة المطبخ والمتجر.\naccess.pagesTitle: الصفحات التي يفتحها\naccess.pagesHint: أزل التأشير عن صفحة لتختفي من قائمته ولا يستطيع فتحها.\naccess.areas.till: كاشير الكافيه\naccess.areas.desk: مكتب الملاعب\naccess.areas.customers: العملاء\naccess.areas.tournaments: البطولات\naccess.areas.kds: المطبخ\naccess.areas.shop: متجر تتش\naccess.areas.tasks: مهامي\naccess.areas.incidents: الحوادث\naccess.areas.ops: العمليات\naccess.areas.stock: المخزون\naccess.areas.admin: الإعداد (القائمة، الملاعب، إغلاق اليوم)\naccess.areas.reports: التقارير\naccess.areas.protocols: البروتوكولات\naccess.areas.suggestions: الاقتراحات\naccess.areas.deductions: الخصومات من الراتب\naccess.areas.attendance: التأخير والانصراف المبكر\naccess.save: حفظ الصلاحيات\naccess.saved: حُفظت الصلاحيات.\naccess.confirmTitle: تغيير ما يستطيع {name} فتحه؟\naccess.confirmAddJobs: يضيف الوظيفة الإضافية: {list}.\naccess.confirmRemoveJobs: يزيل الوظيفة الإضافية: {list}.\naccess.confirmBlock: يمنعه من فتح: {list}.",
+      "body": "refusals.pinWeak: هذا الرقم السري سهل التخمين. تجنّب الأرقام المكررة والمتتالية مثل 123456.\nrefusals.pinFormat: الرقم السري من 6 إلى 12 رقمًا.\nrefusals.emailInUse: يوجد حساب بهذا البريد الإلكتروني بالفعل.\nrefusals.roleRetired: دور «المطبخ» لم يعد يُمنح لأحد. اختر باريستا أو مساعد شيف.\nrefusals.lastOwner: هذا هو المالك الوحيد. اجعل شخصًا آخر مالكًا أولًا.\nstations.title: المحطات\nstations.lead: يظهر الشخص بين خيارات التغطية على شاشة الاستراحة في هذه المحطات.\nstations.management: المديرون والمالكون يستطيعون تغطية أي محطة.\nstations.none: لم تتصل أي محطة بعد. تظهر المحطة هنا بعد تشغيل تطبيقها.\nstations.save: حفظ المحطات\nstations.saved: حُفظت المحطات.\naccess.title: الصلاحيات\naccess.lead: يحدّد الدور الصفحات المؤشَّرة. أضف وظيفة ثانية لمن يقوم بعملين، أو أزل التأشير عن صفحة لمنعه من فتحها.\naccess.owner: المالك يفتح كل شيء، فلا شيء هنا للتأشير.\naccess.jobsTitle: وظائف إضافية\naccess.jobsHint: كل وظيفة تضيف شاشاتها وأزرارها إلى جانب دوره.\naccess.management: المدير يفتح أصلًا كاشير الكافيه ومكتب الملاعب وشاشة المطبخ والمتجر.\naccess.pagesTitle: الصفحات التي يفتحها\naccess.pagesHint: أزل التأشير عن صفحة لتختفي من قائمته ولا يستطيع فتحها.\naccess.areas.till: كاشير الكافيه\naccess.areas.desk: مكتب الملاعب\naccess.areas.customers: العملاء\naccess.areas.tournaments: البطولات\naccess.areas.kds: المطبخ\naccess.areas.shop: متجر تتش\naccess.areas.tasks: مهامي\naccess.areas.insights: المؤشرات\naccess.areas.incidents: الحوادث\naccess.areas.ops: العمليات\naccess.areas.stock: المخزون\naccess.areas.admin: الإعداد (القائمة، الملاعب، إغلاق اليوم)\naccess.areas.reports: التقارير\naccess.areas.protocols: البروتوكولات\naccess.areas.suggestions: الاقتراحات\naccess.areas.deductions: الخصومات من الراتب\naccess.areas.attendance: التأخير والانصراف المبكر\naccess.save: حفظ الصلاحيات\naccess.saved: حُفظت الصلاحيات.\naccess.confirmTitle: تغيير ما يستطيع {name} فتحه؟\naccess.confirmAddJobs: يضيف الوظيفة الإضافية: {list}.\naccess.confirmRemoveJobs: يزيل الوظيفة الإضافية: {list}.\naccess.confirmBlock: يمنعه من فتح: {list}.",
       "route": "/admin/staff"
     },
     {
@@ -22382,7 +22622,7 @@
       "ref": "label:ws.owner.staff#3",
       "lang": "en",
       "title": "ws.owner.staff (packages/i18n/src/catalogs/ws/owner.en.ts)",
-      "body": "pin.hasPinBreakOnly: Set. It starts and ends their breaks and unlocks the station.\npin.noPinBreakOnly: Not set. They cannot take a break until one is set.\npin.removeConfirm: Remove the PIN for {name}?\npin.removeBody: They will not be able to approve discounts, voids or price changes at the café cashier until a new PIN is set.\npin.removed: PIN removed.\npin.saved: PIN saved.\nrefusals.pinWeak: That PIN is too easy to guess. Avoid repeated digits and runs like 123456.\nrefusals.pinFormat: A PIN is 6 to 12 digits.\nrefusals.emailInUse: An account with this email already exists.\nrefusals.roleRetired: Kitchen is no longer given to anyone. Choose Barista or Chef assistant.\nrefusals.lastOwner: This is the only owner. Make someone else an owner first.\nstations.title: Stations\nstations.lead: Offered as cover on these stations’ break screens.\nstations.management: Managers and owners can cover any station.\nstations.none: No station has reported in yet. A station appears here once its app has run.\nstations.save: Save stations\nstations.saved: Stations saved.\naccess.title: Access\naccess.lead: Their role ticks the pages it opens. Add a second job for someone who covers two jobs, or untick a page to keep them out of it.\naccess.owner: An owner opens everything, so there is nothing to tick.\naccess.jobsTitle: Second jobs\naccess.jobsHint: Each one adds that job’s screens and buttons beside their role.\naccess.management: A manager already opens the café cashier, the desk, the kitchen screen and the shop.\naccess.pagesTitle: Pages they can open\naccess.pagesHint: Untick a page to take it off their menu and keep them out of it.\naccess.areas.till: Café cashier\naccess.areas.desk: Court desk\naccess.areas.customers: Customers\naccess.areas.tournaments: Tournaments\naccess.areas.kds: Kitchen\naccess.areas.shop: Touch Shop\naccess.areas.tasks: My tasks\naccess.areas.incidents: Incidents\naccess.areas.ops: Operations\naccess.areas.stock: Stock\naccess.areas.admin: Setup (menu, courts, day close)",
+      "body": "pin.hasPinBreakOnly: Set. It starts and ends their breaks and unlocks the station.\npin.noPinBreakOnly: Not set. They cannot take a break until one is set.\npin.removeConfirm: Remove the PIN for {name}?\npin.removeBody: They will not be able to approve discounts, voids or price changes at the café cashier until a new PIN is set.\npin.removed: PIN removed.\npin.saved: PIN saved.\nrefusals.pinWeak: That PIN is too easy to guess. Avoid repeated digits and runs like 123456.\nrefusals.pinFormat: A PIN is 6 to 12 digits.\nrefusals.emailInUse: An account with this email already exists.\nrefusals.roleRetired: Kitchen is no longer given to anyone. Choose Barista or Chef assistant.\nrefusals.lastOwner: This is the only owner. Make someone else an owner first.\nstations.title: Stations\nstations.lead: Offered as cover on these stations’ break screens.\nstations.management: Managers and owners can cover any station.\nstations.none: No station has reported in yet. A station appears here once its app has run.\nstations.save: Save stations\nstations.saved: Stations saved.\naccess.title: Access\naccess.lead: Their role ticks the pages it opens. Add a second job for someone who covers two jobs, or untick a page to keep them out of it.\naccess.owner: An owner opens everything, so there is nothing to tick.\naccess.jobsTitle: Second jobs\naccess.jobsHint: Each one adds that job’s screens and buttons beside their role.\naccess.management: A manager already opens the café cashier, the desk, the kitchen screen and the shop.\naccess.pagesTitle: Pages they can open\naccess.pagesHint: Untick a page to take it off their menu and keep them out of it.\naccess.areas.till: Café cashier\naccess.areas.desk: Court desk\naccess.areas.customers: Customers\naccess.areas.tournaments: Tournaments\naccess.areas.kds: Kitchen\naccess.areas.shop: Touch Shop\naccess.areas.tasks: My tasks\naccess.areas.insights: Insights\naccess.areas.incidents: Incidents\naccess.areas.ops: Operations\naccess.areas.stock: Stock",
       "route": "/admin/staff"
     },
     {
@@ -22398,7 +22638,7 @@
       "ref": "label:ws.owner.staff#4",
       "lang": "en",
       "title": "ws.owner.staff (packages/i18n/src/catalogs/ws/owner.en.ts)",
-      "body": "access.areas.reports: Reports\naccess.areas.protocols: Protocols\naccess.areas.suggestions: Suggestions\naccess.areas.deductions: Pay deductions\naccess.areas.attendance: Late and early\naccess.save: Save access\naccess.saved: Access saved.\naccess.confirmTitle: Change what {name} can open?\naccess.confirmAddJobs: Adds the second job: {list}.\naccess.confirmRemoveJobs: Takes away the second job: {list}.\naccess.confirmBlock: Keeps them out of: {list}.\naccess.confirmUnblock: Opens again: {list}.\naccess.confirmWhen: Their screens update within a minute.\nbreaks.title: Breaks\nbreaks.allowance: Break time per person per day\nbreaks.minutes: minutes\nbreaks.hint: Several breaks may add up to this. 0 switches breaks off. Starting or ending one takes the person’s own PIN.\nbreaks.save: Save\nbreaks.saved: Break allowance saved.\neditor.close: Close\neditor.selfNote: This is your own account. Only another owner can change your role or remove your access.\neditor.name: Name shown in the app\neditor.nameHint: The sign-in email cannot be changed here. To use a different email, add a new account and remove access from this one.\neditor.saveName: Save name\neditor.saveRole: Change role\neditor.roleInactive: Give this person access again before changing their role.\neditor.roleConfirm: Change {name}’s role to {role}?\neditor.roleConfirmAction: Change to {role}\neditor.roleWhen: The change applies straight away; their menus update the next time they sign in.\neditor.roleSaved: Role changed.\neditor.accessTitle: Access\neditor.enabledNote: Removing access signs them out and stops them signing in. Their records stay under their name.\neditor.disabledNote: This person cannot sign in. Their past work stays in the records under their name.\neditor.removeConfirm: Remove access for {name}?\neditor.restoreConfirm: Give {name} access again?\neditor.restoreBody: They can sign in again with their old password, in the role shown. They will need a new PIN.\neditor.accessRemoved: Access removed.",
+      "body": "access.areas.admin: Setup (menu, courts, day close)\naccess.areas.reports: Reports\naccess.areas.protocols: Protocols\naccess.areas.suggestions: Suggestions\naccess.areas.deductions: Pay deductions\naccess.areas.attendance: Late and early\naccess.save: Save access\naccess.saved: Access saved.\naccess.confirmTitle: Change what {name} can open?\naccess.confirmAddJobs: Adds the second job: {list}.\naccess.confirmRemoveJobs: Takes away the second job: {list}.\naccess.confirmBlock: Keeps them out of: {list}.\naccess.confirmUnblock: Opens again: {list}.\naccess.confirmWhen: Their screens update within a minute.\nbreaks.title: Breaks\nbreaks.allowance: Break time per person per day\nbreaks.minutes: minutes\nbreaks.hint: Several breaks may add up to this. 0 switches breaks off. Starting or ending one takes the person’s own PIN.\nbreaks.save: Save\nbreaks.saved: Break allowance saved.\neditor.close: Close\neditor.selfNote: This is your own account. Only another owner can change your role or remove your access.\neditor.name: Name shown in the app\neditor.nameHint: The sign-in email cannot be changed here. To use a different email, add a new account and remove access from this one.\neditor.saveName: Save name\neditor.saveRole: Change role\neditor.roleInactive: Give this person access again before changing their role.\neditor.roleConfirm: Change {name}’s role to {role}?\neditor.roleConfirmAction: Change to {role}\neditor.roleWhen: The change applies straight away; their menus update the next time they sign in.\neditor.roleSaved: Role changed.\neditor.accessTitle: Access\neditor.enabledNote: Removing access signs them out and stops them signing in. Their records stay under their name.\neditor.disabledNote: This person cannot sign in. Their past work stays in the records under their name.\neditor.removeConfirm: Remove access for {name}?\neditor.restoreConfirm: Give {name} access again?\neditor.restoreBody: They can sign in again with their old password, in the role shown. They will need a new PIN.",
       "route": "/admin/staff"
     },
     {
@@ -22406,7 +22646,7 @@
       "ref": "label:ws.owner.staff#5",
       "lang": "en",
       "title": "ws.owner.staff (packages/i18n/src/catalogs/ws/owner.en.ts)",
-      "body": "editor.accessRestored: Access given back.",
+      "body": "editor.accessRemoved: Access removed.\neditor.accessRestored: Access given back.",
       "route": "/admin/staff"
     },
     {
@@ -23822,7 +24062,7 @@
       "ref": "label:ws.shell.nav",
       "lang": "ar",
       "title": "ws.shell.nav (packages/i18n/src/catalogs/ws/shell.ar.ts)",
-      "body": "today: اليوم\ncalendar: التقويم\ncustomers: الزبائن\nnewSeries: سلسلة جديدة\nblockCourt: إيقاف ملعب\ntill: كاشير الكافيه\nopenTabs: الفواتير المفتوحة\ncashDrawer: درج النقد\noverview: نظرة عامة\nbookings: الحجوزات\ntills: الفواتير المفتوحة\ndayClose: جرد نهاية اليوم\nmenu: المنيو\nrates: أسعار الملاعب\npromotions: الخصومات والعروض\nstock: المخزون\nreports: التقارير\naudit: سجل التغييرات\npanel: نظرة عامة\nanalytics: التحليلات\nstaff: الموظفون\nbranches: الفروع\ncourts: الملاعب\ntables: رموز QR للطاولات\nsettings: إعدادات المكان\nguestSite: موقع الضيوف\nmenuPrices: أسعار المنيو\nonHand: ما لدينا\ngoodsIn: التوريدات\nmoveStock: نقل المخزون\nwasteProduction: الهدر والتحضير\nexpiry: تنتهي صلاحيته قريباً\nalerts: على وشك النفاد\nstockCount: جرد المخزون\ncountDifferences: نقص أو زيادة\nmargins: الربح لكل صنف\ningredients: المكوّنات\nrecipes: الوصفات\nstockValue: قيمة المخزون\nshop: متجر تتش\nshopTill: البيع\nshopStock: مخزون المتجر\nshopReceive: استلام البضائع\nshopCounts: جرد المخزون\nshopProducts: المنتجات\nshopSuppliers: المورّدون\nfloorNow: الصالة الآن\nstaffActivity: من يعمل\nactivityMonitor: مراقبة النشاط\nrequests: طلبات الموظفين\nmarketing: التسويق\ntelegram: تيليغرام\nassistant: المساعد\nfiles: الملفات\nmyTasks: مهامي\nprotocols: البروتوكولات\nsuggestions: أفكار الموظفين\ndeductions: الخصومات من الراتب\nincidents: بلاغات الحوادث\nwages: الرواتب\nattendance: التأخير والانصراف المبكر\nrewards: المكافآت\nsafe: القاصة\ncoaches: المدرّبون\ncoachPay: مستحقات المدرّبين\ntournaments: البطولات\nloyalty: نقاط الولاء\ncash: النقد\npay: الأجور\nrevenue: المال الوارد\ncafe: الكافيه\nmenuItems: أصناف المنيو\ncategories: مجموعات المنيو\naddons: الإضافات\nsuggested: اقتراحات كاشير الكافيه\nwhoIsOn: يعمل الآن\nwhatTheyDid: ما قاموا به\ncampaigns: المنشورات والحملات\nlessonTypes: الحصص والأسعار\ncoachHours: أوقات المدرّبين\nlessonRules: قواعد الحصص\ncoachSchedules: الجداول\nbookingRules: قواعد الحجز\nonlineDeposit: العربون الإلكتروني\nopenMatches: المباريات المفتوحة\nvenueDetails: بيانات النادي\nopeningHours: ساعات العمل\ngenderHours: أوقات السيدات والرجال",
+      "body": "today: اليوم\ncalendar: التقويم\ncustomers: الزبائن\nnewSeries: سلسلة جديدة\nblockCourt: إيقاف ملعب\ntill: كاشير الكافيه\nopenTabs: الفواتير المفتوحة\ncashDrawer: درج النقد\noverview: نظرة عامة\nbookings: الحجوزات\ntills: الفواتير المفتوحة\ndayClose: جرد نهاية اليوم\nmenu: المنيو\nrates: أسعار الملاعب\npromotions: الخصومات والعروض\nstock: المخزون\nreports: التقارير\naudit: سجل التغييرات\npanel: نظرة عامة\nanalytics: التحليلات\nstaff: الموظفون\nbranches: الفروع\ncourts: الملاعب\ntables: رموز QR للطاولات\nsettings: إعدادات المكان\nguestSite: موقع الضيوف\nmenuPrices: أسعار المنيو\nonHand: ما لدينا\ngoodsIn: التوريدات\nmoveStock: نقل المخزون\nwasteProduction: الهدر والتحضير\nexpiry: تنتهي صلاحيته قريباً\nalerts: على وشك النفاد\nstockCount: جرد المخزون\ncountDifferences: نقص أو زيادة\nmargins: الربح لكل صنف\ningredients: المكوّنات\nrecipes: الوصفات\nstockValue: قيمة المخزون\nshop: متجر تتش\nshopTill: البيع\nshopStock: مخزون المتجر\nshopReceive: استلام البضائع\nshopCounts: جرد المخزون\nshopProducts: المنتجات\nshopSuppliers: المورّدون\nfloorNow: الصالة الآن\nstaffActivity: من يعمل\nactivityMonitor: مراقبة النشاط\nrequests: طلبات الموظفين\nmarketing: التسويق\ntelegram: تيليغرام\nassistant: المساعد\nfiles: الملفات\nmyTasks: مهامي\ninsights: المؤشرات\nprotocols: البروتوكولات\nsuggestions: أفكار الموظفين\ndeductions: الخصومات من الراتب\nincidents: بلاغات الحوادث\nwages: الرواتب\nattendance: التأخير والانصراف المبكر\nrewards: المكافآت\nsafe: القاصة\ncoaches: المدرّبون\ncoachPay: مستحقات المدرّبين\ntournaments: البطولات\nloyalty: نقاط الولاء\ncash: النقد\npay: الأجور\nrevenue: المال الوارد\ncafe: الكافيه\nmenuItems: أصناف المنيو\ncategories: مجموعات المنيو\naddons: الإضافات\nsuggested: اقتراحات كاشير الكافيه\nwhoIsOn: يعمل الآن\nwhatTheyDid: ما قاموا به\ncampaigns: المنشورات والحملات\nlessonTypes: الحصص والأسعار\ncoachHours: أوقات المدرّبين\nlessonRules: قواعد الحصص\ncoachSchedules: الجداول\nbookingRules: قواعد الحجز\nonlineDeposit: العربون الإلكتروني\nopenMatches: المباريات المفتوحة\nvenueDetails: بيانات النادي\nopeningHours: ساعات العمل",
       "route": null
     },
     {
@@ -23830,7 +24070,7 @@
       "ref": "label:ws.shell.nav",
       "lang": "en",
       "title": "ws.shell.nav (packages/i18n/src/catalogs/ws/shell.en.ts)",
-      "body": "today: Today\ncalendar: Calendar\ncustomers: Customers\nnewSeries: New series\nblockCourt: Block court\ntill: Café cashier\nopenTabs: Open tabs\ncashDrawer: Cash drawer\noverview: Overview\nbookings: Bookings\ntills: Open tabs\ndayClose: End of day count\nmenu: Menu\nrates: Court prices\npromotions: Discounts & offers\nstock: Stock\nreports: Reports\naudit: Change history\npanel: Overview\nanalytics: Analytics\nstaff: Staff\nbranches: Branches\ncourts: Courts\ntables: Table QR codes\nsettings: Venue settings\nguestSite: Guest site\nmenuPrices: Menu prices\nonHand: What we have\ngoodsIn: Deliveries\nmoveStock: Move stock\nwasteProduction: Waste & prep\nexpiry: Expiring soon\nalerts: Running low\nstockCount: Count stock\ncountDifferences: Missing or extra\nmargins: Profit per item\ningredients: Ingredients\nrecipes: Recipes\nstockValue: Stock value\nshop: Touch Shop\nshopTill: Sell\nshopStock: Shop stock\nshopReceive: Goods in\nshopCounts: Stock count\nshopProducts: Products\nshopSuppliers: Suppliers\nfloorNow: Floor now\nstaffActivity: Who’s working\nactivityMonitor: Activity monitor\nrequests: Staff requests\nmarketing: Marketing\ntelegram: Telegram\nassistant: Assistant\nfiles: Files\nmyTasks: My tasks\nprotocols: Protocols\nsuggestions: Staff ideas\ndeductions: Pay deductions\nincidents: Incident reports\nwages: Wages\nattendance: Late and early\nrewards: Bonuses\nsafe: Main cash\ncoaches: Coaches\ncoachPay: Coach pay\ntournaments: Tournaments\nloyalty: Loyalty points\ncash: Cash\npay: Pay\nrevenue: Money in\ncafe: Cafe\nmenuItems: Menu items\ncategories: Menu groups\naddons: Extras\nsuggested: Café cashier suggestions\nwhoIsOn: Working now\nwhatTheyDid: What they did\ncampaigns: Posts & campaigns\nlessonTypes: Lessons & prices\ncoachHours: Coach hours\nlessonRules: Lesson rules\ncoachSchedules: Schedules\nbookingRules: Booking rules\nonlineDeposit: Online deposit\nopenMatches: Open matches\nvenueDetails: Club details\nopeningHours: Opening hours\ngenderHours: Gender hours\nbusinessDay: Day start time\nguestApp: Guest app\ndevices: Computers & tablets",
+      "body": "today: Today\ncalendar: Calendar\ncustomers: Customers\nnewSeries: New series\nblockCourt: Block court\ntill: Café cashier\nopenTabs: Open tabs\ncashDrawer: Cash drawer\noverview: Overview\nbookings: Bookings\ntills: Open tabs\ndayClose: End of day count\nmenu: Menu\nrates: Court prices\npromotions: Discounts & offers\nstock: Stock\nreports: Reports\naudit: Change history\npanel: Overview\nanalytics: Analytics\nstaff: Staff\nbranches: Branches\ncourts: Courts\ntables: Table QR codes\nsettings: Venue settings\nguestSite: Guest site\nmenuPrices: Menu prices\nonHand: What we have\ngoodsIn: Deliveries\nmoveStock: Move stock\nwasteProduction: Waste & prep\nexpiry: Expiring soon\nalerts: Running low\nstockCount: Count stock\ncountDifferences: Missing or extra\nmargins: Profit per item\ningredients: Ingredients\nrecipes: Recipes\nstockValue: Stock value\nshop: Touch Shop\nshopTill: Sell\nshopStock: Shop stock\nshopReceive: Goods in\nshopCounts: Stock count\nshopProducts: Products\nshopSuppliers: Suppliers\nfloorNow: Floor now\nstaffActivity: Who’s working\nactivityMonitor: Activity monitor\nrequests: Staff requests\nmarketing: Marketing\ntelegram: Telegram\nassistant: Assistant\nfiles: Files\nmyTasks: My tasks\ninsights: Insights\nprotocols: Protocols\nsuggestions: Staff ideas\ndeductions: Pay deductions\nincidents: Incident reports\nwages: Wages\nattendance: Late and early\nrewards: Bonuses\nsafe: Main cash\ncoaches: Coaches\ncoachPay: Coach pay\ntournaments: Tournaments\nloyalty: Loyalty points\ncash: Cash\npay: Pay\nrevenue: Money in\ncafe: Cafe\nmenuItems: Menu items\ncategories: Menu groups\naddons: Extras\nsuggested: Café cashier suggestions\nwhoIsOn: Working now\nwhatTheyDid: What they did\ncampaigns: Posts & campaigns\nlessonTypes: Lessons & prices\ncoachHours: Coach hours\nlessonRules: Lesson rules\ncoachSchedules: Schedules\nbookingRules: Booking rules\nonlineDeposit: Online deposit\nopenMatches: Open matches\nvenueDetails: Club details\nopeningHours: Opening hours\ngenderHours: Gender hours\nbusinessDay: Day start time\nguestApp: Guest app",
       "route": null
     },
     {
@@ -23838,7 +24078,7 @@
       "ref": "label:ws.shell.nav#2",
       "lang": "ar",
       "title": "ws.shell.nav (packages/i18n/src/catalogs/ws/shell.ar.ts)",
-      "body": "businessDay: وقت بدء اليوم\nguestApp: تطبيق الضيوف\ndevices: الحواسيب والأجهزة اللوحية\nstations: حواسيب الكاشير\nkitchenScreens: شاشات المطبخ\nofflineMode: وضع انقطاع الإنترنت\nbadge: بانتظارك: {count}\ngroupOperations: العمليات\ngroupRun: إدارة اليوم\nfromTeam: صندوق الموظفين\nstockMovement: التوريدات والهدر\nstockCounting: الجرد\nstockCosts: الوصفات والتكاليف\ngroupRecords: السجلات\ngroupSetup: الإعداد\nbackTo: العودة إلى {workspace}\nmore: خيارات\nmoreMenu: إعدادات المحطة\nswitchWorkspace: تبديل مساحة العمل\nlanguage: English\nlanguageAlt: العربية\nblueMode: الوضع الأزرق\nlightMode: الوضع الفاتح\nsignOut: تسجيل الخروج\nsignOutTitle: تسجيل الخروج؟\nsignOutBody: تنتهي جلستك على هذه المحطة. كل ما أُرسل محفوظ، وعلى الشخص التالي تسجيل الدخول.\nsignOutConfirm: تسجيل الخروج\nstation: المحطة {id}\nexitFullscreen: الخروج من وضع ملء الشاشة الإجباري\nquit: الخروج إلى سطح المكتب\nquitConfirm: ينهي الخروج الخدمة على هذه المحطة. تتوقف الطلبات ويظهر الجهاز دون اتصال.\nquitInstallsUpdate: التحديث جاهز. يُثبَّت عند الخروج، ثم يُفتح التطبيق من جديد تلقائيًا.\nleavePin: الرقم السري للمدير\nleavePinHint: على مدير غيرك إدخال رقمه السري.\nleaveOwnerUnconfirmed: تعذّر التحقق من حسابك الآن، لذا يلزم الرقم السري لمدير.\nkitchenNoNav: شاشة المطبخ\nversion: الإصدار {version}\nupdateReady: التحديث جاهز\nrestartToUpdate: إعادة التشغيل للتحديث إلى {version}\ncourtSettings: إعدادات الملاعب\ncourtSales: مبيعات الملاعب\ncafeSales: مبيعات الكافيه\nbillsSuppliers: الفواتير والمورّدون\ntournamentRules: قواعد البطولات\nanalyticsSettings: إعدادات التحليلات\ncomputersScreens: الحواسيب والشاشات",
+      "body": "genderHours: أوقات السيدات والرجال\nbusinessDay: وقت بدء اليوم\nguestApp: تطبيق الضيوف\ndevices: الحواسيب والأجهزة اللوحية\nstations: حواسيب الكاشير\nkitchenScreens: شاشات المطبخ\nofflineMode: وضع انقطاع الإنترنت\nbadge: بانتظارك: {count}\ngroupOperations: العمليات\ngroupRun: إدارة اليوم\nfromTeam: صندوق الموظفين\nstockMovement: التوريدات والهدر\nstockCounting: الجرد\nstockCosts: الوصفات والتكاليف\ngroupRecords: السجلات\ngroupSetup: الإعداد\nbackTo: العودة إلى {workspace}\nmore: خيارات\nmoreMenu: إعدادات المحطة\nswitchWorkspace: تبديل مساحة العمل\nlanguage: English\nlanguageAlt: العربية\nblueMode: الوضع الأزرق\nlightMode: الوضع الفاتح\nsignOut: تسجيل الخروج\nsignOutTitle: تسجيل الخروج؟\nsignOutBody: تنتهي جلستك على هذه المحطة. كل ما أُرسل محفوظ، وعلى الشخص التالي تسجيل الدخول.\nsignOutConfirm: تسجيل الخروج\nstation: المحطة {id}\nexitFullscreen: الخروج من وضع ملء الشاشة الإجباري\nquit: الخروج إلى سطح المكتب\nquitConfirm: ينهي الخروج الخدمة على هذه المحطة. تتوقف الطلبات ويظهر الجهاز دون اتصال.\nquitInstallsUpdate: التحديث جاهز. يُثبَّت عند الخروج، ثم يُفتح التطبيق من جديد تلقائيًا.\nleavePin: الرقم السري للمدير\nleavePinHint: على مدير غيرك إدخال رقمه السري.\nleaveOwnerUnconfirmed: تعذّر التحقق من حسابك الآن، لذا يلزم الرقم السري لمدير.\nkitchenNoNav: شاشة المطبخ\nversion: الإصدار {version}\nupdateReady: التحديث جاهز\nrestartToUpdate: إعادة التشغيل للتحديث إلى {version}\ncourtSettings: إعدادات الملاعب\ncourtSales: مبيعات الملاعب\ncafeSales: مبيعات الكافيه\nbillsSuppliers: الفواتير والمورّدون\ntournamentRules: قواعد البطولات\nanalyticsSettings: إعدادات التحليلات\ncomputersScreens: الحواسيب والشاشات",
       "route": null
     },
     {
@@ -23846,7 +24086,7 @@
       "ref": "label:ws.shell.nav#2",
       "lang": "en",
       "title": "ws.shell.nav (packages/i18n/src/catalogs/ws/shell.en.ts)",
-      "body": "stations: Cashier computers\nkitchenScreens: Kitchen screens\nofflineMode: No-internet mode\nbadge: {count} waiting on you\ngroupOperations: Operations\ngroupRun: Run the day\nfromTeam: Staff inbox\nstockMovement: Deliveries & waste\nstockCounting: Stock counts\nstockCosts: Recipes & costs\ngroupRecords: Records\ngroupSetup: Setup\nbackTo: Back to {workspace}\nmore: Options\nmoreMenu: Station controls\nswitchWorkspace: Switch workspace\nlanguage: العربية\nlanguageAlt: English\nblueMode: Blue mode\nlightMode: Light mode\nsignOut: Sign out\nsignOutTitle: Sign out?\nsignOutBody: This ends your session on this station. Anything already sent is safe; the next person will need to sign in.\nsignOutConfirm: Sign out\nstation: Station {id}\nexitFullscreen: Exit forced full screen\nquit: Quit to desktop\nquitConfirm: This ends service on this station. Orders stop and the venue sees it go offline.\nquitInstallsUpdate: An update is ready. Quitting installs it, then the app opens again by itself.\nleavePin: Manager PIN\nleavePinHint: A manager other than you has to enter their PIN.\nleaveOwnerUnconfirmed: Couldn't confirm your account right now, so a manager's PIN is needed.\nkitchenNoNav: Kitchen display\nversion: Version {version}\nupdateReady: Update ready\nrestartToUpdate: Restart to update to {version}\ncourtSettings: Court settings\ncourtSales: Court sales\ncafeSales: Café sales\nbillsSuppliers: Bills & suppliers\ntournamentRules: Tournament rules\nanalyticsSettings: Analytics settings\ncomputersScreens: Computers & screens",
+      "body": "devices: Computers & tablets\nstations: Cashier computers\nkitchenScreens: Kitchen screens\nofflineMode: No-internet mode\nbadge: {count} waiting on you\ngroupOperations: Operations\ngroupRun: Run the day\nfromTeam: Staff inbox\nstockMovement: Deliveries & waste\nstockCounting: Stock counts\nstockCosts: Recipes & costs\ngroupRecords: Records\ngroupSetup: Setup\nbackTo: Back to {workspace}\nmore: Options\nmoreMenu: Station controls\nswitchWorkspace: Switch workspace\nlanguage: العربية\nlanguageAlt: English\nblueMode: Blue mode\nlightMode: Light mode\nsignOut: Sign out\nsignOutTitle: Sign out?\nsignOutBody: This ends your session on this station. Anything already sent is safe; the next person will need to sign in.\nsignOutConfirm: Sign out\nstation: Station {id}\nexitFullscreen: Exit forced full screen\nquit: Quit to desktop\nquitConfirm: This ends service on this station. Orders stop and the venue sees it go offline.\nquitInstallsUpdate: An update is ready. Quitting installs it, then the app opens again by itself.\nleavePin: Manager PIN\nleavePinHint: A manager other than you has to enter their PIN.\nleaveOwnerUnconfirmed: Couldn't confirm your account right now, so a manager's PIN is needed.\nkitchenNoNav: Kitchen display\nversion: Version {version}\nupdateReady: Update ready\nrestartToUpdate: Restart to update to {version}\ncourtSettings: Court settings\ncourtSales: Court sales\ncafeSales: Café sales\nbillsSuppliers: Bills & suppliers\ntournamentRules: Tournament rules\nanalyticsSettings: Analytics settings\ncomputersScreens: Computers & screens",
       "route": null
     },
     {
@@ -29526,7 +29766,7 @@
       "ref": "doc:docs/design/assistant/pages.md#28",
       "lang": "en",
       "title": "docs/design/assistant/pages.md › The owner's boards (formerly the Observe section)",
-      "body": "ampaign, per-row \"Schedule\", \"Set live\" and \"End\" confirm then call app.set_campaign_status, \"New audience\" writes app.save_marketing_audience, and \"Open promotions\" and \"Open Telegram\" link out.\n- /admin/audit — The read-only \"Audit log\": who did what and why, with period, search, area and actor filters and a \"missing reason\" toggle; the buttons only refresh, clear filters, expand a row's before and after values, or export CSV.",
+      "body": "ampaign, per-row \"Schedule\", \"Set live\" and \"End\" confirm then call app.set_campaign_status, \"New audience\" writes app.save_marketing_audience, and \"Open promotions\" and \"Open Telegram\" link out.\n- /insights — \"Insights\" (app.marketing_insights): the whole place for the marketing role, also open to the owner, as levels (Empty to Full), trends (Up, Steady, Down), rounded shares and \"about N\", never an amount or exact count (those stay on /analytics). Sections: At a glance; When to push (court week, quietest and fullest hours); Who plays; How they book; Offers (how much each was used); Café and shop; Tournaments and loyalty; Where the money comes from (shares only).\n- /admin/audit — The read-only \"Audit log\": who did what and why, with period, search, area and actor filters and a \"missing reason\" toggle; the buttons only refresh, clear filters, expand a row's before and after values, or export CSV.",
       "route": null
     },
     {

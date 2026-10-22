@@ -392,6 +392,14 @@ jest.mock('expo-blur', () => ({ BlurView: mockView, BlurTargetView: mockView }))
 
 jest.mock('expo-linear-gradient', () => ({ LinearGradient: mockView }));
 
+// The points card's gyroscope (loyalty/useCardMotion.ts): listens, never reports a reading.
+jest.mock('expo-sensors', () => ({
+  Gyroscope: {
+    setUpdateInterval: jest.fn(),
+    addListener: jest.fn(() => ({ remove: jest.fn() })),
+  },
+}));
+
 jest.mock('expo-glass-effect', () => ({
   // FALSE, deliberately: it is the answer every device below iOS 26 gives,
   // and it is the branch that has to keep working on all of them.

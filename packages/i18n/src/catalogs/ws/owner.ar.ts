@@ -148,6 +148,14 @@ export const ownerAr: DeepMessages<typeof ownerEn> = {
       since: 'منذ {time}',
       nobody: 'لا أحد هنا الآن',
     },
+    desserts: {
+      title: 'واجهة الحلويات',
+      onShow: 'معروضة',
+      notAvailable: 'غير متوفرة',
+      reading: 'جارٍ قراءة القائمة…',
+      none: 'لا توجد حلويات في القائمة',
+      failed: 'تعذّرت قراءة القائمة',
+    },
     rooms: {
       reception: 'الاستقبال',
       bar: 'بار الفيتامينات',
@@ -495,6 +503,7 @@ export const ownerAr: DeepMessages<typeof ownerEn> = {
         kds: 'المطبخ',
         shop: 'متجر تتش',
         tasks: 'مهامي',
+        insights: 'المؤشرات',
         incidents: 'الحوادث',
         ops: 'العمليات',
         stock: 'المخزون',

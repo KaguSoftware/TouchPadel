@@ -1,6 +1,7 @@
 {
   "ios": {
     "NSCameraUsageDescription": "Touch Padel uses the camera only when you take a profile photo or a work photo.",
-    "NSPhotoLibraryUsageDescription": "Touch Padel uses your photos only when you choose a profile photo or attach a work photo."
+    "NSPhotoLibraryUsageDescription": "Touch Padel uses your photos only when you choose a profile photo or attach a work photo.",
+    "NSMotionUsageDescription": "Touch Padel uses your phone's motion only to move your points card as you tilt the phone. It never counts steps or tracks activity."
   }
 }

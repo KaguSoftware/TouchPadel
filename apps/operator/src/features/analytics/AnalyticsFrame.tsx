@@ -13,11 +13,11 @@ import { PageHeader } from '../../components/kit';
 import { useLocale } from '../../lib/i18n';
 import type { Formatters } from './format';
 
-export function AnalyticsFrame({ subtitle, actions, children }: { subtitle?: ReactNode; actions?: ReactNode; children: ReactNode }) {
+export function AnalyticsFrame({ title, subtitle, actions, children }: { title?: string; subtitle?: ReactNode; actions?: ReactNode; children: ReactNode }) {
   const { tr } = useLocale();
   return (
     <div style={{ minInlineSize: 0, paddingInline: 'var(--tp-sp-4)', paddingBlockEnd: 'var(--tp-sp-6)' }}>
-      <PageHeader title={tr('analytics.title')} subtitle={subtitle} actions={actions} />
+      <PageHeader title={title ?? tr('analytics.title')} subtitle={subtitle} actions={actions} />
       {children}
     </div>
   );

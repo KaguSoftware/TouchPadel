@@ -416,7 +416,8 @@ function DeliveryForm() {
                   {th(tr('ws.manager.stock.goodsIn.received'), { required: true })}
                   {th(tr('ws.manager.stock.goodsIn.ordered'))}
                   {th(words.shop ? tr('ws.shop.words.costEach') : tr('ws.manager.stock.goodsIn.cost'), { required: true })}
-                  {th(tr('ws.manager.stock.goodsIn.expiry'))}
+                  {/* Rackets, balls and clothing do not expire: no expiry column on the shop desk. */}
+                  {!words.shop && th(tr('ws.manager.stock.goodsIn.expiry'))}
                   {th(tr('ws.manager.stock.goodsIn.lineTotal'), { end: true })}
                   <th aria-hidden="true" style={{ inlineSize: '2.5rem', borderBlockEnd: '1px solid var(--tp-border-strong)' }} />
                 </tr>
@@ -694,23 +695,25 @@ function DeliveryRow({ index, line, today, ingredients, ingredient, busy, remova
           />
         )}
       </Cell>
-      <Cell error={problem === 'expiry' ? tr('ws.manager.stock.goodsIn.problem.expiry') : undefined} hint={expiryHint}>
-        {(describedBy) => (
-          // `min` greys out the past in the picker; lineProblem catches a typed one and holds Record.
-          <input
-            style={inputStyle}
-            type="date"
-            dir="ltr"
-            min={today}
-            aria-label={tr('ws.manager.stock.goodsIn.expiry')}
-            aria-describedby={describedBy}
-            aria-invalid={problem === 'expiry' || undefined}
-            value={line.expiryDate}
-            disabled={busy}
-            onChange={(e) => onPatch({ expiryDate: e.target.value })}
-          />
-        )}
-      </Cell>
+      {!words.shop && (
+        <Cell error={problem === 'expiry' ? tr('ws.manager.stock.goodsIn.problem.expiry') : undefined} hint={expiryHint}>
+          {(describedBy) => (
+            // `min` greys out the past in the picker; lineProblem catches a typed one and holds Record.
+            <input
+              style={inputStyle}
+              type="date"
+              dir="ltr"
+              min={today}
+              aria-label={tr('ws.manager.stock.goodsIn.expiry')}
+              aria-describedby={describedBy}
+              aria-invalid={problem === 'expiry' || undefined}
+              value={line.expiryDate}
+              disabled={busy}
+              onChange={(e) => onPatch({ expiryDate: e.target.value })}
+            />
+          )}
+        </Cell>
+      )}
       <td style={{ paddingBlockStart: 'var(--tp-sp-3)', paddingInline: 'var(--tp-sp-1-5)', verticalAlign: 'top', textAlign: 'end', whiteSpace: 'nowrap', fontWeight: 600 }}>
         <Money amount={total} unit={false} />
       </td>

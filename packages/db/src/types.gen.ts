@@ -2870,6 +2870,15 @@ export type Database = {
         Args: { p_limit?: number; p_venue_id?: string }
         Returns: Json
       }
+      marketing_insights: {
+        Args: {
+          p_cmp_from: string
+          p_cmp_to: string
+          p_from: string
+          p_to: string
+        }
+        Returns: Json
+      }
       marketing_notes_for: {
         Args: { p_subject_id: string; p_subject_kind: string }
         Returns: Json
@@ -3206,6 +3215,25 @@ export type Database = {
       merge_tabs: {
         Args: { p_donor_tab_id: string; p_survivor_tab_id: string }
         Returns: Json
+      }
+      mkt_about: { Args: { p_n: number }; Returns: Json }
+      mkt_level: { Args: { p_ratio: number }; Returns: number }
+      mkt_rate_trend: {
+        Args: { p_now: number; p_prev: number }
+        Returns: string
+      }
+      mkt_share: {
+        Args: {
+          p_min?: number
+          p_part: number
+          p_step?: number
+          p_total: number
+        }
+        Returns: number
+      }
+      mkt_trend: {
+        Args: { p_min?: number; p_now: number; p_prev: number }
+        Returns: string
       }
       move_reservation: {
         Args: {

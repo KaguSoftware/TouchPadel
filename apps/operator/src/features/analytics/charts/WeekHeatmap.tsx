@@ -52,6 +52,8 @@ export function WeekHeatmap({
   unit,
   hint,
   totals,
+  relative = true,
+  scaleMax,
 }: {
   cells: readonly HeatValue[];
   f: Formatters;
@@ -63,6 +65,10 @@ export function WeekHeatmap({
   hint: string;
   /** Hour and weekday margins; `format` reads them out (an average reads differently from a total). */
   totals?: HeatTotals & { format: (value: number) => string };
+  /** Read a cell out as a share of the peak too ("· 80% of peak"). Off where the values are levels, not amounts. */
+  relative?: boolean;
+  /** A fixed top of the ramp (levels 0..4 run against 4), so a quiet week never paints its busiest hour as full. */
+  scaleMax?: number;
 }) {
   const { GRID, HEAT_RAMP } = useChartColors();
   const { tr } = useLocale();
@@ -70,7 +76,7 @@ export function WeekHeatmap({
   const dayMax = Math.max(0, ...(totals?.days ?? []).map((v) => v ?? 0));
   const margin = (v: number | null | undefined, max: number) => (v == null ? 'transparent' : max > 0 && v === max ? HEAT_RAMP[5] : HEAT_RAMP[3]);
   const byKey = new Map(cells.map((c) => [`${c.dow}:${c.hour}`, c]));
-  const max = cells.reduce((m, c) => Math.max(m, c.open === false || c.thin ? 0 : c.value), 0);
+  const max = scaleMax ?? cells.reduce((m, c) => Math.max(m, c.open === false || c.thin ? 0 : c.value), 0);
   const [active, setActive] = useState<string | null>(null);
   const activeCell = active ? byKey.get(active) : undefined;
   const activeParts = active?.split(':').map(Number) ?? [];
@@ -94,7 +100,7 @@ export function WeekHeatmap({
           ? tr('ws.analytics.heatmap.closed')
           : activeCell?.thin
             ? (activeCell.label ?? format(activeCell.value))
-            : `${format(activeCell?.value ?? 0)}${max > 0 ? ` · ${tr('ws.analytics.heatmap.ofPeak', { pct: f.pct(((activeCell?.value ?? 0) / max) * 100) })}` : ''}`
+            : `${format(activeCell?.value ?? 0)}${relative && max > 0 ? ` · ${tr('ws.analytics.heatmap.ofPeak', { pct: f.pct(((activeCell?.value ?? 0) / max) * 100) })}` : ''}`
       }`
     : hint;
 

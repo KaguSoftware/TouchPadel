@@ -303,6 +303,12 @@ describe('the native config (§6.10)', () => {
       microphonePermission: false,
     });
 
+    // The points card's gyroscope (loyalty/useCardMotion.ts) shares the locale files: expo-sensors
+    // links CMPedometer, so its purpose string is declared though nothing ever shows it.
+    const sensors = config.plugins?.find((p) => Array.isArray(p) && p[0] === 'expo-sensors') as
+      [string, Record<string, unknown>] | undefined;
+    expect(typeof sensors?.[1].motionPermission).toBe('string');
+
     expect(config.locales).toEqual({ en: './locales/ios.en.json', ar: './locales/ios.ar.json' });
     for (const lang of ['en', 'ar'] as const) {
       const file = JSON.parse(readFileSync(join(APP, `locales/ios.${lang}.json`), 'utf8')) as {
@@ -311,6 +317,7 @@ describe('the native config (§6.10)', () => {
       expect(Object.keys(file)).toEqual(['ios']);
       expect(Object.keys(file.ios).sort()).toEqual([
         'NSCameraUsageDescription',
+        'NSMotionUsageDescription',
         'NSPhotoLibraryUsageDescription',
       ]);
       if (lang === 'ar')
@@ -318,6 +325,7 @@ describe('the native config (§6.10)', () => {
       else {
         expect(file.ios.NSCameraUsageDescription).toBe(plugin?.[1].cameraPermission);
         expect(file.ios.NSPhotoLibraryUsageDescription).toBe(plugin?.[1].photosPermission);
+        expect(file.ios.NSMotionUsageDescription).toBe(sensors?.[1].motionPermission);
       }
     }
 

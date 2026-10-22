@@ -62,10 +62,10 @@ describe('navigation sets', () => {
   it('the prep workspace has no navigation at all (spec §04)', () => {
     expect(WORKSPACES.prep.groups).toHaveLength(0);
   });
-  it('the team workspace is one untitled group holding My tasks', () => {
+  it('the team workspace is one untitled group holding My tasks and Insights', () => {
     expect(WORKSPACES.team.home).toBe('/tasks');
     expect(WORKSPACES.team.groups.map((g) => [g.labelKey, g.items.map((i) => [i.to, i.labelKey])])).toEqual([
-      [null, [['/tasks', 'myTasks']]],
+      [null, [['/tasks', 'myTasks'], ['/insights', 'insights']]],
     ]);
   });
   it('every nav target is a route the workspace owner role may open', () => {
@@ -77,7 +77,9 @@ describe('navigation sets', () => {
       // open: held to the owner here, and to "something to open in every
       // section" under 'the manager in Management'.
       management: 'owner',
-      team: 'driver',
+      // Insights (0360) is marketing's row: the rail drops it for the driver
+      // and the waiter (rowShown), checked below.
+      team: 'marketing',
       shop: 'shop_staff',
     };
     for (const ws of Object.values(WORKSPACES)) {
@@ -94,9 +96,16 @@ describe('navigation sets', () => {
     expect(workspaceHome(WORKSPACES.management, (p) => canAccess('owner', p))).toBe('/panel');
     // Every role that holds a workspace can open all of it, not just the one
     // named above.
-    for (const role of ['head_barista', 'barista', 'assistant_barista', 'head_chef', 'chef', 'marketing', 'waiter'] as const) {
+    for (const role of ['head_barista', 'barista', 'assistant_barista', 'head_chef', 'chef', 'marketing', 'waiter', 'driver'] as const) {
       for (const key of workspacesForRole(role)) {
-        for (const item of workspaceItems(WORKSPACES[key])) expect(canAccess(role, item.to), `${role} → ${item.to}`).toBe(true);
+        for (const item of workspaceItems(WORKSPACES[key])) {
+          // The team's Insights row is marketing's alone; the rail hides it from the rest (rowShown).
+          if (item.to === '/insights' && role !== 'marketing') {
+            expect(rowShown(item, (p) => canAccess(role, p), (t) => canAccess(role, t.to)), `${role} sees no Insights row`).toBe(false);
+            continue;
+          }
+          expect(canAccess(role, item.to), `${role} → ${item.to}`).toBe(true);
+        }
         expect(canAccess(role, WORKSPACES[key].home), `${role} → ${key} home`).toBe(true);
       }
     }
@@ -487,7 +496,7 @@ describe('families (management rebuild, 2026-10-17)', () => {
     expect(rows('cafe')).toEqual(['tills', 'menu', 'tables', 'shop']);
     expect(rows('stock')).toEqual(['onHand', 'stockMovement', 'stockCounting', 'stockCosts']);
     expect(rows('team')).toEqual(['staff', 'staffActivity', 'attendance', 'fromTeam', 'protocols']);
-    expect(rows('customers')).toEqual(['customers', 'loyalty', 'marketing', 'guestApp']);
+    expect(rows('customers')).toEqual(['customers', 'loyalty', 'marketing', 'insights', 'guestApp']);
     expect(rows('settings')).toEqual(['branches', 'computersScreens', 'audit']);
   });
 

@@ -201,6 +201,20 @@ const plugins: NonNullable<ExpoConfig['plugins']> = [
       microphonePermission: false,
     },
   ],
+  // The Club tab's points card leans with the phone (src/features/loyalty/useCardMotion.ts,
+  // Majed 2026-10-22). It reads the raw gyroscope, which asks no permission, and never calls the
+  // pedometer or the activity APIs, so nobody is ever shown this text. It is declared anyway
+  // because expo-sensors still LINKS CMPedometer with `motionPermission: false`
+  // (PedometerModule.swift), and a binary that links a privacy API without its purpose string
+  // risks App Store Connect's missing-purpose-string rejection. Said plainly, both languages in
+  // locales/ios.{en,ar}.json. NATIVE CHANGE: needs a new dev client and store build.
+  [
+    'expo-sensors',
+    {
+      motionPermission:
+        "Touch Padel uses your phone's motion only to move your points card as you tilt the phone. It never counts steps or tracks activity.",
+    },
+  ],
 ];
 if (googleIosUrlScheme) {
   plugins.push(['react-native-nitro-google-signin', { iosUrlScheme: googleIosUrlScheme }]);

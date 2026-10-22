@@ -131,7 +131,8 @@ export function AnalyticsBar({
   deck,
   courts,
 }: {
-  tab: AnalyticsTab;
+  /** The Courts | Cafe strip; absent on a page with no tabs (Insights, 0360). */
+  tab?: AnalyticsTab;
   search: AnalyticsSearch;
   setSearch: (next: Partial<AnalyticsSearch>) => void;
   zones: readonly ZoneDef[];
@@ -162,7 +163,7 @@ export function AnalyticsBar({
   return (
     <div id="analytics-bar" className="tp-glass-bar" style={bar}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 'var(--tp-sp-3)', flexWrap: 'wrap' }}>
-        <AnalyticsTabs value={tab} />
+        {tab ? <AnalyticsTabs value={tab} /> : <span />}
         {zones.length > 0 && <ZoneNav zones={zones} />}
       </div>
 

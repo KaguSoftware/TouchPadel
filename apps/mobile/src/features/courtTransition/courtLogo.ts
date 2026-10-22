@@ -103,9 +103,18 @@ function buildCarpet(): { color: THREE.DataTexture; grain: THREE.DataTexture } {
   return { color: texture(color, true), grain: texture(grey, false) };
 }
 
+/**
+ * The lockup's shapes, parsed ONCE per process: the SVG parse is most of what
+ * the logo costs to build (about 8 of its 10 ms in node) and its answer never
+ * changes. Each tab's court (Book, Play, Coaches) builds a logo, so every one
+ * after the first used to parse the same paths again. Shared read-only:
+ * ShapeGeometry only reads a shape.
+ */
+let lineShapes: ReturnType<typeof buildLogoLineShapes> | null = null;
+
 export function buildCourtLogo(): CourtLogo {
   const carpet = buildCarpet();
-  const { wordmark, ball } = buildLogoLineShapes(WIDTH);
+  const { wordmark, ball } = (lineShapes ??= buildLogoLineShapes(WIDTH));
   const paint = (color: string, map: THREE.Texture) =>
     new THREE.MeshStandardMaterial({ color, map, roughness: 0.85, metalness: 0 });
   const layers = [

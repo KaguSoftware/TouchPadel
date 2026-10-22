@@ -385,7 +385,8 @@ export function countsOf(s: FloorSnapshot): FloorCounts {
 }
 
 /** What the pointer is over on the plan. */
-export type FloorTarget = { kind: 'court'; id: string } | { kind: 'table'; id: string } | { kind: 'room'; room: Room };
+/** What the pointer can be over. `desserts` is the glass case on the bar (dessertCase.ts). */
+export type FloorTarget = { kind: 'court'; id: string } | { kind: 'table'; id: string } | { kind: 'room'; room: Room } | { kind: 'desserts' };
 
 export const EMPTY_SNAPSHOT: FloorSnapshot = { courts: [], tables: [], staff: [] };
 

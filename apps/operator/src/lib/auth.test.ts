@@ -107,10 +107,11 @@ describe('canAccess — longest-prefix match, default deny', () => {
     }
   });
 
-  it('gives driver, marketing and the waiter My tasks and nothing else', () => {
+  it('gives driver, marketing and the waiter My tasks, marketing Insights too (0360), and nothing else', () => {
     for (const role of TEAM) {
-      expect(canAccess(role, '/tasks'), role).toBe(true);
-      for (const route of Object.keys(ROUTE_ROLES).filter((r) => r !== '/tasks')) {
+      const own = role === 'marketing' ? ['/tasks', '/insights'] : ['/tasks'];
+      for (const route of own) expect(canAccess(role, route), `${role} ${route}`).toBe(true);
+      for (const route of Object.keys(ROUTE_ROLES).filter((r) => !own.includes(r))) {
         expect(canAccess(role, route), `${role} ${route}`).toBe(false);
       }
     }

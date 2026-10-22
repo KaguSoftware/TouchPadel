@@ -307,6 +307,13 @@ export const frame = {
   silverHi: '#E0E0E1',
   silver: '#BCBDBF',
   silverLo: '#919396',
+  /**
+   * The underside of embossed letters (the points card's name, 2026-10-22): brand black, under a
+   * silverHi face, so the letters stand up off the card the way a bank card's raised name does.
+   */
+  embossShade: '#000000',
+  /** Metal turned away from the light (the points card name's shaded slopes): dark fnt3's gray. */
+  steel: '#696A6E',
 } as const;
 
 /**
@@ -367,6 +374,14 @@ export const shadows = {
   sheetDark: '0 20px 50px rgba(0,0,0,0.45)',
   /** The coach page's name card lifted off the hero (Figma "D · Profile"): `0 8px 24px rgba(27,42,71,.12)`. */
   card: '0 8px 24px rgba(27,42,71,0.12)',
+  /**
+   * The Club tab's points card, held off the page like a card in the hand: a far shadow pulled in
+   * by a negative spread so it falls UNDER the card, not beside it (a wide one was cut off square
+   * by the scroll view's edges and darkened the gap above the QR, 2026-10-22), and a tight contact
+   * one. Navy-tinted on paper; brand black, lighter, in blue mode.
+   */
+  pointsCard: '0 14px 22px -10px rgba(23,44,79,0.45), 0 2px 6px rgba(23,44,79,0.2)',
+  pointsCardDark: '0 14px 22px -10px rgba(0,0,0,0.5), 0 2px 6px rgba(0,0,0,0.25)',
 } as const;
 
 /**
@@ -384,6 +399,8 @@ export const shadows = {
  * "Unrecognized font family" on every single <Text>.
  */
 export type FontRole =
+  /** A hairline, for drawing ON other letters (the points card's embossed crest), never for copy. */
+  | 'display100'
   | 'display600'
   | 'display700'
   | 'display800'
@@ -398,6 +415,7 @@ export type FontSet = Record<FontRole, string | undefined>;
 export const fontSets: Record<'brand' | 'system', FontSet> = {
   /** Every value is a key of BRAND_FONTS in ./fonts.ts — see the note there. */
   brand: {
+    display100: 'LamaSans_100Thin',
     display600: 'LamaSans_600SemiBold',
     display700: 'LamaSans_700Bold',
     display800: 'LamaSans_800ExtraBold',
@@ -409,6 +427,7 @@ export const fontSets: Record<'brand' | 'system', FontSet> = {
   },
   /** Platform default faces — the fallback when brand fonts are unavailable. */
   system: {
+    display100: undefined,
     display600: undefined,
     display700: undefined,
     display800: undefined,

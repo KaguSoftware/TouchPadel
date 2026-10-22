@@ -7018,4 +7018,11 @@ export const matrix: MatrixRule[] = [
     note: "0356: the court desk's Coaches tab (hours, time off, busy); a window over 7 days is INVALID_ARGUMENT past the guard",
     drop: 38,
   },
+  {
+    kind: 'rpc', schema: 'app', name: 'marketing_insights',
+    args: { p_from: DAY_FROM, p_to: DAY_TO, p_cmp_from: '2025-12-01', p_cmp_to: '2025-12-31' },
+    expect: OWNER_ONLY,
+    note: '0360: marketing and the owner (marketing is not among the eight principals; tests/marketing-insights.test.ts runs it)',
+    drop: 38,
+  },
 ];

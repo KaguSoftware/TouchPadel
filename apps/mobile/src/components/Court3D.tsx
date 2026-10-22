@@ -129,7 +129,7 @@ import {
 import type { ExpoWebGLRenderingContext, GLView as GLViewComponent } from 'expo-gl';
 import { useFocusEffect } from 'expo-router';
 import * as THREE from 'three';
-import { detectCourtQuality } from '../features/courtTransition/deviceQuality';
+import { COURT_LEAN, detectCourtQuality } from '../features/courtTransition/deviceQuality';
 import type { CourtQuality } from '../features/courtTransition/quality';
 import type { CourtScene, CourtSceneKind, CourtView } from '@touch/court3d/scene';
 import { DRILL_REST_T } from '@touch/court3d/drill';
@@ -137,6 +137,11 @@ import type { JoinSeats } from '@touch/court3d/join';
 import { advance as advanceRally, MAX_STEP_S } from '@touch/court3d/rallyClock';
 import { pitchEase, type Dir } from '@touch/court3d/spec';
 import { buildPhoneCourt } from '../features/courtTransition/phoneCourt';
+import {
+  courtKey,
+  noteInstancing,
+  takePrebuiltCourt,
+} from '../features/courtTransition/courtPrewarm';
 import { canAnimate, canDraw } from '../features/courtTransition/surfaceState';
 import { contextAlive, presentFrame } from '../features/courtTransition/surfaceLiveness';
 import { frameRepaints } from '../features/courtTransition/staleCover';
@@ -1164,15 +1169,20 @@ export function Court3D({
           renderer.setClearColor(0x000000, 0); // see-through: the button shows between the ghosts
         }
         if (!court.current) {
-          // Android's frames are bound by the JS thread: it gets the lean
-          // update (the same picture to the bit, scene.ts). iOS is unchanged.
-          court.current = buildPhoneCourt(quality, Platform.OS === 'android', {
-            scene: sceneKind,
-            view: courtView,
-            // The top view draws its trail instanced where this GL can (scene.ts).
-            instancing:
-              renderer.capabilities.isWebGL2 || renderer.extensions.has('ANGLE_instanced_arrays'),
-          });
+          // The top view draws its trail instanced where this GL can (scene.ts).
+          const instancing =
+            renderer.capabilities.isWebGL2 || renderer.extensions.has('ANGLE_instanced_arrays');
+          noteInstancing(instancing);
+          const spec = { scene: sceneKind, view: courtView, quality, lean: COURT_LEAN };
+          // Built in the background ahead of this tab (courtPrewarm.ts) if it
+          // could be; otherwise built here, as it always was.
+          court.current =
+            takePrebuiltCourt(courtKey(spec, instancing)) ??
+            buildPhoneCourt(quality, COURT_LEAN, {
+              scene: sceneKind,
+              view: courtView,
+              instancing,
+            });
           // A fresh scene starts in the seats as they are now, nothing to play.
           court.current.setJoin(joinRef.current, false);
           pushViewport();

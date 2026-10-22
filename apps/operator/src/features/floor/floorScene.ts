@@ -38,8 +38,8 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { ZOOM_MIN_DIST, zoomDistanceAt, zoomLevelOf, type FloorSnapshot, type FloorTarget, type Room } from './floorModel';
 import { BALL_D, SWOOSH_D, VB, WORDMARK_D } from '../../components/brandMark';
 import { buildRacketKit, type RacketKit, type RacketRig } from './rally/racket';
-import { groupSubpaths, parseSvgPath } from './rally/svgPath';
 import { BALL_RADIUS, PLAYERS, layAngle, nextLegStart, rallyAt } from './rally/rally';
+import { DESSERT_CASE_SLOTS, type DessertOnShow, type DessertShape } from './dessertCase';
 
 export interface FloorSceneEvents {
   onHover: (target: FloorTarget | null, point: { x: number; y: number }) => void;
@@ -58,6 +58,11 @@ export interface FloorSceneEvents {
 
 export interface FloorSceneHandle {
   apply: (snapshot: FloorSnapshot) => void;
+  /**
+   * Fill the dessert case on the bar: each dessert keeps its place in menu
+   * order, and one that is not on show leaves its place empty.
+   */
+  showDesserts: (desserts: readonly DessertOnShow[]) => void;
   /** Move closer to a target, or back to the whole floor with null. */
   focus: (target: FloorTarget | null) => void;
   /** One step closer ('in') or further ('out') along the line of sight. */
@@ -128,6 +133,24 @@ const ROOMS: Record<Room, Station> = {
   floor: { x: 0, z: 0.4, w: 3.2, d: 1.4, slots: [[-1.05, 0], [1.05, 0]] },
 };
 
+/**
+ * The dessert case (owner request, 2026-10-22), as it is at the venue: a flat,
+ * black-framed, lit display set into the straight front of the bar, a solid
+ * panel below it, its glass running up to the counter and the counter over it
+ * glass too, so the desserts show from above as well as through the front.
+ * Nothing stands over the counter line. Right of centre, as at the venue: the till takes the left of the
+ * counter. Inside, the deck and two glass shelves, three places on each
+ * (`DESSERT_CASE_SLOTS`), filled from the top shelf down.
+ */
+/** The case's two edges along the bar's straight front (x, m; the straight runs -1.9 to 1.9). */
+const CASE_X0 = 0.4;
+const CASE_X1 = 1.7;
+const CASE_LOW = 0.3;
+/** The counter's surface: the case's glass top is part of it. */
+const CASE_TOP = 1.15;
+const CASE_LEVELS = [0.86, 0.58, CASE_LOW] as const;
+const CASE_COLS = [-0.4, 0, 0.4].map((dx) => (CASE_X0 + CASE_X1) / 2 + dx);
+
 const HOME_TARGET = new THREE.Vector3(0, 0, -2);
 /** Where the whole-floor view looks from: the entrance toward the viewer, a little off-axis. */
 const HOME_DIR = new THREE.Vector3(10, 30, 36).normalize();
@@ -164,6 +187,116 @@ function logoTexture(aspect: number): THREE.CanvasTexture | null {
   for (const d of WORDMARK_D) ctx.fill(new Path2D(d));
   ctx.fillStyle = hex(GREEN);
   for (const d of BALL_D) ctx.fill(new Path2D(d));
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 8;
+  return tex;
+}
+
+/**
+ * The Touch Cafe sign over the bar, as it hangs at the venue: "T", a green
+ * coffee bean for the "o" (the cafe mark's bean, `packages/ui/src/brand/
+ * cafe-mark.svg`: tilted, its centre split in white), "uch Cafe" in ink, and a
+ * green swoosh from under the bean, below "uch" and the "C", joining the "a",
+ * on white. There is no cafe lockup in vector form (the web
+ * sets its wordmark in a font, `apps/web/.../cafe/brand/Wordmark.tsx`), so it
+ * is built from the club lockup's own outlines (`brandMark.ts`): T, u, c, h
+ * as they are; the capital C is the c raised to cap height; a and e
+ * are the lockup's own; the f is drawn to match the l's stem. Drawn to a
+ * canvas so it needs no font. Null where the canvas cannot draw (tests).
+ */
+function cafeSignTexture(aspect: number): THREE.CanvasTexture | null {
+  const h = 360;
+  const w = Math.round(h * aspect);
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext('2d');
+  if (!ctx || typeof Path2D === 'undefined') return null;
+  const hex = (c: number) => `#${c.toString(16).padStart(6, '0')}`;
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, w, h);
+  // The sign in lockup units: x 0..58.3, y 2.2 (cap tops)..14.6 (swoosh bottom).
+  const SIGN_UNITS = { x: 0, y: 2.2, w: 58.3, h: 12.4 };
+  const s = (h * 0.64) / SIGN_UNITS.h;
+  ctx.translate((w - SIGN_UNITS.w * s) / 2, (h - SIGN_UNITS.h * s) / 2);
+  ctx.scale(s, s);
+  ctx.translate(-SIGN_UNITS.x, -SIGN_UNITS.y);
+  const ink = hex(0x1b2c47);
+  /**
+   * The bean is an "o", a little bigger than the lowercase (x-height
+   * 4.8..10.5) and centred on it, one letter-gap after the T.
+   * The club lockup's ball is wider and sits higher, so everything after the
+   * bean moves left by SHIFT to keep the usual gap before the u.
+   */
+  const BEAN = { x: 9.77, y: 7.55, k: 3.5 / 125.9 }; // 125.9: the tilted bean's half-height in mark units
+  const SHIFT = 2.63;
+  /** Room after the C: none, the swoosh crosses the C as it does on the sign. */
+  const RISE_GAP = 0;
+  const letter = (d: string, dx = 0) => {
+    ctx.save();
+    ctx.translate(dx, 0);
+    ctx.fill(new Path2D(d));
+    ctx.restore();
+  };
+  // The swoosh, drawn first so it runs behind the letters (the C and the a
+  // included, as on the sign): one long S. It starts just
+  // under the bean's lower left, is lowest under "uc", and from under the h
+  // rises in a long shallow line, crossing the foot of the C, to roll into
+  // the a's top stroke at its left end (the a outline's terminal, 0.6 in from
+  // its left, 6 down). Two curves, the tangent carried through the join, so
+  // the line has no kink anywhere.
+  const start = { x: BEAN.x - 1.7, y: BEAN.y + 2.85 };
+  const mid = { x: 32, y: 11.6 };
+  const end = { x: 44.91 - SHIFT + RISE_GAP + 0.62, y: 6.0 };
+  ctx.strokeStyle = hex(GREEN);
+  ctx.lineWidth = 1.25;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(start.x, start.y);
+  ctx.bezierCurveTo(start.x + 2.4, start.y + 4.0, mid.x - 6, mid.y + 2.1, mid.x, mid.y);
+  ctx.bezierCurveTo(mid.x + 3.6, mid.y - 1.26, end.x - 2.7, end.y + 1.4, end.x, end.y);
+  ctx.stroke();
+  // The bean: the cafe mark's ellipse (rx 92, ry 134, turned -28 deg about
+  // 256,236) and its white split.
+  ctx.save();
+  ctx.translate(BEAN.x, BEAN.y);
+  ctx.scale(BEAN.k, BEAN.k);
+  ctx.rotate((-28 * Math.PI) / 180);
+  ctx.translate(-256, -236);
+  ctx.fillStyle = hex(GREEN);
+  ctx.beginPath();
+  ctx.ellipse(256, 236, 92, 134, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = '#ffffff';
+  ctx.lineWidth = 18;
+  ctx.stroke(new Path2D('M256 106 C 202 176, 310 296, 256 366'));
+  ctx.restore();
+  ctx.fillStyle = ink;
+  const [T, u, c, hh, a, , e] = WORDMARK_D as readonly string[];
+  letter(T!);
+  ctx.translate(-SHIFT, 0);
+  for (const d of [u!, c!, hh!]) letter(d);
+  // C: the c (x 22.27..27.67, y 4.77..10.53) raised to the T's cap height, at x 37.
+  ctx.save();
+  ctx.translate(37, 10.53);
+  ctx.scale(1.354, 1.354);
+  ctx.translate(-22.27, -10.53);
+  ctx.fill(new Path2D(c!));
+  ctx.restore();
+  letter(a!, 44.91 - 51.39 + RISE_GAP);
+  // f: a stem as wide as the l's (1.62), a hook over the top, a crossbar at the x-height.
+  const fx = 50.84 + RISE_GAP;
+  ctx.strokeStyle = ink;
+  ctx.lineWidth = 1.62;
+  ctx.lineCap = 'butt';
+  ctx.beginPath();
+  ctx.moveTo(fx + 1.71, 10.5);
+  ctx.lineTo(fx + 1.71, 4.9);
+  ctx.quadraticCurveTo(fx + 1.71, 3.5, fx + 3.95, 3.5);
+  ctx.stroke();
+  ctx.fillRect(fx, 4.83, 3.7, 1.32);
+  letter(e!, 55.2 - 64.28 + RISE_GAP);
   const tex = new THREE.CanvasTexture(canvas);
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.anisotropy = 8;
@@ -513,65 +646,121 @@ export function createFloorScene(host: HTMLElement, events: FloorSceneEvents, op
   const BD = 1.85;
   const BT = 0.6;
   const BR = 0.9;
-  const barShape = new THREE.Shape();
-  barShape.moveTo(-BW / 2, 0);
-  barShape.lineTo(-BW / 2, BD - BR);
-  barShape.absarc(-BW / 2 + BR, BD - BR, BR, Math.PI, Math.PI / 2, true);
-  barShape.lineTo(BW / 2 - BR, BD);
-  barShape.absarc(BW / 2 - BR, BD - BR, BR, Math.PI / 2, 0, true);
-  barShape.lineTo(BW / 2, 0);
-  barShape.lineTo(BW / 2 - BT, 0);
-  barShape.lineTo(BW / 2 - BT, BD - BR);
-  barShape.absarc(BW / 2 - BR, BD - BR, BR - BT, 0, Math.PI / 2, false);
-  barShape.lineTo(-BW / 2 + BR, BD - BT);
-  barShape.absarc(-BW / 2 + BR, BD - BR, BR - BT, Math.PI / 2, Math.PI, false);
-  barShape.lineTo(-BW / 2 + BT, 0);
-  barShape.closePath();
-  const bar = new THREE.Mesh(geo(new THREE.ExtrudeGeometry(barShape, { depth: 1.1, bevelEnabled: false })), M.blue);
-  bar.rotation.x = Math.PI / 2;
-  bar.position.set(0, 1.1, -2.1);
-  bar.castShadow = true;
-  arch.add(bar);
-  // The lockup in relief on the bar's blue front, the straight run facing the
-  // stools: the brand's blue-ground treatment (white wordmark, green ball, the
-  // green-to-blue swoosh), extruded so it stands off the counter.
-  const LOGO_S = 0.9 / VB.h; // 0.9 m tall
-  const LOGO_DEPTH = 0.07 / LOGO_S;
-  const extrudeMark = (ds: readonly string[], m: THREE.Material) => {
-    const shapes = ds.flatMap((d) => groupSubpaths(parseSvgPath(d)));
-    const g = geo(new THREE.ExtrudeGeometry(shapes, { depth: LOGO_DEPTH, curveSegments: 10, bevelEnabled: true, bevelThickness: 0.25, bevelSize: 0.06, bevelSegments: 2 }));
-    const mesh = new THREE.Mesh(g, m);
+  // The bar's footprint shapes are drawn on the plan (x, depth) and stood up:
+  // extruded downward from `top`, so a slab of the footprint at any height.
+  const barSlab = (shape: THREE.Shape, top: number, depth: number, m: THREE.Material) => {
+    const mesh = new THREE.Mesh(geo(new THREE.ExtrudeGeometry(shape, { depth, bevelEnabled: false })), m);
+    mesh.rotation.x = Math.PI / 2;
+    mesh.position.set(0, top, -2.1);
     mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    arch.add(mesh);
     return mesh;
   };
-  const swooshMesh = extrudeMark([SWOOSH_D], mat(0xffffff, { vertexColors: true, roughness: 0.5 }));
-  {
-    // The swoosh gradient, along the same axis `brand.tsx` runs it.
-    const pos = swooshMesh.geometry.getAttribute('position');
-    const from = new THREE.Vector2(7.7, 17);
-    const axis = new THREE.Vector2(50.5, 9).sub(from);
-    const len2 = axis.lengthSq();
-    const green = new THREE.Color(GREEN);
-    const blue = new THREE.Color(BLUE);
-    const c = new THREE.Color();
-    const colors = new Float32Array(pos.count * 3);
-    for (let i = 0; i < pos.count; i++) {
-      const t = THREE.MathUtils.clamp(((pos.getX(i) - from.x) * axis.x + (pos.getY(i) - from.y) * axis.y) / len2, 0, 1);
-      c.copy(green).lerp(blue, t).toArray(colors, i * 3);
-    }
-    swooshMesh.geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+  // Solid blue everywhere but the case: from the left side round to the
+  // case's left edge, and from its right edge round to the right side.
+  const barLeft = new THREE.Shape();
+  barLeft.moveTo(-BW / 2, 0);
+  barLeft.lineTo(-BW / 2, BD - BR);
+  barLeft.absarc(-BW / 2 + BR, BD - BR, BR, Math.PI, Math.PI / 2, true);
+  barLeft.lineTo(CASE_X0, BD);
+  barLeft.lineTo(CASE_X0, BD - BT);
+  barLeft.lineTo(-BW / 2 + BR, BD - BT);
+  barLeft.absarc(-BW / 2 + BR, BD - BR, BR - BT, Math.PI / 2, Math.PI, false);
+  barLeft.lineTo(-BW / 2 + BT, 0);
+  barLeft.closePath();
+  barSlab(barLeft, 1.1, 1.1, M.blue);
+  const barRight = new THREE.Shape();
+  barRight.moveTo(CASE_X1, BD);
+  barRight.lineTo(BW / 2 - BR, BD);
+  barRight.absarc(BW / 2 - BR, BD - BR, BR, Math.PI / 2, 0, true);
+  barRight.lineTo(BW / 2, 0);
+  barRight.lineTo(BW / 2 - BT, 0);
+  barRight.lineTo(BW / 2 - BT, BD - BR);
+  barRight.absarc(BW / 2 - BR, BD - BR, BR - BT, 0, Math.PI / 2, false);
+  barRight.lineTo(CASE_X1, BD - BT);
+  barRight.closePath();
+  barSlab(barRight, 1.1, 1.1, M.blue);
+  // The case: the straight front between the two, the whole depth of the bar.
+  const caseShape = new THREE.Shape();
+  caseShape.moveTo(CASE_X0, BD - BT);
+  caseShape.lineTo(CASE_X1, BD - BT);
+  caseShape.lineTo(CASE_X1, BD);
+  caseShape.lineTo(CASE_X0, BD);
+  caseShape.closePath();
+  barSlab(caseShape, CASE_LOW, CASE_LOW, M.blue); // the panel under it
+  barSlab(caseShape, CASE_LOW + 0.008, 0.008, M.paper); // the deck
+  // The counter over the case is glass, flush with the rest of the top.
+  barSlab(caseShape, CASE_TOP, 0.02, mat(0xbfd3f5, { transparent: true, opacity: 0.14, roughness: 0.05, depthWrite: false })).castShadow = false;
+  const shelfMat = mat(0xffffff, { transparent: true, opacity: 0.15, roughness: 0.15, depthWrite: false });
+  for (const y of CASE_LEVELS) if (y !== CASE_LOW) barSlab(caseShape, y, 0.01, shelfMat).castShadow = false;
+  // Glass on the guest side, a white back on the staff side, a black frame round the glass.
+  const caseH = CASE_TOP - CASE_LOW;
+  const caseY = CASE_LOW + caseH / 2;
+  const frontZ = -2.1 + BD;
+  const caseW = CASE_X1 - CASE_X0;
+  const caseX = (CASE_X0 + CASE_X1) / 2;
+  const pane = (m: THREE.Material, z: number) => {
+    const p = new THREE.Mesh(geo(new THREE.PlaneGeometry(caseW, caseH)), m);
+    p.position.set(caseX, caseY, z);
+    arch.add(p);
+  };
+  // Clearer than the court glass: what is behind it is the point.
+  pane(mat(0xbfd3f5, { transparent: true, opacity: 0.1, roughness: 0.05, depthWrite: false, side: THREE.DoubleSide }), frontZ);
+  pane(mat(0xf7f8fa, { roughness: 0.9, side: THREE.DoubleSide }), frontZ - BT);
+  const FR = 0.035;
+  // The frame: round the front glass, and round the glass top's edges.
+  box(caseW + FR, FR, FR, M.ink, caseX, CASE_TOP - FR / 2, frontZ);
+  box(caseW + FR, FR, FR, M.ink, caseX, CASE_TOP - FR / 2, frontZ - BT);
+  box(caseW + FR, FR, FR, M.ink, caseX, CASE_LOW, frontZ);
+  for (const x of [CASE_X0, CASE_X1]) {
+    box(FR, caseH, FR, M.ink, x, caseY, frontZ);
+    box(FR, FR, BT, M.ink, x, CASE_TOP - FR / 2, frontZ - BT / 2);
   }
-  const barMark = new THREE.Group();
-  barMark.add(swooshMesh, extrudeMark(WORDMARK_D, M.line), extrudeMark(BALL_D, M.green));
-  // SVG y runs down; the negative y scale stands the mark upright.
-  barMark.scale.set(LOGO_S, -LOGO_S, LOGO_S);
-  barMark.position.set((-VB.w * LOGO_S) / 2, 0.1 + VB.h * LOGO_S, -2.1 + BD);
-  arch.add(barMark);
-  const barTop = new THREE.Mesh(geo(new THREE.ExtrudeGeometry(barShape, { depth: 0.05, bevelEnabled: false })), M.wood);
-  barTop.rotation.x = Math.PI / 2;
-  barTop.position.set(0, 1.15, -2.1);
-  arch.add(barTop);
-  for (const x of [-1.9, -0.95, 0, 0.95, 1.9]) cyl(0.17, 0.72, M.ink, x, 0.36, 0.2, 16);
+  // The case's light, along the back under the glass top.
+  box(caseW - 0.08, 0.012, 0.03, M.light, caseX, CASE_TOP - 0.05, frontZ - BT + 0.04).castShadow = false;
+  /** The case's places, a little toward the guest side of the bar's depth, facing out. */
+  const caseSlots = CASE_LEVELS.flatMap((y) => CASE_COLS.map((x) => ({ x, y: y + (y === CASE_LOW ? 0.008 : 0.005), z: frontZ - 0.22 })));
+  // The Touch Cafe sign, on a white header over the kitchen opening behind
+  // the bar (owner request, 2026-10-22: the sign is on the wall, not the
+  // counter, and it is the cafe's, not the club's).
+  // The plan's walls stop at 1.2 m, so the header sits just on top of them
+  // between the kitchen's two side walls, low enough that the kitchen behind
+  // it stays in view from the whole-floor camera.
+  const SIGN_Z = -2.65;
+  const SIGN_BOTTOM = 1.2;
+  const SIGN_TALL = 0.7;
+  const HEADER_W = 5.95;
+  const signTex = cafeSignTexture(HEADER_W / SIGN_TALL);
+  if (signTex) disposables.push(signTex);
+  const headerFace = signTex ? mat(0xffffff, { map: signTex, roughness: 0.9 }) : M.paper;
+  // Box faces are +x, -x, +y, -y, +z, -z: the lettering goes on +z, toward the cafe.
+  const header = new THREE.Mesh(geo(new THREE.BoxGeometry(HEADER_W, SIGN_TALL, 0.08)), [M.paper, M.paper, M.paper, M.paper, headerFace, M.paper]);
+  header.position.set(0.025, SIGN_BOTTOM + SIGN_TALL / 2, SIGN_Z);
+  header.castShadow = true;
+  arch.add(header);
+  // The counter top over the solid bar; over the case it is the glass above.
+  barSlab(barLeft, 1.15, 0.05, M.wood).castShadow = false;
+  barSlab(barRight, 1.15, 0.05, M.wood).castShadow = false;
+  // The till, on the counter left of the case (as at the venue): a screen on
+  // a stand facing the staff, its back to the guests, and a card reader.
+  {
+    const tx = -1.25;
+    const tz = -2.1 + BD - BT / 2;
+    box(0.24, 0.02, 0.2, M.ink, tx, 1.16, tz);
+    box(0.05, 0.2, 0.05, M.ink, tx, 1.27, tz + 0.03);
+    const screen = new THREE.Group();
+    screen.position.set(tx, 1.47, tz + 0.03);
+    screen.rotation.x = 0.18; // leaning back, toward the staff side
+    arch.add(screen);
+    box(0.46, 0.3, 0.035, M.ink, 0, 0, 0, screen);
+    const face = new THREE.Mesh(geo(new THREE.PlaneGeometry(0.42, 0.26)), M.light);
+    face.position.z = -0.019;
+    face.rotation.y = Math.PI;
+    screen.add(face);
+    box(0.08, 0.03, 0.12, M.ink, tx + 0.3, 1.165, tz - 0.05).rotation.x = 0.15;
+  }
+  // No stools at the front: it is the dessert case's (as at the venue).
   // cafe
   const rrect = (w: number, d: number, r: number) => {
     const s = new THREE.Shape();
@@ -654,26 +843,153 @@ export function createFloorScene(host: HTMLElement, events: FloorSceneEvents, op
     tree(s * 3.3, -4.7, 0.42);
     planter(s * 3.3, -4.7, 0.6, 0.6);
   }
-  // showrooms + entrance
-  wall(-5, 6.6, -1.5, 6.6);
-  wall(1.5, 6.6, 5, 6.6);
-  wall(-1.5, 6.6, -1.5, 11);
-  wall(1.5, 6.6, 1.5, 11);
+  // shop + entrance (owner request, 2026-10-22). The walls that boxed the two
+  // showrooms off from the cafe are gone and so are their desks: the way in
+  // is the full width, with the front wall and its door as before. Looking
+  // out toward the door, the left (+x) sells rackets, balls and water, the
+  // right (-x) sports clothing, each on a wall unit; the equipment side has a
+  // display on the floor too.
   wall(-5, 11, -1.5, 11);
   wall(1.5, 11, 5, 11);
-  for (const [x, s] of [[-3.25, -1], [3.25, 1]] as const) {
-    box(0.35, 1.8, 3.6, M.wood, s * 4.7, 0.9, 8.8);
-    const arc = new THREE.Shape();
-    arc.absarc(0, 0, 1.4, 0, Math.PI / 2, false);
-    arc.absarc(0, 0, 1.0, Math.PI / 2, 0, true);
-    const counter = new THREE.Mesh(geo(new THREE.ExtrudeGeometry(arc, { depth: 1.0, bevelEnabled: false })), M.blue);
-    counter.rotation.x = Math.PI / 2;
-    counter.rotation.z = s < 0 ? Math.PI / 2 : 0;
-    counter.position.set(s * 1.7, 1.0, 7.0);
-    counter.castShadow = true;
-    arch.add(counter);
-    box(1.1, 0.75, 1.5, M.gray, x, 0.375, 9.4);
-    box(1.2, 0.04, 1.6, M.wood, x, 0.77, 9.4);
+  {
+    // A padel racket, face toward local +z, the handle down.
+    const headGeo = geo(new THREE.CylinderGeometry(0.13, 0.13, 0.035, 28));
+    const handleGeo = geo(new THREE.CylinderGeometry(0.017, 0.017, 0.17, 10));
+    const racket = (m: THREE.Material) => {
+      const g = new THREE.Group();
+      const head = new THREE.Mesh(headGeo, m);
+      head.rotation.x = Math.PI / 2;
+      head.scale.z = 1.15; // a padel head is a little taller than it is wide
+      head.castShadow = true;
+      const handle = new THREE.Mesh(handleGeo, M.ink);
+      handle.position.y = -0.235;
+      handle.castShadow = true;
+      g.add(head, handle);
+      return g;
+    };
+    const ballGeo = geo(new THREE.SphereGeometry(0.033, 12, 8));
+    const ball = (x: number, y: number, z: number) => {
+      const b = new THREE.Mesh(ballGeo, M.green);
+      b.position.set(x, y, z);
+      arch.add(b);
+    };
+    const tag = (x: number, y: number, z: number) => box(0.006, 0.035, 0.07, M.amber, x, y, z).castShadow = false;
+
+    // Equipment wall (+x): a white back, two shelves, rackets hung above.
+    const EX = 4.82;
+    box(0.05, 1.7, 3.6, M.paper, EX, 0.85, 8.8);
+    box(0.42, 0.12, 3.6, M.ink, EX - 0.235, 0.06, 8.8);
+    for (const y of [0.35, 0.75]) {
+      box(0.42, 0.03, 3.6, M.wood, EX - 0.235, y, 8.8);
+      for (let z = 7.3; z < 10.6; z += 0.6) tag(EX - 0.45, y - 0.02, z);
+    }
+    // Water on the lower shelf.
+    const bottleMat = mat(0xd6e6f7, { transparent: true, opacity: 0.75, roughness: 0.1 });
+    const bottleGeo = geo(new THREE.CylinderGeometry(0.035, 0.035, 0.2, 14));
+    const labelGeo = geo(new THREE.CylinderGeometry(0.0365, 0.0365, 0.06, 14));
+    const capGeo = geo(new THREE.CylinderGeometry(0.02, 0.02, 0.03, 10));
+    for (let z = 7.1; z < 10.55; z += 0.14) {
+      for (const [gm, m, y] of [[bottleGeo, bottleMat, 0.465], [labelGeo, M.blue, 0.45], [capGeo, M.paper, 0.58]] as const) {
+        const p = new THREE.Mesh(gm, m);
+        p.position.set(EX - 0.22, y, z);
+        arch.add(p);
+      }
+    }
+    // Ball tubes on the upper shelf: three balls in a clear tube, a dark cap.
+    const tubeGeo = geo(new THREE.CylinderGeometry(0.04, 0.04, 0.22, 14));
+    const tubeMat = mat(0xffffff, { transparent: true, opacity: 0.3, roughness: 0.1, depthWrite: false });
+    const tubeCapGeo = geo(new THREE.CylinderGeometry(0.041, 0.041, 0.02, 14));
+    for (let z = 7.15; z < 10.55; z += 0.22) {
+      const t = new THREE.Mesh(tubeGeo, tubeMat);
+      t.position.set(EX - 0.22, 0.875, z);
+      arch.add(t);
+      const c = new THREE.Mesh(tubeCapGeo, M.ink);
+      c.position.set(EX - 0.22, 0.995, z);
+      arch.add(c);
+      for (let k = 0; k < 3; k++) ball(EX - 0.22, 0.8 + k * 0.068, z);
+    }
+    // Rackets on the wall above, facing the room.
+    const racketColours = [M.blue, M.ink, M.green, M.blue, M.amber, M.ink];
+    racketColours.forEach((m, k) => {
+      const r = racket(m);
+      r.position.set(EX - 0.05, 1.4, 7.2 + k * 0.64);
+      r.rotation.y = -Math.PI / 2;
+      arch.add(r);
+    });
+    // The floor display: a white plinth, two rackets lying on it and a basket of balls.
+    box(0.8, 0.72, 1.4, M.paper, 2.7, 0.36, 8.7);
+    box(0.84, 0.03, 1.44, M.blue, 2.7, 0.735, 8.7);
+    for (const [x, turn] of [[2.52, 0.12], [2.88, -0.12]] as const) {
+      const lie = new THREE.Group();
+      lie.position.set(x, 0.77, 8.4);
+      lie.rotation.y = turn;
+      const r = racket(x < 2.7 ? M.blue : M.green);
+      r.rotation.x = -Math.PI / 2;
+      lie.add(r);
+      arch.add(lie);
+    }
+    const basket = new THREE.Mesh(geo(new THREE.CylinderGeometry(0.21, 0.17, 0.16, 20, 1, true)), mat(0x1b2c47, { roughness: 0.6, side: THREE.DoubleSide }));
+    basket.position.set(2.7, 0.83, 9.15);
+    arch.add(basket);
+    box(0.34, 0.01, 0.34, M.ink, 2.7, 0.755, 9.15).castShadow = false;
+    for (let k = 0; k < 14; k++) {
+      const a = k * 2.399;
+      const rr = k < 7 ? 0.11 : 0.05;
+      ball(2.7 + Math.cos(a) * rr, 0.8 + (k < 7 ? 0 : 0.05) + (k % 3) * 0.02, 9.15 + Math.sin(a) * rr);
+    }
+
+    // Clothing wall (-x): shirts face-out on a rail, shorts on one below.
+    const shirtTorso = geo(new THREE.BoxGeometry(0.42, 0.55, 0.03));
+    const shirtSleeve = geo(new THREE.BoxGeometry(0.16, 0.15, 0.03));
+    const hangerGeo = geo(new THREE.BoxGeometry(0.32, 0.015, 0.015));
+    const shirt = (m: THREE.Material) => {
+      const g = new THREE.Group();
+      const torso = new THREE.Mesh(shirtTorso, m);
+      torso.castShadow = true;
+      g.add(torso);
+      for (const sx of [-1, 1]) {
+        const sl = new THREE.Mesh(shirtSleeve, m);
+        sl.position.set(sx * 0.26, 0.19, 0);
+        sl.rotation.z = -sx * 0.6;
+        g.add(sl);
+      }
+      const h = new THREE.Mesh(hangerGeo, M.ink);
+      h.position.y = 0.285;
+      g.add(h);
+      return g;
+    };
+    const legGeo = geo(new THREE.BoxGeometry(0.17, 0.24, 0.03));
+    const waistGeo = geo(new THREE.BoxGeometry(0.36, 0.06, 0.03));
+    const shorts = (m: THREE.Material) => {
+      const g = new THREE.Group();
+      const w = new THREE.Mesh(waistGeo, m);
+      w.position.y = 0.12;
+      g.add(w);
+      for (const sx of [-1, 1]) {
+        const l = new THREE.Mesh(legGeo, m);
+        l.position.set(sx * 0.095, -0.03, 0);
+        g.add(l);
+      }
+      return g;
+    };
+    const CX = -4.75;
+    for (const z of [7.0, 10.6]) box(0.04, 1.8, 0.04, M.ink, CX, 0.9, z);
+    box(0.03, 0.03, 3.6, M.ink, CX + 0.05, 1.7, 8.8);
+    box(0.03, 0.03, 3.6, M.ink, CX + 0.05, 0.95, 8.8);
+    const tops = [M.blue, M.paper, M.ink, M.green, M.amber, M.blue];
+    const bottoms = [M.ink, M.blue, M.ink, M.paper, M.blue, M.ink];
+    for (let k = 0; k < 6; k++) {
+      const z = 7.3 + k * 0.6;
+      const t = shirt(tops[k]!);
+      t.position.set(CX + 0.14, 1.4, z);
+      t.rotation.y = Math.PI / 2;
+      arch.add(t);
+      const b = shorts(bottoms[k]!);
+      b.position.set(CX + 0.14, 0.78, z);
+      b.rotation.y = Math.PI / 2;
+      arch.add(b);
+      tag(CX + 0.3, 1.05, z + 0.18);
+    }
   }
   box(0.12, 2.6, 0.12, M.ink, -1.5, 1.3, 11.1);
   box(0.12, 2.6, 0.12, M.ink, 1.5, 1.3, 11.1);
@@ -711,6 +1027,7 @@ export function createFloorScene(host: HTMLElement, events: FloorSceneEvents, op
   const courtZones = COURT_X.map((cx, i) => addZone({ kind: 'court', id: `slot-${i}` }, cx, 1.5, CZ, 11, 3.2, 21));
   const tableZones = TABLE_DEF.map(([x, z], i) => addZone({ kind: 'table', id: `slot-${i}` }, x, 0.5, z, 2.2, 1.1, 2.0));
   for (const [room, s] of Object.entries(ROOMS) as [Room, Station][]) addZone({ kind: 'room', room }, s.x, 0.7, s.z, s.w, 1.5, s.d);
+  addZone({ kind: 'desserts' }, caseX, caseY, frontZ - BT / 2, caseW + 0.1, caseH + 0.1, BT + 0.1);
   const zoneOf = (mesh: THREE.Object3D) => zones.find((z) => z.mesh === mesh) ?? null;
 
   // ---- live layer ---------------------------------------------------------
@@ -917,6 +1234,150 @@ export function createFloorScene(host: HTMLElement, events: FloorSceneEvents, op
     }
     dirty = true;
   };
+  // ---- dessert case contents ---------------------------------------------
+  // Built from shared geometry and materials (disposed with the scene); the
+  // group is refilled whenever the menu's yes/no changes.
+  const SW = {
+    cream: mat(0xf4e7cc, { roughness: 0.7 }),
+    choc: mat(0x603813, { roughness: 0.5 }), // the brand brown
+    baked: mat(0x8a5426, { roughness: 0.75 }),
+    dough: mat(0xc98d4b, { roughness: 0.8 }),
+    syrup: mat(0xd98a2b, { roughness: 0.45 }),
+    berry: mat(0xc8553d, { roughness: 0.5 }),
+    carrot: mat(0xb8723a, { roughness: 0.8 }),
+    bowl: mat(0xf7f8fa, { roughness: 0.6, side: THREE.DoubleSide }),
+  };
+  const SG = {
+    plate: geo(new THREE.CylinderGeometry(0.07, 0.07, 0.008, 24)),
+    ring: geo(new THREE.TorusGeometry(0.042, 0.02, 10, 24)),
+    cookie: geo(new THREE.CylinderGeometry(0.042, 0.042, 0.013, 18)),
+    wedge: geo(new THREE.CylinderGeometry(0.08, 0.08, 0.055, 12, 1, false, 0, Math.PI / 3)),
+    wedgeTop: geo(new THREE.CylinderGeometry(0.08, 0.08, 0.012, 12, 1, false, 0, Math.PI / 3)),
+    cup: geo(new THREE.CylinderGeometry(0.045, 0.034, 0.065, 18)),
+    lid: geo(new THREE.CylinderGeometry(0.043, 0.043, 0.012, 18)),
+    tray: geo(new THREE.CylinderGeometry(0.066, 0.062, 0.028, 24)),
+    dust: geo(new THREE.CylinderGeometry(0.032, 0.032, 0.004, 16)),
+    bowl: geo(new THREE.SphereGeometry(0.055, 18, 8, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2)),
+    fruit: geo(new THREE.SphereGeometry(0.022, 12, 8)),
+    cake: geo(new THREE.CylinderGeometry(0.06, 0.06, 0.07, 24)),
+    cakeTop: geo(new THREE.CylinderGeometry(0.062, 0.062, 0.012, 24)),
+    log: geo(new THREE.CylinderGeometry(0.034, 0.034, 0.09, 18)),
+    round: geo(new THREE.CylinderGeometry(0.034, 0.034, 0.016, 18)),
+    chip: geo(new THREE.BoxGeometry(0.012, 0.004, 0.01)),
+    layer: geo(new THREE.BoxGeometry(0.085, 0.013, 0.085)),
+    dusting: geo(new THREE.BoxGeometry(0.085, 0.005, 0.085)),
+  };
+  /** One dessert on its plate, its base at y = 0. */
+  const sweet = (shape: DessertShape) => {
+    const g = new THREE.Group();
+    const part = (gm: THREE.BufferGeometry, m: THREE.Material, x: number, y: number, z: number) => {
+      const p = new THREE.Mesh(gm, m);
+      p.position.set(x, y, z);
+      p.castShadow = true;
+      g.add(p);
+      return p;
+    };
+    const P = 0.008; // plate height
+    part(SG.plate, M.paper, 0, P / 2, 0);
+    switch (shape) {
+      case 'donut': {
+        part(SG.ring, SW.dough, 0, P + 0.02, 0).rotation.x = -Math.PI / 2;
+        const glaze = part(SG.ring, SW.choc, 0, P + 0.026, 0);
+        glaze.rotation.x = -Math.PI / 2;
+        glaze.scale.set(1.02, 1.02, 0.6);
+        break;
+      }
+      case 'cookie':
+        [0, 1, 2].forEach((k) => part(SG.cookie, SW.dough, (k - 1) * 0.006, P + 0.0065 + k * 0.013, (k % 2) * 0.005));
+        break;
+      // The three slices: a sixth of a round, its point toward the back.
+      case 'cheesecake':
+        // Pale filling on a biscuit base.
+        part(SG.wedgeTop, SW.dough, -0.024, P + 0.006, -0.042);
+        part(SG.wedge, SW.cream, -0.024, P + 0.012 + 0.0275, -0.042);
+        break;
+      case 'basque':
+        // San Sebastian: no base, the burnt top.
+        part(SG.wedge, SW.cream, -0.024, P + 0.0275, -0.042);
+        part(SG.wedgeTop, SW.baked, -0.024, P + 0.061, -0.042);
+        break;
+      case 'carrot':
+        // Spiced sponge, a frosting layer through the middle and on top.
+        part(SG.wedgeTop, SW.carrot, -0.024, P + 0.006, -0.042).scale.y = 2.2;
+        part(SG.wedgeTop, SW.cream, -0.024, P + 0.0255, -0.042).scale.y = 0.6;
+        part(SG.wedgeTop, SW.carrot, -0.024, P + 0.042, -0.042).scale.y = 2.2;
+        part(SG.wedgeTop, SW.cream, -0.024, P + 0.062, -0.042);
+        part(SG.fruit, SW.syrup, 0.0, P + 0.07, -0.02).scale.setScalar(0.35);
+        break;
+      case 'mosaic': {
+        // The chocolate log lying across the plate, one cut round stood in
+        // front of it with the biscuit pieces showing.
+        part(SG.log, SW.choc, 0, P + 0.034, -0.015).rotation.z = Math.PI / 2;
+        const cut = part(SG.round, SW.choc, 0, P + 0.034, 0.04);
+        cut.rotation.x = Math.PI / 2;
+        for (const [cx, cy] of [[-0.012, 0.01], [0.013, 0.004], [-0.002, -0.013]] as const) {
+          part(SG.chip, SW.cream, cx, P + 0.034 + cy, 0.049).rotation.x = Math.PI / 2;
+        }
+        break;
+      }
+      case 'tiramisu':
+        // A square: sponge and cream in layers, cocoa on top.
+        [SW.baked, SW.cream, SW.baked, SW.cream].forEach((m, k) => part(SG.layer, m, 0, P + 0.0065 + k * 0.013, 0));
+        part(SG.dusting, SW.choc, 0, P + 0.0545, 0);
+        break;
+      case 'cup':
+        part(SG.cup, M.paper, 0, P + 0.0325, 0);
+        part(SG.lid, SW.choc, 0, P + 0.061, 0);
+        break;
+      case 'tray':
+        part(SG.tray, SW.syrup, 0, P + 0.014, 0);
+        part(SG.dust, M.green, 0, P + 0.03, 0);
+        break;
+      case 'bowl':
+        part(SG.bowl, SW.bowl, 0, P + 0.055, 0);
+        part(SG.fruit, M.green, -0.02, P + 0.05, 0.005);
+        part(SG.fruit, M.amber, 0.02, P + 0.05, -0.005);
+        part(SG.fruit, SW.berry, 0, P + 0.055, 0.02);
+        break;
+      case 'cake':
+        part(SG.cake, SW.cream, 0, P + 0.035, 0);
+        part(SG.cakeTop, SW.choc, 0, P + 0.074, 0);
+        part(SG.fruit, SW.berry, 0, P + 0.088, 0).scale.setScalar(0.6);
+        break;
+    }
+    return g;
+  };
+  const SWEET_SCALE = 1.5;
+  const sweets = new THREE.Group();
+  root.add(sweets);
+  /** What was on show at the last fill; null before the first, so the opening fill does not animate. */
+  let onShow: Set<string> | null = null;
+  function showDesserts(desserts: readonly DessertOnShow[]) {
+    while (sweets.children.length) sweets.remove(sweets.children[0]!);
+    const now = new Set<string>();
+    desserts.slice(0, DESSERT_CASE_SLOTS).forEach((d, i) => {
+      if (!d.available) return;
+      // The arrival scales the outer group 0 → 1, so the size lives on the inner one.
+      const g = new THREE.Group();
+      const inner = sweet(d.shape);
+      // A touch over life size: at the plan's nearest a real slice is a few pixels.
+      inner.scale.setScalar(SWEET_SCALE);
+      g.add(inner);
+      const slot = caseSlots[i]!;
+      g.position.set(slot.x, slot.y, slot.z);
+      sweets.add(g);
+      now.add(d.id);
+      // Back on show while the owner is looking: it arrives the way a figure does.
+      if (onShow && !onShow.has(d.id) && !opts.reducedMotion) {
+        g.scale.setScalar(0.001);
+        g.userData.spawn = performance.now();
+        arriving.push(g);
+      }
+    });
+    onShow = now;
+    dirty = true;
+  }
+
   function focus(target: FloorTarget | null) {
     atHome = target === null;
     if (!target) {
@@ -924,7 +1385,11 @@ export function createFloorScene(host: HTMLElement, events: FloorSceneEvents, op
       return;
     }
     const zone = zones.find((z) =>
-      z.target.kind === 'room' ? target.kind === 'room' && z.target.room === target.room : z.target.kind === target.kind && z.target.id === (target as { id: string }).id,
+      z.target.kind === 'room'
+        ? target.kind === 'room' && z.target.room === target.room
+        : z.target.kind === 'desserts'
+          ? target.kind === 'desserts'
+          : z.target.kind === target.kind && z.target.id === (target as { id: string }).id,
     );
     if (!zone) return;
     const c = new THREE.Vector3();
@@ -995,8 +1460,12 @@ export function createFloorScene(host: HTMLElement, events: FloorSceneEvents, op
     ptr.set(((ev.clientX - r.left) / r.width) * 2 - 1, -((ev.clientY - r.top) / r.height) * 2 + 1);
     ray.setFromCamera(ptr, camera);
     zoneMeshes.forEach((z) => (z.visible = true));
-    const hit = ray.intersectObjects(zoneMeshes, false)[0];
+    const hits = ray.intersectObjects(zoneMeshes, false);
     zoneMeshes.forEach((z) => (z.visible = false));
+    // The case is small and stands inside the bar's and the cafe floor's
+    // boxes, which are nearer to most rays that reach it: when the pointer is
+    // on the case at all, the case is what it is over.
+    const hit = hits.find((h) => zoneOf(h.object)?.target.kind === 'desserts') ?? hits[0];
     return hit ? zoneOf(hit.object) : null;
   };
   const localPoint = (ev: PointerEvent) => {
@@ -1178,5 +1647,5 @@ export function createFloorScene(host: HTMLElement, events: FloorSceneEvents, op
     canvas.remove();
   }
 
-  return { apply, focus, zoom, setZoomLevel, setWheelZoom, dispose };
+  return { apply, showDesserts, focus, zoom, setZoomLevel, setWheelZoom, dispose };
 }

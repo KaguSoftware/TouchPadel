@@ -105,6 +105,9 @@ import { assistantFreeAr } from './assistantFree.ar';
 // Gender hours (0353): the management page, the desk calendar's kept bands, a new customer's gender.
 import { genderHoursEn } from './genderHours.en';
 import { genderHoursAr } from './genderHours.ar';
+// The marketing role's Insights page (0360): the whole place as levels, trends and rounded shares.
+import { insightsEn } from './insights.en';
+import { insightsAr } from './insights.ar';
 
 export const wsEn = {
   shell: shellEn,
@@ -145,6 +148,7 @@ export const wsEn = {
   discounts: discountsEn,
   assistantFree: assistantFreeEn,
   genderHours: genderHoursEn,
+  insights: insightsEn,
 } as const;
 
 export const wsAr = {
@@ -186,4 +190,5 @@ export const wsAr = {
   discounts: discountsAr,
   assistantFree: assistantFreeAr,
   genderHours: genderHoursAr,
+  insights: insightsAr,
 } as const;

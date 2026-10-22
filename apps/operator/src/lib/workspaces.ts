@@ -67,7 +67,7 @@ export type NavLabelKey =
   // The owner assistant (docs/design/assistant §5.1), and the Files it reads (0354).
   | 'assistant' | 'files'
   // The team workspace (driver, marketing), and the till's and the desk's row.
-  | 'myTasks'
+  | 'myTasks' | 'insights'
   // Protocols and the staff suggestion box (build-contracts-2026-09-23 §5.1).
   | 'protocols' | 'suggestions'
   // Wave 5, people records (wave5-addendum-2026-09-25 §5.2).
@@ -492,6 +492,8 @@ const CUSTOMERS: readonly NavItem[] = [
   // Loyalty (build-contracts-2026-10-05 §5): business-wide points, tiers and rewards.
   { to: '/admin/loyalty', labelKey: 'loyalty', icon: 'star' },
   { to: '/marketing', labelKey: 'marketing', icon: 'image', tabs: MARKETING_TABS },
+  // What the marketing role sees (0360), for the owner to check.
+  { to: '/insights', labelKey: 'insights', icon: 'layers' },
   { to: '/admin/hero', labelKey: 'guestApp', icon: 'phone', activePrefix: '/admin/hero' },
 ];
 
@@ -533,7 +535,12 @@ const SHOP: readonly NavItem[] = [
  * staff member who holds nothing but this still needs Options, Go on break
  * and Sign out.
  */
-const TEAM: readonly NavItem[] = [MY_TASKS];
+const INSIGHTS: NavItem = { to: '/insights', labelKey: 'insights', icon: 'layers' };
+
+const TEAM: readonly NavItem[] = [
+  MY_TASKS,
+  INSIGHTS,
+];
 
 /**
  * The sections, in rail order. `home` is the section's first page; the shell

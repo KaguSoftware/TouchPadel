@@ -14,6 +14,7 @@ vi.mock('@tanstack/react-router', () => ({ useNavigate: () => navigate }));
 
 const live = vi.fn<() => LiveFloorResult>();
 vi.mock('./floorData', () => ({ useLiveFloor: () => live() }));
+vi.mock('./dessertData', () => ({ useDessertCase: () => ({ list: null, status: 'loading' }) }));
 
 import { LiveFloor, describeTarget } from './LiveFloor';
 

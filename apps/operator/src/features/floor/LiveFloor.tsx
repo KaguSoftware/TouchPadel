@@ -37,6 +37,7 @@ import { CardTitle, MARK, MARK_FG } from '../ops/OpsVisuals';
 import { reservationNameOf } from '../matches/matchLogic';
 import { countsOf, type FloorSnapshot, type FloorTarget, type Room } from './floorModel';
 import { useLiveFloor } from './floorData';
+import { useDessertCase, type DessertCaseState } from './dessertData';
 import type { FloorSceneHandle } from './floorScene';
 
 const ROOM_LABEL: Record<Room, 'reception' | 'bar' | 'kitchen' | 'office' | 'meeting' | 'floor'> = {
@@ -210,6 +211,10 @@ function Stage({ snapshot, blockSize }: { snapshot: FloorSnapshot; blockSize: st
   // goes. The scene owns the truth and reports every camera move, so the
   // buttons, a click on a court and a drag all carry the thumb with them.
   const [zoomLevel, setZoomLevel] = useState(0);
+  // The glass case on the bar: the menu's desserts, each on show or not.
+  const desserts = useDessertCase();
+  const dessertsRef = useRef(desserts.list);
+  dessertsRef.current = desserts.list;
 
   useEffect(() => {
     if (!drawable || !hostRef.current) return;
@@ -233,6 +238,7 @@ function Stage({ snapshot, blockSize }: { snapshot: FloorSnapshot; blockSize: st
       );
       sceneRef.current = scene;
       scene.apply(snapshotRef.current);
+      scene.showDesserts(dessertsRef.current ?? []);
       setReady(true);
     });
     return () => {
@@ -245,6 +251,10 @@ function Stage({ snapshot, blockSize }: { snapshot: FloorSnapshot; blockSize: st
   useEffect(() => {
     sceneRef.current?.apply(snapshot);
   }, [snapshot]);
+
+  useEffect(() => {
+    sceneRef.current?.showDesserts(desserts.list ?? []);
+  }, [desserts.list]);
 
   // The wheel zooms the plan wherever it is (owner request, 2026-09-21), and
   // only over the plan — the handler is on the canvas, so the wheel means what
@@ -486,7 +496,7 @@ function Stage({ snapshot, blockSize }: { snapshot: FloorSnapshot; blockSize: st
           LTR overlay and only its content follows the document direction. */}
       {hover && (
         <div dir="ltr" style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
-          <Tooltip hover={hover} snapshot={snapshot} host={hostRef.current} locale={locale} />
+          <Tooltip hover={hover} snapshot={snapshot} desserts={desserts} host={hostRef.current} locale={locale} />
         </div>
       )}
     </div>
@@ -560,9 +570,21 @@ function ZoomSlider({ value, onChange }: { value: number; onChange: (v: number) 
 }
 
 /** What the pointer is over, in words, beside the pointer. */
-function Tooltip({ hover, snapshot, host, locale }: { hover: Hover; snapshot: FloorSnapshot; host: HTMLDivElement | null; locale: ReturnType<typeof useLocale>['locale'] }) {
+function Tooltip({
+  hover,
+  snapshot,
+  desserts,
+  host,
+  locale,
+}: {
+  hover: Hover;
+  snapshot: FloorSnapshot;
+  desserts: DessertCaseState;
+  host: HTMLDivElement | null;
+  locale: ReturnType<typeof useLocale>['locale'];
+}) {
   const { tr } = useLocale();
-  const body = describeTarget(hover.target, snapshot, tr, locale);
+  const body = describeTarget(hover.target, snapshot, tr, locale, desserts);
   if (!body) return null;
   // Keep it inside the stage: flip to the other side of the pointer near the far edge.
   const w = host?.clientWidth ?? 0;
@@ -612,8 +634,34 @@ type Tr = ReturnType<typeof useLocale>['tr'];
  * named as the desk names it (`reservationNameOf`): a lesson reads "Lesson" and
  * an open match "Open match" in the screen's language, not the stored literal.
  */
-export function describeTarget(target: FloorTarget, s: FloorSnapshot, tr: Tr, locale: ReturnType<typeof useLocale>['locale']): ReactNode {
+export function describeTarget(
+  target: FloorTarget,
+  s: FloorSnapshot,
+  tr: Tr,
+  locale: ReturnType<typeof useLocale>['locale'],
+  desserts: DessertCaseState = { list: null, status: 'loading' },
+): ReactNode {
   const time = (iso: string) => formatTime(new Date(iso), locale);
+  if (target.kind === 'desserts') {
+    const muted = (text: string) => <span style={{ color: 'var(--tp-muted-fg)' }}>{text}</span>;
+    return (
+      <>
+        <strong>{tr('ws.owner.floor.desserts.title')}</strong>
+        {desserts.status === 'error'
+          ? muted(tr('ws.owner.floor.desserts.failed'))
+          : desserts.list === null
+            ? muted(tr('ws.owner.floor.desserts.reading'))
+            : desserts.list.length === 0
+              ? muted(tr('ws.owner.floor.desserts.none'))
+              : desserts.list.map((d) => (
+                  <span key={d.id} style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 'var(--tp-sp-2)', flexWrap: 'wrap' }}>
+                    <bdi>{pickName(locale, d)}</bdi>
+                    <Status tone={d.available ? 'success' : 'neutral'}>{tr(d.available ? 'ws.owner.floor.desserts.onShow' : 'ws.owner.floor.desserts.notAvailable')}</Status>
+                  </span>
+                ))}
+      </>
+    );
+  }
   if (target.kind === 'court') {
     const c = s.courts.find((x) => x.id === target.id);
     if (!c) return null;
