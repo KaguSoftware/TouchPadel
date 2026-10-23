@@ -452,7 +452,7 @@ begin
     into v_points, v_lifetime
     from ranks_ledger l where l.profile_id = v_me;
 
-  -- Their place: one more than the live entries ahead of them in the period. Only their own.
+  -- Their place: one more than the live players ahead of them in the period. Only their own.
   if v_points > 0 then
     select count(*)::int + 1 into v_rank
       from (select l.profile_id from ranks_ledger l
