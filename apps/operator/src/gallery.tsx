@@ -33,6 +33,8 @@ import {
 } from './components/kit';
 import { BrandBall, BrandLockup, BrandSwoosh } from './components/brand';
 import { CourtLines, Icon } from './components/icons';
+import { WizardDemo } from './galleryWizard';
+import { ToastProvider } from './components/toast';
 
 interface Row {
   ref: string;
@@ -71,6 +73,7 @@ function Gallery() {
   const [galleryCourt, setGalleryCourt] = useState('1');
   const [galleryPeriod, setGalleryPeriod] = useState('week');
   const [galleryOrder, setGalleryOrder] = useState('pick');
+  const [wizardOpen, setWizardOpen] = useState(() => location.hash === '#wizard');
   const columns: Column<Row>[] = [
     { key: 'ref', header: 'Booking' },
     { key: 'guest', header: 'Guest' },
@@ -320,6 +323,11 @@ function Gallery() {
           </div>
         </Section>
 
+        <Section title="Stepped create dialog">
+          <Button onClick={() => setWizardOpen(true)}>Open the wizard</Button>
+          {wizardOpen && <WizardDemo onClose={() => setWizardOpen(false)} />}
+        </Section>
+
         <Button onClick={toggleLocale} icon="globe">{tr('ws.shell.nav.language')}</Button>
         <div style={{ blockSize: '3rem' }} />
       </main>
@@ -333,7 +341,9 @@ function ThemedGallery() {
   return (
     <ThemeProvider theme="operator" dir="ltr" mode={mode}>
       <GlobalStyles />
-      <Gallery />
+      <ToastProvider>
+        <Gallery />
+      </ToastProvider>
     </ThemeProvider>
   );
 }

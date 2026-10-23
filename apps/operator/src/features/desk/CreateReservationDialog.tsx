@@ -37,28 +37,40 @@
  * `onStartLesson`. A lesson is never a queued `reservation.create`: it is a
  * coaching write, online only, so offline the kind is disabled with the reason.
  *
+ * STEPS (Sait, 2026-10-22): a stepped wizard (components/StepWizard.tsx):
+ * What kind (only when a match or a lesson is offered) → Who → Court & time,
+ * then Review, which holds Create. A SLOT_TAKEN or GENDER_REQUIRED refusal
+ * opens Court & time again.
+ *
+ * Every element is the approved preview's (operator-wizards.html, `booking`):
+ * notes are WizardNote, the price box names the rate rule app.price_slot
+ * picked ("Court 1 · 90 min at Evening") once its name is read.
+ *
  * e2e selectors kept: dialog 'New booking', label 'Guest name', label
- * 'Duration' (a native select whose option values are minutes), button
- * 'Create booking'.
+ * 'Duration', button 'Create booking' (on Review); the kind cards are
+ * `booking.kind.*`, the steps `booking.step.*`.
  */
 import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { bookableDurations, wallTimeToUtc } from '@touch/core';
 import { SLOT_MIN } from './useTradingNight';
-import { countPhrase, formatDate, formatNumber, formatTime, formatTimeRange, type Locale } from '@touch/i18n';
+import { countPhrase, formatDate, formatNumber, formatTime, formatTimeRange, formatWeekdayShort, isolate, type Locale } from '@touch/i18n';
 import { clientRef } from '../../lib/idem';
 import { mutate } from '../../lib/mutate';
 import { AppRpcError, appRpc } from '../../lib/appRpc';
+import { supabase } from '../../lib/supabase';
 import type { CourtRow } from '../../lib/queries';
 import { useLocale, pickName } from '../../lib/i18n';
 import { QK } from '../../lib/queryKeys';
 import { useStationReach } from '../../lib/stationReach';
 import { useToast } from '../../components/toast';
-import { Button, ErrorText, Field, Modal, Select, inputStyle } from '../../components/ui';
-import { ConflictNotice, MessagePresenter, Money, SegmentedControl } from '../../components/kit';
+import { ErrorText, Field, Select, inputStyle } from '../../components/ui';
+import { ConflictNotice, Money } from '../../components/kit';
+import { ReviewList, StepWizard, WizardChoice, WizardChoices, WizardNote, WizardPrice, type WizardAt, type WizardStep } from '../../components/StepWizard';
 import { awaitingCourtOverlap, matchesBumpedBy } from '../matches/matchLogic';
 import type { OpenMatch, OpenMatches } from '../matches/matchPayloads';
 import { CustomerPicker, type PickedCustomer } from './customers/CustomerPicker';
+import { PickerHint } from './wizardParts';
 import { GenderSlotNote, genderBlocksBooking, useSlotKept } from './GenderSlotNote';
 import { durationsFitting, nameFromQuery, phoneFromQuery, sanitizeName, sanitizePhone, slotTaken } from './deskLogic';
 import type { ReservationRow } from './deskTypes';
@@ -176,6 +188,7 @@ export function CreateReservationDialog({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const [conflict, setConflict] = useState(false);
+  const [at, setAt] = useState<WizardAt>(0);
 
   const startAt = useMemo(() => new Date(startIso), [startIso]);
 
@@ -228,6 +241,19 @@ export function CreateReservationDialog({
     queryFn: () => appRpc<{ rule_id: string; price_iqd: number }[]>('price_slot', { p_court_id: courtId, p_start_at: startIso, p_duration_min: duration }),
     staleTime: 60_000,
   });
+  // The rate rule's name, for the price box's "at Evening" (rate_rules is readable to staff).
+  const ruleId = priceQ.data?.[0]?.rule_id ?? null;
+  const rateQ = useQuery({
+    queryKey: ['rateRuleName', ruleId],
+    enabled: ruleId !== null,
+    queryFn: async () => {
+      const { data, error: e } = await supabase.from('rate_rules').select('name').eq('id', ruleId!).maybeSingle();
+      if (e) throw e;
+      return (data?.name ?? '').trim();
+    },
+    staleTime: 5 * 60_000,
+  });
+  const rateName = ruleId !== null ? (rateQ.data ?? '') : '';
   // Zero rows is an answer: no rate rule sells this length at this time, and
   // the server will refuse the booking. An error is not an answer — never block on it.
   const unpriced = priceQ.isSuccess && (priceQ.data?.length ?? 0) === 0;
@@ -239,7 +265,8 @@ export function CreateReservationDialog({
   const waiting = awaitingCourtOverlap(openMatches, draftPeriod);
   const matchTime = (m: OpenMatch) => formatTime(new Date(m.start_at), locale, tz);
 
-  async function submit() {
+  /** `onRefused`: a refusal about the court or time opens that step again. */
+  async function submit(onRefused: () => void) {
     setBusy(true);
     setError(null);
     setConflict(false);
@@ -262,10 +289,15 @@ export function CreateReservationDialog({
         void toastBumpedMatches(queryClient, bumped, (m) => toast.ok(tr('ws.matches.create.bumpedToast', { time: matchTime(m) })));
       }
     } catch (e) {
-      if (e instanceof AppRpcError && e.code === 'SLOT_TAKEN') setConflict(true);
+      if (e instanceof AppRpcError && e.code === 'SLOT_TAKEN') {
+        setConflict(true);
+        onRefused();
+      }
       // Gender hours (0353): the record has no gender after all; the note under the time offers Set gender.
-      else if (e instanceof AppRpcError && e.code === 'GENDER_REQUIRED' && customer && kept.length > 0) setCustomer({ ...customer, gender: null });
-      else setError(e);
+      else if (e instanceof AppRpcError && e.code === 'GENDER_REQUIRED' && customer && kept.length > 0) {
+        setCustomer({ ...customer, gender: null });
+        onRefused();
+      } else setError(e);
     } finally {
       setBusy(false);
     }
@@ -275,12 +307,9 @@ export function CreateReservationDialog({
   // Nothing the court sells fits before the close, so there is no booking to
   // make from this start at all.
   const closesTooSoon = durations.length === 0;
-  const canSubmit = !busy && !needsGuest && !chosenTaken && !unpriced && !closesTooSoon && !genderBlocked;
   /*
-   * Why Create is disabled. A missing guest name is NOT among these: the name
-   * box already carries the required mark, so the tooltip only restated what
-   * the field says, and it is the one blocked state the desk fixes by typing
-   * rather than by changing the booking.
+   * What holds the Court & time step. A missing guest is the Who step's own
+   * problem; these are the ones the desk fixes by changing the booking.
    */
   const blockedReason = closesTooSoon
     ? tr('ws.courtDesk.create.closesTooSoonReason')
@@ -293,178 +322,267 @@ export function CreateReservationDialog({
           : undefined;
 
   const courtLabel = court ? pickName(locale, court) : '';
+  const minutes = tr('op.common.minutesShort', { minutes: formatNumber(duration, locale) });
+  const whoName = customer?.name ?? guestName.trim();
+  const offerKinds = Boolean(onStartMatch || onStartLesson);
+  const price = priceQ.data?.[0]?.price_iqd ?? null;
+  // Unreported is "—", never a made-up zero; a failed quote does not block the booking.
+  const priceFigure = unpriced ? (
+    tr('ws.courtDesk.create.noPrice')
+  ) : priceQ.isPending || priceQ.isError || price === null ? (
+    '—'
+  ) : (
+    <Money amount={price} />
+  );
+  const carry = { courtId, startAt, customer, guestName, guestPhone };
+  // "Thu Oct 23, 2026": the day as the lead and Review show it.
+  const dayText = `${formatWeekdayShort(startAt, locale, tz)} ${formatDate(startAt, locale, tz)}`;
 
-  return (
-    <Modal
-      title={tr('op.desk.newBooking')}
-      subtitle={
-        <bdi>
-          {courtLabel} · {formatDate(startAt, locale, tz)} · {formatTimeRange(startAt, endAt, locale, tz)}
-        </bdi>
-      }
-      dismissible={!busy}
-      onClose={onClose}
-      footer={(close) => (
+  const steps: WizardStep[] = [];
+  if (offerKinds) {
+    steps.push({
+      key: 'kind',
+      label: tr('ws.courtDesk.create.wizard.stepKind'),
+      note: tr('op.desk.kindBooking'),
+      content: (
         <>
-          <Button onClick={close} disabled={busy}>
-            {tr('common.cancel')}
-          </Button>
-          <Button kind="primary" busy={busy} disabled={!canSubmit} disabledReason={blockedReason} onClick={() => void submit()}>
-            {tr('op.desk.create')}
-          </Button>
-        </>
-      )}
-    >
-      {conflict && (
-        <ConflictNotice
-          body={
-            // R22: the court is kept for a match waiting for it.
-            waiting.length > 0 ? tr('ws.matches.errors.slotKept', { time: matchTime(waiting[0]!) }) : tr('ws.courtDesk.create.conflictBody')
-          }
-          resolveLabel={tr('ws.courtDesk.create.pickAnother')}
-          onResolve={night ? () => setConflict(false) : onClose}
-          style={{ marginBlockEnd: '0.85rem' }}
-        />
-      )}
-      {/* group: a <label> around a set of buttons forwards the click to the first of them — see Field.
-          With neither a match nor a lesson to offer, Booking would stand alone: no row at all. */}
-      {(onStartMatch || onStartLesson) && (
-        <Field label={tr('op.desk.kind')} group>
-          <SegmentedControl<CreateKind>
-            value="booking"
-            onChange={(next) => {
-              if (next === 'match') {
+          <WizardChoices label={tr('op.desk.kind')}>
+            <WizardChoice on title={tr('op.desk.kindBooking')} body={tr('ws.courtDesk.create.wizard.kindBookingBody')} disabled={busy} onPick={() => setAt(1)} testId="booking.kind.booking" />
+            {onStartMatch && (
+              <WizardChoice
+                on={false}
+                title={tr('ws.matches.common.openMatch')}
+                body={tr('ws.courtDesk.create.wizard.kindMatchBody')}
+                disabled={busy || !reachable}
                 // The Start dialog takes over with what is already chosen.
-                onStartMatch?.({ courtId, startAt, customer, guestName, guestPhone });
-                return;
-              }
-              if (next === 'lesson') {
+                onPick={() => onStartMatch(carry)}
+                testId="booking.kind.match"
+              />
+            )}
+            {onStartLesson && (
+              <WizardChoice
+                on={false}
+                title={tr('ws.coaching.common.lesson')}
+                body={tr('ws.courtDesk.create.wizard.kindLessonBody')}
+                disabled={busy || !reachable}
                 // New lesson takes over the same way (coaching §5.9); the server picks the court.
-                onStartLesson?.({ courtId, startAt, customer, guestName, guestPhone });
-              }
-            }}
-            options={[
-              { value: 'booking', label: tr('op.desk.kindBooking'), disabled: busy },
-              ...(onStartMatch ? [{ value: 'match' as const, label: tr('ws.matches.common.openMatch'), disabled: busy || !reachable }] : []),
-              ...(onStartLesson ? [{ value: 'lesson' as const, label: tr('ws.coaching.common.lesson'), disabled: busy || !reachable }] : []),
-            ]}
-          />
-        </Field>
-      )}
-      {onStartMatch && !reachable && (
-        <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', marginBlockStart: '-0.5rem', marginBlockEnd: '0.85rem' }}>{tr('ws.matches.offline.needsConnection')}</p>
-      )}
-      {onStartLesson && !reachable && (
-        <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', marginBlockStart: onStartMatch ? 0 : '-0.5rem', marginBlockEnd: '0.85rem' }}>{tr('ws.coaching.offline.needsConnection')}</p>
-      )}
-
-      <CustomerPicker
-        value={customer}
-        disabled={busy}
-        autoFocus={initialCustomer === null}
-        onQueryChange={(q) => {
-          if (!nameTouched) setGuestName(nameFromQuery(q));
-          if (!phoneTouched) setGuestPhone(phoneFromQuery(q));
-        }}
-        onChange={(next) => {
-          setCustomer(next);
-          if (next) {
-            // What the account says outranks what was searched for.
-            if (!nameTouched || guestName.trim() === '') setGuestName(sanitizeName(next.name));
-            if (next.phone && (!phoneTouched || guestPhone.trim() === '')) setGuestPhone(sanitizePhone(next.phone));
-          }
-        }}
-      />
-      <div className="tp-grid" data-cols="2" style={{ columnGap: 'var(--tp-sp-3)' }}>
-        <Field label={tr('op.desk.guestName')} required={customer === null}>
-          <input
-            style={inputStyle}
-            value={guestName}
-            disabled={busy}
-            maxLength={200}
-            onChange={(e) => {
-              setNameTouched(true);
-              setGuestName(sanitizeName(e.target.value));
-            }}
-          />
-        </Field>
-        <Field label={tr('op.desk.guestPhone')} optional>
-          <input
-            style={inputStyle}
-            dir="ltr"
-            inputMode="tel"
-            autoComplete="off"
-            maxLength={30}
-            value={guestPhone}
-            disabled={busy}
-            onChange={(e) => {
-              setPhoneTouched(true);
-              setGuestPhone(sanitizePhone(e.target.value));
-            }}
-          />
-        </Field>
-      </div>
-
-      <div className="tp-grid" data-cols={night ? '3' : '2'} style={{ columnGap: 'var(--tp-sp-3)' }}>
-        {night && (
-          <Field label={tr('ws.courtDesk.create.court')}>
-            <Select value={courtId} disabled={busy} onChange={setCourtId} options={courts.map((c) => ({ value: c.id, label: pickName(locale, c) }))} />
-          </Field>
-        )}
-        {night && (
-          <Field label={tr('ws.courtDesk.create.start')} error={chosenTaken ? tr('ws.courtDesk.create.takenNote') : undefined}>
-            <Select
-              value={startIso}
+                onPick={() => onStartLesson(carry)}
+                testId="booking.kind.lesson"
+              />
+            )}
+          </WizardChoices>
+          <WizardNote>{tr('ws.courtDesk.create.wizard.kindNote')}</WizardNote>
+          {onStartMatch && !reachable && <WizardNote tone="refused">{tr('ws.matches.offline.needsConnection')}</WizardNote>}
+          {onStartLesson && !reachable && <WizardNote tone="refused">{tr('ws.coaching.offline.needsConnection')}</WizardNote>}
+        </>
+      ),
+    });
+  }
+  steps.push({
+    key: 'who',
+    label: tr('ws.courtDesk.create.wizard.stepWho'),
+    note: whoName ? whoName : null,
+    problems: needsGuest ? [tr('op.errors.GUEST_REQUIRED')] : [],
+    content: (
+      <>
+        <div>
+        <CustomerPicker
+          value={customer}
+          disabled={busy}
+          autoFocus={initialCustomer === null}
+          onQueryChange={(q) => {
+            if (!nameTouched) setGuestName(nameFromQuery(q));
+            if (!phoneTouched) setGuestPhone(phoneFromQuery(q));
+          }}
+          onChange={(next) => {
+            setCustomer(next);
+            if (next) {
+              // What the account says outranks what was searched for.
+              if (!nameTouched || guestName.trim() === '') setGuestName(sanitizeName(next.name));
+              if (next.phone && (!phoneTouched || guestPhone.trim() === '')) setGuestPhone(sanitizePhone(next.phone));
+            }
+          }}
+        />
+        {customer === null && <PickerHint />}
+        </div>
+        {customer === null && (
+        <div className="tp-grid" data-cols="2" style={{ columnGap: 'var(--tp-sp-3)' }}>
+          <Field label={tr('op.desk.guestName')} style={{ marginBlockEnd: 0 }}>
+            <input
+              style={inputStyle}
+              aria-required="true"
+              value={guestName}
               disabled={busy}
-              onChange={setStartIso}
-              options={startOptions.map((o) => ({
-                value: o.iso,
-                label: o.taken ? tr('ws.courtDesk.create.startTaken', { time: formatTime(new Date(o.iso), locale, tz) }) : formatTime(new Date(o.iso), locale, tz),
-                disabled: o.taken && o.iso !== startIso,
-              }))}
+              maxLength={200}
+              onChange={(e) => {
+                setNameTouched(true);
+                setGuestName(sanitizeName(e.target.value));
+              }}
             />
           </Field>
+          <Field label={tr('op.desk.guestPhone')} optional style={{ marginBlockEnd: 0 }}>
+            <input
+              style={inputStyle}
+              type="tel"
+              dir="ltr"
+              inputMode="tel"
+              autoComplete="off"
+              maxLength={30}
+              value={guestPhone}
+              disabled={busy}
+              onChange={(e) => {
+                setPhoneTouched(true);
+                setGuestPhone(sanitizePhone(e.target.value));
+              }}
+            />
+          </Field>
+        </div>
         )}
-        <Field
-          label={tr('op.desk.duration')}
-          error={closesTooSoon ? tr('ws.courtDesk.create.closesTooSoon') : undefined}
-        >
-          <Select
-            value={String(duration)}
-            disabled={busy || closesTooSoon}
-            onChange={(d) => setDuration(Number(d))}
-            options={durations.map((d) => ({ value: String(d), label: tr('op.common.minutesShort', { minutes: formatNumber(d, locale) }) }))}
+        {customer === null && <WizardNote>{tr('ws.courtDesk.create.wizard.typedGuestNote')}</WizardNote>}
+      </>
+    ),
+  });
+  steps.push({
+    key: 'when',
+    label: tr('ws.courtDesk.create.wizard.stepWhen'),
+    note: tr('ws.courtDesk.create.wizard.whenNote', { time: formatTime(startAt, locale, tz), duration: minutes }),
+    problems: blockedReason ? [blockedReason] : [],
+    flagged: conflict,
+    content: (
+      <>
+        <div className="tp-grid" data-cols={night ? '3' : '1'} style={{ columnGap: 'var(--tp-sp-3)' }}>
+          {night && (
+            <Field label={tr('ws.courtDesk.create.court')} style={{ marginBlockEnd: 0 }}>
+              <Select value={courtId} disabled={busy} onChange={setCourtId} options={courts.map((c) => ({ value: c.id, label: pickName(locale, c) }))} />
+            </Field>
+          )}
+          {night && (
+            <Field label={tr('ws.courtDesk.create.start')} error={chosenTaken ? tr('ws.courtDesk.create.takenNote') : undefined} style={{ marginBlockEnd: 0 }}>
+              <Select
+                value={startIso}
+                disabled={busy}
+                onChange={setStartIso}
+                options={startOptions.map((o) => ({
+                  value: o.iso,
+                  label: o.taken ? tr('ws.courtDesk.create.startTaken', { time: formatTime(new Date(o.iso), locale, tz) }) : formatTime(new Date(o.iso), locale, tz),
+                  disabled: o.taken && o.iso !== startIso,
+                }))}
+              />
+            </Field>
+          )}
+          <Field label={tr('op.desk.duration')} error={closesTooSoon ? tr('ws.courtDesk.create.closesTooSoon') : undefined} style={{ marginBlockEnd: 0 }}>
+            <Select
+              value={String(duration)}
+              disabled={busy || closesTooSoon}
+              onChange={(d) => setDuration(Number(d))}
+              options={durations.map((d) => ({ value: String(d), label: tr('op.common.minutesShort', { minutes: formatNumber(d, locale) }) }))}
+            />
+          </Field>
+        </div>
+        <WizardPrice
+          figure={priceFigure}
+          line={
+            <bdi>
+              {rateName
+                ? tr('ws.courtDesk.create.wizard.priceLineRate', { court: courtLabel, duration: minutes, rate: isolate(rateName) })
+                : tr('ws.courtDesk.create.wizard.priceLine', { court: courtLabel, duration: minutes })}
+            </bdi>
+          }
+        />
+        {waiting.map((m) => (
+          <WizardNote key={m.match_id}>{tr('ws.matches.create.kept', { time: matchTime(m) })}</WizardNote>
+        ))}
+        {bumped.length > 0 && (
+          // Create stays enabled: the booking wins (OM-13).
+          <div data-testid="bump-warning" style={{ display: 'grid', gap: 'var(--tp-sp-2)' }}>
+            {bumped.map((m) => (
+              <WizardNote key={m.match_id} tone="refused">
+                {tr('ws.matches.create.bump', { time: matchTime(m), players: playersIn(m, locale) })}
+              </WizardNote>
+            ))}
+          </div>
+        )}
+        <GenderSlotNote kept={kept} customer={customer} disabled={busy} onCustomerGender={(g) => setCustomer((c) => (c ? { ...c, gender: g } : c))} />
+        <Field label={tr('op.common.notes')} optional style={{ marginBlockEnd: 0 }}>
+          <textarea
+            style={{ ...inputStyle, minBlockSize: '4rem', resize: 'vertical' }}
+            rows={2}
+            value={notes}
+            disabled={busy}
+            maxLength={1000}
+            placeholder={tr('ws.courtDesk.create.wizard.notesPlaceholder')}
+            onChange={(e) => setNotes(e.target.value)}
           />
         </Field>
-        {!night && <PriceLine loading={priceQ.isPending} failed={priceQ.isError} price={priceQ.data?.[0]?.price_iqd ?? null} unpriced={unpriced} />}
-      </div>
+      </>
+    ),
+  });
 
-      {/* Notes sit above the price: the price is the last thing the desk reads
-       out before pressing Create, so it ends the form rather than being
-       buried between two boxes. */}
-      <Field label={tr('op.common.notes')} optional>
-        <input style={inputStyle} value={notes} disabled={busy} maxLength={1000} onChange={(e) => setNotes(e.target.value)} />
-      </Field>
-      {waiting.map((m) => (
-        <MessagePresenter key={m.match_id} tone="info" message={tr('ws.matches.create.kept', { time: matchTime(m) })} style={{ marginBlockEnd: '0.85rem' }} />
-      ))}
-      {bumped.length > 0 && (
-        // Above the price, the last thing read before Create. Create stays
-        // enabled: the booking wins (OM-13).
-        <div data-testid="bump-warning" style={{ display: 'grid', gap: 'var(--tp-sp-1)', marginBlockEnd: '0.85rem' }}>
-          {bumped.map((m) => (
-            <MessagePresenter key={m.match_id} tone="refused" icon="alert" message={tr('ws.matches.create.bump', { time: matchTime(m), players: playersIn(m, locale) })} />
-          ))}
-        </div>
+  const whenKey = 'when';
+  const whenIndex = steps.findIndex((s) => s.key === whenKey);
+
+  return (
+    <StepWizard
+      title={tr('op.desk.newBooking')}
+      lead={
+        <bdi>
+          {courtLabel} · {dayText} · {formatTimeRange(startAt, endAt, locale, tz)}
+        </bdi>
+      }
+      steps={steps}
+      at={at}
+      onAtChange={setAt}
+      busy={busy}
+      onClose={onClose}
+      submitLabel={tr('op.desk.create')}
+      onSubmit={() => void submit(() => setAt(whenIndex))}
+      testId="booking"
+      notice={
+        conflict || error ? (
+          <>
+            {conflict && (
+              <ConflictNotice
+                body={
+                  // R22: the court is kept for a match waiting for it.
+                  waiting.length > 0 ? tr('ws.matches.errors.slotKept', { time: matchTime(waiting[0]!) }) : tr('ws.courtDesk.create.conflictBody')
+                }
+                resolveLabel={tr('ws.courtDesk.create.pickAnother')}
+                onResolve={
+                  night
+                    ? () => {
+                        setConflict(false);
+                        setAt(whenIndex);
+                      }
+                    : onClose
+                }
+              />
+            )}
+            <ErrorText error={error} />
+          </>
+        ) : undefined
+      }
+      review={(goTo) => (
+        <ReviewList
+          goTo={goTo}
+          busy={busy}
+          rows={[
+            ...(offerKinds ? [{ label: tr('ws.courtDesk.create.wizard.reviewKind'), value: tr('op.desk.kindBooking'), step: 'kind' }] : []),
+            { label: tr('ws.courtDesk.create.wizard.reviewGuest'), value: <bdi>{whoName || '—'}</bdi>, step: 'who' },
+            { label: tr('ws.courtDesk.create.wizard.reviewCourt'), value: <bdi>{`${courtLabel} · ${dayText}`}</bdi>, step: whenKey },
+            { label: tr('ws.courtDesk.create.wizard.reviewTime'), value: <bdi>{`${formatTimeRange(startAt, endAt, locale, tz)} · ${minutes}`}</bdi>, step: whenKey },
+            { label: tr('ws.courtDesk.create.wizard.reviewPrice'), value: priceFigure, step: whenKey },
+          ]}
+        />
       )}
-      <GenderSlotNote kept={kept} customer={customer} disabled={busy} onCustomerGender={(g) => setCustomer((c) => (c ? { ...c, gender: g } : c))} />
-      {night && <PriceLine loading={priceQ.isPending} failed={priceQ.isError} price={priceQ.data?.[0]?.price_iqd ?? null} unpriced={unpriced} />}
-      <ErrorText error={error} />
-    </Modal>
+    />
   );
 }
 
-/** "3 players" in a match (the women's count in a women's match, R38); "—" when the server did not say. */
+/**
+ * "3 players" in a match (the women's count in a women's match, R38); "—" when
+ * the server did not say. The preview's sample reads "(2 in)"; the count
+ * phrase stays, as R38 counts a women's match's players as women.
+ */
 function playersIn(m: OpenMatch, locale: Locale): string {
   if (m.seats_taken === null) return '—';
   return countPhrase(m.category === 'women' ? 'ws.matches.count.playersF' : 'ws.matches.count.players', m.seats_taken, locale);
@@ -492,32 +610,3 @@ export async function toastBumpedMatches(
   for (const m of warned) if (!listed.has(m.match_id)) notify(m);
 }
 
-/** The price of what is about to be booked, or why there is none. */
-function PriceLine({ loading, failed, price, unpriced }: { loading: boolean; failed: boolean; price: number | null; unpriced: boolean }) {
-  const { tr } = useLocale();
-  return (
-    <div
-      style={{
-        display: 'flex',
-        alignItems: 'baseline',
-        gap: 'var(--tp-sp-2)',
-        flexWrap: 'wrap',
-        marginBlockEnd: '0.85rem',
-        paddingBlock: 'var(--tp-sp-2)',
-        paddingInline: 'var(--tp-sp-3)',
-        borderRadius: 'var(--tp-radius-ctl)',
-        background: unpriced ? 'var(--tp-warn-soft)' : 'var(--tp-surface-2)',
-      }}
-    >
-      <span style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>{tr('ws.courtDesk.create.price')}</span>
-      {unpriced ? (
-        <strong style={{ color: 'var(--tp-warn-fg)', fontSize: 'var(--tp-fs-sm)' }}>{tr('ws.courtDesk.create.noPrice')}</strong>
-      ) : loading || failed || price === null ? (
-        // Unreported is "—", never a made-up zero; a failed quote does not block the booking.
-        <strong style={{ marginInlineStart: 'auto', color: 'var(--tp-muted-fg)' }}>—</strong>
-      ) : (
-        <Money amount={price} strong style={{ marginInlineStart: 'auto', fontSize: 'var(--tp-fs-lg)' }} />
-      )}
-    </div>
-  );
-}

@@ -7247,4 +7247,10 @@ export const matrix: MatrixRule[] = [
     note: '0364: owner only; a zero delta is INVALID_VALUE past the guard',
     drop: 38,
   },
+  {
+    kind: 'rpc', schema: 'app', name: 'branch_counts',
+    args: {}, expect: MANAGER_UP,
+    note: "0366: the Branches cards' courts and café tables, per branch the caller manages; read-only",
+    drop: 38,
+  },
 ];

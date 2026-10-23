@@ -17,22 +17,29 @@
  * a link to their record (MATCH_GENDER_MISMATCH), and an undeclared customer
  * or a typed walk-in is sent with the category's gender, vouched at the desk
  * (OM-39). Online only (DF-11); the key is minted per dialog.
+ *
+ * A stepped wizard (components/StepWizard.tsx, Sait 2026-10-22): Who, then
+ * Review (player, seat, what they owe), which holds Add player. Every element
+ * is the approved preview's (operator-wizards.html, `seat`): "Add a player",
+ * notes as WizardNote, Create customer as a link.
  */
 import { useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate } from '@tanstack/react-router';
-import { formatIQD, isolate } from '@touch/i18n';
+import { formatIQD, formatNumber, formatTime, isolate, VENUE_TZ } from '@touch/i18n';
 import { appRpc } from '../../lib/appRpc';
 import { useLocale, pickName } from '../../lib/i18n';
 import { QK } from '../../lib/queryKeys';
+import { fetchVenueSettings } from '../../lib/queries';
 import { useStationReach } from '../../lib/stationReach';
 import { useToast } from '../../components/toast';
-import { Button, ErrorText, Field, Modal, inputStyle } from '../../components/ui';
-import { MessagePresenter } from '../../components/kit';
+import { ErrorText, Field, inputStyle } from '../../components/ui';
+import { ReviewList, StepWizard, WizardNote, type WizardAt, type WizardStep } from '../../components/StepWizard';
 import { CustomerPicker, type PickedCustomer } from '../desk/customers/CustomerPicker';
+import { PickerHint, WizardLinks } from '../desk/wizardParts';
 import { nameFromQuery, phoneFromQuery, sanitizeName, sanitizePhone } from '../desk/deskLogic';
 import type { CustomerRecord } from '../desk/deskTypes';
-import { byCategory, matchErrorText, openSeatNumbers } from './matchLogic';
+import { MATCH_SEATS, byCategory, matchErrorText, openSeatNumbers } from './matchLogic';
 import { GUEST_NAME_MAX, guestFieldOf, guestFieldText, guestNameTooLong, guestPhoneInvalid } from './startMatchLogic';
 import type { MatchDetail, MatchSeat } from './matchPayloads';
 import { invalidateMatchSeats, useMatchDetail, useMatchIdemKey } from './useMatches';
@@ -90,6 +97,10 @@ export function AddSeatDialog({ matchId, customerId, onClose, onAdded }: AddSeat
   const [phoneLeft, setPhoneLeft] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
+  const [at, setAt] = useState<WizardAt>(0);
+  // The branch's clock, for the lead's start time.
+  const settingsQ = useQuery({ queryKey: QK.venueSettings, queryFn: fetchVenueSettings });
+  const tz = settingsQ.data?.timezone ?? VENUE_TZ;
 
   // A customer handed back from search or create arrives as an id: read the
   // record (the key the booking screen shares) and pick them once it lands.
@@ -168,6 +179,8 @@ export function AddSeatDialog({ matchId, customerId, onClose, onAdded }: AddSeat
       onClose();
     } catch (e) {
       setError(e);
+      // A refused name or phone is said on its box: back to the Who step.
+      if (guestFieldOf(e)) setAt(0);
     } finally {
       setBusy(false);
     }
@@ -186,98 +199,147 @@ export function AddSeatDialog({ matchId, customerId, onClose, onAdded }: AddSeat
     return tr(byCategory(category, 'ws.matches.add.added'), { name });
   }
 
-  return (
-    <Modal
-      title={tr(booked ? 'ws.matches.add.titleBooked' : 'ws.matches.add.title')}
-      dismissible={!busy}
-      onClose={onClose}
-      footer={(close) => (
+  const playerName = customer?.name ?? guestName.trim();
+  const shareText = share === null ? '—' : formatIQD(share, locale);
+  const courtName = match ? pickName(locale, { name_en: match.court_name_en ?? '', name_ar: match.court_name_ar ?? '' }) : '';
+  const lead = match
+    ? courtName
+      ? tr('ws.matches.add.wizard.lead', { court: courtName, time: formatTime(new Date(match.start_at), locale, tz) })
+      : tr('ws.matches.add.wizard.leadNoCourt', { time: formatTime(new Date(match.start_at), locale, tz) })
+    : null;
+  // What holds the Who step: the same mirrors as the server's refusals.
+  const whoProblem = banned
+    ? tr('ws.matches.add.banned')
+    : mismatch
+      ? tr(category === 'women' ? 'ws.matches.add.genderWomen' : 'ws.matches.add.genderMen')
+      : needsPlayer
+        ? tr('ws.matches.add.needsPlayer')
+        : nameTooLong
+          ? guestFieldText('name', tr, locale)
+          : phoneInvalid
+            ? guestFieldText('phone', tr, locale)
+            : null;
+
+  const steps: WizardStep[] = [
+    {
+      key: 'who',
+      label: tr('ws.matches.add.wizard.stepWho'),
+      note: playerName || null,
+      problems: whoProblem ? [whoProblem] : [],
+      flagged: serverField !== null,
+      content: (
         <>
-          <Button onClick={close} disabled={busy}>
-            {tr('common.cancel')}
-          </Button>
-          <Button kind="primary" icon="userPlus" busy={busy} disabled={!match || blocked !== undefined} disabledReason={blocked} onClick={() => void add()}>
-            {tr('ws.matches.add.submit')}
-          </Button>
-        </>
-      )}
-    >
-      {booked && share !== null && (
-        <p style={{ marginBlockEnd: 'var(--tp-sp-3)' }}>{tr(byCategory(category, 'ws.matches.add.oweShare'), { share: formatIQD(share, locale) })}</p>
-      )}
-      <CustomerPicker
-        value={customer}
-        disabled={busy}
-        autoFocus={!customerId}
-        onQueryChange={(q) => {
-          if (!nameTouched) setGuestName(nameFromQuery(q));
-          if (!phoneTouched) setGuestPhone(phoneFromQuery(q));
-        }}
-        onChange={(next) => {
-          setCustomer(next);
-          setError(null);
-        }}
-      />
-      {customer === null && (
-        <>
-          <div className="tp-grid" data-cols="2" style={{ columnGap: 'var(--tp-sp-3)' }}>
-            <Field label={tr('op.desk.guestName')} required error={nameError}>
-              <input
-                style={inputStyle}
-                value={guestName}
-                disabled={busy}
-                maxLength={GUEST_NAME_MAX}
-                onChange={(e) => {
-                  setNameTouched(true);
-                  setGuestName(sanitizeName(e.target.value));
-                  if (serverField === 'name') setError(null);
-                }}
-              />
-            </Field>
-            <Field label={tr('op.desk.guestPhone')} optional error={phoneError}>
-              <input
-                style={inputStyle}
-                dir="ltr"
-                inputMode="tel"
-                autoComplete="off"
-                maxLength={30}
-                value={guestPhone}
-                disabled={busy}
-                onChange={(e) => {
-                  setPhoneTouched(true);
-                  setGuestPhone(sanitizePhone(e.target.value));
-                  if (serverField === 'phone') setError(null);
-                }}
-                onBlur={() => setPhoneLeft(true)}
-              />
-            </Field>
+          {share !== null && <WizardNote>{tr(byCategory(category, 'ws.matches.add.oweShare'), { share: shareText })}</WizardNote>}
+          <div>
+            <CustomerPicker
+              value={customer}
+              disabled={busy}
+              autoFocus={!customerId}
+              onQueryChange={(q) => {
+                if (!nameTouched) setGuestName(nameFromQuery(q));
+                if (!phoneTouched) setGuestPhone(phoneFromQuery(q));
+              }}
+              onChange={(next) => {
+                setCustomer(next);
+                setError(null);
+              }}
+            />
+            {customer === null && <PickerHint />}
           </div>
-          <Button
-            size="sm"
-            kind="ghost"
-            icon="userPlus"
-            disabled={busy}
-            onClick={() => void navigate({ to: '/desk/customers/new', search: { attach: 'match', match: matchId } as never })}
-          >
-            {tr('ws.matches.add.createCustomer')}
-          </Button>
+          {customer === null && (
+            <>
+              <div className="tp-grid" data-cols="2" style={{ columnGap: 'var(--tp-sp-3)' }}>
+                <Field label={tr('op.desk.guestName')} error={nameError} style={{ marginBlockEnd: 0 }}>
+                  <input
+                    style={inputStyle}
+                    aria-required="true"
+                    value={guestName}
+                    disabled={busy}
+                    maxLength={GUEST_NAME_MAX}
+                    onChange={(e) => {
+                      setNameTouched(true);
+                      setGuestName(sanitizeName(e.target.value));
+                      if (serverField === 'name') setError(null);
+                    }}
+                  />
+                </Field>
+                <Field label={tr('op.desk.guestPhone')} optional error={phoneError} style={{ marginBlockEnd: 0 }}>
+                  <input
+                    style={inputStyle}
+                    type="tel"
+                    dir="ltr"
+                    inputMode="tel"
+                    autoComplete="off"
+                    maxLength={30}
+                    value={guestPhone}
+                    disabled={busy}
+                    onChange={(e) => {
+                      setPhoneTouched(true);
+                      setGuestPhone(sanitizePhone(e.target.value));
+                      if (serverField === 'phone') setError(null);
+                    }}
+                    onBlur={() => setPhoneLeft(true)}
+                  />
+                </Field>
+              </div>
+              <WizardLinks
+                disabled={busy}
+                links={[
+                  {
+                    label: tr('ws.matches.add.createCustomer'),
+                    onClick: () => void navigate({ to: '/desk/customers/new', search: { attach: 'match', match: matchId } as never }),
+                  },
+                ]}
+              />
+            </>
+          )}
+          {banned && <WizardNote tone="refused">{tr('ws.matches.add.banned')}</WizardNote>}
+          {mismatch && customer && (
+            <WizardNote tone="refused">
+              <span style={{ display: 'inline-flex', gap: 'var(--tp-sp-2)', flexWrap: 'wrap' }}>
+                {tr(category === 'women' ? 'ws.matches.add.genderWomen' : 'ws.matches.add.genderMen')}
+                <Link to="/desk/customers/$id" params={{ id: customer.id }} style={{ color: 'var(--tp-accent)', fontWeight: 600 }}>
+                  {tr('ws.matches.add.openRecord')}
+                </Link>
+              </span>
+            </WizardNote>
+          )}
+          {vouched && !mismatch && (
+            <WizardNote tone="success">{tr(category === 'women' ? 'ws.matches.add.vouchedWomen' : 'ws.matches.add.vouchedMen')}</WizardNote>
+          )}
         </>
+      ),
+    },
+  ];
+
+  return (
+    <StepWizard
+      title={tr(booked ? 'ws.matches.add.titleBooked' : 'ws.matches.add.wizard.title')}
+      lead={lead ? <bdi>{lead}</bdi> : undefined}
+      steps={steps}
+      at={at}
+      onAtChange={setAt}
+      busy={busy}
+      submitBlocked={!reachable ? tr('ws.matches.offline.needsConnection') : !match ? tr('ws.kit.async.loading') : null}
+      onClose={onClose}
+      submitLabel={tr('ws.matches.add.submit')}
+      onSubmit={() => void add()}
+      testId="seat"
+      notice={error && !serverField ? <ErrorText error={error} message={matchErrorText(error, { tr, locale })} /> : undefined}
+      review={(goTo) => (
+        <ReviewList
+          goTo={goTo}
+          busy={busy}
+          rows={[
+            { label: tr('ws.matches.add.wizard.reviewPlayer'), value: <bdi>{playerName || '—'}</bdi>, step: 'who' },
+            {
+              label: tr('ws.matches.add.wizard.reviewSeat'),
+              value: nextNo === undefined ? '—' : tr('ws.matches.add.wizard.seatOf', { n: formatNumber(nextNo, locale), total: formatNumber(MATCH_SEATS, locale) }),
+            },
+            { label: tr('ws.matches.add.wizard.reviewOwes'), value: share === null ? '—' : tr('ws.matches.add.wizard.owesAtDesk', { share: shareText }) },
+          ]}
+        />
       )}
-      {banned && <MessagePresenter tone="refused" icon="ban" message={tr('ws.matches.add.banned')} style={{ marginBlockStart: 'var(--tp-sp-2)' }} />}
-      {mismatch && customer && (
-        <div style={{ display: 'grid', gap: 'var(--tp-sp-1)', marginBlockStart: 'var(--tp-sp-2)' }}>
-          <MessagePresenter tone="refused" message={tr(category === 'women' ? 'ws.matches.add.genderWomen' : 'ws.matches.add.genderMen')} />
-          <Link to="/desk/customers/$id" params={{ id: customer.id }} style={{ color: 'var(--tp-accent)', fontWeight: 600, fontSize: 'var(--tp-fs-sm)', textDecoration: 'none' }}>
-            {tr('ws.matches.add.openRecord')}
-          </Link>
-        </div>
-      )}
-      {vouched && !mismatch && (
-        <p style={{ marginBlockStart: 'var(--tp-sp-2)', fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>
-          {tr(category === 'women' ? 'ws.matches.add.vouchedWomen' : 'ws.matches.add.vouchedMen')}
-        </p>
-      )}
-      <ErrorText error={serverField ? null : error} message={error && !serverField ? matchErrorText(error, { tr, locale }) : null} />
-    </Modal>
+    />
   );
 }

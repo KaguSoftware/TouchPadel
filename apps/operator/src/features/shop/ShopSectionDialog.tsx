@@ -9,7 +9,9 @@ import { supabase } from '../../lib/supabase';
 import { appRpc } from '../../lib/appRpc';
 import { useLocale, pickName } from '../../lib/i18n';
 import { useToast } from '../../components/toast';
-import { Button, ErrorText, Field, Modal, Select, inputStyle } from '../../components/ui';
+import { ErrorText } from '../../components/ui';
+import { BilingualFields } from '../../components/inputs';
+import { ReviewList, StepWizard, WizardChoice, WizardChoices, type WizardStep } from '../../components/StepWizard';
 import { SK } from '../stock/stockKeys';
 
 interface TaxGroupRow {
@@ -36,7 +38,6 @@ export function ShopSectionDialog({ onClose, onSaved }: { onClose: () => void; o
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const taxGroup = taxGroupId || taxQ.data?.[0]?.id || '';
-  const ready = nameEn.trim() !== '' && nameAr.trim() !== '' && taxGroup !== '';
 
   async function save() {
     setBusy(true);
@@ -59,36 +60,75 @@ export function ShopSectionDialog({ onClose, onSaved }: { onClose: () => void; o
     }
   }
 
-  return (
-    <Modal
-      title={tr('ws.shop.sections.add')}
-      subtitle={tr('ws.shop.sections.lead')}
-      onClose={onClose}
-      footer={(close) => (
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--tp-sp-2)' }}>
-          <Button onClick={close} disabled={busy}>
-            {tr('common.cancel')}
-          </Button>
-          <Button kind="primary" busy={busy} disabled={!ready} onClick={() => void save()} data-testid="shop-section-save">
-            {tr('ws.shop.sections.save')}
-          </Button>
-        </div>
-      )}
-    >
-      <Field label={tr('ws.shop.sections.nameEn')} required>
-        <input style={inputStyle} dir="ltr" value={nameEn} maxLength={80} onChange={(e) => setNameEn(e.target.value)} autoFocus data-testid="shop-section-name-en" />
-      </Field>
-      <Field label={tr('ws.shop.sections.nameAr')} required>
-        <input style={inputStyle} dir="rtl" value={nameAr} maxLength={80} onChange={(e) => setNameAr(e.target.value)} data-testid="shop-section-name-ar" />
-      </Field>
-      <Field label={tr('ws.shop.sections.taxGroup')} required>
-        <Select
-          value={taxGroup}
-          onChange={setTaxGroupId}
-          options={(taxQ.data ?? []).map((t) => ({ value: t.id, label: pickName(locale, t) }))}
+  const taxRow = taxQ.data?.find((t) => t.id === taxGroup);
+  const nameNote = (locale === 'ar' ? nameAr : nameEn).trim() || null;
+
+  // The stepped dialog (Sait, 2026-10-22): the name in both languages, then the tax group.
+  const steps: WizardStep[] = [
+    {
+      key: 'name',
+      label: tr('ws.shop.sections.stepName'),
+      note: nameNote,
+      problems: nameEn.trim() && nameAr.trim() ? [] : [tr('ws.manager.disabled.namesRequired')],
+      content: (
+        <BilingualFields
+          labelEn={tr('ws.shop.sections.nameEn')}
+          labelAr={tr('ws.shop.sections.nameAr')}
+          en={nameEn}
+          ar={nameAr}
+          onEn={setNameEn}
+          onAr={setNameAr}
+          maxLength={80}
         />
-      </Field>
-      <ErrorText error={error ?? taxQ.error} />
-    </Modal>
+      ),
+    },
+    {
+      key: 'tax',
+      label: tr('ws.shop.sections.taxGroup'),
+      note: taxRow ? pickName(locale, taxRow) : null,
+      problems: taxGroup ? [] : [tr('ws.shop.sections.pickTax')],
+      content: (
+        <>
+          <WizardChoices label={tr('ws.shop.sections.taxGroup')}>
+            {(taxQ.data ?? []).map((t) => (
+              <WizardChoice key={t.id} on={taxGroup === t.id} title={pickName(locale, t)} onPick={() => setTaxGroupId(t.id)} />
+            ))}
+          </WizardChoices>
+          <ErrorText error={taxQ.error} />
+        </>
+      ),
+    },
+  ];
+
+  return (
+    <StepWizard
+      title={tr('ws.shop.sections.newTitle')}
+      lead={tr('ws.shop.sections.newLead')}
+      steps={steps}
+      review={(goTo) => (
+        <ReviewList
+          goTo={goTo}
+          busy={busy}
+          rows={[
+            {
+              label: tr('ws.shop.sections.name'),
+              value: (
+                <>
+                  <bdi dir="ltr">{nameEn.trim()}</bdi> · <bdi dir="rtl">{nameAr.trim()}</bdi>
+                </>
+              ),
+              step: 'name',
+            },
+            { label: tr('ws.shop.sections.taxGroup'), value: taxRow ? pickName(locale, taxRow) : '—', step: 'tax' },
+          ]}
+        />
+      )}
+      submitLabel={tr('ws.shop.sections.save')}
+      onSubmit={() => void save()}
+      busy={busy}
+      notice={error ? <ErrorText error={error} /> : undefined}
+      onClose={onClose}
+      testId="shop-section"
+    />
   );
 }

@@ -267,7 +267,9 @@ export async function openCounterOrder(page: Page, label: string): Promise<void>
   await page.getByRole('button', { name: 'New order', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'New order' });
   await dialog.getByLabel(/^Name or number/).fill(label);
-  await dialog.getByRole('button', { name: 'Start order' }).click();
+  // A stepped dialog since 2026-10-22: the name, the court booking, Review.
+  await dialog.getByTestId('new-order.step.review').click();
+  await dialog.getByTestId('new-order.submit').click();
   await expect(dialog).toBeHidden();
 }
 

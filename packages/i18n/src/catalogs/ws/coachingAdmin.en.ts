@@ -47,7 +47,7 @@ export const coachingAdminEn = {
     promote: {
       title: 'Make a coach',
       account: 'Guest account',
-      accountHint: 'Guests see the display name below, never the account name.',
+      accountHint: 'Guests see the display name you set next, never the account name.',
       nameEn: 'Display name (English)',
       nameAr: 'Display name (Arabic)',
       bioEn: 'Bio (English)',
@@ -56,7 +56,7 @@ export const coachingAdminEn = {
       branches: 'Branches',
       types: 'Lesson types at this branch',
       noTypes: 'No lesson types at this branch yet. Add them on the Lesson types tab.',
-      acceptNote: "The coach is asked in the app to accept being shown publicly. Until then guests don't see them.",
+      acceptNote: 'The coach is asked in the app to accept being shown publicly. Until then guests don’t see them.',
       submit: 'Make coach',
       made: '{name} is now a coach.',
       openExisting: 'Open {name}',
@@ -68,6 +68,31 @@ export const coachingAdminEn = {
       otherBranches: 'Their other branches are left to the managers there.',
       // OP-09: the lesson types are this branch's.
       typesNeedBranch: 'Tick this branch to choose its lesson types.',
+      // The stepped Make a coach (2026-10-22).
+      lead: 'Turn a guest account into a coach.',
+      profile: 'Profile',
+      teaching: 'Branches & lessons',
+      teachingNote: '{branches} · {types}',
+      // The menu note's halves: "1 branch · 2 types".
+      branchCount: {
+        zero: '0 branches',
+        one: '1 branch',
+        two: '2 branches',
+        few: '{count} branches',
+        many: '{count} branches',
+        other: '{count} branches',
+      },
+      typeCount: {
+        zero: '0 types',
+        one: '1 type',
+        two: '2 types',
+        few: '{count} types',
+        many: '{count} types',
+        other: '{count} types',
+      },
+      reviewAccount: 'Account',
+      reviewShownAs: 'Shown as',
+      reviewTeaches: 'Teaches',
     },
     // The coach editor (CoachEditor).
     editor: {

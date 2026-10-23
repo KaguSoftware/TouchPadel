@@ -66,7 +66,7 @@ export const coachingDeskEn = {
     },
     titleEn: 'Course title (English)',
     titleAr: 'Course title (Arabic)',
-    titleHint: "Shown to guests instead of the lesson type's name.",
+    titleHint: 'Shown to guests instead of the lesson type’s name.',
     student: 'Student',
     studentRequired: "Pick a customer or type the student's name.",
     comingWith: 'Coming with 0–{max}',
@@ -88,6 +88,63 @@ export const coachingDeskEn = {
     // OP-11: a retry answered with an earlier lesson, or no answer at all.
     alreadyBooked: 'Already booked earlier at {time}.',
     maybeLanded: 'The last attempt may have gone through. Check the lessons before trying again.',
+    // The stepped New lesson (StartLessonDialog, StepWizard).
+    wizard: {
+      stepKind: 'Kind',
+      stepType: 'Type & coach',
+      stepWhen: 'When',
+      stepTitle: 'Course title',
+      stepStudent: 'Student',
+      kindBody: {
+        private: 'One student, or a few friends together.',
+        group: 'One session, each student pays their own place.',
+        course: 'A run of sessions, paid once.',
+      },
+      priceFigure: {
+        private: '{price} for the lesson',
+        group: '{price} a place',
+        course: '{price} a person for {sessions}',
+      },
+      priceLine: {
+        private: 'Paid at the desk. The court is picked automatically from the free courts.',
+        group: 'Each student pays their own. The court is picked automatically from the free courts.',
+        course: 'A court is taken for every session now.',
+      },
+      freeTimes: '{coach}’s free times that day.',
+      sessions: 'Sessions',
+      // Under a course's session rows.
+      sessionsHint: 'Each session can be moved on its own.',
+      // A paused coach's chip: "Coach Omar · Paused".
+      coachPausedChip: '{name} · Paused',
+      comingWith: 'Coming with',
+      takesUpTo: 'This lesson type takes up to {n}.',
+      reviewKind: 'Kind',
+      reviewCoach: 'Coach',
+      reviewPrice: 'Price',
+      reviewWhen: 'When',
+      reviewStudent: 'Student',
+      reviewTitle: 'Title',
+      reviewPriceValue: {
+        private: '{price} for the lesson',
+        group: '{price} a place',
+        course: '{price} a person, {sessions}',
+      },
+      // "Thu 23 Oct · 18:00".
+      dayTime: '{date} · {time}',
+      // "6 sessions from Thu 23 Oct · 18:00".
+      courseWhen: '{sessions} from {date} · {time}',
+      // Every session on one weekday: "6 Thursdays from 23 Oct · 18:00".
+      courseWhenWeekly: '{count} {weekdays} from {date} · {time}',
+      weekdays: {
+        sun: 'Sundays',
+        mon: 'Mondays',
+        tue: 'Tuesdays',
+        wed: 'Wednesdays',
+        thu: 'Thursdays',
+        fri: 'Fridays',
+        sat: 'Saturdays',
+      },
+    },
   },
   // The lesson screen (§5.10.1–§5.10.3, §5.10.11).
   lesson: {
@@ -148,6 +205,19 @@ export const coachingDeskEn = {
     maybeLanded: 'The last attempt may have gone through. Check the list before trying again.',
     addedFull: '{name} is in. The session is full.',
     addedFullCourse: '{name} is in. The course is full.',
+    // The stepped Add a student (AddStudentDialog, StepWizard).
+    wizard: {
+      title: 'Add a student',
+      stepWho: 'Who',
+      reviewStudent: 'Student',
+      reviewCourse: 'Course',
+      reviewSession: 'Session',
+      reviewPays: 'Pays',
+      // A group session's place: "15,000 IQD a place".
+      paysPlace: '{price} a place',
+      // A course joined late: "120,000 IQD for 4 sessions".
+      paysSessions: '{price} for {sessions}',
+    },
   },
   // Cancel a sign-up, a lesson or a course (§5.10.8): what happens to the money.
   cancel: {

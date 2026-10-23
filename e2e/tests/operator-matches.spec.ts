@@ -149,14 +149,19 @@ test.describe('operator open matches', () => {
     await expect(page.getByRole('heading', { name: 'Desk calendar' })).toBeVisible({ timeout: 30_000 });
 
     // A free slot, then the booking dialog's Open match kind hands the typed name to the Start dialog.
+    // Both are stepped wizards: the guest is on Who, the kind on What kind, the submit on Review.
     await calendarSlot(page, COURT_1, '12:00').click();
     const booking = page.getByRole('dialog', { name: 'New booking' });
+    await booking.getByTestId('booking.step.who').click();
     await booking.getByLabel('Guest name').fill(alpha);
-    await booking.getByRole('button', { name: 'Open match', exact: true }).click();
+    await booking.getByTestId('booking.step.kind').click();
+    await booking.getByTestId('booking.kind.match').click();
     const start = page.getByRole('dialog', { name: 'Start an open match' });
     await expect(start.getByLabel('Guest name')).toHaveValue(alpha);
+    await start.getByTestId('match.step.when').click();
     await expect(start.getByTestId('start-price')).toContainText('each player pays');
-    await start.getByRole('button', { name: 'Start match' }).click();
+    await start.getByTestId('match.step.review').click();
+    await start.getByTestId('match.submit').click();
     await expect(start).toBeHidden();
     await expect(page).toHaveURL(/\/desk\/matches\/[0-9a-f-]{36}/);
 
@@ -165,9 +170,10 @@ test.describe('operator open matches', () => {
     await expect(players.getByTestId('seat-1')).toContainText(alpha);
     for (const [i, word] of ['Bravo', 'Charlie', 'Delta'].entries()) {
       await players.getByTestId(`seat-${i + 2}`).getByRole('button', { name: 'Add player' }).click();
-      const add = page.getByRole('dialog', { name: 'Add player' });
+      const add = page.getByRole('dialog', { name: 'Add a player' });
       await add.getByLabel('Guest name').fill(`${E2E_MATCH_NAME} ${word}`);
-      await add.getByRole('button', { name: 'Add player' }).click();
+      await add.getByTestId('seat.step.review').click();
+      await add.getByTestId('seat.submit').click();
       await expect(add).toBeHidden();
       await expect(players.getByTestId(`seat-${i + 2}`)).toContainText(`${E2E_MATCH_NAME} ${word}`);
     }
@@ -321,10 +327,13 @@ test.describe('operator open matches', () => {
 
     await calendarSlot(page, COURT_2, '18:00').click();
     const dialog = page.getByRole('dialog', { name: 'New booking' });
-    await expect(dialog.getByText(/Booking this court cancels the open match at .*6:00\s*PM/)).toBeVisible();
+    await dialog.getByTestId('booking.step.who').click();
     await dialog.getByLabel('Guest name').fill(`${E2E_MATCH_NAME} Kilo`);
+    await dialog.getByTestId('booking.step.when').click();
+    await expect(dialog.getByText(/Booking this court cancels the open match at .*6:00\s*PM/)).toBeVisible();
     await choose(dialog.getByLabel('Duration'), '120'); // whole hours only (2026-10-19)
-    await dialog.getByRole('button', { name: 'Create booking' }).click();
+    await dialog.getByTestId('booking.step.review').click();
+    await dialog.getByTestId('booking.submit').click();
     await expect(dialog).toBeHidden();
     await expect(page.getByText(/The open match at .*6:00\s*PM.* was cancelled/)).toBeVisible();
     await expect(chip).toHaveCount(0);
@@ -435,17 +444,21 @@ test.describe('operator open matches', () => {
     // One grid row is one hour since 2026-10-19 (DeskCalendar SLOT_MIN): no :30 slots.
     await calendarSlot(page, COURT_2, '13:00').click();
     const booking = page.getByRole('dialog', { name: ar.op.desk.newBooking });
+    await booking.getByTestId('booking.step.who').click();
     await booking.getByLabel(ar.op.desk.guestName).fill(lima);
-    await booking.getByRole('button', { name: m.common.openMatch, exact: true }).click();
+    await booking.getByTestId('booking.step.kind').click();
+    await booking.getByTestId('booking.kind.match').click();
     const start = page.getByRole('dialog', { name: m.start.title });
-    await start.getByRole('button', { name: m.start.submit }).click();
+    await start.getByTestId('match.step.review').click();
+    await start.getByTestId('match.submit').click();
     await expect(page).toHaveURL(/\/desk\/matches\/[0-9a-f-]{36}/);
     const players = page.getByTestId('match-players');
     for (const [i, word] of ['Mike', 'November', 'Oscar'].entries()) {
       await players.getByTestId(`seat-${i + 2}`).getByRole('button', { name: m.players.addPlayer }).click();
-      const add = page.getByRole('dialog', { name: m.add.title });
+      const add = page.getByRole('dialog', { name: m.add.wizard.title });
       await add.getByLabel(ar.op.desk.guestName).fill(`${E2E_MATCH_NAME} ${word}`);
-      await add.getByRole('button', { name: m.add.submit }).click();
+      await add.getByTestId('seat.step.review').click();
+      await add.getByTestId('seat.submit').click();
       await expect(add).toBeHidden();
     }
     await expect(page.getByText(phrase(m.add.fourBooked))).toBeVisible();

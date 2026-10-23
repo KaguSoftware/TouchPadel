@@ -195,7 +195,10 @@ describe('CoachesBoardScreen', () => {
     const sara = (await screen.findByRole('heading', { name: 'Coach Sara' })).closest('section')!;
     await user.click(await within(sara).findByRole('button', { name: '12:30 PM' }));
     const dialog = await screen.findByRole('dialog');
-    expect(within(dialog).getByRole('combobox', { name: 'Coach' }).textContent).toContain('Coach Sara');
+    // New lesson is a stepped wizard: the coach is on Type & coach, the start on When.
+    await user.click(within(dialog).getByTestId('lesson.step.type'));
+    expect(within(dialog).getByRole('button', { name: 'Coach Sara' }).getAttribute('aria-pressed')).toBe('true');
+    await user.click(within(dialog).getByTestId('lesson.step.when'));
     await waitFor(() =>
       expect(within(dialog).getByRole('button', { name: '12:30 PM' }).getAttribute('aria-pressed')).toBe('true'),
     );

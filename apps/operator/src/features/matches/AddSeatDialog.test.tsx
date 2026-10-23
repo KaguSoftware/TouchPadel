@@ -109,7 +109,20 @@ async function mount(props: { customerId?: string } = {}) {
   return { dialog, onClose, onAdded };
 }
 
-const addButton = (dialog: HTMLElement) => within(dialog).getByRole('button', { name: 'Add player' }) as HTMLButtonElement;
+// The stepped flow (StepWizard): Who, then Review, which holds Add player.
+type User = ReturnType<typeof userEvent.setup>;
+const toReview = (user: User, dialog: HTMLElement) => user.click(within(dialog).getByTestId('seat.step.review'));
+const addButton = (dialog: HTMLElement) => within(dialog).getByTestId('seat.submit') as HTMLButtonElement;
+async function submit(user: User, dialog: HTMLElement) {
+  await toReview(user, dialog);
+  await user.click(addButton(dialog));
+}
+/** Review is refused: the Who step stays, listing why. */
+async function heldOnWho(user: User, dialog: HTMLElement, why: string) {
+  await toReview(user, dialog);
+  expect(within(dialog).queryByTestId('seat.submit')).toBeNull();
+  expect(within(dialog).getAllByText(why).length).toBeGreaterThan(0);
+}
 const plain = (s: string | null | undefined) => (s ?? '').replace(/[⁦-⁩]/g, '');
 
 describe('deskOpenNumbers / categoryGender', () => {
@@ -134,10 +147,9 @@ describe('AddSeatDialog', () => {
     const user = userEvent.setup();
     raw = rawDetail({}, [rawSeat(1), rawSeat(2)]);
     const { dialog, onClose, onAdded } = await mount();
-    expect(addButton(dialog).disabled).toBe(true);
-    expect(addButton(dialog).title).toBe('Pick a customer or type a name.');
+    await heldOnWho(user, dialog, 'Pick a customer or type a name.');
     await user.type(within(dialog).getByLabelText('Guest name'), 'Bravo');
-    await user.click(addButton(dialog));
+    await submit(user, dialog);
     await waitFor(() => expect(onClose).toHaveBeenCalled());
     const args = calls.find((c) => c.fn === 'desk_add_seat')!.args;
     expect(args).toMatchObject({ p_match_id: 'm1', p_customer_id: null, p_guest_name: 'Bravo', p_guest_phone: null, p_gender: null });
@@ -155,13 +167,13 @@ describe('AddSeatDialog', () => {
     await user.type(name, 'Bravo');
     const phone = within(dialog).getByLabelText(/^Guest phone/);
     await user.type(phone, '0770 12');
-    expect(addButton(dialog).disabled).toBe(true);
-    expect(addButton(dialog).title).toBe('A phone number has 7 to 15 digits.');
     // Not said on the box while it is being typed; once the desk leaves it.
     expect(within(dialog).queryByText('A phone number has 7 to 15 digits.')).toBeNull();
     await user.tab();
     expect(within(dialog).getByText('A phone number has 7 to 15 digits.')).toBeTruthy();
-    await user.type(phone, '34567');
+    await heldOnWho(user, dialog, 'A phone number has 7 to 15 digits.');
+    await user.type(within(dialog).getByLabelText(/^Guest phone/), '34567');
+    await toReview(user, dialog);
     expect(addButton(dialog).disabled).toBe(false);
   });
 
@@ -172,7 +184,7 @@ describe('AddSeatDialog', () => {
     const { dialog, onClose } = await mount();
     await user.type(within(dialog).getByLabelText('Guest name'), 'Bravo');
     await user.type(within(dialog).getByLabelText(/^Guest phone/), '07701234567');
-    await user.click(addButton(dialog));
+    await submit(user, dialog);
     expect(await within(dialog).findByText('A phone number has 7 to 15 digits.')).toBeTruthy();
     expect(within(dialog).queryByText(/Invalid input/)).toBeNull();
     expect(onClose).not.toHaveBeenCalled();
@@ -184,27 +196,28 @@ describe('AddSeatDialog', () => {
     const { dialog } = await mount();
     expect(within(dialog).getByText('Seated as a woman (vouched at the desk).')).toBeTruthy();
     await user.type(within(dialog).getByLabelText('Guest name'), 'Sara');
-    await user.click(addButton(dialog));
+    await submit(user, dialog);
     await waitFor(() => expect(calls.find((c) => c.fn === 'desk_add_seat')?.args.p_gender).toBe('female'));
   });
 
   it('a handed-back customer banned from open matches cannot be added', async () => {
+    const user = userEvent.setup();
     record = { customer: { id: 'c9', full_name: 'Omar Khalid', phone: '0770', email: null, preferred_lang: 'en' }, flags: [{ type: 'match_ban', label: 'conduct' }] };
     raw = rawDetail({}, [rawSeat(1)]);
     const { dialog } = await mount({ customerId: 'c9' });
     await waitFor(() => expect(within(dialog).getByText(/Linked to Omar Khalid/)).toBeTruthy());
-    expect(addButton(dialog).disabled).toBe(true);
-    expect(addButton(dialog).title).toBe('Banned from open matches');
+    await heldOnWho(user, dialog, 'Banned from open matches');
   });
 
   it("a customer who plays as a man cannot join a women's match; the dialog links their record", async () => {
+    const user = userEvent.setup();
     record = { customer: { id: 'c9', full_name: 'Omar Khalid', phone: null, email: null, preferred_lang: 'en', gender: 'male' }, flags: [] };
     raw = rawDetail({ category: 'women' }, [rawSeat(1)]);
     const { dialog } = await mount({ customerId: 'c9' });
-    await waitFor(() => expect(addButton(dialog).title).toBe('This customer plays as a man. This match is for women.'));
-    expect(addButton(dialog).disabled).toBe(true);
+    await waitFor(() => expect(within(dialog).getByText('This customer plays as a man. This match is for women.')).toBeTruthy());
     expect(within(dialog).getByText('Open their record')).toBeTruthy();
     expect(within(dialog).queryByText('Seated as a woman (vouched at the desk).')).toBeNull();
+    await heldOnWho(user, dialog, 'This customer plays as a man. This match is for women.');
   });
 
   it('a linked customer is sent by id, never by a typed name', async () => {
@@ -212,8 +225,8 @@ describe('AddSeatDialog', () => {
     record = { customer: { id: 'c9', full_name: 'Noor Salem', phone: '0771', email: null, preferred_lang: 'ar' }, flags: [] };
     raw = rawDetail({}, [rawSeat(1)]);
     const { dialog } = await mount({ customerId: 'c9' });
-    await waitFor(() => expect(addButton(dialog).disabled).toBe(false));
-    await user.click(addButton(dialog));
+    await waitFor(() => expect(within(dialog).getByText(/Linked to Noor Salem/)).toBeTruthy());
+    await submit(user, dialog);
     await waitFor(() => expect(calls.find((c) => c.fn === 'desk_add_seat')?.args).toMatchObject({ p_customer_id: 'c9', p_guest_name: null, p_guest_phone: null }));
   });
 
@@ -223,8 +236,13 @@ describe('AddSeatDialog', () => {
     addResult = { seat_no: 4, match_status: 'booked' };
     const { dialog } = await mount();
     await waitFor(() => expect(within(dialog).getByText('Add a player in a free seat')).toBeTruthy());
-    expect(within(dialog).getByText("They owe the seat's share of 12,000 IQD.")).toBeTruthy();
+    expect(within(dialog).getByText("They owe the seat’s share of 12,000 IQD.")).toBeTruthy();
     await user.type(within(dialog).getByLabelText('Guest name'), 'Delta');
+    await toReview(user, dialog);
+    const review = within(dialog.querySelector('.tp-wiz-review') as HTMLElement);
+    expect(review.getByText('Delta')).toBeTruthy();
+    expect(review.getByText('4 of 4')).toBeTruthy();
+    expect(review.getByText('12,000 IQD at the desk')).toBeTruthy();
     await user.click(addButton(dialog));
     // Already booked: the plain line, not "Four in".
     await waitFor(() => expect(toast.ok).toHaveBeenCalled());
@@ -238,7 +256,7 @@ describe('AddSeatDialog', () => {
     const first = await mount();
     raw = rawDetail({ status: 'booked' }, [rawSeat(1), rawSeat(2), rawSeat(3), rawSeat(4)]);
     await user.type(within(first.dialog).getByLabelText('Guest name'), 'Delta');
-    await user.click(addButton(first.dialog));
+    await submit(user, first.dialog);
     await waitFor(() => expect(toast.ok).toHaveBeenCalled());
     expect(plain(toast.ok.mock.calls[0]![0] as string)).toBe('Four in: booked on Indoor Court 1.');
   });
@@ -249,7 +267,7 @@ describe('AddSeatDialog', () => {
     addResult = { seat_no: 4, match_status: 'awaiting_court' };
     const { dialog } = await mount();
     await user.type(within(dialog).getByLabelText('Guest name'), 'Delta');
-    await user.click(addButton(dialog));
+    await submit(user, dialog);
     await waitFor(() => expect(toast.ok).toHaveBeenCalledWith('Four in: waiting for a court.'));
   });
 
@@ -259,15 +277,19 @@ describe('AddSeatDialog', () => {
     addResult = new AppRpcError('MATCH_FULL', 'MATCH_FULL');
     const { dialog, onClose } = await mount();
     await user.type(within(dialog).getByLabelText('Guest name'), 'Echo');
-    await user.click(addButton(dialog));
+    await submit(user, dialog);
     expect(await within(dialog).findByText('No seat is free in this match.')).toBeTruthy();
     expect(onClose).not.toHaveBeenCalled();
   });
 
   it('offline: Add needs a connection', async () => {
+    const user = userEvent.setup();
     reachable = false;
     raw = rawDetail({}, [rawSeat(1)]);
     const { dialog } = await mount();
+    await user.type(within(dialog).getByLabelText('Guest name'), 'Echo');
+    await toReview(user, dialog);
+    expect(addButton(dialog).disabled).toBe(true);
     expect(addButton(dialog).title).toBe('Needs a connection: open matches work online only');
   });
 

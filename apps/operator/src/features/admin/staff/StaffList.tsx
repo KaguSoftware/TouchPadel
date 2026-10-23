@@ -40,7 +40,8 @@ import { appRpc } from '../../../lib/appRpc';
 import { callEdge } from '../../../lib/edge';
 import { currentBranchId } from '../../../lib/venueScope';
 import { canAccess, useAuth, usePermissions, requiredRoleFor, type StaffRole } from '../../../lib/auth';
-import { useLocale } from '../../../lib/i18n';
+import { pickName, useLocale } from '../../../lib/i18n';
+import { useVenue } from '../../../lib/venue';
 import { useToast } from '../../../components/toast';
 import { Button, ErrorText, Field, Modal, inputStyle } from '../../../components/ui';
 import {
@@ -56,8 +57,9 @@ import {
   asyncStatus,
   type Column,
 } from '../../../components/kit';
+import { ReviewList, StepWizard, WizardChoice, WizardChoices, WizardNote } from '../../../components/StepWizard';
 import { StaffAccountEditor } from './StaffAccountEditor';
-import { RoleField, StaffErrorText } from './staffParts';
+import { StaffErrorText } from './staffParts';
 import { createdStaffId, hirePrefill, readHireStep } from './hirePrefill';
 import {
   MIN_PASSWORD,
@@ -68,6 +70,7 @@ import {
   isRetiredRole,
   looksLikeEmail,
   pinFormatOk,
+  roleChoices,
   type StaffRow,
 } from './staffModel';
 
@@ -373,9 +376,15 @@ function HireBanner({ stepId, onAdd }: { stepId: string; onAdd(intent: HireInten
   );
 }
 
+/**
+ * Add staff member, as a stepped wizard (Sait, 2026-10-22): who (name and
+ * email), the role as choice cards with what it opens said beneath, the
+ * opening password, then Review, where the account is created.
+ */
 function AddStaffDialog({ onClose, onCreated, hire }: { onClose(): void; onCreated(): void; hire?: HireIntent }) {
   const { tr, locale } = useLocale();
   const toast = useToast();
+  const { venues, branchId } = useVenue();
   const [email, setEmail] = useState('');
   const [name, setName] = useState(hire?.name ?? '');
   const [role, setRole] = useState<StaffRole>(hire?.role ?? 'cashier');
@@ -424,6 +433,7 @@ function AddStaffDialog({ onClose, onCreated, hire }: { onClose(): void; onCreat
     },
   });
   const locked = created;
+  const busy = create.isPending || sendStep.isPending;
 
   // Said while typing, not after a refused round trip — but only once there is
   // something to judge, so an empty form does not open in red.
@@ -432,57 +442,107 @@ function AddStaffDialog({ onClose, onCreated, hire }: { onClose(): void; onCreat
     password !== '' && password.length < MIN_PASSWORD
       ? tr('ws.owner.staff.add.passwordShort', { count: formatNumber(MIN_PASSWORD - password.length, locale) })
       : undefined;
-  const ready = looksLikeEmail(email) && name.trim() !== '' && password.length >= MIN_PASSWORD;
+  const whoProblems = [
+    ...(name.trim() === '' ? [tr('ws.owner.staff.add.nameNeeded')] : []),
+    ...(!looksLikeEmail(email) ? [emailProblem ?? tr('ws.owner.staff.add.emailNeeded')] : []),
+  ];
+  const passwordProblems = password.length < MIN_PASSWORD ? [passwordProblem ?? tr('ws.owner.staff.password.tooShort', { min: formatNumber(MIN_PASSWORD, locale) })] : [];
+  const roleName = tr(`op.roles.${role}`);
+  const branch = venues.find((v) => v.id === branchId);
 
   return (
-    <Modal
+    <StepWizard
       title={tr('op.staff.add')}
-      subtitle={hire ? tr('ws.events.hire.dialogLead') : tr('ws.owner.staff.add.lead')}
+      lead={hire ? tr('ws.events.hire.dialogLead') : tr('ws.owner.staff.add.lead')}
+      testId="add-staff"
       onClose={onClose}
-      footer={(close) => (
-        <>
-          <Button onClick={close} disabled={create.isPending || sendStep.isPending}>
-            {tr('common.cancel')}
-          </Button>
-          {createdId ? (
-            // The account exists: only the hiring step is left to send.
-            <Button kind="primary" busy={sendStep.isPending} onClick={() => sendStep.mutate(createdId)}>
-              {tr('ws.events.hire.retry')}
-            </Button>
-          ) : (
-            <Button
-              kind="primary"
-              icon="userPlus"
-              disabled={!ready || locked}
-              disabledReason={!ready ? tr('ws.owner.staff.add.notReady') : undefined}
-              busy={create.isPending || sendStep.isPending}
-              onClick={() => create.mutate()}
-            >
-              {tr('op.staff.add')}
-            </Button>
-          )}
-        </>
+      busy={busy}
+      // The account exists: only the hiring step is left to send.
+      submitLabel={createdId ? tr('ws.events.hire.retry') : tr('op.staff.add')}
+      onSubmit={() => (createdId ? sendStep.mutate(createdId) : create.mutate())}
+      // Made without an id: a second Add would only meet the same email taken.
+      submitBlocked={locked && !createdId ? tr('ws.events.hire.submitFailed') : null}
+      notice={
+        create.error || created || sendStep.error ? (
+          <>
+            <StaffErrorText error={create.error} />
+            {created && (sendStep.isError || !createdId) && <WizardNote tone="error">{tr('ws.events.hire.submitFailed')}</WizardNote>}
+            <ErrorText error={sendStep.error} />
+          </>
+        ) : undefined
+      }
+      steps={[
+        {
+          key: 'who',
+          label: tr('ws.owner.staff.add.steps.who'),
+          note: name.trim() || null,
+          problems: whoProblems,
+          content: (
+            <>
+              <Field label={tr('op.staff.name')} required hint={tr('ws.owner.staff.add.nameHint')}>
+                {/* A hiring run fills the name in, so the first empty field takes the focus. */}
+                <input style={inputStyle} autoFocus={!hire?.name} value={name} maxLength={80} disabled={locked} onChange={(e) => setName(e.target.value)} />
+              </Field>
+              <Field label={tr('auth.emailLabel')} required hint={tr('ws.owner.staff.add.emailHint')} error={emailProblem}>
+                <input style={inputStyle} dir="ltr" type="email" autoComplete="off" autoFocus={Boolean(hire?.name)} value={email} disabled={locked} onChange={(e) => setEmail(e.target.value)} />
+              </Field>
+            </>
+          ),
+        },
+        {
+          key: 'role',
+          label: tr('op.staff.role'),
+          note: roleName,
+          content: (
+            <>
+              {/* Hiring: the role is the position's; the run refuses any other. */}
+              <WizardChoices small label={tr('op.staff.role')}>
+                {roleChoices(role)
+                  .filter((c) => !c.retired)
+                  .map((c) => (
+                    <WizardChoice
+                      key={c.role}
+                      on={c.role === role}
+                      title={tr(`op.roles.${c.role}`)}
+                      disabled={Boolean(hire) || locked}
+                      onPick={() => setRole(c.role)}
+                      testId={`add-staff.role.${c.role}`}
+                    />
+                  ))}
+              </WizardChoices>
+              <WizardNote>{tr(`ws.owner.staff.roleAccess.${role}`)}</WizardNote>
+              {hire && <WizardNote tone="refused">{tr('ws.events.hire.roleLocked')}</WizardNote>}
+            </>
+          ),
+        },
+        {
+          key: 'password',
+          label: tr('ws.owner.staff.password.title'),
+          note: tr('ws.owner.staff.add.passwordSet'),
+          problems: passwordProblems,
+          content: (
+            /* Shown, not masked: the owner reads this out during training and the
+               staff member changes it afterwards. Masking a value you must dictate
+               aloud only produces typos. */
+            <Field label={tr('op.staff.openingPassword')} required hint={tr('op.staff.passwordHint', { min: formatNumber(MIN_PASSWORD, locale) })} error={passwordProblem}>
+              <input style={inputStyle} dir="ltr" type="text" autoComplete="off" autoFocus value={password} disabled={locked} onChange={(e) => setPassword(e.target.value)} />
+            </Field>
+          ),
+        },
+      ]}
+      review={(goTo) => (
+        <ReviewList
+          goTo={goTo}
+          busy={busy || locked}
+          rows={[
+            { label: tr('op.staff.name'), value: <bdi>{name.trim()}</bdi>, step: 'who' },
+            { label: tr('auth.emailLabel'), value: <bdi dir="ltr">{email.trim()}</bdi>, step: 'who' },
+            { label: tr('op.staff.role'), value: roleName, step: 'role' },
+            { label: tr('branches.common.branch'), value: branch ? <bdi>{pickName(locale, branch)}</bdi> : '—' },
+          ]}
+        />
       )}
-    >
-      <Field label={tr('op.staff.name')} required hint={tr('ws.owner.staff.add.nameHint')}>
-        {/* A hiring run fills the name in, so the first empty field takes the focus. */}
-        <input style={inputStyle} autoFocus={!hire?.name} value={name} maxLength={80} disabled={locked} onChange={(e) => setName(e.target.value)} />
-      </Field>
-      <Field label={tr('auth.emailLabel')} required hint={tr('ws.owner.staff.add.emailHint')} error={emailProblem}>
-        <input style={inputStyle} dir="ltr" type="email" autoComplete="off" autoFocus={Boolean(hire?.name)} value={email} disabled={locked} onChange={(e) => setEmail(e.target.value)} />
-      </Field>
-      {/* Hiring: the role is the position's; the run refuses any other. */}
-      <RoleField value={role} onChange={setRole} disabled={Boolean(hire) || locked} note={hire ? tr('ws.events.hire.roleLocked') : undefined} />
-      {/* Shown, not masked: the owner reads this out during training and the
-          staff member changes it afterwards. Masking a value you must dictate
-          aloud only produces typos. */}
-      <Field label={tr('op.staff.openingPassword')} required hint={tr('op.staff.passwordHint', { min: formatNumber(MIN_PASSWORD, locale) })} error={passwordProblem}>
-        <input style={inputStyle} dir="ltr" type="text" autoComplete="off" value={password} disabled={locked} onChange={(e) => setPassword(e.target.value)} />
-      </Field>
-      <StaffErrorText error={create.error} />
-      {created && (sendStep.isError || !createdId) && <MessagePresenter tone="error" message={tr('ws.events.hire.submitFailed')} />}
-      <ErrorText error={sendStep.error} />
-    </Modal>
+    />
   );
 }
 

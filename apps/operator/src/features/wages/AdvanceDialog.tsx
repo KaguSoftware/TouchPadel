@@ -19,12 +19,13 @@ import { appRpc } from '../../lib/appRpc';
 import { useLocale } from '../../lib/i18n';
 import { useToast } from '../../components/toast';
 import { Button, ErrorText, Field, Modal, inputStyle } from '../../components/ui';
-import { MoneyInput } from '../../components/inputs';
+import { digitsOnly } from '../../components/inputs';
+import { SegmentedControl } from '../../components/kit';
+import { ReviewList, StepWizard, type WizardStep } from '../../components/StepWizard';
 import { refusalCode, refusalHint } from '../protocols/errors';
 import { monthLabel } from '../deductions/venueDate';
 import { isObject, num } from '../roleExtras/roleExtrasLogic';
 import { WK } from './api';
-import { PaidFromField } from './PaidFromField';
 import {
   ADVANCE_MAX,
   ADVANCE_NOTE_MAX,
@@ -65,7 +66,6 @@ export function GiveAdvanceDialog({ target, onClose, onDone }: { target: Advance
   const [amount, setAmount] = useState<number | null>(null);
   const [paidFrom, setPaidFrom] = useState<PaidFrom>('safe');
   const [note, setNote] = useState('');
-  const [tried, setTried] = useState(false);
   const amountRef = useRef<HTMLSpanElement>(null);
 
   // The Modal claims focus for its panel first; the amount is what the owner came to type.
@@ -104,66 +104,120 @@ export function GiveAdvanceDialog({ target, onClose, onDone }: { target: Advance
 
   const tooLargeMax = refusalCode(give.error) === 'WAGE_ADVANCE_TOO_LARGE' ? advanceMaxFromHint(refusalHint(give.error)) : null;
 
-  function submit() {
-    setTried(true);
-    if (issues.length === 0) give.mutate();
-  }
+  const amountProblem = amountIssue ? tr(AMOUNT_ISSUE[amountIssue], { amount: money(target.owedIqd) }) : null;
+  const noteProblem = noteIssue ? tr('ws.wages.give.issue.tooLong', { limit: String(ADVANCE_NOTE_MAX) }) : null;
+  const busy = give.isPending;
+  const fromLabel = tr(paidFrom === 'safe' ? 'ws.wages.paidFrom.safe' : 'ws.wages.paidFrom.bank');
 
-  return (
-    <Modal
-      title={tr('ws.wages.give.title', { name: isolate(target.displayName) })}
-      subtitle={monthLabel(target.month, locale)}
-      size="sm"
-      onClose={onClose}
-      dismissible={!give.isPending}
-      footer={(close) => (
-        <>
-          <Button onClick={close} disabled={give.isPending}>
-            {tr('common.cancel')}
-          </Button>
-          <Button kind="primary" icon="banknote" busy={give.isPending} data-testid="wages.advance.confirm" onClick={submit}>
-            {amount !== null && amount > 0 ? tr('ws.wages.give.confirm', { amount: money(amount) }) : tr('ws.wages.give.confirmEmpty')}
-          </Button>
-        </>
-      )}
-    >
-      <div style={{ display: 'grid', gap: 'var(--tp-sp-4)' }}>
-        <Field
-          label={tr('ws.wages.give.amount')}
-          hint={tr('ws.wages.give.amountHint', { amount: money(target.owedIqd) })}
-          required
-          error={tried && amountIssue ? tr(AMOUNT_ISSUE[amountIssue], { amount: money(target.owedIqd) }) : undefined}
-          style={{ marginBlockEnd: 0 }}
-        >
-          <span ref={amountRef} data-testid="wages.advance.amount">
-            <MoneyInput value={amount} allowEmpty max={ADVANCE_MAX} disabled={give.isPending} onChange={setAmount} />
+  const steps: WizardStep[] = [
+    {
+      key: 'amount',
+      label: tr('ws.wages.give.amount'),
+      note: amount !== null && amount > 0 ? money(amount) : null,
+      problems: amountProblem ? [amountProblem] : [],
+      // The server's "too large" names the amount.
+      flagged: tooLargeMax !== null,
+      content: (
+        <Field label={tr('ws.wages.give.amount')} hint={tr('ws.wages.give.amountHint', { amount: money(target.owedIqd) })} style={{ marginBlockEnd: 0 }}>
+          {/* The box with its unit written after it, as the wizard preview draws it. */}
+          <span ref={amountRef} data-testid="wages.advance.amount" style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-2)' }}>
+            <input
+              style={{ ...inputStyle, flex: 1, minInlineSize: 0, fontVariantNumeric: 'tabular-nums' }}
+              dir="ltr"
+              inputMode="numeric"
+              autoComplete="off"
+              disabled={busy}
+              value={amount === null ? '' : String(amount)}
+              onChange={(e) => {
+                const digits = digitsOnly(e.target.value);
+                if (digits === '') return setAmount(null);
+                const n = Number(digits);
+                // A keystroke past the cap is refused, so the typed figure stays legible.
+                if (Number.isSafeInteger(n) && n <= ADVANCE_MAX) setAmount(n);
+              }}
+            />
+            <span style={{ color: 'var(--tp-muted-fg)', fontWeight: 600, fontSize: 'var(--tp-fs-sm)' }}>{tr('ws.wages.give.unit')}</span>
           </span>
         </Field>
-        <PaidFromField value={paidFrom} onChange={setPaidFrom} disabled={give.isPending} testId="wages.advance.from" />
-        <Field
-          label={tr('ws.wages.give.note')}
-          optional
-          error={tried && noteIssue ? tr('ws.wages.give.issue.tooLong', { limit: String(ADVANCE_NOTE_MAX) }) : undefined}
-          style={{ marginBlockEnd: 0 }}
-        >
-          <input
-            style={inputStyle}
-            value={note}
-            maxLength={ADVANCE_NOTE_MAX}
-            dir="auto"
-            autoComplete="off"
-            disabled={give.isPending}
-            onChange={(e) => setNote(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && submit()}
-            data-testid="wages.advance.note"
+      ),
+    },
+    {
+      key: 'from',
+      label: tr('ws.wages.paidFrom.label'),
+      note: fromLabel,
+      problems: noteProblem ? [noteProblem] : [],
+      content: (
+        <>
+          {/* The step's heading names the choice; the hint under it says what it moves. */}
+          <div style={{ display: 'grid', gap: 'var(--tp-sp-1-5)', justifyItems: 'start' }}>
+            <SegmentedControl<PaidFrom>
+              value={paidFrom}
+              onChange={setPaidFrom}
+              aria-label={tr('ws.wages.paidFrom.label')}
+              options={[
+                { value: 'safe', label: tr('ws.wages.paidFrom.safe'), testId: 'wages.advance.from.safe', disabled: busy },
+                { value: 'bank', label: tr('ws.wages.paidFrom.bank'), testId: 'wages.advance.from.bank', disabled: busy },
+              ]}
+            />
+            <span style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>
+              {tr(paidFrom === 'safe' ? 'ws.wages.paidFrom.safeHint' : 'ws.wages.paidFrom.bankHint')}
+            </span>
+          </div>
+          <Field label={tr('ws.wages.give.note')} optional style={{ marginBlockEnd: 0 }}>
+            <input
+              style={inputStyle}
+              value={note}
+              maxLength={ADVANCE_NOTE_MAX}
+              dir="auto"
+              autoComplete="off"
+              disabled={busy}
+              placeholder={tr('ws.wages.give.notePlaceholder')}
+              onChange={(e) => setNote(e.target.value)}
+              data-testid="wages.advance.note"
+            />
+          </Field>
+        </>
+      ),
+    },
+  ];
+
+  const who = `${isolate(target.displayName)} · ${monthLabel(target.month, locale)}`;
+
+  return (
+    <StepWizard
+      title={tr('ws.wages.give.wizardTitle')}
+      lead={who}
+      steps={steps}
+      review={(goTo) => (
+        <ReviewList
+          goTo={goTo}
+          busy={busy}
+          rows={[
+            { label: tr('ws.wages.give.review.to'), value: who },
+            { label: tr('ws.wages.give.amount'), value: amount !== null ? money(amount) : '—', step: 'amount' },
+            { label: tr('ws.wages.paidFrom.label'), value: fromLabel, step: 'from' },
+            ...(note.trim() !== '' ? [{ label: tr('ws.wages.give.note'), value: <bdi>{note.trim()}</bdi>, step: 'from' }] : []),
+            // What this month leaves once it is given; the toast then says the server's figure.
+            { label: tr('ws.wages.give.review.owedAfter'), value: money(Math.max(target.owedIqd - (amount ?? 0), 0)) },
+          ]}
+        />
+      )}
+      submitLabel={amount !== null && amount > 0 ? tr('ws.wages.give.confirm', { amount: money(amount) }) : tr('ws.wages.give.confirmEmpty')}
+      onSubmit={() => {
+        if (issues.length === 0) give.mutate();
+      }}
+      busy={busy}
+      notice={
+        give.isError ? (
+          <ErrorText
+            error={give.error}
+            message={tooLargeMax !== null ? tr('ws.wages.give.tooLarge', { name: isolate(target.displayName), amount: money(tooLargeMax) }) : null}
           />
-        </Field>
-      </div>
-      <ErrorText
-        error={give.error}
-        message={tooLargeMax !== null ? tr('ws.wages.give.tooLarge', { name: isolate(target.displayName), amount: money(tooLargeMax) }) : null}
-      />
-    </Modal>
+        ) : null
+      }
+      onClose={onClose}
+      testId="wages.advance"
+    />
   );
 }
 

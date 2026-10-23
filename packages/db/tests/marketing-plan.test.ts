@@ -267,9 +267,9 @@ describe.skipIf(!docker)('marketing_plan (rolled-back transactions)', () => {
     const after = ok<Plan>(r, 'approved_mkt');
     expect(after.plan).toMatchObject({ status: 'approved', decision_note: 'Skip the third week' });
     const byId = new Map(after.ideas.map((i) => [i.id, i]));
-    expect(byId.get(who.w1)).toMatchObject({ status: 'approved' });
-    expect(byId.get(who.poster)).toMatchObject({ status: 'approved', title: 'Iced latte, two for one' });
-    expect(byId.get(who.w3)).toMatchObject({ status: 'dropped', drop_note: 'Skip the third week' });
+    expect(byId.get(who.w1 as string)?.status).toBe('approved');
+    expect(byId.get(who.poster as string)).toMatchObject({ status: 'approved', title: 'Iced latte, two for one' });
+    expect(byId.get(who.w3 as string)).toMatchObject({ status: 'dropped', drop_note: 'Skip the third week' });
     expect(refused(r, 'edit_approved')).toBe('IDEA_LOCKED');
 
     expect(ok<{ plan_status: string }>(r, 'extra').plan_status).toBe('draft');

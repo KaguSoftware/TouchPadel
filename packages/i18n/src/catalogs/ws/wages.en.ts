@@ -255,8 +255,17 @@ export const wagesEn = {
   },
   give: {
     title: 'Give {name} an advance',
+    // The stepped dialog: the person and month are its lead.
+    wizardTitle: 'Give an advance',
+    notePlaceholder: 'For rent',
+    review: {
+      to: 'To',
+      owedAfter: 'Still owed after',
+    },
     amount: 'Amount',
-    amountHint: 'Up to {amount} still owed this month',
+    amountHint: 'Up to {amount} still owed this month.',
+    /** Written after the amount box. */
+    unit: 'IQD',
     note: 'Note',
     noteHint: 'At most {limit} characters.',
     confirm: 'Give {amount}',

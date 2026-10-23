@@ -127,6 +127,8 @@ export const loyaltyEn = {
     card: 'Points, tiers and rewards guests earn on every bill, at every branch.',
     ownerOnly: 'Only the owner can change loyalty.',
     saved: 'Saved.',
+    // The stepped "Add a tier" and "Add a reward" dialogs.
+    wizardLead: 'Loyalty',
     settings: {
       title: 'Points',
       enabled: 'Loyalty is on',
@@ -180,6 +182,18 @@ export const loyaltyEn = {
         multiplier: 'Earns',
       },
       multiplierValue: '×{value}',
+      steps: {
+        name: 'Name',
+        points: 'Points & multiplier',
+      },
+      placeNote: '{name} sits after {below}. A guest moves up once they earn {points} points in 12 months.',
+      review: {
+        name: 'Name',
+        from: 'From',
+        fromValue: '{points} points in 12 months',
+        earns: 'Earns',
+        earnsValue: '{value}× points',
+      },
       errors: {
         names: 'Both names are needed.',
         minPoints: 'Type a whole number, 0 or more.',
@@ -202,6 +216,22 @@ export const loyaltyEn = {
       variant: 'Menu item',
       variantPlaceholder: 'Choose an item',
       active: 'On offer',
+      steps: {
+        name: 'Name',
+        gives: 'What it gives',
+        cost: 'Cost',
+      },
+      kindIqdOffBody: 'Taken off at the till.',
+      kindItemTitle: 'A free menu item',
+      kindItemBody: 'One, that size.',
+      activeOnHint: 'Guests can redeem it now.',
+      activeOffHint: 'Hidden from guests until you turn it on.',
+      review: {
+        name: 'Name',
+        gives: 'Gives',
+        offValue: '{amount} off the bill',
+        cost: 'Cost',
+      },
       columns: {
         name: 'Reward',
         cost: 'Cost',

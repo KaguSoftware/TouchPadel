@@ -168,17 +168,34 @@ async function mount(props: { lesson?: LessonInfo; customerId?: string } = {}) {
   return { dialog, onClose, onAdded };
 }
 
+// The stepped flow (StepWizard): Who, then Review, which holds Add student.
+type User = ReturnType<typeof userEvent.setup>;
+const toReview = (user: User, dialog: HTMLElement) =>
+  user.click(within(dialog).getByTestId('student.step.review'));
 const addButton = (dialog: HTMLElement) =>
-  within(dialog).getByRole('button', { name: 'Add student' }) as HTMLButtonElement;
+  within(dialog).getByTestId('student.submit') as HTMLButtonElement;
+async function submit(user: User, dialog: HTMLElement) {
+  await toReview(user, dialog);
+  await user.click(addButton(dialog));
+}
+/** Review is refused: the Who step stays, listing why. */
+async function heldOnWho(user: User, dialog: HTMLElement, why: string) {
+  await toReview(user, dialog);
+  expect(within(dialog).queryByTestId('student.submit')).toBeNull();
+  expect(within(dialog).getAllByText(why).length).toBeGreaterThan(0);
+}
 
 describe('AddStudentDialog', () => {
   it('a typed student on a group session: Add waits for a name, then sends it to the lesson with the dialog key', async () => {
     const user = userEvent.setup();
     const { dialog, onClose, onAdded } = await mount();
-    expect(within(dialog).getByRole('heading', { name: 'Add student' })).toBeTruthy();
-    expect(addButton(dialog).disabled).toBe(true);
-    expect(addButton(dialog).title).toBe('Pick a customer or type a name.');
+    expect(within(dialog).getByRole('heading', { name: 'Add a student' })).toBeTruthy();
+    await heldOnWho(user, dialog, 'Pick a customer or type a name.');
     await user.type(within(dialog).getByLabelText('Student name'), 'Bravo');
+    await toReview(user, dialog);
+    const review = within(dialog.querySelector('.tp-wiz-review') as HTMLElement);
+    expect(review.getByText('Bravo')).toBeTruthy();
+    expect(review.getByText('15,000 IQD a place')).toBeTruthy();
     await user.click(addButton(dialog));
     await waitFor(() => expect(onClose).toHaveBeenCalled());
     const args = calls.find((c) => c.fn === 'desk_add_student')!.args;
@@ -200,22 +217,26 @@ describe('AddStudentDialog', () => {
     addResult = { duplicate: false, enrolment_id: 'e9', price_iqd: 15000, places_left: 0 };
     const { dialog } = await mount();
     await user.type(within(dialog).getByLabelText('Student name'), 'Bravo');
-    await user.click(addButton(dialog));
+    await submit(user, dialog);
     await waitFor(() => expect(toast.ok).toHaveBeenCalled());
     expect(plain(toast.ok.mock.calls[0]![0] as string)).toBe('Bravo is in. The session is full.');
   });
 
   it('a course session signs up for the course, joining from the next session to start', async () => {
     const user = userEvent.setup();
-    const { dialog } = await mount({ lesson: lesson({ kind: 'course', course: course() }) });
-    expect(
-      within(dialog).getByRole('heading', { name: 'Add a student to the course' }),
-    ).toBeTruthy();
+    // A course session reads the course's price (desk_lesson_detail's coalesce).
+    const { dialog } = await mount({ lesson: lesson({ kind: 'course', course: course(), price_iqd: 120000 }) });
+    // One title for a session and a course alike (the approved preview).
+    expect(within(dialog).getByRole('heading', { name: 'Add a student' })).toBeTruthy();
     expect(plain(within(dialog).getByText(/^Joins from session/).textContent)).toBe(
       'Joins from session 3: pays for 2 sessions.',
     );
     await user.type(within(dialog).getByLabelText('Student name'), 'Delta');
     await user.type(within(dialog).getByLabelText(/^Phone/), '0770 123 4567');
+    await toReview(user, dialog);
+    const review = within(dialog.querySelector('.tp-wiz-review') as HTMLElement);
+    // Sessions 3 and 4 of 4: half of 120,000 (C-15).
+    expect(plain(review.getByText(/IQD for /).textContent)).toBe('60,000 IQD for 2 sessions');
     await user.click(addButton(dialog));
     await waitFor(() => expect(calls.find((c) => c.fn === 'desk_add_student')).toBeTruthy());
     const args = calls.find((c) => c.fn === 'desk_add_student')!.args;
@@ -236,9 +257,8 @@ describe('AddStudentDialog', () => {
       flags: [],
     };
     const { dialog } = await mount({ customerId: 'c9' });
-    await waitFor(() => expect(addButton(dialog).disabled).toBe(false));
-    expect(within(dialog).getByText(/Noor Salem/)).toBeTruthy();
-    await user.click(addButton(dialog));
+    await waitFor(() => expect(within(dialog).getByText(/Noor Salem/)).toBeTruthy());
+    await submit(user, dialog);
     await waitFor(() =>
       expect(calls.find((c) => c.fn === 'desk_add_student')?.args).toMatchObject({
         p_customer_id: 'c9',
@@ -254,11 +274,10 @@ describe('AddStudentDialog', () => {
     await user.type(within(dialog).getByLabelText('Student name'), 'Bravo');
     const phone = within(dialog).getByLabelText(/^Phone/);
     await user.type(phone, '0770 12');
-    expect(addButton(dialog).disabled).toBe(true);
-    expect(addButton(dialog).title).toBe('A phone number has 7 to 15 digits.');
     expect(within(dialog).queryByText('A phone number has 7 to 15 digits.')).toBeNull();
     await user.tab();
     expect(within(dialog).getByText('A phone number has 7 to 15 digits.')).toBeTruthy();
+    await heldOnWho(user, dialog, 'A phone number has 7 to 15 digits.');
   });
 
   it('INVALID_ARGUMENT p_phone lands on the phone box, not as a generic refusal', async () => {
@@ -267,7 +286,7 @@ describe('AddStudentDialog', () => {
     const { dialog, onClose } = await mount();
     await user.type(within(dialog).getByLabelText('Student name'), 'Bravo');
     await user.type(within(dialog).getByLabelText(/^Phone/), '07701234567');
-    await user.click(addButton(dialog));
+    await submit(user, dialog);
     expect(await within(dialog).findByText('A phone number has 7 to 15 digits.')).toBeTruthy();
     expect(onClose).not.toHaveBeenCalled();
   });
@@ -277,7 +296,7 @@ describe('AddStudentDialog', () => {
     addResult = new AppRpcError('ALREADY_ENROLLED', 'ALREADY_ENROLLED', undefined, 'coach');
     const { dialog, onClose } = await mount();
     await user.type(within(dialog).getByLabelText('Student name'), 'Echo');
-    await user.click(addButton(dialog));
+    await submit(user, dialog);
     expect(
       await within(dialog).findByText('That customer is the coach of this lesson.'),
     ).toBeTruthy();
@@ -299,7 +318,7 @@ describe('AddStudentDialog', () => {
       p_to: '2026-10-01T21:00:00.000Z',
     });
     await user.type(within(dialog).getByLabelText('Student name'), 'Bravo');
-    await user.click(addButton(dialog));
+    await submit(user, dialog);
     await waitFor(() => expect(onClose).toHaveBeenCalled());
   });
 
@@ -310,8 +329,11 @@ describe('AddStudentDialog', () => {
   });
 
   it('offline: Add needs a connection', async () => {
+    const user = userEvent.setup();
     reachable = false;
     const { dialog } = await mount();
+    await user.type(within(dialog).getByLabelText('Student name'), 'Bravo');
+    await toReview(user, dialog);
     expect(addButton(dialog).disabled).toBe(true);
     expect(addButton(dialog).title).toBe('Needs a connection: lessons work online only');
   });

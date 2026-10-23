@@ -12,7 +12,7 @@
  * Loyalty ships switched off (L-1) until the client gives the point value, tier names and
  * thresholds; this is where the owner switches it on.
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { formatIQD, formatNumber } from '@touch/i18n';
 import type { LoyaltyAdminReward, LoyaltyAdminTier } from '@touch/core/loyalty';
@@ -24,10 +24,14 @@ import { useToast } from '../../components/toast';
 import { Switch } from '../../components/Switch';
 import { Button, ErrorText, Field, Modal, Select, Skeleton, inputStyle } from '../../components/ui';
 import { AsyncStateWrapper, MessagePresenter, PageHeader, Panel } from '../../components/kit';
+import { BilingualFields, digitsOnly } from '../../components/inputs';
+import { ReviewList, StepWizard, WizardChoice, WizardChoices, WizardNote, WizardToggle, type WizardStep } from '../../components/StepWizard';
 import { NumberField } from '../admin/settings/settingsFields';
 import { TILL_MENU_QUERY } from '../till/tillData';
 import {
   isBaseTier,
+  parseMultiplier,
+  parseWhole,
   rewardDraft,
   rewardErrors,
   rewardPayload,
@@ -348,7 +352,12 @@ function TiersPanel({ canEdit, tiers }: { canEdit: boolean; tiers: LoyaltyAdminT
           </tbody>
         </table>
       )}
-      {editing && <TierEditor draft0={editing} onClose={() => setEditing(null)} />}
+      {editing &&
+        (editing.id ? (
+          <TierEditor draft0={editing} onClose={() => setEditing(null)} />
+        ) : (
+          <TierWizard draft0={editing} tiers={tiers} onClose={() => setEditing(null)} />
+        ))}
       {removing && (
         <Modal
           title={tr(`${T}.removeTitle`, { name: pickName(locale, removing) })}
@@ -571,25 +580,21 @@ function RewardsPanel({ canEdit, rewards }: { canEdit: boolean; rewards: Loyalty
           </tbody>
         </table>
       )}
-      {editing && <RewardEditor draft0={editing} onClose={() => setEditing(null)} />}
+      {editing &&
+        (editing.id ? (
+          <RewardEditor draft0={editing} onClose={() => setEditing(null)} />
+        ) : (
+          <RewardWizard draft0={editing} onClose={() => setEditing(null)} />
+        ))}
     </Panel>
   );
 }
 
-function RewardEditor({ draft0, onClose }: { draft0: RewardDraft; onClose: () => void }) {
-  const { tr, locale } = useLocale();
-  const qc = useQueryClient();
-  const toast = useToast();
+/** Every size of every active item, named "Item · Size" where an item has more than one. */
+function useRewardVariants() {
+  const { locale } = useLocale();
   const menuQ = useQuery(TILL_MENU_QUERY);
-  const [d, setD] = useState(draft0);
-  const [touched, setTouched] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<unknown>(null);
-  const R = `${K}.rewards` as const;
-  const errors = touched ? rewardErrors(d) : {};
-
-  // Every size of every active item, named "Item · Size" where an item has more than one.
-  const variants = useMemo(
+  return useMemo(
     () =>
       (menuQ.data?.items ?? [])
         .filter((i) => i.is_active)
@@ -604,6 +609,19 @@ function RewardEditor({ draft0, onClose }: { draft0: RewardDraft; onClose: () =>
         ),
     [menuQ.data, locale],
   );
+}
+
+function RewardEditor({ draft0, onClose }: { draft0: RewardDraft; onClose: () => void }) {
+  const { tr } = useLocale();
+  const qc = useQueryClient();
+  const toast = useToast();
+  const variants = useRewardVariants();
+  const [d, setD] = useState(draft0);
+  const [touched, setTouched] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<unknown>(null);
+  const R = `${K}.rewards` as const;
+  const errors = touched ? rewardErrors(d) : {};
   useEffect(() => {
     if (d.kind === 'iqd_off' && d.menu_variant_id) setD((x) => ({ ...x, menu_variant_id: null }));
   }, [d.kind, d.menu_variant_id]);
@@ -716,5 +734,347 @@ function RewardEditor({ draft0, onClose }: { draft0: RewardDraft; onClose: () =>
       </div>
       <ErrorText error={error} />
     </Modal>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Adding a tier or a reward: the stepped dialog (StepWizard). Editing one keeps
+// the single form above.
+// ---------------------------------------------------------------------------
+
+/** Both names, as the Review page reads them. */
+const bothNames = (d: { name_en: string; name_ar: string }) => (
+  <>
+    <bdi>{d.name_en.trim()}</bdi> · <bdi lang="ar">{d.name_ar.trim()}</bdi>
+  </>
+);
+
+/** The preview's two-up row of fields: as many to a row as fit. */
+const WIZARD_GRID: CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(13rem, 1fr))',
+  gap: 'var(--tp-sp-1) var(--tp-sp-3)',
+};
+
+/** A whole number with its unit written after the box, as the wizard preview draws it. */
+function WizardUnitField({
+  label,
+  unit,
+  value,
+  onChange,
+  disabled,
+}: {
+  label: string;
+  unit: string;
+  value: string;
+  onChange: (v: string) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <Field label={label} style={{ marginBlockEnd: 0 }}>
+      <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-2)' }}>
+        <input
+          style={{ ...inputStyle, flex: 1, minInlineSize: 0, fontVariantNumeric: 'tabular-nums' }}
+          dir="ltr"
+          inputMode="numeric"
+          value={value}
+          disabled={disabled}
+          // Arabic-Indic digits from an Arabic keyboard are kept, as Latin (OP-16).
+          onChange={(e) => onChange(digitsOnly(e.target.value))}
+        />
+        <span style={{ color: 'var(--tp-muted-fg)', fontWeight: 600, fontSize: 'var(--tp-fs-sm)' }}>{unit}</span>
+      </span>
+    </Field>
+  );
+}
+
+/** A save through the wizard: the payload, the toast, the close; a refusal stays on Review. */
+function useWizardSave(onClose: () => void) {
+  const { tr } = useLocale();
+  const qc = useQueryClient();
+  const toast = useToast();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<unknown>(null);
+  async function run(write: () => Promise<unknown>) {
+    setBusy(true);
+    setError(null);
+    try {
+      await write();
+      invalidateLoyaltyAdmin(qc);
+      toast.ok(tr(`${K}.saved`));
+      onClose();
+    } catch (e) {
+      setError(e);
+    } finally {
+      setBusy(false);
+    }
+  }
+  return { busy, error, run };
+}
+
+function TierWizard({
+  draft0,
+  tiers,
+  onClose,
+}: {
+  draft0: TierDraft;
+  tiers: readonly LoyaltyAdminTier[];
+  onClose: () => void;
+}) {
+  const { tr, locale } = useLocale();
+  const [d, setD] = useState(draft0);
+  const { busy, error, run } = useWizardSave(onClose);
+  const T = `${K}.tiers` as const;
+  const errors = tierErrors(d);
+  const name = pickName(locale, d).trim();
+  const points = parseWhole(d.min_points_12m);
+  const multiplier = parseMultiplier(d.earn_multiplier);
+  // A new tier goes after the last one (tierDraft): the tier it sits after.
+  const below = [...tiers].sort((a, b) => b.sort - a.sort)[0];
+
+  const steps: WizardStep[] = [
+    {
+      key: 'name',
+      label: tr(`${T}.steps.name`),
+      note: name || null,
+      problems: errors.names ? [tr(`${T}.errors.names`)] : [],
+      content: (
+        <BilingualFields
+          labelEn={tr(`${T}.nameEn`)}
+          labelAr={tr(`${T}.nameAr`)}
+          en={d.name_en}
+          ar={d.name_ar}
+          onEn={(v) => setD({ ...d, name_en: v })}
+          onAr={(v) => setD({ ...d, name_ar: v })}
+          maxLength={40}
+          disabled={busy}
+        />
+      ),
+    },
+    {
+      key: 'points',
+      label: tr(`${T}.steps.points`),
+      problems: [
+        ...(errors.min_points_12m ? [tr(`${T}.errors.minPoints`)] : []),
+        ...(errors.earn_multiplier ? [tr(`${T}.errors.multiplier`)] : []),
+      ],
+      content: (
+        <>
+          <div style={WIZARD_GRID}>
+            <WizardUnitField
+              label={tr(`${T}.minPoints`)}
+              unit={tr(`${K}.settings.unitPoints`)}
+              value={d.min_points_12m}
+              disabled={busy}
+              onChange={(v) => setD({ ...d, min_points_12m: v })}
+            />
+            <Field label={tr(`${T}.multiplier`)} hint={tr(`${T}.multiplierHint`)} style={{ marginBlockEnd: 0 }}>
+              <input
+                style={{ ...inputStyle, fontVariantNumeric: 'tabular-nums' }}
+                dir="ltr"
+                inputMode="decimal"
+                value={d.earn_multiplier}
+                disabled={busy}
+                onChange={(e) => setD({ ...d, earn_multiplier: e.target.value.replace(/[^\d.٫]/g, '') })}
+              />
+            </Field>
+          </div>
+          {below && name && points !== null && (
+            <WizardNote>
+              {tr(`${T}.placeNote`, {
+                name,
+                below: pickName(locale, below),
+                points: formatNumber(points, locale),
+              })}
+            </WizardNote>
+          )}
+        </>
+      ),
+    },
+  ];
+
+  return (
+    <StepWizard
+      title={tr(`${T}.add`)}
+      lead={tr(`${K}.wizardLead`)}
+      steps={steps}
+      review={(goTo) => (
+        <ReviewList
+          goTo={goTo}
+          busy={busy}
+          rows={[
+            { label: tr(`${T}.review.name`), value: bothNames(d), step: 'name' },
+            {
+              label: tr(`${T}.review.from`),
+              value: tr(`${T}.review.fromValue`, { points: formatNumber(points ?? 0, locale) }),
+              step: 'points',
+            },
+            {
+              label: tr(`${T}.review.earns`),
+              value: tr(`${T}.review.earnsValue`, { value: formatNumber(multiplier ?? 1, locale) }),
+              step: 'points',
+            },
+          ]}
+        />
+      )}
+      submitLabel={tr(`${K}.save`)}
+      onSubmit={() => void run(() => appRpc('upsert_loyalty_tier', { p_tier: tierPayload(d) }))}
+      busy={busy}
+      notice={error != null ? <ErrorText error={error} /> : null}
+      onClose={onClose}
+      testId="loyalty-tier-wizard"
+    />
+  );
+}
+
+function RewardWizard({ draft0, onClose }: { draft0: RewardDraft; onClose: () => void }) {
+  const { tr, locale } = useLocale();
+  const variants = useRewardVariants();
+  const [d, setD] = useState(draft0);
+  const { busy, error, run } = useWizardSave(onClose);
+  const R = `${K}.rewards` as const;
+  const errors = rewardErrors(d);
+  const name = pickName(locale, d).trim();
+  const off = parseWhole(d.iqd_off);
+  const cost = parseWhole(d.cost_points);
+  const item = variants.find((v) => v.value === d.menu_variant_id)?.label ?? '';
+  // The other kind's answer is dropped when the kind changes (the table's check).
+  const pickKind = (kind: RewardDraft['kind']) =>
+    setD({ ...d, kind, menu_variant_id: kind === 'iqd_off' ? null : d.menu_variant_id });
+
+  const steps: WizardStep[] = [
+    {
+      key: 'name',
+      label: tr(`${R}.steps.name`),
+      note: name || null,
+      problems: errors.names ? [tr(`${R}.errors.names`)] : [],
+      content: (
+        <BilingualFields
+          labelEn={tr(`${R}.nameEn`)}
+          labelAr={tr(`${R}.nameAr`)}
+          en={d.name_en}
+          ar={d.name_ar}
+          onEn={(v) => setD({ ...d, name_en: v })}
+          onAr={(v) => setD({ ...d, name_ar: v })}
+          maxLength={60}
+          disabled={busy}
+        />
+      ),
+    },
+    {
+      key: 'gives',
+      label: tr(`${R}.steps.gives`),
+      note:
+        d.kind === 'iqd_off'
+          ? off !== null && off > 0
+            ? tr('ws.loyalty.rewards.iqdOff', { amount: formatIQD(off, locale) })
+            : null
+          : item || null,
+      problems: [
+        ...(errors.iqdOff ? [tr(`${R}.errors.iqdOff`)] : []),
+        ...(errors.variant ? [tr(`${R}.errors.variant`)] : []),
+      ],
+      content: (
+        <>
+          <WizardChoices label={tr(`${R}.steps.gives`)}>
+            <WizardChoice
+              on={d.kind === 'iqd_off'}
+              title={tr(`${R}.kindIqdOff`)}
+              body={tr(`${R}.kindIqdOffBody`)}
+              disabled={busy}
+              onPick={() => pickKind('iqd_off')}
+              testId="loyalty-reward-kind-iqd_off"
+            />
+            <WizardChoice
+              on={d.kind === 'item'}
+              title={tr(`${R}.kindItemTitle`)}
+              body={tr(`${R}.kindItemBody`)}
+              disabled={busy}
+              onPick={() => pickKind('item')}
+              testId="loyalty-reward-kind-item"
+            />
+          </WizardChoices>
+          {d.kind === 'iqd_off' ? (
+            <WizardUnitField
+              label={tr(`${R}.iqdOff`)}
+              unit={tr(`${K}.settings.unitIqd`)}
+              value={d.iqd_off}
+              disabled={busy}
+              onChange={(v) => setD({ ...d, iqd_off: v })}
+            />
+          ) : (
+            <Field label={tr(`${R}.variant`)} style={{ marginBlockEnd: 0 }}>
+              <Select<string>
+                value={d.menu_variant_id ?? ''}
+                placeholder={tr(`${R}.variantPlaceholder`)}
+                disabled={busy}
+                onChange={(id) => setD({ ...d, menu_variant_id: id })}
+                options={variants}
+              />
+            </Field>
+          )}
+        </>
+      ),
+    },
+    {
+      key: 'cost',
+      label: tr(`${R}.steps.cost`),
+      problems: errors.cost ? [tr(`${R}.errors.cost`)] : [],
+      content: (
+        <>
+          <WizardUnitField
+            label={tr(`${R}.cost`)}
+            unit={tr(`${K}.settings.unitPoints`)}
+            value={d.cost_points}
+            disabled={busy}
+            onChange={(v) => setD({ ...d, cost_points: v })}
+          />
+          <WizardToggle
+            checked={d.active}
+            onChange={(v) => setD({ ...d, active: v })}
+            label={tr(`${R}.active`)}
+            hint={tr(d.active ? `${R}.activeOnHint` : `${R}.activeOffHint`)}
+            disabled={busy}
+          />
+        </>
+      ),
+    },
+  ];
+
+  return (
+    <StepWizard
+      title={tr(`${R}.add`)}
+      lead={tr(`${K}.wizardLead`)}
+      steps={steps}
+      review={(goTo) => (
+        <ReviewList
+          goTo={goTo}
+          busy={busy}
+          rows={[
+            { label: tr(`${R}.review.name`), value: bothNames(d), step: 'name' },
+            {
+              label: tr(`${R}.review.gives`),
+              value:
+                d.kind === 'iqd_off'
+                  ? tr(`${R}.review.offValue`, { amount: formatIQD(off ?? 0, locale) })
+                  : <bdi>{item}</bdi>,
+              step: 'gives',
+            },
+            {
+              label: tr(`${R}.review.cost`),
+              value: tr('ws.loyalty.rewards.cost', { points: formatNumber(cost ?? 0, locale) }),
+              step: 'cost',
+            },
+            { label: tr(`${R}.active`), value: tr(d.active ? 'common.yes' : 'common.no'), step: 'cost' },
+          ]}
+        />
+      )}
+      submitLabel={tr(`${K}.save`)}
+      onSubmit={() => void run(() => appRpc('upsert_loyalty_reward', { p_reward: rewardPayload(d) }))}
+      busy={busy}
+      notice={error != null ? <ErrorText error={error} /> : null}
+      onClose={onClose}
+      testId="loyalty-reward-wizard"
+    />
   );
 }

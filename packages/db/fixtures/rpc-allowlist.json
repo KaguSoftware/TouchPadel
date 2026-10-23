@@ -139,6 +139,7 @@
     "block_courts_for_event",
     "booking_bill",
     "booking_bill_states",
+    "branch_counts",
     "branch_readiness",
     "break_status",
     "cancel_coach_time_off",

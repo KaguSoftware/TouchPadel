@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { LocaleProvider } from '../../lib/i18n';
@@ -160,5 +160,73 @@ describe('MarketingPanelScreen', () => {
     rpc.mockResolvedValue(overview([]));
     renderPanel();
     expect(await screen.findByText('No campaigns yet')).toBeTruthy();
+  });
+});
+
+describe('New campaign and New audience, stepped', () => {
+  function answer() {
+    rpc.mockImplementation(async (fn: string) => (String(fn).startsWith('save_marketing') ? 'new-id' : overview([])));
+  }
+  const saved = (fn: string) => rpc.mock.calls.filter(([f]) => f === fn).map(([, a]) => a as Record<string, unknown>);
+
+  it('a campaign: names first, the channel as cards, a backwards window held on When, saved from Review', async () => {
+    const user = userEvent.setup();
+    answer();
+    renderPanel();
+    await user.click((await screen.findAllByRole('button', { name: 'New campaign' }))[0]!);
+    const dialog = within(await screen.findByRole('dialog', { name: 'New campaign' }));
+    await user.click(dialog.getByTestId('campaign-new.step.review'));
+    expect(dialog.getByText('Enter the name in both languages.')).toBeTruthy();
+    await user.type(dialog.getByRole('textbox', { name: 'Name (English)' }), 'Ladies night');
+    await user.type(dialog.getByRole('textbox', { name: 'Name (Arabic)' }), 'ليلة السيدات');
+    await user.click(dialog.getByTestId('campaign-new.step.channel'));
+    await user.click(dialog.getByTestId('campaign-new.channel.guest_site'));
+    // No promotion: the hint says the campaign cannot be measured.
+    expect(dialog.getByText(/hands out no promotion/)).toBeTruthy();
+    await user.click(dialog.getByTestId('campaign-new.step.when'));
+    const [starts, last] = Array.from(document.querySelectorAll('input[type="date"]')) as HTMLInputElement[];
+    fireEvent.change(starts!, { target: { value: '2026-11-30' } });
+    fireEvent.change(last!, { target: { value: '2026-11-01' } });
+    await user.click(dialog.getByTestId('campaign-new.step.review'));
+    expect(dialog.getByText('Step 3 of 4')).toBeTruthy();
+    expect(dialog.getAllByText('The last day cannot be before the start.').length).toBeGreaterThan(0);
+    fireEvent.change(last!, { target: { value: '2026-12-01' } });
+    await user.click(dialog.getByTestId('campaign-new.step.review'));
+    // The menu's note and the Review row both name it.
+    expect(dialog.getAllByText('Guest site')).toHaveLength(2);
+    await user.click(dialog.getByTestId('campaign-new.submit'));
+    await waitFor(() => expect(saved('save_marketing_campaign')).toHaveLength(1));
+    expect(saved('save_marketing_campaign')[0]).toMatchObject({ p_id: null, p_name_en: 'Ladies night', p_channel: 'guest_site', p_promotion_id: null });
+  });
+
+  it('an audience: the rule and its language, said back, saved from Review', async () => {
+    const user = userEvent.setup();
+    answer();
+    renderPanel();
+    await user.click(await screen.findByRole('button', { name: 'New audience' }));
+    const dialog = within(await screen.findByRole('dialog', { name: 'New audience' }));
+    await user.type(dialog.getByRole('textbox', { name: 'Name (English)' }), 'Regulars');
+    await user.type(dialog.getByRole('textbox', { name: 'Name (Arabic)' }), 'الدائمون');
+    await user.click(dialog.getByTestId('audience-new.step.who'));
+    expect(dialog.getByTestId('audience-new.sentence').textContent).toBe('Every guest.');
+    await user.type(dialog.getByRole('textbox', { name: 'At least this many bookings' }), '3');
+    await user.type(dialog.getByRole('textbox', { name: 'Played within this many days' }), '30');
+    await user.click(dialog.getByRole('checkbox', { name: 'Have a phone number' }));
+    // The preview's sentence, word for word.
+    expect(dialog.getByTestId('audience-new.sentence').textContent?.replace(/[\u2066-\u2069]/g, '')).toBe(
+      'Guests with 3 or more bookings who played in the last 30 days, in any language, with a phone number.',
+    );
+    await user.click(dialog.getByRole('button', { name: 'Arabic' }));
+    expect(dialog.getByTestId('audience-new.sentence').textContent?.replace(/[\u2066-\u2069]/g, '')).toBe(
+      'Guests with 3 or more bookings who played in the last 30 days, in Arabic, with a phone number.',
+    );
+    await user.click(dialog.getByTestId('audience-new.step.review'));
+    await user.click(dialog.getByTestId('audience-new.submit'));
+    await waitFor(() => expect(saved('save_marketing_audience')).toHaveLength(1));
+    expect(saved('save_marketing_audience')[0]).toMatchObject({
+      p_id: null,
+      p_name_en: 'Regulars',
+      p_rule: { minBookings: 3, lastSeenDays: 30, lang: 'ar', hasPhone: true },
+    });
   });
 });

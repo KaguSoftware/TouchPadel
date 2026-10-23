@@ -568,8 +568,11 @@ test.describe('operator cafe admin', () => {
       const dialog = page.getByRole('dialog', { name: 'Add staff member' });
       await dialog.getByLabel('Name', { exact: true }).fill(name);
       await dialog.getByLabel('Email', { exact: true }).fill(email);
+      // Add staff member is stepped: who, the role (Cashier by default), the password, then Review.
+      await dialog.getByTestId('add-staff.step.password').click();
       await dialog.getByLabel('Password', { exact: true }).fill('a-long-enough-password');
-      await dialog.getByRole('button', { name: 'Add staff member', exact: true }).click();
+      await dialog.getByTestId('add-staff.step.review').click();
+      await dialog.getByTestId('add-staff.submit').click();
 
       await expect(page.getByText('Account created.')).toBeVisible({ timeout: 30_000 });
       const row = page.locator(`tr:has-text("${name}")`);

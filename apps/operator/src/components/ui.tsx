@@ -327,6 +327,7 @@ export function Field({
           {optional && (
             <span
               aria-hidden="true"
+              className="tp-field-opt"
               style={{
                 marginInlineStart: 'var(--tp-sp-1)',
                 fontWeight: 400,

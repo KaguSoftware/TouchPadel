@@ -11,17 +11,24 @@
  *
  * The list shows where each bill is and how many items it holds, not a
  * money figure — the booking's bill shows the server's total once merged.
+ *
+ * A stepped wizard (components/StepWizard.tsx, Sait 2026-10-22): Which bill,
+ * then Review, which holds "Add to this booking". Drawn as the approved
+ * preview (operator-wizards.html, `cafebill`): a note, the search, then the
+ * bills as bordered rows (name at the start, "Items: n · Opened hh:mm" at the
+ * end; the picked one framed in the accent).
  */
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type CSSProperties } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { formatNumber, formatTime } from '@touch/i18n';
 import { supabase } from '../../../lib/supabase';
 import { mutate } from '../../../lib/mutate';
 import { AppRpcError, appRpc } from '../../../lib/appRpc';
-import { useLocale } from '../../../lib/i18n';
+import { pickName, useLocale } from '../../../lib/i18n';
 import { useToast } from '../../../components/toast';
-import { Button, ErrorText, Modal } from '../../../components/ui';
-import { MessagePresenter, SearchField } from '../../../components/kit';
+import { ErrorText, inputStyle } from '../../../components/ui';
+import { ReviewList, StepWizard, WizardNote, type WizardStep } from '../../../components/StepWizard';
+import { useBookingBill } from './useBookingBill';
 
 interface OpenCafeTab {
   id: string;
@@ -60,6 +67,8 @@ export function AddCafeBillDialog({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  // The booking it lands on, for the lead and Review (the panel's own read, cached).
+  const billQ = useBookingBill(reservationId);
 
   const tabsQ = useQuery({
     queryKey: ['tabs', 'cafeBillsForBooking'],
@@ -123,83 +132,144 @@ export function AddCafeBillDialog({
     }
   }
 
-  return (
-    <Modal
-      title={tr('ws.courtDesk.cafeBill.title')}
-      subtitle={tr('ws.courtDesk.cafeBill.lead')}
-      dismissible={!busy}
-      onClose={onClose}
-      size="md"
-      footer={(close) => (
+  const picked = rows.find((t) => t.id === selected) ?? null;
+  const pickedCount = picked ? liveItemCount(picked) : 0;
+  const r = billQ.data?.reservation ?? null;
+  const bookingLine = r
+    ? tr('ws.courtDesk.cafeBill.wizard.booking', {
+        court: pickName(locale, { name_en: r.court_name_en ?? '', name_ar: r.court_name_ar ?? '' }),
+        time: formatTime(new Date(r.start_at), locale, tz),
+        name: r.guest_name ?? '—',
+      })
+    : null;
+
+  const steps: WizardStep[] = [
+    {
+      key: 'bill',
+      label: tr('ws.courtDesk.cafeBill.wizard.stepBill'),
+      note: picked ? nameOf(picked) : null,
+      problems: selected ? [] : [tr('ws.courtDesk.cafeBill.chooseFirst')],
+      content: (
         <>
-          <Button onClick={close} disabled={busy}>
-            {tr('ws.courtDesk.cafeBill.cancel')}
-          </Button>
-          <Button kind="primary" icon="plus" busy={busy} disabled={!selected} disabledReason={tr('ws.courtDesk.cafeBill.chooseFirst')} onClick={() => void add()}>
-            {tr('ws.courtDesk.cafeBill.add')}
-          </Button>
+          <WizardNote>{tr('ws.courtDesk.cafeBill.lead')}</WizardNote>
+          {rows.length > 0 && (
+            <input
+              type="text"
+              style={inputStyle}
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder={tr('ws.courtDesk.cafeBill.search')}
+              aria-label={tr('ws.courtDesk.cafeBill.wizard.searchAria')}
+            />
+          )}
+          {tabsQ.isError ? (
+            <ErrorText error={tabsQ.error} />
+          ) : tabsQ.isLoading ? (
+            <p style={{ margin: 0, color: 'var(--tp-muted-fg)' }}>{tr('ws.courtDesk.payment.loading')}</p>
+          ) : rows.length === 0 ? (
+            <WizardNote>{tr('ws.courtDesk.cafeBill.empty')}</WizardNote>
+          ) : visible.length === 0 ? (
+            <WizardNote>{tr('ws.courtDesk.cafeBill.noMatch')}</WizardNote>
+          ) : (
+            <div role="listbox" aria-label={tr('ws.courtDesk.cafeBill.title')} style={{ display: 'grid', gap: 'var(--tp-sp-2)' }}>
+              {visible.map((t) => {
+                const isSelected = t.id === selected;
+                return (
+                  <button
+                    key={t.id}
+                    type="button"
+                    role="option"
+                    aria-selected={isSelected}
+                    data-selected={isSelected ? 'true' : undefined}
+                    disabled={busy}
+                    onClick={() => setSelected(isSelected ? '' : t.id)}
+                    style={isSelected ? { ...billRow, ...billRowPicked } : billRow}
+                  >
+                    <strong>
+                      <bdi>{nameOf(t)}</bdi>
+                    </strong>
+                    <span style={{ fontSize: 'var(--tp-fs-sm)', opacity: 0.8, fontVariantNumeric: 'tabular-nums' }}>
+                      <bdi>
+                        {tr('ws.courtDesk.cafeBill.items', { count: formatNumber(liveItemCount(t), locale) })} ·{' '}
+                        {tr('ws.courtDesk.cafeBill.opened', { time: formatTime(new Date(t.opened_at), locale, tz) })}
+                      </bdi>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </>
+      ),
+    },
+  ];
+
+  return (
+    <StepWizard
+      title={tr('ws.courtDesk.cafeBill.wizard.title')}
+      lead={bookingLine ? <bdi>{bookingLine}</bdi> : undefined}
+      steps={steps}
+      busy={busy}
+      onClose={onClose}
+      submitLabel={tr('ws.courtDesk.cafeBill.add')}
+      onSubmit={() => void add()}
+      testId="cafeBill"
+      notice={
+        notice || error ? (
+          <>
+            {notice && <WizardNote tone="refused">{notice}</WizardNote>}
+            <ErrorText error={error} />
+          </>
+        ) : undefined
+      }
+      review={(goTo) => (
+        <>
+          <ReviewList
+            goTo={goTo}
+            busy={busy}
+            rows={[
+              { label: tr('ws.courtDesk.cafeBill.wizard.reviewBill'), value: <bdi>{picked ? nameOf(picked) : '—'}</bdi>, step: 'bill' },
+              {
+                label: tr('ws.courtDesk.cafeBill.wizard.reviewMoves'),
+                value:
+                  pickedCount === 1
+                    ? tr('ws.courtDesk.cafeBill.wizard.movesOne')
+                    : tr('ws.courtDesk.cafeBill.wizard.moves', { count: formatNumber(pickedCount, locale) }),
+                step: 'bill',
+              },
+              { label: tr('ws.courtDesk.cafeBill.wizard.reviewBooking'), value: <bdi>{bookingLine ?? '—'}</bdi> },
+            ]}
+          />
+          <WizardNote>{tr('ws.courtDesk.cafeBill.wizard.closes')}</WizardNote>
         </>
       )}
-    >
-      <div style={{ display: 'grid', gap: 'var(--tp-sp-2)' }}>
-        {notice && <MessagePresenter tone="refused" message={notice} />}
-        <ErrorText error={error} />
-        {rows.length > 0 && <SearchField value={query} onChange={setQuery} placeholder={tr('ws.courtDesk.cafeBill.search')} aria-label={tr('ws.courtDesk.cafeBill.search')} />}
-        {tabsQ.isError ? (
-          <ErrorText error={tabsQ.error} />
-        ) : tabsQ.isLoading ? (
-          <p style={{ color: 'var(--tp-muted-fg)' }}>{tr('ws.courtDesk.payment.loading')}</p>
-        ) : rows.length === 0 ? (
-          <p style={{ color: 'var(--tp-muted-fg)' }}>{tr('ws.courtDesk.cafeBill.empty')}</p>
-        ) : visible.length === 0 ? (
-          <p style={{ color: 'var(--tp-muted-fg)' }}>{tr('ws.courtDesk.cafeBill.noMatch')}</p>
-        ) : (
-          <div role="listbox" aria-label={tr('ws.courtDesk.cafeBill.title')} style={{ display: 'grid', gap: 'var(--tp-sp-1)', maxBlockSize: '18rem', overflowY: 'auto' }}>
-            {visible.map((t) => {
-              const isSelected = t.id === selected;
-              return (
-                <button
-                  key={t.id}
-                  type="button"
-                  role="option"
-                  aria-selected={isSelected}
-                  className="tp-row"
-                  data-clickable="true"
-                  data-selected={isSelected ? 'true' : undefined}
-                  disabled={busy}
-                  onClick={() => setSelected(isSelected ? '' : t.id)}
-                  style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    gap: 'var(--tp-sp-3)',
-                    flexWrap: 'wrap',
-                    textAlign: 'start',
-                    minBlockSize: '2.75rem',
-                    border: '1px solid var(--tp-border)',
-                    background: 'var(--tp-surface)',
-                    borderRadius: 'var(--tp-radius-ctl)',
-                    paddingBlock: 'var(--tp-sp-2)',
-                    paddingInline: 'var(--tp-sp-2-5)',
-                    cursor: 'pointer',
-                    font: 'inherit',
-                    color: 'inherit',
-                  }}
-                >
-                  <strong>
-                    <bdi>{nameOf(t)}</bdi>
-                  </strong>
-                  <span style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>
-                    <bdi>
-                      {tr('ws.courtDesk.cafeBill.items', { count: formatNumber(liveItemCount(t), locale) })} ·{' '}
-                      {tr('ws.courtDesk.cafeBill.opened', { time: formatTime(new Date(t.opened_at), locale, tz) })}
-                    </bdi>
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        )}
-      </div>
-    </Modal>
+    />
   );
 }
+
+/** A bill as the preview's `.row`: bordered, the name at the start, its count and time at the end. */
+const billRow: CSSProperties = {
+  display: 'flex',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  gap: 'var(--tp-sp-3)',
+  flexWrap: 'wrap',
+  inlineSize: '100%',
+  paddingBlock: 'var(--tp-sp-3)',
+  paddingInline: 'calc(var(--tp-sp-3) + var(--tp-sp-0))',
+  border: '1px solid var(--tp-border-strong)',
+  borderRadius: 'var(--tp-radius-panel)',
+  background: 'var(--tp-surface)',
+  color: 'var(--tp-fg)',
+  font: 'inherit',
+  textAlign: 'start',
+  cursor: 'pointer',
+};
+/** The picked bill: a 2px accent frame on the accent wash (the padding gives back the extra pixel). */
+const billRowPicked: CSSProperties = {
+  border: '2px solid var(--tp-accent)',
+  paddingBlock: 'calc(var(--tp-sp-3) - 1px)',
+  paddingInline: 'calc(var(--tp-sp-3) + var(--tp-sp-0) - 1px)',
+  background: 'var(--tp-accent-soft)',
+  color: 'var(--tp-accent-soft-fg)',
+};

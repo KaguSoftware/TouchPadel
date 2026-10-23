@@ -62,7 +62,7 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { wallTimeToUtc } from '@touch/core';
-import { VENUE_TZ, formatDate, formatDateTime, formatIQD, formatNumber, isolate } from '@touch/i18n';
+import { VENUE_TZ, countPhrase, formatDate, formatDateTime, formatIQD, formatNumber, isolate } from '@touch/i18n';
 import { appRpc } from '../../lib/appRpc';
 import { supabase } from '../../lib/supabase';
 import { fetchPromotions, PROMOTIONS_KEY } from '../admin/promotions/promotionsApi';
@@ -90,6 +90,8 @@ import {
   type RowAction,
 } from '../../components/kit';
 import { Icon } from '../../components/icons';
+import { BilingualFields, DateField } from '../../components/inputs';
+import { ReviewList, StepWizard, WizardChecks, WizardChoice, WizardChoices, WizardNote } from '../../components/StepWizard';
 import { CardTitle } from '../ops/OpsVisuals';
 import { PhotoViewer } from '../checklists/StaffPhoto';
 import { isPastWanted, readRequests, readSuggestions, type RequestFilter, type RequestStatus } from './marketingStaffLogic';
@@ -851,6 +853,149 @@ function CampaignEditor({
 
   const needsMessage = channel !== 'in_venue';
 
+  // New campaign: the stepped wizard (Sait, 2026-10-22). Editing keeps the one-page form below.
+  if (!campaign) {
+    const M = 'ws.owner.marketing';
+    const name = (locale === 'ar' ? nameAr : nameEn).trim() || (nameEn || nameAr).trim();
+    const audience = audiences.find((a) => a.id === audienceId);
+    const promotion = (promotionsQ.data ?? []).find((p) => p.id === promotionId);
+    const runs = startDate
+      ? lastDate
+        ? tr(`${M}.windowRange`, { from: dayLabel(startDate, locale), to: dayLabel(lastDate, locale) })
+        : tr(`${M}.windowFrom`, { date: dayLabel(startDate, locale) })
+      : lastDate
+        ? tr(`${M}.windowUntil`, { date: dayLabel(lastDate, locale) })
+        : tr(`${M}.noDates`);
+    const written = bodyEn.trim() && bodyAr.trim() ? 'both' : bodyEn.trim() ? 'en' : bodyAr.trim() ? 'ar' : 'none';
+    const pair = { display: 'grid', gap: 'var(--tp-sp-3)', gridTemplateColumns: 'repeat(auto-fit, minmax(14rem, 1fr))' } as const;
+    return (
+      <StepWizard
+        title={tr(`${M}.newCampaign`)}
+        lead={tr(`${M}.title`)}
+        testId="campaign-new"
+        onClose={onClose}
+        busy={save.isPending}
+        submitLabel={tr(`${M}.form.save`)}
+        onSubmit={submit}
+        notice={save.error != null ? <ErrorText error={save.error} /> : undefined}
+        steps={[
+          {
+            key: 'name',
+            label: tr(`${M}.steps.name`),
+            note: name || null,
+            problems: namesMissing ? [tr(`${M}.form.nameRequired`)] : [],
+            content: (
+              <BilingualFields
+                labelEn={tr(`${M}.form.nameEn`)}
+                labelAr={tr(`${M}.form.nameAr`)}
+                en={nameEn}
+                ar={nameAr}
+                onEn={setNameEn}
+                onAr={setNameAr}
+              />
+            ),
+          },
+          {
+            key: 'channel',
+            label: tr(`${M}.steps.channel`),
+            note: tr(`${M}.channels.${channel}`),
+            content: (
+              <>
+                <Field label={tr(`${M}.form.channel`)} group required>
+                  <WizardChoices label={tr(`${M}.form.channel`)}>
+                    {(['telegram', 'guest_site', 'in_venue'] as const).map((c) => (
+                      <WizardChoice
+                        key={c}
+                        on={c === channel}
+                        title={tr(`${M}.channels.${c}`)}
+                        body={tr(`${M}.channelBodies.${c}`)}
+                        onPick={() => setChannel(c)}
+                        testId={`campaign-new.channel.${c}`}
+                      />
+                    ))}
+                  </WizardChoices>
+                </Field>
+                <div style={pair}>
+                  <Field label={tr(`${M}.form.audience`)} optional>
+                    <Select
+                      value={audienceId}
+                      onChange={setAudienceId}
+                      options={[
+                        { value: '', label: tr(`${M}.noAudience`) },
+                        ...audiences.map((a) => ({ value: a.id, label: locale === 'ar' ? a.nameAr : a.nameEn })),
+                      ]}
+                    />
+                  </Field>
+                  <Field label={tr(`${M}.form.promotion`)} optional>
+                    <Select
+                      value={promotionId}
+                      onChange={setPromotionId}
+                      options={[
+                        { value: '', label: tr(`${M}.form.noPromotion`) },
+                        ...(promotionsQ.data ?? []).map((p) => ({ value: p.id, label: locale === 'ar' ? p.name_ar : p.name_en })),
+                      ]}
+                    />
+                  </Field>
+                </div>
+                {!promotionId && <WizardNote>{tr(`${M}.notAttributableHint`)}</WizardNote>}
+              </>
+            ),
+          },
+          {
+            key: 'when',
+            label: tr(`${M}.steps.when`),
+            note: runs,
+            problems: backwards ? [tr(`${M}.form.endBeforeStart`)] : [],
+            content: (
+              <div style={pair}>
+                <Field label={tr(`${M}.form.startsAt`)} optional>
+                  <DateField value={startDate} onChange={setStartDate} />
+                </Field>
+                <Field label={tr(`${M}.form.endsAt`)} optional error={backwards ? tr(`${M}.form.endBeforeStart`) : undefined}>
+                  <DateField value={lastDate} min={startDate || undefined} onChange={setLastDate} />
+                </Field>
+              </div>
+            ),
+          },
+          {
+            key: 'message',
+            label: tr(`${M}.steps.message`),
+            note: tr(`${M}.written.${written}`),
+            content: (
+              <>
+                <Field label={tr(`${M}.form.bodyEn`)} optional>
+                  <textarea value={bodyEn} onChange={(e) => setBodyEn(e.target.value)} dir="ltr" rows={3} style={textAreaStyle} />
+                </Field>
+                <Field label={tr(`${M}.form.bodyAr`)} optional>
+                  <textarea value={bodyAr} onChange={(e) => setBodyAr(e.target.value)} dir="rtl" rows={3} style={textAreaStyle} />
+                </Field>
+                {needsMessage && <WizardNote>{tr(`${M}.form.bodyHint`)}</WizardNote>}
+              </>
+            ),
+          },
+        ]}
+        review={(goTo) => (
+          <ReviewList
+            goTo={goTo}
+            busy={save.isPending}
+            rows={[
+              { label: tr(`${M}.steps.name`), value: <bdi>{[nameEn.trim(), nameAr.trim()].filter(Boolean).join(' · ')}</bdi>, step: 'name' },
+              { label: tr(`${M}.form.channel`), value: tr(`${M}.channels.${channel}`), step: 'channel' },
+              { label: tr(`${M}.form.audience`), value: audience ? <bdi>{locale === 'ar' ? audience.nameAr : audience.nameEn}</bdi> : tr(`${M}.noAudience`), step: 'channel' },
+              {
+                label: tr(`${M}.reviewPromotion`),
+                value: promotion ? <bdi>{locale === 'ar' ? promotion.name_ar : promotion.name_en}</bdi> : tr(`${M}.form.noPromotion`),
+                step: 'channel',
+              },
+              { label: tr(`${M}.cols.window`), value: <bdi>{runs}</bdi>, step: 'when' },
+              { label: tr(`${M}.reviewMessage`), value: tr(`${M}.writtenReview.${written}`), step: 'message' },
+            ]}
+          />
+        )}
+      />
+    );
+  }
+
   return (
     <Modal
       title={tr(campaign ? 'ws.owner.marketing.editCampaign' : 'ws.owner.marketing.newCampaign')}
@@ -935,7 +1080,7 @@ function CampaignEditor({
  * a list of people. Every limit is optional — an empty rule is every guest.
  */
 function AudienceEditor({ audience, onClose, onSaved }: { audience: AudienceRow | null; onClose: () => void; onSaved: () => void }) {
-  const { tr } = useLocale();
+  const { tr, locale } = useLocale();
   const initial = readRule(audience?.rule);
   const [nameEn, setNameEn] = useState(audience?.nameEn ?? '');
   const [nameAr, setNameAr] = useState(audience?.nameAr ?? '');
@@ -975,6 +1120,121 @@ function AudienceEditor({ audience, onClose, onSaved }: { audience: AudienceRow 
   }
 
   const check = { display: 'flex', gap: 'var(--tp-sp-2)', alignItems: 'center', minBlockSize: 'var(--tp-row-h-dense)' } as const;
+
+  // New audience: the stepped wizard (Sait, 2026-10-22). Editing keeps the one-page form below.
+  if (!audience) {
+    const M = 'ws.owner.marketing';
+    const name = (locale === 'ar' ? nameAr : nameEn).trim() || (nameEn || nameAr).trim();
+    // What the rule says so far, without the language (its own row).
+    const draftRule: AudienceRule = {};
+    if (min.ok && min.value) draftRule.minBookings = min.value;
+    if (days.ok && days.value) draftRule.lastSeenDays = days.value;
+    if (hasPhone) draftRule.hasPhone = true;
+    if (hasPush) draftRule.hasPush = true;
+    // "3+ bookings · last 30 days": the menu note and Review's Rule row.
+    const ruleText = (r: AudienceRule) => {
+      const parts = [
+        r.minBookings ? tr(`${M}.ruleShort.minBookings`, { count: formatNumber(r.minBookings, locale) }) : null,
+        r.lastSeenDays ? countPhrase(`${M}.ruleShort.lastSeenDays`, r.lastSeenDays, locale) : null,
+        r.hasPhone ? tr(`${M}.ruleShort.hasPhone`) : null,
+        r.hasPush ? tr(`${M}.ruleShort.hasPush`) : null,
+      ].filter((x): x is string => x !== null);
+      return parts.length ? parts.join(tr(`${M}.ruleShort.sep`)) : tr(`${M}.ruleShort.everyone`);
+    };
+    // The whole rule as one sentence: "Guests with 3 or more bookings who
+    // played in the last 30 days, in any language, with a phone number."
+    const S = `${M}.ruleSentence` as const;
+    const head = [
+      draftRule.minBookings ? countPhrase(`${S}.minBookings`, draftRule.minBookings, locale) : null,
+      draftRule.lastSeenDays
+        ? countPhrase(draftRule.minBookings ? `${S}.lastSeenDaysAfter` : `${S}.lastSeenDays`, draftRule.lastSeenDays, locale)
+        : null,
+    ].filter((x): x is string => x !== null);
+    const tail = [
+      lang === 'en' ? tr(`${S}.langEn`) : lang === 'ar' ? tr(`${S}.langAr`) : head.length ? tr(`${S}.anyLang`) : null,
+      hasPhone ? tr(`${S}.hasPhone`) : null,
+      hasPush ? tr(`${S}.hasPush`) : null,
+    ].filter((x): x is string => x !== null);
+    const sentence =
+      head.length + tail.length === 0
+        ? tr(`${S}.everyone`)
+        : [tr(`${S}.guests`), ...head].join(' ') + (head.length && tail.length ? tr(`${S}.sep`) : tail.length ? ' ' : '') + tail.join(tr(`${S}.sep`)) + tr(`${S}.end`);
+    const langLabel = lang === 'en' ? tr(`${M}.rule.langEn`) : lang === 'ar' ? tr(`${M}.rule.langAr`) : tr(`${M}.rule.any`);
+    return (
+      <StepWizard
+        title={tr(`${M}.newAudience`)}
+        lead={tr(`${M}.audienceLead`)}
+        testId="audience-new"
+        onClose={onClose}
+        busy={save.isPending}
+        submitLabel={tr(`${M}.form.save`)}
+        onSubmit={submit}
+        notice={save.error != null ? <ErrorText error={save.error} /> : undefined}
+        steps={[
+          {
+            key: 'name',
+            label: tr(`${M}.steps.name`),
+            note: name || null,
+            problems: namesMissing ? [tr(`${M}.form.nameRequired`)] : [],
+            content: (
+              <BilingualFields labelEn={tr(`${M}.form.nameEn`)} labelAr={tr(`${M}.form.nameAr`)} en={nameEn} ar={nameAr} onEn={setNameEn} onAr={setNameAr} />
+            ),
+          },
+          {
+            key: 'who',
+            label: tr(`${M}.steps.who`),
+            note: ruleText(draftRule),
+            problems: !min.ok || !days.ok ? [tr(`${M}.form.wholeNumber`)] : [],
+            content: (
+              <>
+                <div style={{ display: 'grid', gap: 'var(--tp-sp-3)', gridTemplateColumns: 'repeat(auto-fit, minmax(14rem, 1fr))' }}>
+                  <Field label={tr(`${M}.rule.minBookings`)} optional hint={tr(`${M}.rule.noLimitHint`)} error={min.ok ? undefined : tr(`${M}.form.wholeNumber`)}>
+                    <input value={minBookings} onChange={(e) => setMinBookings(e.target.value)} inputMode="numeric" dir="ltr" style={inputStyle} />
+                  </Field>
+                  <Field label={tr(`${M}.rule.lastSeenDays`)} optional hint={tr(`${M}.rule.noLimitHint`)} error={days.ok ? undefined : tr(`${M}.form.wholeNumber`)}>
+                    <input value={lastSeenDays} onChange={(e) => setLastSeenDays(e.target.value)} inputMode="numeric" dir="ltr" style={inputStyle} />
+                  </Field>
+                </div>
+                <Field label={tr(`${M}.rule.lang`)} group>
+                  <SegmentedControl<'' | 'en' | 'ar'>
+                    value={lang}
+                    onChange={setLang}
+                    options={[
+                      { value: '', label: tr(`${M}.rule.any`) },
+                      { value: 'en', label: tr(`${M}.rule.langEn`) },
+                      { value: 'ar', label: tr(`${M}.rule.langAr`) },
+                    ]}
+                  />
+                </Field>
+                <WizardChecks
+                  label={tr(`${M}.rule.onlyWho`)}
+                  optional
+                  items={[
+                    { key: 'phone', label: tr(`${M}.rule.havePhone`), checked: hasPhone, onChange: setHasPhone, testId: 'audience-new.phone' },
+                    { key: 'push', label: tr(`${M}.rule.canPush`), checked: hasPush, onChange: setHasPush, testId: 'audience-new.push' },
+                  ]}
+                />
+                <WizardNote tone="success" testId="audience-new.sentence">
+                  {sentence}
+                </WizardNote>
+              </>
+            ),
+          },
+        ]}
+        review={(goTo) => (
+          <ReviewList
+            goTo={goTo}
+            busy={save.isPending}
+            rows={[
+              { label: tr(`${M}.steps.name`), value: <bdi>{[nameEn.trim(), nameAr.trim()].filter(Boolean).join(' · ')}</bdi>, step: 'name' },
+              { label: tr(`${M}.reviewRule`), value: ruleText(draftRule), step: 'who' },
+              { label: tr(`${M}.rule.lang`), value: langLabel, step: 'who' },
+            ]}
+          />
+        )}
+      />
+    );
+  }
 
   return (
     <Modal

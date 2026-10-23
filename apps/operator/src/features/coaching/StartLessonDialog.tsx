@@ -26,8 +26,15 @@
  * staging line says guests cannot see it yet. Every write is online only:
  * offline, Create stays on screen, disabled, with the reason (CD-6). Pure
  * rules live in startLessonLogic.ts.
+ *
+ * A stepped wizard (components/StepWizard.tsx, Sait 2026-10-22): Kind → Type
+ * & coach → When → Course title (a course) or Student (a private lesson),
+ * then Review, which holds Create lesson. Every element is the approved
+ * preview's (operator-wizards.html, `lesson`): notes are WizardNote, a
+ * course's sessions are rows ("Session n" · its day and time), each opened to
+ * move it on its own.
  */
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type CSSProperties } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import {
@@ -35,6 +42,7 @@ import {
   formatIQD,
   formatNumber,
   formatTime,
+  formatWeekdayLong,
   formatWeekdayShort,
   isolate,
   isolateLtr,
@@ -44,10 +52,11 @@ import type { CourtRow } from '../../lib/queries';
 import { pickName, useLocale } from '../../lib/i18n';
 import { useStationReach } from '../../lib/stationReach';
 import { useToast } from '../../components/toast';
-import { Button, ErrorText, Field, Modal, Select, Skeleton, inputStyle } from '../../components/ui';
-import { MessagePresenter, SegmentedControl } from '../../components/kit';
+import { ErrorText, Field, Select, Skeleton, inputStyle } from '../../components/ui';
+import { ReviewList, StepWizard, WizardChips, WizardChoice, WizardChoices, WizardNote, WizardPrice, type WizardAt, type WizardStep } from '../../components/StepWizard';
 import { BilingualFields, DateField } from '../../components/inputs';
 import { CustomerPicker, type PickedCustomer } from '../desk/customers/CustomerPicker';
+import { PickerHint } from '../desk/wizardParts';
 import { nameFromQuery, phoneFromQuery, sanitizeName, sanitizePhone } from '../desk/deskLogic';
 import {
   coachingErrorText,
@@ -203,6 +212,7 @@ export function StartLessonDialog({
   const [extra, setExtra] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
+  const [at, setAt] = useState<WizardAt>(0);
 
   // The server's clock (§5.1): its server_now plus the time since it was read.
   const nowMs = nowOf(lessons?.server_now, lessonsAt ? Math.max(0, Date.now() - lessonsAt) : 0);
@@ -311,14 +321,6 @@ export function StartLessonDialog({
     return tr(`ws.coaching.start.rowErrors.${e}`);
   }
 
-  const blockedReason = !reachable
-    ? tr('ws.coaching.offline.needsConnection')
-    : lessons === null
-      ? tr('ws.coaching.offline.readFailed')
-      : blocks.length > 0
-        ? blockText(blocks[0]!)
-        : undefined;
-  const canSubmit = !busy && blockedReason === undefined && kind !== null;
   const refusedRow = refusedSessionNo(error);
 
   /** A duplicate answer whose start is not the draft's: booked earlier, at that time (OP-11). */
@@ -331,7 +333,8 @@ export function StartLessonDialog({
     return true;
   }
 
-  async function submit() {
+  /** `onRefusedRow`: a refusal naming a course session opens When, where that row is marked. */
+  async function submit(onRefusedRow: () => void) {
     if (!kind || !type) return;
     setBusy(true);
     setError(null);
@@ -409,6 +412,7 @@ export function StartLessonDialog({
       }
     } catch (e) {
       setError(e);
+      if (refusedSessionNo(e) !== null) onRefusedRow();
       // No answer: it may have landed. Read the desk lessons again and say so (OP-11).
       if (mayHaveLanded(e)) {
         setMaybeLanded(true);
@@ -446,335 +450,362 @@ export function StartLessonDialog({
   const shownDate = kind === 'course' ? firstDate : date;
   const dayNoon = /^\d{4}-\d{2}-\d{2}$/.test(shownDate) ? new Date(`${shownDate}T12:00:00Z`) : null;
 
-  return (
-    <Modal
-      title={tr('ws.coaching.common.newLesson')}
-      subtitle={
-        dayNoon ? (
-          <bdi>{`${formatWeekdayShort(dayNoon, locale, 'UTC')} · ${formatDate(dayNoon, locale, 'UTC')}`}</bdi>
-        ) : undefined
-      }
-      dismissible={!busy}
-      onClose={onClose}
-      footer={(close) => (
-        <>
-          <Button onClick={close} disabled={busy}>
-            {tr('common.cancel')}
-          </Button>
-          <Button
-            kind="primary"
-            busy={busy}
-            disabled={!canSubmit}
-            disabledReason={blockedReason}
-            onClick={() => void submit()}
-          >
-            {tr('ws.coaching.start.submit')}
-          </Button>
-        </>
-      )}
-    >
-      {lessons === undefined ? (
-        <Skeleton lines={4} blockSize="2.4rem" />
-      ) : lessons === null ? (
-        // The night's desk_lessons could not be read: nothing to offer until it can (§5.5).
-        <MessagePresenter
-          tone="refused"
-          icon="wifiOff"
-          message={tr('ws.coaching.offline.readFailed')}
-          style={{ marginBlockEnd: '0.85rem' }}
-        />
-      ) : (
-        <>
-          {!lessons.coaching_enabled && (
-            // R51: the desk stages lessons while coaching is off; guests cannot see them yet.
-            <MessagePresenter
-              tone="info"
-              message={tr('ws.coaching.common.stagingOff')}
-              style={{ marginBlockEnd: '0.85rem' }}
-            />
-          )}
-          {offered.length === 0 ? (
-            <MessagePresenter
-              tone="refused"
-              message={tr('ws.coaching.start.noKinds')}
-              style={{ marginBlockEnd: '0.85rem' }}
-            />
-          ) : (
-            <>
-              <Field label={tr('ws.coaching.start.kind')} group>
-                <SegmentedControl<LessonKind>
-                  value={kind ?? offered[0]!}
-                  onChange={(next) => {
-                    setKindPick(next);
-                    setTypePick(null);
-                    setCoachPick(null);
-                    setSlotPick(null);
-                    setRowsEdited(null);
-                    setError(null);
-                  }}
-                  options={offered.map((k) => ({
-                    value: k,
-                    label: tr(kindKey(k)),
-                    disabled: busy,
-                  }))}
-                />
-              </Field>
-              <div className="tp-grid" data-cols="2" style={{ columnGap: 'var(--tp-sp-3)' }}>
-                <Field label={tr('ws.coaching.start.type')}>
-                  <Select
-                    value={type?.lesson_type_id ?? ''}
+  const textsOf = (keys: readonly StartBlock[]) => blocks.filter((b) => keys.includes(b)).map(blockText);
+  const loadProblem =
+    lessons === undefined
+      ? [tr('ws.kit.async.loading')]
+      : lessons === null
+        ? [tr('ws.coaching.offline.readFailed')]
+        : offered.length === 0
+          ? [tr('ws.coaching.start.noKinds')]
+          : [];
+  const whenStart = kind === 'private' ? privateStart : kind === 'group' ? startOf(date, groupTime, tz) : null;
+  const firstRow = rows[0];
+  const firstStart = firstRow ? startOf(firstRow.date, firstRow.time, tz) : null;
+  const dayOf = (iso: string) => `${formatWeekdayShort(new Date(iso), locale, tz)} ${formatDate(new Date(iso), locale, tz)}`;
+  // Every session on one weekday at one time: "6 Thursdays from Oct 23, 2026 · 6:00 PM".
+  const weekly = rows.length > 1 && rows.every((r) => r.time === rows[0]!.time && weekdayOf(r.date) !== null && weekdayOf(r.date) === weekdayOf(rows[0]!.date));
+  const whenValue =
+    kind === 'course'
+      ? firstStart
+        ? weekly
+          ? tr('ws.coaching.start.wizard.courseWhenWeekly', {
+              count: formatNumber(rows.length, locale),
+              weekdays: tr(`ws.coaching.start.wizard.weekdays.${weekdayOf(rows[0]!.date)!}`),
+              date: formatDate(new Date(firstStart), locale, tz),
+              time: timeText(firstStart),
+            })
+          : tr('ws.coaching.start.wizard.courseWhen', { sessions: sessionsPhrase, date: dayOf(firstStart), time: timeText(firstStart) })
+        : '—'
+      : whenStart
+        ? tr('ws.coaching.start.wizard.dayTime', { date: dayOf(whenStart), time: timeText(whenStart) })
+        : '—';
+  const courseTitle = (locale === 'ar' ? titleAr : titleEn).trim() || (locale === 'ar' ? titleEn : titleAr).trim();
+  const studentName = customer?.name ?? guestName.trim();
+  const studentValue = studentName ? (partySize > 1 ? `${isolate(studentName)} ${isolateLtr(`+${formatNumber(partySize - 1, locale)}`)}` : studentName) : '—';
+  const figure =
+    kind === 'course'
+      ? tr('ws.coaching.start.wizard.priceFigure.course', { price: priceText, sessions: sessionsPhrase })
+      : kind
+        ? tr(`ws.coaching.start.wizard.priceFigure.${kind}`, { price: priceText })
+        : '—';
+
+  const steps: WizardStep[] = [
+    {
+      key: 'kind',
+      label: tr('ws.coaching.start.wizard.stepKind'),
+      note: kind ? tr(`ws.coaching.common.kindShort.${kind}`) : null,
+      problems: loadProblem.length > 0 ? loadProblem : textsOf(['kind']),
+      content:
+        lessons === undefined ? (
+          <Skeleton lines={4} blockSize="2.4rem" />
+        ) : lessons === null ? (
+          // The night's desk_lessons could not be read: nothing to offer until it can (§5.5).
+          <WizardNote tone="refused">{tr('ws.coaching.offline.readFailed')}</WizardNote>
+        ) : (
+          <>
+            {!lessons.coaching_enabled && (
+              // R51: the desk stages lessons while coaching is off; guests cannot see them yet.
+              <WizardNote>{tr('ws.coaching.common.stagingOff')}</WizardNote>
+            )}
+            {offered.length === 0 ? (
+              <WizardNote tone="refused">{tr('ws.coaching.start.noKinds')}</WizardNote>
+            ) : (
+              <WizardChoices label={tr('ws.coaching.start.kind')}>
+                {offered.map((k) => (
+                  <WizardChoice
+                    key={k}
+                    on={kind === k}
+                    tag={tr(`ws.coaching.common.kindShort.${k}`)}
+                    title={tr(kindKey(k))}
+                    body={tr(`ws.coaching.start.wizard.kindBody.${k}`)}
                     disabled={busy}
-                    onChange={(id) => {
-                      setTypePick(id);
+                    testId={`lesson.kind.${k}`}
+                    onPick={() => {
+                      if (k === kind) return;
+                      setKindPick(k);
+                      setTypePick(null);
+                      setCoachPick(null);
                       setSlotPick(null);
                       setRowsEdited(null);
-                    }}
-                    options={typesHere.map((t) => ({
-                      value: t.lesson_type_id,
-                      label: typeLabel(t),
-                    }))}
-                  />
-                </Field>
-                <Field
-                  label={tr('ws.coaching.start.coach')}
-                  error={choices.length === 0 ? tr('ws.coaching.start.noCoach') : undefined}
-                >
-                  <Select
-                    value={coach?.coach_id ?? ''}
-                    disabled={busy || choices.length === 0}
-                    onChange={(id) => {
-                      setCoachPick(id);
-                      setSlotPick(null);
-                    }}
-                    options={choices.map((c) => {
-                      const name = pickName(locale, {
-                        name_en: c.coach.display_name_en,
-                        name_ar: c.coach.display_name_ar,
-                      });
-                      return {
-                        value: c.coach.coach_id,
-                        label: c.paused ? tr('ws.coaching.start.coachPaused', { name }) : name,
-                        disabled: c.paused,
-                      };
-                    })}
-                  />
-                </Field>
-              </div>
-
-              {kind === 'private' && (
-                <PrivateStarts
-                  date={date}
-                  minDate={today}
-                  onDate={(d) => {
-                    setDate(d);
-                    setSlotPick(null);
-                  }}
-                  coachName={coach ? coachName : null}
-                  loading={slotsQ.isPending && Boolean(coach)}
-                  failed={slotsQ.isError}
-                  starts={starts}
-                  selected={privateStart}
-                  notFreeAt={choice.state === 'notFree' && !picked ? pressedIso : null}
-                  tz={tz}
-                  busy={busy}
-                  onPick={setSlotPick}
-                />
-              )}
-
-              {kind === 'group' && (
-                <div className="tp-grid" data-cols="2" style={{ columnGap: 'var(--tp-sp-3)' }}>
-                  <Field label={tr('ws.coaching.start.date')}>
-                    <DateField value={date} min={today} disabled={busy} onChange={setDate} />
-                  </Field>
-                  <Field
-                    label={tr('ws.coaching.start.start')}
-                    error={
-                      blocks.includes('cutoff') ||
-                      blocks.includes('past') ||
-                      blocks.includes('grid')
-                        ? blockText(
-                            blocks.find((b) => b === 'cutoff' || b === 'past' || b === 'grid')!,
-                          )
-                        : undefined
-                    }
-                  >
-                    <Select
-                      value={groupTime}
-                      disabled={busy}
-                      onChange={setGroupTime}
-                      options={gridStarts(date, tz).map((g) => ({
-                        value: g.time,
-                        label: formatTime(new Date(g.startAt), locale, tz),
-                      }))}
-                    />
-                  </Field>
-                </div>
-              )}
-
-              {kind === 'course' && (
-                <CourseStarts
-                  firstDate={firstDate}
-                  firstTime={firstTime}
-                  minDate={today}
-                  rows={rows}
-                  check={startsCheck}
-                  refusedRow={refusedRow}
-                  tz={tz}
-                  busy={busy}
-                  rowErrorText={rowErrorText}
-                  formError={
-                    startsCheck?.form
-                      ? tr(`ws.coaching.errors.courseStarts.${startsCheck.form}`, {
-                          sessions: sessionsPhrase,
-                        })
-                      : null
-                  }
-                  onFirst={(d, t) => {
-                    setFirstDate(d);
-                    setFirstTime(t);
-                    setRowsEdited(null);
-                  }}
-                  onRow={(i, next) => setRowsEdited(rows.map((r, j) => (j === i ? next : r)))}
-                />
-              )}
-
-              {kind === 'course' && (
-                <div style={{ marginBlockEnd: '0.85rem' }}>
-                  <BilingualFields
-                    labelEn={tr('ws.coaching.start.titleEn')}
-                    labelAr={tr('ws.coaching.start.titleAr')}
-                    en={titleEn}
-                    ar={titleAr}
-                    onEn={setTitleEn}
-                    onAr={setTitleAr}
-                    maxLength={COURSE_TITLE_MAX}
-                    disabled={busy}
-                  />
-                  <p
-                    style={{ margin: 0, fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}
-                  >
-                    {tr('ws.coaching.start.titleHint')}
-                  </p>
-                </div>
-              )}
-
-              {kind === 'private' && (
-                <>
-                  <CustomerPicker
-                    label={tr('ws.coaching.start.student')}
-                    value={customer}
-                    disabled={busy}
-                    autoFocus={initialCustomer === null}
-                    onQueryChange={(q) => {
-                      if (!nameTouched) setGuestName(nameFromQuery(q));
-                      if (!phoneTouched) setGuestPhone(phoneFromQuery(q));
-                    }}
-                    onChange={(next) => {
-                      setCustomer(next);
-                      if (next) {
-                        if (!nameTouched || guestName.trim() === '')
-                          setGuestName(sanitizeName(next.name));
-                        if (next.phone && (!phoneTouched || guestPhone.trim() === ''))
-                          setGuestPhone(sanitizePhone(next.phone));
-                      }
+                      setError(null);
                     }}
                   />
-                  {!customer && (
-                    <div className="tp-grid" data-cols="2" style={{ columnGap: 'var(--tp-sp-3)' }}>
-                      <Field label={tr('op.desk.guestName')} required>
-                        <input
-                          style={inputStyle}
-                          value={guestName}
-                          disabled={busy}
-                          maxLength={STUDENT_NAME_MAX}
-                          onChange={(e) => {
-                            setNameTouched(true);
-                            setGuestName(sanitizeName(e.target.value));
-                          }}
-                        />
-                      </Field>
-                      <Field label={tr('op.desk.guestPhone')} optional>
-                        <input
-                          style={inputStyle}
-                          dir="ltr"
-                          inputMode="tel"
-                          autoComplete="off"
-                          maxLength={30}
-                          value={guestPhone}
-                          disabled={busy}
-                          onChange={(e) => {
-                            setPhoneTouched(true);
-                            setGuestPhone(sanitizePhone(e.target.value));
-                          }}
-                        />
-                      </Field>
-                    </div>
-                  )}
-                  {maxParty > 1 && (
-                    <Field
-                      label={tr('ws.coaching.start.comingWith', {
-                        max: formatNumber(maxParty - 1, locale),
-                      })}
-                      group
-                    >
-                      <SegmentedControl<string>
-                        value={String(partySize - 1)}
-                        onChange={(v) => setExtra(Number(v))}
-                        options={Array.from({ length: maxParty }, (_, n) => ({
-                          value: String(n),
-                          label:
-                            n === 0
-                              ? formatNumber(0, locale)
-                              : isolateLtr(`+${formatNumber(n, locale)}`),
-                          disabled: busy,
-                        }))}
-                      />
-                    </Field>
-                  )}
-                </>
-              )}
-
-              <div
-                data-testid="lesson-price"
-                style={{
-                  display: 'grid',
-                  gap: 'var(--tp-sp-1)',
-                  marginBlockEnd: '0.85rem',
-                  paddingBlock: 'var(--tp-sp-2)',
-                  paddingInline: 'var(--tp-sp-3)',
-                  borderRadius: 'var(--tp-radius-ctl)',
-                  background: 'var(--tp-surface-2)',
-                  fontSize: 'var(--tp-fs-sm)',
-                }}
+                ))}
+              </WizardChoices>
+            )}
+          </>
+        ),
+    },
+    {
+      key: 'type',
+      label: tr('ws.coaching.start.wizard.stepType'),
+      note: coach ? coachName : null,
+      problems: textsOf(['type', 'coach', 'coachPaused']),
+      content: (
+        <>
+          <Field label={tr('ws.coaching.start.type')} style={{ marginBlockEnd: 0 }}>
+            <Select
+              value={type?.lesson_type_id ?? ''}
+              disabled={busy}
+              onChange={(id) => {
+                setTypePick(id);
+                setSlotPick(null);
+                setRowsEdited(null);
+              }}
+              options={typesHere.map((t) => ({ value: t.lesson_type_id, label: typeLabel(t) }))}
+            />
+          </Field>
+          <Field label={tr('ws.coaching.start.coach')} group error={choices.length === 0 ? tr('ws.coaching.start.noCoach') : undefined} style={{ marginBlockEnd: 0 }}>
+            <WizardChips<string>
+              label={tr('ws.coaching.start.coach')}
+              value={coach?.coach_id ?? ''}
+              onChange={(id) => {
+                setCoachPick(id);
+                setSlotPick(null);
+              }}
+              options={choices.map((c) => {
+                const name = pickName(locale, { name_en: c.coach.display_name_en, name_ar: c.coach.display_name_ar });
+                return {
+                  value: c.coach.coach_id,
+                  label: c.paused ? tr('ws.coaching.start.wizard.coachPausedChip', { name }) : name,
+                  disabled: busy || c.paused,
+                };
+              })}
+            />
+          </Field>
+          <div data-testid="lesson-price">
+            <WizardPrice figure={figure} line={kind ? tr(`ws.coaching.start.wizard.priceLine.${kind}`) : undefined} />
+          </div>
+        </>
+      ),
+    },
+    {
+      key: 'when',
+      label: tr('ws.coaching.start.wizard.stepWhen'),
+      note: kind === 'course' ? sessionsPhrase : whenStart ? timeText(whenStart) : null,
+      problems: textsOf(['start', 'grid', 'past', 'cutoff', 'starts']),
+      flagged: refusedRow !== null,
+      content: (
+        <>
+          {kind === 'private' && (
+            <PrivateStarts
+              date={date}
+              minDate={today}
+              onDate={(d) => {
+                setDate(d);
+                setSlotPick(null);
+              }}
+              coachName={coach ? coachName : null}
+              loading={slotsQ.isPending && Boolean(coach)}
+              failed={slotsQ.isError}
+              starts={starts}
+              selected={privateStart}
+              notFreeAt={choice.state === 'notFree' && !picked ? pressedIso : null}
+              tz={tz}
+              busy={busy}
+              onPick={setSlotPick}
+            />
+          )}
+          {kind === 'group' && (
+            <div className="tp-grid" data-cols="2" style={{ columnGap: 'var(--tp-sp-3)' }}>
+              <Field label={tr('ws.coaching.start.date')} style={{ marginBlockEnd: 0 }}>
+                <DateField value={date} min={today} disabled={busy} onChange={setDate} />
+              </Field>
+              <Field
+                style={{ marginBlockEnd: 0 }}
+                label={tr('ws.coaching.start.start')}
+                error={
+                  blocks.includes('cutoff') || blocks.includes('past') || blocks.includes('grid')
+                    ? blockText(blocks.find((b) => b === 'cutoff' || b === 'past' || b === 'grid')!)
+                    : undefined
+                }
               >
-                {kind && (
-                  <span style={{ fontWeight: 600 }}>
-                    {kind === 'course'
-                      ? tr('ws.coaching.start.price.course', {
-                          price: priceText,
-                          sessions: sessionsPhrase,
-                        })
-                      : tr(`ws.coaching.start.price.${kind}`, { price: priceText })}
-                  </span>
-                )}
-                <span style={{ color: 'var(--tp-muted-fg)' }}>
-                  {kind === 'course'
-                    ? tr('ws.coaching.start.court.course')
-                    : tr('ws.coaching.start.court.auto')}
-                </span>
-              </div>
-            </>
+                <Select
+                  value={groupTime}
+                  disabled={busy}
+                  onChange={setGroupTime}
+                  options={gridStarts(date, tz).map((g) => ({ value: g.time, label: formatTime(new Date(g.startAt), locale, tz) }))}
+                />
+              </Field>
+            </div>
+          )}
+          {kind === 'course' && (
+            <CourseStarts
+              firstDate={firstDate}
+              firstTime={firstTime}
+              minDate={today}
+              rows={rows}
+              check={startsCheck}
+              refusedRow={refusedRow}
+              tz={tz}
+              busy={busy}
+              rowErrorText={rowErrorText}
+              formError={startsCheck?.form ? tr(`ws.coaching.errors.courseStarts.${startsCheck.form}`, { sessions: sessionsPhrase }) : null}
+              onFirst={(d, t) => {
+                setFirstDate(d);
+                setFirstTime(t);
+                setRowsEdited(null);
+              }}
+              onRow={(i, next) => setRowsEdited(rows.map((r, j) => (j === i ? next : r)))}
+            />
           )}
         </>
+      ),
+    },
+  ];
+  if (kind === 'course') {
+    steps.push({
+      key: 'title',
+      label: tr('ws.coaching.start.wizard.stepTitle'),
+      note: courseTitle || null,
+      problems: textsOf(['title']),
+      content: (
+        <div style={{ display: 'grid', gap: 'var(--tp-sp-1-5)' }}>
+          <BilingualFields
+            labelEn={tr('ws.coaching.start.titleEn')}
+            labelAr={tr('ws.coaching.start.titleAr')}
+            en={titleEn}
+            ar={titleAr}
+            onEn={setTitleEn}
+            onAr={setTitleAr}
+            maxLength={COURSE_TITLE_MAX}
+            disabled={busy}
+          />
+          <p style={{ margin: 0, fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>{tr('ws.coaching.start.titleHint')}</p>
+        </div>
+      ),
+    });
+  }
+  if (kind === 'private') {
+    steps.push({
+      key: 'student',
+      label: tr('ws.coaching.start.wizard.stepStudent'),
+      note: studentName || null,
+      problems: textsOf(['student', 'party']),
+      content: (
+        <>
+          <div>
+          <CustomerPicker
+            label={tr('ws.coaching.start.student')}
+            value={customer}
+            disabled={busy}
+            autoFocus={initialCustomer === null}
+            onQueryChange={(q) => {
+              if (!nameTouched) setGuestName(nameFromQuery(q));
+              if (!phoneTouched) setGuestPhone(phoneFromQuery(q));
+            }}
+            onChange={(next) => {
+              setCustomer(next);
+              if (next) {
+                if (!nameTouched || guestName.trim() === '') setGuestName(sanitizeName(next.name));
+                if (next.phone && (!phoneTouched || guestPhone.trim() === '')) setGuestPhone(sanitizePhone(next.phone));
+              }
+            }}
+          />
+          {!customer && <PickerHint />}
+          </div>
+          {!customer && (
+            <div className="tp-grid" data-cols="2" style={{ columnGap: 'var(--tp-sp-3)' }}>
+              <Field label={tr('op.desk.guestName')} style={{ marginBlockEnd: 0 }}>
+                <input
+                  style={inputStyle}
+                  aria-required="true"
+                  value={guestName}
+                  disabled={busy}
+                  maxLength={STUDENT_NAME_MAX}
+                  onChange={(e) => {
+                    setNameTouched(true);
+                    setGuestName(sanitizeName(e.target.value));
+                  }}
+                />
+              </Field>
+              <Field label={tr('op.desk.guestPhone')} optional style={{ marginBlockEnd: 0 }}>
+                <input
+                  style={inputStyle}
+                  type="tel"
+                  dir="ltr"
+                  inputMode="tel"
+                  autoComplete="off"
+                  maxLength={30}
+                  value={guestPhone}
+                  disabled={busy}
+                  onChange={(e) => {
+                    setPhoneTouched(true);
+                    setGuestPhone(sanitizePhone(e.target.value));
+                  }}
+                />
+              </Field>
+            </div>
+          )}
+          {maxParty > 1 && (
+            <Field label={tr('ws.coaching.start.wizard.comingWith')} group hint={tr('ws.coaching.start.wizard.takesUpTo', { n: formatNumber(maxParty, locale) })} style={{ marginBlockEnd: 0 }}>
+              <WizardChips<string>
+                label={tr('ws.coaching.start.wizard.comingWith')}
+                value={String(partySize - 1)}
+                onChange={(v) => setExtra(Number(v))}
+                options={Array.from({ length: maxParty }, (_, n) => ({
+                  value: String(n),
+                  label: n === 0 ? formatNumber(0, locale) : isolateLtr(`+${formatNumber(n, locale)}`),
+                  disabled: busy,
+                }))}
+              />
+            </Field>
+          )}
+        </>
+      ),
+    });
+  }
+  const whenIndex = 2;
+
+  return (
+    <StepWizard
+      title={tr('ws.coaching.common.newLesson')}
+      lead={dayNoon ? <bdi>{`${formatWeekdayLong(dayNoon, locale, 'UTC')} · ${formatDate(dayNoon, locale, 'UTC')}`}</bdi> : undefined}
+      steps={steps}
+      at={at}
+      onAtChange={setAt}
+      busy={busy}
+      submitBlocked={!reachable ? tr('ws.coaching.offline.needsConnection') : lessons === null ? tr('ws.coaching.offline.readFailed') : null}
+      onClose={onClose}
+      submitLabel={tr('ws.coaching.start.submit')}
+      onSubmit={() => void submit(() => setAt(whenIndex))}
+      testId="lesson"
+      notice={
+        error || maybeLanded ? (
+          <>
+            <ErrorText error={error} message={error ? coachingErrorText(error, tr, { sessions: sessionsPhrase }) : null} />
+            {maybeLanded && <WizardNote>{tr('ws.coaching.start.maybeLanded')}</WizardNote>}
+          </>
+        ) : undefined
+      }
+      review={(goTo) => (
+        <ReviewList
+          goTo={goTo}
+          busy={busy}
+          rows={[
+            { label: tr('ws.coaching.start.wizard.reviewKind'), value: kind ? tr(kindKey(kind)) : '—', step: 'kind' },
+            { label: tr('ws.coaching.start.wizard.reviewCoach'), value: <bdi>{coachName || '—'}</bdi>, step: 'type' },
+            {
+              label: tr('ws.coaching.start.wizard.reviewPrice'),
+              value:
+                kind === 'course'
+                  ? tr('ws.coaching.start.wizard.reviewPriceValue.course', { price: priceText, sessions: sessionsPhrase })
+                  : kind
+                    ? tr(`ws.coaching.start.wizard.reviewPriceValue.${kind}`, { price: priceText })
+                    : '—',
+              step: 'type',
+            },
+            { label: tr('ws.coaching.start.wizard.reviewWhen'), value: <bdi>{whenValue}</bdi>, step: 'when' },
+            ...(kind === 'private'
+              ? [{ label: tr('ws.coaching.start.wizard.reviewStudent'), value: <bdi>{studentValue}</bdi>, step: 'student' }]
+              : kind === 'course'
+                ? [{ label: tr('ws.coaching.start.wizard.reviewTitle'), value: <bdi>{courseTitle || '—'}</bdi>, step: 'title' }]
+                : []),
+          ]}
+        />
       )}
-      <ErrorText
-        error={error}
-        message={error ? coachingErrorText(error, tr, { sessions: sessionsPhrase }) : null}
-      />
-      {maybeLanded && (
-        <MessagePresenter tone="info" message={tr('ws.coaching.start.maybeLanded')} />
-      )}
-    </Modal>
+    />
   );
 }
 
@@ -828,41 +859,29 @@ function PrivateStarts({
               })
             : null;
   return (
-    <div style={{ display: 'grid', gap: 'var(--tp-sp-2)', marginBlockEnd: '0.85rem' }}>
+    <>
       <Field label={tr('ws.coaching.start.date')} style={{ marginBlockEnd: 0 }}>
         <DateField value={date} min={minDate} disabled={busy} onChange={onDate} />
       </Field>
-      <Field label={tr('ws.coaching.start.start')} group style={{ marginBlockEnd: 0 }}>
-        <div role="group" style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--tp-sp-1)' }}>
-          {loading ? (
-            <Skeleton lines={1} blockSize="2rem" />
-          ) : (
-            starts.map((s) => {
-              const on = selected !== null && Date.parse(selected) === Date.parse(s.start_at);
-              return (
-                <Button
-                  key={s.start_at}
-                  size="sm"
-                  kind={on ? 'primary' : 'default'}
-                  aria-pressed={on}
-                  disabled={busy}
-                  onClick={() => onPick(s.start_at)}
-                >
-                  {formatTime(new Date(s.start_at), locale, tz)}
-                </Button>
-              );
-            })
-          )}
-        </div>
+      <Field
+        label={tr('ws.coaching.start.start')}
+        group
+        hint={coachName && !loading && starts.length > 0 ? tr('ws.coaching.start.wizard.freeTimes', { coach }) : undefined}
+        style={{ marginBlockEnd: 0 }}
+      >
+        {loading ? (
+          <Skeleton lines={1} blockSize="2rem" />
+        ) : (
+          <WizardChips<string>
+            label={tr('ws.coaching.start.start')}
+            value={starts.find((s) => selected !== null && Date.parse(selected) === Date.parse(s.start_at))?.start_at ?? ''}
+            onChange={onPick}
+            options={starts.map((s) => ({ value: s.start_at, label: formatTime(new Date(s.start_at), locale, tz), disabled: busy }))}
+          />
+        )}
       </Field>
-      {line && (
-        <MessagePresenter
-          tone={notFreeAt && starts.length > 0 ? 'refused' : 'info'}
-          icon="clock"
-          message={line}
-        />
-      )}
-    </div>
+      {line && <WizardNote tone={notFreeAt && starts.length > 0 ? 'refused' : 'info'}>{line}</WizardNote>}
+    </>
   );
 }
 
@@ -899,103 +918,109 @@ function CourseStarts({
   onRow: (index: number, next: LocalStart) => void;
 }) {
   const { tr, locale } = useLocale();
+  // The session whose date and start are open for moving.
+  const [moving, setMoving] = useState<number | null>(null);
   const timeOptions = (date: string) =>
     gridStarts(/^\d{4}-\d{2}-\d{2}$/.test(date) ? date : firstDate, tz).map((g) => ({
       value: g.time,
       label: formatTime(new Date(g.startAt), locale, tz),
     }));
   return (
-    <div style={{ display: 'grid', gap: 'var(--tp-sp-2)', marginBlockEnd: '0.85rem' }}>
+    <>
       <div className="tp-grid" data-cols="2" style={{ columnGap: 'var(--tp-sp-3)' }}>
-        <Field label={tr('ws.coaching.start.firstSession')}>
-          <DateField
-            value={firstDate}
-            min={minDate}
-            disabled={busy}
-            onChange={(d) => onFirst(d, firstTime)}
-          />
+        <Field label={tr('ws.coaching.start.firstSession')} style={{ marginBlockEnd: 0 }}>
+          <DateField value={firstDate} min={minDate} disabled={busy} onChange={(d) => onFirst(d, firstTime)} />
         </Field>
-        <Field label={tr('ws.coaching.start.start')}>
-          <Select
-            value={firstTime}
-            disabled={busy}
-            onChange={(t) => onFirst(firstDate, t)}
-            options={timeOptions(firstDate)}
-          />
+        <Field label={tr('ws.coaching.start.start')} style={{ marginBlockEnd: 0 }}>
+          <Select value={firstTime} disabled={busy} onChange={(t) => onFirst(firstDate, t)} options={timeOptions(firstDate)} />
         </Field>
       </div>
-      <ol
-        data-testid="course-starts"
-        style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--tp-sp-1)' }}
-      >
-        {rows.map((row, i) => {
-          const n = i + 1;
-          const start = startOf(row.date, row.time, tz);
-          const own = check?.rows[i] ?? null;
-          const refused = refusedRow === n;
-          const marked = own !== null || refused;
-          const when = start
-            ? tr('ws.coaching.start.sessionRow', {
-                n: formatNumber(n, locale),
-                date: `${formatWeekdayShort(new Date(start), locale, tz)} ${formatDate(new Date(start), locale, tz)}`,
-                time: formatTime(new Date(start), locale, tz),
-              })
-            : tr('ws.coaching.common.session', { n: formatNumber(n, locale) });
-          return (
-            <li
-              key={n}
-              data-session={n}
-              data-refused={refused ? '' : undefined}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 'var(--tp-sp-2)',
-                flexWrap: 'wrap',
-                paddingBlock: 'var(--tp-sp-1)',
-                paddingInline: 'var(--tp-sp-2)',
-                borderRadius: 'var(--tp-radius-ctl)',
-                border: `1px solid ${marked ? 'var(--tp-danger-mark)' : 'var(--tp-border)'}`,
-                background: marked ? 'var(--tp-danger-soft)' : 'var(--tp-surface)',
-              }}
-            >
-              <bdi
-                style={{ flex: '1 1 12rem', fontVariantNumeric: 'tabular-nums', fontWeight: 600 }}
-              >
-                {when}
-              </bdi>
-              <DateField
-                ariaLabel={tr('ws.coaching.start.sessionDate', { n: formatNumber(n, locale) })}
-                value={row.date}
-                min={minDate}
-                disabled={busy}
-                style={{ inlineSize: 'auto' }}
-                onChange={(d) => onRow(i, { ...row, date: d })}
-              />
-              <Select
-                aria-label={tr('ws.coaching.start.sessionTime', { n: formatNumber(n, locale) })}
-                value={row.time}
-                disabled={busy}
-                style={{ inlineSize: 'auto' }}
-                onChange={(t) => onRow(i, { ...row, time: t })}
-                options={timeOptions(row.date)}
-              />
-              {own !== null && (
-                <span
+      <Field label={tr('ws.coaching.start.wizard.sessions')} group hint={tr('ws.coaching.start.wizard.sessionsHint')} style={{ marginBlockEnd: 0 }}>
+        <ol data-testid="course-starts" style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--tp-sp-2)' }}>
+          {rows.map((row, i) => {
+            const n = i + 1;
+            const start = startOf(row.date, row.time, tz);
+            const own = check?.rows[i] ?? null;
+            const refused = refusedRow === n;
+            const marked = own !== null || refused;
+            const open = moving === i || marked;
+            const when = start
+              ? tr('ws.coaching.start.wizard.dayTime', {
+                  date: `${formatWeekdayShort(new Date(start), locale, tz)} ${formatDate(new Date(start), locale, tz)}`,
+                  time: formatTime(new Date(start), locale, tz),
+                })
+              : '—';
+            return (
+              <li key={n} data-session={n} data-refused={refused ? '' : undefined} style={{ display: 'grid', gap: 'var(--tp-sp-1-5)' }}>
+                <button
+                  type="button"
+                  aria-expanded={open}
+                  disabled={busy}
+                  onClick={() => setMoving(moving === i ? null : i)}
                   style={{
-                    flexBasis: '100%',
-                    fontSize: 'var(--tp-fs-xs)',
-                    color: 'var(--tp-danger-fg)',
-                    fontWeight: 600,
+                    ...sessionRow,
+                    ...(marked ? { borderColor: 'var(--tp-danger-mark)', background: 'var(--tp-danger-soft)' } : null),
                   }}
                 >
-                  {rowErrorText(own, i)}
-                </span>
-              )}
-            </li>
-          );
-        })}
-      </ol>
-      {formError && <MessagePresenter tone="refused" message={formError} />}
-    </div>
+                  <strong>{tr('ws.coaching.common.session', { n: formatNumber(n, locale) })}</strong>
+                  <bdi style={{ fontSize: 'var(--tp-fs-sm)', opacity: 0.8, fontVariantNumeric: 'tabular-nums' }}>{when}</bdi>
+                </button>
+                {open && (
+                  <div style={{ display: 'flex', gap: 'var(--tp-sp-2)', flexWrap: 'wrap', alignItems: 'center' }}>
+                    <DateField
+                      ariaLabel={tr('ws.coaching.start.sessionDate', { n: formatNumber(n, locale) })}
+                      value={row.date}
+                      min={minDate}
+                      disabled={busy}
+                      style={{ inlineSize: 'auto' }}
+                      onChange={(d) => onRow(i, { ...row, date: d })}
+                    />
+                    <Select
+                      aria-label={tr('ws.coaching.start.sessionTime', { n: formatNumber(n, locale) })}
+                      value={row.time}
+                      disabled={busy}
+                      style={{ inlineSize: 'auto' }}
+                      onChange={(t) => onRow(i, { ...row, time: t })}
+                      options={timeOptions(row.date)}
+                    />
+                  </div>
+                )}
+                {own !== null && (
+                  <span style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-danger-fg)', fontWeight: 600 }}>{rowErrorText(own, i)}</span>
+                )}
+              </li>
+            );
+          })}
+        </ol>
+      </Field>
+      {formError && <WizardNote tone="refused">{formError}</WizardNote>}
+    </>
   );
+}
+
+/** A course session as the preview's `.row`: "Session n" at the start, its day and time at the end. */
+const sessionRow: CSSProperties = {
+  display: 'flex',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  gap: 'var(--tp-sp-3)',
+  flexWrap: 'wrap',
+  inlineSize: '100%',
+  paddingBlock: 'var(--tp-sp-3)',
+  paddingInline: 'calc(var(--tp-sp-3) + var(--tp-sp-0))',
+  border: '1px solid var(--tp-border-strong)',
+  borderRadius: 'var(--tp-radius-panel)',
+  background: 'var(--tp-surface)',
+  color: 'var(--tp-fg)',
+  font: 'inherit',
+  textAlign: 'start',
+  cursor: 'pointer',
+};
+
+const WEEKDAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const;
+
+/** A local date's weekday as the catalog names it ("thu"), or null when the date is not whole. */
+function weekdayOf(date: string): (typeof WEEKDAY_KEYS)[number] | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
+  return WEEKDAY_KEYS[new Date(`${date}T12:00:00Z`).getUTCDay()] ?? null;
 }

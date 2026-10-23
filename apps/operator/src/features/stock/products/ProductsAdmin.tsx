@@ -58,6 +58,7 @@ import {
   type Column,
 } from '../../../components/kit';
 import { BilingualFields } from '../../../components/inputs';
+import { ReviewList, StepWizard, WizardChoice, WizardChoices, WizardNote, type WizardStep } from '../../../components/StepWizard';
 import { Icon } from '../../../components/icons';
 import { PriceChangeButton, PriceLockNote, usePriceChangeStart } from '../../admin/promotions/PriceChangeStart';
 import { isRenameRefusal } from '../../admin/addons/addonsLogic';
@@ -86,6 +87,9 @@ import {
   type ProductLine,
   type SizeDraft,
 } from './productsLogic';
+
+/** Two fields to a row where they fit, one under the other where not. */
+const FIELD_GRID = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(13rem, 1fr))', columnGap: 'var(--tp-sp-2-5)' } as const;
 
 type Caps = { editLaunchedPrices: boolean; launchDirectly: boolean };
 
@@ -501,6 +505,172 @@ function SizeForm({
         ? tr('ws.manager.stock.products.addSizeTo', { name: pickName(locale, editing.line.product) })
         : tr('ws.manager.stock.products.editTitle', { name: `${pickName(locale, editing.line.product)} · ${pickName(locale, editing.line.variant)}` });
 
+  // A new product is the stepped dialog (Sait, 2026-10-22): its section and
+  // name, its first size and price, then its stock and supplier. Adding or
+  // editing a size keeps the single form below.
+  if (editing.mode === 'newProduct') {
+    const P = 'ws.manager.stock.products' as const;
+    const W = 'ws.manager.stock.products.wizard' as const;
+    const section = sections.find((s) => s.id === sectionId);
+    const supplier = suppliers.find((s) => s.id === supplierId);
+    const pick = (en: string, ar: string) => (locale === 'ar' ? ar : en).trim();
+    // Each step answers for its own fields: the size check, split by step.
+    const sizeStep = sizeProblem({ ...draft, sku: '', barcode: '', low: '' });
+    const stockStep = sizeProblem({ ...draft, nameEn: 'x', nameAr: 'x', price: '1', cost: '' });
+    // One field checked on its own, the rest held valid.
+    const fine = (part: Partial<SizeDraft>) => sizeProblem({ nameEn: 'x', nameAr: 'x', price: '1', sku: '', barcode: '', cost: '', low: '', ...part }) === null;
+    const priceText = draft.price.trim() && fine({ price: draft.price }) ? formatIQD(Number(draft.price.trim()), locale) : null;
+    const costText = draft.cost.trim() && fine({ cost: draft.cost }) ? formatNumber(Number(draft.cost.trim()), locale) : null;
+    const lowText = draft.low.trim() && fine({ low: draft.low }) ? formatNumber(Number(draft.low.trim()), locale) : null;
+    const supplierText = [supplier?.name ?? tr(`${P}.noSupplier`), lowText ? tr(`${W}.warnUnder`, { n: lowText }) : null].filter(Boolean).join(' · ');
+    const steps: WizardStep[] = [
+      {
+        key: 'section',
+        label: tr(`${W}.stepSection`),
+        note: section ? pickName(locale, section) : null,
+        problems: [
+          ...(sectionId ? [] : [tr(`${W}.pickSection`)]),
+          ...(productName.en.trim() && productName.ar.trim() ? [] : [tr('ws.manager.disabled.namesRequired')]),
+        ],
+        content: (
+          <>
+            <Field label={tr(`${P}.section`)} group>
+              <WizardChoices small label={tr(`${P}.section`)}>
+                {sections.map((s) => (
+                  <WizardChoice key={s.id} on={sectionId === s.id} title={pickName(locale, s)} onPick={() => setSectionId(s.id)} />
+                ))}
+              </WizardChoices>
+            </Field>
+            <BilingualFields
+              labelEn={tr(`${P}.productNameEn`)}
+              labelAr={tr(`${P}.productNameAr`)}
+              en={productName.en}
+              ar={productName.ar}
+              onEn={(en) => setProductName((n) => ({ ...n, en }))}
+              onAr={(ar) => setProductName((n) => ({ ...n, ar }))}
+            />
+          </>
+        ),
+      },
+      {
+        key: 'size',
+        label: tr(`${W}.stepSize`),
+        note: priceText,
+        problems: sizeStep ? [problemText(sizeStep)!] : [],
+        content: (
+          <>
+            <BilingualFields
+              labelEn={tr(`${P}.sizeNameEn`)}
+              labelAr={tr(`${P}.sizeNameAr`)}
+              en={draft.nameEn}
+              ar={draft.nameAr}
+              onEn={(nameEn) => set({ nameEn })}
+              onAr={(nameAr) => set({ nameAr })}
+            />
+            <div style={FIELD_GRID}>
+              <Field label={tr(`${P}.price`)} error={sizeStep === 'price' && draft.price.trim() ? problemText('price') : undefined}>
+                <input style={inputStyle} dir="ltr" inputMode="numeric" value={draft.price} onChange={(e) => set({ price: e.target.value })} />
+              </Field>
+              <Field label={tr(`${P}.cost`)} optional hint={tr(`${P}.costHint`)} error={sizeStep === 'cost' ? problemText('cost') : undefined}>
+                <input style={inputStyle} dir="ltr" inputMode="numeric" value={draft.cost} onChange={(e) => set({ cost: e.target.value })} />
+              </Field>
+            </div>
+          </>
+        ),
+      },
+      {
+        key: 'stock',
+        label: tr(`${W}.stepStock`),
+        note: tr(`${W}.optional`),
+        problems: [
+          ...(stockStep ? [problemText(stockStep)!] : []),
+          ...(linkCheck.ok ? [] : [tr(`ws.shop.priceWatch.problem.${linkCheck.error}` as const)]),
+        ],
+        flagged: linkRefused,
+        content: (
+          <>
+            <div style={FIELD_GRID}>
+              <Field label={tr(`${P}.sku`)} optional hint={tr(`${P}.problem.sku`)} error={stockStep === 'sku' ? problemText('sku') : undefined}>
+                <input style={inputStyle} dir="ltr" value={draft.sku} onChange={(e) => set({ sku: e.target.value })} />
+              </Field>
+              <Field label={tr(`${P}.barcode`)} optional hint={tr(`${P}.barcodeHint`)} error={stockStep === 'barcode' ? problemText('barcode') : undefined}>
+                <input style={inputStyle} dir="ltr" inputMode="numeric" value={draft.barcode} onChange={(e) => set({ barcode: e.target.value })} />
+              </Field>
+              <Field label={tr(`${P}.low`)} optional hint={tr(`${P}.lowHint`)} error={stockStep === 'low' ? problemText('low') : undefined}>
+                <input style={inputStyle} dir="ltr" inputMode="numeric" value={draft.low} onChange={(e) => set({ low: e.target.value })} />
+              </Field>
+              <Field label={tr('ws.manager.stock.ingredients.supplier')} optional>
+                <Select
+                  value={supplierId}
+                  onChange={setSupplierId}
+                  options={[{ value: '', label: tr(`${P}.noSupplier`) }, ...suppliers.map((s) => ({ value: s.id, label: s.name }))]}
+                />
+              </Field>
+            </div>
+            {/* The preview's own hint; a new product has no watch, so no status line. */}
+            <Field
+              label={tr('ws.shop.priceWatch.link')}
+              optional
+              hint={tr(`${W}.linkHint`)}
+              error={
+                !linkCheck.ok ? tr(`ws.shop.priceWatch.problem.${linkCheck.error}` as const) : linkRefused ? tr('ws.shop.priceWatch.problem.invalid') : undefined
+              }
+            >
+              <input
+                style={inputStyle}
+                dir="ltr"
+                type="url"
+                inputMode="url"
+                autoComplete="off"
+                spellCheck={false}
+                placeholder="https://"
+                value={link}
+                onChange={(e) => {
+                  setLinkDraft(e.target.value);
+                  if (linkRefused) setError(null);
+                }}
+              />
+            </Field>
+          </>
+        ),
+      },
+    ];
+    return (
+      <StepWizard
+        title={title}
+        lead={newHidden ? tr(`${W}.lead`) : undefined}
+        steps={steps}
+        review={(goTo) => (
+          <>
+            <ReviewList
+              goTo={goTo}
+              busy={busy}
+              rows={[
+                { label: tr(`${W}.reviewSection`), value: section ? pickName(locale, section) : '—', step: 'section' },
+                { label: tr(`${W}.reviewName`), value: <bdi>{pick(productName.en, productName.ar)}</bdi>, step: 'section' },
+                { label: tr(`${W}.reviewSize`), value: <bdi>{pick(draft.nameEn, draft.nameAr)}</bdi>, step: 'size' },
+                {
+                  label: tr(`${W}.reviewPrice`),
+                  value: priceText && costText ? tr(`${W}.withCost`, { price: priceText, cost: costText }) : (priceText ?? '—'),
+                  step: 'size',
+                },
+                { label: tr(`${W}.reviewSupplier`), value: <bdi>{supplierText}</bdi>, step: 'stock' },
+              ]}
+            />
+            {newHidden && <WizardNote>{tr(`${W}.savedHiddenNote`)}</WizardNote>}
+          </>
+        )}
+        submitLabel={tr('ws.kit.actions.save')}
+        onSubmit={() => void save()}
+        busy={busy}
+        notice={error && !linkRefused ? <ErrorText error={error} /> : undefined}
+        canClose={mayLeave}
+        onClose={onCancel}
+        testId="product-new"
+      />
+    );
+  }
+
   return (
     <Modal
       title={title}
@@ -537,25 +707,6 @@ function SizeForm({
         </>
       )}
     >
-      {editing.mode === 'newProduct' && (
-        <div style={{ display: 'grid', gap: 'var(--tp-sp-2)', marginBlockEnd: 'var(--tp-sp-3)' }}>
-          <Field label={tr('ws.manager.stock.products.section')}>
-            <Select
-              value={sectionId}
-              onChange={setSectionId}
-              options={sections.map((s) => ({ value: s.id, label: pickName(locale, s) }))}
-            />
-          </Field>
-          <BilingualFields
-            labelEn={tr('ws.manager.stock.products.productNameEn')}
-            labelAr={tr('ws.manager.stock.products.productNameAr')}
-            en={productName.en}
-            ar={productName.ar}
-            onEn={(en) => setProductName((n) => ({ ...n, en }))}
-            onAr={(ar) => setProductName((n) => ({ ...n, ar }))}
-          />
-        </div>
-      )}
       {/* A size on sale renames only through a price change (§2.2.2), so its
           names read as text, not as boxes that look editable and are not. */}
       {nameLocked ? (

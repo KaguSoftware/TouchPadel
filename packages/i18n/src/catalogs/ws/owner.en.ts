@@ -479,6 +479,11 @@ export const ownerEn = {
       emailInvalid: 'This does not look like an email address.',
       passwordShort: 'Too short: add {count} more.',
       notReady: 'Fill in a name, a valid email and a long enough password.',
+      // The stepped Add staff member (2026-10-22).
+      steps: { who: 'Who' },
+      nameNeeded: 'Type their name.',
+      emailNeeded: 'Type the email they sign in with.',
+      passwordSet: 'Set',
     },
     password: {
       title: 'Password',
@@ -685,6 +690,10 @@ export const ownerEn = {
       inUseHint: 'The card works and the table appears at the café cashier.',
       notInUseHint: 'Its card stops working and it leaves the café cashier. Nothing is deleted.',
       numberRequired: 'Enter a table number.',
+      // The stepped Add table (2026-10-22).
+      steps: { table: 'Table', where: 'Where & seats' },
+      lead: 'QR table cards',
+      seats: '{count} seats',
     },
   },
   // ---------------------------------------------------------------------
@@ -1026,6 +1035,10 @@ export const ownerEn = {
       langAr: 'Arabic',
       hasPhone: 'Has a phone number',
       hasPush: 'Can receive app notifications',
+      onlyWho: 'Only guests who',
+      havePhone: 'Have a phone number',
+      canPush: 'Can receive app notifications',
+      matches: 'Who’s in: {rule}.',
     },
     form: {
       nameEn: 'Name (English)',
@@ -1070,6 +1083,92 @@ export const ownerEn = {
     emptyTitle: 'No campaigns yet',
     emptyBody: 'A campaign ties an audience, a message and a promotion together so you can tell whether it worked.',
     emptyFiltered: 'No campaigns in this list.',
+    // The stepped New campaign and New audience (2026-10-22).
+    steps: {
+      name: 'Name',
+      channel: 'Channel & audience',
+      when: 'When',
+      message: 'Message',
+      who: 'Who’s in',
+    },
+    channelBodies: {
+      telegram: 'A message to the club’s channel.',
+      guest_site: 'A banner on the club site.',
+      in_venue: 'Posters and screens at the club.',
+    },
+    written: {
+      both: 'Both written',
+      en: 'English only',
+      ar: 'Arabic only',
+      none: 'Not written yet',
+    },
+    windowUntil: 'Until {date}',
+    noDates: 'No dates set',
+    reviewPromotion: 'Promotion',
+    reviewMessage: 'Message',
+    reviewRule: 'Rule',
+    audienceLead: 'A rule, not a list: it stays up to date by itself.',
+    // The Review page's Message row (the menu note says 'Both written').
+    writtenReview: {
+      both: 'English and Arabic written',
+      en: 'English only',
+      ar: 'Arabic only',
+      none: 'Not written yet',
+    },
+    // The New audience wizard's short rule: the menu note and Review's Rule row.
+    ruleShort: {
+      everyone: 'Every guest',
+      minBookings: '{count}+ bookings',
+      lastSeenDays: {
+        zero: 'last {count} days',
+        one: 'last day',
+        two: 'last 2 days',
+        few: 'last {count} days',
+        many: 'last {count} days',
+        other: 'last {count} days',
+      },
+      hasPhone: 'has a phone number',
+      hasPush: 'gets app notifications',
+      sep: ' · ',
+    },
+    // The rule as one sentence, under the Who's in step:
+    // "Guests with 3 or more bookings who played in the last 30 days, in any language, with a phone number."
+    ruleSentence: {
+      everyone: 'Every guest.',
+      guests: 'Guests',
+      minBookings: {
+        zero: 'with {count} or more bookings',
+        one: 'with 1 or more bookings',
+        two: 'with 2 or more bookings',
+        few: 'with {count} or more bookings',
+        many: 'with {count} or more bookings',
+        other: 'with {count} or more bookings',
+      },
+      lastSeenDays: {
+        zero: 'who played in the last {count} days',
+        one: 'who played in the last day',
+        two: 'who played in the last 2 days',
+        few: 'who played in the last {count} days',
+        many: 'who played in the last {count} days',
+        other: 'who played in the last {count} days',
+      },
+      // After the bookings clause (Arabic joins the two with و).
+      lastSeenDaysAfter: {
+        zero: 'who played in the last {count} days',
+        one: 'who played in the last day',
+        two: 'who played in the last 2 days',
+        few: 'who played in the last {count} days',
+        many: 'who played in the last {count} days',
+        other: 'who played in the last {count} days',
+      },
+      anyLang: 'in any language',
+      langEn: 'in English',
+      langAr: 'in Arabic',
+      hasPhone: 'with a phone number',
+      hasPush: 'who can receive app notifications',
+      sep: ', ',
+      end: '.',
+    },
   },
   // The owner assistant (docs/design/assistant). Buttons say what they do and
   // what is billed; an unverified figure is a labelled mark with a sentence;

@@ -96,11 +96,13 @@ test.describe('operator stock (module 5)', () => {
     const form = page.getByRole('dialog', { name: 'New ingredient' });
     await form.getByLabel('Name (English)').fill(ING);
     await form.getByLabel('Name (Arabic)').fill(`بن ${stamp}`);
+    // A stepped dialog since 2026-10-22: what it is, buying it, how much to keep, recipe maths, Review.
+    await form.getByTestId('ingredient-new.step.buying').click();
     await form.getByLabel('Pack size (g)').fill('1000');
     await form.getByLabel('Pack price (IQD)').fill('15000');
-    // By role: "Bought from a supplier" in the Type select also matches the label.
     await form.getByRole('textbox', { name: 'Supplier' }).fill('Al-Rasheed');
-    await form.getByRole('button', { name: 'Save', exact: true }).click();
+    await form.getByTestId('ingredient-new.step.review').click();
+    await form.getByTestId('ingredient-new.submit').click();
     await expect(form).toBeHidden();
     await expect(page.getByText(ING).first()).toBeVisible();
 

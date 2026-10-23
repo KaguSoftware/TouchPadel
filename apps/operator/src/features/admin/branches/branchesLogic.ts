@@ -81,3 +81,26 @@ export function sortReadiness(rows: readonly ReadinessRow[]): ReadinessRow[] {
 export function readyToOpen(rows: readonly ReadinessRow[]): boolean {
   return rows.length > 0 && rows.every((r) => !r.required || r.ok);
 }
+
+/**
+ * The checklist on Branch details (Sait, 2026-10-22): what is left first,
+ * required before recommended, done rows at the bottom; stable within each.
+ */
+export function checklistOrder(rows: readonly ReadinessRow[]): ReadinessRow[] {
+  const rank = (r: ReadinessRow) => (r.ok ? 2 : 0) + (r.required ? 0 : 1);
+  return rows.map((r, i) => ({ r, i })).sort((a, b) => rank(a.r) - rank(b.r) || a.i - b.i).map((x) => x.r);
+}
+
+/** How many required rows are not done yet. */
+export function requiredLeft(rows: readonly ReadinessRow[]): number {
+  return rows.filter((r) => r.required && !r.ok).length;
+}
+
+/** The six card colours a branch wears, by its place among all the branches, round again after six. */
+export const BRANCH_TONES = ['green', 'violet', 'rose', 'sky', 'teal', 'gold'] as const;
+export type BranchTone = (typeof BRANCH_TONES)[number];
+export function branchTone(place: number): BranchTone {
+  return BRANCH_TONES[((place % BRANCH_TONES.length) + BRANCH_TONES.length) % BRANCH_TONES.length]!;
+}
+
+export type BranchFilter = 'all' | 'open' | 'preparing' | 'closed';

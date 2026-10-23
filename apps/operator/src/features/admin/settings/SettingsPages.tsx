@@ -23,7 +23,7 @@ import { can, useAuth } from '../../../lib/auth';
 import { useLocale } from '../../../lib/i18n';
 import { Skeleton } from '../../../components/ui';
 import { AsyncStateWrapper, EmptyState, MessagePresenter, PageHeader, asyncStatus } from '../../../components/kit';
-import { CurrentBranchPanel } from '../branches/BranchesAdmin';
+import { BranchDetails } from '../branches/BranchesAdmin';
 import { DepositSettingsPanel } from '../../deposits/DepositSettingsPanel';
 import { useOnlinePaymentsLive } from '../../deposits/useOnlinePaymentsLive';
 import { KitchenPairingPanel } from '../KitchenPairing';
@@ -91,18 +91,18 @@ function WhenPaymentsLive({ children }: { children: ReactNode }) {
 // --- Venue ------------------------------------------------------------------
 
 /**
- * Settings › Branches › a branch's Club details (`/admin/settings`): the
- * branch in scope, reached by its card in the branch list. The owner also sees
- * where the branch stands, its checklist, Open and Close.
+ * Settings › Branches › a branch's Branch details (`/admin/settings`): the
+ * branch in scope, reached by its card in the branch list. Its name heads the
+ * page in the branch's colour (Sait, 2026-10-22); the owner also sees where it
+ * stands, its checklist, Open and Close.
  */
 export function VenueDetailsScreen() {
   return (
-    <SettingsPage title="ws.shell.nav.venueDetails">
-      <CurrentBranchPanel />
+    <BranchDetails>
       <VenuePart part="venue" lockNote />
       <WithVenue>{(venue) => <FixedAtSetupPanel venue={venue} />}</WithVenue>
       <TaxGroupsPanel />
-    </SettingsPage>
+    </BranchDetails>
   );
 }
 
@@ -115,7 +115,7 @@ export function BusinessDayScreen() {
   );
 }
 
-/** Settings › Club details › Analytics settings (`/admin/settings/analytics`): what analytics leaves out. Owner only. */
+/** Settings › Branches › Analytics settings (`/admin/settings/analytics`): what analytics leaves out. Owner only. */
 export function AnalyticsSettingsScreen() {
   return (
     <SettingsPage title="ws.shell.nav.analyticsSettings">

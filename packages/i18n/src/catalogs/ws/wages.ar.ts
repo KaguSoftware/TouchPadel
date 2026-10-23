@@ -238,8 +238,15 @@ export const wagesAr: DeepMessages<typeof wagesEn> = {
   },
   give: {
     title: 'صرف سلفة لـ {name}',
+    wizardTitle: 'صرف سلفة',
+    notePlaceholder: 'للإيجار',
+    review: {
+      to: 'إلى',
+      owedAfter: 'المتبقي بعد الصرف',
+    },
     amount: 'المبلغ',
-    amountHint: 'حتى {amount}، وهو المتبقي له هذا الشهر',
+    amountHint: 'حتى {amount}، وهو المتبقي له هذا الشهر.',
+    unit: 'د.ع',
     note: 'ملاحظة',
     noteHint: 'بحد أقصى {limit} حرفًا.',
     confirm: 'صرف {amount}',

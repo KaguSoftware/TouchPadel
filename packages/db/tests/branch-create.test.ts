@@ -220,4 +220,26 @@ describe.skipIf(!up)('open a new branch (0222-0223)', () => {
     const last = await appRpc(owner, 'close_branch', { p_venue: VENUE_A_ID });
     expect(last.error?.message).toBe('LAST_OPEN_BRANCH');
   });
+
+  // 0366: the Branches cards count each branch's courts and café tables,
+  // whatever branch the rail is on.
+  it('counts active courts and tables per branch the caller manages (0366)', async () => {
+    type Counts = { venue_id: string; courts: number; tables: number }[];
+    const active = async (table: string, venue: string) =>
+      (await svc.from(table).select('id', { count: 'exact', head: true }).eq('venue_id', venue).eq('is_active', true)).count ?? 0;
+
+    const mine = (await appRpc(owner, 'branch_counts', {})).data as Counts;
+    const a = mine.find((r) => r.venue_id === VENUE_A_ID);
+    const fresh = mine.find((r) => r.venue_id === created.venue_id);
+    expect(a).toEqual({ venue_id: VENUE_A_ID, courts: await active('courts', VENUE_A_ID), tables: await active('cafe_tables', VENUE_A_ID) });
+    // The owner counts every branch, the closed probe too.
+    expect(fresh).toEqual({ venue_id: created.venue_id, courts: await active('courts', created.venue_id), tables: await active('cafe_tables', created.venue_id) });
+
+    // The manager works at venue A only, so the probe branch is not counted.
+    const theirs = (await appRpc(manager, 'branch_counts', {})).data as Counts;
+    expect(theirs.map((r) => r.venue_id)).toContain(VENUE_A_ID);
+    expect(theirs.map((r) => r.venue_id)).not.toContain(created.venue_id);
+
+    expect(outcome(await appRpc(anon, 'branch_counts', {})).ok).toBe(false);
+  });
 });

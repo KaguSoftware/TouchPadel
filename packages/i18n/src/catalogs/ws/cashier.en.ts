@@ -399,6 +399,14 @@ export const cashierEn = {
     counterSaleHint: 'For someone buying from the shop: no table or booking, just a name or a number.',
     counterNameHint: 'Shown on the tab and on the day close.',
     needLabel: 'Type a name or a number.',
+    // The stepped New order (Sait, 2026-10-22).
+    lead: 'Café till',
+    stepName: 'Name',
+    nextNumber: 'Next number',
+    nextCounterNumber: 'Next counter number',
+    noBookingBody: 'A café order on its own.',
+    bookingNote: 'Tied to a booking, the court fee is added when the bill is settled.',
+    reviewBooking: 'Booking',
   },
   // 0352: "Bring to…" on a sent order (order first, the table after).
   delivery: {

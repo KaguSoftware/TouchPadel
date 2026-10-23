@@ -3,6 +3,19 @@
  * async states, governance prompts, tables. Owned by the shell lane.
  */
 export const kitEn = {
+  /**
+   * The stepped create dialogs (components/StepWizard.tsx). Review is a page
+   * after the steps, never counted as one: four steps read "Step 1 of 4".
+   */
+  wizard: {
+    menu: 'Steps',
+    stepOf: 'Step {n} of {total}',
+    allDone: 'All {total} steps done',
+    progress: '{done} of {total} done',
+    review: 'Review',
+    change: 'Change',
+    changeLabel: 'Change {what}',
+  },
   async: {
     loading: 'Loading…',
     empty: 'Nothing here yet.',

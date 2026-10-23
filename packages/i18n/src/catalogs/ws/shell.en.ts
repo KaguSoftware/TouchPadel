@@ -260,7 +260,7 @@ export const shellEn = {
     bookingRules: 'Booking rules',
     onlineDeposit: 'Online deposit',
     openMatches: 'Open matches',
-    venueDetails: 'Club details',
+    venueDetails: 'Branch details',
     openingHours: 'Opening hours',
     genderHours: 'Gender hours',
     businessDay: 'Day start time',

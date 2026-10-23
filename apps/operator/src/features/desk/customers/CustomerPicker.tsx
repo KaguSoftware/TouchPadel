@@ -108,7 +108,11 @@ export function CustomerPicker({
     <div style={{ marginBlockEnd: '0.85rem' }}>
       <span style={{ display: 'flex', gap: '0.3rem', alignItems: 'baseline', fontSize: 'var(--tp-fs-sm)', fontWeight: 600, marginBlockEnd: '0.3rem' }}>
         {label ?? tr('ws.courtDesk.create.customer')}
-        <span style={{ color: 'var(--tp-muted-fg)', fontWeight: 400 }}>({tr('ws.courtDesk.common.optional')})</span>
+        <span className="tp-field-opt" style={{ color: 'var(--tp-muted-fg)', fontWeight: 400 }}>
+          <span className="tp-opt-paren">(</span>
+          {tr('ws.courtDesk.common.optional')}
+          <span className="tp-opt-paren">)</span>
+        </span>
       </span>
       <SearchField
         value={query}

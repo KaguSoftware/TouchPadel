@@ -131,10 +131,12 @@ test.describe('operator Touch Shop desk', () => {
     await expect(page.getByRole('heading', { name: 'Sell', exact: true })).toBeVisible({ timeout: 30_000 });
     await page.goto(`${OPERATOR_URL}/shop/products`);
     await page.getByTestId('shop-section-add').click();
-    const dialog = page.getByRole('dialog', { name: 'New section' });
-    await dialog.getByTestId('shop-section-name-en').fill(SECTION);
-    await dialog.getByTestId('shop-section-name-ar').fill(`مضارب ${stamp}`);
-    await dialog.getByTestId('shop-section-save').click();
+    // A stepped dialog since 2026-10-22: the name, the tax group (the first one picked), Review.
+    const dialog = page.getByRole('dialog', { name: 'New shop section' });
+    await dialog.getByLabel('Name (English)').fill(SECTION);
+    await dialog.getByLabel('Name (Arabic)').fill(`مضارب ${stamp}`);
+    await dialog.getByTestId('shop-section.step.review').click();
+    await dialog.getByTestId('shop-section.submit').click();
     await expect(dialog).toBeHidden();
 
     const { data } = await svc.from('menu_categories').select('id, kind').eq('name_en', SECTION).single();
@@ -147,15 +149,19 @@ test.describe('operator Touch Shop desk', () => {
     await page.goto(`${OPERATOR_URL}/shop/products`);
     await page.getByRole('button', { name: 'New product' }).first().click();
     const form = page.getByRole('dialog', { name: 'New product' });
-    await choose(form.getByLabel('Shop section'), { label: SECTION });
+    // A stepped dialog since 2026-10-22: section and name, size and price, stock and supplier, Review.
+    await form.getByRole('button', { name: SECTION, exact: true }).click();
     await form.getByLabel('Product name (English)').fill(PRODUCT);
     await form.getByLabel('Product name (Arabic)').fill(`مضرب ${stamp}`);
+    await form.getByTestId('product-new.step.size').click();
     await form.getByLabel('Price (IQD)').fill('250000');
+    await form.getByTestId('product-new.step.stock').click();
     await form.getByLabel('Barcode').fill(BARCODE);
     // By role: the price watch (0322) put a "Supplier link" textbox in the same form,
     // and the picker's accessible name is not exactly "Supplier" (exact: true matched nothing).
     await choose(form.getByRole('combobox', { name: 'Supplier' }), { label: SUPPLIER });
-    await form.getByRole('button', { name: 'Save', exact: true }).click();
+    await form.getByTestId('product-new.step.review').click();
+    await form.getByTestId('product-new.submit').click();
     await expect(form).toBeHidden();
     await expect(page.getByText(BARCODE)).toBeVisible();
 

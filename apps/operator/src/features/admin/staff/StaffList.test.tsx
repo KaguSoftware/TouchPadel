@@ -109,20 +109,52 @@ async function fillAndAdd(user: ReturnType<typeof userEvent.setup>) {
   // It says saving finishes the run, since the banner is now behind it.
   expect(within(dialog).getByText('Saving the account finishes the hiring run.')).toBeTruthy();
   // Filled in from the run: the pick's name, the position's role, fixed, and
-  // why it is fixed read with the role (its description, not a stray line).
+  // why it is fixed said under the role cards.
   expect(within(dialog).getByDisplayValue('Sara Kareem')).toBeTruthy();
-  const role = within(dialog).getByRole('combobox', { name: 'Role' });
-  expect(role.textContent).toContain('Cashier');
-  expect(role.hasAttribute('disabled') || role.getAttribute('aria-disabled') === 'true').toBe(true);
-  const describedBy = role.getAttribute('aria-describedby');
-  expect(describedBy && document.getElementById(describedBy)?.textContent).toContain('Set by the hiring run');
   // The name is filled in, so the email takes the focus.
   expect(document.activeElement).toBe(within(dialog).getByRole('textbox', { name: /email/i }));
   await user.type(within(dialog).getByRole('textbox', { name: /email/i }), 'sara@touch.local');
-  await user.type(within(dialog).getAllByRole('textbox').at(-1)!, 'opening-pass-123');
-  await user.click(within(dialog).getByRole('button', { name: 'Add staff member' }));
+  await user.click(within(dialog).getByTestId('add-staff.step.role'));
+  const role = within(dialog).getByTestId('add-staff.role.cashier');
+  expect(role.getAttribute('aria-pressed')).toBe('true');
+  expect(role).toHaveProperty('disabled', true);
+  expect(within(dialog).getByTestId('add-staff.role.manager')).toHaveProperty('disabled', true);
+  expect(within(dialog).getByText(/Set by the hiring run/)).toBeTruthy();
+  await user.click(within(dialog).getByTestId('add-staff.step.password'));
+  await user.type(within(dialog).getByRole('textbox', { name: 'Password' }), 'opening-pass-123');
+  await user.click(within(dialog).getByTestId('add-staff.step.review'));
+  // Review names what is about to be created.
+  expect(within(dialog).getByText('sara@touch.local')).toBeTruthy();
+  await user.click(within(dialog).getByTestId('add-staff.submit'));
   return dialog;
 }
+
+describe('StaffList: Add staff member, stepped', () => {
+  it('holds the first step until the name and email are given, and offers every role as a card', async () => {
+    delete search.hire;
+    const user = userEvent.setup();
+    renderList();
+    await user.click(await screen.findByRole('button', { name: 'Add staff member' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Add staff member' });
+    expect(within(dialog).getByText('Step 1 of 3')).toBeTruthy();
+    await user.click(within(dialog).getByTestId('add-staff.step.review'));
+    expect(within(dialog).getByText('Type their name.')).toBeTruthy();
+    expect(within(dialog).getByText('Type the email they sign in with.')).toBeTruthy();
+    await user.type(within(dialog).getByRole('textbox', { name: 'Name' }), 'Mustafa Ali');
+    await user.type(within(dialog).getByRole('textbox', { name: /email/i }), 'mustafa@touch.local');
+    await user.click(within(dialog).getByTestId('add-staff.step.role'));
+    expect(within(dialog).getAllByTestId(/^add-staff\.role\./)).toHaveLength(13);
+    await user.click(within(dialog).getByTestId('add-staff.role.waiter'));
+    expect(within(dialog).getByTestId('add-staff.role.waiter').getAttribute('aria-pressed')).toBe('true');
+    // A short password holds the last step.
+    await user.click(within(dialog).getByTestId('add-staff.step.password'));
+    await user.type(within(dialog).getByRole('textbox', { name: 'Password' }), 'short');
+    await user.click(within(dialog).getByTestId('add-staff.step.review'));
+    expect(within(dialog).getAllByText(/Too short/).length).toBeGreaterThan(0);
+    expect(within(dialog).getByText('Step 3 of 3')).toBeTruthy();
+    expect(edge).not.toHaveBeenCalled();
+  });
+});
 
 describe('StaffList: adding a hiring run’s pick', () => {
   it('names the pick and role, fills the form, and sends the new account as the add_staff step', async () => {
@@ -145,7 +177,8 @@ describe('StaffList: adding a hiring run’s pick', () => {
     renderList();
     const dialog = await fillAndAdd(user);
     expect(await within(dialog).findByText('The account was created, but the hiring step was not sent.')).toBeTruthy();
-    await user.click(within(dialog).getByRole('button', { name: 'Send the hiring step again' }));
+    expect(within(dialog).getByTestId('add-staff.submit').textContent).toBe('Send the hiring step again');
+    await user.click(within(dialog).getByTestId('add-staff.submit'));
     await waitFor(() => expect(toastOk).toHaveBeenCalledWith('Account added. The hiring run is finished.'));
     // One account, two sends with one key.
     expect(edge).toHaveBeenCalledTimes(1);
@@ -181,9 +214,10 @@ describe('StaffList: adding a hiring run’s pick', () => {
     renderList();
     const dialog = await fillAndAdd(user);
     expect(await within(dialog).findByText('The account was created, but the hiring step was not sent.')).toBeTruthy();
-    // No second account: the form is locked and Add cannot be pressed again.
+    // No second account: Add cannot be pressed again and the form is locked.
+    expect(within(dialog).getByTestId('add-staff.submit')).toHaveProperty('disabled', true);
+    await user.click(within(dialog).getByTestId('add-staff.step.who'));
     expect(within(dialog).getByRole('textbox', { name: /email/i })).toHaveProperty('disabled', true);
-    expect(within(dialog).getByRole('button', { name: 'Add staff member' })).toHaveProperty('disabled', true);
     expect(rpc).not.toHaveBeenCalledWith('submit_step', expect.anything());
   });
 

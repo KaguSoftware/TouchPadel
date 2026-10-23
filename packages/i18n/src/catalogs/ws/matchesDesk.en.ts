@@ -61,13 +61,36 @@ export const matchesDeskEn = {
     genderMismatch: "This customer's declared gender doesn't fit this category.",
     openRecord: 'Open their record',
     join: 'Join',
-    approveNeedsCustomer: 'Only a customer with the app can approve players',
+    approveNeedsCustomer: 'Only a customer with the app can approve players.',
     visibility: 'Who can find it',
     price: 'Court {price} · each player pays {share} at the desk. Players who join in the app use one ticket each; desk players need none.',
     submit: 'Start match',
     startedToast: 'Open match started. Share the link or add players.',
     startedPriceToast: 'Open match started. The court price is now {price}; each player pays {share}.',
     slotFull: 'These open matches are already filling at that time:',
+    // The stepped Start an open match (StartMatchDialog, StepWizard).
+    wizard: {
+      stepOrganiser: 'Organiser',
+      stepWhoPlays: 'Who plays',
+      stepWhen: 'Court & time',
+      openBody: 'Anyone can take a seat.',
+      womenBody: 'Every player is a woman.',
+      menBody: 'Every player is a man.',
+      // "20:00 · 90 min".
+      whenNote: '{time} · {duration}',
+      priceFigure: 'Court {price} · each player pays {share}',
+      priceLine: 'At the desk. Players who join in the app use one ticket each; desk players need none.',
+      reviewOrganiser: 'Organiser',
+      reviewCategory: 'Category',
+      reviewJoin: 'Join',
+      reviewFoundBy: 'Found by',
+      reviewCourt: 'Court',
+      reviewPrice: 'Price',
+      // "Court 2 · 20:00–21:30".
+      courtWhen: '{court} · {range}',
+      // "45,000 IQD · 11,250 IQD each".
+      priceEach: '{price} · {share} each',
+    },
   },
   // A match booking's quick actions and screen (§5.8, §5.14).
   booking: {

@@ -78,6 +78,23 @@ function wrap(ui: React.ReactNode) {
   );
 }
 
+// The stepped New booking (StepWizard): the menu's rows are `booking.step.<key>`,
+// the kind cards `booking.kind.<kind>`, and Create booking is on Review.
+type User = ReturnType<typeof userEvent.setup>;
+const go = (user: User, key: 'kind' | 'who' | 'when' | 'review') => user.click(screen.getByTestId(`booking.step.${key}`));
+const createButton = () => screen.getByTestId('booking.submit') as HTMLButtonElement;
+/** Who needs a guest before Court & time opens: type one, then go there. */
+async function toWhen(user: User) {
+  await go(user, 'who');
+  await user.type(screen.getByLabelText(/Guest name/), 'Walk In');
+  await go(user, 'when');
+  expect(screen.getByRole('heading', { name: 'Court & time' })).toBeTruthy();
+}
+async function create(user: User) {
+  await go(user, 'review');
+  await user.click(createButton());
+}
+
 beforeEach(() => {
   vi.mocked(mutate).mockClear();
   vi.mocked(appRpc).mockClear();
@@ -88,9 +105,29 @@ beforeEach(() => {
 describe('CreateReservationDialog', () => {
   const night = { date: DATE, rows: [19 * 60, 19 * 60 + 30, 20 * 60, 20 * 60 + 30, 21 * 60], reservations: [booking({ id: 'held' })] };
 
-  it('shows the price the server will charge for the chosen court, start and length', async () => {
+  it('walks Who and Court & time (no kind to choose), then Review', async () => {
+    const user = userEvent.setup();
     wrap(<CreateReservationDialog courtId="c2" startAt={at(20 * 60)} courts={courts} tz={TZ} night={night} onClose={vi.fn()} onCreated={vi.fn()} />);
+    expect(screen.getByText('Step 1 of 2')).toBeTruthy();
+    expect(screen.queryByTestId('booking.step.kind')).toBeNull();
+    // A typed guest needs a name.
+    await go(user, 'review');
+    expect(screen.getByText('A booking needs a guest name or a linked account.')).toBeTruthy();
+    await user.type(screen.getByLabelText(/Guest name/), 'Walk In');
+    await go(user, 'review');
+    const review = within(document.querySelector('.tp-wiz-review') as HTMLElement);
+    expect(review.getByText('Walk In')).toBeTruthy();
+    expect(review.getByText(/^Court 2 · /)).toBeTruthy();
+    expect(await review.findByText(/70,000/)).toBeTruthy();
+    for (const label of ['Guest', 'Court', 'Time', 'Price']) expect(screen.getByRole('button', { name: `Change ${label}` })).toBeTruthy();
+  });
+
+  it('shows the price the server will charge for the chosen court, start and length', async () => {
+    const user = userEvent.setup();
+    wrap(<CreateReservationDialog courtId="c2" startAt={at(20 * 60)} courts={courts} tz={TZ} night={night} onClose={vi.fn()} onCreated={vi.fn()} />);
+    await toWhen(user);
     expect(await screen.findByText(/70,000/)).toBeTruthy();
+    expect(screen.getByText('Court 2 · 60 min')).toBeTruthy();
     expect(appRpc).toHaveBeenCalledWith('price_slot', { p_court_id: 'c2', p_start_at: at(20 * 60).toISOString(), p_duration_min: 60 });
   });
 
@@ -98,6 +135,8 @@ describe('CreateReservationDialog', () => {
     const user = userEvent.setup();
     const onCreated = vi.fn();
     wrap(<CreateReservationDialog courtId="c1" startAt={at(19 * 60)} courts={courts} tz={TZ} night={night} onClose={vi.fn()} onCreated={onCreated} />);
+    await user.type(screen.getByLabelText(/Guest name/), 'Walk In');
+    await go(user, 'when');
     // The pickers are our own listboxes now: a row's state is on the option
     // element in the open panel, not on a native <option>.
     const openStart = async () => {
@@ -119,17 +158,21 @@ describe('CreateReservationDialog', () => {
     await user.click(within(screen.getByRole('listbox')).getByRole('option', { name: 'Court 2' }));
     expect(within(await openStart()).getAllByRole('option').some((o) => o.hasAttribute('disabled'))).toBe(false);
     await user.keyboard('{Escape}');
-    await user.type(screen.getByLabelText(/Guest name/), 'Walk In');
-    await user.click(screen.getByRole('button', { name: 'Create booking' }));
+    await create(user);
     await waitFor(() => expect(onCreated).toHaveBeenCalled());
     expect(mutate).toHaveBeenCalledWith('reservation.create', expect.objectContaining({ courtId: 'c2', kind: 'booking', guestName: 'Walk In', startAt: at(19 * 60).toISOString() }));
   });
 
   it('refuses to book a length no rate prices, and says why', async () => {
+    const user = userEvent.setup();
     priceRows = [];
     wrap(<CreateReservationDialog courtId="c2" startAt={at(20 * 60)} courts={courts} tz={TZ} night={night} onClose={vi.fn()} onCreated={vi.fn()} />);
+    await user.type(screen.getByLabelText(/Guest name/), 'Walk In');
+    await toWhen(user);
     expect(await screen.findByText('No price is set for this court at this time and length.')).toBeTruthy();
-    expect((screen.getByRole('button', { name: 'Create booking' }) as HTMLButtonElement).disabled).toBe(true);
+    await go(user, 'review');
+    expect(screen.getByText('No price is set for this length — pick another one.')).toBeTruthy();
+    expect(screen.queryByTestId('booking.submit')).toBeNull();
   });
 
   it('starts linked to a customer when booking for one', () => {
@@ -145,7 +188,8 @@ describe('CreateReservationDialog', () => {
       />,
     );
     expect(screen.getByText('Linked to Layla Hassan')).toBeTruthy();
-    expect((screen.getByLabelText(/Guest name/) as HTMLInputElement).value).toBe('Layla Hassan');
+    // Linked, the typed-guest boxes give way to the account (the approved preview).
+    expect(screen.queryByLabelText(/Guest name/)).toBeNull();
   });
 });
 
@@ -261,21 +305,26 @@ describe('CreateReservationDialog — open matches', () => {
     const user = userEvent.setup();
     const onStartMatch = vi.fn();
     wrap(<CreateReservationDialog courtId="c2" startAt={at(20 * 60)} courts={courts} tz={TZ} night={night} onStartMatch={onStartMatch} onClose={vi.fn()} onCreated={vi.fn()} />);
+    // What kind is the first step; a guest typed on Who goes over too.
+    expect(screen.getByText('Step 1 of 3')).toBeTruthy();
+    expect(screen.getByTestId('booking.kind.booking').getAttribute('aria-pressed')).toBe('true');
+    await go(user, 'who');
     await user.type(screen.getByLabelText(/Guest name/), 'Walk In');
-    await user.click(screen.getByRole('button', { name: 'Open match' }));
+    await go(user, 'kind');
+    await user.click(screen.getByTestId('booking.kind.match'));
     expect(onStartMatch).toHaveBeenCalledWith({ courtId: 'c2', startAt: at(20 * 60), customer: null, guestName: 'Walk In', guestPhone: '' });
     expect(mutate).not.toHaveBeenCalled();
   });
 
   it('has no Open match kind for a caller that does not offer it (no runMatches, or matches off)', () => {
     wrap(<CreateReservationDialog courtId="c2" startAt={at(20 * 60)} courts={courts} tz={TZ} night={night} onClose={vi.fn()} onCreated={vi.fn()} />);
-    expect(screen.queryByRole('button', { name: 'Open match' })).toBeNull();
+    expect(screen.queryByTestId('booking.kind.match')).toBeNull();
   });
 
   it('offline: the Open match kind is disabled, and says why (DF-11)', () => {
     reachable = false;
     wrap(<CreateReservationDialog courtId="c2" startAt={at(20 * 60)} courts={courts} tz={TZ} night={night} onStartMatch={vi.fn()} onClose={vi.fn()} onCreated={vi.fn()} />);
-    expect((screen.getByRole('button', { name: 'Open match' }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByTestId('booking.kind.match') as HTMLButtonElement).disabled).toBe(true);
     expect(screen.getByText('Needs a connection: open matches work online only')).toBeTruthy();
   });
 
@@ -285,28 +334,33 @@ describe('CreateReservationDialog — open matches', () => {
     wrap(
       <CreateReservationDialog courtId="c2" startAt={at(20 * 60)} courts={courts} tz={TZ} night={night} openMatches={[openMatch({ match_id: 'm1' })]} onClose={vi.fn()} onCreated={onCreated} />,
     );
+    await user.type(screen.getByLabelText(/Guest name/), 'Walk In');
+    await go(user, 'when');
     // The count is LTR-isolated (countPhrase), so the digits sit inside marks.
     expect(screen.getByText(/^Booking this court cancels the open match at 8:00 PM \(\u20663\u2069 players in\)\. Their tickets go back to them\.$/)).toBeTruthy();
-    await user.type(screen.getByLabelText(/Guest name/), 'Walk In');
-    const create = screen.getByRole('button', { name: 'Create booking' }) as HTMLButtonElement;
-    expect(create.disabled).toBe(false);
-    await user.click(create);
+    await go(user, 'review');
+    expect(createButton().disabled).toBe(false);
+    await user.click(createButton());
     await waitFor(() => expect(onCreated).toHaveBeenCalledWith(false));
   });
 
-  it('does not warn on the court whose firm booking already holds that time, nor for a match with courts to spare', () => {
+  it('does not warn on the court whose firm booking already holds that time, nor for a match with courts to spare', async () => {
+    const user = userEvent.setup();
     const { unmount } = wrap(
       <CreateReservationDialog courtId="c1" startAt={at(19 * 60)} courts={courts} tz={TZ} night={night} openMatches={[openMatch({ match_id: 'm1' })]} onClose={vi.fn()} onCreated={vi.fn()} />,
     );
+    await toWhen(user);
     expect(screen.queryByTestId('bump-warning')).toBeNull();
     unmount();
     wrap(
       <CreateReservationDialog courtId="c2" startAt={at(20 * 60)} courts={courts} tz={TZ} night={night} openMatches={[openMatch({ match_id: 'm1', courts_free_firm: 2 })]} onClose={vi.fn()} onCreated={vi.fn()} />,
     );
+    await toWhen(user);
     expect(screen.queryByTestId('bump-warning')).toBeNull();
   });
 
-  it('counts the players of a women’s match as women (R38)', () => {
+  it('counts the players of a women’s match as women (R38)', async () => {
+    const user = userEvent.setup();
     wrap(
       <CreateReservationDialog
         courtId="c2"
@@ -319,6 +373,7 @@ describe('CreateReservationDialog — open matches', () => {
         onCreated={vi.fn()}
       />,
     );
+    await toWhen(user);
     expect(screen.getByText('Booking this court cancels the open match at 8:00 PM (one player in). Their tickets go back to them.')).toBeTruthy();
   });
 
@@ -339,12 +394,15 @@ describe('CreateReservationDialog — open matches', () => {
         onCreated={vi.fn()}
       />,
     );
+    await user.type(screen.getByLabelText(/Guest name/), 'Walk In');
+    await toWhen(user);
     expect(screen.getByText('A court at this time is kept for the open match at 8:00 PM: its four players are waiting for it.')).toBeTruthy();
     // A waiting match is not bumped by a booking: it keeps its court.
     expect(screen.queryByTestId('bump-warning')).toBeNull();
-    await user.type(screen.getByLabelText(/Guest name/), 'Walk In');
-    await user.click(screen.getByRole('button', { name: 'Create booking' }));
+    await create(user);
     expect(await screen.findByText('This court is kept for the open match at 8:00 PM. Pick another court or time.')).toBeTruthy();
+    // The refusal opens Court & time again.
+    expect(screen.getByText('Step 2 of 2')).toBeTruthy();
   });
 });
 
@@ -424,8 +482,10 @@ describe('CreateReservationDialog — the Lesson kind (§5.9)', () => {
     const user = userEvent.setup();
     const onStartLesson = vi.fn();
     wrap(<CreateReservationDialog courtId="c2" startAt={at(20 * 60)} courts={courts} tz={TZ} night={night} onStartLesson={onStartLesson} onClose={vi.fn()} onCreated={vi.fn()} />);
+    await go(user, 'who');
     await user.type(screen.getByLabelText(/Guest name/), 'Walk In');
-    await user.click(screen.getByRole('button', { name: 'Lesson' }));
+    await go(user, 'kind');
+    await user.click(screen.getByTestId('booking.kind.lesson'));
     expect(onStartLesson).toHaveBeenCalledWith({ courtId: 'c2', startAt: at(20 * 60), customer: null, guestName: 'Walk In', guestPhone: '' });
     expect(mutate).not.toHaveBeenCalled();
   });
@@ -435,19 +495,19 @@ describe('CreateReservationDialog — the Lesson kind (§5.9)', () => {
     const onStartLesson = vi.fn();
     const layla = { id: 'g1', name: 'Layla Hassan', phone: '07701234567', flags: [] };
     wrap(<CreateReservationDialog courtId="c1" startAt={at(19 * 60)} courts={courts} tz={TZ} night={night} customer={layla} onStartLesson={onStartLesson} onClose={vi.fn()} onCreated={vi.fn()} />);
-    await user.click(screen.getByRole('button', { name: 'Lesson' }));
+    await user.click(screen.getByTestId('booking.kind.lesson'));
     expect(onStartLesson).toHaveBeenCalledWith(expect.objectContaining({ courtId: 'c1', customer: layla, guestName: 'Layla Hassan' }));
   });
 
   it('has no Lesson kind when the caller does not offer it (no runLessons, or no desk_lessons on this server)', () => {
     wrap(<CreateReservationDialog courtId="c2" startAt={at(20 * 60)} courts={courts} tz={TZ} night={night} onClose={vi.fn()} onCreated={vi.fn()} />);
-    expect(screen.queryByRole('button', { name: 'Lesson' })).toBeNull();
+    expect(screen.queryByTestId('booking.kind.lesson')).toBeNull();
   });
 
   it('offline: the Lesson kind is disabled, and says why (CD-6)', () => {
     reachable = false;
     wrap(<CreateReservationDialog courtId="c2" startAt={at(20 * 60)} courts={courts} tz={TZ} night={night} onStartLesson={vi.fn()} onClose={vi.fn()} onCreated={vi.fn()} />);
-    expect((screen.getByRole('button', { name: 'Lesson' }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByTestId('booking.kind.lesson') as HTMLButtonElement).disabled).toBe(true);
     expect(screen.getByText('Needs a connection: lessons work online only')).toBeTruthy();
   });
 });

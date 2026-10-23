@@ -250,14 +250,18 @@ test.describe('operator coaching', () => {
     const make = page.getByRole('dialog', { name: A.promote.title });
     await make.getByLabel(en.ws.courtDesk.create.customer).fill('Playwright Coach Bravo');
     await make.getByRole('button', { name: /Playwright Coach Bravo/ }).first().click();
+    // Make a coach is stepped: the account, the profile, the branches and lesson types, then Review.
+    await make.getByTestId('promote-coach.step.profile').click();
     await make.getByLabel(A.promote.nameEn).fill('Coach Bravo');
     await make.getByLabel(A.promote.nameAr).fill('المدرّب برافو');
     await make.getByLabel(A.promote.bioEn).fill('Patient with beginners.');
     // A 1×1 PNG: the stored path is a fresh random folder, never an id (R43).
     const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
     await make.locator('input[type="file"]').setInputFiles({ name: 'coach.png', mimeType: 'image/png', buffer: png });
+    await make.getByTestId('promote-coach.step.teaching').click();
     await make.getByRole('checkbox', { name: new RegExp(E2E_LESSON_TYPES.private) }).check();
-    await make.getByRole('button', { name: A.promote.submit }).click();
+    await make.getByTestId('promote-coach.step.review').click();
+    await make.getByTestId('promote-coach.submit').click();
     await expect(make).toBeHidden({ timeout: 30_000 });
 
     const { data: row } = await svc.from('coaches').select('id, photo_path, status, public_accepted_at').eq('profile_id', bravo.profileId).single();
@@ -313,17 +317,24 @@ test.describe('operator coaching', () => {
     // The booking dialog's Lesson kind hands the pressed court, time and typed name to New lesson.
     await calendarSlot(page, COURT_1, '10:00').click();
     const booking = page.getByRole('dialog', { name: en.op.desk.newBooking });
+    // Both are stepped wizards: each field is on its step, the submit on Review.
+    await booking.getByTestId('booking.step.who').click();
     await booking.getByLabel(en.op.desk.guestName).fill(student);
-    await booking.getByRole('button', { name: C.common.lesson, exact: true }).click();
+    await booking.getByTestId('booking.step.kind').click();
+    await booking.getByTestId('booking.kind.lesson').click();
     const start = page.getByRole('dialog', { name: C.common.newLesson });
-    await start.getByRole('button', { name: C.common.kind.private, exact: true }).click();
+    await start.getByTestId('lesson.kind.private').click();
+    await start.getByTestId('lesson.step.type').click();
     await choose(start.getByLabel(C.start.type), types.privateId);
-    await choose(start.getByLabel(C.start.coach), { label: alpha.displayName });
+    await start.getByRole('button', { name: alpha.displayName, exact: true }).click();
+    await expect(start.getByTestId('lesson-price')).toContainText('30,000');
+    await start.getByTestId('lesson.step.when').click();
     await start.getByRole('button', { name: /^10:00/ }).first().click();
+    await start.getByTestId('lesson.step.student').click();
     await expect(start.getByLabel(en.op.desk.guestName)).toHaveValue(student);
     await start.getByLabel(en.op.desk.guestPhone).fill('07701234567');
-    await expect(start.getByTestId('lesson-price')).toContainText('30,000');
-    await start.getByRole('button', { name: C.start.submit }).click();
+    await start.getByTestId('lesson.step.review').click();
+    await start.getByTestId('lesson.submit').click();
     await expect(start).toBeHidden({ timeout: 30_000 });
     await expect(page).toHaveURL(/\/desk\/lessons\/[0-9a-f-]{36}/);
     await expect(page.getByRole('heading', { level: 1 })).toContainText(alpha.displayName);
@@ -396,26 +407,29 @@ test.describe('operator coaching', () => {
     await expect(page.getByRole('heading', { name: 'Desk calendar' })).toBeVisible({ timeout: 30_000 });
 
     await calendarSlot(page, COURT_2, '18:00').click();
-    await page.getByRole('dialog', { name: en.op.desk.newBooking }).getByRole('button', { name: C.common.lesson, exact: true }).click();
+    await page.getByRole('dialog', { name: en.op.desk.newBooking }).getByTestId('booking.kind.lesson').click();
     const start = page.getByRole('dialog', { name: C.common.newLesson });
-    await start.getByRole('button', { name: C.common.kind.group, exact: true }).click();
+    await start.getByTestId('lesson.kind.group').click();
+    await start.getByTestId('lesson.step.type').click();
     await choose(start.getByLabel(C.start.type), types.groupId);
-    await choose(start.getByLabel(C.start.coach), { label: alpha.displayName });
-    await start.getByRole('button', { name: C.start.submit }).click();
+    await start.getByRole('button', { name: alpha.displayName, exact: true }).click();
+    await start.getByTestId('lesson.step.review').click();
+    await start.getByTestId('lesson.submit').click();
     await expect(page).toHaveURL(/\/desk\/lessons\/[0-9a-f-]{36}/, { timeout: 30_000 });
     const lessonId = lessonIdOf(page);
 
     // A directory customer, then a typed walk-in.
     for (const who of [customer!.name, walkIn]) {
       await page.getByRole('button', { name: C.roster.addStudent }).click();
-      const add = page.getByRole('dialog', { name: C.add.title });
+      const add = page.getByRole('dialog', { name: C.add.wizard.title });
       if (who === walkIn) {
         await add.getByLabel(C.add.name).fill(walkIn);
       } else {
         await add.getByLabel(en.ws.courtDesk.create.customer).fill(customer!.name);
         await add.getByRole('button', { name: new RegExp(customer!.name) }).first().click();
       }
-      await add.getByRole('button', { name: C.add.submit }).click();
+      await add.getByTestId('student.step.review').click();
+      await add.getByTestId('student.submit').click();
       await expect(add).toBeHidden({ timeout: 30_000 });
       await expect(page.getByText(phrase(C.add.added)).first()).toBeVisible();
     }
@@ -462,16 +476,20 @@ test.describe('operator coaching', () => {
     await page.goto(`${OPERATOR_URL}/desk?date=${day}`);
     await expect(page.getByRole('heading', { name: 'Desk calendar' })).toBeVisible({ timeout: 30_000 });
     await calendarSlot(page, COURT_1, '16:00').click();
-    await page.getByRole('dialog', { name: en.op.desk.newBooking }).getByRole('button', { name: C.common.lesson, exact: true }).click();
+    await page.getByRole('dialog', { name: en.op.desk.newBooking }).getByTestId('booking.kind.lesson').click();
     const start = page.getByRole('dialog', { name: C.common.newLesson });
-    await start.getByRole('button', { name: C.common.kind.course, exact: true }).click();
+    await start.getByTestId('lesson.kind.course').click();
+    await start.getByTestId('lesson.step.type').click();
     await choose(start.getByLabel(C.start.type), types.courseId);
-    await choose(start.getByLabel(C.start.coach), { label: alpha.displayName });
+    await start.getByRole('button', { name: alpha.displayName, exact: true }).click();
+    await start.getByTestId('lesson.step.when').click();
     await expect(start.getByTestId('course-starts').getByRole('listitem')).toHaveCount(4);
-    // Session 3 a day later than the weekly rhythm puts it.
+    // Session 3 a day later than the weekly rhythm puts it: its row opens to move it.
+    await start.getByTestId('course-starts').getByRole('button', { name: new RegExp(`^${C.common.session.replace('{n}', '3')}`) }).click();
     const third = start.getByLabel(C.start.sessionDate.replace('{n}', '3'));
     await third.fill(addDays(await third.inputValue(), 1));
-    await start.getByRole('button', { name: C.start.submit }).click();
+    await start.getByTestId('lesson.step.review').click();
+    await start.getByTestId('lesson.submit').click();
     await expect(page).toHaveURL(/\/desk\/lessons\/[0-9a-f-]{36}/, { timeout: 30_000 });
 
     const strip = page.getByTestId('course-strip');
@@ -740,15 +758,20 @@ test.describe('operator coaching', () => {
       await expect(page.getByRole('heading', { name: 'Desk calendar' })).toBeVisible({ timeout: 30_000 });
       await calendarSlot(page, COURT_2, '11:00').click();
       const booking = page.getByRole('dialog', { name: en.op.desk.newBooking });
+      await booking.getByTestId('booking.step.who').click();
       await booking.getByLabel(en.op.desk.guestName).fill(`${E2E_LESSON_NAME} Echo`);
-      await booking.getByRole('button', { name: C.common.lesson, exact: true }).click();
+      await booking.getByTestId('booking.step.kind').click();
+      await booking.getByTestId('booking.kind.lesson').click();
       const start = page.getByRole('dialog', { name: C.common.newLesson });
       await expect(start.getByText(C.common.stagingOff)).toBeVisible();
-      await start.getByRole('button', { name: C.common.kind.private, exact: true }).click();
+      await start.getByTestId('lesson.kind.private').click();
+      await start.getByTestId('lesson.step.type').click();
       await choose(start.getByLabel(C.start.type), types.privateId);
-      await choose(start.getByLabel(C.start.coach), { label: alpha.displayName });
+      await start.getByRole('button', { name: alpha.displayName, exact: true }).click();
+      await start.getByTestId('lesson.step.when').click();
       await start.getByRole('button', { name: /^11:00/ }).first().click();
-      await start.getByRole('button', { name: C.start.submit }).click();
+      await start.getByTestId('lesson.step.review').click();
+      await start.getByTestId('lesson.submit').click();
       await expect(page).toHaveURL(/\/desk\/lessons\/[0-9a-f-]{36}/, { timeout: 30_000 });
       await page.context().close();
     } finally {
@@ -860,14 +883,19 @@ test.describe('operator coaching', () => {
     // Journey 2, condensed: «حصة» from a free slot, then «حصة جديدة».
     await calendarSlot(page, COURT_2, '15:00').click();
     const booking = page.getByRole('dialog', { name: ar.op.desk.newBooking });
+    await booking.getByTestId('booking.step.who').click();
     await booking.getByLabel(ar.op.desk.guestName).fill(`${E2E_LESSON_NAME} Hotel`);
-    await booking.getByRole('button', { name: a.common.lesson, exact: true }).click();
+    await booking.getByTestId('booking.step.kind').click();
+    await booking.getByTestId('booking.kind.lesson').click();
     const start = page.getByRole('dialog', { name: a.common.newLesson });
-    await start.getByRole('button', { name: a.common.kind.private, exact: true }).click();
+    await start.getByTestId('lesson.kind.private').click();
+    await start.getByTestId('lesson.step.type').click();
     await choose(start.getByLabel(a.start.type), types.privateId);
-    await choose(start.getByLabel(a.start.coach), { label: alpha.displayNameAr });
+    await start.getByRole('button', { name: alpha.displayNameAr, exact: true }).click();
+    await start.getByTestId('lesson.step.when').click();
     await start.getByRole('button', { name: /^(15:00|3:00)/ }).first().click();
-    await start.getByRole('button', { name: a.start.submit }).click();
+    await start.getByTestId('lesson.step.review').click();
+    await start.getByTestId('lesson.submit').click();
     await expect(page).toHaveURL(/\/desk\/lessons\/[0-9a-f-]{36}/, { timeout: 30_000 });
     await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
     await expect(page.getByText(a.common.kind.private).first()).toBeVisible();

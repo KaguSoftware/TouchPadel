@@ -17,8 +17,12 @@ is a line in that file.
 
 ## Migrations
 
-- Ordinal strictly greater than the current max, never a reused one. Latest is `0360`
-  (0365 insights_percentages, 2026-10-22 (Majed: Insights in percentages, "how much up, how much
+- Ordinal strictly greater than the current max, never a reused one. Latest is `0366`
+  (0366 branch_counts, 2026-10-22 (Sait: the Branches cards' courts and café tables): the client
+  `branch_counts()` (manager or owner; the owner counts every branch, a manager the open or
+  preparing branches they work at) returns `[{venue_id, courts, tables}]`, active rows only, so a
+  card can count a branch the rail is not on; re-creates no function;
+  0365 insights_percentages, 2026-10-22 (Majed: Insights in percentages, "how much up, how much
   down"): **0365 holds `marketing_insights`** (0360 no longer): every trend gains its size,
   `<trend>Pct` (percent change, `app.mkt_change`) or `<trend>Pts` (points a rate moved,
   `app.mkt_points`, both service role only), shares are whole percents, `levelPct` / `fillPct`;

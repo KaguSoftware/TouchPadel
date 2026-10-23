@@ -124,6 +124,7 @@ export const loyaltyAr: DeepMessages<typeof loyaltyEn> = {
     card: 'النقاط والفئات والمكافآت التي يكسبها الضيوف على كل فاتورة وفي كل فرع.',
     ownerOnly: 'المالك وحده يغيّر إعدادات الولاء.',
     saved: 'تم الحفظ.',
+    wizardLead: 'الولاء',
     settings: {
       title: 'النقاط',
       enabled: 'برنامج الولاء يعمل',
@@ -177,6 +178,18 @@ export const loyaltyAr: DeepMessages<typeof loyaltyEn> = {
         multiplier: 'الكسب',
       },
       multiplierValue: '×{value}',
+      steps: {
+        name: 'الاسم',
+        points: 'النقاط والمضاعف',
+      },
+      placeNote: 'تأتي {name} بعد {below}. ينتقل الضيف إليها حين يكسب {points} نقطة خلال 12 شهرًا.',
+      review: {
+        name: 'الاسم',
+        from: 'ابتداءً من',
+        fromValue: '{points} نقطة خلال 12 شهرًا',
+        earns: 'الكسب',
+        earnsValue: '{value}× النقاط',
+      },
       errors: {
         names: 'الاسمان مطلوبان.',
         minPoints: 'اكتب عددًا صحيحًا، 0 أو أكثر.',
@@ -199,6 +212,22 @@ export const loyaltyAr: DeepMessages<typeof loyaltyEn> = {
       variant: 'صنف القائمة',
       variantPlaceholder: 'اختر صنفًا',
       active: 'معروضة',
+      steps: {
+        name: 'الاسم',
+        gives: 'ما تمنحه',
+        cost: 'الكلفة',
+      },
+      kindIqdOffBody: 'يُخصم عند الكاشير.',
+      kindItemTitle: 'صنف مجاني من القائمة',
+      kindItemBody: 'صنف واحد بهذا الحجم.',
+      activeOnHint: 'يستطيع الضيوف استبدالها الآن.',
+      activeOffHint: 'مخفية عن الضيوف حتى تشغّلها.',
+      review: {
+        name: 'الاسم',
+        gives: 'تمنح',
+        offValue: 'خصم {amount} من الفاتورة',
+        cost: 'الكلفة',
+      },
       columns: {
         name: 'المكافأة',
         cost: 'الكلفة',
