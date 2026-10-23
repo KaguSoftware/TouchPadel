@@ -227,7 +227,7 @@ describe.skipIf(!docker)('marketing_plan (rolled-back transactions)', () => {
       Q('who', `select jsonb_build_object('mkt', {{mkt}}, 'mkt2', {{mkt2}}, 'owner', {{owner}}, 'manager', {{manager}},
                                           'p', {{p}}, 'w1', {{w1}}, 'w3', {{w3}}, 'poster', {{poster}})`),
     ]);
-    const who = ok<Record<string, string>>(r, 'who');
+    const who = ok<{ mkt: string; mkt2: string; owner: string; manager: string; p: string; w1: string; w3: string; poster: string }>(r, 'who');
 
     const draft = ok<Plan>(r, 'draft_mkt');
     expect(draft.plan?.status).toBe('draft');
@@ -267,7 +267,7 @@ describe.skipIf(!docker)('marketing_plan (rolled-back transactions)', () => {
     const after = ok<Plan>(r, 'approved_mkt');
     expect(after.plan).toMatchObject({ status: 'approved', decision_note: 'Skip the third week' });
     const byId = new Map(after.ideas.map((i) => [i.id, i]));
-    expect(byId.get(who.w1)?.status).toBe('approved');
+    expect(byId.get(who.w1)).toMatchObject({ status: 'approved' });
     expect(byId.get(who.poster)).toMatchObject({ status: 'approved', title: 'Iced latte, two for one' });
     expect(byId.get(who.w3)).toMatchObject({ status: 'dropped', drop_note: 'Skip the third week' });
     expect(refused(r, 'edit_approved')).toBe('IDEA_LOCKED');

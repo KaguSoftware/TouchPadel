@@ -188,8 +188,7 @@ test.describe('operator protocols', () => {
     await panel.getByTestId('decide').click();
     const dialog = page.getByRole('dialog', { name: /القرار/ });
     await dialog.getByRole('button', { name: 'إعادة للتعديل' }).click();
-    await dialog.getByTestId('decision-send').click();
-    await expect(dialog.getByText('السبب مطلوب.')).toBeVisible();
+    // The owner need not give a reason (0361); this one still writes one for the manager to read.
     await dialog.locator('textarea').fill('أضف ساعات العمل بدقة');
     await dialog.getByTestId('decision-send').click();
     await expect(page.getByText('أُعيدت الخطوة للتعديل.')).toBeVisible();

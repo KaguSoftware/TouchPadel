@@ -90,7 +90,7 @@ test.describe('operator people records', () => {
     }
   });
 
-  test('the manager sees a head’s deductions wait for the owner, who declines one with a reason and approves one into the month', async ({ browser }) => {
+  test('the manager sees a head’s deductions wait for the owner, who declines one without a reason and approves one into the month', async ({ browser }) => {
     const head = await signedInClient(staff.head_barista!.email);
     let declineId = '';
     let approveId = '';
@@ -128,10 +128,8 @@ test.describe('operator people records', () => {
     await owner.goto(`${OPERATOR_URL}/deductions`);
     await owner.getByTestId(`deductions.decline.${declineId}`).click();
     const decline = owner.getByRole('dialog', { name: 'Decline this deduction?' });
-    // No reason, no decline: the form says so before the server would.
-    await decline.getByTestId('deductions.decide.confirm').click();
-    await expect(decline.getByText('A reason is required.')).toBeVisible();
-    await decline.locator('textarea').fill('Not on shift that day');
+    // The owner declines without giving a reason (0361): the note is optional.
+    await expect(decline.locator('textarea')).toHaveValue('');
     await decline.getByTestId('deductions.decide.confirm').click();
     await expect(owner.getByTestId(`deductions.decline.${declineId}`)).toHaveCount(0);
     await owner.getByTestId(`deductions.approve.${approveId}`).click();

@@ -145,11 +145,14 @@ describe.skipIf(!up)('0147 players dropped (p_players accepted and ignored)', ()
 
   it('no app or public function body reads or writes players any more', () => {
     // prosrc is the body only; the deprecated p_players parameter lives in the
-    // signature. p_players itself may appear nowhere in a body either.
+    // signature. p_players itself may appear nowhere in a body either. SQL line
+    // comments are stripped first: a comment saying "live players ahead of them"
+    // reads and writes nothing (and a shipped migration cannot be edited to dodge it).
     const names = psql(
       `select string_agg(n.nspname || '.' || p.proname, ',' order by p.proname) from pg_proc p ` +
         `join pg_namespace n on n.oid = p.pronamespace ` +
-        `where n.nspname in ('app', 'public') and p.prosrc ~* '\\mp?_?players\\M'`,
+        `where n.nspname in ('app', 'public') ` +
+        `and regexp_replace(p.prosrc, '--[^\\n]*', '', 'g') ~* '\\mp?_?players\\M'`,
     );
     expect(names).toBe('');
   });
