@@ -17,11 +17,62 @@ is a line in that file.
 
 ## Migrations
 
-- Ordinal strictly greater than the current max, never a reused one. Latest is `0361`
-  (0361 branch_counts, 2026-10-22 (Sait: the Branches cards' courts and café tables): the client
+- Ordinal strictly greater than the current max, never a reused one. Latest is `0366`
+  (0366 branch_counts, 2026-10-22 (Sait: the Branches cards' courts and café tables): the client
   `branch_counts()` (manager or owner; the owner counts every branch, a manager the open or
   preparing branches they work at) returns `[{venue_id, courts, tables}]`, active rows only, so a
   card can count a branch the rail is not on; re-creates no function;
+  0365 insights_percentages, 2026-10-22 (Majed: Insights in percentages, "how much up, how much
+  down"): **0365 holds `marketing_insights`** (0360 no longer): every trend gains its size,
+  `<trend>Pct` (percent change, `app.mkt_change`) or `<trend>Pts` (points a rate moved,
+  `app.mkt_points`, both service role only), shares are whole percents, `levelPct` / `fillPct`;
+  still no money figure or exact count; `tests/marketing-insights.test.ts`;
+  0362 marketing_plan, 2026-10-22 (Majed: marketing proposes the month's content calendar, the
+  owner approves it, each idea's result goes for approval): tables `marketing_plans` (one per
+  branch and month: draft | waiting | changes | approved) and `marketing_plan_ideas` (proposed |
+  approved | dropped | cancelled), both owner-read only; `marketing_content.idea_id`; the client
+  `marketing_plan`, `save_plan_idea` (several days in one call), `remove_plan_idea`,
+  `send_marketing_plan`, `take_back_marketing_plan` (marketing) and `decide_marketing_plan`
+  (owner, note optional per 0361, `p_drop`); **0362 holds `submit_content`** (0199 no longer:
+  `+ p_idea_id`, IDEA_LOCKED / IDEA_HAS_RESULT), `notify_staff`'s `plan_submitted`, `plan_approved` and
+  `plan_changes` (0363 re-issues it after, so 0363 holds it) and **`set_staff_access` plus `staff_blocked_areas_chk`** (0360
+  no longer: the `content` area, /plan and /posts); `tests/marketing-plan.test.ts`;
+  0364 ranks_leaderboard, 2026-10-22 (Majed: the players' leaderboard, points for every game,
+  the top N public, levels, all set by the owner like loyalty): tables `ranks_settings` (one
+  row: points for a win, loss, draw, period all | month | quarter, `board_size`, the two sources,
+  `report_hours`), `ranks_levels`, `game_results` (source player | desk | tournament, status
+  pending | confirmed | rejected | expired | voided, sides a1/a2 and b1/b2) and the append-only
+  `ranks_ledger` (written once per player per confirmed result at that moment's rules, so a rule
+  change applies from then on; a void writes the negation), RLS on, no client grant; the
+  anon-readable `ranks_board()` (the top `board_size` only, "First L."), the player's
+  `my_ranks`, `ranks_find_player`, `ranks_report` (the booker of a played booking, pending until
+  side B answers through `ranks_confirm`), the desk's `ranks_desk_record` / `ranks_desk_results`
+  (court desk, manager, owner), `ranks_void` / `ranks_admin` (manager, owner) and the owner's
+  `set_ranks_settings`, `set_ranks_levels`, `ranks_adjust`; the trigger `tournament_match_ranks`
+  (AFTER UPDATE OF points_a, points_b on `tournament_matches`: a score records a confirmed
+  tournament result, a correction voids the old one first); **0364 holds
+  `profile_merge_columns`** (0347 is no longer the latest: `game_results` a1..b2 and
+  `ranks_ledger.profile_id` repoint, with `game_results_merge` skipping a seat that would put
+  one person twice on a game, and the ledger's append-only trigger letting the merge's
+  re-point through); `tests/ranks-leaderboard.test.ts`;
+  0363 protocol_watch, 2026-10-22 (Majed: the owner gets every protocol status update, with an
+  on/off setting, and approvals still waiting get a reminder): deferred constraint triggers
+  `protocol_run_steps_watch` / `protocol_runs_watch` (`app.trg_protocol_step_watch`,
+  `app.trg_protocol_run_watch`) push `step_passed` and `run_live` | `run_scheduled` | `run_done` |
+  `run_stopped` | `run_withdrawn` at commit to the owners with `staff_push_prefs.protocol_updates`
+  on (no row = on), minus anyone this transaction already told about the run
+  (`app.protocol_watch_ids`, outbox `created_at = now()`), so no body is re-issued; the owner-only
+  `my_push_prefs` / `set_my_push_prefs` (the phone's Work alerts "Follow every step" switch); the
+  service-role `protocol_remind_sweep` (cron `tp_protocol_remind`, every 15 minutes, 09:00–23:00
+  branch time) sends `decision_waiting` to the deciders 3 hours after a submission, then daily
+  (`protocol_submissions.reminded_at`); **0363 holds `notify_staff`** (0362 is no longer the
+  latest: 52 title keys); `tests/protocol-watch.test.ts`;
+  0361 owner_declines_without_reason, 2026-10-22 (Majed: the owner never needs a reason to
+  reject): **0361 holds `decide_staff_request` (0160 no longer), `decide_content` (0199),
+  `decide_deduction` (0272), `decide_recipe_change` (0183), `decide_shopping_item` (0185),
+  `decide_step` (0164) and `decline_release_idea` (0172)**; the owner's refusal takes no reason,
+  other deciders still say why (`app.is_staff_at(venue, 'owner')`); the reason CHECKs on those
+  tables are dropped and `shopping_items_declined_chk` is now `shopping_items_declined_by_chk`;
   0360 marketing_insights, 2026-10-22 (Majed: the marketing role's Insights page, the whole
   place with as few exact numbers as possible): the client `marketing_insights(p_from, p_to,
   p_cmp_from, p_cmp_to)` (marketing and owner) runs the owner's analytics_* reads and returns only

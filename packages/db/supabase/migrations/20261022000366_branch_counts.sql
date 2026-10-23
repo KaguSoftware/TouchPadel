@@ -1,7 +1,7 @@
 set lock_timeout = '3s';
 set statement_timeout = '60s';
 
--- 0361_branch_counts — Settings › Branches redesign (Sait, 2026-10-22).
+-- 0366_branch_counts — Settings › Branches redesign (Sait, 2026-10-22).
 --
 -- Each branch card shows its courts and café tables. Staff reads of courts and
 -- cafe_tables follow the branch in scope (0226), so the list could only count
@@ -10,7 +10,7 @@ set statement_timeout = '60s';
 
 create or replace function app.branch_counts()
 returns jsonb
-language plpgsql stable security definer set search_path = public as $branch_counts_0361$
+language plpgsql stable security definer set search_path = public as $branch_counts_0366$
 begin
   if not app.is_staff('manager', 'owner') then
     raise exception 'FORBIDDEN' using errcode = 'P0001';
@@ -27,10 +27,10 @@ begin
      where app.is_staff('owner') or app.is_staff_at(v.id, 'manager', 'owner')
   ), '[]'::jsonb);
 end
-$branch_counts_0361$;
+$branch_counts_0366$;
 
 comment on function app.branch_counts() is
-  '0361. Manager or owner: per branch the caller manages (owner: every branch), the active courts and active café tables, [{venue_id, courts, tables}], for the Branches cards. Read-only.';
+  '0366. Manager or owner: per branch the caller manages (owner: every branch), the active courts and active café tables, [{venue_id, courts, tables}], for the Branches cards. Read-only.';
 
 revoke all on function app.branch_counts() from public, anon;
 grant execute on function app.branch_counts() to authenticated;

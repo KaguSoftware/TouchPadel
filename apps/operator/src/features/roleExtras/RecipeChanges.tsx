@@ -7,7 +7,7 @@
  * so they send what should change. Here management sees the recipe as it is
  * and as it would be, with quantities, because this page is MGMT only. The
  * owner approves (the server writes it through app.set_recipe) or declines
- * with a reason the head reads; the manager reads and cannot decide
+ * with an optional reason the head reads (0361); the manager reads and cannot decide
  * (decideRecipeChanges). Nobody decides their own request, and the server is
  * the wall on all of it.
  *
@@ -238,7 +238,7 @@ export function RecipeChangeSheet({ id, fallback, onClose }: { id: string; fallb
 
   const decide = useMutation({
     mutationFn: (v: { approve: boolean; reason?: string }) =>
-      appRpc('decide_recipe_change', { p_id: id, p_approve: v.approve, p_reason: v.approve ? null : (v.reason ?? '').trim() }),
+      appRpc('decide_recipe_change', { p_id: id, p_approve: v.approve, p_reason: v.approve ? null : (v.reason ?? '').trim() || null }),
     onSuccess: (_d, v) => {
       toast.ok(tr(v.approve ? 'ws.rolePages.recipeChanges.approved' : 'ws.rolePages.recipeChanges.declined'));
       void qc.invalidateQueries({ queryKey: ['recipeChanges'] });
@@ -268,7 +268,6 @@ export function RecipeChangeSheet({ id, fallback, onClose }: { id: string; fallb
                   <Button
                     kind="danger"
                     busy={decide.isPending}
-                    disabled={reason.trim() === ''}
                     onClick={() => decide.mutate({ approve: false, reason })}
                   >
                     {tr('ws.rolePages.recipeChanges.declineConfirm')}
@@ -350,7 +349,7 @@ export function RecipeChangeSheet({ id, fallback, onClose }: { id: string; fallb
             <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>{tr('ws.rolePages.recipeChanges.ownerDecides')}</p>
           )}
           {declining && (
-            <Field label={tr('ws.rolePages.recipeChanges.reason')} hint={tr('ws.rolePages.recipeChanges.reasonHint')} required>
+            <Field label={tr('ws.rolePages.recipeChanges.reason')} hint={tr('ws.rolePages.recipeChanges.reasonHint')} optional>
               <textarea
                 autoFocus
                 value={reason}

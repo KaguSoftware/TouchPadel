@@ -256,6 +256,10 @@ export const ROUTE_ROLES: Record<string, readonly StaffRole[]> = {
   // Setup › Loyalty (loyalty build contracts §5): points, tiers and rewards
   // are business-wide and the owner's (set_loyalty_settings is owner-only).
   '/admin/loyalty': ['owner'],
+  // Player ranks (0364): the owner sets the rules and levels; a manager reads
+  // them and works the results (void). The court desk records a result from a
+  // booking's screen (recordRanks), not here.
+  '/admin/ranks': ['manager', 'owner'],
   // Setup's settings pages (management rebuild, 2026-10-17). Two stay the
   // owner's, as they were before they became pages: what analytics leaves out
   // (its tab was hidden from a manager) and the kitchen screen pairing (it
@@ -282,6 +286,11 @@ export const ROUTE_ROLES: Record<string, readonly StaffRole[]> = {
   // never an amount or an exact count (app.marketing_insights). Marketing
   // works from it; the owner opens it to see what marketing sees.
   '/insights': ['marketing', 'owner'],
+  // Marketing's month content plan (0362): marketing writes it, the owner
+  // approves it there. Sent for approval is marketing's queue of posts and
+  // results (0199); the owner decides those on /marketing.
+  '/plan': ['marketing', 'owner'],
+  '/posts': ['marketing'],
   // The owner assistant (docs/design/assistant, decision 5): the tool guards,
   // the audit access and the money figures it reads are all owner-level.
   '/assistant': ['owner'],
@@ -366,6 +375,7 @@ export const SUB_ROUTES = {
     '/admin/staff',
     '/admin/branches',
     '/admin/loyalty',
+    '/admin/ranks',
     '/admin/audit',
   ],
   // The shop desk's pages (0243–0246), in rail order.
@@ -577,6 +587,10 @@ export const CAPABILITY_ROLES = {
   submitContent: ['marketing'],
   /** Approve, ask for changes or decline content (app.decide_content). Managers never read it (§8 Q14). */
   decideContent: ['owner'],
+  /** Write the month's content plan and send it (app.save_plan_idea, send_marketing_plan, 0362). */
+  editPlan: ['marketing'],
+  /** Approve the month's plan or ask for changes (app.decide_marketing_plan). Managers never read it. */
+  decidePlan: ['owner'],
 
   // Wave 5, till shifts (wave5-addendum-2026-09-25 §5.2, §8 Q30).
   /**
@@ -670,6 +684,16 @@ export const CAPABILITY_ROLES = {
   adjustLoyalty: ['manager', 'owner'],
   /** Setup › Loyalty writes (set_loyalty_settings, the tier and reward upserts, delete_loyalty_tier). */
   editLoyalty: ['owner'],
+
+  // Player ranks (0364). Each is the guard of the RPC behind it; the server re-checks every one.
+  /** The rules and levels as they stand (app.ranks_admin). */
+  readRanksAdmin: ['manager', 'owner'],
+  /** Rules, levels and points by hand (set_ranks_settings, set_ranks_levels, ranks_adjust). */
+  editRanks: ['owner'],
+  /** Record a result, confirmed at once (app.ranks_desk_record), and read the results list. */
+  recordRanks: ['court_desk', 'manager', 'owner'],
+  /** Void a pending or confirmed result (app.ranks_void). */
+  voidRanks: ['manager', 'owner'],
 } as const satisfies Record<string, readonly StaffRole[]>;
 
 export type Capability = keyof typeof CAPABILITY_ROLES;
@@ -704,8 +728,10 @@ export function homeRoute(role: StaffRole): string {
       return '/ops';
     case 'owner':
       return '/panel';
-    case 'driver':
+    // Marketing opens on its month's content plan (0362).
     case 'marketing':
+      return '/plan';
+    case 'driver':
     case 'waiter':
       return '/tasks';
     case 'shop_staff':

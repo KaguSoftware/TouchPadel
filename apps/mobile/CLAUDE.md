@@ -53,6 +53,19 @@ operator and the phone as two labelled parts with the server's status, "last see
 the board's server time, the last action in the desktop Audit log's words
 (`ws.manager.audit.actions.*`), and an on-break badge. Nothing ranks anyone.
 
+Tournaments build switch and Ranks (Majed, 2026-10-22; migration 0364): `EXPO_PUBLIC_TOURNAMENTS`
+(`src/features/tournaments/shipped.ts`, "on" in the development and staging profiles, "off" in
+production) is a build-time flag like `EXPO_PUBLIC_ONLINE_PAYMENTS`. Off, the Play tab is `hidden`
+(iOS) / `href: null` (Android) and Ranks (`app/(tabs)/ranks.tsx`, the players' leaderboard) takes
+its slot, so the bar stays five with Book in the middle; `anyTournaments` answers false, the tournament
+read never runs, the suggestions drop Americano and Mexicano, and a tournament push opens My
+reservations. On, the bar is exactly as before and Ranks is hidden. Tests that render tournaments
+call `tournamentsOn()` (vitest, `src/test/tournaments.ts`) or `tournamentsOnForFile()` (jest,
+`src/test/tournamentsEnv.ts`). The leaderboard's numbers are all the server's (`ranks_board`, public
+top N; `my_ranks`, the guest's own place, level, results and played bookings to report); a score is
+reported at `app/ranks-report.tsx` by username (exact lookup, `ranks_find_player`) and counts only
+once an opponent confirms. Everything under `['ranks']` stays off disk.
+
 ## Commits
 
 - No AI co-author trailer of any kind (`Co-Authored-By: Claude …`, Copilot, …). If a harness appends

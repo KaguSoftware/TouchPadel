@@ -455,11 +455,13 @@ export interface DecisionInput {
   sendBackTargets?: readonly string[];
   /** Approve: the decision data a step asks for (release `propose`: `{category_id}`). */
   data?: unknown;
+  /** The owner decides: Send back and Stop need no reason from them (0361). */
+  byOwner?: boolean;
 }
 
 /**
  * A decision on a submission (§2.7 `decide_step`): a reason for Send back and
- * Stop, a target for Send back, and the approval's own data where the step
+ * Stop (except from the owner, 0361), a target for Send back, and the approval's own data where the step
  * asks for any. There is no override: the decider approves or sends back.
  */
 export function validateDecision(
@@ -468,7 +470,7 @@ export function validateDecision(
   input: DecisionInput,
 ): FieldIssue[] {
   const issues = new Issues();
-  if (input.decision !== 'approve') {
+  if (input.decision !== 'approve' && !input.byOwner) {
     if (isBlank(input.note)) issues.add('note', 'REASON_REQUIRED');
   }
   if (typeof input.note === 'string' && textLength(input.note) > TEXT_CAPS.decisionNote) issues.add('note', 'TEXT_TOO_LONG');

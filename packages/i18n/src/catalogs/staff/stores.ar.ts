@@ -13,7 +13,7 @@ export const staffStoresAr: DeepMessages<typeof staffStoresEn> = {
   find: 'البحث عن صنف',
   findHint: 'اكتب جزءًا من الاسم للعثور عليه.',
   noMatch: 'لا يوجد صنف يطابق بحثك.',
-  capped: 'يُعرض أول 300 صنف فقط. اكتب المزيد من الاسم للعثور على صنف آخر.',
+  capped: 'يظهر أول 300 صنف فقط. اكتب جزءًا أطول من الاسم لتجد صنفًا آخر.',
   qty: 'الكمية',
   remove: 'إزالة',
   packSize: 'العبوة الواحدة = {qty}',
@@ -52,7 +52,7 @@ export const staffStoresAr: DeepMessages<typeof staffStoresEn> = {
     linesTitle: 'قيد الإضافة ({count})',
     noLines: 'ابحث عن صنف أعلاه لإضافته.',
     expiryAdd: 'إضافة تاريخ الصلاحية',
-    expiry: 'يُستخدم قبل · اختياري',
+    expiry: 'تاريخ الصلاحية · اختياري',
     expiryHint: 'سنة-شهر-يوم، مثل {example}.',
     save: {
       cafe: 'إضافة إلى مخزن الكافيه',
@@ -101,7 +101,7 @@ export const staffStoresAr: DeepMessages<typeof staffStoresEn> = {
       bakery: 'لا شيء لنقله من مخزن المخبز',
       shop: 'لا شيء لنقله من مخزن المتجر',
     },
-    emptyBody: 'يُنقل بين المخزنين ما يُشترى وما يُحضَّر هنا. تبقى بضاعة المتجر في الكافيه.',
+    emptyBody: 'هنا تُنقل البضاعة المشتراة والمحضّرة بين المخزنين. أما بضاعة المتجر فتبقى في الكافيه.',
   },
 
   count: {

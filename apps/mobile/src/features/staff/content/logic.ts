@@ -10,7 +10,6 @@
 import { parseTypedDate, type StaffRole } from '@touch/core';
 import type {
   ContentChannel,
-  ContentDecision,
   ContentDetail,
   ContentFilter,
   ContentItem,
@@ -229,15 +228,9 @@ export function reviseArgs(draft: ContentDraft, base: ContentItem): ReviseConten
 
 // ── The owner's decision ────────────────────────────────────────────────────
 
-/** Ask for changes and Decline need a reason; an approval's note is optional. */
-export function validateDecision(
-  decision: ContentDecision,
-  note: string,
-): 'required' | 'tooLong' | null {
-  const text = note.trim();
-  if (text.length > CONTENT_CAPS.decisionNote) return 'tooLong';
-  if (!text && decision !== 'approve') return 'required';
-  return null;
+/** The owner's note is optional on every decision (0361: the owner never has to say why). */
+export function validateDecision(note: string): 'tooLong' | null {
+  return note.trim().length > CONTENT_CAPS.decisionNote ? 'tooLong' : null;
 }
 
 // ── Lists ───────────────────────────────────────────────────────────────────

@@ -49,6 +49,10 @@ export const staffShellEn = {
     enable: 'Turn on',
     deniedBody: 'Work alerts are off for this app. Turn them on in your phone’s settings.',
     openSettings: 'Open settings',
+    // The owner's switch for protocol status pushes (0363).
+    followTitle: 'Follow every step',
+    followBody:
+      'Get a notification whenever a step is approved or a new item, tournament, hire or price change finishes, even when it is not waiting on you.',
   },
   account: {
     // The account's alerts button on Today.

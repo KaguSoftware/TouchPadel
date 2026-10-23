@@ -16,14 +16,16 @@ import { TodayChecklists } from '../../src/features/staff/checklists/TodayCheckl
 import { fetchMyWork } from '../../src/features/staff/protocols/api';
 import { WorkList } from '../../src/features/staff/protocols/WorkList';
 import { useWorkAlerts } from '../../src/features/staff/workAlerts';
+import { ProtocolUpdates } from '../../src/features/staff/ProtocolUpdates';
 import { usePullRefresh } from '../../src/lib/usePullRefresh';
 
 /**
  * Work alerts (owner, 2026-10-10): what used to sit on Today above the tiles,
  * opened from Today's "Work alerts" button, whose badge counts what waits
  * here (src/features/staff/workAlerts.ts). Top to bottom: turning the alerts
- * on while they are off, today's checklists still to finish, then the work
- * list (my_protocol_work), at the venue Today has chosen.
+ * on while they are off, the owner's "Follow every step" switch (0363),
+ * today's checklists still to finish, then the work list (my_protocol_work),
+ * at the venue Today has chosen.
  */
 
 const T = 'staff-work';
@@ -32,7 +34,8 @@ function WorkScreen() {
   const { t } = useLocale();
   const { colors, fonts } = useTheme();
   const insets = useSafeAreaInsets();
-  const { venueId } = useStaffStatus();
+  const { status, venueId } = useStaffStatus();
+  const owner = status.kind === 'staff' && status.staff.role === 'owner' ? status.staff : null;
   const alerts = useWorkAlerts();
   // The same reads the two blocks make, for the pull and the empty state.
   const lists = useQuery({
@@ -103,6 +106,9 @@ function WorkScreen() {
             )}
           </Card>
         ) : null}
+
+        {/* The owner's protocol status pushes (0363). */}
+        {owner ? <ProtocolUpdates uid={owner.id} testID={`${T}.follow`} /> : null}
 
         {venueId ? <TodayChecklists venueId={venueId} /> : <Hint>{t('staff.shell.venue.none')}</Hint>}
         {venueId ? <WorkList venueId={venueId} /> : null}

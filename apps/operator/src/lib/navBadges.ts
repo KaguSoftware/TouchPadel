@@ -19,8 +19,11 @@ import { fetchDeductionsWaiting } from '../features/deductions/api';
 import { deductionsWaitingCount } from '../features/deductions/deductionsLogic';
 import { fetchIncidentsOpen } from '../features/incidents/api';
 import { incidentsOpenCount } from '../features/incidents/incidentsLogic';
-import { fetchContentWaiting } from '../features/content/api';
-import { contentWaitingCount } from '../features/content/contentLogic';
+import { CK, fetchContentWaiting } from '../features/content/api';
+import { CONTENT_PAGE_SIZE, contentWaitingCount, readContentPage } from '../features/content/contentLogic';
+import { appRpc } from './appRpc';
+import { fetchPlan } from '../features/plan/api';
+import { planToDoCount, plansWaitingCount, readPlan } from '../features/plan/planLogic';
 import { fetchWagesDue } from '../features/wages/api';
 import { wagesDueCount } from '../features/wages/wagesLogic';
 
@@ -63,6 +66,11 @@ export function useBadgeSum(badges: readonly (NavBadge | undefined)[]): number {
   const incidentsOn = on.has('incidentsOpen') && can(staff, 'reviewIncidents');
   const contentOn = on.has('contentWaiting') && can(staff, 'decideContent');
   const wagesOn = on.has('wagesDue') && can(staff, 'manageWages');
+  // 0362: the owner counts months waiting on them, marketing what it must
+  // make now; both from the current month's plan read (QK.planNow).
+  const planWaitingOn = on.has('planWaiting') && can(staff, 'decidePlan');
+  const planToDoOn = on.has('planToDo') && can(staff, 'editPlan');
+  const changesOn = on.has('contentChanges') && can(staff, 'submitContent');
   const deductions = useQuery({
     queryKey: QK.deductionsWaiting,
     queryFn: fetchDeductionsWaiting,
@@ -87,6 +95,19 @@ export function useBadgeSum(badges: readonly (NavBadge | undefined)[]): number {
     enabled: wagesOn,
     refetchInterval: 60_000,
   });
+  const plan = useQuery({
+    queryKey: QK.planNow,
+    queryFn: () => fetchPlan(null),
+    enabled: planWaitingOn || planToDoOn,
+    refetchInterval: 60_000,
+  });
+  // The Changes asked list's first page, the same read /posts makes.
+  const changes = useQuery({
+    queryKey: CK.page('changes', 0),
+    queryFn: () => appRpc<unknown>('content_page', { p_filter: 'changes', p_limit: CONTENT_PAGE_SIZE, p_offset: 0 }),
+    enabled: changesOn,
+    refetchInterval: 60_000,
+  });
   // The phone counts waiting on the Stock count tab: the same read the stock
   // screens make, so the rail and the screen agree.
   const stockCounts = useQuery({
@@ -102,6 +123,9 @@ export function useBadgeSum(badges: readonly (NavBadge | undefined)[]): number {
     (incidentsOn && incidents.isSuccess ? incidentsOpenCount(incidents.data) : 0) +
     (contentOn && content.isSuccess ? contentWaitingCount(content.data) : 0) +
     (wagesOn && wages.isSuccess ? wagesDueCount(wages.data) : 0) +
+    (planWaitingOn && plan.isSuccess ? plansWaitingCount(readPlan(plan.data)) : 0) +
+    (planToDoOn && plan.isSuccess ? planToDoCount(readPlan(plan.data)) : 0) +
+    (changesOn && changes.isSuccess ? readContentPage(changes.data).total : 0) +
     (on.has('stockCountsWaiting') && stockCounts.isSuccess ? phoneCountsWaiting(stockCounts.data).length : 0)
   );
 }

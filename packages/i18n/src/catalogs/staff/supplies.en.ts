@@ -57,10 +57,12 @@ export const staffSuppliesEn = {
       approve: 'Approve',
       decline: 'Decline',
       reason: 'Why not? The chef assistant sees this.',
+      // 0361: the owner declines without a reason.
+      reasonOptional: 'Why not? Optional. The chef assistant sees this.',
       confirmDecline: 'Decline this line',
       keep: 'Keep it',
       approved: 'Approved. The driver sees it now.',
-      declined: 'Declined. The chef assistant is told why.',
+      declined: 'Declined. The chef assistant is told.',
       errors: {
         reason: 'Say why, so the chef assistant knows.',
         reasonTooLong: 'Keep the reason to 300 characters.',

@@ -108,6 +108,11 @@ import { genderHoursAr } from './genderHours.ar';
 // The marketing role's Insights page (0360): the whole place as levels, trends and rounded shares.
 import { insightsEn } from './insights.en';
 import { insightsAr } from './insights.ar';
+import { planEn } from './plan.en';
+import { planAr } from './plan.ar';
+// Player ranks (0364): the owner's rules and levels, the public board, results and Record a result.
+import { ranksEn } from './ranks.en';
+import { ranksAr } from './ranks.ar';
 
 export const wsEn = {
   shell: shellEn,
@@ -149,6 +154,8 @@ export const wsEn = {
   assistantFree: assistantFreeEn,
   genderHours: genderHoursEn,
   insights: insightsEn,
+  plan: planEn,
+  ranks: ranksEn,
 } as const;
 
 export const wsAr = {
@@ -191,4 +198,6 @@ export const wsAr = {
   assistantFree: assistantFreeAr,
   genderHours: genderHoursAr,
   insights: insightsAr,
+  plan: planAr,
+  ranks: ranksAr,
 } as const;

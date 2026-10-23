@@ -452,6 +452,22 @@ export const TabPlayIcon = ({ size = 21, color }: TabIconProps) => (
   </Svg>
 );
 /**
+ * Ranks (the leaderboard, 2026-10-22): a podium, second, first and third, in one outline, with the
+ * ball over first place. Read as a podium is always set out, so it never mirrors. iOS draws the
+ * same picture from assets/tabs/ranks*.png.
+ */
+export const TabRanksIcon = ({ size = 21, color }: TabIconProps) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" accessible={false}>
+    <Path
+      d="M3.5 20.5V13h5.5V9h6v6.5h5.5v5z"
+      stroke={color}
+      strokeWidth={2}
+      strokeLinejoin="round"
+    />
+    <Circle cx={12} cy={4.6} r={2} fill={color} />
+  </Svg>
+);
+/**
  * Coaches (2026-10-11): the coach's whistle on its cord, the lessons card's
  * glyph (`WhistleIcon`) at the tab bar's weight. An object, so it never mirrors.
  */

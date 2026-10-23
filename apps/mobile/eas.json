@@ -14,6 +14,7 @@
         "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID": "699390054618-hdmsl0sn76i09b9esp7tae2t8ktj77sq.apps.googleusercontent.com",
         "EXPO_PUBLIC_PHONE_OTP": "on",
         "EXPO_PUBLIC_ONLINE_PAYMENTS": "off",
+        "EXPO_PUBLIC_TOURNAMENTS": "on",
         "EXPO_PUBLIC_LINK_DOMAIN": "www.touch-padel.com"
       }
     },
@@ -27,6 +28,7 @@
         "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID": "699390054618-hdmsl0sn76i09b9esp7tae2t8ktj77sq.apps.googleusercontent.com",
         "EXPO_PUBLIC_PHONE_OTP": "off",
         "EXPO_PUBLIC_ONLINE_PAYMENTS": "off",
+        "EXPO_PUBLIC_TOURNAMENTS": "on",
         "EXPO_PUBLIC_LINK_DOMAIN": "www.touch-padel.com"
       }
     },
@@ -40,6 +42,7 @@
         "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID": "699390054618-hdmsl0sn76i09b9esp7tae2t8ktj77sq.apps.googleusercontent.com",
         "EXPO_PUBLIC_PHONE_OTP": "off",
         "EXPO_PUBLIC_ONLINE_PAYMENTS": "off",
+        "EXPO_PUBLIC_TOURNAMENTS": "off",
         "EXPO_PUBLIC_LINK_DOMAIN": "www.touch-padel.com"
       }
     }

@@ -57,7 +57,7 @@ export const workAr: DeepMessages<typeof workEn> = {
     needsOwnerOk: 'يحتاج موافقة المالك',
     optional: 'اختياري',
     round: 'الجولة {round}',
-    autoPassed: 'مرّ تلقائيًا: أرسله من يملك قرار هذه الخطوة.',
+    autoPassed: 'مرّ تلقائيًا: أرسله أحد أصحاب القرار في هذه الخطوة.',
     involved: 'لك دور فيه',
     noteDeleted: 'حُذفت الملاحظة بعد 90 يومًا',
     change: {
@@ -67,7 +67,7 @@ export const workAr: DeepMessages<typeof workEn> = {
       promotion: 'اقتراح عرض',
       promotion_edit: 'تعديل عرض',
       promotion_enable: 'تشغيل عرض',
-      rate: 'تغيير سعر ملعب أو إضافته',
+      rate: 'تغيير سعر ملعب أو إضافة سعر',
       featured_discount: 'تغيير خصم الصنف المميز',
       // DRAFT-AR (coaching 0285).
       lesson_price: 'تغيير سعر حصة',
@@ -126,7 +126,7 @@ export const workAr: DeepMessages<typeof workEn> = {
   idea: {
     status: {
       waiting: 'بانتظار المراجعة',
-      started: 'بدأ تنفيذها كصنف جديد',
+      started: 'بدأ تنفيذها صنفًا جديدًا',
       declined: 'مرفوضة',
       withdrawn: 'مسحوبة',
     },

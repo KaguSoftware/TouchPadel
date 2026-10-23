@@ -191,12 +191,9 @@ export function canSendAgain(status: ContentStatus): boolean {
   return status === 'approved' || status === 'declined' || status === 'withdrawn';
 }
 
-/** The owner's decision needs a reason for changes and decline (REASON_REQUIRED), at most 1000. */
-export function decisionIssue(decision: ContentDecision, note: string): 'required' | 'tooLong' | null {
-  const n = note.trim();
-  if (decision !== 'approve' && n === '') return 'required';
-  if ([...n].length > NOTE_MAX) return 'tooLong';
-  return null;
+/** The owner's note is optional on every decision (0361: the owner never has to say why), at most 1000. */
+export function decisionIssue(note: string): 'tooLong' | null {
+  return [...note.trim()].length > NOTE_MAX ? 'tooLong' : null;
 }
 
 // ---------------------------------------------------------------------------

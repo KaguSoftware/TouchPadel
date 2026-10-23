@@ -1,11 +1,23 @@
 /**
- * The marketing panel's payload (app.marketing_insights, 0360) and the words
- * it prints. The server already turned every figure into a level, a trend, a
- * rounded share or an "about N"; this module only parses that defensively and
- * picks the words. It never sees, and so can never print, an exact figure.
+ * The marketing panel's payload (app.marketing_insights, 0360, 0365) and the
+ * words it prints. The server already turned every figure into a level, a
+ * trend with its size, a whole-percent share or an "about N"; this module only
+ * parses that defensively and picks the words. It never sees, and so can never
+ * print, a money figure or an exact count.
  */
 
-export type Trend = 'up' | 'steady' | 'down' | 'unknown';
+export type TrendDir = 'up' | 'steady' | 'down' | 'unknown';
+/**
+ * Which way a figure moved against the comparison, and how far (0365, Majed:
+ * "how much up, how much down"): `size` is the percent change of a count or a
+ * sum (`pct`) or the points a rate moved (`pts`), null when there is no base
+ * to measure from.
+ */
+export interface Trend {
+  dir: TrendDir;
+  size: number | null;
+  unit: 'pct' | 'pts';
+}
 /** 0 empty, 1 light, 2 steady, 3 busy, 4 full. */
 export type Level = 0 | 1 | 2 | 3 | 4;
 export type Count = { kind: 'none' } | { kind: 'few' } | { kind: 'about'; value: number } | null;
@@ -38,6 +50,8 @@ export interface Insights {
   legacy: boolean;
   demand: {
     level: Level | null;
+    /** The courts' fill as a whole percent (0365). */
+    levelPct: number | null;
     levelTrend: Trend;
     bookingsTrend: Trend;
     cancelTrend: Trend;
@@ -87,6 +101,8 @@ export interface Insights {
     held: boolean;
     tournaments: Count;
     fillLevel: Level | null;
+    /** The tournaments' fill as a whole percent (0365). */
+    fillPct: number | null;
     players: Count;
     returningShare: number | null;
     next: (Named & { startDate: string }) | null;
@@ -108,8 +124,12 @@ const int = (v: unknown): number | null => {
   const n = typeof v === 'number' ? v : typeof v === 'string' && v !== '' ? Number(v) : NaN;
   return Number.isFinite(n) ? Math.round(n) : null;
 };
-const TRENDS: readonly Trend[] = ['up', 'steady', 'down', 'unknown'];
-const trend = (v: unknown): Trend => (TRENDS.includes(v as Trend) ? (v as Trend) : 'unknown');
+const TRENDS: readonly TrendDir[] = ['up', 'steady', 'down', 'unknown'];
+/** `<key>` and its size beside it, `<key>Pct` or `<key>Pts` (0365). */
+const trend = (o: Record<string, unknown>, key: string, unit: Trend['unit'] = 'pct'): Trend => {
+  const dir = TRENDS.includes(o[key] as TrendDir) ? (o[key] as TrendDir) : 'unknown';
+  return { dir, size: dir === 'unknown' ? null : int(o[`${key}${unit === 'pct' ? 'Pct' : 'Pts'}`]), unit };
+};
 const level = (v: unknown): Level | null => {
   const n = int(v);
   return n !== null && n >= 0 && n <= 4 ? (n as Level) : null;
@@ -154,20 +174,21 @@ export function parseInsights(json: unknown): Insights {
     legacy: o.legacy === true,
     demand: {
       level: level(d.level),
-      levelTrend: trend(d.levelTrend),
-      bookingsTrend: trend(d.bookingsTrend),
-      cancelTrend: trend(d.cancelTrend),
-      noShowTrend: trend(d.noShowTrend),
+      levelPct: share(d.levelPct),
+      levelTrend: trend(d, 'levelTrend', 'pts'),
+      bookingsTrend: trend(d, 'bookingsTrend'),
+      cancelTrend: trend(d, 'cancelTrend', 'pts'),
+      noShowTrend: trend(d, 'noShowTrend', 'pts'),
       heat: slots(d.heat),
       quiet: slots(d.quiet),
       full: slots(d.full),
     },
     players: {
       active: parseCount(p.active),
-      activeTrend: trend(p.activeTrend),
+      activeTrend: trend(p, 'activeTrend'),
       newShare: share(p.newShare),
       returningShare: share(p.returningShare),
-      newTrend: trend(p.newTrend),
+      newTrend: trend(p, 'newTrend'),
       regulars: parseCount(p.regulars),
       lapsing: parseCount(p.lapsing),
       lapseDays: int(p.lapseDays) ?? 28,
@@ -176,18 +197,18 @@ export function parseInsights(json: unknown): Insights {
         .map((r) => ({ weekStart: str(obj(r).weekStart), newIdx: int(obj(r).newIdx) ?? 0, returningIdx: int(obj(r).returningIdx) ?? 0 }))
         .filter((w) => w.weekStart !== ''),
     },
-    channels: { appShare: share(ch.appShare), deskShare: share(ch.deskShare), appTrend: trend(ch.appTrend), lead: buckets(ch.lead) },
+    channels: { appShare: share(ch.appShare), deskShare: share(ch.deskShare), appTrend: trend(ch, 'appTrend', 'pts'), lead: buckets(ch.lead) },
     cafe: {
       crossoverShare: share(c.crossoverShare),
-      crossoverTrend: trend(c.crossoverTrend),
-      spendTrend: trend(c.spendTrend),
+      crossoverTrend: trend(c, 'crossoverTrend', 'pts'),
+      spendTrend: trend(c, 'spendTrend'),
       heat: slots(c.heat),
       peaks: slots(c.peaks),
       top: named(c.top),
       bottom: named(c.bottom),
-      shopTrend: trend(c.shopTrend),
+      shopTrend: trend(c, 'shopTrend'),
     },
-    mix: { courts: share(m.courts), cafe: share(m.cafe), shop: share(m.shop), trend: trend(m.trend), courtsTrend: trend(m.courtsTrend), cafeTrend: trend(m.cafeTrend) },
+    mix: { courts: share(m.courts), cafe: share(m.cafe), shop: share(m.shop), trend: trend(m, 'trend'), courtsTrend: trend(m, 'courtsTrend'), cafeTrend: trend(m, 'cafeTrend') },
     offers: arr(o.offers)
       .map((r) => {
         const x = obj(r);
@@ -205,6 +226,7 @@ export function parseInsights(json: unknown): Insights {
       held: e.held === true,
       tournaments: parseCount(e.tournaments),
       fillLevel: level(e.fillLevel),
+      fillPct: share(e.fillPct),
       players: parseCount(e.entrants),
       returningShare: share(e.returningShare),
       next: str(next.startDate) ? { nameEn: str(next.nameEn), nameAr: str(next.nameAr), startDate: str(next.startDate) } : null,
@@ -268,9 +290,24 @@ export type TrendTone = 'success' | 'danger' | 'neutral';
 
 /** Up is good unless `upIsBad` (cancellations, no-shows); steady and unknown are neutral. */
 export function trendTone(t: Trend, upIsBad = false): TrendTone {
-  if (t === 'up') return upIsBad ? 'danger' : 'success';
-  if (t === 'down') return upIsBad ? 'success' : 'danger';
+  if (t.dir === 'up') return upIsBad ? 'danger' : 'success';
+  if (t.dir === 'down') return upIsBad ? 'success' : 'danger';
   return 'neutral';
+}
+
+/** At or past this percent change, the size reads as a multiple ("×12"): a thin comparison makes huge percents that say nothing. */
+export const TIMES_FROM_PCT = 1000;
+
+/**
+ * A trend's size, unsigned (the word carries the direction): 18 → { kind:
+ * 'pct', n: 18 }, 6 points → { kind: 'pts', n: 6 }, +2,700 % → { kind:
+ * 'times', n: 28 }; null when there is none or it rounds to nothing.
+ */
+export function trendSize(t: Trend): { kind: 'pct' | 'pts' | 'times'; n: number } | null {
+  if (t.size === null || t.dir === 'unknown' || t.size === 0) return null;
+  const n = Math.abs(t.size);
+  if (t.unit === 'pct' && t.size >= TIMES_FROM_PCT) return { kind: 'times', n: Math.round(t.size / 100 + 1) };
+  return { kind: t.unit, n };
 }
 
 /** The heatmap's value for a slot: its level, 0..4 (a closed hour is left out by the server). */

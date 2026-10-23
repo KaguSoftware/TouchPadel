@@ -268,11 +268,11 @@ describe('send again', () => {
 
 describe('the owner’s decision', () => {
   it('needs a reason to ask for changes or to decline, and none to approve', () => {
-    expect(validateDecision('approve', '')).toBeNull();
-    expect(validateDecision('changes', ' ')).toBe('required');
-    expect(validateDecision('decline', '')).toBe('required');
-    expect(validateDecision('decline', 'Off brand')).toBeNull();
-    expect(validateDecision('approve', 'x'.repeat(1001))).toBe('tooLong');
+    // 0361: the owner never has to give a reason.
+    expect(validateDecision('')).toBeNull();
+    expect(validateDecision(' ')).toBeNull();
+    expect(validateDecision('Off brand')).toBeNull();
+    expect(validateDecision('x'.repeat(1001))).toBe('tooLong');
   });
 });
 

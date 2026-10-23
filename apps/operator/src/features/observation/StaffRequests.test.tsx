@@ -89,7 +89,7 @@ describe('StaffRequestsScreen', () => {
     expect(screen.queryByRole('button', { name: 'Decline' })).toBeNull();
   });
 
-  it('will not submit a decline without a reason, and does not call the server', async () => {
+  it('declines without a reason: the owner never has to give one (0361)', async () => {
     const user = userEvent.setup();
     rpc.mockResolvedValue(page([row()]));
     renderScreen();
@@ -98,11 +98,12 @@ describe('StaffRequestsScreen', () => {
     // Two buttons now read "Decline": the row's and the dialog's. The dialog
     // opens last, so it is the final one in the tree.
     await screen.findByRole('textbox');
-    rpc.mockClear();
     await user.click(screen.getAllByRole('button', { name: 'Decline' }).at(-1)!);
 
-    expect(await screen.findByText('A reason is required.')).toBeTruthy();
-    expect(rpc).not.toHaveBeenCalledWith('decide_staff_request', expect.anything());
+    expect(screen.queryByText('A reason is required.')).toBeNull();
+    await waitFor(() =>
+      expect(rpc).toHaveBeenCalledWith('decide_staff_request', { p_id: 'r1', p_approve: false, p_note: null }),
+    );
   });
 
   it('sends the decision with its note once a reason is given', async () => {

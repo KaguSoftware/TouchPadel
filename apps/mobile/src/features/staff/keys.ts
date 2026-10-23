@@ -61,7 +61,9 @@ export type StaffMutationName =
   | 'waiter_call.resolve'
   // Rewards (0332): the owner sets and ends a person's reward; state-idempotent, no key.
   | 'reward.set'
-  | 'reward.end';
+  | 'reward.end'
+  // Push settings (0363): the owner's protocol status pushes; state-idempotent, no key.
+  | 'push_prefs.set';
 
 export const staffKeys = {
   all: ['staff'] as const,
@@ -156,6 +158,8 @@ export const staffKeys = {
   /** Every branch's myRewards: what an order placed from this phone invalidates. */
   myRewardsAll: ['staff', 'myRewards'] as const,
   rewardsBoard: (venue: string) => ['staff', 'rewardsBoard', venue] as const,
+  // Push settings (0363): the signed-in owner's own.
+  pushPrefs: (uid: string) => ['staff', 'pushPrefs', uid] as const,
   /** The prefix src/lib/queryClient.ts sets the staff write defaults on. */
   mutationRoot: ['staff', 'mutation'] as const,
   mutation: (name: StaffMutationName) => ['staff', 'mutation', name] as const,

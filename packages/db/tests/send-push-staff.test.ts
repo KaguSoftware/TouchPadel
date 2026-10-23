@@ -71,8 +71,12 @@ const SCREENSHOT_KEYS = ['screenshot_taken'];
 const SHOP_KEYS = ['shop_price_changed'];
 /** The scheduled checklists' due-soon and overdue pushes (0323). */
 const CHECKLIST_KEYS = ['checklist_due', 'checklist_overdue'];
-/** A staff reward unlocked (0333), last in the JSON. */
+/** A staff reward unlocked (0333). */
 const REWARD_KEYS = ['reward_unlocked'];
+/** Marketing's month plan (0362). */
+const PLAN_KEYS = ['plan_submitted', 'plan_approved', 'plan_changes'];
+/** Protocol watch (0363): the owner's status pushes and the approval reminder, last in the JSON. */
+const WATCH_KEYS = ['step_passed', 'run_done', 'run_withdrawn', 'run_scheduled', 'decision_waiting'];
 const FSI = '\u2068';
 const PDI = '\u2069';
 const iso = (s: string) => `${FSI}${s}${PDI}`;
@@ -92,9 +96,9 @@ function msg(lang: Lang, key: string, params: Record<string, unknown> = {}) {
 }
 
 describe('staff-push.json', () => {
-  it('lists the four staff kinds, forty-four title keys and eight routes, each once', () => {
+  it('lists the four staff kinds, fifty-two title keys and eight routes, each once', () => {
     expect(staffPush.kinds).toEqual(['staff_task', 'staff_decide', 'staff_decided', 'staff_info']);
-    expect(staffPush.title_keys).toHaveLength(44);
+    expect(staffPush.title_keys).toHaveLength(52);
     expect(new Set(staffPush.title_keys).size).toBe(staffPush.title_keys.length);
     expect(staffPush.title_keys.slice(15, 26)).toEqual(ROLE_SPEC_KEYS);
     expect(staffPush.title_keys.slice(26, 37)).toEqual(WAVE5_KEYS);
@@ -105,6 +109,8 @@ describe('staff-push.json', () => {
       ...SHOP_KEYS,
       ...CHECKLIST_KEYS,
       ...REWARD_KEYS,
+      ...PLAN_KEYS,
+      ...WATCH_KEYS,
     ]);
     expect(staffPush.routes).toEqual([
       'staff',
@@ -273,6 +279,16 @@ describe('staffMessage — the EN copy of §2.21', () => {
     ],
     // No params: the amount, the prize and the target stay in the app.
     ['reward_unlocked', {}, 'Reward unlocked', 'You reached one of your rewards. Open the app to see it.'],
+    // Marketing's month plan (0362): the sender and the month (MM/YYYY).
+    ['plan_submitted', { name: 'Zainab', title: '11/2026' }, 'Content plan for approval', `${iso('Zainab')}: ${iso('11/2026')}`],
+    ['plan_approved', { title: '11/2026' }, 'Content plan approved', iso('11/2026')],
+    ['plan_changes', { title: '11/2026' }, 'Changes asked on the content plan', iso('11/2026')],
+    // Protocol watch (0363): a step by name and the run's title; a run by its title alone.
+    ['step_passed', { step: STEP, title: 'Rose latte' }, 'Step done', `${iso('Price')}: ${iso('Rose latte')}`],
+    ['run_done', { title: 'Rose latte' }, 'Finished', iso('Rose latte')],
+    ['run_withdrawn', { title: 'Rose latte' }, 'Withdrawn', iso('Rose latte')],
+    ['run_scheduled', { title: 'Rose latte' }, 'Scheduled', iso('Rose latte')],
+    ['decision_waiting', { step: STEP, title: 'Rose latte' }, 'Still waiting on you', `${iso('Price')}: ${iso('Rose latte')}`],
   ];
 
   it('loyalty_gift without the manager’s name still says what happened', () => {

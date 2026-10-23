@@ -1,5 +1,5 @@
 {
-  "generated_from": "009843de00223b03f61cba685f5b101e87ebba5e",
+  "generated_from": "ddeebb02b10803492e68ac9bff37afa69690eca4",
   "chunks": [
     {
       "kind": "page",
@@ -128,6 +128,14 @@
       "title": "/admin/qr — Table QR codes",
       "body": "The \"Tables & QR\" screen listing cafe tables with zone, seats and a waiter-bell switch (app.set_table_bell); \"Add table\" and a row edit a table (app.upsert_cafe_table), \"Print all cards\" and \"Print this card\" print A6 QR cards, and \"Replace\" or \"Replace every QR code\" rotate tokens with app.rotate_table_token.\nRoles: manager, owner.\nReached from: Management › Café & shop: \"Table QR codes\".",
       "route": "/admin/qr"
+    },
+    {
+      "kind": "page",
+      "ref": "page:/admin/ranks",
+      "lang": "en",
+      "title": "/admin/ranks — Player ranks",
+      "body": "The \"Ranks\" screen has a board of player results and standings plus a Rules tab; staff who can record results use \"Record result\", while the owner edits the points rules and rank levels and managers can read them.\nRoles: manager, owner.\nReached from: Management › Customers & marketing: \"Player ranks\".",
+      "route": "/admin/ranks"
     },
     {
       "kind": "page",
@@ -496,6 +504,22 @@
       "title": "/panel — Overview",
       "body": "The owner's \"Overview\": on top, \"Needs you\" (the floor's alarms, refunds, player reports and people records, plus staff requests, new suggestions and overdue campaigns) and the live floor plan; under them app.panel_headline fills an \"Earned\" and \"Taken in payments\" band plus padel, cafe and losses figure rows for a chosen range and comparison, each figure opening its transactions through app.report_drill; \"Export CSV\" writes the window, every figure and every drill transaction to one file, and buttons open the Courts, Cafe, Revenue, Stock and Staff reports. An \"Online money and open matches\" group shows deposits, tickets and written-off match shares (ticket sales, refunds and liability for all branches); its rows open a report, not a drill. A \"Lessons\" group shows lesson revenue and what is owed to coaches.\nRoles: owner.\nReached from: Management: \"Overview\".",
       "route": "/panel"
+    },
+    {
+      "kind": "page",
+      "ref": "page:/plan",
+      "lang": "en",
+      "title": "/plan — Content plan",
+      "body": "Marketing's month plan: browse the calendar and day list, add or edit ideas, and send the plan to the owner; the owner reviews proposed ideas, leaves out unwanted ones, then approves the plan or sends it back with a note.\nRoles: marketing, owner.\nReached from: Management › Customers & marketing: \"Marketing › Content plan\"; Team: \"Content plan\".",
+      "route": "/plan"
+    },
+    {
+      "kind": "page",
+      "ref": "page:/posts",
+      "lang": "en",
+      "title": "/posts — Sent for approval",
+      "body": "The marketing content queue for posts and plan results awaiting the owner's decision; open an item to review it, then approve it or send it back with a note.\nRoles: marketing.\nReached from: Team: \"Sent for approval\".",
+      "route": "/posts"
     },
     {
       "kind": "page",
@@ -1350,7 +1374,7 @@
       "ref": "nav:management:customers",
       "lang": "ar",
       "title": "الإدارة › الزبائن والتسويق",
-      "body": "الزبائن ونقاط الولاء والتسويق وتطبيق الضيوف\nالصفحة الرئيسية: /desk/customers\nالصفوف: الزبائن → /desk/customers; نقاط الولاء → /admin/loyalty; التسويق → /marketing (المنشورات والحملات, الخصومات والعروض, تيليغرام); المؤشرات → /insights; تطبيق الضيوف → /admin/hero",
+      "body": "الزبائن ونقاط الولاء والتسويق وتطبيق الضيوف\nالصفحة الرئيسية: /desk/customers\nالصفوف: الزبائن → /desk/customers; نقاط الولاء → /admin/loyalty; ترتيب اللاعبين → /admin/ranks; التسويق → /marketing (المنشورات والحملات, خطة المحتوى, الخصومات والعروض, تيليغرام); المؤشرات → /insights; تطبيق الضيوف → /admin/hero",
       "route": "/desk/customers"
     },
     {
@@ -1358,7 +1382,7 @@
       "ref": "nav:management:customers",
       "lang": "en",
       "title": "Management › Customers & marketing",
-      "body": "Customers, loyalty points, marketing and the guest app\nHome: /desk/customers\nRows: Customers → /desk/customers; Loyalty points → /admin/loyalty; Marketing → /marketing (Posts & campaigns, Discounts & offers, Telegram); Insights → /insights; Guest app → /admin/hero",
+      "body": "Customers, loyalty points, marketing and the guest app\nHome: /desk/customers\nRows: Customers → /desk/customers; Loyalty points → /admin/loyalty; Player ranks → /admin/ranks; Marketing → /marketing (Posts & campaigns, Content plan, Discounts & offers, Telegram); Insights → /insights; Guest app → /admin/hero",
       "route": "/desk/customers"
     },
     {
@@ -1392,6 +1416,22 @@
       "title": "Management › Customers & marketing: Loyalty points",
       "body": "Rail row \"Loyalty points\" in the Management workspace › Customers & marketing opens /admin/loyalty. Arabic label: \"نقاط الولاء\". Roles: owner.",
       "route": "/admin/loyalty"
+    },
+    {
+      "kind": "nav",
+      "ref": "nav:management:customers:/admin/ranks",
+      "lang": "ar",
+      "title": "الإدارة › الزبائن والتسويق: ترتيب اللاعبين",
+      "body": "صف \"ترتيب اللاعبين\" في مساحة \"الإدارة\" › الزبائن والتسويق يفتح /admin/ranks. الاسم بالإنجليزية: \"Player ranks\". الأدوار: manager, owner.",
+      "route": "/admin/ranks"
+    },
+    {
+      "kind": "nav",
+      "ref": "nav:management:customers:/admin/ranks",
+      "lang": "en",
+      "title": "Management › Customers & marketing: Player ranks",
+      "body": "Rail row \"Player ranks\" in the Management workspace › Customers & marketing opens /admin/ranks. Arabic label: \"ترتيب اللاعبين\". Roles: manager, owner.",
+      "route": "/admin/ranks"
     },
     {
       "kind": "nav",
@@ -1430,7 +1470,7 @@
       "ref": "nav:management:customers:/marketing",
       "lang": "ar",
       "title": "الإدارة › الزبائن والتسويق: التسويق",
-      "body": "صف \"التسويق\" في مساحة \"الإدارة\" › الزبائن والتسويق يفتح /marketing. الاسم بالإنجليزية: \"Marketing\". الأدوار: owner. صفحاته، كتبويبات تحت عنوان الصفحة: المنشورات والحملات ← /marketing؛ الخصومات والعروض ← /admin/promotions؛ تيليغرام ← /admin/telegram.",
+      "body": "صف \"التسويق\" في مساحة \"الإدارة\" › الزبائن والتسويق يفتح /marketing. الاسم بالإنجليزية: \"Marketing\". الأدوار: owner. صفحاته، كتبويبات تحت عنوان الصفحة: المنشورات والحملات ← /marketing؛ خطة المحتوى ← /plan؛ الخصومات والعروض ← /admin/promotions؛ تيليغرام ← /admin/telegram.",
       "route": "/marketing"
     },
     {
@@ -1438,7 +1478,7 @@
       "ref": "nav:management:customers:/marketing",
       "lang": "en",
       "title": "Management › Customers & marketing: Marketing",
-      "body": "Rail row \"Marketing\" in the Management workspace › Customers & marketing opens /marketing. Arabic label: \"التسويق\". Roles: owner. Its pages, as tabs under the page title: Posts & campaigns → /marketing; Discounts & offers → /admin/promotions; Telegram → /admin/telegram.",
+      "body": "Rail row \"Marketing\" in the Management workspace › Customers & marketing opens /marketing. Arabic label: \"التسويق\". Roles: owner. Its pages, as tabs under the page title: Posts & campaigns → /marketing; Content plan → /plan; Discounts & offers → /admin/promotions; Telegram → /admin/telegram.",
       "route": "/marketing"
     },
     {
@@ -1926,16 +1966,16 @@
       "ref": "nav:team",
       "lang": "ar",
       "title": "مساحة العمل: الفريق",
-      "body": "مساحة العمل \"الفريق\" تبدأ من /tasks.\nالصفوف: مهامي → /tasks; المؤشرات → /insights",
-      "route": "/tasks"
+      "body": "مساحة العمل \"الفريق\" تبدأ من /plan، أو من /tasks لمن لا يستطيع فتحها.\nالصفوف: خطة المحتوى → /plan; بانتظار الموافقة → /posts; مهامي → /tasks; المؤشرات → /insights",
+      "route": "/plan"
     },
     {
       "kind": "nav",
       "ref": "nav:team",
       "lang": "en",
       "title": "Workspace: Team",
-      "body": "Workspace \"Team\" opens at /tasks.\nRows: My tasks → /tasks; Insights → /insights",
-      "route": "/tasks"
+      "body": "Workspace \"Team\" opens at /plan, or at /tasks for whoever cannot open it.\nRows: Content plan → /plan; Sent for approval → /posts; My tasks → /tasks; Insights → /insights",
+      "route": "/plan"
     },
     {
       "kind": "nav",
@@ -1952,6 +1992,38 @@
       "title": "Team: Insights",
       "body": "Rail row \"Insights\" in the Team workspace opens /insights. Arabic label: \"المؤشرات\". Roles: marketing, owner.",
       "route": "/insights"
+    },
+    {
+      "kind": "nav",
+      "ref": "nav:team:-:/plan",
+      "lang": "ar",
+      "title": "الفريق: خطة المحتوى",
+      "body": "صف \"خطة المحتوى\" في مساحة \"الفريق\" يفتح /plan. الاسم بالإنجليزية: \"Content plan\". الأدوار: marketing, owner.",
+      "route": "/plan"
+    },
+    {
+      "kind": "nav",
+      "ref": "nav:team:-:/plan",
+      "lang": "en",
+      "title": "Team: Content plan",
+      "body": "Rail row \"Content plan\" in the Team workspace opens /plan. Arabic label: \"خطة المحتوى\". Roles: marketing, owner.",
+      "route": "/plan"
+    },
+    {
+      "kind": "nav",
+      "ref": "nav:team:-:/posts",
+      "lang": "ar",
+      "title": "الفريق: بانتظار الموافقة",
+      "body": "صف \"بانتظار الموافقة\" في مساحة \"الفريق\" يفتح /posts. الاسم بالإنجليزية: \"Sent for approval\". الأدوار: marketing.",
+      "route": "/posts"
+    },
+    {
+      "kind": "nav",
+      "ref": "nav:team:-:/posts",
+      "lang": "en",
+      "title": "Team: Sent for approval",
+      "body": "Rail row \"Sent for approval\" in the Team workspace opens /posts. Arabic label: \"بانتظار الموافقة\". Roles: marketing.",
+      "route": "/posts"
     },
     {
       "kind": "nav",
@@ -2750,7 +2822,7 @@
       "ref": "action:app.branch_counts",
       "lang": "en",
       "title": "app.branch_counts",
-      "body": "0361. Manager or owner: per branch the caller manages (owner: every branch), the active courts and active café tables, [{venue_id, courts, tables}], for the Branches cards. Read-only.\nSignature: app.branch_counts() returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager, owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0361 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "0366. Manager or owner: per branch the caller manages (owner: every branch), the active courts and active café tables, [{venue_id, courts, tables}], for the Branches cards. Read-only.\nSignature: app.branch_counts() returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager, owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0366 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -3246,7 +3318,7 @@
       "ref": "action:app.decide_content",
       "lang": "en",
       "title": "app.decide_content",
-      "body": "marketing_content (wave5-addendum §2.7.2). The owner decides the current open version of a waiting item: approve (final), changes or decline (final), each of the last two with a reason (1 to 1000). Tells the version's submitter and the author (staff_decided / content_approved, content_changes or content_declined, the title only). Returns {status, version, decided_at}. REF_NOT_FOUND, FORBIDDEN, INVALID_ARGUMENT (hint decision), SUBMISSION_DECIDED (not the current open version), CANNOT_DECIDE_OWN, TEXT_TOO_LONG (hint note), REASON_REQUIRED. Audit marketing.content.approve / .changes / .decline {status, version}.\nSignature: app.decide_content(p_id uuid, p_version int, p_decision text, p_note text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (owner).\nAudit actions written: marketing.content..\nError codes: FORBIDDEN, REF_NOT_FOUND, INVALID_ARGUMENT, SUBMISSION_DECIDED, CANNOT_DECIDE_OWN, TEXT_TOO_LONG, REASON_REQUIRED.\nCalled from: apps/operator/src/features/content/ContentSheet.tsx.\nDefined in migration 0199 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "marketing_content (wave5-addendum §2.7.2). The owner decides the current open version of a waiting item: approve (final), changes or decline (final), each with an optional note (at most 1000; 0361 dropped the required reason). Tells the version's submitter and the author (staff_decided / content_approved, content_changes or content_declined, the title only). Returns {status, version, decided_at}. REF_NOT_FOUND, FORBIDDEN, INVALID_ARGUMENT (hint decision), SUBMISSION_DECIDED (not the current open version), CANNOT_DECIDE_OWN, TEXT_TOO_LONG (hint note). Audit marketing.content.approve / .changes / .decline {status, version}.\nSignature: app.decide_content(p_id uuid, p_version int, p_decision text, p_note text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (owner).\nAudit actions written: marketing.content..\nError codes: FORBIDDEN, REF_NOT_FOUND, INVALID_ARGUMENT, SUBMISSION_DECIDED, CANNOT_DECIDE_OWN, TEXT_TOO_LONG.\nCalled from: apps/operator/src/features/content/ContentSheet.tsx.\nDefined in migration 0361 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -3254,7 +3326,15 @@
       "ref": "action:app.decide_deduction",
       "lang": "en",
       "title": "app.decide_deduction",
-      "body": "salary_deductions (wave5-addendum §2.5.3, 0272). The owner approves or declines a waiting deduction at a venue, never one they proposed or one against themselves; a decline needs a note (at most 1000). An approval stamps pay_month: the venue's business month today, or the person's next unpaid month when that one is paid (V16, 0272), and the amount comes off that month's wage. Tells the proposer (staff_decided / deduction_approved or deduction_declined) and, on an approval, the person (staff_info / deduction_recorded), with no amount. Returns {status, decided_at, pay_month}. FORBIDDEN (not the owner), REF_NOT_FOUND, SUBMISSION_DECIDED, CANNOT_DECIDE_OWN, INVALID_ARGUMENT (hint approve), TEXT_TOO_LONG (hint note), REASON_REQUIRED. Audit staff.deduction.approve / .decline {status}.\nSignature: app.decide_deduction(p_id uuid, p_approve boolean, p_note text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, REF_NOT_FOUND, SUBMISSION_DECIDED, CANNOT_DECIDE_OWN, INVALID_ARGUMENT, TEXT_TOO_LONG, REASON_REQUIRED.\nCalled from: apps/operator/src/features/deductions/DeductionDialogs.tsx.\nDefined in migration 0272 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "salary_deductions (wave5-addendum §2.5.3, 0272). The owner approves or declines a waiting deduction at a venue, never one they proposed or one against themselves; the note is optional on either answer (at most 1000; 0361). An approval stamps pay_month: the venue's business month today, or the person's next unpaid month when that one is paid (V16, 0272), and the amount comes off that month's wage. Tells the proposer (staff_decided / deduction_approved or deduction_declined) and, on an approval, the person (staff_info / deduction_recorded), with no amount. Returns {status, decided_at, pay_month}. FORBIDDEN (not the owner), REF_NOT_FOUND, SUBMISSION_DECIDED, CANNOT_DECIDE_OWN, INVALID_ARGUMENT (hint approve), TEXT_TOO_LONG (hint note). Audit staff.deduction.approve / .decline {status}.\nSignature: app.decide_deduction(p_id uuid, p_approve boolean, p_note text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, REF_NOT_FOUND, SUBMISSION_DECIDED, CANNOT_DECIDE_OWN, INVALID_ARGUMENT, TEXT_TOO_LONG.\nCalled from: apps/operator/src/features/deductions/DeductionDialogs.tsx.\nDefined in migration 0361 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.decide_marketing_plan",
+      "lang": "en",
+      "title": "app.decide_marketing_plan",
+      "body": "marketing_plan (0362). The owner at the plan's branch decides a waiting plan: approve (every proposed idea approved, the ones in p_drop dropped, which must be proposed ideas of this plan) or changes (no drops). The note (up to 1000) is optional either way and is kept on the plan and on the dropped ideas. Tells the branch's marketing team and the sender (staff_decided / plan_approved or plan_changes, the month as MM/YYYY). Returns {status, approved, dropped}. FORBIDDEN, REF_NOT_FOUND, INVALID_ARGUMENT (hint decision or drop), SUBMISSION_DECIDED (not waiting), CANNOT_DECIDE_OWN, TEXT_TOO_LONG (hint note). Audit marketing.plan.approve / .changes {status, approved, dropped}.\nSignature: app.decide_marketing_plan(p_id uuid, p_decision text, p_note text default null, p_drop uuid[] default '{}') returns jsonb.\nGranted to: authenticated. Guard: any active staff row.\nAudit actions written: marketing.plan..\nError codes: FORBIDDEN, REF_NOT_FOUND, INVALID_ARGUMENT, SUBMISSION_DECIDED, CANNOT_DECIDE_OWN, TEXT_TOO_LONG.\nCalled from: apps/operator/src/features/plan/PlanPage.tsx.\nDefined in migration 0362 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -3262,7 +3342,7 @@
       "ref": "action:app.decide_recipe_change",
       "lang": "en",
       "title": "app.decide_recipe_change",
-      "body": "recipe_change_requests (§2.24.7). The owner, at the request's venue, never on their own: an approve checks the target is still active and its lines still match the request's before (else RECIPE_CHANGED), writes after through app.set_recipe (its stock.recipe.set audit and cycle check: RECIPE_CYCLE, INGREDIENT_NOT_FOUND, INVALID_QTY, VARIANT_NOT_FOUND), and tells the head (recipe_change_approved); a decline needs a reason (at most 1000) and tells the head (recipe_change_declined). Returns {status, lines_written}. REF_NOT_FOUND, FORBIDDEN, CANNOT_DECIDE_OWN, SUBMISSION_DECIDED, INVALID_ARGUMENT (hint approve), REASON_REQUIRED, TEXT_TOO_LONG. Audit stock.recipe.change_approve or stock.recipe.change_decline.\nSignature: app.decide_recipe_change(p_id uuid, p_approve boolean, p_reason text default null) returns jsonb.\nGranted to: authenticated. Guard: any active staff row.\nAudit actions written: stock.recipe.change_approve, stock.recipe.change_decline.\nError codes: FORBIDDEN, REF_NOT_FOUND, CANNOT_DECIDE_OWN, SUBMISSION_DECIDED, INVALID_ARGUMENT, RECIPE_CHANGED, REASON_REQUIRED, TEXT_TOO_LONG.\nCalled from: apps/operator/src/features/roleExtras/RecipeChanges.tsx.\nDefined in migration 0183 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "recipe_change_requests (§2.24.7). The owner, at the request's venue, never on their own: an approve checks the target is still active and its lines still match the request's before (else RECIPE_CHANGED), writes after through app.set_recipe (its stock.recipe.set audit and cycle check: RECIPE_CYCLE, INGREDIENT_NOT_FOUND, INVALID_QTY, VARIANT_NOT_FOUND), and tells the head (recipe_change_approved); a decline takes an optional reason (at most 1000; 0361) and tells the head (recipe_change_declined). Returns {status, lines_written}. REF_NOT_FOUND, FORBIDDEN, CANNOT_DECIDE_OWN, SUBMISSION_DECIDED, INVALID_ARGUMENT (hint approve), TEXT_TOO_LONG. Audit stock.recipe.change_approve or stock.recipe.change_decline.\nSignature: app.decide_recipe_change(p_id uuid, p_approve boolean, p_reason text default null) returns jsonb.\nGranted to: authenticated. Guard: any active staff row.\nAudit actions written: stock.recipe.change_approve, stock.recipe.change_decline.\nError codes: FORBIDDEN, REF_NOT_FOUND, CANNOT_DECIDE_OWN, SUBMISSION_DECIDED, INVALID_ARGUMENT, RECIPE_CHANGED, TEXT_TOO_LONG.\nCalled from: apps/operator/src/features/roleExtras/RecipeChanges.tsx.\nDefined in migration 0361 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -3270,7 +3350,7 @@
       "ref": "action:app.decide_shopping_item",
       "lang": "en",
       "title": "app.decide_shopping_item",
-      "body": "shopping_head_approval (§2.24.9). The head chef or MGMT at the line's venue: approves a pending line (open; the drivers get staff_task / shopping_new, deduped shopping:<venue>) or declines it with a reason (at most 300; the requester gets staff_decided / shopping_declined). Returns {id, status}. SHOPPING_ITEM_NOT_OPEN (unknown or elsewhere), FORBIDDEN, SUBMISSION_DECIDED (not pending), CANNOT_DECIDE_OWN, INVALID_ARGUMENT (hint approve), REASON_REQUIRED, TEXT_TOO_LONG. Audit shopping.approve or shopping.decline.\nSignature: app.decide_shopping_item(p_id uuid, p_approve boolean, p_reason text default null) returns jsonb.\nGranted to: authenticated. Guard: any active staff row.\nAudit actions written: shopping.approve, shopping.decline.\nError codes: FORBIDDEN, SHOPPING_ITEM_NOT_OPEN, SUBMISSION_DECIDED, CANNOT_DECIDE_OWN, INVALID_ARGUMENT, REASON_REQUIRED, TEXT_TOO_LONG.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0185 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "shopping_head_approval (§2.24.9). The head chef or MGMT at the line's venue: approves a pending line (open; the drivers get staff_task / shopping_new, deduped shopping:<venue>) or declines it with a reason (at most 300; optional for the owner, 0361; the requester gets staff_decided / shopping_declined). Returns {id, status}. SHOPPING_ITEM_NOT_OPEN (unknown or elsewhere), FORBIDDEN, SUBMISSION_DECIDED (not pending), CANNOT_DECIDE_OWN, INVALID_ARGUMENT (hint approve), REASON_REQUIRED, TEXT_TOO_LONG. Audit shopping.approve or shopping.decline.\nSignature: app.decide_shopping_item(p_id uuid, p_approve boolean, p_reason text default null) returns jsonb.\nGranted to: authenticated. Guard: any active staff row.\nAudit actions written: shopping.approve, shopping.decline.\nError codes: FORBIDDEN, SHOPPING_ITEM_NOT_OPEN, SUBMISSION_DECIDED, CANNOT_DECIDE_OWN, INVALID_ARGUMENT, REASON_REQUIRED, TEXT_TOO_LONG.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0361 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -3278,7 +3358,7 @@
       "ref": "action:app.decide_staff_request",
       "lang": "en",
       "title": "app.decide_staff_request",
-      "body": "0072 + staff_push. Owner-only, never on their own request; a refusal needs a note. Queues staff_decided / request_approved or request_rejected for the requester.\nSignature: app.decide_staff_request(p_id uuid, p_approve boolean, p_note text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (owner).\nAudit actions written: staff_request.decide.\nError codes: FORBIDDEN, REQUEST_NOT_FOUND, REQUEST_NOT_PENDING, CANNOT_DECIDE_OWN, REASON_REQUIRED.\nCalled from: apps/operator/src/features/observation/StaffRequests.tsx (pages /observation).\nDefined in migration 0160 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "0072 + staff_push. Owner-only, never on their own request; the note is optional on either answer (0361). Queues staff_decided / request_approved or request_rejected for the requester.\nSignature: app.decide_staff_request(p_id uuid, p_approve boolean, p_note text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (owner).\nAudit actions written: staff_request.decide.\nError codes: FORBIDDEN, REQUEST_NOT_FOUND, REQUEST_NOT_PENDING, CANNOT_DECIDE_OWN.\nCalled from: apps/operator/src/features/observation/StaffRequests.tsx (pages /observation).\nDefined in migration 0361 (last definition). The assistant cannot call this; it only explains it.",
       "route": "/observation"
     },
     {
@@ -3286,7 +3366,7 @@
       "ref": "action:app.decide_step",
       "lang": "en",
       "title": "app.decide_step",
-      "body": "protocols_engine_rpcs (§2.7). A decider (the owner when the step needs the owner's OK, else a manager at the venue or the owner), never on their own submission: approve (p_data is the pass hook's decision data; no override of the figures), send_back to the step itself or a passed step below it (a new round; every step that waits for it by the opening rule goes back to waiting, and so does the sent-back step), or stop (the run stops). A reason is required to send back or stop. Returns {submission_id, decision, step_status, run_status, opened_step_ids}. Audit protocol.decide.\nSignature: app.decide_step(p_submission_id uuid, p_decision text, p_note text default null, p_send_back_to uuid default null, p_data jsonb default '{}') returns jsonb.\nGranted to: authenticated. Guard: any active staff row.\nAudit actions written: protocol.decide.\nError codes: FORBIDDEN, PROTOCOL_NOT_FOUND, PROTOCOL_CLOSED, SUBMISSION_DECIDED, NOT_DECIDER, CANNOT_DECIDE_OWN, INVALID_ARGUMENT, REASON_REQUIRED, SEND_BACK_TARGET_INVALID.\nCalled from: apps/operator/src/features/protocols/DecisionDialog.tsx.\nDefined in migration 0164 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "protocols_engine_rpcs (§2.7). A decider (the owner when the step needs the owner's OK, else a manager at the venue or the owner), never on their own submission: approve (p_data is the pass hook's decision data; no override of the figures), send_back to the step itself or a passed step below it (a new round; every step that waits for it by the opening rule goes back to waiting, and so does the sent-back step), or stop (the run stops). A reason is required to send back or stop, except from the owner (0361). Returns {submission_id, decision, step_status, run_status, opened_step_ids}. Audit protocol.decide.\nSignature: app.decide_step(p_submission_id uuid, p_decision text, p_note text default null, p_send_back_to uuid default null, p_data jsonb default '{}') returns jsonb.\nGranted to: authenticated. Guard: any active staff row.\nAudit actions written: protocol.decide.\nError codes: FORBIDDEN, PROTOCOL_NOT_FOUND, PROTOCOL_CLOSED, SUBMISSION_DECIDED, NOT_DECIDER, CANNOT_DECIDE_OWN, INVALID_ARGUMENT, REASON_REQUIRED, SEND_BACK_TARGET_INVALID.\nCalled from: apps/operator/src/features/protocols/DecisionDialog.tsx.\nDefined in migration 0361 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -3294,7 +3374,7 @@
       "ref": "action:app.decline_release_idea",
       "lang": "en",
       "title": "app.decline_release_idea",
-      "body": "product_release (§2.9). The head of the idea's team (head_barista for bar, head_chef for kitchen) or MGMT at its venue declines a waiting idea with a reason (<= 1000), which the author reads; the author is told (staff_decided / idea_declined). REF_NOT_FOUND, FORBIDDEN, SUBMISSION_DECIDED, REASON_REQUIRED, TEXT_TOO_LONG. Returns {status}. Audit protocol.release.idea_decline (no text).\nSignature: app.decline_release_idea(p_id uuid, p_reason text) returns jsonb.\nGranted to: authenticated. Guard: any active staff row.\nAudit actions written: protocol.release.idea_decline.\nError codes: FORBIDDEN, REF_NOT_FOUND, SUBMISSION_DECIDED, REASON_REQUIRED, TEXT_TOO_LONG.\nCalled from: apps/operator/src/features/roleExtras/Ideas.tsx.\nDefined in migration 0172 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "product_release (§2.9). The head of the idea's team (head_barista for bar, head_chef for kitchen) or MGMT at its venue declines a waiting idea with a reason (<= 1000), which the author reads (optional for the owner, 0361); the author is told (staff_decided / idea_declined). REF_NOT_FOUND, FORBIDDEN, SUBMISSION_DECIDED, REASON_REQUIRED, TEXT_TOO_LONG. Returns {status}. Audit protocol.release.idea_decline (no text).\nSignature: app.decline_release_idea(p_id uuid, p_reason text) returns jsonb.\nGranted to: authenticated. Guard: any active staff row.\nAudit actions written: protocol.release.idea_decline.\nError codes: FORBIDDEN, REF_NOT_FOUND, SUBMISSION_DECIDED, REASON_REQUIRED, TEXT_TOO_LONG.\nCalled from: apps/operator/src/features/roleExtras/Ideas.tsx.\nDefined in migration 0361 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -4142,7 +4222,7 @@
       "ref": "action:app.marketing_insights",
       "lang": "en",
       "title": "app.marketing_insights",
-      "body": "0360. Marketing and owner (the operator's /insights): the whole place for a business-day range against a comparison window, as levels (0 empty .. 4 full), trends (up, steady, down, unknown), shares rounded to 10 (the revenue mix to 5), counts as about-N or few (under 10), and ranked slots and names. Reads the owner's analytics_* through app.analytics_guard with a transaction-local app.marketing_read assertion it clears before returning. No money figure, no exact count, no guest identity. FORBIDDEN, INVALID_RANGE.\nSignature: app.marketing_insights(p_from date, p_to date, p_cmp_from date, p_cmp_to date) returns jsonb.\nGranted to: authenticated. Guard: staff role in (marketing, owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, INVALID_RANGE.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0360 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "0360, re-issued by 0365 (percentages). Marketing and owner (the operator's /insights): the whole place for a business-day range against a comparison window, as levels (0 empty .. 4 full) with the fill as a whole percent (levelPct, fillPct), trends (up, steady, down, unknown) each with its size beside it (<trend>Pct: percent change of a count or a sum; <trend>Pts: points moved by a rate; null when the trend is unknown or the baseline was zero), shares as whole percents, counts as about-N or few (under 10), and ranked slots and names. Reads the owner's analytics_* through app.analytics_guard with a transaction-local app.marketing_read assertion it clears before returning. No money figure, no exact count, no guest identity. FORBIDDEN, INVALID_RANGE.\nSignature: app.marketing_insights(p_from date, p_to date, p_cmp_from date, p_cmp_to date) returns jsonb.\nGranted to: authenticated. Guard: staff role in (marketing, owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, INVALID_RANGE.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0365 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -4151,6 +4231,14 @@
       "lang": "en",
       "title": "app.marketing_notes_for",
       "body": "marketing_staff (§2.17). MGMT and marketing at the subject's venue: {notes: [{id, author_name, body, photos, created_at}]}, the marketing notes on one item, run or campaign, newest first. INVALID_ARGUMENT (hint subject_kind); REF_NOT_FOUND for a subject at a venue the caller does not work at; FORBIDDEN for anyone else.\nSignature: app.marketing_notes_for(p_subject_kind text, p_subject_id uuid) returns jsonb.\nGranted to: authenticated. Guard: staff role in (marketing,manager,owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, INVALID_ARGUMENT, REF_NOT_FOUND.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0168 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.marketing_plan",
+      "lang": "en",
+      "title": "app.marketing_plan",
+      "body": "marketing_plan (0362). Marketing and the owners at the branch: one month's content plan. p_month is any day of the month (default the branch's business month). {month, today (the branch's business date), plan: {id, status, sent_by_name, sent_at, decided_by_name, decided_at, decision_note, updated_at} or null, ideas: [{id, day, title, kind, channel, details, status, drop_note, created_by_name, decided_at, result: {id, status, version, updated_at} (its live content item, else the newest) or null}] by day, waiting_months: [months with a plan waiting on the owner], can_edit, can_send, can_take_back, can_decide}. Never a manager (§8 Q14). FORBIDDEN for anyone else.\nSignature: app.marketing_plan(p_month date default null, p_venue_id uuid default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (marketing,owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0362 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -4515,6 +4603,14 @@
     },
     {
       "kind": "action",
+      "ref": "action:app.my_ranks",
+      "lang": "en",
+      "title": "app.my_ranks",
+      "body": "0364. The signed-in player's own leaderboard page: {enabled:false} while off, else {enabled, period, from, size, points (this period), lifetime, rank (their place in the period, null with no points; theirs alone), level, next_level (null at the top), rules {win, loss, draw, report_hours, reports}, username, results (app.ranks_result_json, the ones waiting on them first), to_report (their played bookings with no live result, inside report_hours), recent (usernames they played with lately)}.\nSignature: app.my_ranks() returns jsonb.\nGranted to: authenticated. Guard: not detected by pattern — read the migration.\nWrites no audit row of its own (or via a helper).\nError codes: AUTH_REQUIRED.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0364 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
       "ref": "action:app.my_receipts",
       "lang": "en",
       "title": "app.my_receipts",
@@ -4787,6 +4883,78 @@
     },
     {
       "kind": "action",
+      "ref": "action:app.ranks_adjust",
+      "lang": "en",
+      "title": "app.ranks_adjust",
+      "body": "0364. Owner: adds or takes off points for one player, now, with a reason (|delta| 1-1000). INVALID_VALUE, REASON_REQUIRED, RANKS_PLAYER_NOT_FOUND. Audited ranks.adjust.\nSignature: app.ranks_adjust(p_profile_id uuid, p_delta int, p_note text) returns jsonb.\nGranted to: authenticated. Guard: staff role in (owner).\nAudit actions written: ranks.adjust.\nError codes: FORBIDDEN, INVALID_VALUE, REASON_REQUIRED, RANKS_PLAYER_NOT_FOUND.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0364 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.ranks_admin",
+      "lang": "en",
+      "title": "app.ranks_admin",
+      "body": "0364. Manager or owner: {settings (ranks_settings), levels [{name_en, name_ar, min_points}] lowest first}.\nSignature: app.ranks_admin() returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager, owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0364 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.ranks_board",
+      "lang": "en",
+      "title": "app.ranks_board",
+      "body": "0364. Public (anon). The leaderboard: {enabled:false} while the owner has it off, else {enabled, period, from (null for all time), size, rows: [{rank, name (\"First L.\" or null), points, level {name_en, name_ar, min_points}, mine}]}, the top board_size players by points earned in the period, a tie sharing a rank. Nobody below the board is read, and no id, phone or full name leaves it.\nSignature: app.ranks_board() returns jsonb.\nGranted to: anon, authenticated. Guard: not detected by pattern — read the migration.\nWrites no audit row of its own (or via a helper).\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0364 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.ranks_confirm",
+      "lang": "en",
+      "title": "app.ranks_confirm",
+      "body": "0364. An opponent on a pending report confirms it (it is confirmed and every player on it gets their points) or turns it down (rejected). A report past expires_at is marked expired instead and the answer says so. RANKS_NOT_YOURS (not on side B), RANKS_RESULT_CLOSED (no longer pending). Returns the result.\nSignature: app.ranks_confirm(p_result_id uuid, p_accept boolean) returns jsonb.\nGranted to: authenticated. Guard: not detected by pattern — read the migration.\nWrites no audit row of its own (or via a helper).\nError codes: AUTH_REQUIRED, INVALID_ARGUMENT, RANKS_NOT_YOURS, RANKS_RESULT_CLOSED.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0364 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.ranks_desk_record",
+      "lang": "en",
+      "title": "app.ranks_desk_record",
+      "body": "0364. Court desk, manager or owner: enters a game's result, confirmed at once and its points written. Sides A (p_a1, p_a2) and B (p_b1, p_b2), a second seat may be NULL for a player with no account; p_winner a, b or draw; an optional score. With a booking (p_reservation_id) it is played at the booking's start and replaces a report still pending on it; without one, now, at the caller's branch. RANKS_OFF, INVALID_VALUE (detail p_score), RANKS_PLAYER_NOT_FOUND, RANKS_PLAYERS_INVALID (a player twice), RANKS_NOT_ELIGIBLE (a cancelled, expired, pending or no-show booking), RANKS_ALREADY_REPORTED (void the confirmed one first), VENUE_MISMATCH. Audited ranks.record.\nSignature: app.ranks_desk_record(p_reservation_id uuid, p_a1 uuid, p_a2 uuid, p_b1 uuid, p_b2 uuid, p_winner text, p_score text) returns jsonb.\nGranted to: authenticated. Guard: staff role in (court_desk, manager, owner).\nAudit actions written: ranks.record.\nError codes: FORBIDDEN, RANKS_OFF, INVALID_ARGUMENT, INVALID_VALUE, RANKS_PLAYER_NOT_FOUND, RANKS_NOT_ELIGIBLE, VENUE_MISMATCH, RANKS_ALREADY_REPORTED, RANKS_PLAYERS_INVALID.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0364 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.ranks_desk_results",
+      "lang": "en",
+      "title": "app.ranks_desk_results",
+      "body": "0364. Court desk, manager or owner: the latest results at the branches in scope, newest report first (p_status narrows: pending means still inside its window, expired includes a lapsed pending; p_limit 1-200, default 50): [{id, source, status, winner, score, played_at, reported_at, reservation_id, void_reason, court, a [2], b [2] (app.ranks_staff_player_json)}].\nSignature: app.ranks_desk_results(p_status text, p_limit int) returns jsonb.\nGranted to: authenticated. Guard: staff role in (court_desk, manager, owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, INVALID_ARGUMENT.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0364 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.ranks_find_player",
+      "lang": "en",
+      "title": "app.ranks_find_player",
+      "body": "0364. A signed-in player looks a username up, exactly (no search, no list): {username, name, me} or NULL.\nSignature: app.ranks_find_player(p_username text) returns jsonb.\nGranted to: authenticated. Guard: a signed-in session.\nWrites no audit row of its own (or via a helper).\nError codes: AUTH_REQUIRED.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0364 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.ranks_report",
+      "lang": "en",
+      "title": "app.ranks_report",
+      "body": "0364. The booker reports a game they played: their booking (played at least 30 minutes, ended no more than report_hours ago, no live result), their partner and the two opponents by username, whether they won, and an optional score (\"6-4, 7-5\"). It waits, pending, for an opponent to confirm until report_hours from now. RANKS_OFF, RANKS_NOT_ELIGIBLE, RANKS_PLAYER_NOT_FOUND, RANKS_PLAYERS_INVALID, RANKS_ALREADY_REPORTED, INVALID_VALUE (the score). Returns the result (app.ranks_result_json).\nSignature: app.ranks_report(p_reservation_id uuid, p_partner text, p_opponent1 text, p_opponent2 text, p_won boolean, p_score text) returns jsonb.\nGranted to: authenticated. Guard: not detected by pattern — read the migration.\nWrites no audit row of its own (or via a helper).\nError codes: AUTH_REQUIRED, RANKS_OFF, INVALID_ARGUMENT, RANKS_NOT_ELIGIBLE, RANKS_PLAYER_NOT_FOUND, RANKS_PLAYERS_INVALID, RANKS_ALREADY_REPORTED, INVALID_VALUE.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0364 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.ranks_void",
+      "lang": "en",
+      "title": "app.ranks_void",
+      "body": "0364. Manager or owner: voids a pending or confirmed result with a reason (3+ characters); the points it gave come off again at the game's time. REASON_REQUIRED, NOT_FOUND (or another branch's), RANKS_RESULT_CLOSED. Audited ranks.void.\nSignature: app.ranks_void(p_result_id uuid, p_reason text) returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager, owner).\nAudit actions written: ranks.void.\nError codes: FORBIDDEN, REASON_REQUIRED, NOT_FOUND, RANKS_RESULT_CLOSED.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0364 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
       "ref": "action:app.receipt_detail",
       "lang": "en",
       "title": "app.receipt_detail",
@@ -4995,6 +5163,14 @@
     },
     {
       "kind": "action",
+      "ref": "action:app.remove_plan_idea",
+      "lang": "en",
+      "title": "app.remove_plan_idea",
+      "body": "marketing_plan (0362). Marketing at the idea's branch: a proposed idea is deleted; an approved one with no live result (no content item for it waiting, with changes asked or approved) is cancelled. Not while the plan waits on the owner. A plan the owner decided before with no proposed idea left is approved again. Returns {status: removed | cancelled, plan_status}. FORBIDDEN, REF_NOT_FOUND, PLAN_WAITING, IDEA_LOCKED. Audit marketing.plan.idea_removed / idea_cancelled {status, day}.\nSignature: app.remove_plan_idea(p_id uuid) returns jsonb.\nGranted to: authenticated. Guard: staff role in (marketing).\nAudit actions written: marketing.plan.idea_.\nError codes: FORBIDDEN, REF_NOT_FOUND, PLAN_WAITING, IDEA_LOCKED.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0362 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
       "ref": "action:app.rename_staff",
       "lang": "en",
       "title": "app.rename_staff",
@@ -5171,6 +5347,14 @@
     },
     {
       "kind": "action",
+      "ref": "action:app.save_plan_idea",
+      "lang": "en",
+      "title": "app.save_plan_idea",
+      "body": "marketing_plan (0362). Marketing at the branch. p_id NULL: adds the idea on every day of p_days (1 to 31 days of one month, none before the branch's business date), creating the month's plan if needed; an approved plan goes back to draft so the owner decides the new ones. p_id set: edits that proposed idea (one day, same month). Title 1 to 120, kind post/reel/story/poster/design/offer/event/other, a 0199 channel, details up to 2000. Not while the plan waits on the owner. Returns {ids, plan_id, plan_status}. Idempotent by key. FORBIDDEN, TEXT_REQUIRED (hint title), TEXT_TOO_LONG (hint title or details), INVALID_ARGUMENT (hint kind, channel, days or day_past), REF_NOT_FOUND, PLAN_WAITING, IDEA_LOCKED. Audit marketing.plan.idea_add {month, ideas, kind} / marketing.plan.idea_edit {day}.\nSignature: app.save_plan_idea(p_id uuid, p_days date[], p_title text, p_kind text default 'post', p_channel text default 'instagram', p_details text default null, p_venue_id uuid default null, p_idempotency_key text default null) returns jsonb.\nGranted to: authenticated. Guard: not detected by pattern — read the migration.\nAudit actions written: marketing.plan.idea_add, marketing.plan.idea_edit.\nError codes: TEXT_REQUIRED, TEXT_TOO_LONG, INVALID_ARGUMENT, REF_NOT_FOUND, PLAN_WAITING, IDEA_LOCKED.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0362 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
       "ref": "action:app.save_protocol_template",
       "lang": "en",
       "title": "app.save_protocol_template",
@@ -5183,6 +5367,14 @@
       "lang": "en",
       "title": "app.save_teaching",
       "body": "teachings (§2.24.3). A new teaching (p_id NULL; idempotent by key): the head barista or head chef for their own team (p_team defaults to it, another team is FORBIDDEN), or MGMT for either (p_team required); tells the team (staff_info / teaching_new). An edit: its author, or MGMT at its venue; the team never changes. Title 1 to 120, body 1 to 4000, photos teachings slots of the caller (at most 6). Returns {id}. FORBIDDEN, INVALID_ARGUMENT (hint team or photos), REF_NOT_FOUND (unknown, archived or elsewhere), TEXT_REQUIRED, TEXT_TOO_LONG, PHOTO_PATH_INVALID. Audit teaching.save.\nSignature: app.save_teaching(p_title text, p_body text, p_team text default null, p_photos text[] default '{}', p_id uuid default null, p_venue_id uuid default null, p_idempotency_key text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (head_barista,head_chef,manager,owner).\nAudit actions written: teaching.save.\nError codes: FORBIDDEN, REF_NOT_FOUND, INVALID_ARGUMENT, TEXT_REQUIRED, TEXT_TOO_LONG.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0194 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.send_marketing_plan",
+      "lang": "en",
+      "title": "app.send_marketing_plan",
+      "body": "marketing_plan (0362). Marketing at the branch sends the month's plan (draft or changes, with at least one proposed idea) to the owner: waiting. Tells the owners (staff_decide / plan_submitted, the sender's name and the month as MM/YYYY; dedupe plan:<id>). Returns {status, ideas: proposed count}. FORBIDDEN, INVALID_ARGUMENT (hint month), PLAN_EMPTY, SUBMISSION_DECIDED (already waiting or approved). Audit marketing.plan.send {status, month, ideas}.\nSignature: app.send_marketing_plan(p_month date, p_venue_id uuid default null) returns jsonb.\nGranted to: authenticated. Guard: not detected by pattern — read the migration.\nAudit actions written: marketing.plan.send.\nError codes: INVALID_ARGUMENT, PLAN_EMPTY, SUBMISSION_DECIDED.\nCalled from: apps/operator/src/features/plan/PlanPage.tsx.\nDefined in migration 0362 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -5483,6 +5675,22 @@
     },
     {
       "kind": "action",
+      "ref": "action:app.set_ranks_levels",
+      "lang": "en",
+      "title": "app.set_ranks_levels",
+      "body": "0364. Owner: replaces the levels with p_levels, [{name_en, name_ar, min_points}], 1 to 10 of them, one at 0, no two at the same points, names 1-24 characters. INVALID_VALUE (detail count, base or the refusal). Returns the levels. Audited ranks.levels.\nSignature: app.set_ranks_levels(p_levels jsonb) returns jsonb.\nGranted to: authenticated. Guard: staff role in (owner).\nAudit actions written: ranks.levels.\nError codes: FORBIDDEN, INVALID_ARGUMENT, INVALID_VALUE.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0364 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.set_ranks_settings",
+      "lang": "en",
+      "title": "app.set_ranks_settings",
+      "body": "0364. Owner: patches the leaderboard's rules with the keys given (enabled, win_points, loss_points, draw_points, period, board_size, count_reported, count_tournaments, report_hours); an unknown key is INVALID_ARGUMENT (detail = the key), a value the table refuses INVALID_VALUE. New points apply to results confirmed from now on. Returns the settings. Audited ranks.settings.\nSignature: app.set_ranks_settings(p_patch jsonb) returns jsonb.\nGranted to: authenticated. Guard: staff role in (owner).\nAudit actions written: ranks.settings.\nError codes: FORBIDDEN, INVALID_ARGUMENT, INVALID_VALUE.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0364 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
       "ref": "action:app.set_recipe",
       "lang": "en",
       "title": "app.set_recipe",
@@ -5502,7 +5710,7 @@
       "ref": "action:app.set_staff_access",
       "lang": "en",
       "title": "app.set_staff_access",
-      "body": "0345. Owner-only, never one's own row (CANNOT_EDIT_SELF) and never an owner's (INVALID_ARGUMENT). Replaces the person's second jobs (front-line roles that app.is_staff counts beside the main role) and blocked pages (operator and phone screen rule only). STAFF_NOT_FOUND for an unknown id. Audited as staff.access_set.\nSignature: app.set_staff_access(p_staff_id uuid, p_extra_roles staff_role[], p_blocked_areas text[]) returns jsonb.\nGranted to: authenticated. Guard: staff role in (owner).\nAudit actions written: staff.access_set.\nError codes: FORBIDDEN, CANNOT_EDIT_SELF, STAFF_NOT_FOUND, INVALID_ARGUMENT.\nCalled from: apps/operator/src/features/admin/staff/StaffAccountEditor.tsx (pages /admin).\nDefined in migration 0360 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "0345. Owner-only, never one's own row (CANNOT_EDIT_SELF) and never an owner's (INVALID_ARGUMENT). Replaces the person's second jobs (front-line roles that app.is_staff counts beside the main role) and blocked pages (operator and phone screen rule only). STAFF_NOT_FOUND for an unknown id. Audited as staff.access_set.\nSignature: app.set_staff_access(p_staff_id uuid, p_extra_roles staff_role[], p_blocked_areas text[]) returns jsonb.\nGranted to: authenticated. Guard: staff role in (owner).\nAudit actions written: staff.access_set.\nError codes: FORBIDDEN, CANNOT_EDIT_SELF, STAFF_NOT_FOUND, INVALID_ARGUMENT.\nCalled from: apps/operator/src/features/admin/staff/StaffAccountEditor.tsx (pages /admin).\nDefined in migration 0362 (last definition). The assistant cannot call this; it only explains it.",
       "route": "/admin"
     },
     {
@@ -5830,7 +6038,7 @@
       "ref": "action:app.submit_content",
       "lang": "en",
       "title": "app.submit_content",
-      "body": "marketing_content (wave5-addendum §2.7.2). Marketing at the venue sends a content item for the owners' approval: a title (1 to 120), a channel, a planned day not before the venue's business date, a caption (1 to 4000), up to 10 images in the campaigns folder, an optional https:// link (500) and note (1000), and an optional menu item or campaign of the venue. Tells the owners (staff_decide / content_submitted, the author's name and the title; dedupe content:<id>). Returns {id, version: 1, status: waiting}. Idempotent by key. FORBIDDEN, TEXT_REQUIRED (hint title or body), TEXT_TOO_LONG (hint title, body or note), INVALID_ARGUMENT (hint channel, planned_for, media_link or images), ITEM_NOT_FOUND, CAMPAIGN_NOT_FOUND, PHOTO_PATH_INVALID. Audit marketing.content.submit {status, version, channel, images: n}.\nSignature: app.submit_content(p_title text, p_channel text, p_planned_for date, p_body text, p_images text[] default '{}', p_media_link text default null, p_note text default null, p_menu_item_id uuid default null, p_campaign_id uuid default null, p_venue_id uuid default null, p_idempotency_key text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (marketing).\nAudit actions written: marketing.content.submit.\nError codes: FORBIDDEN, TEXT_REQUIRED, TEXT_TOO_LONG, INVALID_ARGUMENT, ITEM_NOT_FOUND, CAMPAIGN_NOT_FOUND.\nCalled from: apps/operator/src/features/content/ContentForm.tsx.\nDefined in migration 0199 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "marketing_content (wave5-addendum §2.7.2), re-issued by marketing_plan (0362) with p_idea_id. Marketing at the venue sends a content item for the owners' approval: a title (1 to 120), a channel, a planned day not before the venue's business date, a caption (1 to 4000), up to 10 images in the campaigns folder, an optional https:// link (500) and note (1000), an optional menu item or campaign of the venue, and optionally the approved plan idea of the venue it is the result of (one live result per idea). Tells the owners (staff_decide / content_submitted, the author's name and the title; dedupe content:<id>). Returns {id, version: 1, status: waiting}. Idempotent by key. FORBIDDEN, TEXT_REQUIRED (hint title or body), TEXT_TOO_LONG (hint title, body or note), INVALID_ARGUMENT (hint channel, planned_for, media_link or images), ITEM_NOT_FOUND, CAMPAIGN_NOT_FOUND, REF_NOT_FOUND (hint idea), IDEA_LOCKED (the idea is not approved), IDEA_HAS_RESULT, PHOTO_PATH_INVALID. Audit marketing.content.submit {status, version, channel, images: n, idea (the idea id, only when there is one)}.\nSignature: app.submit_content(p_title text, p_channel text, p_planned_for date, p_body text, p_images text[] default '{}', p_media_link text default null, p_note text default null, p_menu_item_id uuid default null, p_campaign_id uuid default null, p_venue_id uuid default null, p_idempotency_key text default null, p_idea_id uuid default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (marketing).\nAudit actions written: marketing.content.submit.\nError codes: FORBIDDEN, TEXT_REQUIRED, TEXT_TOO_LONG, INVALID_ARGUMENT, ITEM_NOT_FOUND, CAMPAIGN_NOT_FOUND, REF_NOT_FOUND, IDEA_LOCKED, IDEA_HAS_RESULT.\nCalled from: apps/operator/src/features/content/ContentForm.tsx.\nDefined in migration 0362 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -5919,6 +6127,14 @@
       "lang": "en",
       "title": "app.table_qr_tokens",
       "body": "Signature: app.table_qr_tokens() returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager,owner).\nAudit actions written: table.qr_tokens_read.\nError codes: FORBIDDEN.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0231 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.take_back_marketing_plan",
+      "lang": "en",
+      "title": "app.take_back_marketing_plan",
+      "body": "marketing_plan (0362). Marketing at the branch takes a waiting plan back to draft to edit it before the owner decides. No push. Returns {status: draft}. FORBIDDEN, REF_NOT_FOUND (hint month), SUBMISSION_DECIDED (the owner already decided). Audit marketing.plan.take_back.\nSignature: app.take_back_marketing_plan(p_month date, p_venue_id uuid default null) returns jsonb.\nGranted to: authenticated. Guard: not detected by pattern — read the migration.\nAudit actions written: marketing.plan.take_back.\nError codes: REF_NOT_FOUND, SUBMISSION_DECIDED.\nCalled from: apps/operator/src/features/plan/PlanPage.tsx.\nDefined in migration 0362 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -6931,6 +7147,14 @@
     },
     {
       "kind": "table",
+      "ref": "table:game_results",
+      "lang": "en",
+      "title": "table game_results",
+      "body": "0364. One game's result for the leaderboard: sides A (a1, a2) and B (b1, b2), the winner (a, b or draw) and an optional score (\"6-4, 7-5\"). source player: the booker reported it (side A is theirs) and it waits, pending, for an opponent to confirm until expires_at; desk: entered on the operator, confirmed at once; tournament: a scored tournament match. Points reach ranks_ledger only on confirmed. No client grant: app.my_ranks, app.ranks_desk_results.\nCreated in migration 0364.\nColumns:\n  id uuid primary key default gen_random_uuid()\n  venue_id uuid not null default app.current_venue() references venues(id)\n  reservation_id uuid references reservations(id)\n  tournament_match_id uuid references tournament_matches(id)\n  source text not null check (source in ('player', 'desk', 'tournament'))\n  status text not null default 'pending' check (status in ('pending', 'confirmed', 'rejected', 'expired', 'voided')) — Side A and side B. A side's second seat may be empty (a desk entry with a walk-in partner).\n  a1 uuid not null references profiles(id)\n  a2 uuid references profiles(id)\n  b1 uuid not null references profiles(id)\n  b2 uuid references profiles(id)\n  winner text not null check (winner in ('a', 'b', 'draw'))\n  score text\n  played_at timestamptz not null\n  reported_by uuid not null\n  reported_at timestamptz not null default now()\n  expires_at timestamptz\n  decided_by uuid\n  decided_at timestamptz\n  void_reason text",
+      "route": null
+    },
+    {
+      "kind": "table",
       "ref": "table:guest_sessions",
       "lang": "en",
       "title": "table guest_sessions",
@@ -7150,7 +7374,7 @@
       "ref": "table:marketing_content",
       "lang": "en",
       "title": "table marketing_content",
-      "body": "marketing_content (wave5-addendum §2.7, answer #7): content (a post) marketing sends for the owners' approval. Its rounds are marketing_content_versions. Read by the owners at the venue (owner-only, §8 Q14); marketing reads through the RPCs. Approved and declined are final.\nCreated in migration 0199.\nColumns:\n  id uuid primary key default gen_random_uuid() — Content item id.\n  venue_id uuid not null references venues(id) — The venue.\n  author_id uuid not null references staff(id) — The marketing staff member who first sent it.\n  title text not null — What it is, as typed (1 to 120 characters).\n  channel text not null — Where it goes: instagram, tiktok, facebook, snapchat, whatsapp, telegram, guest_site, in_venue, print or other.\n  planned_for date not null — The day it is planned for; not before the venue's business date when sent.\n  menu_item_id uuid references menu_items(id) on delete set null — The menu item it is about, if any.\n  campaign_id uuid references marketing_campaigns(id) on delete set null — The campaign it belongs to, if any.\n  status text not null default 'waiting' — waiting (the current version is undecided), changes (the owner asked for changes), approved or declined (final), or withdrawn (by marketing, final).\n  current_version int not null default 1 — The latest version's number.\n  decided_by uuid references staff(id) — The owner who approved or declined it: never the author.\n  decided_at timestamptz — When it was approved or declined.\n  created_at timestamptz not null default now() — When it was first sent.\n  updated_at timestamptz not null default now() — When it last changed: a new version, a decision or a withdrawal.",
+      "body": "marketing_content (wave5-addendum §2.7, answer #7): content (a post) marketing sends for the owners' approval. Its rounds are marketing_content_versions. Read by the owners at the venue (owner-only, §8 Q14); marketing reads through the RPCs. Approved and declined are final.\nCreated in migration 0199.\nColumns:\n  id uuid primary key default gen_random_uuid() — Content item id.\n  venue_id uuid not null references venues(id) — The venue.\n  author_id uuid not null references staff(id) — The marketing staff member who first sent it.\n  title text not null — What it is, as typed (1 to 120 characters).\n  channel text not null — Where it goes: instagram, tiktok, facebook, snapchat, whatsapp, telegram, guest_site, in_venue, print or other.\n  planned_for date not null — The day it is planned for; not before the venue's business date when sent.\n  menu_item_id uuid references menu_items(id) on delete set null — The menu item it is about, if any.\n  campaign_id uuid references marketing_campaigns(id) on delete set null — The campaign it belongs to, if any.\n  status text not null default 'waiting' — waiting (the current version is undecided), changes (the owner asked for changes), approved or declined (final), or withdrawn (by marketing, final).\n  current_version int not null default 1 — The latest version's number.\n  decided_by uuid references staff(id) — The owner who approved or declined it: never the author.\n  decided_at timestamptz — When it was approved or declined.\n  created_at timestamptz not null default now() — When it was first sent.\n  updated_at timestamptz not null default now() — When it last changed: a new version, a decision or a withdrawal.\n  idea_id uuid references marketing_plan_ideas(id) on delete set null — The plan idea (marketing_plan_ideas, 0362) this content is the result of, if any.",
       "route": null
     },
     {
@@ -7167,6 +7391,22 @@
       "lang": "en",
       "title": "table marketing_notes",
       "body": "marketing_staff (§2.17): the marketing role's own take on a menu item, a protocol run or a campaign, with photos. Written only by marketing (app.add_marketing_note); read by MGMT at the venue, and by marketing through app.marketing_notes_for and app.my_marketing_notes. Not a customer-feedback log.\nCreated in migration 0168.\nColumns:\n  id uuid primary key default gen_random_uuid() — Note id.\n  venue_id uuid not null references venues(id) — The venue of the subject.\n  subject_kind text not null check (subject_kind in ('item','run','campaign')) — item (menu_items), run (protocol_runs) or campaign (marketing_campaigns).\n  subject_id uuid not null — The item, run or campaign the note is about.\n  author_id uuid not null references staff(id) — The marketing staff member who wrote it.\n  body text not null check (coalesce(length(btrim(body)),0) > 0 and length(body) <= 2000) — The note, in the writer's language (1 to 2000 characters).\n  photos text[] not null default '{}' check (cardinality(photos) <= 6) — Photos attached: staff-media paths in the marketing folder (at most 6).\n  created_at timestamptz not null default now() — When it was written. Notes are never edited.",
+      "route": null
+    },
+    {
+      "kind": "table",
+      "ref": "table:marketing_plan_ideas",
+      "lang": "en",
+      "title": "table marketing_plan_ideas",
+      "body": "marketing_plan (0362): one idea of a month's content plan, on a day: what it is (title, kind, channel, explanation) and whether the owner approved it. A result for an approved idea is a marketing_content item with idea_id set.\nCreated in migration 0362.\nColumns:\n  id uuid primary key default gen_random_uuid() — Idea id.\n  plan_id uuid not null references marketing_plans(id) on delete cascade — The month's plan.\n  venue_id uuid not null references venues(id) — The branch (the plan's).\n  day date not null — The day it is planned for, inside the plan's month.\n  title text not null — What it is, as typed (1 to 120 characters).\n  kind text not null default 'post' — post, reel, story, poster, design, offer, event or other.\n  channel text not null default 'instagram' — Where it goes: the content channels of 0199.\n  details text — The explanation: the idea, filming notes, the offer (at most 2000 characters).\n  status text not null default 'proposed' — proposed (not decided yet), approved, dropped (by the owner) or cancelled (by marketing after approval).\n  drop_note text — The owner's note when dropping it (optional).\n  created_by uuid not null references staff(id) — The marketing staff member who added it.\n  decided_at timestamptz — When the owner approved or dropped it, or marketing cancelled it.\n  created_at timestamptz not null default now() — When it was added.\n  updated_at timestamptz not null default now() — When it last changed.",
+      "route": null
+    },
+    {
+      "kind": "table",
+      "ref": "table:marketing_plans",
+      "lang": "en",
+      "title": "table marketing_plans",
+      "body": "marketing_plan (0362): marketing's content plan for one branch and month, and the owner's decision on it. draft, waiting (with the owner), changes (the owner asked for changes) or approved. Owner-only under RLS; marketing reads through app.marketing_plan.\nCreated in migration 0362.\nColumns:\n  id uuid primary key default gen_random_uuid() — Plan id.\n  venue_id uuid not null references venues(id) — The branch.\n  month date not null — The first day of the month the plan is for.\n  status text not null default 'draft' — draft (marketing is writing), waiting (sent to the owner), changes (the owner asked for changes) or approved (every proposed idea decided).\n  sent_by uuid references staff(id) — The marketing staff member who last sent it to the owner.\n  sent_at timestamptz — When it was last sent to the owner.\n  decided_by uuid references staff(id) — The owner who last decided it.\n  decided_at timestamptz — When it was last decided.\n  decision_note text — The owner's note with the last decision (optional, at most 1000 characters).\n  created_at timestamptz not null default now() — When the first idea of the month was added.\n  updated_at timestamptz not null default now() — When the plan or one of its ideas last changed.",
       "route": null
     },
     {
@@ -7462,7 +7702,7 @@
       "ref": "table:protocol_submissions",
       "lang": "en",
       "title": "table protocol_submissions",
-      "body": "protocols_engine_tables (§2.6): one piece of work sent on a run step, and its decision. Never edited: withdrawn, superseded by a send-back, or decided once. Earlier rounds stay as history.\nCreated in migration 0163.\nColumns:\n  id uuid primary key default gen_random_uuid() — Submission id.\n  run_step_id uuid not null references protocol_run_steps(id) on delete cascade — The run step.\n  run_id uuid not null references protocol_runs(id) on delete cascade — The run (denormalised for the run's reads).\n  round int not null — The step's round when it was sent.\n  submitted_by uuid not null references staff(id) — Who sent it (the actor, or a manager or owner covering).\n  submitted_at timestamptz not null default now() — When it was sent.\n  record jsonb not null — The step's form, as the kind's check hook normalised it (a note only for an owner-added step).\n  photos text[] not null default '{}' check (cardinality(photos) <= 8) — staff-media paths attached, claimed through app.claim_staff_media (at most 8).\n  withdrawn_at timestamptz — When the sender took it back before a decision.\n  superseded_at timestamptz — When a send-back to an earlier step set this undecided submission aside.\n  decided_by uuid references staff(id) — Who decided it (the sender for an automatic pass).\n  decided_at timestamptz — When it was decided.\n  decision text check (decision in ('approve','auto','send_back','stop')) — approve, auto (the sender decides this step), send_back or stop.\n  decision_note text — The decider's note; required for send_back and stop.\n  send_back_to uuid references protocol_run_steps(id) — The step a send_back reopened (this step or a passed step below it).",
+      "body": "protocols_engine_tables (§2.6): one piece of work sent on a run step, and its decision. Never edited: withdrawn, superseded by a send-back, or decided once. Earlier rounds stay as history.\nCreated in migration 0163.\nColumns:\n  id uuid primary key default gen_random_uuid() — Submission id.\n  run_step_id uuid not null references protocol_run_steps(id) on delete cascade — The run step.\n  run_id uuid not null references protocol_runs(id) on delete cascade — The run (denormalised for the run's reads).\n  round int not null — The step's round when it was sent.\n  submitted_by uuid not null references staff(id) — Who sent it (the actor, or a manager or owner covering).\n  submitted_at timestamptz not null default now() — When it was sent.\n  record jsonb not null — The step's form, as the kind's check hook normalised it (a note only for an owner-added step).\n  photos text[] not null default '{}' check (cardinality(photos) <= 8) — staff-media paths attached, claimed through app.claim_staff_media (at most 8).\n  withdrawn_at timestamptz — When the sender took it back before a decision.\n  superseded_at timestamptz — When a send-back to an earlier step set this undecided submission aside.\n  decided_by uuid references staff(id) — Who decided it (the sender for an automatic pass).\n  decided_at timestamptz — When it was decided.\n  decision text check (decision in ('approve','auto','send_back','stop')) — approve, auto (the sender decides this step), send_back or stop.\n  decision_note text — The decider's note; required for send_back and stop.\n  send_back_to uuid references protocol_run_steps(id) — The step a send_back reopened (this step or a passed step below it).\n  reminded_at timestamptz — protocol_watch (0363): when app.protocol_remind_sweep last reminded the deciders of this undecided submission (decision_waiting); NULL until the first reminder.",
       "route": null
     },
     {
@@ -7503,6 +7743,30 @@
       "lang": "en",
       "title": "table purchases",
       "body": "shopping_purchases (§2.15): one shop visit by the driver (or a manager): where, when, the total paid and the receipt photo. Recorded by app.record_purchase; received into stock by app.receive_purchase, which links the delivery. Never touches the till, the drawer or day close. Read by MGMT at the venue, and by the staff member who made it.\nCreated in migration 0166.\nColumns:\n  id uuid primary key default gen_random_uuid() — Purchase id.\n  venue_id uuid not null references venues(id) — The venue the purchase was for.\n  staff_id uuid not null references staff(id) — Who bought it (the driver, or a manager).\n  bought_at timestamptz not null — When it was bought.\n  shop_name text check (shop_name is null or length(shop_name) <= 80) — Where it was bought, as typed (at most 80 characters); suppliers stay management's.\n  total_iqd iqd not null — What the receipt came to, in IQD. Paying the driver back happens outside the system.\n  receipt_path text — The receipt photo: a staff-media path in the receipts folder, read by its uploader and management only.\n  status text not null default 'to_receive' check (status in ('to_receive','done')) — to_receive until every line is received or acknowledged, then done.\n  delivery_id uuid references deliveries(id) — The delivery app.receive_purchase booked its stock lines into (one purchase, one delivery).\n  received_by uuid references staff(id) — The manager or owner who received it.\n  received_at timestamptz — When it was received.\n  created_at timestamptz not null default now() — When it was recorded.\n  delivered_at timestamptz — purchase_delivery_confirm (§2.24.10): when the buyer (or a manager) confirmed the purchase was delivered to the venue; NULL until then. Receiving never waits for it.\n  delivered_by uuid — Who confirmed the delivery: the buyer, or a manager or the owner.",
+      "route": null
+    },
+    {
+      "kind": "table",
+      "ref": "table:ranks_ledger",
+      "lang": "en",
+      "title": "table ranks_ledger",
+      "body": "0364. Leaderboard points, append-only: win, loss or draw once per player per confirmed result (at the rules of that moment), a void taking the same points off again, or an owner's adjust. earned_at is the game's time (a void keeps it, so it comes off the same period). The board and app.my_ranks sum it. No client grant.\nCreated in migration 0364.\nColumns:\n  id uuid primary key default gen_random_uuid()\n  profile_id uuid not null references profiles(id)\n  result_id uuid\n  kind text not null check (kind in ('win', 'loss', 'draw', 'void', 'adjust'))\n  delta int not null\n  earned_at timestamptz not null\n  actor_id uuid\n  note text\n  created_at timestamptz not null default now()",
+      "route": null
+    },
+    {
+      "kind": "table",
+      "ref": "table:ranks_levels",
+      "lang": "en",
+      "title": "table ranks_levels",
+      "body": "0364. The leaderboard's levels (owner, app.set_ranks_levels replaces the list): a player is at the highest level whose min_points their lifetime points reach. The first level always starts at 0.\nCreated in migration 0364.\nColumns:\n  id uuid primary key default gen_random_uuid()\n  name_en text not null\n  name_ar text not null\n  min_points int not null\n  created_at timestamptz not null default now()",
+      "route": null
+    },
+    {
+      "kind": "table",
+      "ref": "table:ranks_settings",
+      "lang": "en",
+      "title": "table ranks_settings",
+      "body": "0364. The leaderboard's rules, one business-wide row (owner, app.set_ranks_settings): points for a win, a loss and a draw (written to the ledger when a result is confirmed, so a change applies from then on), the board's period (all, month, quarter) and size, which sources count (player reports, tournament matches) and how long a report may wait (report_hours: after the booking's end to report, and after the report to confirm).\nCreated in migration 0364.\nColumns:\n  id boolean primary key default true check (id)\n  enabled boolean not null default true\n  win_points int not null default 2 check (win_points between 0 and 100)\n  loss_points int not null default 1 check (loss_points between 0 and 100)\n  draw_points int not null default 1 check (draw_points between 0 and 100)\n  period text not null default 'month' check (period in ('all', 'month', 'quarter'))\n  board_size int not null default 10 check (board_size between 3 and 25)\n  count_reported boolean not null default true\n  count_tournaments boolean not null default true\n  report_hours int not null default 48 check (report_hours between 1 and 336)\n  updated_at timestamptz not null default now()\n  updated_by uuid references staff(id)",
       "route": null
     },
     {
@@ -7687,6 +7951,14 @@
       "lang": "en",
       "title": "table staff_media_uploads",
       "body": "staff_media_bucket (§2.3): upload slots for work photos. staff_media_slot mints the path; the staff-media storage INSERT policy admits only an unused slot of the uploader from the last hour; app.claim_staff_media marks it used by the record that names it. Bookkeeping no screen reads; excluded from the owner assistant.\nCreated in migration 0159.\nColumns:\n  path text primary key — The storage object name in bucket staff-media: <venue_id>/<folder>/<uuid>.<jpg|png|webp>.\n  venue_id uuid not null references venues(id) — The venue the photo belongs to; also the path's first segment. Readers are staff at this venue.\n  folder text not null check (folder in ('proposals','tests','steps','marketing','campaigns','receipts')) — What the photo is for: proposals, tests, steps, marketing, campaigns, receipts, checklists, teachings, requests, incidents or slips (receipts and incidents are read by their uploader and management only; slips also by the cashier).\n  uploader uuid not null references staff(id) — The staff member the slot was minted for; only they may upload to it.\n  created_at timestamptz not null default now() — When the slot was minted. The upload must happen within an hour of it.\n  used_at timestamptz — When a record first claimed the path (app.claim_staff_media); NULL = not claimed yet.\n  used_by text — The record that claims the path, as <kind>:<id> (for example protocol_submission:<uuid>); NULL = not claimed yet.",
+      "route": null
+    },
+    {
+      "kind": "table",
+      "ref": "table:staff_push_prefs",
+      "lang": "en",
+      "title": "table staff_push_prefs",
+      "body": "protocol_watch (0363). A staff member's push settings, one row per person; no row means every setting at its default. protocol_updates: the owner's status pushes for every protocol (step passed, live, scheduled, done, stopped, withdrawn), on by default. Written through app.set_my_push_prefs, read through app.my_push_prefs; no client grant.\nCreated in migration 0363.\nColumns:\n  staff_id uuid primary key references staff(id) on delete cascade\n  protocol_updates boolean not null default true — protocol_watch (0363): true (default) = the owner is told whenever a protocol step passes or a protocol finishes, goes live, is scheduled, stopped or withdrawn. Approval reminders are not muted by it.\n  updated_at timestamptz not null default now()",
       "route": null
     },
     {
@@ -9819,6 +10091,14 @@
     },
     {
       "kind": "column",
+      "ref": "column:game_results.status",
+      "lang": "en",
+      "title": "game_results.status",
+      "body": "text not null default 'pending' check (status in ('pending', 'confirmed', 'rejected', 'expired', 'voided'))\nSide A and side B. A side's second seat may be empty (a desk entry with a walk-in partner).",
+      "route": null
+    },
+    {
+      "kind": "column",
       "ref": "column:guest_sessions.auth_user_id",
       "lang": "en",
       "title": "guest_sessions.auth_user_id",
@@ -11059,6 +11339,14 @@
     },
     {
       "kind": "column",
+      "ref": "column:marketing_content.idea_id",
+      "lang": "en",
+      "title": "marketing_content.idea_id",
+      "body": "uuid references marketing_plan_ideas(id) on delete set null\nThe plan idea (marketing_plan_ideas, 0362) this content is the result of, if any.",
+      "route": null
+    },
+    {
+      "kind": "column",
       "ref": "column:marketing_content.menu_item_id",
       "lang": "en",
       "title": "marketing_content.menu_item_id",
@@ -11151,6 +11439,182 @@
       "lang": "en",
       "title": "marketing_notes.venue_id",
       "body": "uuid not null references venues(id)\nThe venue of the subject.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:marketing_plan_ideas.channel",
+      "lang": "en",
+      "title": "marketing_plan_ideas.channel",
+      "body": "text not null default 'instagram'\nWhere it goes: the content channels of 0199.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:marketing_plan_ideas.created_at",
+      "lang": "en",
+      "title": "marketing_plan_ideas.created_at",
+      "body": "timestamptz not null default now()\nWhen it was added.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:marketing_plan_ideas.created_by",
+      "lang": "en",
+      "title": "marketing_plan_ideas.created_by",
+      "body": "uuid not null references staff(id)\nThe marketing staff member who added it.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:marketing_plan_ideas.day",
+      "lang": "en",
+      "title": "marketing_plan_ideas.day",
+      "body": "date not null\nThe day it is planned for, inside the plan's month.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:marketing_plan_ideas.decided_at",
+      "lang": "en",
+      "title": "marketing_plan_ideas.decided_at",
+      "body": "timestamptz\nWhen the owner approved or dropped it, or marketing cancelled it.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:marketing_plan_ideas.details",
+      "lang": "en",
+      "title": "marketing_plan_ideas.details",
+      "body": "text\nThe explanation: the idea, filming notes, the offer (at most 2000 characters).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:marketing_plan_ideas.drop_note",
+      "lang": "en",
+      "title": "marketing_plan_ideas.drop_note",
+      "body": "text\nThe owner's note when dropping it (optional).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:marketing_plan_ideas.kind",
+      "lang": "en",
+      "title": "marketing_plan_ideas.kind",
+      "body": "text not null default 'post'\npost, reel, story, poster, design, offer, event or other.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:marketing_plan_ideas.plan_id",
+      "lang": "en",
+      "title": "marketing_plan_ideas.plan_id",
+      "body": "uuid not null references marketing_plans(id) on delete cascade\nThe month's plan.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:marketing_plan_ideas.status",
+      "lang": "en",
+      "title": "marketing_plan_ideas.status",
+      "body": "text not null default 'proposed'\nproposed (not decided yet), approved, dropped (by the owner) or cancelled (by marketing after approval).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:marketing_plan_ideas.title",
+      "lang": "en",
+      "title": "marketing_plan_ideas.title",
+      "body": "text not null\nWhat it is, as typed (1 to 120 characters).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:marketing_plan_ideas.updated_at",
+      "lang": "en",
+      "title": "marketing_plan_ideas.updated_at",
+      "body": "timestamptz not null default now()\nWhen it last changed.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:marketing_plan_ideas.venue_id",
+      "lang": "en",
+      "title": "marketing_plan_ideas.venue_id",
+      "body": "uuid not null references venues(id)\nThe branch (the plan's).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:marketing_plans.created_at",
+      "lang": "en",
+      "title": "marketing_plans.created_at",
+      "body": "timestamptz not null default now()\nWhen the first idea of the month was added.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:marketing_plans.decided_at",
+      "lang": "en",
+      "title": "marketing_plans.decided_at",
+      "body": "timestamptz\nWhen it was last decided.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:marketing_plans.decided_by",
+      "lang": "en",
+      "title": "marketing_plans.decided_by",
+      "body": "uuid references staff(id)\nThe owner who last decided it.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:marketing_plans.decision_note",
+      "lang": "en",
+      "title": "marketing_plans.decision_note",
+      "body": "text\nThe owner's note with the last decision (optional, at most 1000 characters).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:marketing_plans.month",
+      "lang": "en",
+      "title": "marketing_plans.month",
+      "body": "date not null\nThe first day of the month the plan is for.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:marketing_plans.sent_at",
+      "lang": "en",
+      "title": "marketing_plans.sent_at",
+      "body": "timestamptz\nWhen it was last sent to the owner.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:marketing_plans.sent_by",
+      "lang": "en",
+      "title": "marketing_plans.sent_by",
+      "body": "uuid references staff(id)\nThe marketing staff member who last sent it to the owner.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:marketing_plans.status",
+      "lang": "en",
+      "title": "marketing_plans.status",
+      "body": "text not null default 'draft'\ndraft (marketing is writing), waiting (sent to the owner), changes (the owner asked for changes) or approved (every proposed idea decided).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:marketing_plans.updated_at",
+      "lang": "en",
+      "title": "marketing_plans.updated_at",
+      "body": "timestamptz not null default now()\nWhen the plan or one of its ideas last changed.",
       "route": null
     },
     {
@@ -12655,6 +13119,14 @@
       "lang": "en",
       "title": "protocol_submissions.record",
       "body": "jsonb not null\nThe step's form, as the kind's check hook normalised it (a note only for an owner-added step).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:protocol_submissions.reminded_at",
+      "lang": "en",
+      "title": "protocol_submissions.reminded_at",
+      "body": "timestamptz\nprotocol_watch (0363): when app.protocol_remind_sweep last reminded the deciders of this undecided submission (decision_waiting); NULL until the first reminder.",
       "route": null
     },
     {
@@ -14199,6 +14671,14 @@
       "lang": "en",
       "title": "staff_media_uploads.venue_id",
       "body": "uuid not null references venues(id)\nThe venue the photo belongs to; also the path's first segment. Readers are staff at this venue.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:staff_push_prefs.protocol_updates",
+      "lang": "en",
+      "title": "staff_push_prefs.protocol_updates",
+      "body": "boolean not null default true\nprotocol_watch (0363): true (default) = the owner is told whenever a protocol step passes or a protocol finishes, goes live, is scheduled, stopped or withdrawn. Approval reminders are not muted by it.",
       "route": null
     },
     {
@@ -17134,7 +17614,7 @@
       "ref": "label:op.floor",
       "lang": "ar",
       "title": "op.floor (packages/i18n/src/catalogs/ar.ts)",
-      "body": "waiterCalls: نداءات النادل\nnoCalls: لا أحد ينتظر.\nack: سآتي الآن\nacked: في الطريق\nresolve: تم\nageMinutes: قبل {age}\nageNow: الآن\nescalated: متأخر\noverdue: ينتظر منذ {age}\nsourceGuest: QR\ntable: طاولة {table}\noldCalls: أقدم من ساعتين: {count}\nshowOld: عرضها\nhideOld: إخفاؤها\nclearOld: مسح القديمة\nclearOldTitle: مسح نداءات النادل القديمة؟\nclearOldBody: النداءات التي مضى عليها أكثر من ساعتين: {count}. تُعلَّم منتهية وتختفي من هذه القائمة، ولا يتغير شيء آخر.\nclearOldConfirm: مسح\nreasons.order: تقديم طلب\nreasons.bill: الحساب\nreasons.water: ماء\nreasons.assistance: مساعدة",
+      "body": "waiterCalls: نداءات النادل\nnoCalls: لا أحد ينتظر.\nack: في طريقي\nacked: في الطريق\nresolve: تم\nageMinutes: قبل {age}\nageNow: الآن\nescalated: متأخر\noverdue: ينتظر منذ {age}\nsourceGuest: QR\ntable: طاولة {table}\noldCalls: أقدم من ساعتين: {count}\nshowOld: عرضها\nhideOld: إخفاؤها\nclearOld: مسح القديمة\nclearOldTitle: مسح نداءات النادل القديمة؟\nclearOldBody: نداءات مضى عليها أكثر من ساعتين: {count}. ستُغلق وتختفي من هذه القائمة. لن يتغير شيء آخر.\nclearOldConfirm: مسح\nreasons.order: يريد أن يطلب\nreasons.bill: يريد الحساب\nreasons.water: ماء\nreasons.assistance: يحتاج مساعدة",
       "route": null
     },
     {
@@ -19246,7 +19726,7 @@
       "ref": "label:ws.content.sheet",
       "lang": "ar",
       "title": "ws.content.sheet (packages/i18n/src/catalogs/ws/content.ar.ts)",
-      "body": "version: النسخة {n}\nsentBy: أُرسلت من {name}، {time}\ndecided.approve: موافق عليها\ndecided.changes: تعديلات مطلوبة\ndecided.decline: مرفوضة\nsuperseded: استُبدلت قبل صدور قرار\ndecidedBy: {name}، {time}\ncaption: النص\nimages: الصور ({count})\nimageAlt: الصورة {n}\nlink: الرابط\ncopy: نسخ الرابط\ncopied: نُسخ الرابط.\ncopyFailed: تعذّر النسخ. حدّد الرابط وانسخه.\nnote: ملاحظة من التسويق\nearlier: النسخ السابقة ({count})\nitem: عن {name}\ncampaign: الحملة: {name}\nownPost: أرسلت هذا المنشور، لذا يبتّ فيه مالك آخر.\nchangesReason: ما المطلوب تعديله\ndeclineReason: سبب الرفض\nreasonHint: يقرؤه {name}.\napproveVersion: موافقة على النسخة {n}\nchangesConfirm: طلب تعديلات\ndeclineConfirm: رفض المنشور\ndone.approve: تمت الموافقة، وأُبلغ {name}.\ndone.changes: طُلبت التعديلات، وأُبلغ {name}.\ndone.decline: رُفض المنشور، وأُبلغ {name}.\nrevise: تعديل\nwithdraw: سحب\nwithdrawConfirm: سحب المنشور\nwithdrawn: سُحب المنشور.\nkeep: إبقاء\nsendAgain: إعادة الإرسال",
+      "body": "version: النسخة {n}\nsentBy: أُرسلت من {name}، {time}\ndecided.approve: موافق عليها\ndecided.changes: تعديلات مطلوبة\ndecided.decline: مرفوضة\nsuperseded: استُبدلت قبل صدور قرار\ndecidedBy: {name}، {time}\ncaption: النص\nimages: الصور ({count})\nimageAlt: الصورة {n}\nlink: الرابط\ncopy: نسخ الرابط\ncopied: نُسخ الرابط.\ncopyFailed: تعذّر النسخ. حدّد الرابط وانسخه.\nnote: ملاحظة من التسويق\nearlier: النسخ السابقة ({count})\nitem: عن {name}\ncampaign: الحملة: {name}\nownPost: أرسلت هذا المنشور، لذا يبتّ فيه مالك آخر.\nchangesReason: ما المطلوب تعديله\ndeclineReason: سبب الرفض\nreasonHint: اختياري. يقرؤه {name}.\napproveVersion: موافقة على النسخة {n}\nchangesConfirm: طلب تعديلات\ndeclineConfirm: رفض المنشور\ndone.approve: تمت الموافقة، وأُبلغ {name}.\ndone.changes: طُلبت التعديلات، وأُبلغ {name}.\ndone.decline: رُفض المنشور، وأُبلغ {name}.\nrevise: تعديل\nwithdraw: سحب\nwithdrawConfirm: سحب المنشور\nwithdrawn: سُحب المنشور.\nkeep: إبقاء\nsendAgain: إعادة الإرسال",
       "route": null
     },
     {
@@ -19254,7 +19734,7 @@
       "ref": "label:ws.content.sheet",
       "lang": "en",
       "title": "ws.content.sheet (packages/i18n/src/catalogs/ws/content.en.ts)",
-      "body": "version: Version {n}\nsentBy: Sent by {name}, {time}\ndecided.approve: Approved\ndecided.changes: Changes asked\ndecided.decline: Declined\nsuperseded: Replaced before a decision\ndecidedBy: {name}, {time}\ncaption: Caption\nimages: Images ({count})\nimageAlt: Image {n}\nlink: Link\ncopy: Copy link\ncopied: Link copied.\ncopyFailed: Could not copy. Select the link and copy it.\nnote: Note from marketing\nearlier: Earlier versions ({count})\nitem: About {name}\ncampaign: Campaign: {name}\nownPost: You sent this post, so another owner decides it.\nchangesReason: What should change\ndeclineReason: Why it is declined\nreasonHint: {name} reads this.\napproveVersion: Approve version {n}\nchangesConfirm: Ask for changes\ndeclineConfirm: Decline post\ndone.approve: Approved. {name} is told.\ndone.changes: Changes asked. {name} is told.\ndone.decline: Declined. {name} is told.\nrevise: Revise\nwithdraw: Withdraw\nwithdrawConfirm: Withdraw post\nwithdrawn: Post withdrawn.\nkeep: Keep it\nsendAgain: Send again",
+      "body": "version: Version {n}\nsentBy: Sent by {name}, {time}\ndecided.approve: Approved\ndecided.changes: Changes asked\ndecided.decline: Declined\nsuperseded: Replaced before a decision\ndecidedBy: {name}, {time}\ncaption: Caption\nimages: Images ({count})\nimageAlt: Image {n}\nlink: Link\ncopy: Copy link\ncopied: Link copied.\ncopyFailed: Could not copy. Select the link and copy it.\nnote: Note from marketing\nearlier: Earlier versions ({count})\nitem: About {name}\ncampaign: Campaign: {name}\nownPost: You sent this post, so another owner decides it.\nchangesReason: What should change\ndeclineReason: Why it is declined\nreasonHint: Optional. {name} reads this.\napproveVersion: Approve version {n}\nchangesConfirm: Ask for changes\ndeclineConfirm: Decline post\ndone.approve: Approved. {name} is told.\ndone.changes: Changes asked. {name} is told.\ndone.decline: Declined. {name} is told.\nrevise: Revise\nwithdraw: Withdraw\nwithdrawConfirm: Withdraw post\nwithdrawn: Post withdrawn.\nkeep: Keep it\nsendAgain: Send again",
       "route": null
     },
     {
@@ -20222,7 +20702,7 @@
       "ref": "label:ws.incidents",
       "lang": "ar",
       "title": "ws.incidents (packages/i18n/src/catalogs/ws/incidents.ar.ts)",
-      "body": "title: الحوادث\nleadStation: بلِّغ هنا عن حادث أو إصابة أو شجار أو ضرر. يراجع مدير كل بلاغ.\nfilterLabel: عرض البلاغات\nreview: مراجعة\nview: فتح\nredactedText: حُذف نص هذا البلاغ.\nredactedShort: حُذف النص\nreviewedBy: راجعه {name}، {time}\nhappenedAt: وقت الحادثة: {time}\ncard: الحوادث والإصابات والشجارات والأضرار التي يبلِّغ عنها الموظفون: اقرأها وانظر إلى الصور وراجع كل بلاغ بملاحظة.",
+      "body": "title: الحوادث\nleadStation: بلِّغ هنا عن حادث أو إصابة أو شجار أو ضرر. يراجع مدير كل بلاغ.\nfilterLabel: عرض البلاغات\nreview: مراجعة\nview: فتح\nredactedText: حُذف نص هذا البلاغ.\nredactedShort: حُذف النص\nreviewedBy: راجعه {name}، {time}\nhappenedAt: وقت الحادثة: {time}\ncard: الحوادث والإصابات والشجارات والأضرار التي يبلِّغ عنها الموظفون. اقرأها، وانظر إلى الصور، وراجع كل بلاغ بملاحظة.",
       "route": null
     },
     {
@@ -20254,7 +20734,7 @@
       "ref": "label:ws.incidents.empty",
       "lang": "ar",
       "title": "ws.incidents.empty (packages/i18n/src/catalogs/ws/incidents.ar.ts)",
-      "body": "open: لا شيء للمراجعة\nopenBody: حين يبلِّغ أحدهم عن حادثة، تنتظر هنا حتى يراجعها مدير.\nreviewed: لا بلاغات تمت مراجعتها بعد\nall: لم يُبلَّغ عن أي حادثة",
+      "body": "open: لا شيء للمراجعة\nopenBody: حين يبلِّغ أحدهم عن حادثة، تنتظر هنا حتى يراجعها مدير.\nreviewed: لم يُراجَع أي بلاغ بعد\nall: لم يُبلَّغ عن أي حادثة",
       "route": null
     },
     {
@@ -20286,7 +20766,7 @@
       "ref": "label:ws.incidents.form",
       "lang": "ar",
       "title": "ws.incidents.form (packages/i18n/src/catalogs/ws/incidents.ar.ts)",
-      "body": "title: بلاغ عن حادثة\nkind: نوع الحادثة\nwhen: متى\nwhenHint: خلال آخر 7 أيام.\nnow: الآن\nminutesAgo: قبل {count} دقيقة\nhourAgo: قبل ساعة\npickTime: اختر وقتًا\nlead: يراجع مدير كل بلاغ.\nmenu: خطوات البلاغ\nstepOf: الخطوة {n} من {total}\nprogress: اكتمل {done} من {total}\nneedsLook: يحتاج إلى مراجعة\nwritten: مكتوب\nsteps.kind: نوع الحادثة\nsteps.placeTime: المكان والوقت\nsteps.story: ماذا حدث\nsteps.review: المراجعة\nreviewLead: راجع البلاغ قبل إرساله.\nchange: تغيير\nchangeLabel: تغيير {what}\nkindHint.accident: سقوط أو انزلاق أو اصطدام.\nkindHint.injury: أصيب أحدهم.\nkindHint.fight: جدال أو شجار.\nkindHint.damage: انكسر شيء ما.\nkindHint.other: أي شيء آخر.\nplace: أين\ncourt: أي ملعب\nchooseCourt: اختر ملعبًا\nplaceDetail: أين بالتحديد\nplaceDetailPlaceholder: قرب المدخل\nprivacyHint: اكتب ما يلزم فقط. لا تضف أرقام هواتف.\ndescription: ماذا حدث\npeople: الأشخاص المعنيون\npeopleHint: موظفون أو ضيوف أو غيرهم، بأقصر عبارة ممكنة.\nsubmit: إرسال البلاغ\nsent: أُرسل البلاغ. سيراجعه مدير.\nissue.required: هذا الحقل مطلوب.\nissue.whenRange: اختر وقتًا خلال آخر 7 أيام.\nissue.tooLong: الحد الأقصى للأحرف: {limit}.\nissue.tooMany: الحد الأقصى للصور: {limit}.\nmissing.kind: يرجى اختيار نوع الحادثة.\nmissing.description: يرجى وصف ما حدث.\nmissing.place: يرجى تحديد مكان وقوع الحادثة.\nmissing.courtId: يرجى اختيار الملعب.\nmissing.when: يرجى تحديد وقت وقوع الحادثة.\nrefused.kind: اختر نوع الحادثة.\nrefused.when: اختر وقتًا خلال آخر 7 أيام.\nrefused.place: اختر مكان وقوع الحادثة.\nrefused.courtId: لم يعد هذا الملعب ضمن هذا المكان. اختر ملعبًا آخر.\nrefused.placeDetail: النص طويل جدًا.\nrefused.description: اكتب ما حدث في 2,000 حرف على الأكثر.\nrefused.people: النص طويل جدًا.\nrefused.photos: لم تُرفع إحدى الصور كما ينبغي. أزلها ثم أضفها مرة أخرى.",
+      "body": "title: بلاغ عن حادثة\nkind: نوع الحادثة\nwhen: متى\nwhenHint: خلال آخر 7 أيام.\nnow: الآن\nminutesAgo: قبل {count} دقيقة\nhourAgo: قبل ساعة\npickTime: اختر وقتًا\nlead: يراجع مدير كل بلاغ.\nmenu: خطوات البلاغ\nstepOf: الخطوة {n} من {total}\nprogress: اكتمل {done} من {total}\nneedsLook: يحتاج إلى مراجعة\nwritten: مكتوب\nsteps.kind: نوع الحادثة\nsteps.placeTime: المكان والوقت\nsteps.story: ماذا حدث\nsteps.review: المراجعة\nreviewLead: راجع البلاغ قبل إرساله.\nchange: تغيير\nchangeLabel: تغيير {what}\nkindHint.accident: سقوط أو انزلاق أو اصطدام.\nkindHint.injury: أصيب أحدهم.\nkindHint.fight: جدال أو شجار.\nkindHint.damage: انكسر شيء ما.\nkindHint.other: أي شيء آخر.\nplace: أين\ncourt: أي ملعب\nchooseCourt: اختر ملعبًا\nplaceDetail: أين بالتحديد\nplaceDetailPlaceholder: قرب المدخل\nprivacyHint: اكتب ما يلزم فقط. لا تضف أرقام هواتف.\ndescription: ماذا حدث\npeople: الأشخاص المعنيون\npeopleHint: موظفون أو ضيوف أو غيرهم، بأقصر عبارة ممكنة.\nsubmit: إرسال البلاغ\nsent: أُرسل البلاغ. سيراجعه مدير.\nissue.required: هذا الحقل مطلوب.\nissue.whenRange: اختر وقتًا خلال آخر 7 أيام.\nissue.tooLong: الحد الأقصى للأحرف: {limit}.\nissue.tooMany: الحد الأقصى للصور: {limit}.\nmissing.kind: اختر نوع الحادثة.\nmissing.description: اكتب ما حدث.\nmissing.place: اختر مكان الحادثة.\nmissing.courtId: اختر الملعب.\nmissing.when: اختر وقت الحادثة.\nrefused.kind: اختر نوع الحادثة.\nrefused.when: اختر وقتًا خلال آخر 7 أيام.\nrefused.place: اختر مكان الحادثة.\nrefused.courtId: لم يعد هذا الملعب في هذا المكان. اختر ملعبًا آخر.\nrefused.placeDetail: النص طويل جدًا. اختصره.\nrefused.description: اكتب ما حدث في 2,000 حرف على الأكثر.\nrefused.people: النص طويل جدًا. اختصره.\nrefused.photos: لم تُرفع إحدى الصور كما ينبغي. أزلها ثم أضفها مرة أخرى.",
       "route": null
     },
     {
@@ -20334,7 +20814,7 @@
       "ref": "label:ws.incidents.waiting",
       "lang": "ar",
       "title": "ws.incidents.waiting (packages/i18n/src/catalogs/ws/incidents.ar.ts)",
-      "body": "title: حوادث للمراجعة\nhint: بلَّغ أحدهم عن حادثة، والمُبلِّغ ينتظر ملاحظتك.\naction: مراجعة الحوادث",
+      "body": "title: حوادث للمراجعة\nhint: بلَّغ أحدهم عن حادثة، وهو ينتظر ملاحظتك.\naction: مراجعة الحوادث",
       "route": null
     },
     {
@@ -20350,7 +20830,7 @@
       "ref": "label:ws.insights",
       "lang": "ar",
       "title": "ws.insights (packages/i18n/src/catalogs/ws/insights.ar.ts)",
-      "body": "title: المؤشرات\nperiod: {range}، مقارنةً بالفترة {compare}\nunknown: لا تكفي البيانات بعد\nslot: {day} {hour}\nofferLive: فعّال\nofferOff: متوقف\nofferUses: الاستخدام: {uses}\nnotRecordedList: منشورات إنستغرام وسائر مواقع التواصل، ودعوات الأصدقاء، والحضور المباشر، والتقييمات، كلها لا تُسجَّل في أي مكان بعد، فلا تستطيع هذه الصفحة أن تقول ماذا تجلب.",
+      "body": "title: المؤشرات\nperiod: {range}، مقارنةً بالفترة {compare}\nlevelPct: {level} ({pct})\nunknown: لا تكفي البيانات بعد\nslot: {day} {hour}\nofferLive: فعّال\nofferOff: متوقف\nofferUses: الاستخدام: {uses}\nnotRecordedList: منشورات إنستغرام وسائر مواقع التواصل، ودعوات الأصدقاء، والحضور المباشر، والتقييمات، كلها لا تُسجَّل في أي مكان بعد، فلا تستطيع هذه الصفحة أن تقول ماذا تجلب.",
       "route": null
     },
     {
@@ -20358,7 +20838,7 @@
       "ref": "label:ws.insights",
       "lang": "en",
       "title": "ws.insights (packages/i18n/src/catalogs/ws/insights.en.ts)",
-      "body": "title: Insights\nperiod: {range}, compared with {compare}\nunknown: Not enough data yet\nslot: {day} {hour}\nofferLive: Live\nofferOff: Off\nofferUses: Uses: {uses}\nnotRecordedList: Instagram and other social posts, friend referrals, walk-ins and reviews are not recorded anywhere yet, so this page cannot say what they bring.",
+      "body": "title: Insights\nperiod: {range}, compared with {compare}\nlevelPct: {level} ({pct})\nunknown: Not enough data yet\nslot: {day} {hour}\nofferLive: Live\nofferOff: Off\nofferUses: Uses: {uses}\nnotRecordedList: Instagram and other social posts, friend referrals, walk-ins and reviews are not recorded anywhere yet, so this page cannot say what they bring.",
       "route": null
     },
     {
@@ -20475,6 +20955,22 @@
     },
     {
       "kind": "label",
+      "ref": "label:ws.insights.size",
+      "lang": "ar",
+      "title": "ws.insights.size (packages/i18n/src/catalogs/ws/insights.ar.ts)",
+      "body": "pts: {n} نقطة\ntimes: ×{n}",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.insights.size",
+      "lang": "en",
+      "title": "ws.insights.size (packages/i18n/src/catalogs/ws/insights.en.ts)",
+      "body": "pts: {n} pts\ntimes: ×{n}",
+      "route": null
+    },
+    {
+      "kind": "label",
       "ref": "label:ws.insights.trend",
       "lang": "ar",
       "title": "ws.insights.trend (packages/i18n/src/catalogs/ws/insights.ar.ts)",
@@ -20507,6 +21003,38 @@
     },
     {
       "kind": "label",
+      "ref": "label:ws.insights.trendLineSized",
+      "lang": "ar",
+      "title": "ws.insights.trendLineSized (packages/i18n/src/catalogs/ws/insights.ar.ts)",
+      "body": "up: ارتفاع {size} عن فترة المقارنة\nsteady: قريب من فترة المقارنة ({size})\ndown: انخفاض {size} عن فترة المقارنة",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.insights.trendLineSized",
+      "lang": "en",
+      "title": "ws.insights.trendLineSized (packages/i18n/src/catalogs/ws/insights.en.ts)",
+      "body": "up: Up {size} on the comparison\nsteady: About the same ({size})\ndown: Down {size} on the comparison",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.insights.trendSized",
+      "lang": "ar",
+      "title": "ws.insights.trendSized (packages/i18n/src/catalogs/ws/insights.ar.ts)",
+      "body": "up: ارتفاع {size}\nsteady: ثابت ({size})\ndown: انخفاض {size}",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.insights.trendSized",
+      "lang": "en",
+      "title": "ws.insights.trendSized (packages/i18n/src/catalogs/ws/insights.en.ts)",
+      "body": "up: Up {size}\nsteady: Steady ({size})\ndown: Down {size}",
+      "route": null
+    },
+    {
+      "kind": "label",
       "ref": "label:ws.insights.verdict",
       "lang": "ar",
       "title": "ws.insights.verdict (packages/i18n/src/catalogs/ws/insights.ar.ts)",
@@ -20526,7 +21054,7 @@
       "ref": "label:ws.insights.zones",
       "lang": "ar",
       "title": "ws.insights.zones (packages/i18n/src/catalogs/ws/insights.ar.ts)",
-      "body": "glance: نظرة سريعة\nglanceDesc: المكان كله في أربع بطاقات: مدى امتلاء الملاعب، وعدد من يلعبون، وكم منهم يشتري من الكافيه، واتجاه الإيرادات. كل رقم هنا كلمة أو نسبة تقريبية، مقارنةً بالفترة المختارة في الشريط.\nwhen: متى تروّج\nwhenDesc: مدى امتلاء الملاعب في كل ساعة من الأسبوع. املأ الساعات الهادئة بالعروض والمنشورات، واترك الساعات الممتلئة فهي تمتلئ وحدها.\nwhenNav: الأوقات\nplayers: من يلعب\nplayersDesc: اللاعبون الذين يعرفهم النظام (بحساب في التطبيق أو بسجل زبون في المكتب). الجديد هو من يحجز لأول مرة منذ ستة أشهر، والزبائن الدائمون يحجزون مرة بعد مرة، ومن انقطع منهم لم يحجز منذ مدة ويستحق أن نستعيده.\nplayersNav: اللاعبون\nchannels: كيف يحجزون\nchannelsDesc: هل تأتي الحجوزات من التطبيق أم من المكتب، وقبل كم من الوقت يحجز الناس. المصادر الأخرى (إنستغرام، الأصدقاء، الحضور المباشر) لا تُسجَّل بعد.\nchannelsNav: الحجز\noffers: العروض\noffersDesc: كم استُخدم كل عرض في الفترة. الاستخدام حقيقة مسجّلة، أما هل جلب العرض أناسًا ما كانوا ليأتوا من دونه فذلك ما لا يستطيع النظام معرفته.\ncafe: الكافيه والمتجر\ncafeDesc: كم من لاعبي الملاعب يشترون من الكافيه أيضًا، ومتى يزدحم الكافيه، وما الأكثر مبيعًا والأقل.\ncafeNav: الكافيه\nevents: البطولات والولاء\neventsDesc: مدى امتلاء البطولات، وكم من لاعبيها عادوا إلى بطولة أخرى، وهل يستخدم أعضاء برنامج الولاء نقاطهم.\neventsNav: الفعاليات\nmix: من أين تأتي الإيرادات\nmixDesc: كل جزء بنسبته من المجموع، دون أي مبلغ، مع اتجاه حركته.\nmixNav: توزيع الإيرادات",
+      "body": "glance: نظرة سريعة\nglanceDesc: المكان كله في أربع بطاقات: مدى امتلاء الملاعب، وعدد من يلعبون، وكم منهم يشتري من الكافيه، واتجاه الإيرادات. كل رقم هنا كلمة أو نسبة مئوية، مقارنةً بالفترة المختارة في الشريط، مع مقدار تغيّره.\nwhen: متى تروّج\nwhenDesc: مدى امتلاء الملاعب في كل ساعة من الأسبوع. املأ الساعات الهادئة بالعروض والمنشورات، واترك الساعات الممتلئة فهي تمتلئ وحدها.\nwhenNav: الأوقات\nplayers: من يلعب\nplayersDesc: اللاعبون الذين يعرفهم النظام (بحساب في التطبيق أو بسجل زبون في المكتب). الجديد هو من يحجز لأول مرة منذ ستة أشهر، والزبائن الدائمون يحجزون مرة بعد مرة، ومن انقطع منهم لم يحجز منذ مدة ويستحق أن نستعيده.\nplayersNav: اللاعبون\nchannels: كيف يحجزون\nchannelsDesc: هل تأتي الحجوزات من التطبيق أم من المكتب، وقبل كم من الوقت يحجز الناس. المصادر الأخرى (إنستغرام، الأصدقاء، الحضور المباشر) لا تُسجَّل بعد.\nchannelsNav: الحجز\noffers: العروض\noffersDesc: كم استُخدم كل عرض في الفترة. الاستخدام حقيقة مسجّلة، أما هل جلب العرض أناسًا ما كانوا ليأتوا من دونه فذلك ما لا يستطيع النظام معرفته.\ncafe: الكافيه والمتجر\ncafeDesc: كم من لاعبي الملاعب يشترون من الكافيه أيضًا، ومتى يزدحم الكافيه، وما الأكثر مبيعًا والأقل.\ncafeNav: الكافيه\nevents: البطولات والولاء\neventsDesc: مدى امتلاء البطولات، وكم من لاعبيها عادوا إلى بطولة أخرى، وهل يستخدم أعضاء برنامج الولاء نقاطهم.\neventsNav: الفعاليات\nmix: من أين تأتي الإيرادات\nmixDesc: كل جزء بنسبته المئوية من المجموع، دون أي مبلغ، مع مقدار تغيّره.\nmixNav: توزيع الإيرادات",
       "route": null
     },
     {
@@ -20534,7 +21062,7 @@
       "ref": "label:ws.insights.zones",
       "lang": "en",
       "title": "ws.insights.zones (packages/i18n/src/catalogs/ws/insights.en.ts)",
-      "body": "glance: At a glance\nglanceDesc: The whole place in four cards: how full the courts are, how many people play, how many of them buy at the café, and which way the money is going. Each figure is a word or a rounded share, compared with the window in the bar.\nwhen: When to push\nwhenDesc: How full the courts are at each hour of the week. Fill the quiet hours with offers and posts; leave the full ones alone, they sell themselves.\nwhenNav: When\nplayers: Who plays\nplayersDesc: Players the system knows (an app account or a customer record at the desk). New means their first booking in the last six months; regulars book again and again; lapsing regulars have not booked for a while and are worth winning back.\nplayersNav: Players\nchannels: How they book\nchannelsDesc: Whether bookings come from the app or the desk, and how far ahead people book. Other sources (Instagram, friends, walk-ins) are not recorded yet.\nchannelsNav: Booking\noffers: Offers\noffersDesc: How much each offer was used in the period. A use is a fact; whether the offer brought in people who would not have come anyway is not something the system can tell.\ncafe: Café and shop\ncafeDesc: How many court players also buy at the café, when the café is busy, and what sells best and least.\ncafeNav: Café\nevents: Tournaments and loyalty\neventsDesc: How full tournaments ran and how many players came back for another, and whether loyalty members use their points.\neventsNav: Events\nmix: Where the money comes from\nmixDesc: Each part as a share of the whole, never an amount, and which way it moved.\nmixNav: Money mix",
+      "body": "glance: At a glance\nglanceDesc: The whole place in four cards: how full the courts are, how many people play, how many of them buy at the café, and which way the money is going. Each figure is a word or a percentage, compared with the window in the bar, with how far it moved.\nwhen: When to push\nwhenDesc: How full the courts are at each hour of the week. Fill the quiet hours with offers and posts; leave the full ones alone, they sell themselves.\nwhenNav: When\nplayers: Who plays\nplayersDesc: Players the system knows (an app account or a customer record at the desk). New means their first booking in the last six months; regulars book again and again; lapsing regulars have not booked for a while and are worth winning back.\nplayersNav: Players\nchannels: How they book\nchannelsDesc: Whether bookings come from the app or the desk, and how far ahead people book. Other sources (Instagram, friends, walk-ins) are not recorded yet.\nchannelsNav: Booking\noffers: Offers\noffersDesc: How much each offer was used in the period. A use is a fact; whether the offer brought in people who would not have come anyway is not something the system can tell.\ncafe: Café and shop\ncafeDesc: How many court players also buy at the café, when the café is busy, and what sells best and least.\ncafeNav: Café\nevents: Tournaments and loyalty\neventsDesc: How full tournaments ran and how many players came back for another, and whether loyalty members use their points.\neventsNav: Events\nmix: Where the money comes from\nmixDesc: Each part as a percentage of the whole, never an amount, and how far it moved.\nmixNav: Money mix",
       "route": null
     },
     {
@@ -22582,7 +23110,7 @@
       "ref": "label:ws.owner.requests",
       "lang": "ar",
       "title": "ws.owner.requests (packages/i18n/src/catalogs/ws/owner.ar.ts)",
-      "body": "title: طلبات الموظفين\nlead: الإجازات وتبديل الورديات والسُلف على الراتب وتصحيح السجلات التي طلبها فريقك.\nkinds.leave: إجازة\nkinds.shift_swap: تبديل وردية\nkinds.advance: سُلفة على الراتب\nkinds.correction: تصحيح سجل\nstatuses.pending: بانتظار القرار\nstatuses.approved: موافَق عليه\nstatuses.rejected: مرفوض\nstatuses.withdrawn: مسحوب\nfilter.all: الكل\nfilter.pending: بانتظار القرار\nfilter.decided: صدر فيها قرار\ncols.staff: الموظف\ncols.kind: نوع الطلب\ncols.detail: التفاصيل\ncols.submitted: تاريخ التقديم\ncols.status: الحالة\ncols.decided: القرار\ndates: من {from} إلى {to}\noneDay: {from}\napprove: موافقة\ndecline: رفض\napproveTitle: الموافقة على هذا الطلب؟\ndeclineTitle: رفض هذا الطلب؟\napproveBody: طلب {name}: {kind}. تُسجَّل الموافقة باسمك ولا يمكن التراجع عنها.\ndeclineBody: طلب {name}: {kind}. يجب ذكر سبب الرفض، وسيقرؤه صاحب الطلب.\nnoteLabel: ملاحظة\nnoteOptional: ملاحظة (اختيارية)\nreasonLabel: سبب الرفض\ndecidedBy: بواسطة {name}\ndecidedByOn: بواسطة {name} في {date}\ntoastApproved: تمت الموافقة على الطلب.\ntoastDeclined: رُفض الطلب.\nemptyTitle: لا طلبات\nemptyBody: ستظهر هنا طلبات الإجازة وتبديل الورديات والسُلف وتصحيح السجلات.\nemptyPendingTitle: لا شيء بانتظار قرار\nemptyPendingBody: تظهر هنا الطلبات الجديدة من فريقك.",
+      "body": "title: طلبات الموظفين\nlead: الإجازات وتبديل الورديات والسُلف على الراتب وتصحيح السجلات التي طلبها فريقك.\nkinds.leave: إجازة\nkinds.shift_swap: تبديل وردية\nkinds.advance: سُلفة على الراتب\nkinds.correction: تصحيح سجل\nstatuses.pending: بانتظار القرار\nstatuses.approved: موافَق عليه\nstatuses.rejected: مرفوض\nstatuses.withdrawn: مسحوب\nfilter.all: الكل\nfilter.pending: بانتظار القرار\nfilter.decided: صدر فيها قرار\ncols.staff: الموظف\ncols.kind: نوع الطلب\ncols.detail: التفاصيل\ncols.submitted: تاريخ التقديم\ncols.status: الحالة\ncols.decided: القرار\ndates: من {from} إلى {to}\noneDay: {from}\napprove: موافقة\ndecline: رفض\napproveTitle: الموافقة على هذا الطلب؟\ndeclineTitle: رفض هذا الطلب؟\napproveBody: طلب {name}: {kind}. تُسجَّل الموافقة باسمك ولا يمكن التراجع عنها.\ndeclineBody: طلب {name}: {kind}. يجب ذكر سبب الرفض، وسيقرؤه صاحب الطلب.\nnoteLabel: ملاحظة\nnoteOptional: ملاحظة (اختيارية)\nreasonLabel: سبب الرفض (اختياري)\ndecidedBy: بواسطة {name}\ndecidedByOn: بواسطة {name} في {date}\ntoastApproved: تمت الموافقة على الطلب.\ntoastDeclined: رُفض الطلب.\nemptyTitle: لا طلبات\nemptyBody: ستظهر هنا طلبات الإجازة وتبديل الورديات والسُلف وتصحيح السجلات.\nemptyPendingTitle: لا شيء بانتظار قرار\nemptyPendingBody: تظهر هنا الطلبات الجديدة من فريقك.",
       "route": "/observation/requests"
     },
     {
@@ -22590,7 +23118,7 @@
       "ref": "label:ws.owner.requests",
       "lang": "en",
       "title": "ws.owner.requests (packages/i18n/src/catalogs/ws/owner.en.ts)",
-      "body": "title: Staff requests\nlead: Leave, shift swaps, wage advances and record corrections your team has asked for.\nkinds.leave: Leave\nkinds.shift_swap: Shift swap\nkinds.advance: Wage advance\nkinds.correction: Record correction\nstatuses.pending: Awaiting decision\nstatuses.approved: Approved\nstatuses.rejected: Declined\nstatuses.withdrawn: Withdrawn\nfilter.all: All\nfilter.pending: Awaiting decision\nfilter.decided: Decided\ncols.staff: Who\ncols.kind: Asking for\ncols.detail: Detail\ncols.submitted: Submitted\ncols.status: Status\ncols.decided: Decided\ndates: {from} to {to}\noneDay: {from}\napprove: Approve\ndecline: Decline\napproveTitle: Approve this request?\ndeclineTitle: Decline this request?\napproveBody: {name} asked for {kind}. Approving is recorded against your name and cannot be undone.\ndeclineBody: {name} asked for {kind}. A declined request has to say why — the person will read this.\nnoteLabel: Note\nnoteOptional: Note (optional)\nreasonLabel: Reason for declining\ndecidedBy: By {name}\ndecidedByOn: By {name} on {date}\ntoastApproved: Request approved\ntoastDeclined: Request declined\nemptyTitle: No requests\nemptyBody: When someone asks for leave, a swap, an advance or a correction, it lands here.\nemptyPendingTitle: Nothing awaiting a decision\nemptyPendingBody: New requests from your team appear here.",
+      "body": "title: Staff requests\nlead: Leave, shift swaps, wage advances and record corrections your team has asked for.\nkinds.leave: Leave\nkinds.shift_swap: Shift swap\nkinds.advance: Wage advance\nkinds.correction: Record correction\nstatuses.pending: Awaiting decision\nstatuses.approved: Approved\nstatuses.rejected: Declined\nstatuses.withdrawn: Withdrawn\nfilter.all: All\nfilter.pending: Awaiting decision\nfilter.decided: Decided\ncols.staff: Who\ncols.kind: Asking for\ncols.detail: Detail\ncols.submitted: Submitted\ncols.status: Status\ncols.decided: Decided\ndates: {from} to {to}\noneDay: {from}\napprove: Approve\ndecline: Decline\napproveTitle: Approve this request?\ndeclineTitle: Decline this request?\napproveBody: {name} asked for {kind}. Approving is recorded against your name and cannot be undone.\ndeclineBody: {name} asked for {kind}. A declined request has to say why — the person will read this.\nnoteLabel: Note\nnoteOptional: Note (optional)\nreasonLabel: Reason for declining (optional)\ndecidedBy: By {name}\ndecidedByOn: By {name} on {date}\ntoastApproved: Request approved\ntoastDeclined: Request declined\nemptyTitle: No requests\nemptyBody: When someone asks for leave, a swap, an advance or a correction, it lands here.\nemptyPendingTitle: Nothing awaiting a decision\nemptyPendingBody: New requests from your team appear here.",
       "route": "/observation/requests"
     },
     {
@@ -22742,7 +23270,7 @@
       "ref": "label:ws.owner.staff#3",
       "lang": "ar",
       "title": "ws.owner.staff (packages/i18n/src/catalogs/ws/owner.ar.ts)",
-      "body": "pin.removeBody: لن يستطيع اعتماد الخصومات أو الإلغاءات أو تغيير الأسعار على كاشير الكافيه حتى يُحدَّد رقم سري جديد.\npin.removed: أُزيل الرقم السري.\npin.saved: حُفظ الرقم السري.\nrefusals.pinWeak: هذا الرقم السري سهل التخمين. تجنّب الأرقام المكررة والمتتالية مثل 123456.\nrefusals.pinFormat: الرقم السري من 6 إلى 12 رقمًا.\nrefusals.emailInUse: يوجد حساب بهذا البريد الإلكتروني بالفعل.\nrefusals.roleRetired: دور «المطبخ» لم يعد يُمنح لأحد. اختر باريستا أو مساعد شيف.\nrefusals.lastOwner: هذا هو المالك الوحيد. اجعل شخصًا آخر مالكًا أولًا.\nstations.title: المحطات\nstations.lead: يظهر الشخص بين خيارات التغطية على شاشة الاستراحة في هذه المحطات.\nstations.management: المديرون والمالكون يستطيعون تغطية أي محطة.\nstations.none: لم تتصل أي محطة بعد. تظهر المحطة هنا بعد تشغيل تطبيقها.\nstations.save: حفظ المحطات\nstations.saved: حُفظت المحطات.\naccess.title: الصلاحيات\naccess.lead: يحدّد الدور الصفحات المؤشَّرة. أضف وظيفة ثانية لمن يقوم بعملين، أو أزل التأشير عن صفحة لمنعه من فتحها.\naccess.owner: المالك يفتح كل شيء، فلا شيء هنا للتأشير.\naccess.jobsTitle: وظائف إضافية\naccess.jobsHint: كل وظيفة تضيف شاشاتها وأزرارها إلى جانب دوره.\naccess.management: المدير يفتح أصلًا كاشير الكافيه ومكتب الملاعب وشاشة المطبخ والمتجر.\naccess.pagesTitle: الصفحات التي يفتحها\naccess.pagesHint: أزل التأشير عن صفحة لتختفي من قائمته ولا يستطيع فتحها.\naccess.areas.till: كاشير الكافيه\naccess.areas.desk: مكتب الملاعب\naccess.areas.customers: العملاء\naccess.areas.tournaments: البطولات\naccess.areas.kds: المطبخ\naccess.areas.shop: متجر تتش\naccess.areas.tasks: مهامي\naccess.areas.insights: المؤشرات\naccess.areas.incidents: الحوادث\naccess.areas.ops: العمليات\naccess.areas.stock: المخزون\naccess.areas.admin: الإعداد (القائمة، الملاعب، إغلاق اليوم)\naccess.areas.reports: التقارير\naccess.areas.protocols: البروتوكولات\naccess.areas.suggestions: الاقتراحات\naccess.areas.deductions: الخصومات من الراتب\naccess.areas.attendance: التأخير والانصراف المبكر\naccess.save: حفظ الصلاحيات\naccess.saved: حُفظت الصلاحيات.",
+      "body": "pin.removeBody: لن يستطيع اعتماد الخصومات أو الإلغاءات أو تغيير الأسعار على كاشير الكافيه حتى يُحدَّد رقم سري جديد.\npin.removed: أُزيل الرقم السري.\npin.saved: حُفظ الرقم السري.\nrefusals.pinWeak: هذا الرقم السري سهل التخمين. تجنّب الأرقام المكررة والمتتالية مثل 123456.\nrefusals.pinFormat: الرقم السري من 6 إلى 12 رقمًا.\nrefusals.emailInUse: يوجد حساب بهذا البريد الإلكتروني بالفعل.\nrefusals.roleRetired: دور «المطبخ» لم يعد يُمنح لأحد. اختر باريستا أو مساعد شيف.\nrefusals.lastOwner: هذا هو المالك الوحيد. اجعل شخصًا آخر مالكًا أولًا.\nstations.title: المحطات\nstations.lead: يظهر الشخص بين خيارات التغطية على شاشة الاستراحة في هذه المحطات.\nstations.management: المديرون والمالكون يستطيعون تغطية أي محطة.\nstations.none: لم تتصل أي محطة بعد. تظهر المحطة هنا بعد تشغيل تطبيقها.\nstations.save: حفظ المحطات\nstations.saved: حُفظت المحطات.\naccess.title: الصلاحيات\naccess.lead: يحدّد الدور الصفحات المؤشَّرة. أضف وظيفة ثانية لمن يقوم بعملين، أو أزل التأشير عن صفحة لمنعه من فتحها.\naccess.owner: المالك يفتح كل شيء، فلا شيء هنا للتأشير.\naccess.jobsTitle: وظائف إضافية\naccess.jobsHint: كل وظيفة تضيف شاشاتها وأزرارها إلى جانب دوره.\naccess.management: المدير يفتح أصلًا كاشير الكافيه ومكتب الملاعب وشاشة المطبخ والمتجر.\naccess.pagesTitle: الصفحات التي يفتحها\naccess.pagesHint: أزل التأشير عن صفحة لتختفي من قائمته ولا يستطيع فتحها.\naccess.areas.till: كاشير الكافيه\naccess.areas.desk: مكتب الملاعب\naccess.areas.customers: العملاء\naccess.areas.tournaments: البطولات\naccess.areas.kds: المطبخ\naccess.areas.shop: متجر تتش\naccess.areas.tasks: مهامي\naccess.areas.insights: المؤشرات\naccess.areas.content: خطة المحتوى والمنشورات\naccess.areas.incidents: الحوادث\naccess.areas.ops: العمليات\naccess.areas.stock: المخزون\naccess.areas.admin: الإعداد (القائمة، الملاعب، إغلاق اليوم)\naccess.areas.reports: التقارير\naccess.areas.protocols: البروتوكولات\naccess.areas.suggestions: الاقتراحات\naccess.areas.deductions: الخصومات من الراتب\naccess.areas.attendance: التأخير والانصراف المبكر\naccess.save: حفظ الصلاحيات",
       "route": "/admin/staff"
     },
     {
@@ -22758,7 +23286,7 @@
       "ref": "label:ws.owner.staff#4",
       "lang": "ar",
       "title": "ws.owner.staff (packages/i18n/src/catalogs/ws/owner.ar.ts)",
-      "body": "access.confirmTitle: تغيير ما يستطيع {name} فتحه؟\naccess.confirmAddJobs: يضيف الوظيفة الإضافية: {list}.\naccess.confirmRemoveJobs: يزيل الوظيفة الإضافية: {list}.\naccess.confirmBlock: يمنعه من فتح: {list}.\naccess.confirmUnblock: يفتح له من جديد: {list}.\naccess.confirmWhen: تتحدّث شاشاته خلال دقيقة.\nbreaks.title: الاستراحات\nbreaks.allowance: وقت الاستراحة لكل شخص في اليوم\nbreaks.minutes: دقيقة\nbreaks.hint: يمكن تقسيم هذا الوقت على عدة استراحات. القيمة 0 توقف الاستراحات. بدء الاستراحة أو إنهاؤها يتطلب الرقم السري للشخص نفسه.\nbreaks.save: حفظ\nbreaks.saved: حُفظ وقت الاستراحة.\neditor.close: إغلاق\neditor.selfNote: هذا حسابك. وحده مالك آخر يستطيع تغيير دورك أو إزالة صلاحيتك.\neditor.name: الاسم الظاهر في التطبيق\neditor.nameHint: لا يمكن تغيير البريد الإلكتروني المستخدم لتسجيل الدخول من هنا. لاستخدام بريد آخر، أضف حسابًا جديدًا وأزل الصلاحية عن هذا الحساب.\neditor.saveName: حفظ الاسم\neditor.saveRole: تغيير الدور\neditor.roleInactive: أعد الصلاحية لهذا الشخص قبل تغيير دوره.\neditor.roleConfirm: تغيير دور {name} إلى {role}؟\neditor.roleConfirmAction: تغيير الدور إلى {role}\neditor.roleWhen: يسري التغيير فورًا، وتتحدّث القوائم عند تسجيل الدخول التالي.\neditor.roleSaved: غُيّر الدور.\neditor.accessTitle: الصلاحية\neditor.enabledNote: إزالة الصلاحية تُسجّل خروجه من التطبيق وتمنعه من الدخول مرة أخرى. تبقى سجلاته باسمه.\neditor.disabledNote: لا يستطيع هذا الشخص تسجيل الدخول. يبقى عمله السابق في السجلات باسمه.\neditor.removeConfirm: إزالة صلاحية {name}؟\neditor.restoreConfirm: إعادة الصلاحية إلى {name}؟\neditor.restoreBody: يستطيع تسجيل الدخول مرة أخرى بكلمة المرور القديمة وبالدور الظاهر. وسيحتاج إلى رقم سري جديد.\neditor.accessRemoved: أُزيلت الصلاحية.\neditor.accessRestored: أُعيدت الصلاحية.",
+      "body": "access.saved: حُفظت الصلاحيات.\naccess.confirmTitle: تغيير ما يستطيع {name} فتحه؟\naccess.confirmAddJobs: يضيف الوظيفة الإضافية: {list}.\naccess.confirmRemoveJobs: يزيل الوظيفة الإضافية: {list}.\naccess.confirmBlock: يمنعه من فتح: {list}.\naccess.confirmUnblock: يفتح له من جديد: {list}.\naccess.confirmWhen: تتحدّث شاشاته خلال دقيقة.\nbreaks.title: الاستراحات\nbreaks.allowance: وقت الاستراحة لكل شخص في اليوم\nbreaks.minutes: دقيقة\nbreaks.hint: يمكن تقسيم هذا الوقت على عدة استراحات. القيمة 0 توقف الاستراحات. بدء الاستراحة أو إنهاؤها يتطلب الرقم السري للشخص نفسه.\nbreaks.save: حفظ\nbreaks.saved: حُفظ وقت الاستراحة.\neditor.close: إغلاق\neditor.selfNote: هذا حسابك. وحده مالك آخر يستطيع تغيير دورك أو إزالة صلاحيتك.\neditor.name: الاسم الظاهر في التطبيق\neditor.nameHint: لا يمكن تغيير البريد الإلكتروني المستخدم لتسجيل الدخول من هنا. لاستخدام بريد آخر، أضف حسابًا جديدًا وأزل الصلاحية عن هذا الحساب.\neditor.saveName: حفظ الاسم\neditor.saveRole: تغيير الدور\neditor.roleInactive: أعد الصلاحية لهذا الشخص قبل تغيير دوره.\neditor.roleConfirm: تغيير دور {name} إلى {role}؟\neditor.roleConfirmAction: تغيير الدور إلى {role}\neditor.roleWhen: يسري التغيير فورًا، وتتحدّث القوائم عند تسجيل الدخول التالي.\neditor.roleSaved: غُيّر الدور.\neditor.accessTitle: الصلاحية\neditor.enabledNote: إزالة الصلاحية تُسجّل خروجه من التطبيق وتمنعه من الدخول مرة أخرى. تبقى سجلاته باسمه.\neditor.disabledNote: لا يستطيع هذا الشخص تسجيل الدخول. يبقى عمله السابق في السجلات باسمه.\neditor.removeConfirm: إزالة صلاحية {name}؟\neditor.restoreConfirm: إعادة الصلاحية إلى {name}؟\neditor.restoreBody: يستطيع تسجيل الدخول مرة أخرى بكلمة المرور القديمة وبالدور الظاهر. وسيحتاج إلى رقم سري جديد.\neditor.accessRemoved: أُزيلت الصلاحية.\neditor.accessRestored: أُعيدت الصلاحية.",
       "route": "/admin/staff"
     },
     {
@@ -22766,7 +23294,7 @@
       "ref": "label:ws.owner.staff#4",
       "lang": "en",
       "title": "ws.owner.staff (packages/i18n/src/catalogs/ws/owner.en.ts)",
-      "body": "access.areas.incidents: Incidents\naccess.areas.ops: Operations\naccess.areas.stock: Stock\naccess.areas.admin: Setup (menu, courts, day close)\naccess.areas.reports: Reports\naccess.areas.protocols: Protocols\naccess.areas.suggestions: Suggestions\naccess.areas.deductions: Pay deductions\naccess.areas.attendance: Late and early\naccess.save: Save access\naccess.saved: Access saved.\naccess.confirmTitle: Change what {name} can open?\naccess.confirmAddJobs: Adds the second job: {list}.\naccess.confirmRemoveJobs: Takes away the second job: {list}.\naccess.confirmBlock: Keeps them out of: {list}.\naccess.confirmUnblock: Opens again: {list}.\naccess.confirmWhen: Their screens update within a minute.\nbreaks.title: Breaks\nbreaks.allowance: Break time per person per day\nbreaks.minutes: minutes\nbreaks.hint: Several breaks may add up to this. 0 switches breaks off. Starting or ending one takes the person’s own PIN.\nbreaks.save: Save\nbreaks.saved: Break allowance saved.\neditor.close: Close\neditor.selfNote: This is your own account. Only another owner can change your role or remove your access.\neditor.name: Name shown in the app\neditor.nameHint: The sign-in email cannot be changed here. To use a different email, add a new account and remove access from this one.\neditor.saveName: Save name\neditor.saveRole: Change role\neditor.roleInactive: Give this person access again before changing their role.\neditor.roleConfirm: Change {name}’s role to {role}?\neditor.roleConfirmAction: Change to {role}\neditor.roleWhen: The change applies straight away; their menus update the next time they sign in.\neditor.roleSaved: Role changed.\neditor.accessTitle: Access\neditor.enabledNote: Removing access signs them out and stops them signing in. Their records stay under their name.\neditor.disabledNote: This person cannot sign in. Their past work stays in the records under their name.\neditor.removeConfirm: Remove access for {name}?\neditor.restoreConfirm: Give {name} access again?",
+      "body": "access.areas.content: Content plan and posts\naccess.areas.incidents: Incidents\naccess.areas.ops: Operations\naccess.areas.stock: Stock\naccess.areas.admin: Setup (menu, courts, day close)\naccess.areas.reports: Reports\naccess.areas.protocols: Protocols\naccess.areas.suggestions: Suggestions\naccess.areas.deductions: Pay deductions\naccess.areas.attendance: Late and early\naccess.save: Save access\naccess.saved: Access saved.\naccess.confirmTitle: Change what {name} can open?\naccess.confirmAddJobs: Adds the second job: {list}.\naccess.confirmRemoveJobs: Takes away the second job: {list}.\naccess.confirmBlock: Keeps them out of: {list}.\naccess.confirmUnblock: Opens again: {list}.\naccess.confirmWhen: Their screens update within a minute.\nbreaks.title: Breaks\nbreaks.allowance: Break time per person per day\nbreaks.minutes: minutes\nbreaks.hint: Several breaks may add up to this. 0 switches breaks off. Starting or ending one takes the person’s own PIN.\nbreaks.save: Save\nbreaks.saved: Break allowance saved.\neditor.close: Close\neditor.selfNote: This is your own account. Only another owner can change your role or remove your access.\neditor.name: Name shown in the app\neditor.nameHint: The sign-in email cannot be changed here. To use a different email, add a new account and remove access from this one.\neditor.saveName: Save name\neditor.saveRole: Change role\neditor.roleInactive: Give this person access again before changing their role.\neditor.roleConfirm: Change {name}’s role to {role}?\neditor.roleConfirmAction: Change to {role}\neditor.roleWhen: The change applies straight away; their menus update the next time they sign in.\neditor.roleSaved: Role changed.\neditor.accessTitle: Access\neditor.enabledNote: Removing access signs them out and stops them signing in. Their records stay under their name.\neditor.disabledNote: This person cannot sign in. Their past work stays in the records under their name.\neditor.removeConfirm: Remove access for {name}?",
       "route": "/admin/staff"
     },
     {
@@ -22774,7 +23302,7 @@
       "ref": "label:ws.owner.staff#5",
       "lang": "en",
       "title": "ws.owner.staff (packages/i18n/src/catalogs/ws/owner.en.ts)",
-      "body": "editor.restoreBody: They can sign in again with their old password, in the role shown. They will need a new PIN.\neditor.accessRemoved: Access removed.\neditor.accessRestored: Access given back.",
+      "body": "editor.restoreConfirm: Give {name} access again?\neditor.restoreBody: They can sign in again with their old password, in the role shown. They will need a new PIN.\neditor.accessRemoved: Access removed.\neditor.accessRestored: Access given back.",
       "route": "/admin/staff"
     },
     {
@@ -22808,6 +23336,294 @@
       "title": "ws.owner.tables (packages/i18n/src/catalogs/ws/owner.en.ts)",
       "body": "form.numberHint: Printed large on the card, and how staff find the table at the café cashier.\nform.zoneHint: Where the table is, like Terrace or Upstairs.\nform.inUseHint: The card works and the table appears at the café cashier.\nform.notInUseHint: Its card stops working and it leaves the café cashier. Nothing is deleted.\nform.numberRequired: Enter a table number.\nform.steps.table: Table\nform.steps.where: Where & seats\nform.lead: QR table cards\nform.seats: {count} seats",
       "route": "/panel"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.plan",
+      "lang": "ar",
+      "title": "ws.plan (packages/i18n/src/catalogs/ws/plan.ar.ts)",
+      "body": "title: خطة المحتوى\nlegend: معنى العلامات\nbarLabel: وضع هذا الشهر\nownerNote: ملاحظة المالك:\nyourNote: ملاحظتك:\notherWaiting: خطة شهر آخر بانتظارك أيضًا.",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.plan",
+      "lang": "en",
+      "title": "ws.plan (packages/i18n/src/catalogs/ws/plan.en.ts)",
+      "body": "title: Content plan\nlegend: What the marks mean\nbarLabel: Where this month stands\nownerNote: Owner’s note:\nyourNote: Your note:\notherWaiting: Another month’s plan is waiting for you too.",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.plan.actions",
+      "lang": "ar",
+      "title": "ws.plan.actions (packages/i18n/src/catalogs/ws/plan.ar.ts)",
+      "body": "send: أرسل الخطة إلى المالك\ntakeBack: اسحبها للتعديل",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.plan.actions",
+      "lang": "en",
+      "title": "ws.plan.actions (packages/i18n/src/catalogs/ws/plan.en.ts)",
+      "body": "send: Send plan to the owner\ntakeBack: Take back to edit",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.plan.day",
+      "lang": "ar",
+      "title": "ws.plan.day (packages/i18n/src/catalogs/ws/plan.ar.ts)",
+      "body": "nothing: لا شيء مخطط لهذا اليوم.\nnothingPast: لم يُخطط شيء لهذا اليوم.\nmore: +{count} أخرى\nadd: أضف فكرة\nlocked: الخطة لدى المالك. اسحبها لإضافة أفكار أو تعديلها.",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.plan.day",
+      "lang": "en",
+      "title": "ws.plan.day (packages/i18n/src/catalogs/ws/plan.en.ts)",
+      "body": "nothing: Nothing planned for this day.\nnothingPast: Nothing was planned for this day.\nmore: +{count} more\nadd: Add an idea\nlocked: The plan is with the owner. Take it back to add or change ideas.",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.plan.decide",
+      "lang": "ar",
+      "title": "ws.plan.decide (packages/i18n/src/catalogs/ws/plan.ar.ts)",
+      "body": "title: ردّك\nnote: ملاحظة لفريق التسويق\nnoteHint: يقرأ فريق التسويق هذه الملاحظة مع ردّك.\nsummary: الأفكار الجديدة التي تعتمدها: {approve}.\nsummaryLeftOut: الأفكار الجديدة التي تعتمدها: {approve}. المستبعدة: {out}.\nchanges: أعدها للتعديل\napprove: وافق على الخطة",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.plan.decide",
+      "lang": "en",
+      "title": "ws.plan.decide (packages/i18n/src/catalogs/ws/plan.en.ts)",
+      "body": "title: Your answer\nnote: Note to marketing\nnoteHint: Marketing reads this with your answer.\nsummary: New ideas this approves: {approve}.\nsummaryLeftOut: New ideas this approves: {approve}. Left out: {out}.\nchanges: Send back for changes\napprove: Approve plan",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.plan.form",
+      "lang": "ar",
+      "title": "ws.plan.form (packages/i18n/src/catalogs/ws/plan.ar.ts)",
+      "body": "newTitle: فكرة جديدة ليوم {date}\neditTitle: تعديل الفكرة\ntitle: العنوان\ntitleHint: كلمات قليلة يعرفها بها الجميع.\nkind: النوع\nchannel: أين تُنشر\ndetails: الفكرة\ndetailsHint: ما هي، وكيف ستصوّرها أو تصمّمها، وأي عرض معها. يقرأ المالك هذا.\nweekly: كل {weekday} حتى نهاية الشهر ({count} أيام)\nsave: احفظ الفكرة\nadd: أضف الفكرة\nissue.required: اكتب عنوانًا.\nissue.tooLong: اجعله أقل من {limit} حرفًا.",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.plan.form",
+      "lang": "en",
+      "title": "ws.plan.form (packages/i18n/src/catalogs/ws/plan.en.ts)",
+      "body": "newTitle: New idea for {date}\neditTitle: Edit idea\ntitle: Title\ntitleHint: A few words people will recognise it by.\nkind: Type\nchannel: Where it goes\ndetails: The idea\ndetailsHint: What it is, how you will film or design it, and any offer. The owner reads this.\nweekly: Every {weekday} to the end of the month ({count} days)\nsave: Save idea\nadd: Add idea\nissue.required: Write a title.\nissue.tooLong: Keep it under {limit} characters.",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.plan.idea",
+      "lang": "ar",
+      "title": "ws.plan.idea (packages/i18n/src/catalogs/ws/plan.ar.ts)",
+      "body": "ownerNote: المالك: {note}\nleaveOut: استبعدها\nkeep: أبقِها\nsendResult: أرسل النتيجة\nsendAgain: أرسل نتيجة جديدة\nedit: تعديل\nremove: حذف\ncancel: أزلها من الخطة\nconfirmRemove: حذف «{title}»؟\nconfirmCancel: إزالة «{title}» من الخطة؟ وافق عليها المالك من قبل.\nopenResult: افتح النتيجة\nfixResult: عدّل النتيجة",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.plan.idea",
+      "lang": "en",
+      "title": "ws.plan.idea (packages/i18n/src/catalogs/ws/plan.en.ts)",
+      "body": "ownerNote: Owner: {note}\nleaveOut: Leave out\nkeep: Keep it\nsendResult: Send result\nsendAgain: Send a new result\nedit: Edit\nremove: Remove\ncancel: Take off the plan\nconfirmRemove: Remove “{title}”?\nconfirmCancel: Take “{title}” off the plan? The owner already approved it.\nopenResult: Open result\nfixResult: Fix the result",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.plan.kind",
+      "lang": "ar",
+      "title": "ws.plan.kind (packages/i18n/src/catalogs/ws/plan.ar.ts)",
+      "body": "post: منشور\nreel: ريل\nstory: ستوري\nposter: ملصق\ndesign: تصميم\noffer: عرض\nevent: فعالية\nother: أخرى",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.plan.kind",
+      "lang": "en",
+      "title": "ws.plan.kind (packages/i18n/src/catalogs/ws/plan.en.ts)",
+      "body": "post: Post\nreel: Reel\nstory: Story\nposter: Poster\ndesign: Design\noffer: Offer\nevent: Event\nother: Other",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.plan.lead",
+      "lang": "ar",
+      "title": "ws.plan.lead (packages/i18n/src/catalogs/ws/plan.ar.ts)",
+      "body": "writer.none: لا شيء مخطط لهذا الشهر بعد. اختر يومًا في التقويم وأضف الفكرة الأولى.\nwriter.draft: أفكار جديدة لم تُرسل بعد: {count}. أرسل الخطة إلى المالك حين تجهز.\nwriter.draftEmpty: لا جديد للإرسال. أضف فكرة إلى يوم لتخطط أكثر.\nwriter.waiting: أُرسلت إلى المالك في {date}. اسحبها إن احتجت إلى تعديل شيء قبل أن يقرر.\nwriter.changes: طلب المالك تعديلات. عدّل الأفكار الجديدة ثم أرسل الخطة مجددًا.\nwriter.approved: وافق عليها {name} في {date}. النتائج المعتمدة حتى الآن: {made} من {of}.\nowner.none: لم يخطط فريق التسويق لهذا الشهر بعد.\nowner.draft: ما زال فريق التسويق يكتب هذه الخطة. تصلك حين يرسلونها.\nowner.waiting: أرسل {name} هذه الخطة في {date}. استبعد أي فكرة لا تريدها، ثم وافق على الخطة أو أعدها للتعديل.\nowner.changes: أعدت هذه الخطة إلى فريق التسويق. تصلك مجددًا حين يرسلونها.\nowner.approved: وافقت على هذه الخطة في {date}. النتائج المعتمدة حتى الآن: {made} من {of}.",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.plan.lead",
+      "lang": "en",
+      "title": "ws.plan.lead (packages/i18n/src/catalogs/ws/plan.en.ts)",
+      "body": "writer.none: Nothing is planned for this month yet. Pick a day in the calendar and add the first idea.\nwriter.draft: New ideas not sent yet: {count}. Send the plan to the owner when it is ready.\nwriter.draftEmpty: Nothing new to send. Add an idea to a day to plan more.\nwriter.waiting: Sent to the owner on {date}. Take it back if you need to change something before they decide.\nwriter.changes: The owner asked for changes. Edit the new ideas, then send the plan again.\nwriter.approved: Approved by {name} on {date}. Results approved so far: {made} of {of}.\nowner.none: Marketing has not planned this month yet.\nowner.draft: Marketing is still writing this plan. It comes to you when they send it.\nowner.waiting: {name} sent this plan on {date}. Leave out any idea you do not want, then approve the plan or send it back.\nowner.changes: You sent this plan back to marketing. It comes to you again when they send it.\nowner.approved: You approved this plan on {date}. Results approved so far: {made} of {of}.",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.plan.list",
+      "lang": "ar",
+      "title": "ws.plan.list (packages/i18n/src/catalogs/ws/plan.ar.ts)",
+      "body": "empty: لا أفكار لهذا الشهر بعد.",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.plan.list",
+      "lang": "en",
+      "title": "ws.plan.list (packages/i18n/src/catalogs/ws/plan.en.ts)",
+      "body": "empty: No ideas this month yet.",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.plan.month",
+      "lang": "ar",
+      "title": "ws.plan.month (packages/i18n/src/catalogs/ws/plan.ar.ts)",
+      "body": "prev: الشهر السابق\nnext: الشهر التالي\nthisMonth: هذا الشهر",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.plan.month",
+      "lang": "en",
+      "title": "ws.plan.month (packages/i18n/src/catalogs/ws/plan.en.ts)",
+      "body": "prev: Previous month\nnext: Next month\nthisMonth: This month",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.plan.needs",
+      "lang": "ar",
+      "title": "ws.plan.needs (packages/i18n/src/catalogs/ws/plan.ar.ts)",
+      "body": "title: خطة محتوى بانتظار موافقتك\nhint: أرسل فريق التسويق أفكار شهر لتوافق عليها.\naction: راجع الخطة",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.plan.needs",
+      "lang": "en",
+      "title": "ws.plan.needs (packages/i18n/src/catalogs/ws/plan.en.ts)",
+      "body": "title: Content plan to approve\nhint: Marketing sent a month’s ideas for your approval.\naction: Review plan",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.plan.posts",
+      "lang": "ar",
+      "title": "ws.plan.posts (packages/i18n/src/catalogs/ws/plan.ar.ts)",
+      "body": "title: بانتظار الموافقة\nlead: كل ما أرسلته إلى المالك: نتائج الخطة والمنشورات الأخرى. ما أعاده إليك يظهر أولًا.",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.plan.posts",
+      "lang": "en",
+      "title": "ws.plan.posts (packages/i18n/src/catalogs/ws/plan.en.ts)",
+      "body": "title: Sent for approval\nlead: Everything you sent the owner: plan results and other posts. What they sent back comes first.",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.plan.result",
+      "lang": "ar",
+      "title": "ws.plan.result (packages/i18n/src/catalogs/ws/plan.ar.ts)",
+      "body": "title: نتيجة «{title}»\ndriveLabel: رابط Google Drive\ndriveHint: للفيديو أو لملف تصميم كبير: ارفعه إلى Google Drive وشاركه، ثم الصق الرابط هنا.\ndriveOnly: الصق رابط Google Drive ‏(drive.google.com أو docs.google.com).\nnoVideo: تُرفع الصور والملصقات هنا بعد تصغيرها. لا يمكن رفع الفيديو: أرسله رابطًا من Google Drive.",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.plan.result",
+      "lang": "en",
+      "title": "ws.plan.result (packages/i18n/src/catalogs/ws/plan.en.ts)",
+      "body": "title: Result for “{title}”\ndriveLabel: Google Drive link\ndriveHint: For a video or a big design file: put it on Google Drive, share it, and paste the link here.\ndriveOnly: Paste a Google Drive link (drive.google.com or docs.google.com).\nnoVideo: Photos and posters upload here and are made smaller first. Videos cannot be uploaded: send them as a Google Drive link.",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.plan.stage",
+      "lang": "ar",
+      "title": "ws.plan.stage (packages/i18n/src/catalogs/ws/plan.ar.ts)",
+      "body": "proposed: جديدة\ndropped: مستبعدة\ncancelled: أُزيلت\ntoMake: للتنفيذ\nlate: متأخرة\nsent: أُرسلت النتيجة\nchanges: طُلبت تعديلات\ndone: أُنجزت\ndeclined: رُفضت النتيجة",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.plan.stage",
+      "lang": "en",
+      "title": "ws.plan.stage (packages/i18n/src/catalogs/ws/plan.en.ts)",
+      "body": "proposed: New\ndropped: Left out\ncancelled: Taken off\ntoMake: To make\nlate: Late\nsent: Result sent\nchanges: Changes asked\ndone: Done\ndeclined: Result declined",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.plan.status",
+      "lang": "ar",
+      "title": "ws.plan.status (packages/i18n/src/catalogs/ws/plan.ar.ts)",
+      "body": "none: لم تبدأ\ndraft: مسودة\nwaiting: لدى المالك\nwaitingYou: بانتظارك\nchanges: طُلبت تعديلات\napproved: تمت الموافقة",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.plan.status",
+      "lang": "en",
+      "title": "ws.plan.status (packages/i18n/src/catalogs/ws/plan.en.ts)",
+      "body": "none: Not started\ndraft: Draft\nwaiting: With the owner\nwaitingYou: Waiting for you\nchanges: Changes asked\napproved: Approved",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.plan.summary",
+      "lang": "ar",
+      "title": "ws.plan.summary (packages/i18n/src/catalogs/ws/plan.ar.ts)",
+      "body": "counts: أفكار هذا الشهر حسب وضعها\nwaiting: خطة {month} بانتظار موافقتك.\ncoming: الأيام الـ{count} القادمة\nnothingComing: لا شيء مخطط للأيام القليلة القادمة.\nopen: افتح الخطة",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.plan.summary",
+      "lang": "en",
+      "title": "ws.plan.summary (packages/i18n/src/catalogs/ws/plan.en.ts)",
+      "body": "counts: Ideas this month by where they stand\nwaiting: The plan for {month} is waiting for your approval.\ncoming: The next {count} days\nnothingComing: Nothing planned for the next few days.\nopen: Open the plan",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.plan.toast",
+      "lang": "ar",
+      "title": "ws.plan.toast (packages/i18n/src/catalogs/ws/plan.ar.ts)",
+      "body": "added: أُضيفت الفكرة.\naddedMany: أُضيفت الفكرة في {count} أيام.\nsaved: حُفظت الفكرة.\nremoved: حُذفت الفكرة.\ncancelled: أُزيلت الفكرة من الخطة.\nsent: أُرسلت الخطة إلى المالك.\ntakenBack: سُحبت الخطة. يمكنك تعديلها الآن.\napproved: تمت الموافقة على الخطة، وأُبلغ فريق التسويق.\nchanges: أُعيدت الخطة إلى فريق التسويق.",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.plan.toast",
+      "lang": "en",
+      "title": "ws.plan.toast (packages/i18n/src/catalogs/ws/plan.en.ts)",
+      "body": "added: Idea added.\naddedMany: Idea added on {count} days.\nsaved: Idea saved.\nremoved: Idea removed.\ncancelled: Idea taken off the plan.\nsent: Plan sent to the owner.\ntakenBack: Plan taken back. You can edit it now.\napproved: Plan approved. Marketing has been told.\nchanges: Plan sent back to marketing.",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.plan.view",
+      "lang": "ar",
+      "title": "ws.plan.view (packages/i18n/src/catalogs/ws/plan.ar.ts)",
+      "body": "label: اعرض الخطة\ncalendar: تقويم\nlist: كل الأفكار ({count})",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.plan.view",
+      "lang": "en",
+      "title": "ws.plan.view (packages/i18n/src/catalogs/ws/plan.en.ts)",
+      "body": "label: Show the plan as\ncalendar: Calendar\nlist: All ideas ({count})",
+      "route": null
     },
     {
       "kind": "label",
@@ -23352,6 +24168,134 @@
       "title": "ws.protocols.view (packages/i18n/src/catalogs/ws/protocols.en.ts)",
       "body": "listJoin: , \narrow: →\nnowPrice: {name} (now {price})\neveryDay: Every day\nnothingTyped: Nothing was typed on this step.",
       "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.ranks",
+      "lang": "ar",
+      "title": "ws.ranks (packages/i18n/src/catalogs/ws/ranks.ar.ts)",
+      "body": "title: ترتيب اللاعبين\nlead: نقاط على كل مباراة، ولوحة صدارة يراها الجميع، ومستويات يرتقي فيها اللاعبون.\nownerOnly: المالك وحده يغيّر القواعد والمستويات. يمكنك الاطلاع عليها وتسجيل النتائج وإبطالها.\nsaved: تم الحفظ.\nsave: حفظ\ncancel: إلغاء\npoints: {points} نقطة\npointsLong: {points} نقطة",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.ranks",
+      "lang": "en",
+      "title": "ws.ranks (packages/i18n/src/catalogs/ws/ranks.en.ts)",
+      "body": "title: Player ranks\nlead: Points for every game played, a public top list, and levels players climb.\nownerOnly: Only the owner changes the rules and levels. You can read them, record results and void them.\nsaved: Saved.\nsave: Save\ncancel: Cancel\npoints: {points} pts\npointsLong: {points} points",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.ranks.adjust",
+      "lang": "ar",
+      "title": "ws.ranks.adjust (packages/i18n/src/catalogs/ws/ranks.ar.ts)",
+      "body": "title: تعديل النقاط\nlead: أضف نقاطًا أو اخصمها يدويًا، لتصحيح خطأ مثلًا. يُحتسب التعديل من اليوم.\nplayer: اللاعب\ndirection: إضافة أو خصم\nadd: إضافة\nremove: خصم\namount: النقاط\namountHint: من 1 إلى 1000.\nreason: السبب\nreasonHint: 3 أحرف على الأقل. يُحفظ في سجل التغييرات.\nsubmit: تعديل النقاط\ndone: عُدّلت نقاط {name}.\nerrorPlayer: اختر لاعبًا.\nerrorAmount: بين 1 و1000 نقطة.\nerrorReason: اكتب سببًا من 3 أحرف على الأقل.",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.ranks.adjust",
+      "lang": "en",
+      "title": "ws.ranks.adjust (packages/i18n/src/catalogs/ws/ranks.en.ts)",
+      "body": "title: Adjust points\nlead: Add or take off points by hand, for example to put a mistake right. It counts from today.\nplayer: Player\ndirection: Add or take off\nadd: Add\nremove: Take off\namount: Points\namountHint: 1 to 1,000.\nreason: Reason\nreasonHint: At least 3 characters. Kept in the change history.\nsubmit: Adjust points\ndone: Points adjusted for {name}.\nerrorPlayer: Choose a player.\nerrorAmount: Between 1 and 1,000 points.\nerrorReason: Write a reason of at least 3 characters.",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.ranks.board",
+      "lang": "ar",
+      "title": "ws.ranks.board (packages/i18n/src/catalogs/ws/ranks.ar.ts)",
+      "body": "title: لوحة الصدارة\nlead: ما يراه اللاعبون في التطبيق الآن.\noff: الترتيب متوقف، ولا يرى اللاعبون أي لوحة.\nempty: لا نقاط بعد في هذه الفترة. أول مباراة تُؤكَّد تضع لاعبيها هنا.\nall: كل الأوقات\nmonth: هذا الشهر\nquarter: هذا الربع\nsince: منذ {date}\ntop: أفضل {count}\nplayer: لاعب\nunnamed: لاعب",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.ranks.board",
+      "lang": "en",
+      "title": "ws.ranks.board (packages/i18n/src/catalogs/ws/ranks.en.ts)",
+      "body": "title: Public board\nlead: What players see in the app right now.\noff: Ranks are off. Players do not see a board.\nempty: No points yet in this period. The first confirmed game puts players here.\nall: All time\nmonth: This month\nquarter: This quarter\nsince: Since {date}\ntop: Top {count}\nplayer: Player\nunnamed: Player",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.ranks.levels",
+      "lang": "ar",
+      "title": "ws.ranks.levels (packages/i18n/src/catalogs/ws/ranks.ar.ts)",
+      "body": "title: المستويات\nlead: يُحدَّد مستوى اللاعب من كل النقاط التي جمعها منذ البداية، فلا ينزل أحد مستوى مع بداية شهر جديد.\nnameEn: الاسم بالإنجليزية\nnameAr: الاسم بالعربية\nfrom: يبدأ من\nfromPoints: نقطة\nbase: يبدأ منه الجميع\nadd: إضافة مستوى\nremove: حذف المستوى\nmax: عشرة مستويات كحد أقصى.\nsaveLevels: حفظ المستويات\nerrorNames: يحتاج كل مستوى إلى اسم بالإنجليزية وآخر بالعربية، لا يتجاوز 24 حرفًا.\nerrorPoints: يبدأ كل مستوى فوق المستوى الذي قبله.",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.ranks.levels",
+      "lang": "en",
+      "title": "ws.ranks.levels (packages/i18n/src/catalogs/ws/ranks.en.ts)",
+      "body": "title: Levels\nlead: A player's level comes from all the points they have ever earned, so nobody drops a level when a new month starts.\nnameEn: Name in English\nnameAr: Name in Arabic\nfrom: From\nfromPoints: points\nbase: Everyone starts here\nadd: Add level\nremove: Remove level\nmax: Up to 10 levels.\nsaveLevels: Save levels\nerrorNames: Each level needs a name in English and in Arabic, up to 24 characters.\nerrorPoints: Each level starts above the one before it.",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.ranks.record",
+      "lang": "ar",
+      "title": "ws.ranks.record (packages/i18n/src/catalogs/ws/ranks.ar.ts)",
+      "body": "title: تسجيل نتيجة\ntitleBooking: تسجيل نتيجة هذه المباراة\nlead: تُحتسب فورًا وتُضاف النقاط مباشرة.\nreplaces: إن سجّل لاعب نتيجة لهذا الحجز وما زالت بانتظار التأكيد، فهذه تحلّ محلّها.\nsideA: الفريق أ\nsideB: الفريق ب\nplayer: اللاعب\npartner: الشريك\npartnerHint: اتركه فارغًا إن لم يكن للشريك حساب.\nsearch: الاسم أو رقم الهاتف\nsearching: جارٍ البحث…\nnoMatches: لا يوجد زبون مطابق.\nchange: تغيير\nwinner: من فاز\nwinnerA: الفريق أ\nwinnerB: الفريق ب\nwinnerDraw: تعادل\nscore: النتيجة\nscoreHint: اختياري. الأشواط التي فاز بها كل فريق في كل مجموعة، الفريق أ أولًا.\nset: المجموعة {n}\naddSet: إضافة مجموعة\nremoveSet: حذف المجموعة {n}\nsubmit: تسجيل النتيجة\nrecorded: سُجّلت النتيجة وأُضيفت النقاط.\nerrorSides: يحتاج كل فريق إلى لاعب واحد على الأقل.\nerrorTwice: لا يمكن أن يظهر اللاعب في الملعب أكثر من مرة.\nerrorWinner: اختر من فاز.\nerrorScore: املأ طرفي المجموعة برقم من 0 إلى 99، أو اتركها فارغة.\ndeskAction: تسجيل النتيجة\ndeskActionHint: من لعب ومن فاز، لترتيب اللاعبين.",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.ranks.record",
+      "lang": "en",
+      "title": "ws.ranks.record (packages/i18n/src/catalogs/ws/ranks.en.ts)",
+      "body": "title: Record a result\ntitleBooking: Record this game's result\nlead: It counts at once and the points are added straight away.\nreplaces: A result a player reported for this booking and that is still waiting is replaced by this one.\nsideA: Side A\nsideB: Side B\nplayer: Player\npartner: Partner\npartnerHint: Leave empty for a partner with no account.\nsearch: Name or phone\nsearching: Searching…\nnoMatches: No customer matches.\nchange: Change\nwinner: Who won\nwinnerA: Side A\nwinnerB: Side B\nwinnerDraw: Draw\nscore: Score\nscoreHint: Optional. Games won in each set, side A first.\nset: Set {n}\naddSet: Add a set\nremoveSet: Remove set {n}\nsubmit: Record result\nrecorded: Result recorded. Points added.\nerrorSides: Each side needs at least one player.\nerrorTwice: A player can be on the court only once.\nerrorWinner: Choose who won.\nerrorScore: Fill both sides of a set with 0 to 99, or leave the set empty.\ndeskAction: Record result\ndeskActionHint: Who played and who won, for the player ranks.",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.ranks.results",
+      "lang": "ar",
+      "title": "ws.ranks.results (packages/i18n/src/catalogs/ws/ranks.ar.ts)",
+      "body": "title: النتائج\nrecord: تسجيل نتيجة\nfilter.pending: بانتظار التأكيد\nfilter.confirmed: مؤكّدة\nfilter.voided: مُبطلة\nfilter.all: الكل\nfilterLabel: عرض النتائج\nempty.pending: لا توجد نتائج بانتظار تأكيد الخصم.\nempty.confirmed: لا نتائج مؤكّدة بعد. سجّل نتيجة، أو انتظر أن يسجّلها اللاعبون من التطبيق.\nempty.voided: لا نتائج مُبطلة.\nempty.all: لا نتائج بعد. سجّل نتيجة، أو انتظر أن يسجّلها اللاعبون من التطبيق.\nstatus.pending: بانتظار التأكيد\nstatus.confirmed: مؤكّدة\nstatus.rejected: مرفوضة\nstatus.expired: انتهت مهلتها\nstatus.voided: مُبطلة\nsource.player: سُجّلت في التطبيق\nsource.desk: سجّلها الموظفون\nsource.tournament: بطولة\nwon: فاز\ndraw: تعادل\nversus: ضد\npair: {a}، {b}\nformer: لاعب سابق\nnoBooking: بلا حجز\nvoidReason: أُبطلت: {reason}\nvoid: إبطال\nvoidTitle: إبطال هذه النتيجة؟\nvoidBody: تُخصم النقاط التي منحتها، ويراها اللاعبون نتيجة مُبطلة.\nreason: السبب\nreasonHint: 3 أحرف على الأقل. يُحفظ في سجل التغييرات.\nvoidConfirm: إبطال النتيجة\nvoided: أُبطلت النتيجة وخُصمت نقاطها.",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.ranks.results",
+      "lang": "en",
+      "title": "ws.ranks.results (packages/i18n/src/catalogs/ws/ranks.en.ts)",
+      "body": "title: Results\nrecord: Record a result\nfilter.pending: Waiting\nfilter.confirmed: Confirmed\nfilter.voided: Voided\nfilter.all: All\nfilterLabel: Show results\nempty.pending: No results are waiting for an opponent to confirm.\nempty.confirmed: No confirmed results yet. Record one, or wait for players to report from the app.\nempty.voided: No voided results.\nempty.all: No results yet. Record one, or wait for players to report from the app.\nstatus.pending: Waiting\nstatus.confirmed: Confirmed\nstatus.rejected: Rejected\nstatus.expired: Lapsed\nstatus.voided: Voided\nsource.player: Reported in the app\nsource.desk: Entered by staff\nsource.tournament: Tournament\nwon: Won\ndraw: Draw\nversus: vs\npair: {a} & {b}\nformer: Former player\nnoBooking: No booking\nvoidReason: Voided: {reason}\nvoid: Void\nvoidTitle: Void this result?\nvoidBody: The points it gave come off again. The players see it as voided.\nreason: Reason\nreasonHint: At least 3 characters. Kept in the change history.\nvoidConfirm: Void result\nvoided: Result voided. Its points came off.",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.ranks.rules",
+      "lang": "ar",
+      "title": "ws.ranks.rules (packages/i18n/src/catalogs/ws/ranks.ar.ts)",
+      "body": "title: القواعد\nenabled: الترتيب مفعّل\nenabledHint: عند الإيقاف تختفي اللوحة من التطبيق ولا تُحتسب النتائج الجديدة.\npointsTitle: النقاط لكل مباراة\npointsHint: تُطبَّق النقاط الجديدة على المباريات التي تُؤكَّد من الآن. المباريات المحتسبة سابقًا تبقى كما هي.\nwin: فوز\nloss: خسارة\ndraw: تعادل\nless: نقطة أقل\nmore: نقطة أكثر\nperiod: فترة اللوحة\nperiodHint: أي نقاط تجمعها لوحة الصدارة. أما المستوى فيُحسب دائمًا من كل النقاط التي جمعها اللاعب.\nperiodAll: كل الأوقات\nperiodMonth: هذا الشهر\nperiodQuarter: هذا الربع\nboardSize: عدد اللاعبين في اللوحة\nboardSizeHint: لا يظهر للجميع إلا هؤلاء، ولا يُدرج أحد ممن هم دونهم.\nsources: ما الذي يُحتسب\ncountReported: النتائج التي يسجّلها اللاعبون في التطبيق\ncountReportedHint: يؤكّدها أحد الخصمين أولًا. النتائج المسجّلة هنا تُحتسب دائمًا.\ncountTournaments: مباريات البطولات المسجّلة نتائجها\nreportHours: مهلة التسجيل والتأكيد\nreportHoursHint: بعد انتهاء الحجز لتسجيل النتيجة، ثم بعد التسجيل ليؤكّدها أحد الخصمين.\nunitHours: ساعة\nunitPlayers: لاعبًا\nrange: بين {min} و{max}.\nsaveRules: حفظ القواعد",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.ranks.rules",
+      "lang": "en",
+      "title": "ws.ranks.rules (packages/i18n/src/catalogs/ws/ranks.en.ts)",
+      "body": "title: Rules\nenabled: Ranks are on\nenabledHint: Off hides the board in the app and stops new results from counting.\npointsTitle: Points per game\npointsHint: New points apply to games confirmed from now on. Games already counted keep theirs.\nwin: Win\nloss: Loss\ndraw: Draw\nless: One less\nmore: One more\nperiod: Board period\nperiodHint: Which points the public board adds up. Levels always use all the points a player has earned.\nperiodAll: All time\nperiodMonth: This month\nperiodQuarter: This quarter\nboardSize: Players on the board\nboardSizeHint: Only these are shown to the public. Nobody below them is ever listed.\nsources: What counts\ncountReported: Results players report in the app\ncountReportedHint: One of the opponents confirms it first. Results entered here always count.\ncountTournaments: Scored tournament matches\nreportHours: Time to report and to confirm\nreportHoursHint: After the booking ends, to report the result. After the report, for an opponent to confirm it.\nunitHours: hours\nunitPlayers: players\nrange: Between {min} and {max}.\nsaveRules: Save rules",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.ranks.tabs",
+      "lang": "ar",
+      "title": "ws.ranks.tabs (packages/i18n/src/catalogs/ws/ranks.ar.ts)",
+      "body": "board: اللوحة والنتائج\nrules: القواعد والمستويات",
+      "route": "/till/tabs"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.ranks.tabs",
+      "lang": "en",
+      "title": "ws.ranks.tabs (packages/i18n/src/catalogs/ws/ranks.en.ts)",
+      "body": "board: Board and results\nrules: Rules and levels",
+      "route": "/till/tabs"
     },
     {
       "kind": "label",
@@ -24190,7 +25134,7 @@
       "ref": "label:ws.shell.nav",
       "lang": "ar",
       "title": "ws.shell.nav (packages/i18n/src/catalogs/ws/shell.ar.ts)",
-      "body": "today: اليوم\ncalendar: التقويم\ncustomers: الزبائن\nnewSeries: سلسلة جديدة\nblockCourt: إيقاف ملعب\ntill: كاشير الكافيه\nopenTabs: الفواتير المفتوحة\ncashDrawer: درج النقد\noverview: نظرة عامة\nbookings: الحجوزات\ntills: الفواتير المفتوحة\ndayClose: جرد نهاية اليوم\nmenu: المنيو\nrates: أسعار الملاعب\npromotions: الخصومات والعروض\nstock: المخزون\nreports: التقارير\naudit: سجل التغييرات\npanel: نظرة عامة\nanalytics: التحليلات\nstaff: الموظفون\nbranches: الفروع\ncourts: الملاعب\ntables: رموز QR للطاولات\nsettings: إعدادات المكان\nguestSite: موقع الضيوف\nmenuPrices: أسعار المنيو\nonHand: ما لدينا\ngoodsIn: التوريدات\nmoveStock: نقل المخزون\nwasteProduction: الهدر والتحضير\nexpiry: تنتهي صلاحيته قريباً\nalerts: على وشك النفاد\nstockCount: جرد المخزون\ncountDifferences: نقص أو زيادة\nmargins: الربح لكل صنف\ningredients: المكوّنات\nrecipes: الوصفات\nstockValue: قيمة المخزون\nshop: متجر تتش\nshopTill: البيع\nshopStock: مخزون المتجر\nshopReceive: استلام البضائع\nshopCounts: جرد المخزون\nshopProducts: المنتجات\nshopSuppliers: المورّدون\nfloorNow: الصالة الآن\nstaffActivity: من يعمل\nactivityMonitor: مراقبة النشاط\nrequests: طلبات الموظفين\nmarketing: التسويق\ntelegram: تيليغرام\nassistant: المساعد\nfiles: الملفات\nmyTasks: مهامي\ninsights: المؤشرات\nprotocols: البروتوكولات\nsuggestions: أفكار الموظفين\ndeductions: الخصومات من الراتب\nincidents: بلاغات الحوادث\nwages: الرواتب\nattendance: التأخير والانصراف المبكر\nrewards: المكافآت\nsafe: القاصة\ncoaches: المدرّبون\ncoachPay: مستحقات المدرّبين\ntournaments: البطولات\nloyalty: نقاط الولاء\ncash: النقد\npay: الأجور\nrevenue: المال الوارد\ncafe: الكافيه\nmenuItems: أصناف المنيو\ncategories: مجموعات المنيو\naddons: الإضافات\nsuggested: اقتراحات كاشير الكافيه\nwhoIsOn: يعمل الآن\nwhatTheyDid: ما قاموا به\ncampaigns: المنشورات والحملات\nlessonTypes: الحصص والأسعار\ncoachHours: أوقات المدرّبين\nlessonRules: قواعد الحصص\ncoachSchedules: الجداول\nbookingRules: قواعد الحجز\nonlineDeposit: العربون الإلكتروني\nopenMatches: المباريات المفتوحة\nvenueDetails: بيانات الفرع\nopeningHours: ساعات العمل",
+      "body": "today: اليوم\ncalendar: التقويم\ncustomers: الزبائن\nnewSeries: سلسلة جديدة\nblockCourt: إيقاف ملعب\ntill: كاشير الكافيه\nopenTabs: الفواتير المفتوحة\ncashDrawer: درج النقد\noverview: نظرة عامة\nbookings: الحجوزات\ntills: الفواتير المفتوحة\ndayClose: جرد نهاية اليوم\nmenu: المنيو\nrates: أسعار الملاعب\npromotions: الخصومات والعروض\nstock: المخزون\nreports: التقارير\naudit: سجل التغييرات\npanel: نظرة عامة\nanalytics: التحليلات\nstaff: الموظفون\nbranches: الفروع\ncourts: الملاعب\ntables: رموز QR للطاولات\nsettings: إعدادات المكان\nguestSite: موقع الضيوف\nmenuPrices: أسعار المنيو\nonHand: ما لدينا\ngoodsIn: التوريدات\nmoveStock: نقل المخزون\nwasteProduction: الهدر والتحضير\nexpiry: تنتهي صلاحيته قريباً\nalerts: على وشك النفاد\nstockCount: جرد المخزون\ncountDifferences: نقص أو زيادة\nmargins: الربح لكل صنف\ningredients: المكوّنات\nrecipes: الوصفات\nstockValue: قيمة المخزون\nshop: متجر تتش\nshopTill: البيع\nshopStock: مخزون المتجر\nshopReceive: استلام البضائع\nshopCounts: جرد المخزون\nshopProducts: المنتجات\nshopSuppliers: المورّدون\nfloorNow: الصالة الآن\nstaffActivity: من يعمل\nactivityMonitor: مراقبة النشاط\nrequests: طلبات الموظفين\nmarketing: التسويق\ntelegram: تيليغرام\nassistant: المساعد\nfiles: الملفات\nmyTasks: مهامي\ninsights: المؤشرات\ncontentPlan: خطة المحتوى\nposts: بانتظار الموافقة\nprotocols: البروتوكولات\nsuggestions: أفكار الموظفين\ndeductions: الخصومات من الراتب\nincidents: بلاغات الحوادث\nwages: الرواتب\nattendance: التأخير والانصراف المبكر\nrewards: المكافآت\nsafe: القاصة\ncoaches: المدرّبون\ncoachPay: مستحقات المدرّبين\ntournaments: البطولات\nloyalty: نقاط الولاء\nranks: ترتيب اللاعبين\ncash: النقد\npay: الأجور\nrevenue: المال الوارد\ncafe: الكافيه\nmenuItems: أصناف المنيو\ncategories: مجموعات المنيو\naddons: الإضافات\nsuggested: اقتراحات كاشير الكافيه\nwhoIsOn: يعمل الآن\nwhatTheyDid: ما قاموا به\ncampaigns: المنشورات والحملات\nlessonTypes: الحصص والأسعار\ncoachHours: أوقات المدرّبين\nlessonRules: قواعد الحصص\ncoachSchedules: الجداول\nbookingRules: قواعد الحجز\nonlineDeposit: العربون الإلكتروني\nopenMatches: المباريات المفتوحة",
       "route": null
     },
     {
@@ -24198,7 +25142,7 @@
       "ref": "label:ws.shell.nav",
       "lang": "en",
       "title": "ws.shell.nav (packages/i18n/src/catalogs/ws/shell.en.ts)",
-      "body": "today: Today\ncalendar: Calendar\ncustomers: Customers\nnewSeries: New series\nblockCourt: Block court\ntill: Café cashier\nopenTabs: Open tabs\ncashDrawer: Cash drawer\noverview: Overview\nbookings: Bookings\ntills: Open tabs\ndayClose: End of day count\nmenu: Menu\nrates: Court prices\npromotions: Discounts & offers\nstock: Stock\nreports: Reports\naudit: Change history\npanel: Overview\nanalytics: Analytics\nstaff: Staff\nbranches: Branches\ncourts: Courts\ntables: Table QR codes\nsettings: Venue settings\nguestSite: Guest site\nmenuPrices: Menu prices\nonHand: What we have\ngoodsIn: Deliveries\nmoveStock: Move stock\nwasteProduction: Waste & prep\nexpiry: Expiring soon\nalerts: Running low\nstockCount: Count stock\ncountDifferences: Missing or extra\nmargins: Profit per item\ningredients: Ingredients\nrecipes: Recipes\nstockValue: Stock value\nshop: Touch Shop\nshopTill: Sell\nshopStock: Shop stock\nshopReceive: Goods in\nshopCounts: Stock count\nshopProducts: Products\nshopSuppliers: Suppliers\nfloorNow: Floor now\nstaffActivity: Who’s working\nactivityMonitor: Activity monitor\nrequests: Staff requests\nmarketing: Marketing\ntelegram: Telegram\nassistant: Assistant\nfiles: Files\nmyTasks: My tasks\ninsights: Insights\nprotocols: Protocols\nsuggestions: Staff ideas\ndeductions: Pay deductions\nincidents: Incident reports\nwages: Wages\nattendance: Late and early\nrewards: Bonuses\nsafe: Main cash\ncoaches: Coaches\ncoachPay: Coach pay\ntournaments: Tournaments\nloyalty: Loyalty points\ncash: Cash\npay: Pay\nrevenue: Money in\ncafe: Cafe\nmenuItems: Menu items\ncategories: Menu groups\naddons: Extras\nsuggested: Café cashier suggestions\nwhoIsOn: Working now\nwhatTheyDid: What they did\ncampaigns: Posts & campaigns\nlessonTypes: Lessons & prices\ncoachHours: Coach hours\nlessonRules: Lesson rules\ncoachSchedules: Schedules\nbookingRules: Booking rules\nonlineDeposit: Online deposit\nopenMatches: Open matches\nvenueDetails: Branch details\nopeningHours: Opening hours\ngenderHours: Gender hours\nbusinessDay: Day start time\nguestApp: Guest app",
+      "body": "today: Today\ncalendar: Calendar\ncustomers: Customers\nnewSeries: New series\nblockCourt: Block court\ntill: Café cashier\nopenTabs: Open tabs\ncashDrawer: Cash drawer\noverview: Overview\nbookings: Bookings\ntills: Open tabs\ndayClose: End of day count\nmenu: Menu\nrates: Court prices\npromotions: Discounts & offers\nstock: Stock\nreports: Reports\naudit: Change history\npanel: Overview\nanalytics: Analytics\nstaff: Staff\nbranches: Branches\ncourts: Courts\ntables: Table QR codes\nsettings: Venue settings\nguestSite: Guest site\nmenuPrices: Menu prices\nonHand: What we have\ngoodsIn: Deliveries\nmoveStock: Move stock\nwasteProduction: Waste & prep\nexpiry: Expiring soon\nalerts: Running low\nstockCount: Count stock\ncountDifferences: Missing or extra\nmargins: Profit per item\ningredients: Ingredients\nrecipes: Recipes\nstockValue: Stock value\nshop: Touch Shop\nshopTill: Sell\nshopStock: Shop stock\nshopReceive: Goods in\nshopCounts: Stock count\nshopProducts: Products\nshopSuppliers: Suppliers\nfloorNow: Floor now\nstaffActivity: Who’s working\nactivityMonitor: Activity monitor\nrequests: Staff requests\nmarketing: Marketing\ntelegram: Telegram\nassistant: Assistant\nfiles: Files\nmyTasks: My tasks\ninsights: Insights\ncontentPlan: Content plan\nposts: Sent for approval\nprotocols: Protocols\nsuggestions: Staff ideas\ndeductions: Pay deductions\nincidents: Incident reports\nwages: Wages\nattendance: Late and early\nrewards: Bonuses\nsafe: Main cash\ncoaches: Coaches\ncoachPay: Coach pay\ntournaments: Tournaments\nloyalty: Loyalty points\nranks: Player ranks\ncash: Cash\npay: Pay\nrevenue: Money in\ncafe: Cafe\nmenuItems: Menu items\ncategories: Menu groups\naddons: Extras\nsuggested: Café cashier suggestions\nwhoIsOn: Working now\nwhatTheyDid: What they did\ncampaigns: Posts & campaigns\nlessonTypes: Lessons & prices\ncoachHours: Coach hours\nlessonRules: Lesson rules\ncoachSchedules: Schedules\nbookingRules: Booking rules\nonlineDeposit: Online deposit\nopenMatches: Open matches\nvenueDetails: Branch details\nopeningHours: Opening hours",
       "route": null
     },
     {
@@ -24206,7 +25150,7 @@
       "ref": "label:ws.shell.nav#2",
       "lang": "ar",
       "title": "ws.shell.nav (packages/i18n/src/catalogs/ws/shell.ar.ts)",
-      "body": "genderHours: أوقات السيدات والرجال\nbusinessDay: وقت بدء اليوم\nguestApp: تطبيق الضيوف\ndevices: الحواسيب والأجهزة اللوحية\nstations: حواسيب الكاشير\nkitchenScreens: شاشات المطبخ\nofflineMode: وضع انقطاع الإنترنت\nbadge: بانتظارك: {count}\ngroupOperations: العمليات\ngroupRun: إدارة اليوم\nfromTeam: صندوق الموظفين\nstockMovement: التوريدات والهدر\nstockCounting: الجرد\nstockCosts: الوصفات والتكاليف\ngroupRecords: السجلات\ngroupSetup: الإعداد\nbackTo: العودة إلى {workspace}\nmore: خيارات\nmoreMenu: إعدادات المحطة\nswitchWorkspace: تبديل مساحة العمل\nlanguage: English\nlanguageAlt: العربية\nblueMode: الوضع الأزرق\nlightMode: الوضع الفاتح\nsignOut: تسجيل الخروج\nsignOutTitle: تسجيل الخروج؟\nsignOutBody: تنتهي جلستك على هذه المحطة. كل ما أُرسل محفوظ، وعلى الشخص التالي تسجيل الدخول.\nsignOutConfirm: تسجيل الخروج\nstation: المحطة {id}\nexitFullscreen: الخروج من وضع ملء الشاشة الإجباري\nquit: الخروج إلى سطح المكتب\nquitConfirm: ينهي الخروج الخدمة على هذه المحطة. تتوقف الطلبات ويظهر الجهاز دون اتصال.\nquitInstallsUpdate: التحديث جاهز. يُثبَّت عند الخروج، ثم يُفتح التطبيق من جديد تلقائيًا.\nleavePin: الرقم السري للمدير\nleavePinHint: على مدير غيرك إدخال رقمه السري.\nleaveOwnerUnconfirmed: تعذّر التحقق من حسابك الآن، لذا يلزم الرقم السري لمدير.\nkitchenNoNav: شاشة المطبخ\nversion: الإصدار {version}\nupdateReady: التحديث جاهز\nrestartToUpdate: إعادة التشغيل للتحديث إلى {version}\ncourtSettings: إعدادات الملاعب\ncourtSales: مبيعات الملاعب\ncafeSales: مبيعات الكافيه\nbillsSuppliers: الفواتير والمورّدون\ntournamentRules: قواعد البطولات\nanalyticsSettings: إعدادات التحليلات\ncomputersScreens: الحواسيب والشاشات",
+      "body": "venueDetails: بيانات الفرع\nopeningHours: ساعات العمل\ngenderHours: أوقات السيدات والرجال\nbusinessDay: وقت بدء اليوم\nguestApp: تطبيق الضيوف\ndevices: الحواسيب والأجهزة اللوحية\nstations: حواسيب الكاشير\nkitchenScreens: شاشات المطبخ\nofflineMode: وضع انقطاع الإنترنت\nbadge: بانتظارك: {count}\ngroupOperations: العمليات\ngroupRun: إدارة اليوم\nfromTeam: صندوق الموظفين\nstockMovement: التوريدات والهدر\nstockCounting: الجرد\nstockCosts: الوصفات والتكاليف\ngroupRecords: السجلات\ngroupSetup: الإعداد\nbackTo: العودة إلى {workspace}\nmore: خيارات\nmoreMenu: إعدادات المحطة\nswitchWorkspace: تبديل مساحة العمل\nlanguage: English\nlanguageAlt: العربية\nblueMode: الوضع الأزرق\nlightMode: الوضع الفاتح\nsignOut: تسجيل الخروج\nsignOutTitle: تسجيل الخروج؟\nsignOutBody: تنتهي جلستك على هذه المحطة. كل ما أُرسل محفوظ، وعلى الشخص التالي تسجيل الدخول.\nsignOutConfirm: تسجيل الخروج\nstation: المحطة {id}\nexitFullscreen: الخروج من وضع ملء الشاشة الإجباري\nquit: الخروج إلى سطح المكتب\nquitConfirm: ينهي الخروج الخدمة على هذه المحطة. تتوقف الطلبات ويظهر الجهاز دون اتصال.\nquitInstallsUpdate: التحديث جاهز. يُثبَّت عند الخروج، ثم يُفتح التطبيق من جديد تلقائيًا.\nleavePin: الرقم السري للمدير\nleavePinHint: على مدير غيرك إدخال رقمه السري.\nleaveOwnerUnconfirmed: تعذّر التحقق من حسابك الآن، لذا يلزم الرقم السري لمدير.\nkitchenNoNav: شاشة المطبخ\nversion: الإصدار {version}\nupdateReady: التحديث جاهز\nrestartToUpdate: إعادة التشغيل للتحديث إلى {version}\ncourtSettings: إعدادات الملاعب\ncourtSales: مبيعات الملاعب\ncafeSales: مبيعات الكافيه\nbillsSuppliers: الفواتير والمورّدون\ntournamentRules: قواعد البطولات\nanalyticsSettings: إعدادات التحليلات\ncomputersScreens: الحواسيب والشاشات",
       "route": null
     },
     {
@@ -24214,7 +25158,7 @@
       "ref": "label:ws.shell.nav#2",
       "lang": "en",
       "title": "ws.shell.nav (packages/i18n/src/catalogs/ws/shell.en.ts)",
-      "body": "devices: Computers & tablets\nstations: Cashier computers\nkitchenScreens: Kitchen screens\nofflineMode: No-internet mode\nbadge: {count} waiting on you\ngroupOperations: Operations\ngroupRun: Run the day\nfromTeam: Staff inbox\nstockMovement: Deliveries & waste\nstockCounting: Stock counts\nstockCosts: Recipes & costs\ngroupRecords: Records\ngroupSetup: Setup\nbackTo: Back to {workspace}\nmore: Options\nmoreMenu: Station controls\nswitchWorkspace: Switch workspace\nlanguage: العربية\nlanguageAlt: English\nblueMode: Blue mode\nlightMode: Light mode\nsignOut: Sign out\nsignOutTitle: Sign out?\nsignOutBody: This ends your session on this station. Anything already sent is safe; the next person will need to sign in.\nsignOutConfirm: Sign out\nstation: Station {id}\nexitFullscreen: Exit forced full screen\nquit: Quit to desktop\nquitConfirm: This ends service on this station. Orders stop and the venue sees it go offline.\nquitInstallsUpdate: An update is ready. Quitting installs it, then the app opens again by itself.\nleavePin: Manager PIN\nleavePinHint: A manager other than you has to enter their PIN.\nleaveOwnerUnconfirmed: Couldn't confirm your account right now, so a manager's PIN is needed.\nkitchenNoNav: Kitchen display\nversion: Version {version}\nupdateReady: Update ready\nrestartToUpdate: Restart to update to {version}\ncourtSettings: Court settings\ncourtSales: Court sales\ncafeSales: Café sales\nbillsSuppliers: Bills & suppliers\ntournamentRules: Tournament rules\nanalyticsSettings: Analytics settings\ncomputersScreens: Computers & screens",
+      "body": "genderHours: Gender hours\nbusinessDay: Day start time\nguestApp: Guest app\ndevices: Computers & tablets\nstations: Cashier computers\nkitchenScreens: Kitchen screens\nofflineMode: No-internet mode\nbadge: {count} waiting on you\ngroupOperations: Operations\ngroupRun: Run the day\nfromTeam: Staff inbox\nstockMovement: Deliveries & waste\nstockCounting: Stock counts\nstockCosts: Recipes & costs\ngroupRecords: Records\ngroupSetup: Setup\nbackTo: Back to {workspace}\nmore: Options\nmoreMenu: Station controls\nswitchWorkspace: Switch workspace\nlanguage: العربية\nlanguageAlt: English\nblueMode: Blue mode\nlightMode: Light mode\nsignOut: Sign out\nsignOutTitle: Sign out?\nsignOutBody: This ends your session on this station. Anything already sent is safe; the next person will need to sign in.\nsignOutConfirm: Sign out\nstation: Station {id}\nexitFullscreen: Exit forced full screen\nquit: Quit to desktop\nquitConfirm: This ends service on this station. Orders stop and the venue sees it go offline.\nquitInstallsUpdate: An update is ready. Quitting installs it, then the app opens again by itself.\nleavePin: Manager PIN\nleavePinHint: A manager other than you has to enter their PIN.\nleaveOwnerUnconfirmed: Couldn't confirm your account right now, so a manager's PIN is needed.\nkitchenNoNav: Kitchen display\nversion: Version {version}\nupdateReady: Update ready\nrestartToUpdate: Restart to update to {version}\ncourtSettings: Court settings\ncourtSales: Court sales\ncafeSales: Café sales\nbillsSuppliers: Bills & suppliers\ntournamentRules: Tournament rules\nanalyticsSettings: Analytics settings\ncomputersScreens: Computers & screens",
       "route": null
     },
     {
@@ -26399,6 +27343,14 @@
       "lang": "en",
       "title": "cron job tp_price_promo_apply",
       "body": "Runs select app.price_promo_apply_due();. Schedules seen in migrations, latest last: '*/5 * * * *' (0177). cron.schedule upserts by job name, so the latest definition that pg_cron accepts is live.",
+      "route": null
+    },
+    {
+      "kind": "system",
+      "ref": "system:cron:tp_protocol_remind",
+      "lang": "en",
+      "title": "cron job tp_protocol_remind",
+      "body": "Runs select app.protocol_remind_sweep();. Schedules seen in migrations, latest last: '*/15 * * * *' (0363). cron.schedule upserts by job name, so the latest definition that pg_cron accepts is live.",
       "route": null
     },
     {
@@ -29974,7 +30926,7 @@
       "ref": "doc:docs/design/assistant/pages.md#37",
       "lang": "en",
       "title": "docs/design/assistant/pages.md › Setup section and admin",
-      "body": "- /setup — The Setup overview: \"Worth checking\" (setup problems with a fix button each), \"Find a setting\" (search every Setup page by name) and \"At a glance\" (one line per setting area with its page).\n- /admin — A layout with no content of its own: it draws the section tab strip for the Menu and Guest-app families and its index redirects to /admin/menu.\n- /admin/menu — The \"Menu items\" editor listing categories and their items with sold-out switches; \"New category\" and \"New item\" open forms that save through app.upsert_menu_category and app.upsert_menu_item, the arrows reorder with app.reorder_menu_items, and the switch calls app.set_item_sold_out. For a manager, \"New item\" in a café category is \"Propose a new item\", which opens a product release on /protocols; a launched item's sizes show their prices read-only with \"Change the price\" (a price change on /protocols) instead of \"New size\"; a never-launched café item's Active switch is off with \"Goes on sale when the owner launches it\", and a hidden shop product that was never on sale shows \"Put on sale\" (a shop_launch change). An item still in its product release is marked \"In release\" and its form names the release with \"Open the release\"; nobody can switch it on or change its prices here.\n- /admin/categories — The \"Categories\" screen for the menu sections' order, photo, tax group and shown or hidden switch; \"New category\" or a row opens the form whose \"Save\" calls app.upsert_menu_category, and the order arrows call app.reorder_menu_categories.\n- /admin/addons — The \"Add-ons\" screen listing item groups and sub-groups of guest choices; \"New group\" and \"New sub-group\" open an editor that saves with app.upsert_modifier_group and app.link_item_modifier_group, options save through app.upsert_modifier, and reveals through app.set_modifier_reveals. For a manager an option on sale keeps its price, with \"Change the price\" (an addon_price price or promo change on /protocols), and a new paid option is saved hidden with its swi",
+      "body": "- /setup — The Setup overview: \"Worth checking\" (setup problems with a fix button each), \"Find a setting\" (search every Setup page by name) and \"At a glance\" (one line per setting area with its page).\n- /plan — Marketing's month plan: browse the calendar and day list, add or edit ideas, and send the plan to the owner; the owner reviews proposed ideas, leaves out unwanted ones, then approves the plan or sends it back with a note.\n- /posts — The marketing content queue for posts and plan results awaiting the owner's decision; open an item to review it, then approve it or send it back with a note.\n- /admin — A layout with no content of its own: it draws the section tab strip for the Menu and Guest-app families and its index redirects to /admin/menu.\n- /admin/ranks — The \"Ranks\" screen has a board of player results and standings plus a Rules tab; staff who can record results use \"Record result\", while the owner edits the points rules and rank levels and managers can read them.\n- /admin/menu — The \"Menu items\" editor listing categories and their items with sold-out switches; \"New category\" and \"New item\" open forms that save through app.upsert_menu_category and app.upsert_menu_item, the arrows reorder with app.reorder_menu_items, and the switch calls app.set_item_sold_out. For a manager, \"New item\" in a café category is \"Propose a new item\", which opens a product release on /protocols; a launched item's sizes show their prices read-only with \"Change the price\" (a price change on /protocols) instead of \"New size\"; a never-launched café item's Active switch is off with \"Goes on sale when the owner launches it\", and a hidden shop product that was never on sale shows \"Put on sale\" (a shop_launch change). An item still in its product release is marked \"In release\" and its form names the release with \"Open the release\"; nobody can switch it on or change its prices here.\n- /admin/categories — The \"Categories\" screen for the menu sections' order, photo, tax group and shown or hi",
       "route": null
     },
     {
@@ -29982,7 +30934,7 @@
       "ref": "doc:docs/design/assistant/pages.md#38",
       "lang": "en",
       "title": "docs/design/assistant/pages.md › Setup section and admin",
-      "body": "tch off and \"Put on sale\"; a free option is added and switched as before. A manager's save that would make guests pay more (a paid choice made compulsory by a group's minimum, a link, a reveal, or a free option switched off or moved) is refused and said to be the owner's to make.\n- /admin/suggested — The \"Suggested items\" screen picking the \"Goes well with\" list shown under an item on the guest menu; add or \"Remove\" suggestions up to the cap, then \"Save\" (or \"Discard changes\") writes app.set_addon_suggestions.\n- /admin/hero — The \"Guest site home screen\" builder choosing what sits above the guest menu (\"Menu only\", \"Photo or video\" or \"Featured item\"), the ticker lines and the bell tutorial switch; \"Save\" writes the cafe settings in one call (app.set_cafe_settings) and \"Discard changes\" reverts. For a manager the featured discount is read-only with \"Change the discount\" (a featured_discount price or promo change on /protocols) and, while one is stored, \"Switch the discount off\" (saves 0); while a discount is stored the featured item picker is off, and so is the Featured tile when the hero is not already in Featured mode.\n- /admin/qr — The \"Tables & QR\" screen listing cafe tables with zone, seats and a waiter-bell switch (app.set_table_bell); \"Add table\" and a row edit a table (app.upsert_cafe_table), \"Print all cards\" and \"Print this card\" print A6 QR cards, and \"Replace\" or \"Replace every QR code\" rotate tokens with app.rotate_table_token.\n- /admin/courts — The \"Courts\" admin listing bookable courts in calendar order; \"Add court\" and \"Edit\" open a panel with names, photo, indoor or outdoor, booking lengths and an open switch saved by app.upsert_court, with \"Switch off\" (app.delete_court) and order arrows (app.reorder_courts).\n- /admin/coaches — The \"Coaches\" screen in four tabs (app.coaches_admin): Coaches (\"Make a coach\" through app.coach_promote; names, bio and photo through app.coach_update; branches through app.set_coach_branches, lesson types through app.set_c",
+      "body": "dden switch; \"New category\" or a row opens the form whose \"Save\" calls app.upsert_menu_category, and the order arrows call app.reorder_menu_categories.\n- /admin/addons — The \"Add-ons\" screen listing item groups and sub-groups of guest choices; \"New group\" and \"New sub-group\" open an editor that saves with app.upsert_modifier_group and app.link_item_modifier_group, options save through app.upsert_modifier, and reveals through app.set_modifier_reveals. For a manager an option on sale keeps its price, with \"Change the price\" (an addon_price price or promo change on /protocols), and a new paid option is saved hidden with its switch off and \"Put on sale\"; a free option is added and switched as before. A manager's save that would make guests pay more (a paid choice made compulsory by a group's minimum, a link, a reveal, or a free option switched off or moved) is refused and said to be the owner's to make.\n- /admin/suggested — The \"Suggested items\" screen picking the \"Goes well with\" list shown under an item on the guest menu; add or \"Remove\" suggestions up to the cap, then \"Save\" (or \"Discard changes\") writes app.set_addon_suggestions.\n- /admin/hero — The \"Guest site home screen\" builder choosing what sits above the guest menu (\"Menu only\", \"Photo or video\" or \"Featured item\"), the ticker lines and the bell tutorial switch; \"Save\" writes the cafe settings in one call (app.set_cafe_settings) and \"Discard changes\" reverts. For a manager the featured discount is read-only with \"Change the discount\" (a featured_discount price or promo change on /protocols) and, while one is stored, \"Switch the discount off\" (saves 0); while a discount is stored the featured item picker is off, and so is the Featured tile when the hero is not already in Featured mode.\n- /admin/qr — The \"Tables & QR\" screen listing cafe tables with zone, seats and a waiter-bell switch (app.set_table_bell); \"Add table\" and a row edit a table (app.upsert_cafe_table), \"Print all cards\" and \"Print this card\" print",
       "route": null
     },
     {
@@ -29990,7 +30942,7 @@
       "ref": "doc:docs/design/assistant/pages.md#39",
       "lang": "en",
       "title": "docs/design/assistant/pages.md › Setup section and admin",
-      "body": "oach_lesson_types, per-coach prices for the owner through app.set_coach_price, \"Pause\", \"Resume\" and \"Retire\" through app.set_coach_status; a coach not yet accepted reads \"Waiting for the coach to accept\"), Lesson types (drafts saved with app.upsert_lesson_type; for a manager a launched price shows \"Propose a price\", a launched length \"Make a new lesson type…\" and a draft \"Put on sale\", each price a price or promo change on /protocols) and Hours (weekly windows through app.set_coach_hours, time off through app.add_coach_time_off and app.cancel_coach_time_off).\n- /admin/rates — The \"Court rates\" screen listing rate rules by court, days, time window, prices and priority; \"New rule\" or a row opens the editor whose \"Save\" calls app.upsert_rate_rule and affects only new bookings, and a toggle shows or hides switched-off rules. Only the owner saves a rule; a manager reads them, with \"Propose a new rate\" and, on an open rule, \"Change this rate\", each a rate price or promo change on /protocols.\n- /admin/gender-hours — The \"Gender hours\" screen listing the times a court, or every court, is kept for women only or men only: who, court, days and time window (a window whose end is before its start runs past midnight), with a clash warning when a women's and a men's rule keep the same court at once; \"New rule\" or a row opens the editor whose \"Save\" calls app.upsert_court_gender_rule, and rules are switched off, never deleted. Manager and owner save. While a rule is on, a guest of the other gender cannot book or hold that court then, an account with no gender is asked for one first, and an open match at that time must be that gender's match; bookings made earlier stay.\n- /admin/hours — Opening hours: open and close times per day and closed dates (app.set_opening_hours).\n- /admin/promotions — The \"Promotions\" list with a lifecycle filter, a search box and a per-row on/off switch (app.set_promotion_enabled); \"New promotion\" or a row opens the promotion editor whose \"Save\" calls app.",
+      "body": "A6 QR cards, and \"Replace\" or \"Replace every QR code\" rotate tokens with app.rotate_table_token.\n- /admin/courts — The \"Courts\" admin listing bookable courts in calendar order; \"Add court\" and \"Edit\" open a panel with names, photo, indoor or outdoor, booking lengths and an open switch saved by app.upsert_court, with \"Switch off\" (app.delete_court) and order arrows (app.reorder_courts).\n- /admin/coaches — The \"Coaches\" screen in four tabs (app.coaches_admin): Coaches (\"Make a coach\" through app.coach_promote; names, bio and photo through app.coach_update; branches through app.set_coach_branches, lesson types through app.set_coach_lesson_types, per-coach prices for the owner through app.set_coach_price, \"Pause\", \"Resume\" and \"Retire\" through app.set_coach_status; a coach not yet accepted reads \"Waiting for the coach to accept\"), Lesson types (drafts saved with app.upsert_lesson_type; for a manager a launched price shows \"Propose a price\", a launched length \"Make a new lesson type…\" and a draft \"Put on sale\", each price a price or promo change on /protocols) and Hours (weekly windows through app.set_coach_hours, time off through app.add_coach_time_off and app.cancel_coach_time_off).\n- /admin/rates — The \"Court rates\" screen listing rate rules by court, days, time window, prices and priority; \"New rule\" or a row opens the editor whose \"Save\" calls app.upsert_rate_rule and affects only new bookings, and a toggle shows or hides switched-off rules. Only the owner saves a rule; a manager reads them, with \"Propose a new rate\" and, on an open rule, \"Change this rate\", each a rate price or promo change on /protocols.\n- /admin/gender-hours — The \"Gender hours\" screen listing the times a court, or every court, is kept for women only or men only: who, court, days and time window (a window whose end is before its start runs past midnight), with a clash warning when a women's and a men's rule keep the same court at once; \"New rule\" or a row opens the editor whose \"Save\" calls app.u",
       "route": null
     },
     {
@@ -30006,7 +30958,7 @@
       "ref": "doc:docs/design/assistant/pages.md#40",
       "lang": "en",
       "title": "docs/design/assistant/pages.md › Setup section and admin",
-      "body": "upsert_promotion, and nothing is ever deleted. Only the owner saves a promotion or generates its code; a manager may switch a promotion off, and otherwise gets \"Propose a promotion\", \"Change this promotion\" in the read-only editor and \"Switch on\" beside a switched-off one, each a price or promo change on /protocols.\n- /admin/loyalty — The owner's \"Loyalty\" setup (app.loyalty_admin): \"Loyalty is on\", what earns a point and what one is worth, expiry and the member QR step (app.set_loyalty_settings); tiers (app.upsert_loyalty_tier, app.delete_loyalty_tier) and rewards (app.upsert_loyalty_reward).\n- /admin/telegram — The \"Telegram\" settings with \"Set up\" and \"Sent messages\" tabs: connection health from the telegram-diagnose function, \"Send test message\" (app.telegram_send_test), the group chat id and message language saved as cafe settings, and the people who may press the bot's buttons set with app.set_telegram_staff.\n- /admin/settings — Branch details: the branch's name, status and contact, for a preparing branch the checklist with \"Open to guests\", the venue's name and phone (owner, app.set_venue_details), the values fixed at setup, the tax per item group, links to the branch's other settings and \"Close branch\". The other panels of the old \"Venue settings\" are pages under /admin/settings/.\n- /admin/settings/day — Day start time: when a business day starts (owner) and the wait between waiter calls.\n- /admin/settings/analytics — Analytics settings (owner): items left out of analytics and the guest-app visits start date.\n- /admin/settings/booking — Booking rules: cancellation, hold time, how far ahead and slots per guest (owner edits, manager reads).\n- /admin/settings/deposit — Online deposit: the Qi Card deposit rules (owner, app.set_deposit_settings); only while online payments are live.\n- /admin/settings/matches — Open matches: the open-match rules (owner, app.set_match_settings); only while online payments are live.\n- /admin/settings/tournaments — Tournament rules:",
+      "body": "psert_court_gender_rule, and rules are switched off, never deleted. Manager and owner save. While a rule is on, a guest of the other gender cannot book or hold that court then, an account with no gender is asked for one first, and an open match at that time must be that gender's match; bookings made earlier stay.\n- /admin/hours — Opening hours: open and close times per day and closed dates (app.set_opening_hours).\n- /admin/promotions — The \"Promotions\" list with a lifecycle filter, a search box and a per-row on/off switch (app.set_promotion_enabled); \"New promotion\" or a row opens the promotion editor whose \"Save\" calls app.upsert_promotion, and nothing is ever deleted. Only the owner saves a promotion or generates its code; a manager may switch a promotion off, and otherwise gets \"Propose a promotion\", \"Change this promotion\" in the read-only editor and \"Switch on\" beside a switched-off one, each a price or promo change on /protocols.\n- /admin/loyalty — The owner's \"Loyalty\" setup (app.loyalty_admin): \"Loyalty is on\", what earns a point and what one is worth, expiry and the member QR step (app.set_loyalty_settings); tiers (app.upsert_loyalty_tier, app.delete_loyalty_tier) and rewards (app.upsert_loyalty_reward).\n- /admin/telegram — The \"Telegram\" settings with \"Set up\" and \"Sent messages\" tabs: connection health from the telegram-diagnose function, \"Send test message\" (app.telegram_send_test), the group chat id and message language saved as cafe settings, and the people who may press the bot's buttons set with app.set_telegram_staff.\n- /admin/settings — Branch details: the branch's name, status and contact, for a preparing branch the checklist with \"Open to guests\", the venue's name and phone (owner, app.set_venue_details), the values fixed at setup, the tax per item group, links to the branch's other settings and \"Close branch\". The other panels of the old \"Venue settings\" are pages under /admin/settings/.\n- /admin/settings/day — Day start time: when a business da",
       "route": null
     },
     {
@@ -30014,7 +30966,7 @@
       "ref": "doc:docs/design/assistant/pages.md#41",
       "lang": "en",
       "title": "docs/design/assistant/pages.md › Setup section and admin",
-      "body": "the branch's tournaments switch (owner, app.set_tournaments_enabled).\n- /admin/settings/devices — Computers & tablets: every till, desk and kitchen screen that reported in; the owner retires one (app.retire_device).\n- /admin/settings/stations — Till computers: register this machine at the branch or retire a station (manager or owner).\n- /admin/settings/kitchen — Kitchen screens (owner): pair a kitchen screen to this till with a manager PIN.\n- /admin/settings/offline — No-internet mode: offline mode on or off and its two limits (owner edits, manager reads).\n- /admin/branches — The owner's \"Branches\" screen (multi-venue slice 4): every open or preparing Touch location as a coloured card with its status, its courts and café tables (app.branch_counts) and \"Branch details\", filtered by All, Open, Preparing or Closed, with closed branches listed under the cards; \"Open a new branch\" copies the setup of a chosen branch into a new one in Preparing (app.create_branch: courts, rates, hours, tables, menu, recipes, checklists and protocol templates, never promotions, stock or staff), its timezone picked by continent, country and city; a branch's Branch details shows the checklist before opening (app.branch_readiness: a court with a rate, opening hours, a manager, a registered till, and warnings for the menu, Telegram and opening stock), \"Open to guests\" (app.open_branch) and \"Close branch\" (app.close_branch).\n- /admin/staff — The owner's \"Staff\" screen listing accounts with role, PIN and status; \"Add staff member\" creates an account through the staff-admin edge function; opened from a hiring run's add_staff step (?hire=) a banner names the picked candidate and the role (app.protocol_step_detail, app.protocol_run_detail, app.hiring_candidates), \"Add the new staff member\" opens the form filled in with the role fixed, and the new account is sent as the step through app.submit_step, which finishes the run; \"Manage\" opens an editor (app.rename_staff, set_staff_role, set_staff_active,",
+      "body": "y starts (owner) and the wait between waiter calls.\n- /admin/settings/analytics — Analytics settings (owner): items left out of analytics and the guest-app visits start date.\n- /admin/settings/booking — Booking rules: cancellation, hold time, how far ahead and slots per guest (owner edits, manager reads).\n- /admin/settings/deposit — Online deposit: the Qi Card deposit rules (owner, app.set_deposit_settings); only while online payments are live.\n- /admin/settings/matches — Open matches: the open-match rules (owner, app.set_match_settings); only while online payments are live.\n- /admin/settings/tournaments — Tournament rules: the branch's tournaments switch (owner, app.set_tournaments_enabled).\n- /admin/settings/devices — Computers & tablets: every till, desk and kitchen screen that reported in; the owner retires one (app.retire_device).\n- /admin/settings/stations — Till computers: register this machine at the branch or retire a station (manager or owner).\n- /admin/settings/kitchen — Kitchen screens (owner): pair a kitchen screen to this till with a manager PIN.\n- /admin/settings/offline — No-internet mode: offline mode on or off and its two limits (owner edits, manager reads).\n- /admin/branches — The owner's \"Branches\" screen (multi-venue slice 4): every open or preparing Touch location as a coloured card with its status, its courts and café tables (app.branch_counts) and \"Branch details\", filtered by All, Open, Preparing or Closed, with closed branches listed under the cards; \"Open a new branch\" copies the setup of a chosen branch into a new one in Preparing (app.create_branch: courts, rates, hours, tables, menu, recipes, checklists and protocol templates, never promotions, stock or staff), its timezone picked by continent, country and city; a branch's Branch details shows the checklist before opening (app.branch_readiness: a court with a rate, opening hours, a manager, a registered till, and warnings for the menu, Telegram and opening stock), \"Open to guests\" (app.",
       "route": null
     },
     {
@@ -30022,7 +30974,7 @@
       "ref": "doc:docs/design/assistant/pages.md#42",
       "lang": "en",
       "title": "docs/design/assistant/pages.md › Setup section and admin",
-      "body": "set_staff_pin, clear_staff_pin, set_station_staff for cover, set_staff_access for Access: second jobs and blocked pages), and the breaks panel's \"Save\" writes break_allowance_minutes. Kitchen (prep) is retired: it is not offered for a new account or a role change (kitchen staff are Head barista, Barista, Assistant barista, Head chef or Chef), and an account still on it shows a \"Retired\" badge and keeps working until it is moved.\n- /assistant — The owner assistant: a full page with the list of chats, the thread, the context checkboxes with their pack sizes, and the usage meter; \"Ask\" sends a question (billed), \"Stop\" ends a streaming answer, \"Run this job\" accepts an estimate, and every answer lists the tools it read with a link to the page that shows the same numbers.\n- /assistant/usage — What the assistant has cost: tokens by kind (input, cache write, cache read, output) and cost per day for the month, month-to-date against the cap, and the price table each model is billed from.",
+      "body": "open_branch) and \"Close branch\" (app.close_branch).\n- /admin/staff — The owner's \"Staff\" screen listing accounts with role, PIN and status; \"Add staff member\" creates an account through the staff-admin edge function; opened from a hiring run's add_staff step (?hire=) a banner names the picked candidate and the role (app.protocol_step_detail, app.protocol_run_detail, app.hiring_candidates), \"Add the new staff member\" opens the form filled in with the role fixed, and the new account is sent as the step through app.submit_step, which finishes the run; \"Manage\" opens an editor (app.rename_staff, set_staff_role, set_staff_active, set_staff_pin, clear_staff_pin, set_station_staff for cover, set_staff_access for Access: second jobs and blocked pages), and the breaks panel's \"Save\" writes break_allowance_minutes. Kitchen (prep) is retired: it is not offered for a new account or a role change (kitchen staff are Head barista, Barista, Assistant barista, Head chef or Chef), and an account still on it shows a \"Retired\" badge and keeps working until it is moved.\n- /assistant — The owner assistant: a full page with the list of chats, the thread, the context checkboxes with their pack sizes, and the usage meter; \"Ask\" sends a question (billed), \"Stop\" ends a streaming answer, \"Run this job\" accepts an estimate, and every answer lists the tools it read with a link to the page that shows the same numbers.\n- /assistant/usage — What the assistant has cost: tokens by kind (input, cache write, cache read, output) and cost per day for the month, month-to-date against the cap, and the price table each model is billed from.",
       "route": null
     },
     {

@@ -9,7 +9,7 @@ export const insightsEn = {
   period: '{range}, compared with {compare}',
   zones: {
     glance: 'At a glance',
-    glanceDesc: 'The whole place in four cards: how full the courts are, how many people play, how many of them buy at the café, and which way the money is going. Each figure is a word or a rounded share, compared with the window in the bar.',
+    glanceDesc: 'The whole place in four cards: how full the courts are, how many people play, how many of them buy at the café, and which way the money is going. Each figure is a word or a percentage, compared with the window in the bar, with how far it moved.',
     when: 'When to push',
     whenDesc: 'How full the courts are at each hour of the week. Fill the quiet hours with offers and posts; leave the full ones alone, they sell themselves.',
     whenNav: 'When',
@@ -28,7 +28,7 @@ export const insightsEn = {
     eventsDesc: 'How full tournaments ran and how many players came back for another, and whether loyalty members use their points.',
     eventsNav: 'Events',
     mix: 'Where the money comes from',
-    mixDesc: 'Each part as a share of the whole, never an amount, and which way it moved.',
+    mixDesc: 'Each part as a percentage of the whole, never an amount, and how far it moved.',
     mixNav: 'Money mix',
   },
   levels: {
@@ -50,6 +50,24 @@ export const insightsEn = {
     down: 'Down on the comparison',
     unknown: 'Not enough to compare',
   },
+  // With how far it moved (0365): {size} is "18%", "6 pts" or "×3".
+  trendSized: {
+    up: 'Up {size}',
+    steady: 'Steady ({size})',
+    down: 'Down {size}',
+  },
+  trendLineSized: {
+    up: 'Up {size} on the comparison',
+    steady: 'About the same ({size})',
+    down: 'Down {size} on the comparison',
+  },
+  size: {
+    // A rate's move, in percentage points.
+    pts: '{n} pts',
+    // A thin comparison: "×3" reads better than "+200%".
+    times: '×{n}',
+  },
+  levelPct: '{level} ({pct})',
   count: {
     none: 'None',
     few: 'A few',

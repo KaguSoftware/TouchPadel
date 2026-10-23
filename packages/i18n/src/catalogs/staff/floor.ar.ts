@@ -6,7 +6,7 @@ export const staffFloorAr: DeepMessages<typeof staffFloorEn> = {
   row: 'تسجيل طلب',
   tables: {
     title: 'تسجيل طلب',
-    dayClosed: 'لم يُفتح اليوم بعد. يمكن تسجيل الطلبات بعد فتح اليوم من كاشير الكافيه.',
+    dayClosed: 'لم يُفتح اليوم بعد. يمكنك تسجيل الطلبات بعد أن يفتح كاشير الكافيه يوم العمل.',
     empty: 'لا توجد طاولات مُعدّة لهذا الفرع بعد.',
     table: 'طاولة {number}',
     free: 'فارغة',
@@ -69,7 +69,7 @@ export const staffFloorAr: DeepMessages<typeof staffFloorEn> = {
     issues: {
       target: 'اختر الفاتورة التي يُضاف إليها الطلب.',
       empty: 'أضف شيئًا أولًا.',
-      label: 'لا يزيد الاسم على 40 حرفًا.',
+      label: 'اجعل الاسم 40 حرفًا على الأكثر.',
     },
   },
 };

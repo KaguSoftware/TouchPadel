@@ -274,7 +274,7 @@ export const staffChecklistsEn = {
     approveTitle: 'Approve this change?',
     approveBody: 'The recipe changes straight away.',
     approved: 'Change approved',
-    reason: 'Why not? The head who asked sees this.',
+    reason: 'Why not? Optional. The head who asked sees this.',
     decline: 'Decline',
     // Decline opens the reason; this sends it.
     confirmDecline: 'Decline this change',
@@ -295,7 +295,7 @@ export const staffChecklistsEn = {
       self: 'An item cannot go into its own recipe.',
       twice: 'This ingredient is added twice.',
       note: 'Keep it under 1,000 characters.',
-      reason: 'Say why you decline, in up to 1,000 characters.',
+      reason: 'Keep the reason to 1,000 characters.',
     },
   },
 } as const;

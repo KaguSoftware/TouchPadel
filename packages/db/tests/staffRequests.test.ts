@@ -125,14 +125,22 @@ describe.skipIf(!up)('0072 staff requests', () => {
     expect(again.errorMessage).toContain('REQUEST_NOT_PENDING');
   });
 
-  it('requires a reason to decline, and records it', async () => {
-    const made = await submit(cashier, { p_kind: 'correction', p_from: '2026-09-01', p_note: 'I worked this shift' });
+  it('lets the owner decline without a reason (0361)', async () => {
+    const made = await submit(cashier, { p_kind: 'correction', p_from: '2026-09-02', p_note: 'I worked this one too' });
     expect(made.ok, made.errorMessage).toBe(true);
     const id = made.data as unknown as string;
 
     const noReason = outcome(await appRpc(owner, 'decide_staff_request', { p_id: id, p_approve: false }));
-    expect(noReason.ok).toBe(false);
-    expect(noReason.errorMessage).toContain('REASON_REQUIRED');
+    expect(noReason.ok, noReason.errorMessage).toBe(true);
+    const row = noReason.data as { status: string; decision_note: string | null };
+    expect(row.status).toBe('rejected');
+    expect(row.decision_note).toBeNull();
+  });
+
+  it('records the reason when the owner gives one', async () => {
+    const made = await submit(cashier, { p_kind: 'correction', p_from: '2026-09-01', p_note: 'I worked this shift' });
+    expect(made.ok, made.errorMessage).toBe(true);
+    const id = made.data as unknown as string;
 
     const withReason = outcome(
       await appRpc(owner, 'decide_staff_request', { p_id: id, p_approve: false, p_note: 'roster shows otherwise' }),

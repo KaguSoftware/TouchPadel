@@ -30,6 +30,7 @@
  */
 import type { PlayAnswers, PlayLevel, PlayWant, PlayYears } from './logic';
 import { onlinePaymentsShipped } from '../deposit/enabled';
+import { tournamentsShipped } from '../tournaments/shipped';
 
 export const SUGGESTION_KINDS = ['matches', 'americano', 'coaches', 'classes', 'mexicano'] as const;
 /**
@@ -131,7 +132,12 @@ export function suggest(
       }
     }
     // Store build: open matches are not shipped, so they are never suggested.
-    const offered = kind === 'matches' && !onlinePaymentsShipped() ? false : (available?.[kind] ?? true);
+    // And tournaments, while a build leaves them out (tournaments/shipped.ts).
+    const offered =
+      (kind === 'matches' && !onlinePaymentsShipped()) ||
+      ((kind === 'americano' || kind === 'mexicano') && !tournamentsShipped())
+        ? false
+        : (available?.[kind] ?? true);
     return { kind, reason, score, available: offered, order };
   });
 

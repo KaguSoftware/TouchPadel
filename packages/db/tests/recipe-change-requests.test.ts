@@ -249,7 +249,6 @@ describe.skipIf(!docker)('recipe_change_requests (rolled-back transactions)', ()
       Q('recipe_audit', `select jsonb_agg(a.action order by a.action) from audit_log a
                           where a.at = now() and (a.entity_id = 'variant:' || {{size}} or a.entity_id = {{q_size}})`),
       decide('owner', 'approve_again', 'q_size', 'true'),
-      decide('owner', 'no_reason', 'q_syrup', 'false'),
       decide('owner', 'long_reason', 'q_syrup', 'false', `repeat('r', 1001)`),
       decide('owner', 'null_approve', 'q_syrup', 'null'),
       decide('owner', 'decline', 'q_syrup', 'false', `'  Not before the weekend.  '`),
@@ -309,7 +308,6 @@ describe.skipIf(!docker)('recipe_change_requests (rolled-back transactions)', ()
     expect(ok<string[]>(r, 'recipe_audit')).toEqual(['stock.recipe.change_approve', 'stock.recipe.change_submit',
                                                      'stock.recipe.set']);
     expect(refused(r, 'approve_again')).toBe('SUBMISSION_DECIDED');
-    expect(refused(r, 'no_reason')).toBe('REASON_REQUIRED');
     expect(refused(r, 'long_reason')).toBe('TEXT_TOO_LONG:reason');
     expect(refused(r, 'null_approve')).toBe('INVALID_ARGUMENT:approve');
     expect(ok(r, 'decline')).toEqual({ status: 'declined', lines_written: 0 });
@@ -323,6 +321,20 @@ describe.skipIf(!docker)('recipe_change_requests (rolled-back transactions)', ()
       .toMatchObject({ status: 'declined', decline_reason: 'Not before the weekend.', decided_by_name: 'Dev Owner' });
     expect(ok<Page>(r, 'page_decided').requests.map((q) => q.status).sort()).toEqual(
       expect.arrayContaining(['approved', 'declined']));
+  });
+
+  it('the owner declines with no reason at all (0361)', () => {
+    const r = scenario([
+      ...SETUP,
+      MK('hc', 'head_chef'),
+      req('hc', 'syrup', 'output', 'syrup', ops(setOp('l_sugar', 450))),
+      RES('q_syrup', 'syrup', 'id'),
+      decide('owner', 'decline', 'q_syrup', 'false'),
+      Q('row', `select jsonb_build_object('status', status, 'reason', decline_reason)
+                  from recipe_change_requests where id = {{q_syrup}}::uuid`),
+    ]);
+    expect(ok(r, 'decline')).toEqual({ status: 'declined', lines_written: 0 });
+    expect(ok(r, 'row')).toEqual({ status: 'declined', reason: null });
   });
 
   it('refuses bad ops, targets and callers', () => {

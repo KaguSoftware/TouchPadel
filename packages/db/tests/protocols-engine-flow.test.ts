@@ -979,7 +979,8 @@ describe.skipIf(!docker)('protocols engine flows (rolled-back transactions)', ()
       T('courts2', 'desk', `select app.submit_step({{t3}}, '{}')`),
       RES('sub_t3', 'courts2', 'submission_id'),
       T('stop_nonote', 'manager', `select app.decide_step({{sub_t3}}, 'stop')`),
-      T('stop_decision', 'manager', `select app.decide_step({{sub_t3}}, 'stop', 'Venue closed that day')`),
+      // 0361: the owner stops it with no reason; the manager could not.
+      T('stop_decision', 'owner', `select app.decide_step({{sub_t3}}, 'stop')`),
       Q('stopped2', `select jsonb_build_object('run', status, 'reason', stop_reason) from protocol_runs where id = {{run2}}`),
       OUTBOX_Q('pushes2', 'run2'),
       HOOKS_Q,
@@ -1044,7 +1045,7 @@ describe.skipIf(!docker)('protocols engine flows (rolled-back transactions)', ()
     ]);
     expect(refused(r, 'stop_nonote')).toBe('REASON_REQUIRED');
     expect(ok<Moved>(r, 'stop_decision')).toMatchObject({ step_status: 'stopped', run_status: 'stopped' });
-    expect(ok<Record<string, unknown>>(r, 'stopped2')).toEqual({ run: 'stopped', reason: 'Venue closed that day' });
+    expect(ok<Record<string, unknown>>(r, 'stopped2')).toEqual({ run: 'stopped', reason: null });
     expect(ok<Push[]>(r, 'pushes2').some((p) => p.payload.title_key === 'step_stopped' && p.to === SEED_STAFF_IDS.court_desk)).toBe(true);
     expect(ok<Array<{ hook: string }>>(r, 'hooks').filter((h) => h.hook === 'stop_tournament')).toHaveLength(2);
   });
@@ -1359,16 +1360,10 @@ describe.skipIf(!docker)('protocols engine flows (rolled-back transactions)', ()
       RES('run', 'start', 'run_id'),
       RES('sub', 'start', 'submission_id'),
       STEP('s2', 'run', 2),
-      QE('stop_reason_null', `update protocol_runs set status = 'stopped', finished_at = now(), stop_reason = null where id = {{run}}`),
-      QE('stop_reason_blank', `update protocol_runs set status = 'stopped', finished_at = now(), stop_reason = '  ' where id = {{run}}`),
       QE('finished_missing', `update protocol_runs set status = 'done' where id = {{run}}`),
       QE('title_blank', `update protocol_runs set title_en = ' ', title_ar = null where id = {{run}}`),
       QE('skip_note_null', `update protocol_run_steps set status = 'skipped', skipped_by = {{manager}}, skipped_at = now(),
                              skip_note = null where id = {{s2}}`),
-      QE('send_back_note_null', `update protocol_submissions set decision = 'send_back', decided_by = {{owner}},
-                                  decided_at = now(), decision_note = null where id = {{sub}}`),
-      QE('stop_note_null', `update protocol_submissions set decision = 'stop', decided_by = {{owner}},
-                             decided_at = now(), decision_note = null where id = {{sub}}`),
       QE('own_approve', `update protocol_submissions set decision = 'approve', decided_by = submitted_by,
                           decided_at = now() where id = {{sub}}`),
       QE('two_ends', `update protocol_submissions set withdrawn_at = now(), superseded_at = now() where id = {{sub}}`),
@@ -1396,13 +1391,11 @@ describe.skipIf(!docker)('protocols engine flows (rolled-back transactions)', ()
       expect(o.state, label).toBe('23514');
       return o.constraint;
     };
-    expect(check('stop_reason_null')).toBe('protocol_runs_stop_reason_chk');
-    expect(check('stop_reason_blank')).toBe('protocol_runs_stop_reason_chk');
+    // 0361 dropped protocol_runs_stop_reason_chk and protocol_submissions_reason_chk: the owner
+    // sends back or stops with no reason, so decide_step and stop_protocol hold the rule now.
     expect(check('finished_missing')).toBe('protocol_runs_finished_chk');
     expect(check('title_blank')).toBe('protocol_runs_title_chk');
     expect(check('skip_note_null')).toBe('protocol_run_steps_skip_chk');
-    expect(check('send_back_note_null')).toBe('protocol_submissions_reason_chk');
-    expect(check('stop_note_null')).toBe('protocol_submissions_reason_chk');
     expect(check('own_approve')).toBe('protocol_submissions_decider_chk');
     expect(check('two_ends')).toBe('protocol_submissions_one_end_chk');
     expect(r.auto_ok!.ok).toBe(true);

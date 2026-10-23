@@ -283,7 +283,8 @@ export type NeedKey =
   | 'protocols'
   | 'deductions'
   | 'incidents'
-  | 'content';
+  | 'content'
+  | 'plan';
 
 export type NeedSeverity = 'danger' | 'warn';
 
@@ -316,6 +317,8 @@ export const NEEDS: readonly NeedDef[] = [
   { key: 'deductions', severity: 'warn', action: { kind: 'open', href: '/deductions' } },
   { key: 'incidents', severity: 'warn', action: { kind: 'open', href: '/incidents' } },
   { key: 'content', severity: 'warn', action: { kind: 'open', href: '/marketing' } },
+  // Marketing's month plans waiting on the owner (0362); /plan opens the oldest.
+  { key: 'plan', severity: 'warn', action: { kind: 'open', href: '/plan' } },
 ];
 
 /** A count per row; a read that has not answered, or that the role never makes, is absent and counts none. */

@@ -18,6 +18,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { formatDateTime, type MessageKey } from '@touch/i18n';
 import { validateDecision, type DecisionChoice, type ProtocolKind, type StepRow } from '@touch/core/protocols';
 import { appRpc } from '../../lib/appRpc';
+import { useAuth } from '../../lib/auth';
 import { useLocale } from '../../lib/i18n';
 import { useToast } from '../../components/toast';
 import { Button, ErrorText, Field, Modal, Select, inputStyle } from '../../components/ui';
@@ -62,7 +63,9 @@ export function DecisionDialog({
   const asksCategory = kind === 'product_release' && step.step_key === 'propose' && choice === 'approve';
   const categories = useCafeCategories(asksCategory);
 
+  const byOwner = useAuth().staff?.role === 'owner';
   const issues = validateDecision(kind, step.step_key, {
+    byOwner,
     decision: choice,
     note,
     sendBackTo: choice === 'send_back' ? target : null,
@@ -160,8 +163,8 @@ export function DecisionDialog({
         <Field
           label={tr(choice === 'approve' ? 'ws.protocols.decision.note' : 'ws.protocols.decision.reason')}
           hint={tr('ws.protocols.decision.readBySender')}
-          required={choice !== 'approve'}
-          optional={choice === 'approve'}
+          required={choice !== 'approve' && !byOwner}
+          optional={choice === 'approve' || byOwner}
           error={noteIssue ? tr(`op.errors.${noteIssue.code}` as MessageKey) : undefined}
         >
           <textarea value={note} rows={3} disabled={busy} style={{ ...inputStyle, minBlockSize: '4.5rem', resize: 'vertical', fontFamily: 'inherit' }} dir="auto" onChange={(e) => setNote(e.target.value)} />

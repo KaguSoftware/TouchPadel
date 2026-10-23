@@ -6,10 +6,10 @@
  *    first thing on the page, because it waits on the owner. Waiting (oldest
  *    first), Changes asked, Approved, Closed and All; a row opens the sheet
  *    where the owner approves, asks for changes or declines.
- *  - **On /tasks, marketing’s** (`MarketingContentPanel`, submitContent): the
- *    venue's queue, newest first, with "New post" and, from the sheet, Revise,
- *    Withdraw and Send again. The form opens in the panel, in place of the
- *    list.
+ *  - **On /posts, marketing’s** (`MarketingContentPanel`, submitContent;
+ *    on /tasks until 0362): the venue's queue, newest first, with "New post"
+ *    and, from the sheet, Revise, Withdraw and Send again. The form opens in
+ *    the panel, in place of the list.
  *
  * Managers never see either (§8 Q14): /marketing is the owner's, and the
  * reads refuse them. Both lists read app.content_page; the Waiting filter's
@@ -65,14 +65,20 @@ export function ContentApprovalPanel() {
 }
 
 /**
- * Marketing's section on /tasks: the queue, and the form in its place while
+ * Marketing's section on /posts: the queue, and the form in its place while
  * writing. What the owner sent back waits on marketing, so the section opens
  * on "Changes asked" while it holds any, with its count, and on All otherwise.
+ * `openId` opens one item's sheet from a link (the plan's "Open result"), and
+ * `onOpenChange` hears the sheet open and close so the page can keep the link.
  */
-export function MarketingContentPanel() {
+export function MarketingContentPanel({ openId: linked = null, onOpenChange }: { openId?: string | null; onOpenChange?: (id: string | null) => void } = {}) {
   const { tr } = useLocale();
   const [picked, setPicked] = useState<ContentFilter | null>(null);
-  const [openId, setOpenId] = useState<string | null>(null);
+  const [openId, setOpenIdState] = useState<string | null>(linked);
+  const setOpenId = (id: string | null) => {
+    setOpenIdState(id);
+    onOpenChange?.(id);
+  };
   const [form, setForm] = useState<ContentFormMode | null>(null);
   const waitingQ = useQuery({ queryKey: QK.contentWaiting, queryFn: fetchContentWaiting, refetchInterval: 60_000 });
   const waiting = readContentPage(waitingQ.data).waitingCount;

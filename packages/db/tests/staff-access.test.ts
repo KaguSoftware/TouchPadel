@@ -148,10 +148,11 @@ const MIGRATION = readFileSync(
   'utf8',
 );
 
-// 0360 re-issued the CHECK and set_staff_access with the 'insights' area, so
-// the area lists are read from it; the second-job lists from 0345 and 0360 alike.
+// 0362 re-issued the CHECK and set_staff_access with the 'content' area (0360
+// added 'insights'), so the area lists are read from it; the second-job lists
+// from 0345 and 0362 alike.
 const MIGRATION_0360 = readFileSync(
-  fileURLToPath(new URL('../supabase/migrations/20261022000360_marketing_insights.sql', import.meta.url)),
+  fileURLToPath(new URL('../supabase/migrations/20261022000362_marketing_plan.sql', import.meta.url)),
   'utf8',
 );
 
@@ -167,12 +168,12 @@ describe('0345 lists match @touch/core', () => {
     expect(lists.length).toBe(2);
     for (const l of lists) expect([...l].sort()).toEqual([...SECOND_JOB_ROLES].sort());
   });
-  it('second jobs: 0360\'s re-issued RPC holds SECOND_JOB_ROLES', () => {
+  it('second jobs: 0362\'s re-issued RPC holds SECOND_JOB_ROLES', () => {
     const lists = sqlArrays('staff_role', MIGRATION_0360).filter((l) => l.length > 0);
     expect(lists.length).toBe(1);
     for (const l of lists) expect([...l].sort()).toEqual([...SECOND_JOB_ROLES].sort());
   });
-  it('areas: the CHECK and the RPC (0360) hold ACCESS_AREA_KEYS', () => {
+  it('areas: the CHECK and the RPC (0362) hold ACCESS_AREA_KEYS', () => {
     const lists = sqlArrays('text', MIGRATION_0360).filter((l) => l.length > 0);
     expect(lists.length).toBe(2);
     for (const l of lists) expect([...l].sort()).toEqual([...ACCESS_AREA_KEYS].sort());

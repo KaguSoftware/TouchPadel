@@ -134,14 +134,21 @@ describe('DeductionsPageScreen', () => {
     expect(calls.find((c) => c.fn === 'decide_deduction')?.args).toEqual({ p_id: 'd1', p_approve: true, p_note: null });
   });
 
-  it('asks for a reason before it declines, and sends the reason the proposer reads', async () => {
+  it('declines with no reason: the owner never has to give one (0361)', async () => {
     const user = userEvent.setup();
     renderPage('owner');
     await user.click(await screen.findByTestId('deductions.decline.d1'));
     const dialog = screen.getByRole('dialog', { name: 'Decline this deduction?' });
     await user.click(within(dialog).getByTestId('deductions.decide.confirm'));
-    expect(within(dialog).getByText('A reason is required.')).toBeTruthy();
-    expect(calls.some((c) => c.fn === 'decide_deduction')).toBe(false);
+    expect(within(dialog).queryByText('A reason is required.')).toBeNull();
+    expect(calls.find((c) => c.fn === 'decide_deduction')?.args).toEqual({ p_id: 'd1', p_approve: false, p_note: null });
+  });
+
+  it('sends the reason the proposer reads when the owner gives one', async () => {
+    const user = userEvent.setup();
+    renderPage('owner');
+    await user.click(await screen.findByTestId('deductions.decline.d1'));
+    const dialog = screen.getByRole('dialog', { name: 'Decline this deduction?' });
     await user.type(within(dialog).getByRole('textbox'), 'Not on shift that day');
     await user.click(within(dialog).getByTestId('deductions.decide.confirm'));
     expect(calls.find((c) => c.fn === 'decide_deduction')?.args).toEqual({ p_id: 'd1', p_approve: false, p_note: 'Not on shift that day' });

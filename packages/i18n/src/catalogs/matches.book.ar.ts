@@ -16,7 +16,7 @@ export const matchesBookAr: DeepMessages<typeof matchesBookEn> = {
   book: {
     choiceTitle: '{time} · {day}',
     choiceMessage:
-      'احجز الملعب كاملًا، أو ابدأ مباراة مفتوحة تنتظر اكتمال أربعة لاعبين ثم تحجز الملعب.',
+      'احجز الملعب كاملًا، أو ابدأ مباراة مفتوحة. تنتظر المباراة أربعة لاعبين، ثم تحجز الملعب.',
     join: 'الانضمام إلى المباراة المفتوحة · {seats}',
     joinSeveral: 'الانضمام إلى مباراة مفتوحة · {matches}',
     viewMine: 'مباراتك المفتوحة',

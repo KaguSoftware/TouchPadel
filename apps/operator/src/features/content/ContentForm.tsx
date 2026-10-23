@@ -11,7 +11,13 @@
  * first.
  *
  * A new post may also be about a menu item or a campaign, as on the phone
- * (§2.7); a revision keeps the item's own.
+ * (§2.7); a revision keeps the item's own. A post sent as the result of an
+ * approved plan idea (0362) carries the idea instead, and opens prefilled with
+ * its title, channel and day.
+ *
+ * The link is a Google Drive link and nothing else (Majed, 2026-10-22):
+ * images upload here, re-encoded small; a video or a large design file goes
+ * to Drive and its link comes here.
  *
  * It opens inline in the Content section rather than as a dialog. The key
  * follows what is sent: a retry of the same post reuses it, an edit mints a
@@ -30,6 +36,8 @@ import { Icon } from '../../components/icons';
 import { PhotoField } from '../tasks/PhotoField';
 import { refusalCode, refusalHint } from '../protocols/errors';
 import { venueToday } from '../deductions/venueDate';
+import { isDriveLink } from '../plan/planLogic';
+import { refreshPlan } from '../plan/api';
 import { CK, fetchAboutCampaigns, fetchAboutItems } from './api';
 import {
   BODY_MAX,
@@ -52,7 +60,9 @@ import {
 } from './contentLogic';
 
 /** What the form is doing: a new item (possibly prefilled from a closed one), or the next version of one. */
-export type ContentFormMode = { kind: 'new'; draft: ContentDraft } | { kind: 'revise'; row: ContentRow; draft: ContentDraft };
+export type ContentFormMode =
+  | { kind: 'new'; draft: ContentDraft; /** The approved plan idea this is the result of (0362). */ idea?: { id: string; title: string } }
+  | { kind: 'revise'; row: ContentRow; draft: ContentDraft };
 
 const ISSUE_KEY: Record<ContentIssueCode, MessageKey> = {
   required: 'ws.content.form.issue.required',
@@ -73,6 +83,7 @@ export function ContentForm({ mode, onClose }: { mode: ContentFormMode; onClose:
   const [draft, setDraft] = useState<ContentDraft>(mode.draft);
   const [tried, setTried] = useState(false);
   const revising = mode.kind === 'revise';
+  const idea = mode.kind === 'new' ? (mode.idea ?? null) : null;
   /** One key per post as sent: kept for a retry of it, renewed by an edit (claim_replay compares no payload). */
   const key = useRef<{ sig: string; key: string } | null>(null);
   const keyFor = (args: unknown): string => {
@@ -91,14 +102,20 @@ export function ContentForm({ mode, onClose }: { mode: ContentFormMode; onClose:
   const aboutName = (o: { nameEn: string; nameAr: string }) => (locale === 'ar' ? o.nameAr || o.nameEn : o.nameEn || o.nameAr);
 
   const issues = validateContent(draft, today, revising ? mode.row.plannedFor : null);
+  // A link typed or changed here is a Google Drive link; one a revision
+  // carries over from before the rule is kept as it was.
+  const notDrive = draft.link.trim() !== '' && draft.link.trim() !== mode.draft.link.trim() && !isDriveLink(draft.link);
+  const newArgs = (key: string) => ({ ...submitArgs(draft, key), ...(idea ? { p_idea_id: idea.id } : null) });
   const send = useMutation({
     mutationFn: () =>
       mode.kind === 'revise'
         ? appRpc('revise_content', reviseArgs(mode.row.id, draft, mode.row, keyFor(reviseArgs(mode.row.id, draft, mode.row, ''))))
-        : appRpc('submit_content', submitArgs(draft, keyFor(submitArgs(draft, '')))),
+        : appRpc('submit_content', newArgs(keyFor(newArgs('')))),
     onSuccess: () => {
       toast.ok(tr(revising ? 'ws.content.form.revised' : 'ws.content.form.sent'));
       void qc.invalidateQueries({ queryKey: CK.all });
+      // A result moves its idea on the plan, and any revision can too.
+      refreshPlan(qc);
       onClose();
     },
   });
@@ -107,6 +124,7 @@ export function ContentForm({ mode, onClose }: { mode: ContentFormMode; onClose:
   const errorOf = (field: ContentField): string | undefined => {
     const issue = tried ? issues.find((i) => i.field === field) : undefined;
     if (issue) return tr(ISSUE_KEY[issue.code], { limit: formatNumber(LIMIT[field] ?? 0, locale), scheme: SCHEME });
+    if (field === 'link' && tried && notDrive) return tr('ws.plan.result.driveOnly');
     if (serverField === field && send.error) return tr(`ws.content.form.refused.${field}` as MessageKey, { scheme: SCHEME });
     return undefined;
   };
@@ -123,11 +141,15 @@ export function ContentForm({ mode, onClose }: { mode: ContentFormMode; onClose:
       onSubmit={(e) => {
         e.preventDefault();
         setTried(true);
-        if (issues.length === 0 && !busy) send.mutate();
+        if (issues.length === 0 && !notDrive && !busy) send.mutate();
       }}
     >
       <h3 style={{ fontSize: 'var(--tp-fs-md)', fontWeight: 700, marginBlockEnd: 'var(--tp-sp-3)' }}>
-        {revising ? tr('ws.content.form.reviseTitle', { n: formatNumber(mode.row.currentVersion + 1, locale) }) : tr('ws.content.form.newTitle')}
+        {revising
+          ? tr('ws.content.form.reviseTitle', { n: formatNumber(mode.row.currentVersion + 1, locale) })
+          : idea
+            ? tr('ws.plan.result.title', { title: idea.title })
+            : tr('ws.content.form.newTitle')}
       </h3>
       <Field label={tr('ws.content.form.title')} required error={errorOf('title')}>
         <input value={draft.title} maxLength={TITLE_MAX} dir="auto" disabled={busy} onChange={(e) => set({ title: e.target.value })} style={inputStyle} data-testid="content.form.title" />
@@ -163,14 +185,19 @@ export function ContentForm({ mode, onClose }: { mode: ContentFormMode; onClose:
         <Icon name="users" size={16} style={{ marginBlockStart: '0.1rem' }} />
         {tr('ws.content.form.consentHint')}
       </p>
-      <Field label={tr('ws.content.form.link')} optional hint={tr('ws.content.form.linkHint', { scheme: SCHEME })} error={errorOf('link')}>
+      <p style={{ display: 'flex', gap: 'var(--tp-sp-2)', alignItems: 'flex-start', marginBlock: 'calc(-1 * var(--tp-sp-2)) var(--tp-sp-4)', fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>
+        <Icon name="link" size={16} style={{ marginBlockStart: '0.1rem' }} />
+        {tr('ws.plan.result.noVideo')}
+      </p>
+      <Field label={tr('ws.plan.result.driveLabel')} optional hint={tr('ws.plan.result.driveHint')} error={errorOf('link')}>
         <input
           value={draft.link}
           type="url"
           inputMode="url"
           maxLength={LINK_MAX}
           dir="ltr"
-          placeholder="https://"
+          placeholder="https://drive.google.com/…"
+          data-testid="content.form.link"
           disabled={busy}
           onChange={(e) => set({ link: e.target.value })}
           style={inputStyle}
@@ -187,7 +214,7 @@ export function ContentForm({ mode, onClose }: { mode: ContentFormMode; onClose:
           style={{ ...inputStyle, minBlockSize: '3.5rem', resize: 'vertical', fontFamily: 'inherit' }}
         />
       </Field>
-      {!revising && (
+      {!revising && !idea && (
         <Field label={tr('ws.content.form.about')} optional group error={errorOf('about')}>
           <div style={{ display: 'grid', gap: 'var(--tp-sp-2)', justifyItems: 'start' }}>
             <SegmentedControl<ContentAbout>

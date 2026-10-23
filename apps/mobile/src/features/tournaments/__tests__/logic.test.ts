@@ -31,6 +31,9 @@ import {
   tournamentPublicFixture,
   tournamentsPublicFixture,
 } from '../../../test/tournamentsFixtures';
+import { tournamentsOn } from '../../../test/tournaments';
+
+tournamentsOn();
 
 /**
  * The phone's tournament rules (plan §5.2; build contracts §1.6, §1.8, S13). The server stays the

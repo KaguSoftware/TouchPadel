@@ -215,6 +215,9 @@ export const shellEn = {
     myTasks: 'My tasks',
     // The marketing role's Insights page (0360), on the team rail and in Customers & marketing.
     insights: 'Insights',
+    // Marketing's content plan and its posts for approval (0362).
+    contentPlan: 'Content plan',
+    posts: 'Sent for approval',
     // Protocols and the staff suggestion box, on the manager's rail and in
     // Observe (build-contracts-2026-09-23 §5.1).
     protocols: 'Protocols',
@@ -235,6 +238,8 @@ export const shellEn = {
     tournaments: 'Tournaments',
     // Loyalty (docs/design/loyalty/build-contracts-2026-10-05.md §5): Setup's points, tiers and rewards.
     loyalty: 'Loyalty points',
+    // Player ranks (0364): points per game, the public board, levels and results.
+    ranks: 'Player ranks',
     // Management rebuild (2026-10-17): the families' rows and their tabs
     // (lib/workspaces.ts). A tab's name is the page it opens.
     cash: 'Cash',

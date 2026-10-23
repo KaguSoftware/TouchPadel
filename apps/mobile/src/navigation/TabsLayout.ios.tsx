@@ -1,6 +1,7 @@
 import { NativeTabs } from 'expo-router/unstable-native-tabs';
 import { useLocale } from '../i18n/LocaleProvider';
 import { brand, useTheme } from '../theme';
+import { tournamentsShipped } from '../features/tournaments/shipped';
 
 // SDK 57 expo-router: `Icon` / `Label` are no longer top-level exports; they hang
 // off the trigger.
@@ -21,7 +22,11 @@ const { Icon, Label } = NativeTabs.Trigger;
  * dropped here. Android keeps the custom bar in
  * `TabsLayout.android.tsx` — that platform split is deliberate.
  *
- * Five tabs since 2026-10-19: My reservations, Play, Book, Club, Coaches.
+ * Five tabs since 2026-10-19: My reservations, Play, Book, Club, Coaches. In a build that leaves
+ * tournaments out (features/tournaments/shipped.ts, Majed 2026-10-22) Play is `hidden`, which takes
+ * it out of the bar and out of navigation altogether, and Ranks (the leaderboard) stands in its
+ * place: five tabs either way, so Book stays in the middle. Its short name keeps it the width of
+ * Club across from it, so the centre holds (iOS 26 sizes each tab by its label).
  * Profile left the bar on 2026-10-17 (Majed): the account is the avatar on the
  * trailing edge of each tab's title row (components/AccountButton.tsx), a push
  * to `app/profile.tsx`. Club (the member card's QR and the café menu, in SF
@@ -45,6 +50,8 @@ export default function TabsLayoutIOS() {
   const { t } = useLocale();
   const { appearance, colors, fonts } = useTheme();
   const selected = appearance === 'dark' ? brand.green : brand.blue;
+  // Play while tournaments ship; Ranks in its place while they do not.
+  const shipped = tournamentsShipped();
 
   return (
     <NativeTabs
@@ -60,11 +67,16 @@ export default function TabsLayoutIOS() {
         <Icon sf="calendar" />
         <Label>{t('tabs.bookings')}</Label>
       </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="play">
+      <NativeTabs.Trigger name="play" hidden={!shipped}>
         {/* A padel court, not SF Symbols' `sportscourt` (a football pitch):
             Android's TabPlayIcon drawn to PNGs, tinted by the bar as a template. */}
         <Icon src={require('../../assets/tabs/play.png')} renderingMode="template" />
         <Label>{t('tabs.play')}</Label>
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="ranks" hidden={shipped}>
+        {/* A podium (Android's TabRanksIcon drawn out), as Play's court: SF Symbols has none. */}
+        <Icon src={require('../../assets/tabs/ranks.png')} renderingMode="template" />
+        <Label>{t('tabs.ranks')}</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="index">
         <Icon sf="figure.tennis" />

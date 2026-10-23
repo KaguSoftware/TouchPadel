@@ -12,9 +12,8 @@
  *   * A decision is final. There is no un-approve control, because there is no
  *     un-approve: the person has already been told. A wrong approval is
  *     answered with a new request so the trail keeps both.
- *   * A refusal must say why. Approve takes an optional note; decline will not
- *     submit without a reason, because the requester reads it and "no" with no
- *     reason is the one answer nobody can act on.
+ *   * The note is optional on both answers (0361: the owner never has to say
+ *     why). When one is given, the requester reads it.
  *   * Nobody decides their own request. An owner's own row renders with no
  *     buttons rather than with disabled ones — the row already says who asked,
  *     so a greyed control would carry no information the row lacks.
@@ -256,9 +255,7 @@ export function StaffRequestsScreen() {
 }
 
 /**
- * Approve or decline, with the note the decision carries. Declining requires
- * a reason — enforced here so the person never meets a server error for a rule
- * the form could have stated, and again on the server so it is actually true.
+ * Approve or decline, with the optional note the decision carries.
  */
 function DecisionDialog({
   row,
@@ -277,8 +274,6 @@ function DecisionDialog({
 }) {
   const { tr } = useLocale();
   const [note, setNote] = useState('');
-  const [touched, setTouched] = useState(false);
-  const missingReason = !approve && note.trim().length === 0;
 
   return (
     <Modal
@@ -292,10 +287,7 @@ function DecisionDialog({
           <Button
             kind={approve ? 'primary' : 'danger'}
             busy={busy}
-            onClick={() => {
-              setTouched(true);
-              if (!missingReason) onSubmit(note.trim());
-            }}
+            onClick={() => onSubmit(note.trim())}
           >
             {tr(approve ? 'ws.owner.requests.approve' : 'ws.owner.requests.decline')}
           </Button>
@@ -310,13 +302,10 @@ function DecisionDialog({
       </p>
       <Field
         label={tr(approve ? 'ws.owner.requests.noteOptional' : 'ws.owner.requests.reasonLabel')}
-        required={!approve}
-        error={touched && missingReason ? tr('op.errors.REASON_REQUIRED') : undefined}
       >
         <textarea
           value={note}
           onChange={(e) => setNote(e.target.value)}
-          onBlur={() => setTouched(true)}
           rows={3}
           style={{ inlineSize: '100%', font: 'inherit', padding: 'var(--tp-sp-2)', borderRadius: 'var(--tp-radius-ctl)', border: '1px solid var(--tp-border)', background: 'var(--tp-surface)', color: 'var(--tp-fg)' }}
         />

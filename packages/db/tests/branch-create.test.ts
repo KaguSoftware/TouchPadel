@@ -221,9 +221,9 @@ describe.skipIf(!up)('open a new branch (0222-0223)', () => {
     expect(last.error?.message).toBe('LAST_OPEN_BRANCH');
   });
 
-  // 0361: the Branches cards count each branch's courts and café tables,
+  // 0366: the Branches cards count each branch's courts and café tables,
   // whatever branch the rail is on.
-  it('counts active courts and tables per branch the caller manages (0361)', async () => {
+  it('counts active courts and tables per branch the caller manages (0366)', async () => {
     type Counts = { venue_id: string; courts: number; tables: number }[];
     const active = async (table: string, venue: string) =>
       (await svc.from(table).select('id', { count: 'exact', head: true }).eq('venue_id', venue).eq('is_active', true)).count ?? 0;

@@ -871,9 +871,12 @@ button.tp-nav-item { background: transparent; }
    the Breakdown's list does). The native vertical bar is hidden; the sideways
    one stays for a table wider than its page. No rubber band either: at the
    first or last row the elastic overscroll dragged the sticky header and total
-   row into the table and snapped them back. */
+   row into the table and snapped them back. Only a table that scrolls inside
+   itself (fill / maxBlockSize) gets that: one that grows with the page must
+   hand the wheel on, or the page cannot be scrolled with the pointer over it. */
 .tp-table-frame { position: relative; }
-.tp-table-scroll { scrollbar-width: auto; scrollbar-color: auto; overscroll-behavior: none; }
+.tp-table-scroll { scrollbar-width: auto; scrollbar-color: auto; overscroll-behavior-x: none; }
+.tp-table-scroll[data-inner-scroll] { overscroll-behavior: none; }
 .tp-table-scroll::-webkit-scrollbar { width: 0; height: 10px; background: transparent; }
 .tp-table-scroll::-webkit-scrollbar-thumb { background: var(--tp-border-strong); border-radius: var(--tp-radius-pill); border: 2px solid transparent; background-clip: padding-box; }
 .tp-table-scroll::-webkit-scrollbar-corner { background: transparent; }

@@ -27,7 +27,7 @@
  *    GL branch — where the CTA is anchored to the measured net — is never
  *    rendered by this suite.
  */
-import { describe, expect, it } from '@jest/globals';
+import { afterAll, beforeAll, describe, expect, it } from '@jest/globals';
 import { fireEvent, within } from '@testing-library/react-native';
 import { makeT, type Locale } from '@touch/i18n';
 import { runSmokeCases, type SmokeCase } from '../test/smokeCase';
@@ -187,38 +187,56 @@ describe.each(LOCALES)('book branch picker in %s', (locale) => {
  * Five tabs on both bars, in this order, each with its own id and the locale's
  * label. Profile left the bar on 2026-10-17 for the avatar on each title row;
  * Club (the member card and the café menu) took the centre on 2026-10-19, and
- * Book took it back on 2026-10-22, swapping places with Club.
+ * Book took it back on 2026-10-22, swapping places with Club. The second slot
+ * is Ranks (the leaderboard) while a build leaves tournaments out, the store
+ * build's default, and Play when it ships them (features/tournaments/shipped.ts).
  */
-const TAB_ORDER = [
-  ['tabs.bookings', 'tabs.bookings'],
-  ['tabs.play', 'tabs.play'],
-  ['tabs.book', 'tabs.book'],
-  ['tabs.club', 'tabs.club'],
-  ['tabs.coaches', 'tabs.coaches'],
-] as const;
+const tabOrder = (second: 'tabs.ranks' | 'tabs.play') =>
+  [
+    ['tabs.bookings', 'tabs.bookings'],
+    [second, second],
+    ['tabs.book', 'tabs.book'],
+    ['tabs.club', 'tabs.club'],
+    ['tabs.coaches', 'tabs.coaches'],
+  ] as const;
 
 describe.each(LOCALES)('the five tabs in %s', (locale) => {
   const t = makeT(locale);
 
-  it.each<[string, typeof TabsLayout]>([
-    ['iOS', TabsLayout],
-    ['Android', TabsLayoutAndroid],
-  ])('the %s bar declares all five, Book in the middle, and no Profile tab', (_name, Layout) => {
-    const screen = renderRoute(Layout, { locale });
-    try {
-      const ids = TAB_ORDER.map(([id, key]) => {
-        const tab = screen.getByTestId(id);
-        expect(within(tab).getByText(t(key))).toBeTruthy();
-        return id;
-      });
-      const all = screen.UNSAFE_root.findAll(
-        (n) => typeof n.props.testID === 'string' && n.props.testID.startsWith('tabs.') && n.props.testID !== 'tabs.back-to-staff',
-      );
-      const seen = [...new Set(all.map((n) => n.props.testID as string))];
-      expect(seen).toEqual(ids);
-    } finally {
-      screen.unmount();
-    }
+  describe.each<['tabs.ranks' | 'tabs.play', string | undefined]>([
+    ['tabs.ranks', undefined],
+    ['tabs.play', 'on'],
+  ])('with %s second (EXPO_PUBLIC_TOURNAMENTS=%s)', (second, flag) => {
+    const before = process.env.EXPO_PUBLIC_TOURNAMENTS;
+    beforeAll(() => {
+      if (flag === undefined) delete process.env.EXPO_PUBLIC_TOURNAMENTS;
+      else process.env.EXPO_PUBLIC_TOURNAMENTS = flag;
+    });
+    afterAll(() => {
+      if (before === undefined) delete process.env.EXPO_PUBLIC_TOURNAMENTS;
+      else process.env.EXPO_PUBLIC_TOURNAMENTS = before;
+    });
+
+    it.each<[string, typeof TabsLayout]>([
+      ['iOS', TabsLayout],
+      ['Android', TabsLayoutAndroid],
+    ])('the %s bar declares five, Book in the middle, and no Profile tab', (_name, Layout) => {
+      const screen = renderRoute(Layout, { locale });
+      try {
+        const ids = tabOrder(second).map(([id, key]) => {
+          const tab = screen.getByTestId(id);
+          expect(within(tab).getByText(t(key))).toBeTruthy();
+          return id;
+        });
+        const all = screen.UNSAFE_root.findAll(
+          (n) => typeof n.props.testID === 'string' && n.props.testID.startsWith('tabs.') && n.props.testID !== 'tabs.back-to-staff',
+        );
+        const seen = [...new Set(all.map((n) => n.props.testID as string))];
+        expect(seen).toEqual(ids);
+      } finally {
+        screen.unmount();
+      }
+    });
   });
 });
 

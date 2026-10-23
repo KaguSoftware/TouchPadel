@@ -296,6 +296,10 @@ export const ERROR_CODE_KEYS = {
   NOT_STEP_ACTOR: 'op.errors.NOT_STEP_ACTOR',
   NOT_DECIDER: 'op.errors.NOT_DECIDER',
   SUBMISSION_DECIDED: 'op.errors.SUBMISSION_DECIDED',
+  PLAN_WAITING: 'op.errors.PLAN_WAITING',
+  PLAN_EMPTY: 'op.errors.PLAN_EMPTY',
+  IDEA_LOCKED: 'op.errors.IDEA_LOCKED',
+  IDEA_HAS_RESULT: 'op.errors.IDEA_HAS_RESULT',
   SEND_BACK_TARGET_INVALID: 'op.errors.SEND_BACK_TARGET_INVALID',
   RECORD_INVALID: 'op.errors.RECORD_INVALID',
   TEXT_BOTH_LANGUAGES_REQUIRED: 'op.errors.TEXT_BOTH_LANGUAGES_REQUIRED',
@@ -506,6 +510,19 @@ export const ERROR_CODE_KEYS = {
   // 0350: an item reward the court desk would have to order onto the bill.
   REWARD_ITEM_NOT_ON_TAB: 'op.errors.REWARD_ITEM_NOT_ON_TAB',
   LOYALTY_REDEEMED: 'op.errors.LOYALTY_REDEEMED',
+  // 0364 ranks_leaderboard: the players' leaderboard (lines in catalogs/opErrors.ranks.*.ts).
+  // RANKS_OFF the owner switched it (or player reports) off; RANKS_NOT_ELIGIBLE a booking that
+  // is not the caller's, not played or past report_hours; RANKS_PLAYER_NOT_FOUND an unknown
+  // username or account; RANKS_PLAYERS_INVALID one person twice (or the desk's bad score);
+  // RANKS_ALREADY_REPORTED a live result on the booking; RANKS_NOT_YOURS a confirm by anyone
+  // but side B; RANKS_RESULT_CLOSED a confirm or void of a result no longer pending/confirmed.
+  RANKS_OFF: 'op.errors.RANKS_OFF',
+  RANKS_NOT_ELIGIBLE: 'op.errors.RANKS_NOT_ELIGIBLE',
+  RANKS_PLAYER_NOT_FOUND: 'op.errors.RANKS_PLAYER_NOT_FOUND',
+  RANKS_PLAYERS_INVALID: 'op.errors.RANKS_PLAYERS_INVALID',
+  RANKS_ALREADY_REPORTED: 'op.errors.RANKS_ALREADY_REPORTED',
+  RANKS_NOT_YOURS: 'op.errors.RANKS_NOT_YOURS',
+  RANKS_RESULT_CLOSED: 'op.errors.RANKS_RESULT_CLOSED',
 
   // ── Guest refusals the desk never meets (the phone's lines) ───────────────
   // 0048/C1 + 0058: raised by app.hold_slot from the day it was hardened; the

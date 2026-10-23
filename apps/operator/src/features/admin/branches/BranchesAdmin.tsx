@@ -13,7 +13,7 @@
  * - Open to guests (app.open_branch) is refused with BRANCH_NOT_READY until
  *   every required row is done; Close (app.close_branch) never deletes.
  * - A card counts the branch's courts and café tables (app.branch_counts,
- *   0361), whatever branch the rail is on.
+ *   0366), whatever branch the rail is on.
  */
 import { useState, type ReactNode } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -101,7 +101,7 @@ export function useBranches() {
   });
 }
 
-/** Each branch's active courts and café tables (app.branch_counts, 0361). */
+/** Each branch's active courts and café tables (app.branch_counts, 0366). */
 function useBranchCounts() {
   return useQuery({
     queryKey: ['branches', 'counts'],

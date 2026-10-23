@@ -20,6 +20,7 @@ import {
 } from './api';
 import { tournamentKeys } from './keys';
 import { isLive } from './logic';
+import { tournamentsShipped } from './shipped';
 
 export { tournamentKeys };
 
@@ -38,7 +39,8 @@ export function useTournamentsPublic(opts: { enabled?: boolean } = {}) {
     queryFn: () => fetchTournamentsPublic(supabase),
     staleTime: 30_000,
     // My reservations reads it only while some branch has tournaments on (the lessons' rule).
-    enabled: opts.enabled ?? true,
+    // Not in this build (shipped.ts): never read, and every screen treats it as off.
+    enabled: (opts.enabled ?? true) && tournamentsShipped(),
   });
 }
 

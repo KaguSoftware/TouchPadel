@@ -20,6 +20,7 @@ import { useMemo, useState, type ReactNode } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { formatDateTime, formatNumber, isolate } from '@touch/i18n';
 import { appRpc } from '../../lib/appRpc';
+import { useAuth } from '../../lib/auth';
 import { QK } from '../../lib/queryKeys';
 import { useLocale } from '../../lib/i18n';
 import { useToast } from '../../components/toast';
@@ -188,6 +189,8 @@ export function IdeaSheet({ idea, onClose, onStart }: { idea: IdeaRow; onClose: 
   const [declining, setDeclining] = useState(false);
   const [reason, setReason] = useState('');
   const [viewing, setViewing] = useState(false);
+  // 0361: the owner declines with no reason; a head or a manager says why.
+  const byOwner = useAuth().staff?.role === 'owner';
 
   const decline = useMutation({
     mutationFn: () => appRpc('decline_release_idea', { p_id: idea.id, p_reason: reason.trim() }),
@@ -245,7 +248,7 @@ export function IdeaSheet({ idea, onClose, onStart }: { idea: IdeaRow; onClose: 
             <Button onClick={() => setDeclining(false)} disabled={decline.isPending}>
               {tr('ws.rolePages.ideas.back')}
             </Button>
-            <Button kind="danger" busy={decline.isPending} disabled={reason.trim() === ''} onClick={() => decline.mutate()}>
+            <Button kind="danger" busy={decline.isPending} disabled={!byOwner && reason.trim() === ''} onClick={() => decline.mutate()}>
               {tr('ws.rolePages.ideas.declineConfirm')}
             </Button>
           </>
@@ -287,7 +290,7 @@ export function IdeaSheet({ idea, onClose, onStart }: { idea: IdeaRow; onClose: 
           </div>
         )}
         {declining && (
-          <Field label={tr('ws.rolePages.ideas.reason')} hint={tr('ws.rolePages.ideas.reasonHint')} required>
+          <Field label={tr('ws.rolePages.ideas.reason')} hint={tr('ws.rolePages.ideas.reasonHint')} required={!byOwner} optional={byOwner}>
             <textarea
               autoFocus
               value={reason}

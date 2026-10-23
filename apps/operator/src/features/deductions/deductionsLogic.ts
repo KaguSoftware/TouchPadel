@@ -307,12 +307,14 @@ export function proposeRefusalField(code: string | null, hint: string | null): P
   return null;
 }
 
-/** A decision's note: optional on an approval, the reason on a decline (REASON_REQUIRED), at most 1000. */
-export function decisionIssue(approve: boolean, note: string): 'required' | 'tooLong' | null {
-  const n = note.trim();
-  if (!approve && n === '') return 'required';
-  if ([...n].length > NOTE_MAX) return 'tooLong';
-  return null;
+/** A decision's note: optional on an approval and on a decline (0361: the owner never has to say why), at most 1000. */
+export function decisionIssue(note: string): 'tooLong' | null {
+  return [...note.trim()].length > NOTE_MAX ? 'tooLong' : null;
+}
+
+/** Taking back an approval is not a refusal: it still needs its reason (REASON_REQUIRED), at most 1000. */
+export function cancelIssue(reason: string): 'required' | 'tooLong' | null {
+  return reason.trim() === '' ? 'required' : decisionIssue(reason);
 }
 
 // ---------------------------------------------------------------------------

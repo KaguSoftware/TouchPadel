@@ -47,6 +47,11 @@ export interface CourtsChannelDeps {
   onForeground(cb: () => void): () => void;
   onStatus?(topic: string, status: ChannelStatus): void;
   random?: () => number;
+  /**
+   * The broadcast events that call `onSlot`; the courts' `slot_changed` unless given. The
+   * leaderboard's topics (features/ranks/live.ts) share this machinery with their own events.
+   */
+  events?: readonly string[];
 }
 
 interface Shared {
@@ -84,7 +89,7 @@ export function createCourtsChannels(deps: CourtsChannelDeps): CourtsChannels {
       const channel = createResilientChannel(deps.client, {
         topic,
         isPrivate: true,
-        events: ['slot_changed'],
+        events: [...(deps.events ?? ['slot_changed'])],
         onMessage: () => {
           for (const l of [...listeners]) l.onSlot();
         },

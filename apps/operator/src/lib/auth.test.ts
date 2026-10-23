@@ -107,9 +107,9 @@ describe('canAccess — longest-prefix match, default deny', () => {
     }
   });
 
-  it('gives driver, marketing and the waiter My tasks, marketing Insights too (0360), and nothing else', () => {
+  it('gives driver, marketing and the waiter My tasks, marketing Insights (0360) and its plan and posts (0362) too, and nothing else', () => {
     for (const role of TEAM) {
-      const own = role === 'marketing' ? ['/tasks', '/insights'] : ['/tasks'];
+      const own = role === 'marketing' ? ['/tasks', '/insights', '/plan', '/posts'] : ['/tasks'];
       for (const route of own) expect(canAccess(role, route), `${role} ${route}`).toBe(true);
       for (const route of Object.keys(ROUTE_ROLES).filter((r) => !own.includes(r))) {
         expect(canAccess(role, route), `${role} ${route}`).toBe(false);
@@ -213,7 +213,8 @@ describe('homeRoute', () => {
     expect(homeRoute('manager')).toBe('/ops');
     expect(homeRoute('owner')).toBe('/panel');
     for (const role of KITCHEN_FAMILY) expect(homeRoute(role), role).toBe('/kds');
-    for (const role of TEAM) expect(homeRoute(role), role).toBe('/tasks');
+    // Marketing opens on its month's content plan (0362).
+    for (const role of TEAM) expect(homeRoute(role), role).toBe(role === 'marketing' ? '/plan' : '/tasks');
   });
 
   it('lands every role on a screen it may open', () => {
@@ -280,6 +281,10 @@ describe('capability matrix', () => {
     attachMember: ['cashier', 'shop_staff', 'court_desk', 'manager', 'owner'],
     readLoyaltyAdmin: ['manager', 'owner'],
     adjustLoyalty: ['manager', 'owner'],
+    // Player ranks (0364): editRanks is the owner's alone.
+    readRanksAdmin: ['manager', 'owner'],
+    recordRanks: ['court_desk', 'manager', 'owner'],
+    voidRanks: ['manager', 'owner'],
   };
   /** A role's own work, which the owner does not do: the RPC refuses the owner too. */
   const OWN_WORK: Partial<Record<Capability, readonly StaffRole[]>> = {
@@ -288,6 +293,8 @@ describe('capability matrix', () => {
     sendIdeas: ['barista', 'chef'],
     // Wave 5: marketing sends content; the owner decides it (decideContent).
     submitContent: ['marketing'],
+    // 0362: marketing writes the month's plan; the owner decides it (decidePlan).
+    editPlan: ['marketing'],
   };
   const OWNER_ONLY = ALL_CAPS.filter((c) => !(c in SHARED) && !(c in OWN_WORK));
 
@@ -354,6 +361,9 @@ describe('capability matrix', () => {
         'redactIncidents',
         'submitContent',
         'decideContent',
+        // Marketing's content plan (0362).
+        'editPlan',
+        'decidePlan',
         // Wave 5, till shifts (wave5-addendum-2026-09-25 §5.2).
         'payOnOthersShift',
         // Open matches (docs/design/open-matches/operator.md §5.3).
@@ -379,8 +389,23 @@ describe('capability matrix', () => {
         'editLoyalty',
         // Touch Shop sales reward (0355).
         'setShopReward',
+        // Player ranks (0364).
+        'readRanksAdmin',
+        'editRanks',
+        'recordRanks',
+        'voidRanks',
       ].sort(),
     );
+  });
+
+  it('lets the desk record a result, management void one and read the rules, the owner change them (0364)', () => {
+    expect(can('court_desk', 'recordRanks')).toBe(true);
+    expect(can('cashier', 'recordRanks')).toBe(false);
+    expect(can('court_desk', 'voidRanks')).toBe(false);
+    expect(can('manager', 'voidRanks')).toBe(true);
+    expect(can('manager', 'editRanks')).toBe(false);
+    expect(canAccess('manager', '/admin/ranks')).toBe(true);
+    expect(canAccess('court_desk', '/admin/ranks')).toBe(false);
   });
 
   it('gives the Touch Shop sales reward percent to the owner alone (0355)', () => {
