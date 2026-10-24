@@ -149,7 +149,7 @@ describe('compact prefix', () => {
     expect(Buffer.byteLength(compact)).toBeLessThanOrEqual(COMPACT_BYTE_TARGET);
     expect(compact).toBe(readFileSync(PATHS.compact, 'utf8'));
     for (const c of fixture.chunks) {
-      if (c.kind === 'page') expect(compact).toContain(`- ${c.route} [`);
+      if (c.kind === 'page') expect(compact.includes(`\n- ${c.route} `) || compact.includes(`\n- ${c.route}:`), c.route ?? '').toBe(true);
       if (c.kind === 'rule') expect(compact).toContain(`### ${c.title}`);
     }
     for (const t of catalog.ASSISTANT_TOOLS) expect(compact).toMatch(new RegExp(`^${t.name}: `, 'm'));

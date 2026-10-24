@@ -156,6 +156,7 @@ import { callerClient, createServiceClient } from '../_shared/supabase.ts';
 import { requireStaffRole } from '../_shared/auth.ts';
 import { fetchWithTimeout, handle, isUuid, json, KB, logError, mapPgError, readJsonBody } from '../_shared/http.ts';
 import { insertAtNextSeq } from '../_shared/assistant/seq.ts';
+import { mergeWindows, type SearchRow } from '../_shared/assistant/searchMerge.ts';
 import { clean, CleanError, cleanedNotice, estimateTokens, sourceForTool } from '../_shared/assistant/clean.ts';
 import { estimateJob, JOB_EXTRACT_MODEL, type JobCall, type JobPlan } from '../_shared/assistant/estimate.ts';
 import { embed } from '../_shared/assistant/embed.ts';
@@ -233,7 +234,9 @@ const RECHECK_WALL_MS = 30_000;
 const POSTHOG_FN = 'analytics-posthog';
 const DEFAULT_BUSINESS_DAY_START_HOUR = 4;
 const HEARTBEAT_MS = 15_000;
+/** Hits shown to the model. The search is asked for SEARCH_FETCH so that merging an entry's windows (searchMerge.ts) still leaves a full page of distinct entries. */
 const SEARCH_LIMIT = 12;
+const SEARCH_FETCH = 16;
 const DEFAULT_TZ = 'Asia/Baghdad';
 const SURFACE = 'assistant';
 /**
@@ -674,12 +677,12 @@ async function runSearch(ctx: DispatchCtx, spec: ToolSpec, input: Record<string,
     degraded = true;
     console.error('[assistant-chat] embedding failed, full-text only', errorText(e));
   }
-  const { data, error } = await aborting(ctx.asOwner.schema('app').rpc('assistant_search', { p_query: query, p_embedding: embedding, p_kinds: kinds, p_limit: SEARCH_LIMIT }), ctx.signal);
+  const { data, error } = await aborting(ctx.asOwner.schema('app').rpc('assistant_search', { p_query: query, p_embedding: embedding, p_kinds: kinds, p_limit: SEARCH_FETCH }), ctx.signal);
   if (error) {
     const mapped = mapPgError(error);
     return { cleaned: cleanedNotice(`${mapped.code}: ${mapped.message}`), isError: true, row_count: null };
   }
-  const rows = Array.isArray(data) ? data : [];
+  const rows = mergeWindows(Array.isArray(data) ? (data as SearchRow[]) : [], SEARCH_LIMIT);
   const cleaned = clean(sourceForTool(spec), rows, { tz: ctx.tz, lang: ctx.lang, handles: ctx.handles });
   if (degraded || embedding === null) {
     // One plain sentence, not a hidden flag: the UI prints it as a note.
