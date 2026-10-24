@@ -570,7 +570,7 @@ test.describe('operator cafe admin', () => {
       await dialog.getByLabel('Email', { exact: true }).fill(email);
       // Add staff member is stepped: who, the role (Cashier by default), the password, then Review.
       await dialog.getByTestId('add-staff.step.password').click();
-      await dialog.getByLabel('Password', { exact: true }).fill('a-long-enough-password');
+      await dialog.getByRole('textbox', { name: 'Password' }).fill('a-long-enough-password');
       await dialog.getByTestId('add-staff.step.review').click();
       await dialog.getByTestId('add-staff.submit').click();
 

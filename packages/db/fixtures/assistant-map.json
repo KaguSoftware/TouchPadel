@@ -1,5 +1,5 @@
 {
-  "generated_from": "ade1a65f173c3a31137ac6cef950c863260ae3b0",
+  "generated_from": "83b12f5eaae376983b98e624f01f10ccc8d6a6c7",
   "chunks": [
     {
       "kind": "page",
@@ -46702,7 +46702,7 @@
       "ref": "doc:docs/design/assistant/build-contracts-2026-09-20.md#27~3",
       "lang": "en",
       "title": "docs/design/assistant/build-contracts-2026-09-20.md › Lane A · database (migrations 0108–0112) (part 3 of 3)",
-      "body": "`audit_log.search_text tsvector generated always as (to_tsvector('simple', coalesce(action,'') || ' ' || coalesce(entity,'') || ' ' || coalesce(entity_id,'') ||\n\n`app.assistant_search(p_query text, p_embedding extensions.vector(1024), p_kinds text[], p_limit int default 12) returns jsonb` — owner-guarded, STABLE; RRF (k = 60) over top-50 by cosine (skipped when `p_embedding is null`) and top-50 by `ts_rank(tsv, websearch_to_tsquery('simple', p_query))` (**changed 2026-10-08**, 0325: `ts_rank_cd` over a weighted, folded `tsv` for `app.assistant_tsquery(p_query)`; see above); filter by `p_kinds` when not null; returns `[{id, kind, ref, lang, title, snippet (first 300 chars of body), route, score, source_updated_at}]`. Granted to `authenticated`.",
+      "body": "`audit_log.search_text tsvector generated always as (to_tsvector('simple', coalesce(action,'') || ' ' || coalesce(entity,'') || ' ' || coalesce(entity_id,'') ||\n\n`app.assistant_search(p_query text, p_embedding extensions.vector(1024), p_kinds text[], p_limit int default 12) returns jsonb` — owner-guarded, STABLE; RRF (k = 60) over top-50 by cosine (skipped when `p_embedding is null`) and top-50 by `ts_rank(tsv, websearch_to_tsquery('simple', p_query))` (**changed 2026-10-08**, 0325: `ts_rank_cd` over a weighted, folded `tsv` for `app.assistant_tsquery(p_query)`; see above); filter by `p_kinds` when not null; returns `[{id, kind, ref, lang, title, snippet (first 1,200 chars of body since 0367), route, score, source_updated_at}]`. Granted to `authenticated`.",
       "route": null
     },
     {
@@ -47270,7 +47270,7 @@
       "ref": "doc:docs/design/assistant/build-contracts-2026-09-20.md#7~3",
       "lang": "en",
       "title": "docs/design/assistant/build-contracts-2026-09-20.md › Changed 2026-10-08 (the cost, speed and safety pass) (part 3 of 4)",
-      "body": "- **Cache TTL: 5 minutes, not 1 h.** `PREFIX_CACHE_CONTROL = { type: 'ephemeral' }` in `provider.ts`, with no `ttl`. A 1 h write costs 2× input against 1.25× fo\n- **Full-text search (0325, index 0326).** `app.assistant_tsquery` folds the question (`app.search_fold`: Arabic letter forms and articles, Arabic-Indic digits), drops a short EN + AR stopword list and ORs every remaining lexeme as a prefix match; the old `websearch_to_tsquery` ANDed every word, so a natural question matched nothing. `assistant_chunks.tsv` is rebuilt over the folded text with the title at weight A and the body at B, ranked by `ts_rank_cd` normalised by length. `hnsw.ef_search` is raised to 200 inside the body when an embedding is given. Snippets are 1,200 characters for the live free-text kinds, 300 for map kinds.",
+      "body": "- **Cache TTL: 5 minutes, not 1 h.** `PREFIX_CACHE_CONTROL = { type: 'ephemeral' }` in `provider.ts`, with no `ttl`. A 1 h write costs 2× input against 1.25× fo\n- **Full-text search (0325, index 0326).** `app.assistant_tsquery` folds the question (`app.search_fold`: Arabic letter forms and articles, Arabic-Indic digits), drops a short EN + AR stopword list and ORs every remaining lexeme as a prefix match; the old `websearch_to_tsquery` ANDed every word, so a natural question matched nothing. `assistant_chunks.tsv` is rebuilt over the folded text with the title at weight A and the body at B, ranked by `ts_rank_cd` normalised by length. `hnsw.ef_search` is raised to 200 inside the body when an embedding is given. Snippets are 1,200 characters for every kind since 0367 (the map is indexed in",
       "route": null
     },
     {
@@ -47278,7 +47278,7 @@
       "ref": "doc:docs/design/assistant/build-contracts-2026-09-20.md#7~4",
       "lang": "en",
       "title": "docs/design/assistant/build-contracts-2026-09-20.md › Changed 2026-10-08 (the cost, speed and safety pass) (part 4 of 4)",
-      "body": "- **Cache TTL: 5 minutes, not 1 h.** `PREFIX_CACHE_CONTROL = { type: 'ephemeral' }` in `provider.ts`, with no `ttl`. A 1 h write costs 2× input against 1.25× fo\n- **Per-question routing (`route.ts`).** A lookup (where a page, button or setting is, how to do something, what a rule means) with no figure signal runs on `LOOKUP_MODEL` (`claude-sonnet-5-5`) at effort `low`, and the system map is searched before the first model call; everything else is analysis on the chat's model at `medium`. When unsure, analysis. Inside the 5-minute cache window a lookup keeps the previous turn's model and effort (`keepWarmRoute` in `turnPolicy.ts`), because switching would re-write the whole cached prefix.\n- **Frozen first turn (0325 `assistant_conversations.context`).** The first user turn (date,",
+      "body": "- **Cache TTL: 5 minutes, not 1 h.** `PREFIX_CACHE_CONTROL = { type: 'ephemeral' }` in `provider.ts`, with no `ttl`. A 1 h write costs 2× input against 1.25× fo\noverlapping windows of at most 800 characters, `~n` refs; `searchMerge.ts` joins the windows of one entry that rank together before the model reads them).\n- **Per-question routing (`route.ts`).** A lookup (where a page, button or setting is, how to do something, what a rule means) with no figure signal runs on `LOOKUP_MODEL` (`claude-sonnet-5-5`) at effort `low`, and the system map is searched before the first model call; everything else is analysis on the chat's model at `medium`. When unsure, analysis. Inside the 5-minute cache window a lookup keeps the previous turn's model and effort (`keepWarmRoute` in `turnPolicy.t",
       "route": null
     },
     {
@@ -47286,7 +47286,7 @@
       "ref": "doc:docs/design/assistant/build-contracts-2026-09-20.md#8",
       "lang": "en",
       "title": "docs/design/assistant/build-contracts-2026-09-20.md › Changed 2026-10-08 (the cost, speed and safety pass) (part 1 of 4)",
-      "body": "timezone, scopes, packs) is built once and replayed byte for byte for 30 minutes while scopes, range, today, timezone and the branch in scope (`venue_scope`) are unchanged; it is stored only when every pack came back and the turn did not fail. Only the service role writes the column.\n- **History window.** At least 30 earlier messages ride along, but the window's start moves in steps of 10 (`TAIL_STEP`), so the history stays the same bytes for ten messages at a time instead of sliding by one every turn.",
+      "body": "s`), because switching would re-write the whole cached prefix.\n- **Frozen first turn (0325 `assistant_conversations.context`).** The first user turn (date, timezone, scopes, packs) is built once and replayed byte for byte for 30 minutes while scopes, range, today, timezone and the branch in scope (`venue_scope`) are unchanged; it is stored only when every pack came back and the turn did not fail. Only the service role writes the column.\n- **History window.** At least 30 earlier messages ride along, but the window's start moves in steps of 10 (`TAIL_STEP`), so the history stays the same bytes for ten messages at a time instead of sliding by one every turn.",
       "route": null
     },
     {
@@ -47294,7 +47294,7 @@
       "ref": "doc:docs/design/assistant/build-contracts-2026-09-20.md#8~2",
       "lang": "en",
       "title": "docs/design/assistant/build-contracts-2026-09-20.md › Changed 2026-10-08 (the cost, speed and safety pass) (part 2 of 4)",
-      "body": "timezone, scopes, packs) is built once and replayed byte for byte for 30 minutes while scopes, range, today, timezone and the branch in scope (`venue_scope`) ar\n- **Per-message cost ceiling: USD 1.50** (`TURN_COST_CAP_MICROS`), estimated in TypeScript per call and priced exactly at persist. Past it a tool request gets is_error notices and an answer-now line; a second request ends the message with stop reason `cost_capped`, the text so far plus a fixed sentence, gated. The rounds limit (`MAX_TOOL_ROUNDS`, 8) ends the same way with `rounds_exhausted` when the model still asks on the last call the loop allows. Neither the false-refusal retry nor the gate retry runs past the ceiling.",
+      "body": "s`), because switching would re-write the whole cached prefix.\n- **Per-message cost ceiling: USD 1.50** (`TURN_COST_CAP_MICROS`), estimated in TypeScript per call and priced exactly at persist. Past it a tool request gets is_error notices and an answer-now line; a second request ends the message with stop reason `cost_capped`, the text so far plus a fixed sentence, gated. The rounds limit (`MAX_TOOL_ROUNDS`, 8) ends the same way with `rounds_exhausted` when the model still asks on the last call the loop allows. Neither the false-refusal retry nor the gate retry runs past the ceiling.",
       "route": null
     },
     {
@@ -47302,7 +47302,7 @@
       "ref": "doc:docs/design/assistant/build-contracts-2026-09-20.md#8~3",
       "lang": "en",
       "title": "docs/design/assistant/build-contracts-2026-09-20.md › Changed 2026-10-08 (the cost, speed and safety pass) (part 3 of 4)",
-      "body": "timezone, scopes, packs) is built once and replayed byte for byte for 30 minutes while scopes, range, today, timezone and the branch in scope (`venue_scope`) ar\n- **Gate (`gate.ts`).** The one regenerated answer runs only when a flagged figure is a percentage or money-sized (`RETRY_MIN_ABS` = 1,000); smaller flagged figures are marked, not retried. The sum, difference and percentage rules build on the figures the answer itself quotes as operands, falling back to the whole given set only while it is small (`PAIR_RULE_MAX_GIVEN`, `PCT_RULE_MAX_GIVEN`). A sum or difference shown without decimals must match exactly.",
+      "body": "s`), because switching would re-write the whole cached prefix.\n- **Gate (`gate.ts`).** The one regenerated answer runs only when a flagged figure is a percentage or money-sized (`RETRY_MIN_ABS` = 1,000); smaller flagged figures are marked, not retried. The sum, difference and percentage rules build on the figures the answer itself quotes as operands, falling back to the whole given set only while it is small (`PAIR_RULE_MAX_GIVEN`, `PCT_RULE_MAX_GIVEN`). A sum or difference shown without decimals must match exactly.",
       "route": null
     },
     {
@@ -47310,7 +47310,7 @@
       "ref": "doc:docs/design/assistant/build-contracts-2026-09-20.md#8~4",
       "lang": "en",
       "title": "docs/design/assistant/build-contracts-2026-09-20.md › Changed 2026-10-08 (the cost, speed and safety pass) (part 4 of 4)",
-      "body": "timezone, scopes, packs) is built once and replayed byte for byte for 30 minutes while scopes, range, today, timezone and the branch in scope (`venue_scope`) ar\n- **Prior-turn figures.** The previous answer's `gate.numbers` pass the gate only when `gate.sig`, assistant-chat's HMAC over the chat, the message and the figures, verifies. Since 0329 no client may insert into `assistant_messages` or `assistant_calls` either (0108 had granted it to any owner session); the edge functions write both as the service role.\n- **Jobs.** Chunk extraction (live and batch) runs on `JOB_EXTRACT_MODEL` (`claude-sonnet-5-5`, `estimate.ts`); the reduce step stays on the job's o",
+      "body": "s`), because switching would re-write the whole cached prefix.\n- **Prior-turn figures.** The previous answer's `gate.numbers` pass the gate only when `gate.sig`, assistant-chat's HMAC over the chat, the message and the figures, verifies. Since 0329 no client may insert into `assistant_messages` or `assistant_calls` either (0108 had granted it to any owner session); the edge functions write both as the service",
       "route": null
     },
     {
@@ -47318,7 +47318,7 @@
       "ref": "doc:docs/design/assistant/build-contracts-2026-09-20.md#9",
       "lang": "en",
       "title": "docs/design/assistant/build-contracts-2026-09-20.md › Changed 2026-10-08 (the cost, speed and safety pass)",
-      "body": "wn model. A live job keeps `JOB_LIVE_CONCURRENCY` (4) chunks in flight (`pool.ts`), launched in order, so finished chunks are a prefix of the list. The estimate prices each step at its own model (`by_step`).\n- **Pre-warm (0327, `prewarm.ts`).** The nightly pre-warm generates only cards the owner viewed in the last 7 days (`PREWARM_VIEWED_DAYS`); `app.analytics_component` stamps `assistant_components.last_viewed_at` at most once an hour.",
+      "body": "role.\n- **Jobs.** Chunk extraction (live and batch) runs on `JOB_EXTRACT_MODEL` (`claude-sonnet-5-5`, `estimate.ts`); the reduce step stays on the job's own model. A live job keeps `JOB_LIVE_CONCURRENCY` (4) chunks in flight (`pool.ts`), launched in order, so finished chunks are a prefix of the list. The estimate prices each step at its own model (`by_step`).\n- **Pre-warm (0327, `prewarm.ts`).** The nightly pre-warm generates only cards the owner viewed in the last 7 days (`PREWARM_VIEWED_DAYS`); `app.analytics_component` stamps `assistant_components.last_viewed_at` at most once an hour.",
       "route": null
     },
     {

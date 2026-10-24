@@ -140,6 +140,20 @@
       "reason": "launch-editor's fs.existsSync() check can be bypassed on Windows, reached through the Vite dev server's open-in-editor middleware. The flagged copy is vite 5.4.21, pulled in only by vitest 2.1 (the unit-test runner in apps/mobile, apps/operator and apps/operator-shell): it runs tests in-process and serves nothing, and no shipped bundle contains it. The operator's own vite (dev server + build) was bumped to ^6.4.4 the same day. Advisory published 2026-10-20 with no patched 5.x, so the real fix is the vitest 3 upgrade (vite >= 6.4.4). Waived 2026-10-21 on Majed's word for 30 days; remove with that upgrade.",
       "owner": "DEV",
       "expires": "2026-11-20"
+    },
+    {
+      "id": "GHSA-mrhx-c7xc-m3w5",
+      "module": "zod",
+      "reason": "Memory exhaustion while validating oversized constrained collections. Zod 3.x is used to validate our own bounded payloads (forms, RPC args behind size-limited requests), not unbounded attacker-sized collections. Fix is the zod 3 -> 4.6.6 migration across the repo, which is its own work package. Waived 2026-10-24 on Majed's word to get main green; expires 2026-11-16 with the other Electron waivers.",
+      "owner": "DEV",
+      "expires": "2026-11-16"
+    },
+    {
+      "id": "GHSA-jr5w-w6x2-84p9",
+      "module": "electron",
+      "reason": "Mitigation for compromised eMudhra intermediate certificates. The shell talks only to our own Supabase/API hosts and loads no remote content; no eMudhra-issued certificate is in its trust path for those hosts. Cleared by the Electron upgrade (33 -> 42.11.16) the other electron waivers date. Waived 2026-10-24 on Majed's word to get main green; expires 2026-11-16 with the other Electron waivers.",
+      "owner": "DEV",
+      "expires": "2026-11-16"
     }
   ]
 }
