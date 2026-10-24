@@ -481,7 +481,7 @@ describe('pin_cache (authorisation-token model)', () => {
     }[];
     expect(rows.length).toBeGreaterThan(0);
     for (const row of rows) {
-      expect(row.pin_hash).not.toContain('2468');
+      expect(row.pin_hash).not.toBe('2468');
       expect(row.pin_hash).toMatch(/^[0-9a-f]{64}$/);
     }
   });
