@@ -115,6 +115,21 @@ type CustomerRecord = {
     edited_by_name: string | null;
   }[];
   series: unknown[];
+  /** 0368: who the player is (customers contracts §1, §5). */
+  player: {
+    age_band: string | null;
+    claimed_level: string | null;
+    play_years: string | null;
+    play_wants: string[];
+    level_confirmed: string | null;
+    level_confirmed_at: string | null;
+    level_confirmed_role: string | null;
+    level_confirmed_by_name: string | null;
+    level_note: string | null;
+    effective_level: string | null;
+    suggested: unknown;
+    interests: string[];
+  };
 };
 
 describe.skipIf(!up)('0065 customers', () => {
@@ -307,8 +322,26 @@ describe.skipIf(!up)('0065 customers', () => {
 
     expect(Object.keys(rec).sort()).toEqual(
       // 0262: matches[] (the customer's last open matches).
-      ['cafeOrders', 'counts', 'customer', 'flags', 'history', 'matches', 'notes', 'series', 'upcoming'].sort(),
+      // 0368: player (the age band, the claimed and confirmed level, the
+      // measured suggestion and the derived interest tags).
+      ['cafeOrders', 'counts', 'customer', 'flags', 'history', 'matches', 'notes', 'player', 'series', 'upcoming'].sort(),
     );
+    // 0368: a customer nobody has judged and who answered nothing — every key
+    // is there, and every one of them is empty.
+    expect(rec.player).toEqual({
+      age_band: null,
+      claimed_level: null,
+      play_years: null,
+      play_wants: [],
+      level_confirmed: null,
+      level_confirmed_at: null,
+      level_confirmed_role: null,
+      level_confirmed_by_name: null,
+      level_note: null,
+      effective_level: null,
+      suggested: null,
+      interests: [],
+    });
     expect(rec.customer).toMatchObject({
       id: arabId,
       full_name: 'أحمد الكرخي',

@@ -11,7 +11,7 @@ import type { playProfileEn } from './playProfile.en';
  */
 export const playProfileAr: DeepMessages<typeof playProfileEn> = {
   survey: {
-    intro: 'بضعة أسئلة سريعة لنقترح عليك مباريات أنسب. يمكن تخطّي أي سؤال.',
+    intro: 'بضعة أسئلة سريعة لنقترح عليك مباريات أنسب. مستواك فقط مطلوب، وما بعده اختياري.',
     skip: 'تخطّي',
     progress: 'السؤال {n} من {total}',
     level: {
@@ -20,6 +20,10 @@ export const playProfileAr: DeepMessages<typeof playProfileEn> = {
       beginner: { title: 'مستوى المبتدئين', body: 'أستطيع تبادل الكرة وما زلت أتعلّم' },
       intermediate: { title: 'مستوى متوسط', body: 'ألعب بانتظام وأستخدم الجدران' },
       advanced: { title: 'مستوى متقدّم', body: 'ألعب بسرعة وتقنية متينة، وأشارك في المنافسات' },
+    },
+    age: {
+      question: 'كم عمرك؟',
+      hint: 'الفئة تكفي. تعرّفنا على من يلعب هنا فعلاً، لتناسبهم الأمسيات والعروض.',
     },
     years: {
       question: 'منذ متى بدأت لعب البادل؟',

@@ -6,11 +6,13 @@ import {
   genderToSave,
   hasAnswers,
   nextStep,
+  parseAgeBand,
   parseWants,
   playProfileOf,
   previousStep,
   rowPatchOf,
   surveyArgs,
+  stepIsRequired,
   surveyStepsFor,
   toggleWant,
   withLevel,
@@ -121,6 +123,38 @@ describe('steps', () => {
     ]);
   });
 
+  it('asks the age band only while the profile has none (0368)', () => {
+    expect(surveyStepsFor({ askGender: false, genderOnly: false, askAge: true })).toEqual([
+      'level',
+      'age',
+      'years',
+      'wants',
+    ]);
+    expect(surveyStepsFor({ askGender: true, genderOnly: false, askAge: true })).toEqual([
+      'level',
+      'age',
+      'years',
+      'wants',
+      'gender',
+    ]);
+    // The gender-only way in stays one question, whatever the band says.
+    expect(surveyStepsFor({ askGender: true, genderOnly: true, askAge: true })).toEqual(['gender']);
+  });
+
+  it('takes no Skip on the level, and a Skip on every other step (0368)', () => {
+    expect(stepIsRequired('level')).toBe(true);
+    for (const step of ['age', 'years', 'wants', 'gender'] as const) {
+      expect(stepIsRequired(step), step).toBe(false);
+    }
+  });
+
+  it('walks level → age → years with the band asked', () => {
+    const steps = surveyStepsFor({ askGender: false, genderOnly: false, askAge: true });
+    expect(nextStep(steps, 'level')).toBe('age');
+    expect(nextStep(steps, 'age')).toBe('years');
+    expect(previousStep(steps, 'years')).toBe('age');
+  });
+
   it('asks the gender alone when a match or tournament sends the guest', () => {
     expect(surveyStepsFor({ askGender: false, genderOnly: true })).toEqual(['gender']);
     expect(surveyStepsFor({ askGender: true, genderOnly: true })).toEqual(['gender']);
@@ -194,5 +228,17 @@ describe('genderToSave', () => {
     expect(genderToSave('female')).toBe('female');
     expect(genderToSave('male')).toBe('male');
     expect(genderToSave(null)).toBeNull();
+  });
+});
+
+describe('parseAgeBand (0368)', () => {
+  it('takes the six bands and nothing else', () => {
+    expect(parseAgeBand('u18')).toBe('u18');
+    expect(parseAgeBand('55_plus')).toBe('55_plus');
+    expect(parseAgeBand('25-34')).toBeNull();
+    expect(parseAgeBand('')).toBeNull();
+    expect(parseAgeBand(34)).toBeNull();
+    expect(parseAgeBand(null)).toBeNull();
+    expect(parseAgeBand(undefined)).toBeNull();
   });
 });

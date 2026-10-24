@@ -106,3 +106,62 @@ describe('words', () => {
     expect(demandAdvice({ ...base, quiet: [{ dow: 1, hour: 10, level: 1 }], full: [{ dow: 4, hour: 20, level: 4 }] })).toBe('both');
   });
 });
+
+describe('people (0369)', () => {
+  it('reads the shares, the coverage, the growing buckets and the biggest groups', () => {
+    const p = parseInsights({
+      people: {
+        known: { kind: 'about', value: 120 },
+        knownTrend: 'up',
+        knownTrendPct: 14,
+        coverage: 3,
+        coveragePct: 72,
+        coverageTrend: 'up',
+        coverageTrendPts: 9,
+        genders: [{ bucket: 'female', share: 58 }, { bucket: 'male', share: 42 }],
+        ages: [{ bucket: '25_34', share: 50 }],
+        levels: [{ bucket: 'intermediate', share: 40 }],
+        interests: [{ bucket: 'courts', share: 90 }, { bucket: 'cafe', share: 30 }],
+        judgedShare: 12,
+        overClaimedShare: 25,
+        growing: [{ bucket: 'female', trend: 'up', trendPct: 20 }, { bucket: 'late', trend: 'steady', trendPct: 1 }],
+        top: [{ who: 'female', band: '25_34', level: 'intermediate', share: 30 }],
+      },
+    }).people;
+    expect(p.known).toEqual({ kind: 'about', value: 120 });
+    expect(p.knownTrend).toEqual({ dir: 'up', size: 14, unit: 'pct' });
+    expect(p.coverage).toBe(3);
+    expect(p.coveragePct).toBe(72);
+    expect(p.coverageTrend).toEqual({ dir: 'up', size: 9, unit: 'pts' });
+    expect(p.genders).toEqual([{ bucket: 'female', share: 58 }, { bucket: 'male', share: 42 }]);
+    expect(p.interests.map((b) => b.bucket)).toEqual(['courts', 'cafe']);
+    expect(p.judgedShare).toBe(12);
+    expect(p.overClaimedShare).toBe(25);
+    expect(p.growing).toEqual([
+      { bucket: 'female', trend: { dir: 'up', size: 20, unit: 'pct' } },
+      { bucket: 'late', trend: { dir: 'steady', size: 1, unit: 'pct' } },
+    ]);
+    expect(p.top).toEqual([{ who: 'female', band: '25_34', level: 'intermediate', share: 30 }]);
+  });
+
+  it('is empty, never broken, on a server without 0369', () => {
+    const p = parseInsights({}).people;
+    expect(p.known).toBeNull();
+    expect(p.coverage).toBeNull();
+    expect(p.coveragePct).toBeNull();
+    expect(p.genders).toEqual([]);
+    expect(p.ages).toEqual([]);
+    expect(p.levels).toEqual([]);
+    expect(p.interests).toEqual([]);
+    expect(p.growing).toEqual([]);
+    expect(p.top).toEqual([]);
+    expect(p.knownTrend.dir).toBe('unknown');
+  });
+
+  it('drops a share outside 0..100 and a bucket with no name', () => {
+    const p = parseInsights({
+      people: { genders: [{ bucket: 'female', share: 140 }, { bucket: '', share: 10 }] },
+    }).people;
+    expect(p.genders).toEqual([{ bucket: 'female', share: null }]);
+  });
+});

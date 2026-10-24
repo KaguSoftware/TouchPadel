@@ -17,8 +17,42 @@ is a line in that file.
 
 ## Migrations
 
-- Ordinal strictly greater than the current max, never a reused one. Latest is `0366`
-  (0366 branch_counts, 2026-10-22 (Sait: the Branches cards' courts and café tables): the client
+- Ordinal strictly greater than the current max, never a reused one. Latest is `0369`
+  (0369 customer_analytics, 2026-10-24 (Majed: "there is nothing that shows exactly who our
+  customers are"): the owner-only `analytics_customers(p_from, p_to)` behind `analytics_guard` —
+  the crowd of the analysed branch counted once, how much of it the club knows (`coveragePct`),
+  genders / ages / levels / interests with their shares, the claim against the judgment
+  (`judged`), `segments` (every group under five guests folded into one `other` row), each
+  bucket's two busiest slots and new against returning; **no key is called `gender`** (SEC-29
+  forbids one in an analytics payload: the bucket is `who` / `bucket`, the gender is its value);
+  the service-role wording helpers `mkt_buckets`, `mkt_bucket_trends`, `mkt_segments`; and
+  **0369 holds `marketing_insights`** (0365 no longer: one more section, `people`, as shares,
+  about-N counts and trends, with every bucket under ten guests left out); a play is a court
+  booking the guest booked or an open-match seat they sat in, and spend is what settled on their
+  own tabs and their bookings' tabs; `tests/customer-analytics.test.ts`;
+  0368 customer_facts, 2026-10-24 (Majed: "at sign up, the customer is asked their gender, their
+  age, their level ... a manager or their performance will judge if that level is actually
+  accurate", and interests "without asking them ... by the data that they provide"): `profiles`
+  gains `age_band` + `age_band_set_at` (six bands, `profiles_age_band_chk` / `_stamp`) and the
+  CONFIRMED level `level_confirmed`, `_at`, `_by` (a FK to profiles), `_role`
+  (coach | court_desk | manager | owner) and `level_note` (≤ 120, one block by
+  `profiles_level_confirmed_stamp`), all read by a column grant except `_by`; the effective level
+  is `app.effective_play_level(confirmed, claimed)`; writers `set_my_age_band` (the guest's own,
+  changeable), `staff_set_customer_age_band` and `staff_set_customer_level` (court desk, manager,
+  owner — and a coach through `app.coach_self`, which is why the operator's capability is only
+  three roles); the measurement `app.level_suggestions` / `level_suggested` (confirmed
+  `game_results` of the last 365 days, chain-wide, scored against the opponents' effective levels
+  ±0.5 for a win or a loss, nothing under five scored games, never "new") and the client
+  `customer_level_reviews` (the disagreements, coach / desk / manager / owner, cap 100); the
+  derived `app.customer_interest_tags` (14 closed tags from bookings, seats, lessons,
+  tournaments, tabs, loyalty, discounts, results and the hours played; a day-part word needs
+  three plays; no tag ever means money); **0368 holds `customer_record`** (0262 no longer: a
+  `player` block — the band, the claim, the judgment with its judge's name, the suggestion and
+  the tags), **`desk_register_customer`** (0353 no longer: `+ p_age_band, p_play_level`, which
+  only fill a hole), **`trg_profile_media_tombstone`** (0334 no longer), **`merge_profiles_internal`**
+  (0347 no longer) and **`profile_merge_columns`** (0364 no longer: `profiles.level_confirmed_by`
+  repoints); `tests/customer-facts.test.ts`, `tests/customers-plant.ts`;
+  0366 branch_counts, 2026-10-22 (Sait: the Branches cards' courts and café tables): the client
   `branch_counts()` (manager or owner; the owner counts every branch, a manager the open or
   preparing branches they work at) returns `[{venue_id, courts, tables}]`, active rows only, so a
   card can count a branch the rail is not on; re-creates no function;
@@ -244,7 +278,7 @@ is a line in that file.
   0149 assistant-cap, 0150 move-not-into-past, 0151 out-of-stock-alert, 0152 my-reservations,
   0153 terms-consent, 0154 analytics-returning-guest, 0155–0157 six new staff roles, 0158–0206
   protocols and the staff phone (change-order line 10), 0207–0227 multi-venue slices 2–4); the next is
-  `0356`. **Check the directory, not this line** — it said 0146 while 0147–0149 were already on
+  `0370`. **Check the directory, not this line** — it said 0146 while 0147–0149 were already on
   disk, and later 0150 while 0154 was, and a reused ordinal fails `check-migrations.mjs` after the
   file is written.
 - `0069` and `0071` are already doubled; `0023`, `0040` and `0101` have no file, so leave the gaps.

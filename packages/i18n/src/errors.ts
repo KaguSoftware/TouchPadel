@@ -573,6 +573,10 @@ export const ERROR_CODE_KEYS = {
   // 0334: app.set_my_play_profile, a play-survey answer outside its list. The
   // survey's tiles only send known values, so this is the generic wording.
   INVALID_PLAY_PROFILE: 'errors.invalidValue',
+  // 0368: app.set_my_age_band / staff_set_customer_age_band / the desk's
+  // registration, an age band outside the six. Every surface offers the six as
+  // tiles, so this is the generic wording.
+  INVALID_AGE_BAND: 'errors.invalidValue',
   // 0259: buying tickets (edge ticket-begin -> app.ticket_payment_prepare). The
   // detail wallet_limit has its own line (matches.errors.walletLimit), which the
   // tickets screen picks from the detail.

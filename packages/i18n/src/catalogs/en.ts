@@ -92,6 +92,8 @@ export const en = {
     // Field-level validation (spec 05.3/05.4) — rendered on the field it concerns.
     nameRequired: 'Enter your full name.',
     firstNameRequired: 'Enter your name.',
+    // 0368: the age band is a must on the form, like the gender.
+    ageRequired: 'Pick your age range.',
     lastNameRequired: 'Enter your surname.',
     passwordRequired: 'Enter your password.',
     emailRequired: 'Enter your email address.',
@@ -980,6 +982,24 @@ export const en = {
     photoUnavailable: 'Update the app to add a profile photo.',
     photoCameraOff: 'Camera access is off for Touch Padel. Turn it on in Settings.',
     genderSection: 'Gender',
+    // 0368 (customers contracts §4): the age band, asked at sign-up and
+    // changeable here; and the level, with the club's own word on it.
+    ageSection: 'Age',
+    ageHint: 'Pick the range you are in.',
+    ageSaved: 'Age saved',
+    ageBand: {
+      u18: 'Under 18',
+      '18_24': '18 to 24',
+      '25_34': '25 to 34',
+      '35_44': '35 to 44',
+      '45_54': '45 to 54',
+      '55_plus': '55 and over',
+      unknown: 'Not set',
+    },
+    levelSection: 'Your level',
+    levelClaimed: 'What you told us',
+    levelConfirmed: 'Confirmed by the club',
+    levelConfirmedBody: 'A coach or the front desk has seen you play, so this is the level we match you at.',
     genderConfirmTitle: 'Set gender to {value}?',
     genderConfirmBody: "You won't be able to change this yourself. The front desk can correct it.",
     genderConfirm: 'Set',

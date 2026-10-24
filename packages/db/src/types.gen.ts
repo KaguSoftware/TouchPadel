@@ -371,6 +371,10 @@ export type Database = {
         Args: { p_court_id?: string; p_from: string; p_to: string }
         Returns: Json
       }
+      analytics_customers: {
+        Args: { p_from: string; p_to: string }
+        Returns: Json
+      }
       analytics_daily_sales: {
         Args: { p_from: string; p_to: string }
         Returns: Json
@@ -1570,7 +1574,22 @@ export type Database = {
       customer_discount: { Args: { p_customer_id: string }; Returns: Json }
       customer_discount_json: { Args: { p_customer_id: string }; Returns: Json }
       customer_flags_json: { Args: { p_customer_id: string }; Returns: Json }
+      customer_interest_tags: {
+        Args: {
+          p_from?: string
+          p_profile_ids?: string[]
+          p_start_hour?: number
+          p_to?: string
+          p_tz?: string
+          p_venue_ids: string[]
+        }
+        Returns: {
+          profile_id: string
+          tags: string[]
+        }[]
+      }
       customer_lessons: { Args: { p_customer_id: string }; Returns: Json }
+      customer_level_reviews: { Args: { p_limit?: number }; Returns: Json }
       customer_record: { Args: { p_customer_id: string }; Returns: Json }
       customer_reservation_json: {
         Args: {
@@ -1881,10 +1900,12 @@ export type Database = {
       desk_register_customer: {
         Args: {
           p_actor_id: string
+          p_age_band?: string
           p_customer_id: string
           p_full_name: string
           p_gender?: string
           p_phone: string
+          p_play_level?: string
           p_preferred_lang: string
         }
         Returns: Json
@@ -1947,6 +1968,10 @@ export type Database = {
       edit_run_items: {
         Args: { p_items: Json; p_run_step_id: string }
         Returns: Json
+      }
+      effective_play_level: {
+        Args: { p_claimed: string; p_confirmed: string }
+        Returns: string
       }
       eligible_promotions: {
         Args: { p_code?: string; p_tab_id: string }
@@ -2569,6 +2594,18 @@ export type Database = {
         }
       }
       lesson_typed_purge: { Args: { p_limit?: number }; Returns: number }
+      level_suggested: { Args: { p_profile_id: string }; Returns: Json }
+      level_suggestions: {
+        Args: { p_profile_ids?: string[] }
+        Returns: {
+          games: number
+          level: string
+          losses: number
+          profile_id: string
+          score: number
+          wins: number
+        }[]
+      }
       like_escape: { Args: { p_text: string }; Returns: string }
       link_guest_session: { Args: { p_member_token: string }; Returns: Json }
       link_item_modifier_group: {
@@ -3234,6 +3271,8 @@ export type Database = {
         Returns: Json
       }
       mkt_about: { Args: { p_n: number }; Returns: Json }
+      mkt_bucket_trends: { Args: { p_now: Json; p_prev: Json }; Returns: Json }
+      mkt_buckets: { Args: { p_rows: Json; p_total: number }; Returns: Json }
       mkt_change: {
         Args: { p_min?: number; p_now: number; p_prev: number }
         Returns: number
@@ -3243,6 +3282,10 @@ export type Database = {
       mkt_rate_trend: {
         Args: { p_now: number; p_prev: number }
         Returns: string
+      }
+      mkt_segments: {
+        Args: { p_limit?: number; p_rows: Json; p_total: number }
+        Returns: Json
       }
       mkt_share: {
         Args: {
@@ -3460,6 +3503,8 @@ export type Database = {
         }
         Returns: Json
       }
+      play_level_name: { Args: { p_rank: number }; Returns: string }
+      play_level_rank: { Args: { p_level: string }; Returns: number }
       preview_series: {
         Args: {
           p_court_id: string
@@ -4678,6 +4723,7 @@ export type Database = {
         Args: { p_group_ids: string[]; p_modifier_id: string }
         Returns: undefined
       }
+      set_my_age_band: { Args: { p_band: string }; Returns: Json }
       set_my_avatar: { Args: { p_path: string }; Returns: Json }
       set_my_birth_date: { Args: { p_birth_date: string }; Returns: Json }
       set_my_coach_hours: {
@@ -5003,8 +5049,16 @@ export type Database = {
         Args: never
         Returns: Database["public"]["Enums"]["staff_role"]
       }
+      staff_set_customer_age_band: {
+        Args: { p_band: string; p_customer_id: string }
+        Returns: Json
+      }
       staff_set_customer_gender: {
         Args: { p_customer_id: string; p_gender: string }
+        Returns: Json
+      }
+      staff_set_customer_level: {
+        Args: { p_customer_id: string; p_level: string; p_note?: string }
         Returns: Json
       }
       staff_stock_view: {
@@ -13021,6 +13075,8 @@ export type Database = {
       }
       profiles: {
         Row: {
+          age_band: string | null
+          age_band_set_at: string | null
           avatar_frame: string
           avatar_frame_style: string
           avatar_path: string | null
@@ -13035,6 +13091,11 @@ export type Database = {
           gender_set_by: string | null
           given_name: string | null
           id: string
+          level_confirmed: string | null
+          level_confirmed_at: string | null
+          level_confirmed_by: string | null
+          level_confirmed_role: string | null
+          level_note: string | null
           payment_sandbox: boolean
           phone: string | null
           phone_key: string | null
@@ -13049,6 +13110,8 @@ export type Database = {
           username_changed_at: string | null
         }
         Insert: {
+          age_band?: string | null
+          age_band_set_at?: string | null
           avatar_frame?: string
           avatar_frame_style?: string
           avatar_path?: string | null
@@ -13063,6 +13126,11 @@ export type Database = {
           gender_set_by?: string | null
           given_name?: string | null
           id: string
+          level_confirmed?: string | null
+          level_confirmed_at?: string | null
+          level_confirmed_by?: string | null
+          level_confirmed_role?: string | null
+          level_note?: string | null
           payment_sandbox?: boolean
           phone?: string | null
           phone_key?: string | null
@@ -13077,6 +13145,8 @@ export type Database = {
           username_changed_at?: string | null
         }
         Update: {
+          age_band?: string | null
+          age_band_set_at?: string | null
           avatar_frame?: string
           avatar_frame_style?: string
           avatar_path?: string | null
@@ -13091,6 +13161,11 @@ export type Database = {
           gender_set_by?: string | null
           given_name?: string | null
           id?: string
+          level_confirmed?: string | null
+          level_confirmed_at?: string | null
+          level_confirmed_by?: string | null
+          level_confirmed_role?: string | null
+          level_note?: string | null
           payment_sandbox?: boolean
           phone?: string | null
           phone_key?: string | null
@@ -13104,7 +13179,15 @@ export type Database = {
           username?: string | null
           username_changed_at?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "profiles_level_confirmed_by_fkey"
+            columns: ["level_confirmed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       promotion_redemptions: {
         Row: {

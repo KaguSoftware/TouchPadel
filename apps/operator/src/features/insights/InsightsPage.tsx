@@ -59,6 +59,7 @@ import {
 
 export const INSIGHT_ZONES: readonly ZoneDef[] = [
   { id: 'glance', titleKey: 'ws.insights.zones.glance', descKey: 'ws.insights.zones.glanceDesc' },
+  { id: 'people', titleKey: 'ws.insights.zones.people', descKey: 'ws.insights.zones.peopleDesc', navKey: 'ws.insights.zones.peopleNav' },
   { id: 'when', titleKey: 'ws.insights.zones.when', descKey: 'ws.insights.zones.whenDesc', navKey: 'ws.insights.zones.whenNav' },
   { id: 'players', titleKey: 'ws.insights.zones.players', descKey: 'ws.insights.zones.playersDesc', navKey: 'ws.insights.zones.playersNav' },
   { id: 'channels', titleKey: 'ws.insights.zones.channels', descKey: 'ws.insights.zones.channelsDesc', navKey: 'ws.insights.zones.channelsNav' },
@@ -69,6 +70,15 @@ export const INSIGHT_ZONES: readonly ZoneDef[] = [
 ];
 
 const VISIT_BUCKETS = ['1', '2_3', '4_6', '7_plus'] as const;
+// 0369: the people buckets, in the order the cards print them. The server
+// leaves out any bucket under ten guests, so a row may simply be absent.
+const GENDER_BUCKETS = ['female', 'male', 'unknown'] as const;
+const AGE_BUCKETS = ['u18', '18_24', '25_34', '35_44', '45_54', '55_plus', 'unknown'] as const;
+const LEVEL_BUCKETS = ['new', 'beginner', 'intermediate', 'advanced', 'unknown'] as const;
+const INTEREST_BUCKETS = [
+  'courts', 'matches', 'tournaments', 'lessons', 'cafe', 'shop', 'regular',
+  'weekend', 'evenings', 'daytime', 'late', 'group', 'offers', 'ranked',
+] as const;
 const LEAD_BUCKETS = ['lt2h', '2_6h', '6_24h', '1_3d', '3_7d', '7d_plus'] as const;
 
 /** The words this page prints, bound to the locale once. */
@@ -178,6 +188,10 @@ export function InsightsPageScreen() {
         <GlanceRow d={data} w={w} common={common} />
       </Zone>
 
+      <Zone zone={zone('people')} lead={lead((d) => peopleLead(d, w))}>
+        <PeopleSection d={data} w={w} f={f} common={common} />
+      </Zone>
+
       <Zone zone={zone('when')} lead={lead((d) => whenLead(d, w))}>
         <WhenSection d={data} w={w} f={f} common={common} />
       </Zone>
@@ -219,6 +233,30 @@ function glanceLead(d: Insights, w: Words): string {
     players: inner(w.count(d.players.active), w.locale),
     crossover: inner(w.share(d.cafe.crossoverShare), w.locale),
   });
+}
+
+/**
+ * "Most of the crowd is women, 25 to 34, playing at an intermediate level" —
+ * built from the biggest bucket of each kind, and honest when the club knows
+ * too little to say (0369, Majed: the marketing team needs this).
+ */
+function peopleLead(d: Insights, w: Words): string {
+  const p = d.people;
+  const biggest = (rows: readonly BucketShare[]) =>
+    rows.filter((r) => r.bucket !== 'unknown' && r.share !== null).sort((a, b) => (b.share ?? 0) - (a.share ?? 0))[0] ?? null;
+  const g = biggest(p.genders);
+  const a = biggest(p.ages);
+  const l = biggest(p.levels);
+  if (!g && !a && !l) return w.tr('ws.insights.leads.peopleThin');
+  const parts = [
+    g ? w.tr('ws.insights.leads.peopleGender', { who: w.tr(`ws.insights.people.gender.${g.bucket}` as never), share: w.share(g.share) }) : null,
+    a ? w.tr('ws.insights.leads.peopleAge', { band: w.tr(`ws.insights.people.age.${a.bucket}` as never) }) : null,
+    l ? w.tr('ws.insights.leads.peopleLevel', { level: w.tr(`ws.insights.people.level.${l.bucket}` as never) }) : null,
+  ].filter(Boolean) as string[];
+  const sentence = parts.join(w.locale === 'ar' ? '، ' : ', ');
+  return p.coveragePct === null
+    ? sentence
+    : `${sentence} ${w.tr('ws.insights.leads.peopleCoverage', { pct: w.share(p.coveragePct) })}`;
 }
 
 function whenLead(d: Insights, w: Words): string {
@@ -446,6 +484,110 @@ function PlayersSection({ d, w, f, common }: SectionProps) {
       />
     </ZoneGrid>
   );
+}
+
+/**
+ * Who comes: the crowd's size as an about-N, how much of it the club knows,
+ * and the three cuts marketing plans on (gender, age, level) plus what the
+ * data says they are into. Every figure is a share or a word — the exact
+ * counts stay on the owner's Analytics › People.
+ */
+function PeopleSection({ d, w, f, common }: SectionProps) {
+  const { tr } = w;
+  const p = d?.people;
+  const thin = (rows: readonly BucketShare[] | undefined) =>
+    common.state === 'ready' && (!rows || rows.length === 0) ? ('empty' as const) : common.state;
+  return (
+    <>
+      <ZoneGrid columns={3}>
+        <StatPair
+          title={tr('ws.insights.cards.crowd')}
+          {...common}
+          items={[
+            { label: tr('ws.insights.cards.known'), value: p ? w.count(p.known) : '', sub: p ? w.trendLine(p.knownTrend) : undefined },
+            {
+              label: tr('ws.insights.cards.coverage'),
+              value: p ? w.levelPct(p.coverage, p.coveragePct) : '',
+              sub: p ? tr('ws.insights.cards.coverageSub') : undefined,
+            },
+          ]}
+        />
+        <ShareCard
+          title={tr('ws.insights.cards.whoThey')}
+          rows={bucketRows(p?.genders ?? [], GENDER_BUCKETS, (b) => tr(`ws.insights.people.gender.${b as (typeof GENDER_BUCKETS)[number]}`))}
+          w={w}
+          f={f}
+          common={{ ...common, state: thin(p?.genders) }}
+        />
+        <ShareCard
+          title={tr('ws.insights.cards.ages')}
+          rows={bucketRows(p?.ages ?? [], AGE_BUCKETS, (b) => tr(`ws.insights.people.age.${b as (typeof AGE_BUCKETS)[number]}`))}
+          w={w}
+          f={f}
+          common={{ ...common, state: thin(p?.ages) }}
+        />
+      </ZoneGrid>
+      <ZoneGrid columns={3}>
+        <ShareCard
+          title={tr('ws.insights.cards.levels')}
+          tip={p && p.judgedShare !== null ? tr('ws.insights.cards.levelsTip', { judged: w.share(p.judgedShare) }) : undefined}
+          rows={bucketRows(p?.levels ?? [], LEVEL_BUCKETS, (b) => tr(`ws.insights.people.level.${b as (typeof LEVEL_BUCKETS)[number]}`))}
+          w={w}
+          f={f}
+          common={{ ...common, state: thin(p?.levels) }}
+        />
+        <ShareCard
+          title={tr('ws.insights.cards.interests')}
+          tip={tr('ws.insights.cards.interestsTip')}
+          rows={bucketRows(p?.interests ?? [], INTEREST_BUCKETS, (b) => tr(`ws.insights.people.interest.${b as (typeof INTEREST_BUCKETS)[number]}`))}
+          w={w}
+          f={f}
+          common={{ ...common, state: thin(p?.interests) }}
+        />
+        <CardShell
+          title={tr('ws.insights.cards.groups')}
+          {...common}
+          state={common.state === 'ready' && (!p || p.top.length === 0) ? 'empty' : common.state}
+          emptyKey="ws.insights.cards.groupsEmpty"
+          skeletonLines={3}
+        >
+          <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--tp-sp-2)' }}>
+            {(p?.top ?? []).map((seg) => (
+              <li key={`${seg.who}-${seg.band}-${seg.level}`} style={{ display: 'flex', justifyContent: 'space-between', gap: 'var(--tp-sp-2)', alignItems: 'baseline' }}>
+                <span>
+                  {tr('ws.insights.people.segment', {
+                    who: tr(`ws.insights.people.gender.${seg.who}` as never),
+                    band: tr(`ws.insights.people.age.${seg.band}` as never),
+                    level: tr(`ws.insights.people.level.${seg.level}` as never),
+                  })}
+                </span>
+                <span style={{ fontFamily: 'var(--tp-font-numeric)', fontVariantNumeric: 'tabular-nums', fontWeight: 600 }}>{w.share(seg.share)}</span>
+              </li>
+            ))}
+          </ul>
+          {p && p.growing.length > 0 && (
+            <p style={{ margin: 0, marginBlockStart: 'var(--tp-sp-3)', fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', lineHeight: 1.5 }}>
+              {tr('ws.insights.people.growing', {
+                list: p.growing
+                  .filter((g) => g.trend.dir === 'up')
+                  .slice(0, 3)
+                  .map((g) => peopleBucketName(g.bucket, tr))
+                  .join(w.locale === 'ar' ? '، ' : ', '),
+              })}
+            </p>
+          )}
+        </CardShell>
+      </ZoneGrid>
+    </>
+  );
+}
+
+/** A growing bucket's word, whichever of the four kinds it belongs to. */
+function peopleBucketName(bucket: string, tr: Words['tr']): string {
+  if ((GENDER_BUCKETS as readonly string[]).includes(bucket)) return tr(`ws.insights.people.gender.${bucket}` as never);
+  if ((AGE_BUCKETS as readonly string[]).includes(bucket)) return tr(`ws.insights.people.age.${bucket}` as never);
+  if ((LEVEL_BUCKETS as readonly string[]).includes(bucket)) return tr(`ws.insights.people.level.${bucket}` as never);
+  return tr(`ws.insights.people.interest.${bucket}` as never);
 }
 
 function ChannelsSection({ d, w, f, common }: SectionProps) {

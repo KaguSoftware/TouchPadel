@@ -144,13 +144,19 @@ describe.each<Locale>(['en', 'ar'])('play survey in %s', (locale) => {
     }
   });
 
-  it('Skip closes the sheet at once', () => {
+  // 0368: the level is required, so the first step carries no Skip at all;
+  // Skip is there from the second step on, and closes the sheet at once.
+  it('has no Skip on the level, and Skip closes the sheet from the next step', async () => {
     const screen = renderRoute(PlaySurveyScreen, {
       locale,
       session: 'in',
       queryData: seeds(NEVER_ASKED),
     });
     try {
+      expect(screen.queryByTestId('play-survey.skip')).toBeNull();
+      fireEvent.press(screen.getByTestId('play-survey.level.beginner'));
+      fireEvent.press(screen.getByTestId('play-survey.next'));
+      await waitFor(() => expect(screen.getByTestId('play-survey.skip')).toBeTruthy());
       fireEvent.press(screen.getByTestId('play-survey.skip'));
       expect(routerState.calls.some((c) => c.method === 'back' || c.method === 'replace')).toBe(
         true,
@@ -239,6 +245,69 @@ describe.each<Locale>(['en', 'ar'])('play survey in %s', (locale) => {
     } finally {
       screen.unmount();
       delete (supabase as { schema?: unknown }).schema;
+    }
+  });
+
+  // 0368: the band is asked right after the level, and only while the row has
+  // the column and no answer in it.
+  it('asks the age band after the level while the profile has none, and Done saves it', async () => {
+    const rpc = jest.fn((name: string, _args?: unknown) =>
+      Promise.resolve({
+        data:
+          name === 'set_my_play_profile'
+            ? { ...ANSWERED, play_level: 'beginner', play_years: null, play_wants: null }
+            : { age_band: '25_34', duplicate: false },
+        error: null,
+      }),
+    );
+    Object.assign(supabase, { schema: () => ({ rpc }) });
+    const screen = renderRoute(PlaySurveyScreen, {
+      locale,
+      session: 'in',
+      queryData: seeds({ ...NEVER_ASKED, age_band: null }),
+    });
+    try {
+      fireEvent.press(screen.getByTestId('play-survey.level.beginner'));
+      fireEvent.press(screen.getByTestId('play-survey.next'));
+      await waitFor(() => expect(screen.getByTestId('play-survey.age.25-34')).toBeTruthy());
+      expect(screen.getByText(t('playProfile.survey.age.question'))).toBeTruthy();
+      expect(screen.getByText(t('playProfile.survey.age.hint'))).toBeTruthy();
+      // Next is off until one is picked; a tap only picks.
+      expect(screen.getByTestId('play-survey.next').props.accessibilityState).toMatchObject({
+        disabled: true,
+      });
+      fireEvent.press(screen.getByTestId('play-survey.age.25-34'));
+      expect(saves(rpc)).toEqual([]);
+      fireEvent.press(screen.getByTestId('play-survey.next'));
+      await waitFor(() => expect(screen.getByTestId('play-survey.years.under-one')).toBeTruthy());
+      // "Not yet" does not fit Beginner (yearsFitLevel), so the answer is a year.
+      fireEvent.press(screen.getByTestId('play-survey.years.under-one'));
+      fireEvent.press(screen.getByTestId('play-survey.next'));
+      await waitFor(() => expect(screen.getByTestId('play-survey.wants.matches')).toBeTruthy());
+      await act(async () => {
+        fireEvent.press(screen.getByTestId('play-survey.done'));
+      });
+      await waitFor(() => expect(saves(rpc)).toEqual(['set_my_play_profile', 'set_my_age_band']));
+      expect(rpc).toHaveBeenCalledWith('set_my_age_band', { p_band: '25_34' });
+    } finally {
+      screen.unmount();
+      delete (supabase as { schema?: unknown }).schema;
+    }
+  });
+
+  it('never asks a band the profile already has', () => {
+    const screen = renderRoute(PlaySurveyScreen, {
+      locale,
+      session: 'in',
+      queryData: seeds({ ...NEVER_ASKED, age_band: '35_44' }),
+    });
+    try {
+      fireEvent.press(screen.getByTestId('play-survey.level.beginner'));
+      fireEvent.press(screen.getByTestId('play-survey.next'));
+      expect(screen.queryByTestId('play-survey.age.25-34')).toBeNull();
+      expect(screen.getByTestId('play-survey.years.under-one')).toBeTruthy();
+    } finally {
+      screen.unmount();
     }
   });
 

@@ -1,5 +1,5 @@
 /**
- * The Courts | Cafe switcher: a `role="tablist"` drawn as the shared segmented
+ * The Courts | Cafe | People switcher: a `role="tablist"` drawn as the shared segmented
  * control (.tp-seg in GlobalStyles; the chosen tab is the green segment).
  * The page is owner-only, so there is no role filtering, and navigation keeps
  * the search params, so the period, compare basis and court filter survive a
@@ -11,11 +11,13 @@ import { useLocale } from '../../lib/i18n';
 import { Icon, type IconName } from '../../components/icons';
 import { validateSearch } from './search';
 
-export type AnalyticsTab = 'courts' | 'cafe';
+export type AnalyticsTab = 'courts' | 'cafe' | 'people';
 
-export const ANALYTICS_TABS: readonly { id: AnalyticsTab; path: '/analytics/courts' | '/analytics/cafe'; icon: IconName }[] = [
+export const ANALYTICS_TABS: readonly { id: AnalyticsTab; path: '/analytics/courts' | '/analytics/cafe' | '/analytics/people'; icon: IconName }[] = [
   { id: 'courts', path: '/analytics/courts', icon: 'court' },
   { id: 'cafe', path: '/analytics/cafe', icon: 'cake' },
+  // 0369: who the customers are (Majed 2026-10-24).
+  { id: 'people', path: '/analytics/people', icon: 'users' },
 ];
 
 export function AnalyticsTabs({ value }: { value: AnalyticsTab }) {

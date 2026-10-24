@@ -89,9 +89,11 @@ describe.skipIf(!docker)('0360 marketing_insights', () => {
     expect(as(MARKETING, `(select coalesce(current_setting('app.marketing_read', true), '') from (select ${CALL}) x)`)).toBe('');
   });
 
+  // 0369 added `people`: a coverage level and percent, judgedShare and
+  // overClaimedShare join the allowed shapes; every bucket list is {bucket, share}.
   it('carries no money and no exact count', () => {
     const payload = JSON.parse(as(MARKETING, CALL)) as Record<string, unknown>;
-    const allowed = /(\.|^)(dow|hour|level|fillLevel|levelPct|fillPct|share|newShare|returningShare|appShare|deskShare|crossoverShare|redeemingShare|courts|cafe|shop|value|newIdx|returningIdx|lapseDays|\w*[tT]rendPct|\w*[tT]rendPts)$/;
+    const allowed = /(\.|^)(dow|hour|level|fillLevel|levelPct|fillPct|share|newShare|returningShare|appShare|deskShare|crossoverShare|redeemingShare|courts|cafe|shop|value|newIdx|returningIdx|lapseDays|coverage|coveragePct|judgedShare|overClaimedShare|\w*[tT]rendPct|\w*[tT]rendPts)$/;
     for (const [path, n] of numbers(payload)) {
       expect(path, `${path} = ${n}`).toMatch(allowed);
       expect(Number.isInteger(n), path).toBe(true);

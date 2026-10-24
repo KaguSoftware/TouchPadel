@@ -7,7 +7,7 @@
  */
 export const playProfileEn = {
   survey: {
-    intro: 'A few quick questions for better matches. Skip any of them.',
+    intro: 'A few quick questions for better matches. Only your level is needed; skip the rest.',
     skip: 'Skip',
     progress: 'Question {n} of {total}',
     level: {
@@ -16,6 +16,12 @@ export const playProfileEn = {
       beginner: { title: 'Beginner', body: "I can keep a rally going and I'm still learning" },
       intermediate: { title: 'Intermediate', body: 'I play regularly and use the walls' },
       advanced: { title: 'Advanced', body: 'I play fast, with solid technique, and compete' },
+    },
+    // 0368 (customers contracts §4): asked while the profile has no band, so
+    // an older account and a social sign-in answer it here.
+    age: {
+      question: 'How old are you?',
+      hint: 'A range is enough. It tells us who actually plays here, so the nights and offers suit them.',
     },
     years: {
       question: 'How long have you played?',

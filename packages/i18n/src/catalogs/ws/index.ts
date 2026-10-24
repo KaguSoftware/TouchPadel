@@ -113,6 +113,9 @@ import { planAr } from './plan.ar';
 // Player ranks (0364): the owner's rules and levels, the public board, results and Record a result.
 import { ranksEn } from './ranks.en';
 import { ranksAr } from './ranks.ar';
+// Who a player is (0368/0369): the record's Player card and the levels queue.
+import { playersEn } from './players.en';
+import { playersAr } from './players.ar';
 
 export const wsEn = {
   shell: shellEn,
@@ -156,6 +159,7 @@ export const wsEn = {
   insights: insightsEn,
   plan: planEn,
   ranks: ranksEn,
+  players: playersEn,
 } as const;
 
 export const wsAr = {
@@ -200,4 +204,5 @@ export const wsAr = {
   insights: insightsAr,
   plan: planAr,
   ranks: ranksAr,
+  players: playersAr,
 } as const;

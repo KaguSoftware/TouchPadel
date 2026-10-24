@@ -22,10 +22,18 @@
 export const PLAY_LEVELS = ['new', 'beginner', 'intermediate', 'advanced'] as const;
 export const PLAY_YEARS = ['never', 'under_one', 'one_to_three', 'three_plus'] as const;
 export const PLAY_WANTS = ['matches', 'tournaments', 'lessons'] as const;
+/**
+ * The age bands (0368; customers contracts §1, §4). One tap, never a date:
+ * Majed 2026-10-24 asked for the age, and a band is what a guest answers
+ * without thinking twice. Written by `app.set_my_age_band`, which takes these
+ * six strings and nothing else.
+ */
+export const AGE_BANDS = ['u18', '18_24', '25_34', '35_44', '45_54', '55_plus'] as const;
 
 export type PlayLevel = (typeof PLAY_LEVELS)[number];
 export type PlayYears = (typeof PLAY_YEARS)[number];
 export type PlayWant = (typeof PLAY_WANTS)[number];
+export type AgeBand = (typeof AGE_BANDS)[number];
 
 /** What the guest said. Any answer may be missing: every question is optional. */
 export interface PlayAnswers {
@@ -40,8 +48,13 @@ export interface PlayProfile extends PlayAnswers {
   answeredAt: string | null;
 }
 
-/** Every step the survey can ask, in order. Gender is asked only while unset. */
-export const SURVEY_STEPS = ['level', 'years', 'wants', 'gender'] as const;
+/**
+ * Every step the survey can ask, in order. The level is the one question that
+ * is NOT optional (Majed 2026-10-24): it carries no Skip, and a survey left
+ * without it records nothing, so the next launch asks again. The age band and
+ * the gender are asked only while the profile has none.
+ */
+export const SURVEY_STEPS = ['level', 'age', 'years', 'wants', 'gender'] as const;
 export type SurveyStep = (typeof SURVEY_STEPS)[number];
 
 /** The gender step's tiles. `none` ("Prefer not to say") writes nothing. */
@@ -52,11 +65,23 @@ export type GenderChoice = (typeof GENDER_CHOICES)[number];
 /**
  * The steps one run of the survey asks. `genderOnly` is the match and
  * tournament screens' way in (`step=gender`): that question alone. Otherwise
- * the three play questions, then the gender while the profile has none.
+ * the level, the age band while the profile has none, the other two play
+ * questions, and the gender while the profile has none.
  */
-export function surveyStepsFor(o: { askGender: boolean; genderOnly: boolean }): SurveyStep[] {
+export function surveyStepsFor(o: {
+  askGender: boolean;
+  genderOnly: boolean;
+  askAge?: boolean;
+}): SurveyStep[] {
   if (o.genderOnly) return ['gender'];
-  return SURVEY_STEPS.filter((s) => s !== 'gender' || o.askGender);
+  return SURVEY_STEPS.filter(
+    (s) => (s !== 'gender' || o.askGender) && (s !== 'age' || o.askAge === true),
+  );
+}
+
+/** The one question the survey will not take a Skip on (0368). */
+export function stepIsRequired(step: SurveyStep): boolean {
+  return step === 'level';
 }
 
 /** What `set_my_gender` should store for a choice; null writes nothing. */
@@ -79,6 +104,10 @@ export function parseYears(value: unknown): PlayYears | null {
 }
 
 /** Known values only, once each, in vocabulary order. Anything else is an empty list. */
+export function parseAgeBand(value: unknown): AgeBand | null {
+  return oneOf(AGE_BANDS, value);
+}
+
 export function parseWants(value: unknown): PlayWant[] {
   if (!Array.isArray(value)) return [];
   return PLAY_WANTS.filter((w) => value.includes(w));

@@ -19,6 +19,7 @@ import {
   useMyBirthDate,
   useMyFrames,
   useOwnProfile,
+  useSetAgeBand,
   useSetAvatar,
   useSetBirthDate,
   useSetFrame,
@@ -105,6 +106,12 @@ import {
 import { SkeletonList } from '../src/components/states';
 import { NAME_PART_MAX, nameFieldsOf, namePatch } from '../src/features/profile/names';
 import { usePlayProfile } from '../src/features/playProfile/hooks';
+import {
+  AGE_BANDS,
+  parseAgeBand,
+  parseLevel as parsePlayLevel,
+  type AgeBand,
+} from '../src/features/playProfile/logic';
 
 /**
  * Edit profile: a hub, then one small form per thing to change (owner,
@@ -347,6 +354,10 @@ function Hub() {
   const [birthOpen, setBirthOpen] = useState(false);
   const setAvatar = useSetAvatar();
   const setGender = useSetMyGender();
+  // The age band (0368): the guest's own to change, unlike the gender.
+  const setBand = useSetAgeBand();
+  const [bandOpen, setBandOpen] = useState(false);
+  const [bandPick, setBandPick] = useState<AgeBand>('25_34');
   // "Your game" (the sign-up play survey, play-coaches contracts §8).
   const play = usePlayProfile();
   // The gender sheet: open while unset and tapped; its wheel's current pick.
@@ -356,6 +367,9 @@ function Hub() {
   const email = session?.user.email ?? '';
   const phone = profile.data?.phone ? isolateLtr(displayPhone(profile.data.phone)) : '';
   const gender = profile.data?.gender ?? null;
+  const band = parseAgeBand(profile.data?.age_band);
+  // The level the club judged, when it has (0368): shown, never editable here.
+  const confirmedLevel = parsePlayLevel(profile.data?.level_confirmed);
   const birthDate = birthDateToDate(birth.data);
   const hasPhoto = !!profile.data?.avatar_path;
   const username = profile.data?.username ?? null;
@@ -413,6 +427,16 @@ function Hub() {
       },
     ]);
 
+  // The age band (0368): one of six, changeable, no confirmation — a band is
+  // outgrown, and nothing in the club turns on it.
+  const onSetBand = () => {
+    setBandOpen(false);
+    setBand.mutate(bandPick, {
+      onSuccess: () => toast(t('profile.ageSaved')),
+      onError: (err) => toast(t(mapErrorToKey(err)), 'error'),
+    });
+  };
+
   // Date of birth (0302): optional, any day from 1900-01-01 to today; the
   // sheet opens on the stored day, or 25 years back.
   const onSaveBirth = (next: string | null) => {
@@ -443,6 +467,17 @@ function Hub() {
         confirmLabel={t('profile.genderConfirm')}
         onConfirm={onSetGender}
         onClose={() => setGenderOpen(false)}
+      />
+      <WheelSheet<AgeBand>
+        testID="profile-edit.age-sheet"
+        visible={bandOpen}
+        title={t('profile.ageSection')}
+        options={AGE_BANDS.map((b) => ({ value: b, label: t(`profile.ageBand.${b}`) }))}
+        value={bandPick}
+        onChange={setBandPick}
+        confirmLabel={t('common.save')}
+        onConfirm={onSetBand}
+        onClose={() => setBandOpen(false)}
       />
       <DateWheelSheet
         testID="profile-edit.birth-sheet"
@@ -597,6 +632,16 @@ function Hub() {
           chevron={!gender}
         />
         <HubRow
+          testID="profile-edit.age-band"
+          icon={<TabProfileIcon size={15} color={colors.gstrong} />}
+          label={t('profile.ageSection')}
+          value={band ? t(`profile.ageBand.${band}`) : t('profile.notSet')}
+          onPress={() => {
+            if (band) setBandPick(band);
+            setBandOpen(true);
+          }}
+        />
+        <HubRow
           testID="profile-edit.birth-date"
           icon={<CalendarIcon size={15} color={colors.gstrong} />}
           label={t('profile.birthSection')}
@@ -618,6 +663,20 @@ function Hub() {
           }
           onPress={() => router.push({ pathname: '/play-survey', params: { mode: 'edit' } })}
         />
+        {/* 0368: the level a coach or the desk judged. Read-only, and it says
+            who judged it only as "the club": the phone never learns the name. */}
+        {confirmedLevel ? (
+          <HubRow
+            testID="profile-edit.level-confirmed"
+            icon={<PadelBallIcon size={18} />}
+            label={t('profile.levelSection')}
+            value={t(`playProfile.survey.level.${confirmedLevel}.title`)}
+            onPress={() =>
+              explain(t('profile.levelConfirmed'), t('profile.levelConfirmedBody'))
+            }
+            chevron={false}
+          />
+        ) : null}
       </RowGroup>
       <RowGroup label={t('profile.editGroupSecurity')}>
         {/* Only for an account that HAS a password (not Google/Apple-only, not a

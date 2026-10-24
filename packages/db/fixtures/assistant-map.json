@@ -1,5 +1,5 @@
 {
-  "generated_from": "83b12f5eaae376983b98e624f01f10ccc8d6a6c7",
+  "generated_from": "4a9b7010fd5defe234c8e24ec9f8e3aa8da2b5be",
   "chunks": [
     {
       "kind": "page",
@@ -2827,6 +2827,30 @@
     },
     {
       "kind": "action",
+      "ref": "action:app.analytics_customers",
+      "lang": "en",
+      "title": "app.analytics_customers (part 1 of 3)",
+      "body": "0369 (customers contracts §2). Owner (app.analytics_guard; also the transaction of app.marketing_insights): who the customers of the analysed branch were over a business-day range. {period, known {guests, withGenders, withAges, withLevels, judgedLevels, plays, bookings, spend_iqd, coveragePct, newGuests, returningGuests}, genders [], ages [], levels [] (each {bucket, guests, plays, bookings, spend_iqd | judged, share}), judged {checked, agree, higher, lower, unclaimed}, interests [{bucket, guests, share}] (app.customer_interest_tags, derived, never asked), segments [{who, band, level, guests, plays, spend_iqd}] (at most 12; every",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.analytics_customers~2",
+      "lang": "en",
+      "title": "app.analytics_customers (part 2 of 3)",
+      "body": "0369 (customers contracts §2). Owner (app.analytics_guard; also the transaction of app.marketing_insights): who the customers of the analysed branch were over a\ngroup under 5 guests folded into one `other` row), peak [{key, dow, hour, plays}] (each bucket's two busiest slots), fresh [{key, newGuests, returningGuests}]}. A play is a court booking the guest booked or an open-match seat they sat in; spend is what settled on their own tabs and their bookings' tabs. No key is named `gender` (SEC-29): the bucket is `who` / `bucket` and the gender is its value, and nothing here names a person. FORBIDDEN, INVALID_RANGE.\nSignature: app.analytics_customers(p_from date, p_to date) returns jsonb.\nGranted to: authenticated. Guard: owner only (app.analytics_guard).",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.analytics_customers~3",
+      "lang": "en",
+      "title": "app.analytics_customers (part 3 of 3)",
+      "body": "0369 (customers contracts §2). Owner (app.analytics_guard; also the transaction of app.marketing_insights): who the customers of the analysed branch were over a\nSignature: app.analytics_customers(p_from date, p_to date) returns jsonb.\nGranted to: authenticated. Guard: owner only (app.analytics_guard).\nWrites no audit row of its own (or via a helper).\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0369 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
       "ref": "action:app.analytics_shop",
       "lang": "en",
       "title": "app.analytics_shop (part 1 of 2)",
@@ -4128,6 +4152,22 @@
       "title": "app.customer_lessons (part 3 of 3)",
       "body": "0283 (db.md §4.7.9, operator.md §5.6.3; X18, C-21, R44, R57). Cashier, court desk, manager, owner (the role first): FORBIDDEN; INVALID_ARGUMENT (NULL); CUSTOMER\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, INVALID_ARGUMENT, CUSTOMER_NOT_FOUND.\nCalled from: apps/operator/src/features/coaching/useCoaching.ts (pages /desk).\nDefined in migration 0283 (last definition). The assistant cannot call this; it only explains it.",
       "route": "/desk"
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.customer_level_reviews",
+      "lang": "en",
+      "title": "app.customer_level_reviews (part 1 of 2)",
+      "body": "0368 (customers contracts §1.2). Coach, court_desk, manager or owner: the players whose measured suggestion disagrees with what the club has on record (no confirmed level, or a different one), biggest disagreement first, then most games; at most p_limit (default 30, capped at 100). Each row {profile_id, full_name, claimed, confirmed, confirmed_role, suggested, games, wins, losses, score, last_played_at}. Confirm or agree through app.staff_set_customer_level, which takes the row off the list. FORBIDDEN.\nSignature: app.customer_level_reviews(p_limit int default 30) returns jsonb.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.customer_level_reviews~2",
+      "lang": "en",
+      "title": "app.customer_level_reviews (part 2 of 2)",
+      "body": "0368 (customers contracts §1.2). Coach, court_desk, manager or owner: the players whose measured suggestion disagrees with what the club has on record (no confi\nSignature: app.customer_level_reviews(p_limit int default 30) returns jsonb.\nGranted to: authenticated. Guard: staff role in (court_desk, manager, owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0368 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
     },
     {
       "kind": "action",
@@ -6085,16 +6125,24 @@
       "kind": "action",
       "ref": "action:app.marketing_insights",
       "lang": "en",
-      "title": "app.marketing_insights (part 1 of 2)",
-      "body": "0360, re-issued by 0365 (percentages). Marketing and owner (the operator's /insights): the whole place for a business-day range against a comparison window, as levels (0 empty .. 4 full) with the fill as a whole percent (levelPct, fillPct), trends (up, steady, down, unknown) each with its size beside it (<trend>Pct: percent change of a count or a sum; <trend>Pts: points moved by a rate; null when the trend is unknown or the baseline was zero), shares as whole percents, counts as about-N or few (under 10), and ranked slots and names. Reads the owner's analytics_* through app.analytics_guard with a transaction-local",
+      "title": "app.marketing_insights (part 1 of 3)",
+      "body": "0360, re-issued by 0365 (percentages) and 0369 (people). Marketing and owner (the operator's /insights): the whole place for a business-day range against a comparison window, as levels (0 empty .. 4 full) with the fill as a whole percent (levelPct, fillPct), trends (up, steady, down, unknown) each with its size beside it (<trend>Pct: percent change of a count or a sum; <trend>Pts: points moved by a rate; null when the trend is unknown or the baseline was zero), shares as whole percents, counts as about-N or few (under 10), and ranked slots and names. 0369 adds `people`: {known (about-N), knownTrend(+Pct), coverage (level) with",
       "route": null
     },
     {
       "kind": "action",
       "ref": "action:app.marketing_insights~2",
       "lang": "en",
-      "title": "app.marketing_insights (part 2 of 2)",
-      "body": "0360, re-issued by 0365 (percentages). Marketing and owner (the operator's /insights): the whole place for a business-day range against a comparison window, as \napp.marketing_read assertion it clears before returning. No money figure, no exact count, no guest identity. FORBIDDEN, INVALID_RANGE.\nSignature: app.marketing_insights(p_from date, p_to date, p_cmp_from date, p_cmp_to date) returns jsonb.\nGranted to: authenticated. Guard: staff role in (marketing, owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, INVALID_RANGE.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0365 (last definition). The assistant cannot call this; it only explains it.",
+      "title": "app.marketing_insights (part 2 of 3)",
+      "body": "0360, re-issued by 0365 (percentages) and 0369 (people). Marketing and owner (the operator's /insights): the whole place for a business-day range against a comp\ncoveragePct and its trend in points, genders [], ages [], levels [], interests [] (each [{bucket, share}], a bucket under ten guests left out), judgedShare, overClaimedShare, growing [{bucket, trend, trendPct}], top [{who, band, level, share}] (at most three segments)} — who the customers are, in words and shares only. Reads the owner's analytics_* (app.analytics_customers included) through app.analytics_guard with a transaction-local app.marketing_read assertion it clears before returning. No money figure, no exact count, no guest identity. FORBIDDEN, INVALID_RANGE.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.marketing_insights~3",
+      "lang": "en",
+      "title": "app.marketing_insights (part 3 of 3)",
+      "body": "0360, re-issued by 0365 (percentages) and 0369 (people). Marketing and owner (the operator's /insights): the whole place for a business-day range against a comp\nSignature: app.marketing_insights(p_from date, p_to date, p_cmp_from date, p_cmp_to date) returns jsonb.\nGranted to: authenticated. Guard: staff role in (marketing, owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, INVALID_RANGE.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0369 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -8483,6 +8531,22 @@
     },
     {
       "kind": "action",
+      "ref": "action:app.set_my_age_band",
+      "lang": "en",
+      "title": "app.set_my_age_band (part 1 of 2)",
+      "body": "0368 (customers contracts §1.1). The caller's own profile: the age band the sign-up form, complete-profile or the survey asked. p_band u18 | 18_24 | 25_34 | 35_44 | 45_54 | 55_plus. Changeable (people age), so the same value answers duplicate true rather than refusing. AUTH_REQUIRED; ACCOUNT_REQUIRED (no live profile); INVALID_AGE_BAND detail p_band. Audit profile.age_band_set without the value. Returns {age_band, age_band_set_at, duplicate}.\nSignature: app.set_my_age_band(p_band text) returns jsonb.\nGranted to: authenticated. Guard: not detected by pattern — read the migration.\nAudit actions written: profile.age_band_set.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.set_my_age_band~2",
+      "lang": "en",
+      "title": "app.set_my_age_band (part 2 of 2)",
+      "body": "0368 (customers contracts §1.1). The caller's own profile: the age band the sign-up form, complete-profile or the survey asked. p_band u18 | 18_24 | 25_34 | 35_\nSignature: app.set_my_age_band(p_band text) returns jsonb.\nGranted to: authenticated. Guard: not detected by pattern — read the migration.\nAudit actions written: profile.age_band_set.\nError codes: AUTH_REQUIRED, ACCOUNT_REQUIRED, INVALID_AGE_BAND.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0368 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
       "ref": "action:app.set_my_avatar",
       "lang": "en",
       "title": "app.set_my_avatar",
@@ -9011,6 +9075,14 @@
     },
     {
       "kind": "action",
+      "ref": "action:app.staff_set_customer_age_band",
+      "lang": "en",
+      "title": "app.staff_set_customer_age_band",
+      "body": "0368 (customers contracts §1.1). Desk (court_desk, manager, owner): sets a customer's age band, or clears it (NULL: the stamp goes with it). FORBIDDEN; INVALID_AGE_BAND detail p_band; CUSTOMER_NOT_FOUND (unknown or deleted); the same value -> duplicate. Audit customer.age_band_set without the value. Returns {customer_id, age_band, duplicate}.\nSignature: app.staff_set_customer_age_band(p_customer_id uuid, p_band text) returns jsonb.\nGranted to: authenticated. Guard: staff role in (court_desk, manager, owner).\nAudit actions written: customer.age_band_set.\nError codes: FORBIDDEN, INVALID_AGE_BAND, CUSTOMER_NOT_FOUND.\nCalled from: apps/operator/src/features/players/usePlayers.ts.\nDefined in migration 0368 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
       "ref": "action:app.staff_set_customer_gender",
       "lang": "en",
       "title": "app.staff_set_customer_gender (part 1 of 2)",
@@ -9024,6 +9096,22 @@
       "title": "app.staff_set_customer_gender (part 2 of 2)",
       "body": "0262 (db.md §4.7.11, OM-28, OM-39). Desk (court_desk, manager, owner): sets a customer's gender (female | male; gender_set_at now, gender_set_by staff) or clear\nSignature: app.staff_set_customer_gender(p_customer_id uuid, p_gender text) returns jsonb.\nGranted to: authenticated. Guard: staff role in (court_desk, manager, owner).\nAudit actions written: customer.gender_set.\nError codes: FORBIDDEN, INVALID_ARGUMENT, CUSTOMER_NOT_FOUND.\nCalled from: apps/operator/src/features/desk/customers/GenderDialog.tsx (pages /desk).\nDefined in migration 0262 (last definition). The assistant cannot call this; it only explains it.",
       "route": "/desk"
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.staff_set_customer_level",
+      "lang": "en",
+      "title": "app.staff_set_customer_level (part 1 of 2)",
+      "body": "0368 (customers contracts §1.1, Majed 2026-10-24: \"coach or manager or desk staff\"). Coach (app.coach_self), court_desk, manager or owner: confirms a customer's real level (new | beginner | intermediate | advanced) with an optional one-line note, stamping who judged and their role; p_level NULL clears the judgment back to the claimed play_level and takes no note. FORBIDDEN; INVALID_PLAY_PROFILE detail p_level; INVALID_ARGUMENT detail p_note (a note with no level); CUSTOMER_NOT_FOUND (unknown or deleted); the same level and note -> duplicate. Audit customer.level_confirmed with the level, the role and the claim. Returns",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.staff_set_customer_level~2",
+      "lang": "en",
+      "title": "app.staff_set_customer_level (part 2 of 2)",
+      "body": "0368 (customers contracts §1.1, Majed 2026-10-24: \"coach or manager or desk staff\"). Coach (app.coach_self), court_desk, manager or owner: confirms a customer's\n{customer_id, level_confirmed, level_confirmed_at, level_confirmed_role, level_note, duplicate}.\nSignature: app.staff_set_customer_level(p_customer_id uuid, p_level text, p_note text default null) returns jsonb.\nGranted to: authenticated. Guard: not detected by pattern — read the migration.\nAudit actions written: customer.level_confirmed.\nError codes: FORBIDDEN, INVALID_PLAY_PROFILE, INVALID_ARGUMENT, CUSTOMER_NOT_FOUND.\nCalled from: apps/operator/src/features/players/usePlayers.ts.\nDefined in migration 0368 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
     },
     {
       "kind": "action",
@@ -12741,15 +12829,23 @@
       "kind": "table",
       "ref": "table:profiles",
       "lang": "en",
-      "title": "table profiles (part 1 of 8)",
+      "title": "table profiles (part 1 of 10)",
       "body": "Created in migration 0004.\nColumns:\n  id uuid primary key references auth.users(id) on delete cascade\n  full_name text not null\n  phone text — captured day one per scope (future SMS identity)\n  preferred_lang text not null default 'en' check (preferred_lang in ('en','ar'))\n  expo_push_token text\n  created_at timestamptz not null default now()\n  deleted_at timestamptz — Set by app.delete_my_account. The row is a TOMBSTONE: anonymised, retained only so reservations.guest_id and the venue statistics keep a parent. Never set by hand — the on_auth_user_deleted trigger reads it to tell a self-deletion (row survives) from an admin rollback (row is dropped).",
+      "route": null
+    },
+    {
+      "kind": "table",
+      "ref": "table:profiles~10",
+      "lang": "en",
+      "title": "table profiles (part 10 of 10)",
+      "body": "Created in migration 0004.\n  level_confirmed_role text — 0368. Who judged it: coach | court_desk | manager | owner.\n  level_note text — 0368. The judge's optional note, one line of at most 120 characters (app.safe_line), staff-visible only.",
       "route": null
     },
     {
       "kind": "table",
       "ref": "table:profiles~2",
       "lang": "en",
-      "title": "table profiles (part 2 of 8)",
+      "title": "table profiles (part 2 of 10)",
       "body": "Created in migration 0004.\n  terms_version text — The Terms of Service / Privacy Policy version the guest last accepted (CURRENT_TERMS_VERSION in packages/core/src/legal.ts). Written only by app.accept_terms. Null = never accepted; the app shows its consent screen.\n  terms_accepted_at timestamptz — Server time app.accept_terms recorded the acceptance of terms_version. Retained on the 0077 tombstone as proof the terms applied.\n  payment_sandbox boolean not null default false — 0241. Set by hand on the store review account only: its deposits go to Qi's sandbox (test card, no money), are stamped sandbox and never count as paid or as revenue.",
       "route": null
     },
@@ -12757,7 +12853,7 @@
       "kind": "table",
       "ref": "table:profiles~3",
       "lang": "en",
-      "title": "table profiles (part 3 of 8)",
+      "title": "table profiles (part 3 of 10)",
       "body": "Created in migration 0004.\n  given_name text — 0256. First name (1..39). Other open-match players see it; the desk and the guest see the whole name. Kept in step with full_name by profiles_sync_names; NULL on a deleted account.\n  family_name text — 0256. Surname (1..39, NULL without a given_name). Other open-match players see only its first letter. NULL on a deleted account.\n  gender text — 0256. female | male, asked once at the first open match (OM-28): women's and men's matches. Written only by app.set_my_gender and app.staff_set_customer_gender, with gender_set_at and gender_set_by. NULL on a deleted account.\n  gender_set_at timestamptz — 0256. When gender was last set; set with gender.",
       "route": null
     },
@@ -12765,7 +12861,7 @@
       "kind": "table",
       "ref": "table:profiles~4",
       "lang": "en",
-      "title": "table profiles (part 4 of 8)",
+      "title": "table profiles (part 4 of 10)",
       "body": "Created in migration 0004.\n  gender_set_at timestamptz — 0256. When gender was last set; set with gender.\n  gender_set_by text — 0256. guest (app.set_my_gender) or staff (the front desk's correction); set with gender.\n  avatar_path text — 0302. The guest's profile photo: an object in the private avatars bucket, <profile id>/<uuid>.<jpg|png|webp>. Written only by app.set_my_avatar; NULL = initials. Emptied by account deletion.\n  birth_date date — 0302. Optional date of birth, 1900-01-01 .. today. Written only by app.set_my_birth_date, read only by its guest (app.my_birth_date; no column grant). Emptied by account deletion.",
       "route": null
     },
@@ -12773,7 +12869,7 @@
       "kind": "table",
       "ref": "table:profiles~5",
       "lang": "en",
-      "title": "table profiles (part 5 of 8)",
+      "title": "table profiles (part 5 of 10)",
       "body": "Created in migration 0004.\n  birth_date date — 0302. Optional date of birth, 1900-01-01 .. today. Written only by app.set_my_birth_date, read only by its guest (app.my_birth_date; no column grant). Emptied by account deletion.\n  phone_key text — 0303, 0307. app.profile_phone_key(id, phone): the canonical number when the account's confirmed auth phone is that number or the profile is a desk walk-in, else NULL. Kept by the zz_phone_key trigger and app.phone_claim_internal; unique among live profiles (profiles_phone_key_live, 0304). No client grant.\n  username text — 0314. The guest's public handle: lower case, 3-20 of a-z 0-9 . _, unique among live profiles (0315). Seen by other guests and staff. Written only by app.set_my_username; emptied (and held 90 days) by account deletion.",
       "route": null
     },
@@ -12781,7 +12877,7 @@
       "kind": "table",
       "ref": "table:profiles~6",
       "lang": "en",
-      "title": "table profiles (part 6 of 8)",
+      "title": "table profiles (part 6 of 10)",
       "body": "Created in migration 0004.\n  username_changed_at timestamptz — 0314. When the username last changed; a guest may change it again 7 days after this. NULL until the first username.\n  avatar_frame text not null default 'brand-green' — 0314. The ring drawn around the profile photo: one id of the closed list (app.frame_ids()). Written only by app.set_my_frame; back to brand-green on account deletion.\n  avatar_frame_style text not null default 'solid' — 0317. How the photo frame is drawn: solid, or lines (court lines: the ring as dashes). Lines only on a free frame. Written only by app.set_my_frame; back to solid on account deletion.",
       "route": null
     },
@@ -12789,7 +12885,7 @@
       "kind": "table",
       "ref": "table:profiles~7",
       "lang": "en",
-      "title": "table profiles (part 7 of 8)",
+      "title": "table profiles (part 7 of 10)",
       "body": "Created in migration 0004.\n  play_level text — 0334. The guest's own level from the play survey: new | beginner | intermediate | advanced, NULL = not answered. Written only by app.set_my_play_profile; orders suggestions, never hides anything. Emptied by account deletion.\n  play_years text — 0334. How long the guest has played: never | under_one | one_to_three | three_plus, NULL = not answered. Written only by app.set_my_play_profile. Emptied by account deletion.\n  play_wants text[] — 0334. What the guest is after: a subset of matches, tournaments, lessons in that order, NULL = not answered. Written only by app.set_my_play_profile. Emptied by account deletion.",
       "route": null
     },
@@ -12797,8 +12893,16 @@
       "kind": "table",
       "ref": "table:profiles~8",
       "lang": "en",
-      "title": "table profiles (part 8 of 8)",
-      "body": "Created in migration 0004.\n  play_survey_at timestamptz — 0334. When the play survey was answered or skipped (app.set_my_play_profile always stamps it); NULL = never asked. Emptied by account deletion.",
+      "title": "table profiles (part 8 of 10)",
+      "body": "Created in migration 0004.\n  play_survey_at timestamptz — 0334. When the play survey was answered or skipped (app.set_my_play_profile always stamps it); NULL = never asked. Emptied by account deletion.\n  age_band text — 0368. The guest's age band: u18 | 18_24 | 25_34 | 35_44 | 45_54 | 55_plus, NULL = not answered. Asked on the sign-up form (a must there, one tap), by complete-profile and by the survey; written by app.set_my_age_band (guest) or app.staff_set_customer_age_band / desk_register_customer (desk). Changeable: people age. Emptied by account deletion.\n  age_band_set_at timestamptz — 0368. When the age band was last written (never NULL while age_band is set, and NULL with it).",
+      "route": null
+    },
+    {
+      "kind": "table",
+      "ref": "table:profiles~9",
+      "lang": "en",
+      "title": "table profiles (part 9 of 10)",
+      "body": "Created in migration 0004.\n  age_band_set_at timestamptz — 0368. When the age band was last written (never NULL while age_band is set, and NULL with it).\n  level_confirmed text — 0368. The level the club judged, in play_level's vocabulary (new | beginner | intermediate | advanced); NULL = nobody has judged it, so the claimed play_level stands. Written only by app.staff_set_customer_level (coach, court desk, manager, owner). Emptied by account deletion.\n  level_confirmed_at timestamptz — 0368. When the level was confirmed.\n  level_confirmed_by uuid references profiles(id) — 0368. The profile of the coach or staff member who confirmed the level. No client grant: the phone is told \"confirmed by the club\", never by whom; the desk reads the name through app.customer_record.",
       "route": null
     },
     {
@@ -18723,6 +18827,22 @@
     },
     {
       "kind": "column",
+      "ref": "column:profiles.age_band",
+      "lang": "en",
+      "title": "profiles.age_band",
+      "body": "text\n0368. The guest's age band: u18 | 18_24 | 25_34 | 35_44 | 45_54 | 55_plus, NULL = not answered. Asked on the sign-up form (a must there, one tap), by complete-profile and by the survey; written by app.set_my_age_band (guest) or app.staff_set_customer_age_band / desk_register_customer (desk). Changeable: people age. Emptied by account deletion.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:profiles.age_band_set_at",
+      "lang": "en",
+      "title": "profiles.age_band_set_at",
+      "body": "timestamptz\n0368. When the age band was last written (never NULL while age_band is set, and NULL with it).",
+      "route": null
+    },
+    {
+      "kind": "column",
       "ref": "column:profiles.avatar_frame",
       "lang": "en",
       "title": "profiles.avatar_frame",
@@ -18799,6 +18919,46 @@
       "lang": "en",
       "title": "profiles.given_name",
       "body": "text\n0256. First name (1..39). Other open-match players see it; the desk and the guest see the whole name. Kept in step with full_name by profiles_sync_names; NULL on a deleted account.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:profiles.level_confirmed",
+      "lang": "en",
+      "title": "profiles.level_confirmed",
+      "body": "text\n0368. The level the club judged, in play_level's vocabulary (new | beginner | intermediate | advanced); NULL = nobody has judged it, so the claimed play_level stands. Written only by app.staff_set_customer_level (coach, court desk, manager, owner). Emptied by account deletion.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:profiles.level_confirmed_at",
+      "lang": "en",
+      "title": "profiles.level_confirmed_at",
+      "body": "timestamptz\n0368. When the level was confirmed.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:profiles.level_confirmed_by",
+      "lang": "en",
+      "title": "profiles.level_confirmed_by",
+      "body": "uuid references profiles(id)\n0368. The profile of the coach or staff member who confirmed the level. No client grant: the phone is told \"confirmed by the club\", never by whom; the desk reads the name through app.customer_record.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:profiles.level_confirmed_role",
+      "lang": "en",
+      "title": "profiles.level_confirmed_role",
+      "body": "text\n0368. Who judged it: coach | court_desk | manager | owner.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:profiles.level_note",
+      "lang": "en",
+      "title": "profiles.level_note",
+      "body": "text\n0368. The judge's optional note, one line of at most 120 characters (app.safe_line), staff-visible only.",
       "route": null
     },
     {
@@ -25451,6 +25611,166 @@
     },
     {
       "kind": "label",
+      "ref": "label:ws.analytics.people",
+      "lang": "ar",
+      "title": "ws.analytics.people (packages/i18n/src/catalogs/ws/analytics.ar.ts) (part 1 of 3)",
+      "body": "empty: لم يلعب أحد في هذه الفترة، فلا أحد لوصفه بعد.\nemptyPeak: اللعب أقل من أن يحدّد وقت كل مجموعة.\nemptyJudged: لم يُؤكَّد أي مستوى بعد.\nzones.who: من هم\nzones.whoDesc: كل شخص حجز ملعباً أو جلس في مباراة مفتوحة في هذه الفترة، محسوباً مرة واحدة، مع ما أخبرنا به: رجل أو امرأة، الفئة العمرية، والمستوى الذي يلعب به. «كم نعرف عنهم» هي نسبة من أجابوا عن الثلاثة؛ الباقون محسوبون لكن غير موصوفين.\nzones.whoNav: من\nzones.interests: ما يهمّهم\nzones.interestsDesc: مستخلص من أفعالهم هنا، لا من سؤال: الملاعب التي حجزوها، المباريات التي شاركوا فيها، الدروس والبطولات، زيارات المقهى والمتجر، الساعات والأيام التي يلعبون فيها، العروض التي استخدموها، والنتائج التي سجّلوها. الوسم يحتاج تكراراً حقيقياً، فالزيارة الواحدة لا تكسب شيئاً تقريباً.",
+      "route": "/analytics"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.analytics.people",
+      "lang": "en",
+      "title": "ws.analytics.people (packages/i18n/src/catalogs/ws/analytics.en.ts) (part 1 of 4)",
+      "body": "empty: Nobody played in this period, so there is nobody to describe yet.\nemptyPeak: Not enough play yet to say when each group comes.\nemptyJudged: No level has been confirmed yet.\nzones.who: Who they are\nzones.whoDesc: Every person who booked a court or took a seat in an open match in this period, counted once, with what they told us: woman or man, age group, and the level they play at. \"How much we know\" is the share who answered all three; the rest are counted, just not described.\nzones.whoNav: Who\nzones.interests: What they are into",
+      "route": "/analytics"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.analytics.people#2",
+      "lang": "ar",
+      "title": "ws.analytics.people (packages/i18n/src/catalogs/ws/analytics.ar.ts) (part 1 of 4)",
+      "body": "cards.checkedSub: {n} مستوى مؤكَّد حتى الآن\ncards.claimedHigh: ذُكر أعلى من الواقع\ncards.claimedLowSub: {n} بخسوا أنفسهم\ncards.newReturning: جديد وعائد\ntips.crowd: مرة اللعب هي حجز ملعب قام به الشخص أو مقعد في مباراة مفتوحة جلس فيه، في هذا الفرع وداخل الفترة.\ntips.coverage: الجنس يُسأل عند التسجيل ويمكن لموظف الاستقبال تصحيحه؛ الفئة العمرية تُسأل عند التسجيل وفي التطبيق؛ والمستوى يبدأ بإجابة اللاعب نفسه. يمكن لموظف الاستقبال إكمال أي منها في سجل العميل.\ntips.levels: المستوى الذي يعمل به النادي: ما أكّده مدرّب أو موظف الاستقبال، وإلا ما ذكره اللاعب.\ntips.interests: لا نسأل أحداً عنها. تخرج من الحجوزات والمباريات والدروس والبطولات وفواتير المقهى والمتجر وساعات اللعب والعروض المستخدمة والنتائج المسجّلة.",
+      "route": "/analytics"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.analytics.people#2",
+      "lang": "en",
+      "title": "ws.analytics.people (packages/i18n/src/catalogs/ws/analytics.en.ts) (part 1 of 4)",
+      "body": "cards.judgedSub: {n} confirmed by the club\ncards.genders: Women and men\ncards.ages: Age groups\ncards.levels: Playing level\ncards.interests: What they are into\ncards.groups: Gender, age and level\ncards.whenGender: Women and men\ncards.whenAge: Age groups\ncards.judged: Claim against judgment\ncards.agree: The claim was right\ncards.checkedSub: {n} levels confirmed so far\ncards.claimedHigh: Claimed too high\ncards.claimedLowSub: {n} sold themselves short\ncards.newReturning: New and returning\ntips.crowd: A play is a court booking the person made or an open-match seat they sat in, at this branch, inside the period.",
+      "route": "/analytics"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.analytics.people#2~2",
+      "lang": "ar",
+      "title": "ws.analytics.people (packages/i18n/src/catalogs/ws/analytics.ar.ts) (part 2 of 4)",
+      "body": "cards.checkedSub: {n} مستوى مؤكَّد حتى الآن\ntips.interests: لا نسأل أحداً عنها. تخرج من الحجوزات والمباريات والدروس والبطولات وفواتير المقهى والمتجر وساعات اللعب والعروض المستخدمة والنتائج المسجّلة.\ntips.groups: الإنفاق هو ما سُدّد على فواتيرهم وفواتير حجوزاتهم. لا تُوزّع إيرادات الملاعب بالتخمين.\ntips.judged: تأكيد المستوى لمسة واحدة في سجل العميل، أو في قائمة المستويات في صفحة ترتيب اللاعبين.\ntable.who: الجنس\ntable.band: العمر\ntable.level: المستوى\ntable.guests: أشخاص\ntable.plays: مرات اللعب\ntable.spend: الإنفاق\nslot: {day} {hour}\nfreshLine: {returning} عائد · {fresh} جديد\ngender.female: نساء\ngender.male: رجال\ngender.unknown: لم يخبرونا\ngender.other: الباقي\nage.u18: أقل من 18\nage.unknown: لم يخبرونا\nage.other: الباقي\nlevel.new: مبتدئ تماماً\nlevel.beginner: مبتدئ",
+      "route": "/analytics"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.analytics.people#2~2",
+      "lang": "en",
+      "title": "ws.analytics.people (packages/i18n/src/catalogs/ws/analytics.en.ts) (part 2 of 4)",
+      "body": "cards.judgedSub: {n} confirmed by the club\ncards.newReturning: New and returning\ntips.crowd: A play is a court booking the person made or an open-match seat they sat in, at this branch, inside the period.\ntips.coverage: The gender is asked at sign-up and can be corrected by the desk; the age group is asked at sign-up and in the app; the level starts as the player's own answer. The desk can fill any of them in on a customer record.\ntips.levels: The level the club goes by: what a coach or the desk confirmed, and otherwise what the player said.\ntips.interests: Nobody is asked these. They come out of bookings, matches, lessons, tournaments, café and shop tabs, the hours played, offers used and scores reported.",
+      "route": "/analytics"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.analytics.people#2~3",
+      "lang": "ar",
+      "title": "ws.analytics.people (packages/i18n/src/catalogs/ws/analytics.ar.ts) (part 3 of 4)",
+      "body": "cards.checkedSub: {n} مستوى مؤكَّد حتى الآن\ngender.female: نساء\ngender.male: رجال\ngender.unknown: لم يخبرونا\ngender.other: الباقي\nage.u18: أقل من 18\nage.unknown: لم يخبرونا\nage.other: الباقي\nlevel.new: مبتدئ تماماً\nlevel.beginner: مبتدئ\nlevel.intermediate: متوسط\nlevel.advanced: متقدّم\nlevel.unknown: لم يخبرونا\nlevel.other: الباقي\ninterest.courts: يحجز ملاعب\ninterest.matches: مباريات مفتوحة\ninterest.tournaments: بطولات\ninterest.lessons: دروس\ninterest.cafe: يأكل في المقهى\ninterest.shop: يشتري من المتجر\ninterest.regular: يلعب كثيراً\ninterest.weekend: لاعبو نهاية الأسبوع\ninterest.evenings: لاعبو المساء\ninterest.daytime: لاعبو النهار\ninterest.late: لاعبو وقت متأخر\ninterest.group: يأتي بمجموعة\ninterest.offers: يستفيد من العروض\ninterest.ranked: يسجّل النتائج",
+      "route": "/analytics"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.analytics.people#2~3",
+      "lang": "en",
+      "title": "ws.analytics.people (packages/i18n/src/catalogs/ws/analytics.en.ts) (part 3 of 4)",
+      "body": "cards.judgedSub: {n} confirmed by the club\ntips.interests: Nobody is asked these. They come out of bookings, matches, lessons, tournaments, café and shop tabs, the hours played, offers used and scores reported.\ntips.groups: Spend is what settled on their own tabs and on the tabs of their bookings. No court revenue is split by guesswork.\ntips.judged: Confirming a level is one tap on a customer record, or on the Levels list of the player ranks page.\ntable.who: Gender\ntable.band: Age\ntable.level: Level\ntable.guests: People\ntable.plays: Plays\ntable.spend: Spend\nslot: {day} {hour}\nfreshLine: {returning} returning · {fresh} new\ngender.female: Women\ngender.male: Men\ngender.unknown: Not told us\ngender.other: Everyone else\nage.u18: Under 18\nage.unknown: Not told us\nage.other: Everyone else",
+      "route": "/analytics"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.analytics.people#2~4",
+      "lang": "ar",
+      "title": "ws.analytics.people (packages/i18n/src/catalogs/ws/analytics.ar.ts) (part 4 of 4)",
+      "body": "cards.checkedSub: {n} مستوى مؤكَّد حتى الآن\ninterest.evenings: لاعبو المساء\ninterest.daytime: لاعبو النهار\ninterest.late: لاعبو وقت متأخر\ninterest.group: يأتي بمجموعة\ninterest.offers: يستفيد من العروض\ninterest.ranked: يسجّل النتائج\nleads.thin: عدد من أخبرونا بمعلوماتهم قليل. اسأل عند التسجيل، ودع موظف الاستقبال يكمل سجل الزائر.\nleads.gender: الغالبية {who} ({share})\nleads.age: بأعمار {band}",
+      "route": "/analytics"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.analytics.people#2~4",
+      "lang": "en",
+      "title": "ws.analytics.people (packages/i18n/src/catalogs/ws/analytics.en.ts) (part 4 of 4)",
+      "body": "cards.judgedSub: {n} confirmed by the club\ngender.female: Women\ngender.male: Men\ngender.unknown: Not told us\ngender.other: Everyone else\nage.u18: Under 18\nage.unknown: Not told us\nage.other: Everyone else\nlevel.new: Just starting\nlevel.beginner: Beginner\nlevel.intermediate: Intermediate\nlevel.advanced: Advanced\nlevel.unknown: Not told us\nlevel.other: Everyone else\ninterest.courts: Books courts\ninterest.matches: Open matches\ninterest.tournaments: Tournaments\ninterest.lessons: Lessons",
+      "route": "/analytics"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.analytics.people#3",
+      "lang": "ar",
+      "title": "ws.analytics.people (packages/i18n/src/catalogs/ws/analytics.ar.ts) (part 1 of 2)",
+      "body": "leads.level: يلعبون بمستوى {level}\nleads.coverage: هذا يصف {pct} الذين أجابوا عن الثلاثة.\nleads.interests: {tag}: {share} من الجمهور. هذه هي المجموعة التي يمكن توجيه عرض إليها.\nleads.interestsThin: الجميع تقريباً يحجزون ملاعب فقط حتى الآن، ولا شيء آخر يبرز.\nleads.groups: أكبر مجموعة هي {group}: {guests} شخصاً.\nleads.groupsThin: لا توجد مجموعة كبيرة بما يكفي لتسميتها بعد.\nleads.when: لكل مجموعة ساعتها: {list}.\nleads.whenSlot: {who} يوم {day} الساعة {hour}\nleads.whenThin: اللعب أقل من أن يميّز المجموعات بالساعات.\nleads.judgedAgree: من {checked} مستوى مؤكَّد، طابق {n} ما ذكره اللاعب. ما يُذكر صحيح في الغالب.\nleads.judgedOver: من {checked} مستوى مؤكَّد، ذُكر {n} أعلى من الواقع. توقّع تصحيح المستوى بعد أول مباراة.",
+      "route": "/analytics"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.analytics.people#3",
+      "lang": "en",
+      "title": "ws.analytics.people (packages/i18n/src/catalogs/ws/analytics.en.ts) (part 1 of 3)",
+      "body": "interest.cafe: Eats at the café\ninterest.shop: Buys from the shop\ninterest.regular: Plays often\ninterest.weekend: Weekend players\ninterest.evenings: Evening players\ninterest.daytime: Daytime players\ninterest.late: Late-night players\ninterest.group: Brings a group\ninterest.offers: Uses offers\ninterest.ranked: Reports scores\nleads.thin: Too few people have told us who they are. Ask at sign-up, and let the desk fill a walk-in's record in.\nleads.gender: Mostly {who} ({share})\nleads.age: aged {band}\nleads.level: playing at {level}\nleads.coverage: That describes the {pct} who answered all three.\nleads.interests: {tag}: {share} of the crowd. That is the group an offer can be aimed at.",
+      "route": "/analytics"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.analytics.people#3~2",
+      "lang": "ar",
+      "title": "ws.analytics.people (packages/i18n/src/catalogs/ws/analytics.ar.ts) (part 2 of 2)",
+      "body": "leads.level: يلعبون بمستوى {level}\nleads.judgedOver: من {checked} مستوى مؤكَّد، ذُكر {n} أعلى من الواقع. توقّع تصحيح المستوى بعد أول مباراة.\nleads.judgedUnder: من {checked} مستوى مؤكَّد، كان {n} أفضل من المذكور. اللاعبون هنا يبخسون أنفسهم.\nleads.judgedThin: {n} لاعب لم يؤكّد أحد مستواهم بعد. يؤكّده مدرّب أو موظف الاستقبال بلمسة.",
+      "route": "/analytics"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.analytics.people#3~2",
+      "lang": "en",
+      "title": "ws.analytics.people (packages/i18n/src/catalogs/ws/analytics.en.ts) (part 2 of 3)",
+      "body": "interest.cafe: Eats at the café\nleads.level: playing at {level}\nleads.coverage: That describes the {pct} who answered all three.\nleads.interests: {tag}: {share} of the crowd. That is the group an offer can be aimed at.\nleads.interestsThin: Almost everyone here just books courts so far; nothing else stands out yet.\nleads.groups: The biggest group is {group}: {guests} people.\nleads.groupsThin: No group is large enough to name yet.\nleads.when: Each group has its hour: {list}.\nleads.whenSlot: {who} on {day} at {hour}\nleads.whenThin: Not enough play yet to tell the groups apart by hour.\nleads.judgedAgree: Of {checked} levels confirmed, {n} matched what the player said. The claims are holding up.",
+      "route": "/analytics"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.analytics.people#3~3",
+      "lang": "en",
+      "title": "ws.analytics.people (packages/i18n/src/catalogs/ws/analytics.en.ts) (part 3 of 3)",
+      "body": "interest.cafe: Eats at the café\nleads.whenThin: Not enough play yet to tell the groups apart by hour.\nleads.judgedAgree: Of {checked} levels confirmed, {n} matched what the player said. The claims are holding up.\nleads.judgedOver: Of {checked} levels confirmed, {n} were claimed too high. Expect to correct a level after the first game.\nleads.judgedUnder: Of {checked} levels confirmed, {n} were better than claimed. Players here undersell themselves.\nleads.judgedThin: {n} players have a level nobody has confirmed yet. A coach or the desk confirms one in a tap.",
+      "route": "/analytics"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.analytics.people~2",
+      "lang": "ar",
+      "title": "ws.analytics.people (packages/i18n/src/catalogs/ws/analytics.ar.ts) (part 2 of 3)",
+      "body": "empty: لم يلعب أحد في هذه الفترة، فلا أحد لوصفه بعد.\nzones.interestsNav: الاهتمامات\nzones.groups: أكبر المجموعات\nzones.groupsDesc: الجنس والعمر والمستوى مجتمعة، الأكبر أولاً. أي مجموعة أقل من خمسة أشخاص تُدمج في صف «الباقي»، فلا يدل صف على شخص بعينه.\nzones.groupsNav: المجموعات\nzones.when: متى تلعب كل مجموعة\nzones.whenDesc: أكثر ساعتين انشغالاً لكل مجموعة، بحسب يوم العمل وتوقيت الفرع. على هذا يُبنى توقيت أي عرض موجّه لمجموعة.\nzones.whenNav: متى\nzones.judged: هل المستويات صحيحة\nzones.judgedDesc: يبدأ المستوى بما ذكره اللاعب عند التسجيل. يؤكّده مدرّب أو موظف الاستقبال أو المدير بعد رؤيته يلعب، وصفحة ترتيب اللاعبين تعرض من تخالفه مبارياته. هذه المنطقة تقارن التأكيدات بما ذُكر.\nzones.judgedNav: المستويات\ncards.crowd: الجمهور\ncards.guests: أشخاص\ncards.guestsSub: {plays} مرة لعب في الفترة",
+      "route": "/analytics"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.analytics.people~2",
+      "lang": "en",
+      "title": "ws.analytics.people (packages/i18n/src/catalogs/ws/analytics.en.ts) (part 2 of 4)",
+      "body": "empty: Nobody played in this period, so there is nobody to describe yet.\nzones.whoNav: Who\nzones.interests: What they are into\nzones.interestsDesc: Worked out from what people did here, never from a question: courts they booked, matches they joined, lessons and tournaments they took, café and shop visits, the hours and days they play, offers they used, scores they reported. A tag needs real repetition, so a single visit earns almost none.\nzones.interestsNav: Interests\nzones.groups: Biggest groups\nzones.groupsDesc: Gender, age and level together, biggest first. Any group of fewer than five people is folded into one \"Everyone else\" row, so no row can be narrowed down to a person.\nzones.groupsNav: Groups\nzones.when: When each group plays",
+      "route": "/analytics"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.analytics.people~3",
+      "lang": "ar",
+      "title": "ws.analytics.people (packages/i18n/src/catalogs/ws/analytics.ar.ts) (part 3 of 3)",
+      "body": "empty: لم يلعب أحد في هذه الفترة، فلا أحد لوصفه بعد.\nzones.judgedNav: المستويات\ncards.crowd: الجمهور\ncards.guests: أشخاص\ncards.guestsSub: {plays} مرة لعب في الفترة\ncards.returning: لعبوا هنا من قبل\ncards.newSub: {n} جاؤوا للمرة الأولى\ncards.coverage: كم نعرف عنهم\ncards.coverageMeter: الجنس والعمر والمستوى\ncards.withAge: أخبرونا بعمرهم\ncards.withLevel: أخبرونا بمستواهم\ncards.judgedSub: {n} مؤكَّد من النادي\ncards.genders: نساء ورجال\ncards.ages: الفئات العمرية\ncards.levels: مستوى اللعب\ncards.interests: ما يهمّهم\ncards.groups: الجنس والعمر والمستوى\ncards.whenGender: نساء ورجال\ncards.whenAge: الفئات العمرية\ncards.judged: ما ذُكر مقابل ما تأكّد\ncards.agree: كان ما ذُكر صحيحاً",
+      "route": "/analytics"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.analytics.people~3",
+      "lang": "en",
+      "title": "ws.analytics.people (packages/i18n/src/catalogs/ws/analytics.en.ts) (part 3 of 4)",
+      "body": "empty: Nobody played in this period, so there is nobody to describe yet.\nzones.groupsNav: Groups\nzones.when: When each group plays\nzones.whenDesc: The two busiest hours of each group, by business day and branch time. This is what an offer aimed at a group should be timed against.\nzones.whenNav: When\nzones.judged: Are the levels right\nzones.judgedDesc: A level starts as what the player said at sign-up. A coach, the front desk or a manager confirms it after seeing them play, and the player ranks page lists whoever the games disagree with. This zone counts the confirmations against the claims.\nzones.judgedNav: Levels\ncards.crowd: The crowd\ncards.guests: People\ncards.guestsSub: {plays} plays in the period\ncards.returning: Played here before\ncards.newSub: {n} came for the first time",
+      "route": "/analytics"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.analytics.people~4",
+      "lang": "en",
+      "title": "ws.analytics.people (packages/i18n/src/catalogs/ws/analytics.en.ts) (part 4 of 4)",
+      "body": "empty: Nobody played in this period, so there is nobody to describe yet.\nzones.judgedNav: Levels\ncards.crowd: The crowd\ncards.guests: People\ncards.guestsSub: {plays} plays in the period\ncards.returning: Played here before\ncards.newSub: {n} came for the first time\ncards.coverage: How much we know\ncards.coverageMeter: Gender, age and level\ncards.withAge: Told us their age\ncards.withLevel: Told us their level",
+      "route": "/analytics"
+    },
+    {
+      "kind": "label",
       "ref": "label:ws.analytics.pulseCsv",
       "lang": "ar",
       "title": "ws.analytics.pulseCsv (packages/i18n/src/catalogs/ws/analytics.ar.ts)",
@@ -25550,7 +25870,7 @@
       "ref": "label:ws.analytics.tabs",
       "lang": "ar",
       "title": "ws.analytics.tabs (packages/i18n/src/catalogs/ws/analytics.ar.ts)",
-      "body": "courts: الملاعب\ncafe: الكافيه",
+      "body": "courts: الملاعب\ncafe: الكافيه\npeople: الناس",
       "route": "/till/tabs"
     },
     {
@@ -25558,7 +25878,7 @@
       "ref": "label:ws.analytics.tabs",
       "lang": "en",
       "title": "ws.analytics.tabs (packages/i18n/src/catalogs/ws/analytics.en.ts)",
-      "body": "courts: Courts\ncafe: Cafe",
+      "body": "courts: Courts\ncafe: Cafe\npeople: People",
       "route": "/till/tabs"
     },
     {
@@ -29821,32 +30141,48 @@
       "kind": "label",
       "ref": "label:ws.insights.cards",
       "lang": "ar",
-      "title": "ws.insights.cards (packages/i18n/src/catalogs/ws/insights.ar.ts) (part 1 of 2)",
-      "body": "courts: الملاعب\nhowFull: مدى الامتلاء\nbookings: الحجوزات\nplayers: اللاعبون\nactivePlayers: يلعبون\nnewPlayers: لاعبون جدد\ncafe: الكافيه\ncrossover: لاعبون يشترون من الكافيه\nspend: إنفاق الكافيه لكل حجز\nmoney: الإيرادات\noverall: الإجمالي\ncourtsMoney: الملاعب\ncafeMoney: الكافيه\nheat: أسبوع الملاعب\nheatHint: مرّر المؤشر على ساعة لترى مدى امتلائها.\nquiet: أهدأ الساعات\nfull: أكثر الساعات امتلاءً\nlosses: الإلغاءات وعدم الحضور\ncancellations: الإلغاءات\nnoShows: عدم الحضور\nnewReturning: الجدد والعائدون\nreturning: العائدون\nregulars: الزبائن الدائمون\nlapsing: زبائن دائمون انقطعوا\nlapsingSub: دون حجز منذ {days} يومًا\nfrequency: كم مرة يلعبون\nsource: التطبيق أم المكتب\napp: التطبيق\ndesk: المكتب\nappTrend: الحجز عبر التطبيق\nlead: قبل كم يحجزون\nnotRecorded: لا يُسجَّل بعد",
+      "title": "ws.insights.cards (packages/i18n/src/catalogs/ws/insights.ar.ts) (part 1 of 3)",
+      "body": "crowd: الجمهور\nknown: أشخاص نعرفهم\ncoverage: كم نعرف عنهم\ncoverageSub: الجنس والعمر والمستوى مكتملة\nwhoThey: نساء ورجال\nages: الفئات العمرية\nlevels: مستوى اللعب\nlevelsTip: المستوى هو ما ذكره اللاعب عند التسجيل حتى يؤكده مدرّب أو موظف الاستقبال. المؤكَّد حتى الآن: {judged}.\ninterests: ما يهمّهم\ninterestsTip: مستخلص من أفعالهم: الملاعب المحجوزة، المباريات المشتركة، الدروس، زيارات المقهى والمتجر، وساعات اللعب. لا نسأل أحداً.\ngroups: أكبر المجموعات\ngroupsEmpty: لا توجد مجموعة كبيرة بما يكفي لتسميتها بعد.\ncourts: الملاعب\nhowFull: مدى الامتلاء\nbookings: الحجوزات\nplayers: اللاعبون\nactivePlayers: يلعبون\nnewPlayers: لاعبون جدد\ncafe: الكافيه\ncrossover: لاعبون يشترون من الكافيه\nspend: إنفاق الكافيه لكل حجز\nmoney: الإيرادات\noverall: الإجمالي\ncourtsMoney: الملاعب\ncafeMoney: الكافيه",
       "route": null
     },
     {
       "kind": "label",
       "ref": "label:ws.insights.cards",
       "lang": "en",
-      "title": "ws.insights.cards (packages/i18n/src/catalogs/ws/insights.en.ts) (part 1 of 2)",
-      "body": "courts: Courts\nhowFull: How full\nbookings: Bookings\nplayers: Players\nactivePlayers: Playing\nnewPlayers: New players\ncafe: Café\ncrossover: Court players who buy\nspend: Café spend per booking\nmoney: Money\noverall: Overall\ncourtsMoney: Courts\ncafeMoney: Café\nheat: Court week\nheatHint: Point at an hour to read how full it runs.\nquiet: Quietest hours\nfull: Fullest hours\nlosses: Cancellations and no-shows\ncancellations: Cancellations\nnoShows: No-shows\nnewReturning: New and returning\nreturning: Returning\nregulars: Regulars\nlapsing: Lapsing regulars\nlapsingSub: No booking in {days} days\nfrequency: How often they play\nsource: App or desk\napp: App\ndesk: Desk\nappTrend: Bookings through the app\nlead: How far ahead they book\nnotRecorded: Not recorded yet",
+      "title": "ws.insights.cards (packages/i18n/src/catalogs/ws/insights.en.ts) (part 1 of 3)",
+      "body": "crowd: The crowd\nknown: People we know\ncoverage: How much we know\ncoverageSub: Gender, age and level all answered\nwhoThey: Women and men\nages: Age groups\nlevels: Playing level\nlevelsTip: A level is what the player said at sign-up until a coach or the desk confirms it. Confirmed so far: {judged}.\ninterests: What they are into\ninterestsTip: Worked out from what people did: courts booked, matches joined, lessons taken, café and shop visits, the hours they play. Nobody is asked.\ngroups: Biggest groups\ngroupsEmpty: No group is large enough to name yet.\ncourts: Courts\nhowFull: How full\nbookings: Bookings\nplayers: Players\nactivePlayers: Playing\nnewPlayers: New players\ncafe: Café\ncrossover: Court players who buy\nspend: Café spend per booking\nmoney: Money\noverall: Overall",
       "route": null
     },
     {
       "kind": "label",
       "ref": "label:ws.insights.cards~2",
       "lang": "ar",
-      "title": "ws.insights.cards (packages/i18n/src/catalogs/ws/insights.ar.ts) (part 2 of 2)",
-      "body": "courts: الملاعب\nlapsingSub: دون حجز منذ {days} يومًا\nfrequency: كم مرة يلعبون\nsource: التطبيق أم المكتب\napp: التطبيق\ndesk: المكتب\nappTrend: الحجز عبر التطبيق\nlead: قبل كم يحجزون\nnotRecorded: لا يُسجَّل بعد\nofferList: عروض هذه الفترة\ncafeHeat: أسبوع الكافيه\ncafeHeatHint: مرّر المؤشر على ساعة لترى مدى ازدحام الكافيه فيها.\ntop: الأكثر مبيعًا\nbottom: الأقل مبيعًا\nshop: مبيعات متجر تتش\ntournaments: البطولات\nheld: أقيمت\nfill: مدى الامتلاء\nreturningPlayers: عادوا\nnextTournament: القادمة: {name}، {date}\nnoNext: لا بطولة مجدولة.\nloyalty: الولاء\nmembers: الأعضاء\nnewMembers: جدد في هذه الفترة\nredeeming: يستخدمون نقاطهم\nholding: لديهم نقاط لم تُستخدم\nloyaltyOff: برنامج الولاء متوقف.\nmix: حصة كل جزء من الإيرادات\nmixCourts: الملاعب\nmixCafe: الكافيه\nmixShop: متجر تتش",
+      "title": "ws.insights.cards (packages/i18n/src/catalogs/ws/insights.ar.ts) (part 2 of 3)",
+      "body": "crowd: الجمهور\nactivePlayers: يلعبون\nnewPlayers: لاعبون جدد\ncafe: الكافيه\ncrossover: لاعبون يشترون من الكافيه\nspend: إنفاق الكافيه لكل حجز\nmoney: الإيرادات\noverall: الإجمالي\ncourtsMoney: الملاعب\ncafeMoney: الكافيه\nheat: أسبوع الملاعب\nheatHint: مرّر المؤشر على ساعة لترى مدى امتلائها.\nquiet: أهدأ الساعات\nfull: أكثر الساعات امتلاءً\nlosses: الإلغاءات وعدم الحضور\ncancellations: الإلغاءات\nnoShows: عدم الحضور\nnewReturning: الجدد والعائدون\nreturning: العائدون\nregulars: الزبائن الدائمون\nlapsing: زبائن دائمون انقطعوا\nlapsingSub: دون حجز منذ {days} يومًا\nfrequency: كم مرة يلعبون\nsource: التطبيق أم المكتب\napp: التطبيق\ndesk: المكتب\nappTrend: الحجز عبر التطبيق\nlead: قبل كم يحجزون\nnotRecorded: لا يُسجَّل بعد\nofferList: عروض هذه الفترة\ncafeHeat: أسبوع الكافيه",
       "route": null
     },
     {
       "kind": "label",
       "ref": "label:ws.insights.cards~2",
       "lang": "en",
-      "title": "ws.insights.cards (packages/i18n/src/catalogs/ws/insights.en.ts) (part 2 of 2)",
-      "body": "courts: Courts\nfrequency: How often they play\nsource: App or desk\napp: App\ndesk: Desk\nappTrend: Bookings through the app\nlead: How far ahead they book\nnotRecorded: Not recorded yet\nofferList: Offers in this period\ncafeHeat: Café week\ncafeHeatHint: Point at an hour to read how busy the café runs.\ntop: Best sellers\nbottom: Least sold\nshop: Touch Shop sales\ntournaments: Tournaments\nheld: Held\nfill: How full\nreturningPlayers: Came back\nnextTournament: Next: {name}, {date}\nnoNext: No tournament scheduled.\nloyalty: Loyalty\nmembers: Members\nnewMembers: New this period\nredeeming: Using their points\nholding: Holding unused points\nloyaltyOff: Loyalty is switched off.\nmix: Share of the money\nmixCourts: Courts\nmixCafe: Café\nmixShop: Touch Shop",
+      "title": "ws.insights.cards (packages/i18n/src/catalogs/ws/insights.en.ts) (part 2 of 3)",
+      "body": "crowd: The crowd\nbookings: Bookings\nplayers: Players\nactivePlayers: Playing\nnewPlayers: New players\ncafe: Café\ncrossover: Court players who buy\nspend: Café spend per booking\nmoney: Money\noverall: Overall\ncourtsMoney: Courts\ncafeMoney: Café\nheat: Court week\nheatHint: Point at an hour to read how full it runs.\nquiet: Quietest hours\nfull: Fullest hours\nlosses: Cancellations and no-shows\ncancellations: Cancellations\nnoShows: No-shows\nnewReturning: New and returning\nreturning: Returning\nregulars: Regulars\nlapsing: Lapsing regulars\nlapsingSub: No booking in {days} days\nfrequency: How often they play\nsource: App or desk\napp: App\ndesk: Desk\nappTrend: Bookings through the app\nlead: How far ahead they book\nnotRecorded: Not recorded yet\nofferList: Offers in this period\ncafeHeat: Café week",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.insights.cards~3",
+      "lang": "ar",
+      "title": "ws.insights.cards (packages/i18n/src/catalogs/ws/insights.ar.ts) (part 3 of 3)",
+      "body": "crowd: الجمهور\nsource: التطبيق أم المكتب\napp: التطبيق\ndesk: المكتب\nappTrend: الحجز عبر التطبيق\nlead: قبل كم يحجزون\nnotRecorded: لا يُسجَّل بعد\nofferList: عروض هذه الفترة\ncafeHeat: أسبوع الكافيه\ncafeHeatHint: مرّر المؤشر على ساعة لترى مدى ازدحام الكافيه فيها.\ntop: الأكثر مبيعًا\nbottom: الأقل مبيعًا\nshop: مبيعات متجر تتش\ntournaments: البطولات\nheld: أقيمت\nfill: مدى الامتلاء\nreturningPlayers: عادوا\nnextTournament: القادمة: {name}، {date}\nnoNext: لا بطولة مجدولة.\nloyalty: الولاء\nmembers: الأعضاء\nnewMembers: جدد في هذه الفترة\nredeeming: يستخدمون نقاطهم\nholding: لديهم نقاط لم تُستخدم\nloyaltyOff: برنامج الولاء متوقف.\nmix: حصة كل جزء من الإيرادات\nmixCourts: الملاعب\nmixCafe: الكافيه\nmixShop: متجر تتش",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.insights.cards~3",
+      "lang": "en",
+      "title": "ws.insights.cards (packages/i18n/src/catalogs/ws/insights.en.ts) (part 3 of 3)",
+      "body": "crowd: The crowd\nsource: App or desk\napp: App\ndesk: Desk\nappTrend: Bookings through the app\nlead: How far ahead they book\nnotRecorded: Not recorded yet\nofferList: Offers in this period\ncafeHeat: Café week\ncafeHeatHint: Point at an hour to read how busy the café runs.\ntop: Best sellers\nbottom: Least sold\nshop: Touch Shop sales\ntournaments: Tournaments\nheld: Held\nfill: How full\nreturningPlayers: Came back\nnextTournament: Next: {name}, {date}\nnoNext: No tournament scheduled.\nloyalty: Loyalty\nmembers: Members\nnewMembers: New this period\nredeeming: Using their points\nholding: Holding unused points\nloyaltyOff: Loyalty is switched off.\nmix: Share of the money\nmixCourts: Courts\nmixCafe: Café\nmixShop: Touch Shop",
       "route": null
     },
     {
@@ -29886,15 +30222,15 @@
       "ref": "label:ws.insights.leads",
       "lang": "ar",
       "title": "ws.insights.leads (packages/i18n/src/catalogs/ws/insights.ar.ts) (part 1 of 3)",
-      "body": "fillQuiet: أهدأ الساعات: {slots}. هناك أكبر مساحة لأن تنجح العروض والمنشورات.\nprotectFull: أكثر الساعات امتلاءً: {slots}. هذه تمتلئ وحدها، فاصرف الجهد إلى غيرها.\nboth: روّج لساعات {quiet}، واترك {full} فهي تمتلئ وحدها.\nnone: لا ساعة تبرز بعد: الملاعب على المستوى نفسه تقريبًا طوال الأسبوع.\nglance: الملاعب: {level}. اللاعبون: {players}. الكافيه: {crossover} من لاعبي الملاعب يشترون منه.\nplayers: {returning} من اللاعبين المعروفين عائدون، و{lapsing} من الزبائن الدائمين انقطعوا.\nplayersNoLapsing: {returning} من اللاعبين المعروفين عائدون، ولم ينقطع أي زبون دائم.\nplayersThin: عدد اللاعبين المعروفين في هذه الفترة قليل لا يكفي لتقسيمهم.\nchannels: {app} من الحجوزات تأتي عبر التطبيق.",
+      "body": "peopleThin: عدد من أخبرونا بمعلوماتهم أقل من أن يرسم صورة. اسأل عند التسجيل، ويمكن لموظف الاستقبال إكمال سجل الزائر.\npeopleGender: الغالبية {who} ({share})\npeopleAge: بأعمار {band}\npeopleLevel: يلعبون بمستوى {level}\npeopleCoverage: هذا مبني على {pct} من الجمهور الذين أخبرونا بالثلاثة كاملة.\nfillQuiet: أهدأ الساعات: {slots}. هناك أكبر مساحة لأن تنجح العروض والمنشورات.\nprotectFull: أكثر الساعات امتلاءً: {slots}. هذه تمتلئ وحدها، فاصرف الجهد إلى غيرها.\nboth: روّج لساعات {quiet}، واترك {full} فهي تمتلئ وحدها.\nnone: لا ساعة تبرز بعد: الملاعب على المستوى نفسه تقريبًا طوال الأسبوع.\nglance: الملاعب: {level}. اللاعبون: {players}. الكافيه: {crossover} من لاعبي الملاعب يشترون منه.",
       "route": null
     },
     {
       "kind": "label",
       "ref": "label:ws.insights.leads",
       "lang": "en",
-      "title": "ws.insights.leads (packages/i18n/src/catalogs/ws/insights.en.ts) (part 1 of 3)",
-      "body": "fillQuiet: The quietest hours are {slots}. Offers and posts there have the most room to work.\nprotectFull: The fullest hours are {slots}. They sell themselves; spend the effort elsewhere.\nboth: Push {quiet}; leave {full} alone, it fills by itself.\nnone: No hour stands out yet: the courts run at about the same level all week.\nglance: Courts: {level}. Players: {players}. Café: {crossover} of court players buy.\nplayers: {returning} of known players are returning ones; {lapsing} regulars have gone quiet.\nplayersNoLapsing: {returning} of known players are returning ones, and no regular has gone quiet.\nplayersThin: Too few known players in this period to split them.",
+      "title": "ws.insights.leads (packages/i18n/src/catalogs/ws/insights.en.ts) (part 1 of 4)",
+      "body": "peopleThin: Too few people have told us who they are for a picture to form. Ask at sign-up, and the desk can fill a walk-in's record in.\npeopleGender: Mostly {who} ({share})\npeopleAge: aged {band}\npeopleLevel: playing at {level}\npeopleCoverage: That is from the {pct} of the crowd who told us all three.\nfillQuiet: The quietest hours are {slots}. Offers and posts there have the most room to work.\nprotectFull: The fullest hours are {slots}. They sell themselves; spend the effort elsewhere.\nboth: Push {quiet}; leave {full} alone, it fills by itself.\nnone: No hour stands out yet: the courts run at about the same level all week.",
       "route": null
     },
     {
@@ -29902,15 +30238,15 @@
       "ref": "label:ws.insights.leads~2",
       "lang": "ar",
       "title": "ws.insights.leads (packages/i18n/src/catalogs/ws/insights.ar.ts) (part 2 of 3)",
-      "body": "fillQuiet: أهدأ الساعات: {slots}. هناك أكبر مساحة لأن تنجح العروض والمنشورات.\nplayersThin: عدد اللاعبين المعروفين في هذه الفترة قليل لا يكفي لتقسيمهم.\nchannels: {app} من الحجوزات تأتي عبر التطبيق.\nchannelsAllDesk: كل حجوزات هذه الفترة تمت في المكتب، ولم يأتِ أي منها عبر التطبيق.\nchannelsAllApp: كل حجوزات هذه الفترة جاءت عبر التطبيق.\nchannelsThin: عدد الحجوزات في هذه الفترة قليل لا يكفي لتقسيمها.\noffers: أكثر عرض استُخدم: {name}.\noffersNone: لم يُستخدم أي عرض في هذه الفترة.\ncafe: {crossover} من لاعبي الملاعب يشترون من الكافيه أيضًا. الأكثر مبيعًا: {top}.\ncafeThin: مبيعات الكافيه المرتبطة بالحجوزات قليلة لا تكفي للحكم.\nevents: امتلاء البطولات: {fill}، و{returning} من لاعبيها شاركوا في بطولة من قبل.\neventsNone: لا بطولة في هذه الفترة.",
+      "body": "peopleThin: عدد من أخبرونا بمعلوماتهم أقل من أن يرسم صورة. اسأل عند التسجيل، ويمكن لموظف الاستقبال إكمال سجل الزائر.\nnone: لا ساعة تبرز بعد: الملاعب على المستوى نفسه تقريبًا طوال الأسبوع.\nglance: الملاعب: {level}. اللاعبون: {players}. الكافيه: {crossover} من لاعبي الملاعب يشترون منه.\nplayers: {returning} من اللاعبين المعروفين عائدون، و{lapsing} من الزبائن الدائمين انقطعوا.\nplayersNoLapsing: {returning} من اللاعبين المعروفين عائدون، ولم ينقطع أي زبون دائم.\nplayersThin: عدد اللاعبين المعروفين في هذه الفترة قليل لا يكفي لتقسيمهم.\nchannels: {app} من الحجوزات تأتي عبر التطبيق.\nchannelsAllDesk: كل حجوزات هذه الفترة تمت في المكتب، ولم يأتِ أي منها عبر التطبيق.\nchannelsAllApp: كل حجوزات هذه الفترة جاءت عبر التطبيق.\nchannelsThin: عدد الحجوزات في هذه الفترة قليل لا يكفي لتقسيمها.",
       "route": null
     },
     {
       "kind": "label",
       "ref": "label:ws.insights.leads~2",
       "lang": "en",
-      "title": "ws.insights.leads (packages/i18n/src/catalogs/ws/insights.en.ts) (part 2 of 3)",
-      "body": "fillQuiet: The quietest hours are {slots}. Offers and posts there have the most room to work.\nplayersNoLapsing: {returning} of known players are returning ones, and no regular has gone quiet.\nplayersThin: Too few known players in this period to split them.\nchannels: {app} of bookings come through the app.\nchannelsAllDesk: Every booking in this period was made at the desk; none came through the app.\nchannelsAllApp: Every booking in this period came through the app.\nchannelsThin: Too few bookings in this period to split them.\noffers: {name} was used the most.\noffersNone: No offer was used in this period.\ncafe: {crossover} of court players also buy at the café. Best seller: {top}.\ncafeThin: Too few café sales linked to bookings to say.",
+      "title": "ws.insights.leads (packages/i18n/src/catalogs/ws/insights.en.ts) (part 2 of 4)",
+      "body": "peopleThin: Too few people have told us who they are for a picture to form. Ask at sign-up, and the desk can fill a walk-in's record in.\nboth: Push {quiet}; leave {full} alone, it fills by itself.\nnone: No hour stands out yet: the courts run at about the same level all week.\nglance: Courts: {level}. Players: {players}. Café: {crossover} of court players buy.\nplayers: {returning} of known players are returning ones; {lapsing} regulars have gone quiet.\nplayersNoLapsing: {returning} of known players are returning ones, and no regular has gone quiet.\nplayersThin: Too few known players in this period to split them.\nchannels: {app} of bookings come through the app.\nchannelsAllDesk: Every booking in this period was made at the desk; none came through the app.",
       "route": null
     },
     {
@@ -29918,15 +30254,23 @@
       "ref": "label:ws.insights.leads~3",
       "lang": "ar",
       "title": "ws.insights.leads (packages/i18n/src/catalogs/ws/insights.ar.ts) (part 3 of 3)",
-      "body": "fillQuiet: أهدأ الساعات: {slots}. هناك أكبر مساحة لأن تنجح العروض والمنشورات.\ncafeThin: مبيعات الكافيه المرتبطة بالحجوزات قليلة لا تكفي للحكم.\nevents: امتلاء البطولات: {fill}، و{returning} من لاعبيها شاركوا في بطولة من قبل.\neventsNone: لا بطولة في هذه الفترة.\nmix: الملاعب تجلب {courts} من الإيرادات، والكافيه {cafe}.\nmixNone: لا إيرادات مسجّلة في هذه الفترة.",
+      "body": "peopleThin: عدد من أخبرونا بمعلوماتهم أقل من أن يرسم صورة. اسأل عند التسجيل، ويمكن لموظف الاستقبال إكمال سجل الزائر.\nchannelsAllApp: كل حجوزات هذه الفترة جاءت عبر التطبيق.\nchannelsThin: عدد الحجوزات في هذه الفترة قليل لا يكفي لتقسيمها.\noffers: أكثر عرض استُخدم: {name}.\noffersNone: لم يُستخدم أي عرض في هذه الفترة.\ncafe: {crossover} من لاعبي الملاعب يشترون من الكافيه أيضًا. الأكثر مبيعًا: {top}.\ncafeThin: مبيعات الكافيه المرتبطة بالحجوزات قليلة لا تكفي للحكم.\nevents: امتلاء البطولات: {fill}، و{returning} من لاعبيها شاركوا في بطولة من قبل.\neventsNone: لا بطولة في هذه الفترة.\nmix: الملاعب تجلب {courts} من الإيرادات، والكافيه {cafe}.\nmixNone: لا إيرادات مسجّلة في هذه الفترة.",
       "route": null
     },
     {
       "kind": "label",
       "ref": "label:ws.insights.leads~3",
       "lang": "en",
-      "title": "ws.insights.leads (packages/i18n/src/catalogs/ws/insights.en.ts) (part 3 of 3)",
-      "body": "fillQuiet: The quietest hours are {slots}. Offers and posts there have the most room to work.\noffersNone: No offer was used in this period.\ncafe: {crossover} of court players also buy at the café. Best seller: {top}.\ncafeThin: Too few café sales linked to bookings to say.\nevents: Tournaments ran {fill}; {returning} of their players had played one before.\neventsNone: No tournament in this period.\nmix: Courts bring {courts} of the money, the café {cafe}.\nmixNone: No money recorded in this period.",
+      "title": "ws.insights.leads (packages/i18n/src/catalogs/ws/insights.en.ts) (part 3 of 4)",
+      "body": "peopleThin: Too few people have told us who they are for a picture to form. Ask at sign-up, and the desk can fill a walk-in's record in.\nchannels: {app} of bookings come through the app.\nchannelsAllDesk: Every booking in this period was made at the desk; none came through the app.\nchannelsAllApp: Every booking in this period came through the app.\nchannelsThin: Too few bookings in this period to split them.\noffers: {name} was used the most.\noffersNone: No offer was used in this period.\ncafe: {crossover} of court players also buy at the café. Best seller: {top}.\ncafeThin: Too few café sales linked to bookings to say.\nevents: Tournaments ran {fill}; {returning} of their players had played one before.\neventsNone: No tournament in this period.",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.insights.leads~4",
+      "lang": "en",
+      "title": "ws.insights.leads (packages/i18n/src/catalogs/ws/insights.en.ts) (part 4 of 4)",
+      "body": "peopleThin: Too few people have told us who they are for a picture to form. Ask at sign-up, and the desk can fill a walk-in's record in.\ncafeThin: Too few café sales linked to bookings to say.\nevents: Tournaments ran {fill}; {returning} of their players had played one before.\neventsNone: No tournament in this period.\nmix: Courts bring {courts} of the money, the café {cafe}.\nmixNone: No money recorded in this period.",
       "route": null
     },
     {
@@ -29959,6 +30303,38 @@
       "lang": "en",
       "title": "ws.insights.notices (packages/i18n/src/catalogs/ws/insights.en.ts)",
       "body": "legacy: Part of this period comes from the paper reports kept before the system. They hold no hours, channels or player details, so those parts cover only the days the system recorded.",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.insights.people",
+      "lang": "ar",
+      "title": "ws.insights.people (packages/i18n/src/catalogs/ws/insights.ar.ts) (part 1 of 2)",
+      "body": "gender.female: نساء\ngender.male: رجال\ngender.unknown: لم يخبرونا\ngender.other: الباقي\nage.u18: أقل من 18\nage.unknown: لم يخبرونا\nage.other: الباقي\nlevel.new: مبتدئ تماماً\nlevel.beginner: مبتدئ\nlevel.intermediate: متوسط\nlevel.advanced: متقدّم\nlevel.unknown: لم يخبرونا\nlevel.other: الباقي\ninterest.courts: يحجز ملاعب\ninterest.matches: مباريات مفتوحة\ninterest.tournaments: بطولات\ninterest.lessons: دروس\ninterest.cafe: يأكل في المقهى\ninterest.shop: يشتري من المتجر\ninterest.regular: يلعب كثيراً\ninterest.weekend: لاعبو نهاية الأسبوع\ninterest.evenings: لاعبو المساء\ninterest.daytime: لاعبو النهار\ninterest.late: لاعبو وقت متأخر\ninterest.group: يأتي بمجموعة\ninterest.offers: يستفيد من العروض\ninterest.ranked: يسجّل النتائج\nsegment: {who}، {band}، {level}",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.insights.people",
+      "lang": "en",
+      "title": "ws.insights.people (packages/i18n/src/catalogs/ws/insights.en.ts) (part 1 of 2)",
+      "body": "gender.female: Women\ngender.male: Men\ngender.unknown: Not told us\ngender.other: Everyone else\nage.u18: Under 18\nage.unknown: Not told us\nage.other: Everyone else\nlevel.new: Just starting\nlevel.beginner: Beginner\nlevel.intermediate: Intermediate\nlevel.advanced: Advanced\nlevel.unknown: Not told us\nlevel.other: Everyone else\ninterest.courts: Books courts\ninterest.matches: Open matches\ninterest.tournaments: Tournaments\ninterest.lessons: Lessons\ninterest.cafe: Eats at the café\ninterest.shop: Buys from the shop\ninterest.regular: Plays often\ninterest.weekend: Weekend players\ninterest.evenings: Evening players\ninterest.daytime: Daytime players\ninterest.late: Late-night players\ninterest.group: Brings a group\ninterest.offers: Uses offers\ninterest.ranked: Reports scores",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.insights.people~2",
+      "lang": "ar",
+      "title": "ws.insights.people (packages/i18n/src/catalogs/ws/insights.ar.ts) (part 2 of 2)",
+      "body": "gender.female: نساء\ninterest.daytime: لاعبو النهار\ninterest.late: لاعبو وقت متأخر\ninterest.group: يأتي بمجموعة\ninterest.offers: يستفيد من العروض\ninterest.ranked: يسجّل النتائج\nsegment: {who}، {band}، {level}\ngrowing: في ارتفاع مقارنةً بالفترة السابقة: {list}.",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.insights.people~2",
+      "lang": "en",
+      "title": "ws.insights.people (packages/i18n/src/catalogs/ws/insights.en.ts) (part 2 of 2)",
+      "body": "gender.female: Women\ninterest.evenings: Evening players\ninterest.daytime: Daytime players\ninterest.late: Late-night players\ninterest.group: Brings a group\ninterest.offers: Uses offers\ninterest.ranked: Reports scores\nsegment: {who}, {band}, {level}\ngrowing: Growing on the comparison: {list}.",
       "route": null
     },
     {
@@ -30078,15 +30454,15 @@
       "ref": "label:ws.insights.zones",
       "lang": "ar",
       "title": "ws.insights.zones (packages/i18n/src/catalogs/ws/insights.ar.ts) (part 1 of 3)",
-      "body": "glance: نظرة سريعة\nglanceDesc: المكان كله في أربع بطاقات: مدى امتلاء الملاعب، وعدد من يلعبون، وكم منهم يشتري من الكافيه، واتجاه الإيرادات. كل رقم هنا كلمة أو نسبة مئوية، مقارنةً بالفترة المختارة في الشريط، مع مقدار تغيّره.\nwhen: متى تروّج\nwhenDesc: مدى امتلاء الملاعب في كل ساعة من الأسبوع. املأ الساعات الهادئة بالعروض والمنشورات، واترك الساعات الممتلئة فهي تمتلئ وحدها.\nwhenNav: الأوقات\nplayers: من يلعب\nplayersDesc: اللاعبون الذين يعرفهم النظام (بحساب في التطبيق أو بسجل زبون في المكتب). الجديد هو من يحجز لأول مرة منذ ستة أشهر، والزبائن الدائمون يحجزون مرة بعد مرة، ومن انقطع منهم لم يحجز منذ مدة ويستحق أن نستعيده.\nplayersNav: اللاعبون\nchannels: كيف يحجزون",
+      "body": "glance: نظرة سريعة\nglanceDesc: المكان كله في أربع بطاقات: مدى امتلاء الملاعب، وعدد من يلعبون، وكم منهم يشتري من الكافيه، واتجاه الإيرادات. كل رقم هنا كلمة أو نسبة مئوية، مقارنةً بالفترة المختارة في الشريط، مع مقدار تغيّره.\npeople: من يأتي\npeopleDesc: من هم العملاء فعلاً: نسبة النساء والرجال، الفئات العمرية التي تلعب، المستوى الذي يلعبون به، وما تقوله البيانات عن اهتماماتهم. النسب محسوبة على من يعرف النادي عنهم شيئاً، وأي مجموعة أقل من عشرة أشخاص تُستثنى، فلا تدل نسبة على شخص بعينه. الأرقام الدقيقة تبقى في تحليلات المالك.\npeopleNav: من\nwhen: متى تروّج\nwhenDesc: مدى امتلاء الملاعب في كل ساعة من الأسبوع. املأ الساعات الهادئة بالعروض والمنشورات، واترك الساعات الممتلئة فهي تمتلئ وحدها.\nwhenNav: الأوقات\nplayers: من يلعب",
       "route": null
     },
     {
       "kind": "label",
       "ref": "label:ws.insights.zones",
       "lang": "en",
-      "title": "ws.insights.zones (packages/i18n/src/catalogs/ws/insights.en.ts) (part 1 of 3)",
-      "body": "glance: At a glance\nglanceDesc: The whole place in four cards: how full the courts are, how many people play, how many of them buy at the café, and which way the money is going. Each figure is a word or a percentage, compared with the window in the bar, with how far it moved.\nwhen: When to push\nwhenDesc: How full the courts are at each hour of the week. Fill the quiet hours with offers and posts; leave the full ones alone, they sell themselves.\nwhenNav: When\nplayers: Who plays\nplayersDesc: Players the system knows (an app account or a customer record at the desk). New means their first booking in the last six months; regulars book again and again; lapsing regulars have not booked for a while and are worth winning back.\nplayersNav: Players\nchannels: How they book",
+      "title": "ws.insights.zones (packages/i18n/src/catalogs/ws/insights.en.ts) (part 1 of 4)",
+      "body": "glance: At a glance\nglanceDesc: The whole place in four cards: how full the courts are, how many people play, how many of them buy at the café, and which way the money is going. Each figure is a word or a percentage, compared with the window in the bar, with how far it moved.\npeople: Who comes\npeopleDesc: Who the customers actually are: the share of women and men, which age groups play, what level they play at, and what the data says they are into. Shares are of the people the club knows something about; a group of fewer than ten is left out, so no share can point at a person. The exact counts stay on the owner's Analytics.\npeopleNav: Who\nwhen: When to push",
       "route": null
     },
     {
@@ -30094,15 +30470,15 @@
       "ref": "label:ws.insights.zones~2",
       "lang": "ar",
       "title": "ws.insights.zones (packages/i18n/src/catalogs/ws/insights.ar.ts) (part 2 of 3)",
-      "body": "glance: نظرة سريعة\nplayersNav: اللاعبون\nchannels: كيف يحجزون\nchannelsDesc: هل تأتي الحجوزات من التطبيق أم من المكتب، وقبل كم من الوقت يحجز الناس. المصادر الأخرى (إنستغرام، الأصدقاء، الحضور المباشر) لا تُسجَّل بعد.\nchannelsNav: الحجز\noffers: العروض\noffersDesc: كم استُخدم كل عرض في الفترة. الاستخدام حقيقة مسجّلة، أما هل جلب العرض أناسًا ما كانوا ليأتوا من دونه فذلك ما لا يستطيع النظام معرفته.\ncafe: الكافيه والمتجر\ncafeDesc: كم من لاعبي الملاعب يشترون من الكافيه أيضًا، ومتى يزدحم الكافيه، وما الأكثر مبيعًا والأقل.\ncafeNav: الكافيه\nevents: البطولات والولاء\neventsDesc: مدى امتلاء البطولات، وكم من لاعبيها عادوا إلى بطولة أخرى، وهل يستخدم أعضاء برنامج الولاء نقاطهم.\neventsNav: الفعاليات\nmix: من أين تأتي الإيرادات\nmixDesc: كل جزء بنسبته المئوية من المجموع، دون أي مبلغ، مع مقدار تغيّره.",
+      "body": "glance: نظرة سريعة\npeopleNav: من\nwhen: متى تروّج\nwhenDesc: مدى امتلاء الملاعب في كل ساعة من الأسبوع. املأ الساعات الهادئة بالعروض والمنشورات، واترك الساعات الممتلئة فهي تمتلئ وحدها.\nwhenNav: الأوقات\nplayers: من يلعب\nplayersDesc: اللاعبون الذين يعرفهم النظام (بحساب في التطبيق أو بسجل زبون في المكتب). الجديد هو من يحجز لأول مرة منذ ستة أشهر، والزبائن الدائمون يحجزون مرة بعد مرة، ومن انقطع منهم لم يحجز منذ مدة ويستحق أن نستعيده.\nplayersNav: اللاعبون\nchannels: كيف يحجزون\nchannelsDesc: هل تأتي الحجوزات من التطبيق أم من المكتب، وقبل كم من الوقت يحجز الناس. المصادر الأخرى (إنستغرام، الأصدقاء، الحضور المباشر) لا تُسجَّل بعد.\nchannelsNav: الحجز\noffers: العروض",
       "route": null
     },
     {
       "kind": "label",
       "ref": "label:ws.insights.zones~2",
       "lang": "en",
-      "title": "ws.insights.zones (packages/i18n/src/catalogs/ws/insights.en.ts) (part 2 of 3)",
-      "body": "glance: At a glance\nplayersNav: Players\nchannels: How they book\nchannelsDesc: Whether bookings come from the app or the desk, and how far ahead people book. Other sources (Instagram, friends, walk-ins) are not recorded yet.\nchannelsNav: Booking\noffers: Offers\noffersDesc: How much each offer was used in the period. A use is a fact; whether the offer brought in people who would not have come anyway is not something the system can tell.\ncafe: Café and shop\ncafeDesc: How many court players also buy at the café, when the café is busy, and what sells best and least.\ncafeNav: Café\nevents: Tournaments and loyalty\neventsDesc: How full tournaments ran and how many players came back for another, and whether loyalty members use their points.\neventsNav: Events\nmix: Where the money comes from",
+      "title": "ws.insights.zones (packages/i18n/src/catalogs/ws/insights.en.ts) (part 2 of 4)",
+      "body": "glance: At a glance\npeopleNav: Who\nwhen: When to push\nwhenDesc: How full the courts are at each hour of the week. Fill the quiet hours with offers and posts; leave the full ones alone, they sell themselves.\nwhenNav: When\nplayers: Who plays\nplayersDesc: Players the system knows (an app account or a customer record at the desk). New means their first booking in the last six months; regulars book again and again; lapsing regulars have not booked for a while and are worth winning back.\nplayersNav: Players\nchannels: How they book\nchannelsDesc: Whether bookings come from the app or the desk, and how far ahead people book. Other sources (Instagram, friends, walk-ins) are not recorded yet.\nchannelsNav: Booking\noffers: Offers",
       "route": null
     },
     {
@@ -30110,14 +30486,22 @@
       "ref": "label:ws.insights.zones~3",
       "lang": "ar",
       "title": "ws.insights.zones (packages/i18n/src/catalogs/ws/insights.ar.ts) (part 3 of 3)",
-      "body": "glance: نظرة سريعة\neventsNav: الفعاليات\nmix: من أين تأتي الإيرادات\nmixDesc: كل جزء بنسبته المئوية من المجموع، دون أي مبلغ، مع مقدار تغيّره.\nmixNav: توزيع الإيرادات",
+      "body": "glance: نظرة سريعة\nchannelsDesc: هل تأتي الحجوزات من التطبيق أم من المكتب، وقبل كم من الوقت يحجز الناس. المصادر الأخرى (إنستغرام، الأصدقاء، الحضور المباشر) لا تُسجَّل بعد.\nchannelsNav: الحجز\noffers: العروض\noffersDesc: كم استُخدم كل عرض في الفترة. الاستخدام حقيقة مسجّلة، أما هل جلب العرض أناسًا ما كانوا ليأتوا من دونه فذلك ما لا يستطيع النظام معرفته.\ncafe: الكافيه والمتجر\ncafeDesc: كم من لاعبي الملاعب يشترون من الكافيه أيضًا، ومتى يزدحم الكافيه، وما الأكثر مبيعًا والأقل.\ncafeNav: الكافيه\nevents: البطولات والولاء\neventsDesc: مدى امتلاء البطولات، وكم من لاعبيها عادوا إلى بطولة أخرى، وهل يستخدم أعضاء برنامج الولاء نقاطهم.\neventsNav: الفعاليات\nmix: من أين تأتي الإيرادات\nmixDesc: كل جزء بنسبته المئوية من المجموع، دون أي مبلغ، مع مقدار تغيّره.\nmixNav: توزيع الإيرادات",
       "route": null
     },
     {
       "kind": "label",
       "ref": "label:ws.insights.zones~3",
       "lang": "en",
-      "title": "ws.insights.zones (packages/i18n/src/catalogs/ws/insights.en.ts) (part 3 of 3)",
+      "title": "ws.insights.zones (packages/i18n/src/catalogs/ws/insights.en.ts) (part 3 of 4)",
+      "body": "glance: At a glance\nchannelsDesc: Whether bookings come from the app or the desk, and how far ahead people book. Other sources (Instagram, friends, walk-ins) are not recorded yet.\nchannelsNav: Booking\noffers: Offers\noffersDesc: How much each offer was used in the period. A use is a fact; whether the offer brought in people who would not have come anyway is not something the system can tell.\ncafe: Café and shop\ncafeDesc: How many court players also buy at the café, when the café is busy, and what sells best and least.\ncafeNav: Café\nevents: Tournaments and loyalty\neventsDesc: How full tournaments ran and how many players came back for another, and whether loyalty members use their points.\neventsNav: Events\nmix: Where the money comes from",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.insights.zones~4",
+      "lang": "en",
+      "title": "ws.insights.zones (packages/i18n/src/catalogs/ws/insights.en.ts) (part 4 of 4)",
       "body": "glance: At a glance\neventsDesc: How full tournaments ran and how many players came back for another, and whether loyalty members use their points.\neventsNav: Events\nmix: Where the money comes from\nmixDesc: Each part as a percentage of the whole, never an amount, and how far it moved.\nmixNav: Money mix",
       "route": null
     },
@@ -35843,6 +36227,158 @@
     },
     {
       "kind": "label",
+      "ref": "label:ws.players",
+      "lang": "ar",
+      "title": "ws.players (packages/i18n/src/catalogs/ws/players.ar.ts)",
+      "body": "offline: هذه المحطة غير متصلة. يُكتب المستوى عبر الإنترنت فقط.",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.players",
+      "lang": "en",
+      "title": "ws.players (packages/i18n/src/catalogs/ws/players.en.ts)",
+      "body": "offline: This station is offline. The level is written online only.",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.players.band",
+      "lang": "ar",
+      "title": "ws.players.band (packages/i18n/src/catalogs/ws/players.ar.ts)",
+      "body": "u18: أقل من 18",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.players.band",
+      "lang": "en",
+      "title": "ws.players.band (packages/i18n/src/catalogs/ws/players.en.ts)",
+      "body": "u18: Under 18",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.players.card",
+      "lang": "ar",
+      "title": "ws.players.card (packages/i18n/src/catalogs/ws/players.ar.ts)",
+      "body": "title: اللاعب\nopen: تحديد\nview: عرض\nnoBand: العمر غير محدد\nnoLevel: لا مستوى بعد\nbyClub: مؤكَّد من النادي\nbyPlayer: كما أخبرنا اللاعب\nconfirmedBy: أكّده {who} ({role})، {date}\nclaimed: ذكر اللاعب {level}\nsomeone: أحد الزملاء\nsuggests: المباريات ترجّح {level}: {wins} فوزاً من {games}\nnoInterests: لا شيء نبني عليه بعد: بزيارات قليلة أخرى يكتمل هذا.\nmoreTags: +{n} أخرى",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.players.card",
+      "lang": "en",
+      "title": "ws.players.card (packages/i18n/src/catalogs/ws/players.en.ts)",
+      "body": "title: Player\nopen: Set\nview: View\nnoBand: Age not given\nnoLevel: No level yet\nbyClub: confirmed by the club\nbyPlayer: as the player told us\nconfirmedBy: Confirmed by {who} ({role}), {date}\nclaimed: The player said {level}\nsomeone: a colleague\nsuggests: The games suggest {level}: {wins} wins of {games}\nnoInterests: Nothing to go on yet: a few more visits and this fills in.\nmoreTags: +{n} more",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.players.create",
+      "lang": "ar",
+      "title": "ws.players.create (packages/i18n/src/catalogs/ws/players.ar.ts)",
+      "body": "levelHint: ما يقوله هو، مبدئياً. يؤكّده مدرّب أو موظف الاستقبال بعد رؤيته يلعب.",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.players.create",
+      "lang": "en",
+      "title": "ws.players.create (packages/i18n/src/catalogs/ws/players.en.ts)",
+      "body": "levelHint: What they say, for now. A coach or the desk confirms it after seeing them play.",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.players.dialog",
+      "lang": "ar",
+      "title": "ws.players.dialog (packages/i18n/src/catalogs/ws/players.ar.ts)",
+      "body": "title: اللاعب\nband: العمر\nbandHint: اسأل مرة واحدة، والمس خياراً. يخبر المالك والتسويق بمن يلعب هنا فعلاً.\nlevel: المستوى\nlevelHint: ذكر اللاعب {level}. أكّد ما رأيته؛ جوابك هو ما نرتّب له المباريات على أساسه.\nlevelHintNoClaim: لم يذكر اللاعب مستوى. أكّد ما رأيته.\nnotConfirmed: غير مؤكَّد\nsuggested: مبارياته ترجّح {level}: {games} مباراة، فاز {wins}، خسر {losses}.\nnote: ملاحظة\nnotePlaceholder: إرسال قوي، يرتبك عند الحائط الخلفي\nnoteHint: للموظفين فقط. لا يراها اللاعب.\nnoteLong: اجعل الملاحظة في سطر واحد.\nnoteNoLevel: اختر مستوى قبل كتابة ملاحظة عنه.\ninterests: ما يهمّه\ninterestsHint: مستخلص من أفعاله هنا: الملاعب، المباريات، الدروس، المقهى، ساعات اللعب. لا نسأله، ولا يُعدّل أحد هذا.\nreaderOnly: يؤكّد المستوى مدرّب أو موظف الاستقبال أو المدير أو المالك.\nsaved: حُفظ لـ {name}.",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.players.dialog",
+      "lang": "en",
+      "title": "ws.players.dialog (packages/i18n/src/catalogs/ws/players.en.ts) (part 1 of 2)",
+      "body": "title: Player\nband: Age\nbandHint: Ask once, tap one. It tells the owner and marketing who actually plays here.\nlevel: Level\nlevelHint: The player said {level}. Confirm what you have seen; your answer is what we match them at.\nlevelHintNoClaim: The player never gave a level. Confirm what you have seen.\nnotConfirmed: Not confirmed\nsuggested: Their games suggest {level}: {games} games, {wins} won, {losses} lost.\nnote: Note\nnotePlaceholder: Strong serve, struggles at the back wall\nnoteHint: Staff only. The player never sees it.\nnoteLong: Keep the note to one line.\nnoteNoLevel: Pick a level before writing a note about it.\ninterests: What they are into",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.players.dialog~2",
+      "lang": "en",
+      "title": "ws.players.dialog (packages/i18n/src/catalogs/ws/players.en.ts) (part 2 of 2)",
+      "body": "title: Player\nnoteHint: Staff only. The player never sees it.\nnoteLong: Keep the note to one line.\nnoteNoLevel: Pick a level before writing a note about it.\ninterests: What they are into\ninterestsHint: Worked out from what they did here: courts, matches, lessons, the café, the hours they play. Nobody asks them, and nobody edits this.\nreaderOnly: A coach, the front desk, a manager or the owner confirms a level.\nsaved: Saved for {name}.",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.players.interest",
+      "lang": "ar",
+      "title": "ws.players.interest (packages/i18n/src/catalogs/ws/players.ar.ts)",
+      "body": "courts: يحجز ملاعب\nmatches: مباريات مفتوحة\ntournaments: بطولات\nlessons: دروس\ncafe: يأكل في المقهى\nshop: يشتري من المتجر\nregular: يلعب كثيراً\nweekend: لاعب نهاية الأسبوع\nevenings: لاعب مساء\ndaytime: لاعب نهار\nlate: لاعب وقت متأخر\ngroup: يأتي بمجموعة\noffers: يستفيد من العروض\nranked: يسجّل النتائج",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.players.interest",
+      "lang": "en",
+      "title": "ws.players.interest (packages/i18n/src/catalogs/ws/players.en.ts)",
+      "body": "courts: Books courts\nmatches: Open matches\ntournaments: Tournaments\nlessons: Lessons\ncafe: Eats at the café\nshop: Buys from the shop\nregular: Plays often\nweekend: Weekend player\nevenings: Evening player\ndaytime: Daytime player\nlate: Late-night player\ngroup: Brings a group\noffers: Uses offers\nranked: Reports scores",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.players.level",
+      "lang": "ar",
+      "title": "ws.players.level (packages/i18n/src/catalogs/ws/players.ar.ts)",
+      "body": "new: مبتدئ تماماً\nbeginner: مبتدئ\nintermediate: متوسط\nadvanced: متقدّم",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.players.level",
+      "lang": "en",
+      "title": "ws.players.level (packages/i18n/src/catalogs/ws/players.en.ts)",
+      "body": "new: Just starting\nbeginner: Beginner\nintermediate: Intermediate\nadvanced: Advanced",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.players.reviews",
+      "lang": "ar",
+      "title": "ws.players.reviews (packages/i18n/src/catalogs/ws/players.ar.ts)",
+      "body": "title: مستويات تحتاج مراجعة\nlead: المباريات تخالف ما لدينا في السجل. خمس نتائج على الأقل، محسوبة أمام مستويات من واجهوهم.\nempty: لا شيء للمراجعة\nemptyBody: كل مستوى مقيس يطابق ما لدينا في السجل.\nrow: في السجل: {claimed}. المباريات ترجّح {suggested}.\nbasis: {games} مباراة، فاز {wins}، خسر {losses}\nlastPlayed: آخر لعب {date}\nconfirm: تأكيد {level}\nkeep: الإبقاء على {level}\nconfirmed: {name} الآن {level}.",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.players.reviews",
+      "lang": "en",
+      "title": "ws.players.reviews (packages/i18n/src/catalogs/ws/players.en.ts)",
+      "body": "title: Levels to check\nlead: The games disagree with what we have on record. Five results at least, scored against the levels of the players they met.\nempty: Nothing to check\nemptyBody: Every measured level matches what we have on record.\nrow: On record: {claimed}. The games suggest {suggested}.\nbasis: {games} games, {wins} won, {losses} lost\nlastPlayed: last played {date}\nconfirm: Confirm {level}\nkeep: Keep {level}\nconfirmed: {name} is now {level}.",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.players.role",
+      "lang": "ar",
+      "title": "ws.players.role (packages/i18n/src/catalogs/ws/players.ar.ts)",
+      "body": "coach: مدرّب\ncourt_desk: موظف الاستقبال\nmanager: المدير\nowner: المالك",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.players.role",
+      "lang": "en",
+      "title": "ws.players.role (packages/i18n/src/catalogs/ws/players.en.ts)",
+      "body": "coach: coach\ncourt_desk: front desk\nmanager: manager\nowner: owner",
+      "route": null
+    },
+    {
+      "kind": "label",
       "ref": "label:ws.prep",
       "lang": "ar",
       "title": "ws.prep (packages/i18n/src/catalogs/ws/prep.ar.ts)",
@@ -36790,7 +37326,7 @@
       "ref": "label:ws.ranks.tabs",
       "lang": "ar",
       "title": "ws.ranks.tabs (packages/i18n/src/catalogs/ws/ranks.ar.ts)",
-      "body": "board: اللوحة والنتائج\nrules: القواعد والمستويات",
+      "body": "board: اللوحة والنتائج\nrules: القواعد والمستويات\nlevels: مستويات تحتاج مراجعة",
       "route": "/till/tabs"
     },
     {
@@ -36798,7 +37334,7 @@
       "ref": "label:ws.ranks.tabs",
       "lang": "en",
       "title": "ws.ranks.tabs (packages/i18n/src/catalogs/ws/ranks.en.ts)",
-      "body": "board: Board and results\nrules: Rules and levels",
+      "body": "board: Board and results\nrules: Rules and levels\nlevels: Levels to check",
       "route": "/till/tabs"
     },
     {
@@ -41566,7 +42102,7 @@
       "ref": "system:edge:desk-customer-create",
       "lang": "en",
       "title": "edge function desk-customer-create (part 1 of 4)",
-      "body": "verify_jwt = true (supabase/config.toml).\ndesk-customer-create — a walk-in gets a real guest account from the desk\n(spec 06.10 CustomerCreateScreen; build plan §0 \"Customer creation at the\ndesk creates a real guest account (auth user + profile) through a\nstaff-gated edge function, so the guest can later claim it\").\n\n  POST { fullName, phone, email?, preferredLang: 'en' | 'ar', gender?: 'female' | 'male' }\n    ->  201 { id }\n\ngender (0353): the operator asks for it on every new customer, so women's\nand men's hours can hold. Optional here only so a station still on an older\nbuild can register a walk-in; when given it must be female or male.\n\nErrors (JSON `{ error, message }`):\n  400 BAD_REQUEST      — body shape, name length, preferredLang, gender",
+      "body": "verify_jwt = true (supabase/config.toml).\ndesk-customer-create — a walk-in gets a real guest account from the desk\n(spec 06.10 CustomerCreateScreen; build plan §0 \"Customer creation at the\ndesk creates a real guest account (auth user + profile) through a\nstaff-gated edge function, so the guest can later claim it\").\n\n  POST { fullName, phone, email?, preferredLang: 'en' | 'ar', gender?: 'female' | 'male',\n         ageBand?, playLevel? }\n    ->  201 { id }\n\ngender (0353): the operator asks for it on every new customer, so women's\nand men's hours can hold. Optional here only so a station still on an older\nbuild can register a walk-in; when given it must be female or male.\n\nErrors (JSON `{ error, message }`):",
       "route": null
     },
     {
@@ -41574,7 +42110,7 @@
       "ref": "system:edge:desk-customer-create~2",
       "lang": "en",
       "title": "edge function desk-customer-create (part 2 of 4)",
-      "body": "verify_jwt = true (supabase/config.toml).\nbuild can register a walk-in; when given it must be female or male.\n\nErrors (JSON `{ error, message }`):\n  400 BAD_REQUEST      — body shape, name length, preferredLang, gender\n  400 INVALID_PHONE    — fewer than 7 or more than 15 digits once normalised\n  409 DUPLICATE_PHONE  — a live profile already holds the number's key (canonical\n                         form, 0065 app.phone_canon: 0770… ≡ +964770… ≡ ٠٧٧٠…;\n                         0307: a verified owner or a desk walk-in, never a\n                         guest who only typed the number)\n  409 DUPLICATE_EMAIL  — GoTrue already has that address\n  401 AUTH_REQUIRED / 403 FORBIDDEN — from requireStaffRole\n\nWHY AN EDGE FUNCTION. An account is an auth.users row, and only the GoTrue",
+      "body": "verify_jwt = true (supabase/config.toml).\nand men's hours can hold. Optional here only so a station still on an older\nbuild can register a walk-in; when given it must be female or male.\n\nErrors (JSON `{ error, message }`):\n  400 BAD_REQUEST      — body shape, name length, preferredLang, gender, ageBand, playLevel\n  400 INVALID_PHONE    — fewer than 7 or more than 15 digits once normalised\n  409 DUPLICATE_PHONE  — a live profile already holds the number's key (canonical\n                         form, 0065 app.phone_canon: 0770… ≡ +964770… ≡ ٠٧٧٠…;\n                         0307: a verified owner or a desk walk-in, never a\n                         guest who only typed the number)\n  409 DUPLICATE_EMAIL  — GoTrue already has that address",
       "route": null
     },
     {
@@ -41582,7 +42118,7 @@
       "ref": "system:edge:desk-customer-create~3",
       "lang": "en",
       "title": "edge function desk-customer-create (part 3 of 4)",
-      "body": "verify_jwt = true (supabase/config.toml).\n  409 DUPLICATE_EMAIL  — GoTrue already has that address\n  401 AUTH_REQUIRED / 403 FORBIDDEN — from requireStaffRole\n\nWHY AN EDGE FUNCTION. An account is an auth.users row, and only the GoTrue\nadmin API creates one — the same reason staff-admin (0051) exists. Every\nrow-level rule lives in migration 0065 (`app.find_customer_by_phone`,\n`app.desk_register_customer`, both service-role only); this file only\nsequences the two calls around `auth.admin.createUser`.\n\nTHE PASSWORD. Random, 32 bytes of entropy, never returned and never shown:\nthe guest claims the account later through \"forgot password\" (real email)\nor through a future phone-based claim flow — spec 06.10 gives the desk no",
+      "body": "verify_jwt = true (supabase/config.toml).\n                         0307: a verified owner or a desk walk-in, never a\n                         guest who only typed the number)\n  409 DUPLICATE_EMAIL  — GoTrue already has that address\n  401 AUTH_REQUIRED / 403 FORBIDDEN — from requireStaffRole\n\nWHY AN EDGE FUNCTION. An account is an auth.users row, and only the GoTrue\nadmin API creates one — the same reason staff-admin (0051) exists. Every\nrow-level rule lives in migration 0065 (`app.find_customer_by_phone`,\n`app.desk_register_customer`, both service-role only); this file only\nsequences the two calls around `auth.admin.createUser`.\n\nTHE PASSWORD. Random, 32 bytes of entropy, never returned and never shown:\nthe guest claims the account later through \"forgot password\" (real email)",
       "route": null
     },
     {
@@ -41590,7 +42126,7 @@
       "ref": "system:edge:desk-customer-create~4",
       "lang": "en",
       "title": "edge function desk-customer-create (part 4 of 4)",
-      "body": "verify_jwt = true (supabase/config.toml).\nthe guest claims the account later through \"forgot password\" (real email)\nor through a future phone-based claim flow — spec 06.10 gives the desk no\npassword field, and a password the operator can read aloud is a password\nthe operator knows.\n\nTHE EMAIL. Optional at the desk (spec 06.10 lists it as a field, the SOW\nmakes the phone the identity). When absent the account is crea",
+      "body": "verify_jwt = true (supabase/config.toml).\n\nTHE PASSWORD. Random, 32 bytes of entropy, never returned and never shown:\nthe guest claims the account later through \"forgot password\" (real email)\nor through a future phone-based claim flow — spec 06.10 gives the desk no\npassword field, and a password the operator can read aloud is a password\nthe operator knows.\n\nTHE EMAIL. Optional at the desk (spec 06.10 lists it as a field, the SOW\nmakes the p",
       "route": null
     },
     {

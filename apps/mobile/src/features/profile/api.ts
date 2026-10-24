@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@touch/db';
 import type { Locale } from '@touch/i18n';
+import type { AgeBand } from '../playProfile/logic';
 
 type Client = SupabaseClient<Database>;
 
@@ -51,19 +52,36 @@ export interface ProfileRow {
   play_years?: string | null;
   play_wants?: string[] | null;
   play_survey_at?: string | null;
+  /**
+   * Who the guest is (0368; customers contracts §1): the age band they chose,
+   * and the level the club itself judged, beside the one they claimed. The
+   * judge's name never reaches the phone: `level_confirmed_by` has no grant,
+   * so the app says "confirmed by the club" and nothing more. Optional like
+   * the rest: a row cached before 0368, or a server without it, has none.
+   */
+  age_band?: string | null;
+  age_band_set_at?: string | null;
+  level_confirmed?: string | null;
+  level_confirmed_at?: string | null;
+  level_confirmed_role?: string | null;
+  level_note?: string | null;
 }
 
 const BASE_COLUMNS =
   'id, full_name, phone, preferred_lang, given_name, family_name, gender, avatar_path, username, username_changed_at, avatar_frame, avatar_frame_style';
 /** 0334: the play survey's four columns (column-granted like avatar_frame_style). */
 const PLAY_COLUMNS = 'play_level, play_years, play_wants, play_survey_at';
-const PROFILE_COLUMNS = `${BASE_COLUMNS}, ${PLAY_COLUMNS}`;
+/** 0368: the age band and the club's judgment of the level. */
+const FACTS_COLUMNS =
+  'age_band, age_band_set_at, level_confirmed, level_confirmed_at, level_confirmed_role, level_note';
+const PROFILE_COLUMNS = `${BASE_COLUMNS}, ${PLAY_COLUMNS}, ${FACTS_COLUMNS}`;
+const PLAY_ONLY_COLUMNS = `${BASE_COLUMNS}, ${PLAY_COLUMNS}`;
 
 /**
  * 42703 undefined_column / 42501 a column without a grant: a database that
- * does not have 0334 yet. The profile must still load (sign-in, the booking
- * gate and every screen read it), so it is read again without the play
- * columns, and the play profile reads as "not known".
+ * does not have 0368 or 0334 yet. The profile must still load (sign-in, the
+ * booking gate and every screen read it), so it is read again with one group
+ * of columns less, down to the base, and what is missing reads as "not known".
  */
 function isMissingPlayColumns(error: unknown): boolean {
   const code = (error as { code?: unknown } | null)?.code;
@@ -77,6 +95,7 @@ export async function fetchOwnProfile(client: Client): Promise<ProfileRow | null
   const select = (columns: string) =>
     client.from('profiles').select(columns).eq('id', uid).maybeSingle();
   let { data, error } = await select(PROFILE_COLUMNS);
+  if (error && isMissingPlayColumns(error)) ({ data, error } = await select(PLAY_ONLY_COLUMNS));
   if (error && isMissingPlayColumns(error)) ({ data, error } = await select(BASE_COLUMNS));
   if (error) throw error;
   if (!data) return null;
@@ -247,6 +266,16 @@ export async function setMyBirthDate(client: Client, birthDate: string | null): 
     // NULL clears it; the generated type only knows a value.
     p_birth_date: birthDate as unknown as string,
   });
+  if (error) throw error;
+}
+
+/**
+ * app.set_my_age_band (0368): one of the six bands. The guest owns their own,
+ * so the same value answers `duplicate` rather than refusing, and a band may
+ * be corrected later from Edit profile — people age.
+ */
+export async function setMyAgeBand(client: Client, band: AgeBand): Promise<void> {
+  const { error } = await client.schema('app').rpc('set_my_age_band', { p_band: band });
   if (error) throw error;
 }
 
