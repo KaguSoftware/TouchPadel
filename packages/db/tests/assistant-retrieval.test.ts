@@ -196,7 +196,7 @@ describe.skipIf(!up)('0325 assistant retrieval recall (full text only)', () => {
     }
   });
 
-  it('a live free-text kind carries a 1,200-character snippet, a map kind 300', async () => {
+  it('every kind carries a 1,200-character snippet', async () => {
     const ref = 'ee570000-0000-4000-8000-0000e7a1f00d';
     const long = `retrievalprobe ${'x'.repeat(2000)}`;
     for (const [kind, ref_] of [['note', ref], ['page', '/retrieval-probe']] as const) {
@@ -208,7 +208,7 @@ describe.skipIf(!up)('0325 assistant retrieval recall (full text only)', () => {
       expect(res.ok, res.errorMessage).toBe(true);
       const hits = res.data as (Hit & { snippet: string })[];
       expect(hits.find((h) => h.kind === 'note')?.snippet.length).toBe(1200);
-      expect(hits.find((h) => h.kind === 'page')?.snippet.length).toBe(300);
+      expect(hits.find((h) => h.kind === 'page')?.snippet.length).toBe(1200);
     } finally {
       await svc.schema('app').rpc('assistant_delete_chunk', { p_kind: 'note', p_ref: ref });
       await svc.schema('app').rpc('assistant_delete_chunk', { p_kind: 'page', p_ref: '/retrieval-probe' });

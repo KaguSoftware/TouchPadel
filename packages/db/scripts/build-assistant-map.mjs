@@ -80,6 +80,17 @@ export const PATHS = {
 /** Chunk kinds, in the order the plan lists them (also the sort order). */
 export const CHUNK_KINDS = ['page', 'nav', 'rpc', 'action', 'table', 'column', 'setting', 'enum', 'label', 'rule', 'system', 'doc'];
 export const DOC_CHUNK_CAP = 2000;
+/**
+ * Retrieval windows. A chunk longer than WINDOW_MAX is cut into windows on line
+ * boundaries; each window after the first repeats the last WINDOW_OVERLAP
+ * characters of the one before (whole lines) and opens with the chunk's first
+ * line, so a window read alone still says what it is about. The built-in
+ * embedder (gte-small) reads only ~512 tokens (about 2,000 characters) and a
+ * search snippet is 1,200 characters, so a window must fit both.
+ */
+export const WINDOW_MAX = 800;
+export const WINDOW_OVERLAP = 200;
+const WINDOW_EXEMPT = new Set(['page', 'rule']);
 export const COMPACT_BYTE_TARGET = 60 * 1024;
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -654,6 +665,65 @@ function labelChunks(lang) {
   return chunks;
 }
 
+/** Cut one chunk body into windows of at most `max` characters, repeating `overlap` characters of whole trailing lines. */
+export function windowBody(body, max = WINDOW_MAX, overlap = WINDOW_OVERLAP) {
+  if (body.length <= max) return [body];
+  const head = body.split('\n')[0].slice(0, 160);
+  const lim = max - head.length - 2;
+  // A line longer than a window is cut on a space (or hard) so no window exceeds max.
+  const lines = [];
+  for (const l of body.split('\n')) {
+    let rest = l;
+    while (rest.length > lim) {
+      const cut = rest.lastIndexOf(' ', lim);
+      const at = cut > lim / 2 ? cut : lim;
+      lines.push(rest.slice(0, at));
+      rest = rest.slice(at).trimStart();
+    }
+    lines.push(rest);
+  }
+  const windows = [];
+  let cur = [];
+  let size = 0;
+  let fresh = 0;
+  for (const l of lines) {
+    if (fresh > 0 && size + l.length + 1 > lim) {
+      windows.push(cur.join('\n'));
+      const carry = [];
+      let c = 0;
+      for (let i = cur.length - 1; i >= 0 && c + cur[i].length + 1 <= overlap; i--) {
+        carry.unshift(cur[i]);
+        c += cur[i].length + 1;
+      }
+      cur = carry;
+      size = c;
+      fresh = 0;
+    }
+    cur.push(l);
+    size += l.length + 1;
+    fresh++;
+  }
+  if (fresh > 0) windows.push(cur.join('\n'));
+  return windows.map((w, i) => (i === 0 ? w : `${head}\n${w}`));
+}
+
+/** Window every chunk longer than WINDOW_MAX: part 1 keeps the ref, later parts get `~n`; titles say which part. */
+export function windowChunks(chunks) {
+  const out = [];
+  for (const c of chunks) {
+    // A page's first line is its contract (page_lookup, the compact prefix) and a rule is one policy: both stay whole.
+    const parts = WINDOW_EXEMPT.has(c.kind) ? [c.body] : windowBody(c.body);
+    if (parts.length === 1) {
+      out.push(c);
+      continue;
+    }
+    parts.forEach((body, i) => {
+      out.push({ ...c, ref: i === 0 ? c.ref : `${c.ref}~${i + 1}`, title: `${c.title} (part ${i + 1} of ${parts.length})`, body });
+    });
+  }
+  return out;
+}
+
 function docChunks(excludedDocs) {
   const chunks = [];
   for (const file of inventoryDocs()) {
@@ -733,7 +803,7 @@ export async function buildMap({ catalog, sha } = {}) {
   const wsName = (k, lang) => (lang === 'ar' ? shellAr : shellEn)[`workspace.${k}`] ?? k;
   const secName = (k, lang) => (lang === 'ar' ? shellAr : shellEn)[`section.${k}`] ?? k;
 
-  const chunks = [];
+  let chunks = [];
 
   // ── routes: inventory = ROUTE_ROLES ∪ SUB_ROUTES ∪ rail `to`s; pages.md may add more
   const routes = new Set([...routeRoles.keys(), ...[...subRoutes.values()].flat()]);
@@ -961,12 +1031,17 @@ export async function buildMap({ catalog, sha } = {}) {
   // ── doc
   chunks.push(...docChunks(excludedDocs));
 
+  const whole = [...chunks]; // the compact prefix quotes whole page sentences and rules, not windows
+  chunks = windowChunks(chunks);
+
   // deterministic order: kind (plan order) → ref → lang
   const kindIdx = new Map(CHUNK_KINDS.map((k, i) => [k, i]));
-  chunks.sort((a, b) => kindIdx.get(a.kind) - kindIdx.get(b.kind) || a.ref.localeCompare(b.ref) || a.lang.localeCompare(b.lang));
+  const order = (a, b) => kindIdx.get(a.kind) - kindIdx.get(b.kind) || a.ref.localeCompare(b.ref) || a.lang.localeCompare(b.lang);
+  chunks.sort(order);
+  whole.sort(order);
   for (const c of chunks) if (!kindIdx.has(c.kind)) throw new Error(`unknown chunk kind ${c.kind}`);
 
-  return { generated_from: sha ?? gitSha(), chunks, _pages: allPages, _routeRoles: routeRoles, _tools: cat.ASSISTANT_TOOLS };
+  return { generated_from: sha ?? gitSha(), chunks, _whole: whole, _pages: allPages, _routeRoles: routeRoles, _tools: cat.ASSISTANT_TOOLS };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -993,8 +1068,9 @@ function clipSentence(sentence) {
 }
 
 export function renderCompact(map) {
-  const pages = map.chunks.filter((c) => c.kind === 'page');
-  const rules = map.chunks.filter((c) => c.kind === 'rule');
+  const src = map._whole ?? map.chunks;
+  const pages = src.filter((c) => c.kind === 'page' && !/~\d+$/.test(c.ref));
+  const rules = src.filter((c) => c.kind === 'rule' && !/~\d+$/.test(c.ref));
   const lines = [
     '# Touch Padel operator app — compact map',
     '',

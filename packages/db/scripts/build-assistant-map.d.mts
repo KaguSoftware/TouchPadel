@@ -60,6 +60,9 @@ export const PATHS: Record<
 >;
 export const CHUNK_KINDS: readonly string[];
 export const DOC_CHUNK_CAP: number;
+export const WINDOW_MAX: number;
+export const WINDOW_OVERLAP: number;
+export function windowBody(body: string, max?: number, overlap?: number): string[];
 export const COMPACT_BYTE_TARGET: number;
 
 export function readMigrations(dir?: string): { file: string; number: string; sql: string }[];

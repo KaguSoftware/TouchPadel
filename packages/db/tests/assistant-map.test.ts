@@ -25,6 +25,8 @@ import {
   inventoryRoutes,
   readPages,
   renderCompact,
+  WINDOW_MAX,
+  windowBody,
 } from '../scripts/build-assistant-map.mjs';
 
 interface Chunk {
@@ -74,10 +76,39 @@ describe('assistant-map.json', () => {
     }
   });
 
-  it('keeps every chunk body within the 2,000-character cap for docs and labels', () => {
+  it('keeps every chunk body inside one retrieval window', () => {
+    // WINDOW_MAX is 800; a later window opens with the entry's first line (at most 160 characters).
+    for (const c of fixture.chunks) if (c.kind !== 'page' && c.kind !== 'rule') expect(c.body.length, c.ref).toBeLessThanOrEqual(WINDOW_MAX + 200);
+  });
+
+  it('windows overlap: each later window repeats the end of the one before and opens with the entry head', () => {
+    const byBase = new Map<string, typeof fixture.chunks>();
     for (const c of fixture.chunks) {
-      if (c.kind === 'doc' || c.kind === 'label') expect(c.body.length, c.ref).toBeLessThanOrEqual(2000 + 200);
+      const base = `${c.kind}|${c.lang}|${c.ref.replace(/~\d+$/, '')}`;
+      byBase.set(base, [...(byBase.get(base) ?? []), c]);
     }
+    let checked = 0;
+    for (const parts of byBase.values()) {
+      if (parts.length < 2) continue;
+      parts.sort((a, b) => (Number(/~(\d+)$/.exec(a.ref)?.[1] ?? 1)) - Number(/~(\d+)$/.exec(b.ref)?.[1] ?? 1));
+      const head = parts[0]!.body.split('\n')[0]!.slice(0, 160);
+      for (let i = 1; i < parts.length; i++) {
+        expect(parts[i]!.body.startsWith(head), parts[i]!.ref).toBe(true);
+        expect(parts[i]!.title, parts[i]!.ref).toContain(`part ${i + 1} of ${parts.length}`);
+        checked++;
+      }
+    }
+    expect(checked).toBeGreaterThan(100);
+  });
+
+  it('windowBody repeats whole trailing lines and loses no line', () => {
+    const lines = Array.from({ length: 40 }, (_, i) => `line ${i} ${'y'.repeat(60)}`);
+    const parts = windowBody(lines.join('\n'));
+    expect(parts.length).toBeGreaterThan(1);
+    for (const p of parts) expect(p.length).toBeLessThanOrEqual(WINDOW_MAX);
+    for (const l of lines) expect(parts.some((p: string) => p.includes(l)), l).toBe(true);
+        const tail = parts[0]!.split('\n').slice(-1)[0]!;
+    expect(parts[1]!.includes(tail)).toBe(true);
   });
 });
 

@@ -47,7 +47,8 @@ export function mapChunks(): readonly MapChunk[] {
 
 const byKindRef: Map<string, MapChunk[]> = new Map();
 for (const c of MAP.chunks) {
-  const key = `${c.kind}\u0000${c.ref}`;
+  // Windows of a long entry (`ref~2`, `ref~3`) are read back with their first part.
+  const key = `${c.kind}\u0000${c.ref.replace(/~\d+$/, '')}`;
   const arr = byKindRef.get(key) ?? [];
   arr.push(c);
   byKindRef.set(key, arr);
