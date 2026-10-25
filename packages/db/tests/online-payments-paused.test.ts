@@ -51,6 +51,7 @@ describe.skipIf(!up)('0340 online payments paused', () => {
     await deposit({ deposit_mode: 'off' });
     await coaching({ lesson_payment_mode: 'desk' });
     await match({ matches_enabled: false });
+    await match({ match_payment_mode: 'tickets' });
     await setOnlinePaymentsLive(wasLive);
     await owner.auth.signOut();
   });
@@ -90,6 +91,26 @@ describe.skipIf(!up)('0340 online payments paused', () => {
     expect((await state()).matches_enabled).toBe(false);
     expect((await match({ matches_enabled: false })).error).toBeNull();
     expect((await match({ match_ticket_price_iqd: 10000 })).error).toBeNull();
+  });
+
+  it('0370: open matches may be switched on while paused, when the seats are paid at the desk', async () => {
+    expect((await match({ match_payment_mode: 'tickets' })).error?.message).toBe('ONLINE_PAYMENTS_PAUSED');
+    expect((await match({ match_payment_mode: 'bogus' })).error?.message).toBe('INVALID_ARGUMENT');
+    expect((await match({ match_payment_mode: 'desk' })).error).toBeNull();
+    const on = await match({ matches_enabled: true });
+    expect(on.error).toBeNull();
+    expect(on.data).toMatchObject({ matches_enabled: true, match_payment_mode: 'desk' });
+    expect((await state()).matches_enabled).toBe(true);
+    // Back to tickets is refused while the lock is closed, and so is nothing else.
+    expect((await match({ match_payment_mode: 'tickets' })).error?.message).toBe('ONLINE_PAYMENTS_PAUSED');
+    expect((await match({ matches_enabled: false })).error).toBeNull();
+    // Online deposits and lessons stay locked.
+    expect((await deposit({ deposit_mode: 'optional' })).error?.message).toBe('ONLINE_PAYMENTS_PAUSED');
+    expect((await match({ match_payment_mode: 'tickets' })).error?.message).toBe('ONLINE_PAYMENTS_PAUSED');
+    await match({ match_payment_mode: 'desk' });
+    await setOnlinePaymentsLive(true);
+    expect((await match({ match_payment_mode: 'tickets' })).error).toBeNull();
+    await setOnlinePaymentsLive(false);
   });
 
   it('still refuses a non-owner with FORBIDDEN first', async () => {

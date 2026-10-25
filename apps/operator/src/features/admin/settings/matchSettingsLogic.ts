@@ -3,8 +3,8 @@
  * operator.md §5.16; app.match_settings / app.set_match_settings, 0257).
  *
  * Two rules belong to the branch in scope (whether open matches run here, and
- * the fill deadline) and two to every branch (the ticket price and how many
- * filling matches one player may hold). The form keeps numbers as strings
+ * the fill deadline) and three to every branch (how a seat is paid, the ticket
+ * price and how many filling matches one player may hold). The form keeps numbers as strings
  * until they are checked, sends only the keys that changed, and places a
  * server refusal (INVALID_ARGUMENT, detail = the settings key) on its field.
  * The bounds mirror 0257's so a typo is caught before the round trip; the
@@ -21,6 +21,8 @@ export interface MatchSettingsDraft {
   priceIqd: string;
   /** Chain-wide (OM-37). */
   maxFilling: string;
+  /** Chain-wide (0370): seats are paid at the desk, no ticket. */
+  payAtDesk: boolean;
 }
 
 export type MatchSettingsField = keyof MatchSettingsDraft;
@@ -43,10 +45,11 @@ export const MATCH_SERVER_FIELD: Record<string, MatchSettingsField> = {
   match_fill_deadline_minutes: 'deadlineMinutes',
   match_ticket_price_iqd: 'priceIqd',
   max_filling_matches_per_guest: 'maxFilling',
+  match_payment_mode: 'payAtDesk',
 };
 
 /** The fields that apply to every branch, under the "Changing these changes them at every branch" lead. */
-export const CHAIN_FIELDS: readonly MatchSettingsField[] = ['priceIqd', 'maxFilling'];
+export const CHAIN_FIELDS: readonly MatchSettingsField[] = ['payAtDesk', 'priceIqd', 'maxFilling'];
 
 /** A refusal's field: INVALID_ARGUMENT names the settings key in its detail. Anything else is not a field's. */
 export function serverFieldOf(details: string | null | undefined): MatchSettingsField | null {
@@ -61,6 +64,7 @@ export function draftFromMatchSettings(s: MatchSettings): MatchSettingsDraft {
     deadlineMinutes: str(s.match_fill_deadline_minutes),
     priceIqd: str(s.match_ticket_price_iqd),
     maxFilling: str(s.max_filling_matches_per_guest),
+    payAtDesk: s.match_payment_mode === 'desk',
   };
 }
 
@@ -79,9 +83,10 @@ export function matchSettingsErrors(d: MatchSettingsDraft): Partial<Record<Match
     if (n < r.min || n > r.max) errors[field] = 'range';
   };
   check('deadlineMinutes', d.deadlineMinutes);
-  check('priceIqd', d.priceIqd);
+  // The ticket price is not shown, and not checked, while seats are paid at the desk.
+  if (!d.payAtDesk) check('priceIqd', d.priceIqd);
   check('maxFilling', d.maxFilling);
-  if (!errors.priceIqd && Number(d.priceIqd.trim()) % TICKET_PRICE_STEP !== 0) errors.priceIqd = 'step';
+  if (!d.payAtDesk && !errors.priceIqd && Number(d.priceIqd.trim()) % TICKET_PRICE_STEP !== 0) errors.priceIqd = 'step';
   return errors;
 }
 
@@ -90,15 +95,16 @@ export function matchSettingsErrors(d: MatchSettingsDraft): Partial<Record<Match
  * a draft without errors: the numbers are read as typed. A value the server
  * sent as null (an unreadable figure) counts as changed once typed.
  */
-export function matchSettingsPatch(saved: MatchSettings, d: MatchSettingsDraft): Record<string, number | boolean> {
-  const patch: Record<string, number | boolean> = {};
+export function matchSettingsPatch(saved: MatchSettings, d: MatchSettingsDraft): Record<string, number | boolean | string> {
+  const patch: Record<string, number | boolean | string> = {};
   if (d.enabled !== saved.matches_enabled) patch.matches_enabled = d.enabled;
+  if (d.payAtDesk !== (saved.match_payment_mode === 'desk')) patch.match_payment_mode = d.payAtDesk ? 'desk' : 'tickets';
   const num = (field: RangedMatchField, key: string, was: number | null) => {
     const v = Number(d[field].trim());
     if (v !== was) patch[key] = v;
   };
   num('deadlineMinutes', 'match_fill_deadline_minutes', saved.match_fill_deadline_minutes);
-  num('priceIqd', 'match_ticket_price_iqd', saved.match_ticket_price_iqd);
+  if (!d.payAtDesk) num('priceIqd', 'match_ticket_price_iqd', saved.match_ticket_price_iqd);
   num('maxFilling', 'max_filling_matches_per_guest', saved.max_filling_matches_per_guest);
   return patch;
 }

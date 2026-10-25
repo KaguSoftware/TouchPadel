@@ -6636,7 +6636,15 @@ export const matrix: MatrixRule[] = [
     expect: SELF_AUTHED,
     note: '0340: publicByDesign; a harmless boolean (the platform lock on online payments), never raises',
     drop: 33,
-  },  // ── 0341 staff_activity (staff-activity.test.ts) ──
+  },  // ── 0370 open_matches_pay_at_desk (matches-pay-at-desk.test.ts) ──
+  {
+    kind: 'rpc', schema: 'app', name: 'match_pay_at_desk',
+    args: {},
+    expect: SELF_AUTHED,
+    note: '0370: publicByDesign; a harmless boolean (open-match seats are paid at the desk), never raises',
+    drop: 33,
+  },
+  // ── 0341 staff_activity (staff-activity.test.ts) ──
   // Who is on which app and what they last did: the owner reads it through
   // app.staff_activity_board only. No client reads or writes the table.
   {

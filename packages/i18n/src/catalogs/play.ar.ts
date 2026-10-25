@@ -9,7 +9,7 @@ import type { playEn } from './play.en';
  * digits LTR-isolated).
  */
 export const playAr: DeepMessages<typeof playEn> = {
-  start: 'بدء مباراة',
+  start: 'احجز وادعُ لاعبين',
   kindMatches: 'المباريات',
   off: 'لا تُقام مباريات مفتوحة ولا بطولات في هذا الفرع حاليًا.',
   emptyBody: 'لا مباريات مفتوحة ولا بطولات في الأيام القادمة. يمكن بدء مباراة في أي وقت متاح.',

@@ -44,6 +44,8 @@ export interface NeedsPlayersPanelProps {
   onAddPlayer: (matchId: string) => void;
   onOpenMatch: (matchId: string) => void;
   onStartMatch: () => void;
+  /** The page lists any day, and starting happens on the calendar: no Start button. */
+  hideStart?: boolean;
   onRetry: () => void;
 }
 
@@ -73,7 +75,7 @@ export function NeedsPlayersPanel(p: NeedsPlayersPanelProps) {
   if (!enabled && rows.length === 0) return null;
 
   const start =
-    enabled && p.runMatches ? (
+    enabled && p.runMatches && !p.hideStart ? (
       <Button size="sm" kind="primary" icon="plus" disabled={!p.reachable} disabledReason={offline} onClick={p.onStartMatch}>
         {tr('ws.matches.today.startMatch')}
       </Button>

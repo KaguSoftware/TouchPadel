@@ -218,7 +218,8 @@ export interface KeyedText {
 
 /** null for a seat state the table does not name (the row shows its raw status instead). */
 export function ticketChipOf(seat: MatchSeat, match: Pick<MatchInfo, 'status' | 'started' | 'start_at' | 'server_now'>): KeyedText | null {
-  if (seat.kind === 'desk') return { key: 'ws.matches.common.ticket.none' };
+  // A desk seat has no ticket; neither has a player's seat when seats are paid at the desk (0370): the server sends no ticket.
+  if (seat.kind === 'desk' || seat.ticket === null) return { key: 'ws.matches.common.ticket.none' };
   const filling = match.status === 'filling' || match.status === 'awaiting_court';
   switch (seat.status) {
     case 'in':

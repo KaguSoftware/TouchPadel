@@ -53,7 +53,7 @@ export function isSecondJobRole(value: unknown): value is SecondJobRole {
  */
 export const ACCESS_AREAS = {
   till: ['/till'],
-  desk: ['/desk'],
+  desk: ['/desk', '/desk/matches'],
   customers: ['/desk/customers', '/desk/customers/new'],
   tournaments: ['/desk/tournaments'],
   kds: ['/kds'],

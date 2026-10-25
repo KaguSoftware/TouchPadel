@@ -263,10 +263,12 @@ describe.each(LOCALES)('the Club tab in %s', (locale) => {
     }
   });
 
-  it('is the menu alone while the owner has loyalty off', () => {
+  it('drops the card segment, keeping Ranks and the menu, while the owner has loyalty off', () => {
     const screen = renderRoute(ClubScreen, { locale, session: 'in', queryData: clubSeeds(false) });
     try {
-      expect(screen.queryByTestId('club.view')).toBeNull();
+      const view = screen.getByTestId('club.view');
+      expect(within(view).queryByText(makeT(locale)('loyalty.guest.card.title'))).toBeNull();
+      expect(within(view).getByText(makeT(locale)('tabs.ranks'))).toBeTruthy();
       expect(screen.getByTestId('club.menu.list')).toBeTruthy();
     } finally {
       screen.unmount();

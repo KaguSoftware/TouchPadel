@@ -12,7 +12,6 @@ import {
   TabCoachesIcon,
   TabClubIcon,
   TabPlayIcon,
-  TabRanksIcon,
 } from '../components/icons';
 import { tournamentsShipped } from '../features/tournaments/shipped';
 
@@ -162,8 +161,8 @@ const StableOrderScreen = forwardRef<View, ScreenProps>(function StableOrderScre
 });
 
 /**
- * Bottom tabs per the design: Bookings / Play / Book / Club / Coaches, with Ranks (the
- * leaderboard) in Play's place while a build leaves tournaments out (2026-10-22). Profile
+ * Bottom tabs per the design: Bookings / Play / Book / Club / Coaches, Play only while tournaments
+ * ship. Ranks (the leaderboard) is a segment of Club, not a tab (2026-10-25). Profile
  * left the bar on 2026-10-17 for the avatar on each tab's title row
  * (components/AccountButton.tsx, Majed); Club (the member card's QR and the
  * café menu) took the centre on 2026-10-19, and Book took it back on
@@ -189,7 +188,7 @@ export default function TabsLayoutAndroid() {
 function AndroidTabs() {
   const { t } = useLocale();
   const { colors, appearance } = useTheme();
-  // Play while tournaments ship; Ranks in its place while they do not (TabsLayout.ios.tsx).
+  // Play only while tournaments ship (TabsLayout.ios.tsx).
   const shipped = tournamentsShipped();
 
   return (
@@ -320,8 +319,8 @@ function AndroidTabs() {
           tabBarLabel: ({ focused }) => <TabLabel text={t('tabs.bookings')} focused={focused} />,
         }}
       />
-      {/* The second slot holds one of two: `href: null` drops the other from the bar (expo-router
-          refuses it beside a tabBarButton, so the hidden one takes nothing else). */}
+      {/* `href: null` drops Play from the bar (expo-router refuses it beside a tabBarButton, so
+          the hidden one takes nothing else). */}
       <Tabs.Screen
         name="play"
         options={
@@ -341,27 +340,6 @@ function AndroidTabs() {
                 tabBarLabel: ({ focused }) => <TabLabel text={t('tabs.play')} focused={focused} />,
               }
             : { href: null }
-        }
-      />
-      <Tabs.Screen
-        name="ranks"
-        options={
-          shipped
-            ? { href: null }
-            : {
-                tabBarButton: ({ href: _href, ref: _ref, ...props }) => (
-                  <Pressable
-                    {...props}
-                    testID="tabs.ranks"
-                    android_ripple={RIPPLE(colors.line)}
-                    style={[props.style, tabButton('inner')]}
-                  />
-                ),
-                tabBarIcon: ({ focused, color }) => (
-                  <TabRanksIcon color={focused ? brand.green : color} />
-                ),
-                tabBarLabel: ({ focused }) => <TabLabel text={t('tabs.ranks')} focused={focused} />,
-              }
         }
       />
       <Tabs.Screen

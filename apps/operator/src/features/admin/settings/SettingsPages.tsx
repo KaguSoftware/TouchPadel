@@ -26,6 +26,7 @@ import { AsyncStateWrapper, EmptyState, MessagePresenter, PageHeader, asyncStatu
 import { BranchDetails } from '../branches/BranchesAdmin';
 import { DepositSettingsPanel } from '../../deposits/DepositSettingsPanel';
 import { useOnlinePaymentsLive } from '../../deposits/useOnlinePaymentsLive';
+import { useOpenMatchesOn } from '../../matches/useOpenMatchesOn';
 import { KitchenPairingPanel } from '../KitchenPairing';
 import { AnalyticsTab } from './AnalyticsTab';
 import { DayServiceTab } from './DayServiceTab';
@@ -85,6 +86,14 @@ function WhenPaymentsLive({ children }: { children: ReactNode }) {
   const { tr } = useLocale();
   const live = useOnlinePaymentsLive();
   if (live) return <>{children}</>;
+  return <EmptyState icon="card" title={tr('ws.owner.settings.paused.title')} body={tr('ws.owner.settings.paused.body')} />;
+}
+
+/** Open matches run when seats are paid at the desk or online payments are live (0370); a direct link says so. */
+function WhenMatchesOn({ children }: { children: ReactNode }) {
+  const { tr } = useLocale();
+  const on = useOpenMatchesOn();
+  if (on) return <>{children}</>;
   return <EmptyState icon="card" title={tr('ws.owner.settings.paused.title')} body={tr('ws.owner.settings.paused.body')} />;
 }
 
@@ -152,9 +161,9 @@ export function OpenMatchesSettingsScreen() {
   const { staff } = useAuth();
   return (
     <SettingsPage title="ws.shell.nav.openMatches">
-      <WhenPaymentsLive>
+      <WhenMatchesOn>
         <MatchSettingsPanel canEdit={can(staff, 'editVenueDetails')} />
-      </WhenPaymentsLive>
+      </WhenMatchesOn>
     </SettingsPage>
   );
 }

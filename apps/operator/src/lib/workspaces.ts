@@ -109,7 +109,7 @@ export type NavBadge =
  * panels always did; a direct link still opens the page, which says why it is
  * empty.
  */
-export type NavCondition = 'onlinePaymentsLive';
+export type NavCondition = 'onlinePaymentsLive' | 'openMatches';
 
 /** One page of a family: a tab under the page title, and a lit row on the rail. */
 export interface NavTab {
@@ -221,6 +221,13 @@ const INCIDENTS: NavItem = { to: '/incidents', labelKey: 'incidents', icon: 'ale
  */
 const TOURNAMENTS: NavItem = { to: '/desk/tournaments', labelKey: 'tournaments', icon: 'trophy' };
 
+/**
+ * The branch's open matches, one day at a time (Sait, 2026-10-25: "the open
+ * matches should be in courts"). Beside Tournaments on the desk's rail and in
+ * both Courts sections; its rules stay under Court settings.
+ */
+const OPEN_MATCHES: NavItem = { to: '/desk/matches', labelKey: 'openMatches', icon: 'users' };
+
 const COURT_DESK: readonly NavItem[] = [
   { to: '/desk/today', labelKey: 'today', icon: 'today' },
   { to: '/desk', labelKey: 'calendar', icon: 'calendar', exact: true },
@@ -230,6 +237,7 @@ const COURT_DESK: readonly NavItem[] = [
   { to: '/desk/series/new', labelKey: 'newSeries', icon: 'repeat', activePrefix: '/desk/series' },
   { to: '/desk/block', labelKey: 'blockCourt', icon: 'ban' },
   TOURNAMENTS,
+  OPEN_MATCHES,
   INCIDENTS,
   MY_TASKS,
 ];
@@ -294,7 +302,7 @@ const COURT_SETTINGS_TABS: readonly NavTab[] = [
   { to: '/admin/courts', labelKey: 'courts' },
   { to: '/admin/settings/booking', labelKey: 'bookingRules' },
   { to: '/admin/settings/deposit', labelKey: 'onlineDeposit', when: 'onlinePaymentsLive' },
-  { to: '/admin/settings/matches', labelKey: 'openMatches', when: 'onlinePaymentsLive' },
+  { to: '/admin/settings/matches', labelKey: 'openMatches', when: 'openMatches' },
   { to: '/admin/hours', labelKey: 'openingHours' },
   { to: '/admin/settings/tournaments', labelKey: 'tournamentRules' },
 ];
@@ -455,6 +463,7 @@ const COURTS: readonly NavItem[] = [
   { to: '/observation/courts', labelKey: 'bookings', icon: 'calendar' },
   { to: '/desk', labelKey: 'bookings', icon: 'calendar', activePrefix: '/desk', unless: '/observation/courts' },
   TOURNAMENTS,
+  OPEN_MATCHES,
   COACHES,
   COURT_SETTINGS,
 ];

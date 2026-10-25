@@ -24,6 +24,7 @@ import { useToast } from '../../../components/toast';
 import { Switch } from '../../../components/Switch';
 import { Button, ErrorText, Skeleton } from '../../../components/ui';
 import { MessagePresenter, Panel, StatusBadge } from '../../../components/kit';
+import { useOnlinePaymentsLive } from '../../deposits/useOnlinePaymentsLive';
 import { MatchReadNotice } from '../../matches/MatchReadNotice';
 import { readMatchSettings, type MatchSettings } from '../../matches/matchPayloads';
 import { invalidateMatchSettings, useMatchRead, useMatchSettings } from '../../matches/useMatches';
@@ -91,7 +92,10 @@ function MatchSettingsFacts({ settings: s }: { settings: MatchSettings }) {
       <ScopeHeading scope={tr(`${K}.allBranches`)} lead={tr(`${K}.allLead`)} />
       <Facts
         rows={[
-          { label: tr(`${K}.price`), value: s.match_ticket_price_iqd == null ? null : formatIQD(s.match_ticket_price_iqd, locale), empty: '—', hint: tr(`${K}.priceHint`) },
+          { label: tr(`${K}.payAtDesk`), value: tr(s.match_payment_mode === 'desk' ? `${K}.on` : `${K}.off`), hint: tr(`${K}.payAtDeskHint`) },
+          ...(s.match_payment_mode === 'desk'
+            ? []
+            : [{ label: tr(`${K}.price`), value: s.match_ticket_price_iqd == null ? null : formatIQD(s.match_ticket_price_iqd, locale), empty: '—', hint: tr(`${K}.priceHint`) }]),
           { label: tr(`${K}.maxFilling`), value: n(s.max_filling_matches_per_guest), empty: '—', hint: tr(`${K}.maxFillingHint`) },
         ]}
       />
@@ -105,6 +109,7 @@ function MatchSettingsForm({ saved }: { saved: MatchSettings }) {
   const toast = useToast();
   const qc = useQueryClient();
   const { reachable } = useStationReach();
+  const onlineLive = useOnlinePaymentsLive();
   const [draft, setDraft] = useState<MatchSettingsDraft>(() => draftFromMatchSettings(saved));
   const [tried, setTried] = useState(false);
   const [serverField, setServerField] = useState<MatchSettingsField | null>(null);
@@ -186,8 +191,19 @@ function MatchSettingsForm({ saved }: { saved: MatchSettings }) {
 
       <div style={{ display: 'grid', gap: 'var(--tp-sp-3)' }}>
         <ScopeHeading scope={tr(`${K}.allBranches`)} lead={tr(`${K}.allLead`)} />
+        <div style={{ display: 'grid', gap: 'var(--tp-sp-1)' }}>
+          <Switch
+            checked={draft.payAtDesk}
+            onChange={(v) => set('payAtDesk', v)}
+            label={tr(`${K}.payAtDesk`)}
+            disabled={save.isPending || !onlineLive}
+          />
+          <p style={{ margin: 0, fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>{tr(onlineLive ? `${K}.payAtDeskHint` : `${K}.payAtDeskLocked`)}</p>
+        </div>
         <div style={{ display: 'grid', gap: 'var(--tp-sp-3)', gridTemplateColumns: 'repeat(auto-fit, minmax(16rem, 1fr))' }}>
-          <NumberField label={tr(`${K}.price`)} hint={tr(`${K}.priceHint`)} unit={tr(`${K}.iqd`)} value={draft.priceIqd} onChange={(v) => set('priceIqd', v)} error={errorFor('priceIqd')} />
+          {!draft.payAtDesk && (
+            <NumberField label={tr(`${K}.price`)} hint={tr(`${K}.priceHint`)} unit={tr(`${K}.iqd`)} value={draft.priceIqd} onChange={(v) => set('priceIqd', v)} error={errorFor('priceIqd')} />
+          )}
           <NumberField
             label={tr(`${K}.maxFilling`)}
             hint={tr(`${K}.maxFillingHint`)}

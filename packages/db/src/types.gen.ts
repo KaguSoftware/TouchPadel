@@ -3094,6 +3094,7 @@ export type Database = {
         }
         Returns: number
       }
+      match_pay_at_desk: { Args: never; Returns: boolean }
       match_pick_court: {
         Args: { m: Database["public"]["Tables"]["matches"]["Row"] }
         Returns: string
@@ -13025,6 +13026,7 @@ export type Database = {
           llm_monthly_cost_cap_micros: number
           llm_pricing: Json
           llm_web_search_micros: number
+          match_payment_mode: string
           match_terms_version: string | null
           match_ticket_price_iqd: number
           max_filling_matches_per_guest: number
@@ -13044,6 +13046,7 @@ export type Database = {
           llm_monthly_cost_cap_micros?: number
           llm_pricing?: Json
           llm_web_search_micros?: number
+          match_payment_mode?: string
           match_terms_version?: string | null
           match_ticket_price_iqd?: number
           max_filling_matches_per_guest?: number
@@ -13063,6 +13066,7 @@ export type Database = {
           llm_monthly_cost_cap_micros?: number
           llm_pricing?: Json
           llm_web_search_micros?: number
+          match_payment_mode?: string
           match_terms_version?: string | null
           match_ticket_price_iqd?: number
           max_filling_matches_per_guest?: number

@@ -9,11 +9,12 @@ const SAVED: MatchSettings = {
   earliest_start_minutes: 180,
   match_ticket_price_iqd: 10000,
   max_filling_matches_per_guest: 3,
+  match_payment_mode: 'tickets',
 };
 
 describe('draftFromMatchSettings', () => {
   it('reads the stored rules into the form, a missing figure as an empty field', () => {
-    expect(draftFromMatchSettings(SAVED)).toEqual({ enabled: false, deadlineMinutes: '120', priceIqd: '10000', maxFilling: '3' });
+    expect(draftFromMatchSettings(SAVED)).toEqual({ enabled: false, deadlineMinutes: '120', priceIqd: '10000', maxFilling: '3', payAtDesk: false });
     expect(draftFromMatchSettings({ ...SAVED, match_ticket_price_iqd: null }).priceIqd).toBe('');
   });
 });
@@ -44,14 +45,23 @@ describe('matchSettingsErrors', () => {
 describe('matchSettingsPatch', () => {
   it('sends only the keys that changed, in the server’s names', () => {
     expect(matchSettingsPatch(SAVED, draftFromMatchSettings(SAVED))).toEqual({});
-    expect(matchSettingsPatch(SAVED, { enabled: true, deadlineMinutes: '180', priceIqd: '10000', maxFilling: '3' })).toEqual({
+    expect(matchSettingsPatch(SAVED, { enabled: true, deadlineMinutes: '180', priceIqd: '10000', maxFilling: '3', payAtDesk: false })).toEqual({
       matches_enabled: true,
       match_fill_deadline_minutes: 180,
     });
-    expect(matchSettingsPatch(SAVED, { enabled: false, deadlineMinutes: '120', priceIqd: ' 12500 ', maxFilling: '5' })).toEqual({
+    expect(matchSettingsPatch(SAVED, { enabled: false, deadlineMinutes: '120', priceIqd: ' 12500 ', maxFilling: '5', payAtDesk: false })).toEqual({
       match_ticket_price_iqd: 12500,
       max_filling_matches_per_guest: 5,
     });
+  });
+
+  it('sends the payment mode when it changes, and ignores the hidden price while seats are paid at the desk', () => {
+    const desk = { ...draftFromMatchSettings(SAVED), payAtDesk: true, priceIqd: 'nonsense' };
+    expect(matchSettingsErrors(desk)).toEqual({});
+    expect(matchSettingsPatch(SAVED, desk)).toEqual({ match_payment_mode: 'desk' });
+    const saved = { ...SAVED, match_payment_mode: 'desk' as const };
+    expect(matchSettingsPatch(saved, draftFromMatchSettings(saved))).toEqual({});
+    expect(matchSettingsPatch(saved, { ...draftFromMatchSettings(saved), payAtDesk: false })).toEqual({ match_payment_mode: 'tickets' });
   });
 });
 
@@ -59,11 +69,12 @@ describe('serverFieldOf', () => {
   it('places an INVALID_ARGUMENT detail on its field', () => {
     expect(serverFieldOf('match_ticket_price_iqd')).toBe('priceIqd');
     expect(serverFieldOf('matches_enabled')).toBe('enabled');
+    expect(serverFieldOf('match_payment_mode')).toBe('payAtDesk');
     expect(serverFieldOf('p_patch')).toBeNull();
     expect(serverFieldOf(undefined)).toBeNull();
   });
 
   it('knows which rules apply to every branch', () => {
-    expect(CHAIN_FIELDS).toEqual(['priceIqd', 'maxFilling']);
+    expect(CHAIN_FIELDS).toEqual(['payAtDesk', 'priceIqd', 'maxFilling']);
   });
 });

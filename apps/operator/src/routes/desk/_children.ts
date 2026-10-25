@@ -21,6 +21,7 @@ const CustomerRecord = lazyRouteComponent(() => import('../../features/desk/cust
 const MatchDetail = lazyRouteComponent(() => import('../../features/matches/MatchDetail'), 'MatchDetailScreen');
 const CoachesBoard = lazyRouteComponent(() => import('../../features/coaching/CoachesBoard'), 'CoachesBoardScreen');
 const LessonDetail = lazyRouteComponent(() => import('../../features/coaching/LessonDetail'), 'LessonDetailScreen');
+const OpenMatchesList = lazyRouteComponent(() => import('../../features/matches/OpenMatchesList'), 'OpenMatchesListScreen');
 const TournamentsList = lazyRouteComponent(() => import('../../features/tournaments/TournamentsList'), 'TournamentsListScreen');
 const TournamentDetail = lazyRouteComponent(() => import('../../features/tournaments/TournamentDetail'), 'TournamentDetailScreen');
 
@@ -232,6 +233,20 @@ export const lessonDetailRoute = createRoute({
 });
 
 /**
+ * Open matches list (Courts › Open matches): the branch's matches one day at a
+ * time. It has its own ROUTE_ROLES key (`/desk/matches`, the desk's roles) so
+ * the rail and the assistant map know the page; `/desk/matches/$id` below
+ * keeps inheriting `/desk`.
+ */
+export const openMatchesListRoute = createRoute({
+  getParentRoute: () => deskRoute,
+  path: 'matches',
+  component: guarded('/desk/matches', OpenMatchesList),
+  pendingComponent: RoutePending,
+  wrapInSuspense: true,
+});
+
+/**
  * Tournaments (docs/design/tournaments/build-contracts-2026-10-03.md §1.11).
  * The list has its own ROUTE_ROLES key (`/desk/tournaments`, the desk's roles);
  * one tournament inherits it by longest prefix.
@@ -277,6 +292,7 @@ export const deskChildren = [
   customerRecordRoute,
   matchDetailRoute,
   lessonDetailRoute,
+  openMatchesListRoute,
   tournamentsListRoute,
   tournamentDetailRoute,
 ] as const;

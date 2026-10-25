@@ -674,6 +674,8 @@ export interface MatchSettings {
   match_ticket_price_iqd: number | null;
   /** All branches. */
   max_filling_matches_per_guest: number | null;
+  /** All branches (0370): `desk` (the desk collects each seat, no ticket) or `tickets`. */
+  match_payment_mode: 'tickets' | 'desk';
 }
 
 export function readMatchSettings(raw: unknown): MatchSettings {
@@ -685,6 +687,7 @@ export function readMatchSettings(raw: unknown): MatchSettings {
     earliest_start_minutes: num(r.earliest_start_minutes),
     match_ticket_price_iqd: num(r.match_ticket_price_iqd),
     max_filling_matches_per_guest: num(r.max_filling_matches_per_guest),
+    match_payment_mode: r.match_payment_mode === 'desk' ? 'desk' : 'tickets',
   };
 }
 

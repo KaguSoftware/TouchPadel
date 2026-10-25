@@ -14,19 +14,21 @@ import { MemberCardPanel } from '../../src/features/loyalty/MemberCardPanel';
 import { PointsCard } from '../../src/features/loyalty/PointsCard';
 import { useOwnProfile } from '../../src/features/profile/hooks';
 import { nameFieldsOf } from '../../src/features/profile/names';
+import { RanksView } from '../../src/features/ranks/RanksView';
 import { CafeMenuView } from '../../src/features/cafe/CafeMenuView';
 
-type ClubView = 'card' | 'menu';
+type ClubView = 'card' | 'ranks' | 'menu';
 
 /**
  * The Club tab, the bar's centre (Majed, 2026-10-19): the two things a guest reaches for at the
  * café counter, one tap from anywhere. The member card's live QR (with the points it has earned,
  * opening Points & rewards) and the café menu, to look at; ordering stays at the table's QR and
- * the counter.
+ * the counter. Ranks, the players' leaderboard, sits between them (Sait, 2026-10-25: it was a tab
+ * of its own); it stays whatever the owner does with loyalty.
  *
  * Signed in with loyalty on, it opens on the card, which is what the cashier asks for. Signed
  * out, the card view asks the guest to sign in. With loyalty switched off by the owner there is
- * no card to show (build contracts L-1), so the switch goes and the tab is the menu alone.
+ * no card to show (build contracts L-1), so the card segment goes and Ranks and the menu stay.
  *
  * `show=card` (Profile's member card, Points & rewards' "Show my member card") opens it on the
  * card whatever was picked last: there is one member card screen, and it is this one.
@@ -52,13 +54,15 @@ export default function ClubScreen() {
   const [showSeen, setShowSeen] = useState<string | undefined>(undefined);
   if (show !== showSeen) {
     setShowSeen(show);
-    if (show === 'card' || show === 'menu') setPicked(show);
+    if (show === 'card' || show === 'ranks' || show === 'menu') setPicked(show);
   }
   const pick = (v: ClubView) => {
     setPicked(v);
     if (show) router.setParams({ show: undefined });
   };
-  const view: ClubView = !offersCard ? 'menu' : (picked ?? (member ? 'card' : 'menu'));
+  // Without a card to show, a pick of the card falls to the next segment.
+  const view: ClubView =
+    picked === 'card' && !offersCard ? 'menu' : (picked ?? (offersCard && member ? 'card' : 'menu'));
   const bottomPad = tabBarHeight + 24;
 
   const card = () => {
@@ -105,19 +109,24 @@ export default function ClubScreen() {
         </View>
         <AccountButton testID="club.account" />
       </View>
-      {offersCard ? (
-        <SegmentedControl
-          testID="club.view"
-          options={[
-            { value: 'card', label: t('loyalty.guest.card.title') },
-            { value: 'menu', label: t('profile.cafeMenu') },
-          ]}
-          value={view}
-          onChange={pick}
-        />
-      ) : null}
-      <View style={{ flex: 1, marginTop: offersCard ? space.s : 0 }}>
-        {view === 'card' ? card() : <CafeMenuView testID="club.menu" bottomPad={bottomPad} />}
+      <SegmentedControl
+        testID="club.view"
+        options={[
+          ...(offersCard ? [{ value: 'card' as const, label: t('loyalty.guest.card.title') }] : []),
+          { value: 'ranks' as const, label: t('tabs.ranks') },
+          { value: 'menu' as const, label: t('profile.cafeMenu') },
+        ]}
+        value={view}
+        onChange={pick}
+      />
+      <View style={{ flex: 1, marginTop: space.s }}>
+        {view === 'card' ? (
+          card()
+        ) : view === 'ranks' ? (
+          <RanksView testID="club.ranks" bottomPad={bottomPad} />
+        ) : (
+          <CafeMenuView testID="club.menu" bottomPad={bottomPad} />
+        )}
       </View>
     </Screen>
   );

@@ -27,6 +27,18 @@ export const matchesDeskEn = {
     stripAwaiting: '{time} · {category} · {fill} · waiting for a court',
     startingFor: 'Starting an open match for {name}: pick a free time',
   },
+  // The Open matches page under Courts (`/desk/matches`), 0370.
+  list: {
+    title: 'Open matches',
+    lead: 'The matches players have started in the app, one day at a time. Open one to see its players and take their share at the desk.',
+    previousDay: 'Previous day',
+    nextDay: 'Next day',
+    backToToday: 'Today',
+    startOnCalendar: 'Start one on the calendar',
+    offTitle: 'Open matches are not running',
+    offBody: 'Switch them on in Court settings to let players start and join matches in the app.',
+    offAction: 'Open the rules',
+  },
   // The Today group (§5.9).
   today: {
     title: 'Open matches needing players',
@@ -80,6 +92,7 @@ export const matchesDeskEn = {
       whenNote: '{time} · {duration}',
       priceFigure: 'Court {price} · each player pays {share}',
       priceLine: 'At the desk. Players who join in the app use one ticket each; desk players need none.',
+      priceLineDesk: 'At the desk. Nobody needs a ticket: every player pays their share at the desk.',
       reviewOrganiser: 'Organiser',
       reviewCategory: 'Category',
       reviewJoin: 'Join',

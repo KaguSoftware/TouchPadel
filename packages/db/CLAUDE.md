@@ -17,8 +17,21 @@ is a line in that file.
 
 ## Migrations
 
-- Ordinal strictly greater than the current max, never a reused one. Latest is `0369`
-  (0369 customer_analytics, 2026-10-24 (Majed: "there is nothing that shows exactly who our
+- Ordinal strictly greater than the current max, never a reused one. Latest is `0370`
+  (0370 open_matches_pay_at_desk, 2026-10-25 (Sait: "have the open matches but without the online
+  payments"): `platform_settings.match_payment_mode` (`tickets` default | `desk`,
+  `platform_settings_match_payment_mode_chk`); in `desk` mode a player's seat carries no ticket
+  (`match_seats_kind` now lets an account or friend seat have a NULL `ticket_id`), the desk
+  collects the share as it does for a desk seat, and `ticket_pick` hands back one NULL per seat
+  and `ticket_lock` counts an all-NULL list as locked, so `match_start`, `match_join`,
+  `match_request` and `match_decide` are untouched; **0370 holds `ticket_pick`** (0260 no
+  longer), **`ticket_lock`** (0260 no longer), **`match_settings`** (0257 no longer: `+
+  match_payment_mode`) **and `set_match_settings`** (0340 no longer: accepts `match_payment_mode`;
+  while online payments are paused `matches_enabled = true` is allowed only in `desk` mode and the
+  mode cannot go back to `tickets`, `ONLINE_PAYMENTS_PAUSED`); the 0340 lock itself is unchanged
+  and still gates online deposits and lessons; the harmless boolean `match_pay_at_desk()` for
+  the phone and the operator; `tests/matches-pay-at-desk.test.ts`;
+  0369 customer_analytics, 2026-10-24 (Majed: "there is nothing that shows exactly who our
   customers are"): the owner-only `analytics_customers(p_from, p_to)` behind `analytics_guard` —
   the crowd of the analysed branch counted once, how much of it the club knows (`coveragePct`),
   genders / ages / levels / interests with their shares, the claim against the judgment
@@ -278,7 +291,7 @@ is a line in that file.
   0149 assistant-cap, 0150 move-not-into-past, 0151 out-of-stock-alert, 0152 my-reservations,
   0153 terms-consent, 0154 analytics-returning-guest, 0155–0157 six new staff roles, 0158–0206
   protocols and the staff phone (change-order line 10), 0207–0227 multi-venue slices 2–4); the next is
-  `0370`. **Check the directory, not this line** — it said 0146 while 0147–0149 were already on
+  `0371`. **Check the directory, not this line** — it said 0146 while 0147–0149 were already on
   disk, and later 0150 while 0154 was, and a reused ordinal fails `check-migrations.mjs` after the
   file is written.
 - `0069` and `0071` are already doubled; `0023`, `0040` and `0101` have no file, so leave the gaps.

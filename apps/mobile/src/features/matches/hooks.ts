@@ -21,6 +21,7 @@ import { profileKeys } from '../profile/hooks';
 import {
   fetchMatchDetail,
   fetchMatchInvite,
+  fetchMatchPayAtDesk,
   fetchMatchQuote,
   fetchMatchSlots,
   fetchMyMatchBlocks,
@@ -212,6 +213,22 @@ export function useMyTickets(enabled = true) {
     enabled: enabled && !!session,
     staleTime: 10_000,
   });
+}
+
+/**
+ * Whether open-match seats are paid at the desk (0370): no ticket, no wallet,
+ * no Buy step. False until the server says so, so a slow read never hides the
+ * ticket flow from a venue that still sells tickets.
+ */
+export function useMatchPayAtDesk(): boolean {
+  const { session } = useAuth();
+  const q = useQuery({
+    queryKey: matchKeys.payAtDesk,
+    queryFn: () => fetchMatchPayAtDesk(supabase),
+    enabled: !!session,
+    staleTime: 60_000,
+  });
+  return q.data === true;
 }
 
 /** The players the guest blocked (§4.17). */

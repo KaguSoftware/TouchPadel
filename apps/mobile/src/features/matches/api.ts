@@ -120,6 +120,13 @@ export async function fetchMyTickets(client: Client): Promise<TicketWallet> {
   return parseTicketWallet(data);
 }
 
+/** app.match_pay_at_desk (0370): true when a seat takes no ticket and the desk collects the share. */
+export async function fetchMatchPayAtDesk(client: Client): Promise<boolean> {
+  const { data, error } = await client.schema('app').rpc('match_pay_at_desk');
+  if (error) throw error;
+  return data === true;
+}
+
 /** app.my_match_blocks. */
 export async function fetchMyMatchBlocks(client: Client): Promise<MatchBlock[]> {
   const { data, error } = await client.schema('app').rpc('my_match_blocks');

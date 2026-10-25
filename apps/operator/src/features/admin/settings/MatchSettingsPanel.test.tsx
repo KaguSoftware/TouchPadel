@@ -18,6 +18,7 @@ const SETTINGS = {
   earliest_start_minutes: 180,
   match_ticket_price_iqd: 10000,
   max_filling_matches_per_guest: 3,
+  match_payment_mode: 'tickets',
 };
 
 let settingsRead: () => unknown = () => SETTINGS;
@@ -113,7 +114,8 @@ describe('MatchSettingsPanel', () => {
   it('a manager reads the rules and is told who changes them', async () => {
     mount(<MatchSettingsPanel canEdit={false} />);
     expect(await screen.findByText('Only the owner can change these.')).toBeTruthy();
-    expect(screen.getByText('Off')).toBeTruthy();
+    // This branch's switch and the chain's pay-at-desk setting are both off.
+    expect(screen.getAllByText('Off')).toHaveLength(2);
     expect(screen.getByText('10,000 IQD')).toBeTruthy();
     expect(screen.queryByRole('textbox')).toBeNull();
     expect(screen.queryByRole('switch')).toBeNull();

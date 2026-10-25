@@ -237,6 +237,8 @@ export const ROUTE_ROLES: Record<string, readonly StaffRole[]> = {
   // own so the assistant map and the rail know the page (the cashier takes an
   // entry fee from the customer record, not here).
   '/desk/tournaments': ['court_desk', 'manager', 'owner'],
+  // The open matches list (Courts › Open matches): the desk's roles; one match (`/desk/matches/$id`) inherits `/desk`.
+  '/desk/matches': ['court_desk', 'manager', 'owner'],
   // The bar and kitchen family (0155) has exactly what prep had: this board
   // and nothing else. Prep stays listed while accounts still hold it. The
   // assistant barista (wave 5 §2.1) works the bar's tickets here too.

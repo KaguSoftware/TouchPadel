@@ -57,6 +57,8 @@ export const matchesScreensEn = {
     friendsNeeded: 'Confirm who your friends are to take their seats.',
     money: 'Court {price} · {share} per player, paid at the desk',
     wallet: '{use} from your wallet · {ready}',
+    // 0370: seats paid at the desk, no ticket.
+    payAtDesk: 'No ticket needed · you pay your share at the desk',
     start: 'Start the match',
     buyAndStart: 'Buy {tickets} and start',
     priceChanged: 'The price is now {price}. Check it and start again.',
@@ -89,6 +91,8 @@ export const matchesScreensEn = {
     askCaption: 'Holds {tickets} until the organiser answers',
     askCaptionF: 'Holds {tickets} until the organiser answers',
     youHave: 'You have {ready}.',
+    payAtDesk: 'No ticket needed. You pay your share at the desk.',
+    askPayAtDesk: 'The organiser answers your request. You pay your share at the desk.',
     // An empty wallet: `count.ticketsReady`'s zero form is a sentence of its own.
     youHaveNone: 'You have no tickets yet.',
     buyAndJoin: 'Buy {tickets} and join',
@@ -97,6 +101,8 @@ export const matchesScreensEn = {
     excluded: "The organiser removed you from this match. You can't rejoin it.",
     excludedF: "The organiser removed you from this match. You can't rejoin it.",
     requested: 'Request sent · {tickets} held until the organiser answers',
+    requestedDesk: 'Request sent · waiting for the organiser to answer',
+    requestedDeskF: 'Request sent · waiting for the organiser to answer',
     requestedF: 'Request sent · {tickets} held until the organiser answers',
     withdraw: 'Withdraw request',
     inWaiting: "You're in · waiting for {players}",

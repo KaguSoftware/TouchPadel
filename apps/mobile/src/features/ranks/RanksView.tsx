@@ -1,25 +1,23 @@
 import { RefreshControl, ScrollView, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { isolateLtr } from '@touch/i18n';
-import { Text } from '../../src/i18n/text';
-import { useLocale } from '../../src/i18n/LocaleProvider';
-import { useTabBarHeight } from '../../src/components/useTabBarHeight';
-import { AccountButton } from '../../src/components/AccountButton';
-import { Button, MicroLabel, Screen, TAB_TITLE_TOP, Title } from '../../src/components/ui';
-import { EmptyState, ErrorState, Skeleton } from '../../src/components/states';
-import { useToast } from '../../src/components/overlays';
-import { usePullRefresh } from '../../src/lib/usePullRefresh';
-import { space, useTheme } from '../../src/theme';
-import { useAuth } from '../../src/features/auth/context';
-import { mapErrorToKey } from '../../src/features/booking/errors';
-import { useAnswerResult, useMyRanks, useRanksBoard } from '../../src/features/ranks/hooks';
-import { BoardRest, Podium } from '../../src/features/ranks/Board';
-import { useRanksLive } from '../../src/features/ranks/live';
-import { ResultRow, ToReportRow, WaitingCard, YourPlace } from '../../src/features/ranks/Mine';
+import { Text } from '../../i18n/text';
+import { useLocale } from '../../i18n/LocaleProvider';
+import { Button, MicroLabel } from '../../components/ui';
+import { EmptyState, ErrorState, Skeleton } from '../../components/states';
+import { useToast } from '../../components/overlays';
+import { usePullRefresh } from '../../lib/usePullRefresh';
+import { space, useTheme } from '../../theme';
+import { useAuth } from '../auth/context';
+import { mapErrorToKey } from '../booking/errors';
+import { useAnswerResult, useMyRanks, useRanksBoard } from './hooks';
+import { BoardRest, Podium } from './Board';
+import { useRanksLive } from './live';
+import { ResultRow, ToReportRow, WaitingCard, YourPlace } from './Mine';
 
 /**
- * Ranks, the leaderboard (Majed, 2026-10-22; migration 0364). In Join's place on the bar while a
- * build leaves tournaments out (features/tournaments/shipped.ts).
+ * Ranks, the leaderboard (Majed, 2026-10-22; migration 0364), the Club tab's middle segment
+ * (Sait, 2026-10-25: it was a tab of its own).
  *
  * Read top to bottom: a score waiting on the guest (nothing counts until an opponent says yes),
  * the board itself (public, the top `size` only, a podium for the first three), the guest's own
@@ -27,12 +25,11 @@ import { ResultRow, ToReportRow, WaitingCard, YourPlace } from '../../src/featur
  * Signed out, the board shows and the rest asks them to sign in. The owner sets the rules on the
  * operator; the line under the title says them, so a player knows what a win is worth.
  */
-export default function RanksScreen() {
+export function RanksView({ bottomPad, testID }: { bottomPad: number; testID?: string }) {
   const { t } = useLocale();
   const { colors, fonts } = useTheme();
   const router = useRouter();
   const toast = useToast();
-  const tabBarHeight = useTabBarHeight();
   const { session } = useAuth();
   const member = !!session && !session.user.is_anonymous;
   const board = useRanksBoard();
@@ -91,18 +88,10 @@ export default function RanksScreen() {
   };
 
   return (
-    <Screen pattern="blur">
-      <View style={{ paddingTop: TAB_TITLE_TOP, flexDirection: 'row', alignItems: 'flex-start', gap: space.sm }}>
-        <View style={{ flex: 1 }}>
-          <Title fit>{t('tabs.ranks')}</Title>
-        </View>
-        <AccountButton testID="ranks.account" />
-      </View>
-
       <ScrollView
-        testID="ranks.scroll"
+        testID={testID ?? 'ranks.scroll'}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: tabBarHeight + 32, gap: space.xxl }}
+        contentContainerStyle={{ paddingBottom: bottomPad, gap: space.xxl }}
         refreshControl={
           <RefreshControl refreshing={pull.refreshing} onRefresh={pull.onRefresh} tintColor={colors.blue} />
         }
@@ -203,6 +192,5 @@ export default function RanksScreen() {
           <Skeleton height={120} />
         ) : null}
       </ScrollView>
-    </Screen>
   );
 }

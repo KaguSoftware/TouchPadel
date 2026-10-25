@@ -42,6 +42,7 @@ import { SLOT_MIN } from '../desk/useTradingNight';
 import { invalidateMatchSeats, useMatchIdemKey } from './useMatches';
 import { matchErrorText } from './matchLogic';
 import { categoryKey, fillText } from './OpenMatchesStrip';
+import { useMatchPayAtDesk } from './useOpenMatchesOn';
 import type { OpenMatch, OpenMatches } from './matchPayloads';
 import {
   EXTRA_SEATS,
@@ -104,6 +105,7 @@ export function StartMatchDialog({
   const { tr, locale } = useLocale();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const payAtDesk = useMatchPayAtDesk();
   const toast = useToast();
   const { reachable } = useStationReach();
   const idem = useMatchIdemKey('start');
@@ -439,7 +441,7 @@ export function StartMatchDialog({
             {/* Unreported is "—", never a made-up zero; a failed quote does not block the start. */}
             <WizardPrice
               figure={unpriced ? tr('ws.courtDesk.create.noPrice') : tr('ws.matches.start.wizard.priceFigure', { price: priceText, share: shareText })}
-              line={tr('ws.matches.start.wizard.priceLine')}
+              line={tr(payAtDesk ? 'ws.matches.start.wizard.priceLineDesk' : 'ws.matches.start.wizard.priceLine')}
             />
           </div>
         </>

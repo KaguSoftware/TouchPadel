@@ -184,29 +184,28 @@ describe.each(LOCALES)('book branch picker in %s', (locale) => {
 });
 
 /**
- * Five tabs on both bars, in this order, each with its own id and the locale's
- * label. Profile left the bar on 2026-10-17 for the avatar on each title row;
- * Club (the member card and the café menu) took the centre on 2026-10-19, and
- * Book took it back on 2026-10-22, swapping places with Club. The second slot
- * is Ranks (the leaderboard) while a build leaves tournaments out, the store
- * build's default, and Play when it ships them (features/tournaments/shipped.ts).
+ * The tabs on both bars, in this order, each with its own id and the locale's label. Profile left
+ * the bar on 2026-10-17 for the avatar on each title row; Club (the member card, Ranks and the
+ * café menu) took the centre on 2026-10-19, and Book took it back on 2026-10-22, swapping places
+ * with Club. Play is second only when the build ships tournaments (features/tournaments/shipped.ts);
+ * Ranks is a segment of Club, never a tab (2026-10-25).
  */
-const tabOrder = (second: 'tabs.ranks' | 'tabs.play') =>
+const tabOrder = (withPlay: boolean) =>
   [
-    ['tabs.bookings', 'tabs.bookings'],
-    [second, second],
-    ['tabs.book', 'tabs.book'],
-    ['tabs.club', 'tabs.club'],
-    ['tabs.coaches', 'tabs.coaches'],
+    'bookings',
+    ...(withPlay ? (['play'] as const) : []),
+    'book',
+    'club',
+    'coaches',
   ] as const;
 
-describe.each(LOCALES)('the five tabs in %s', (locale) => {
+describe.each(LOCALES)('the tabs in %s', (locale) => {
   const t = makeT(locale);
 
-  describe.each<['tabs.ranks' | 'tabs.play', string | undefined]>([
-    ['tabs.ranks', undefined],
-    ['tabs.play', 'on'],
-  ])('with %s second (EXPO_PUBLIC_TOURNAMENTS=%s)', (second, flag) => {
+  describe.each<[boolean, string | undefined]>([
+    [false, undefined],
+    [true, 'on'],
+  ])('with Play %s (EXPO_PUBLIC_TOURNAMENTS=%s)', (withPlay, flag) => {
     const before = process.env.EXPO_PUBLIC_TOURNAMENTS;
     beforeAll(() => {
       if (flag === undefined) delete process.env.EXPO_PUBLIC_TOURNAMENTS;
@@ -220,13 +219,13 @@ describe.each(LOCALES)('the five tabs in %s', (locale) => {
     it.each<[string, typeof TabsLayout]>([
       ['iOS', TabsLayout],
       ['Android', TabsLayoutAndroid],
-    ])('the %s bar declares five, Book in the middle, and no Profile tab', (_name, Layout) => {
+    ])('the %s bar declares its tabs, no Profile tab and no Ranks tab', (_name, Layout) => {
       const screen = renderRoute(Layout, { locale });
       try {
-        const ids = tabOrder(second).map(([id, key]) => {
-          const tab = screen.getByTestId(id);
-          expect(within(tab).getByText(t(key))).toBeTruthy();
-          return id;
+        const ids = tabOrder(withPlay).map((name) => {
+          const tab = screen.getByTestId(`tabs.${name}`);
+          expect(within(tab).getByText(t(`tabs.${name}`))).toBeTruthy();
+          return `tabs.${name}`;
         });
         const all = screen.UNSAFE_root.findAll(
           (n) => typeof n.props.testID === 'string' && n.props.testID.startsWith('tabs.') && n.props.testID !== 'tabs.back-to-staff',

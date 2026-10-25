@@ -50,6 +50,8 @@ export const matchKeys = {
     ['match', 'quote', venueId, courtId, startAt, min] as const,
   /** app.my_tickets: the wallet. */
   tickets: ['match', 'tickets'] as const,
+  /** app.match_pay_at_desk: seats are paid at the desk, no ticket (0370). */
+  payAtDesk: ['match', 'payAtDesk'] as const,
   /** app.my_match_blocks. */
   blocks: ['match', 'blocks'] as const,
   /** Mutation keys: queryClient.ts gives this prefix "run now or fail now". */

@@ -283,7 +283,9 @@ describe.skipIf(!docker)('0258 open-match tables', () => {
       S('no_show', `'{"seat_no":3,"status":"no_show","marked_at":"2026-01-01T00:00:00Z"}'`),
       E('walk_in_on_no_show', `select to_jsonb(pg_temp.s(jsonb_build_object('seat_no', 3, 'replaces_seat_id', {{no_show}})))`),
       E('seat_5', `select to_jsonb(pg_temp.s('{"seat_no":5}'))`),
+      // 0370: an account seat may carry no ticket (pay at the desk); one with no account still may not.
       E('account_without_ticket', `select to_jsonb(pg_temp.s(jsonb_build_object('seat_no', 4, 'kind', 'account', 'guest_id', {{g1}}, 'created_by_staff_id', null)))`),
+      E('account_without_guest', `select to_jsonb(pg_temp.s(jsonb_build_object('seat_no', 4, 'kind', 'account', 'guest_id', null, 'created_by_staff_id', null)))`),
       E('desk_customer_named', `select to_jsonb(pg_temp.s(jsonb_build_object('seat_no', 4, 'guest_id', {{g1}}, 'guest_name', 'Omar')))`),
       E('left_unstamped', `select to_jsonb(pg_temp.s('{"seat_no":4,"status":"left"}'))`),
       E('attended_unmarked', `select to_jsonb(pg_temp.s('{"seat_no":4,"status":"attended"}'))`),
@@ -299,7 +301,8 @@ describe.skipIf(!docker)('0258 open-match tables', () => {
     expect(tripped(r, 'same_number')).toBe('match_seats_occupying_no');
     ok(r, 'walk_in_on_no_show');
     expect(tripped(r, 'seat_5')).toBe('match_seats_seat_no_check');
-    expect(tripped(r, 'account_without_ticket')).toBe('match_seats_kind');
+    ok(r, 'account_without_ticket');
+    expect(tripped(r, 'account_without_guest')).toBe('match_seats_kind');
     expect(tripped(r, 'desk_customer_named')).toBe('match_seats_kind');
     expect(tripped(r, 'left_unstamped')).toBe('match_seats_ended');
     expect(tripped(r, 'attended_unmarked')).toBe('match_seats_marked');

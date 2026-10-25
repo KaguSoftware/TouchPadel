@@ -94,7 +94,7 @@ function PlayerField({
 function RanksReportScreen() {
   const { t, locale } = useLocale();
   const { colors, fonts } = useTheme();
-  const back = useBack('/ranks');
+  const back = useBack({ pathname: '/club', params: { show: 'ranks' } });
   const toast = useToast();
   const params = useLocalSearchParams<{ reservationId?: string; startAt?: string; courtEn?: string; courtAr?: string }>();
   const reservationId = typeof params.reservationId === 'string' ? params.reservationId : '';

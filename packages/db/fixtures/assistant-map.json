@@ -1,5 +1,5 @@
 {
-  "generated_from": "4a9b7010fd5defe234c8e24ec9f8e3aa8da2b5be",
+  "generated_from": "6a0adfc781faa35441feea644f337cb70a1dac43",
   "chunks": [
     {
       "kind": "page",
@@ -360,6 +360,14 @@
       "title": "/desk/lessons/$id",
       "body": "One lesson, group session or course session (app.desk_lesson_detail): \"Move court\" (app.desk_move_lesson_court), \"Reschedule\" (app.desk_reschedule_session), \"Cancel lesson\" or \"Cancel the course\" (app.desk_cancel_lesson, app.desk_cancel_course); the roster with \"Arrived\", \"No-show\" and \"Undo\" (app.desk_mark_attendance), \"Take payment\" (app.lesson_settle), \"Cancel\" a sign-up (app.desk_cancel_enrolment) and \"Add student\" (app.desk_add_student); for a manager, \"Refunds due at the desk\" (app.lesson_refunds_due) with \"Refund\" through the till's refund; then the history. Online only.\nRoles: court_desk, manager, owner.\nNot a rail row: reached from inside another screen or by URL.",
       "route": "/desk/lessons/$id"
+    },
+    {
+      "kind": "page",
+      "ref": "page:/desk/matches",
+      "lang": "en",
+      "title": "/desk/matches — Open matches",
+      "body": "The branch's open matches one day at a time (app.desk_open_matches), Courts › Open matches: when, category, who started it, players of four, requests and the fill deadline, each opening the match, with \"Add player\" (app.desk_add_seat). A match is started on the calendar. With open matches off it says so and links to Court settings › Open matches.\nRoles: court_desk, manager, owner.\nReached from: Court desk: \"Open matches\"; Management › Courts: \"Open matches\".",
+      "route": "/desk/matches"
     },
     {
       "kind": "page",
@@ -926,7 +934,7 @@
       "ref": "nav:courtDesk",
       "lang": "ar",
       "title": "مساحة العمل: مكتب الملاعب",
-      "body": "مساحة العمل \"مكتب الملاعب\" تبدأ من /desk/today.\nالصفوف: اليوم → /desk/today; التقويم → /desk; الزبائن → /desk/customers; المدرّبون → /desk/coaches; سلسلة جديدة → /desk/series/new; إيقاف ملعب → /desk/block; البطولات → /desk/tournaments; بلاغات الحوادث → /incidents; مهامي → /tasks",
+      "body": "مساحة العمل \"مكتب الملاعب\" تبدأ من /desk/today.\nالصفوف: اليوم → /desk/today; التقويم → /desk; الزبائن → /desk/customers; المدرّبون → /desk/coaches; سلسلة جديدة → /desk/series/new; إيقاف ملعب → /desk/block; البطولات → /desk/tournaments; المباريات المفتوحة → /desk/matches; بلاغات الحوادث → /incidents; مهامي → /tasks",
       "route": "/desk/today"
     },
     {
@@ -934,7 +942,7 @@
       "ref": "nav:courtDesk",
       "lang": "en",
       "title": "Workspace: Court desk",
-      "body": "Workspace \"Court desk\" opens at /desk/today.\nRows: Today → /desk/today; Calendar → /desk; Customers → /desk/customers; Coaches → /desk/coaches; New series → /desk/series/new; Block court → /desk/block; Tournaments → /desk/tournaments; Incident reports → /incidents; My tasks → /tasks",
+      "body": "Workspace \"Court desk\" opens at /desk/today.\nRows: Today → /desk/today; Calendar → /desk; Customers → /desk/customers; Coaches → /desk/coaches; New series → /desk/series/new; Block court → /desk/block; Tournaments → /desk/tournaments; Open matches → /desk/matches; Incident reports → /incidents; My tasks → /tasks",
       "route": "/desk/today"
     },
     {
@@ -1000,6 +1008,22 @@
       "title": "Court desk: Customers",
       "body": "Rail row \"Customers\" in the Court desk workspace opens /desk/customers. Arabic label: \"الزبائن\". Roles: court_desk, cashier, manager, owner.",
       "route": "/desk/customers"
+    },
+    {
+      "kind": "nav",
+      "ref": "nav:courtDesk:-:/desk/matches",
+      "lang": "ar",
+      "title": "مكتب الملاعب: المباريات المفتوحة",
+      "body": "صف \"المباريات المفتوحة\" في مساحة \"مكتب الملاعب\" يفتح /desk/matches. الاسم بالإنجليزية: \"Open matches\". الأدوار: court_desk, manager, owner.",
+      "route": "/desk/matches"
+    },
+    {
+      "kind": "nav",
+      "ref": "nav:courtDesk:-:/desk/matches",
+      "lang": "en",
+      "title": "Court desk: Open matches",
+      "body": "Rail row \"Open matches\" in the Court desk workspace opens /desk/matches. Arabic label: \"المباريات المفتوحة\". Roles: court_desk, manager, owner.",
+      "route": "/desk/matches"
     },
     {
       "kind": "nav",
@@ -1278,7 +1302,7 @@
       "ref": "nav:management:courts",
       "lang": "ar",
       "title": "الإدارة › الملاعب",
-      "body": "الحجوزات وإعدادات الملاعب والمدرّبون\nالصفحة الرئيسية: /observation/courts\nالصفوف: الحجوزات → /observation/courts; الحجوزات → /desk (بدل /observation/courts); البطولات → /desk/tournaments; المدرّبون → /admin/coaches (المدرّبون, الحصص والأسعار, أوقات المدرّبين, قواعد الحصص, الجداول); إعدادات الملاعب → /admin/rates (أسعار الملاعب, أوقات السيدات والرجال, الملاعب, قواعد الحجز, العربون الإلكتروني, المباريات المفتوحة, ساعات العمل, قواعد البطولات)",
+      "body": "الحجوزات وإعدادات الملاعب والمدرّبون\nالصفحة الرئيسية: /observation/courts\nالصفوف: الحجوزات → /observation/courts; الحجوزات → /desk (بدل /observation/courts); البطولات → /desk/tournaments; المباريات المفتوحة → /desk/matches; المدرّبون → /admin/coaches (المدرّبون, الحصص والأسعار, أوقات المدرّبين, قواعد الحصص, الجداول); إعدادات الملاعب → /admin/rates (أسعار الملاعب, أوقات السيدات والرجال, الملاعب, قواعد الحجز, العربون الإلكتروني, المباريات المفتوحة, ساعات العمل, قواعد البطولات)",
       "route": "/observation/courts"
     },
     {
@@ -1286,7 +1310,7 @@
       "ref": "nav:management:courts",
       "lang": "en",
       "title": "Management › Courts",
-      "body": "Bookings, court settings and coaches\nHome: /observation/courts\nRows: Bookings → /observation/courts; Bookings → /desk (instead of /observation/courts); Tournaments → /desk/tournaments; Coaches → /admin/coaches (Coaches, Lessons & prices, Coach hours, Lesson rules, Schedules); Court settings → /admin/rates (Court prices, Gender hours, Courts, Booking rules, Online deposit, Open matches, Opening hours, Tournament rules)",
+      "body": "Bookings, court settings and coaches\nHome: /observation/courts\nRows: Bookings → /observation/courts; Bookings → /desk (instead of /observation/courts); Tournaments → /desk/tournaments; Open matches → /desk/matches; Coaches → /admin/coaches (Coaches, Lessons & prices, Coach hours, Lesson rules, Schedules); Court settings → /admin/rates (Court prices, Gender hours, Courts, Booking rules, Online deposit, Open matches, Opening hours, Tournament rules)",
       "route": "/observation/courts"
     },
     {
@@ -1336,6 +1360,22 @@
       "title": "Management › Courts: Bookings",
       "body": "Rail row \"Bookings\" in the Management workspace › Courts opens /desk. Printed only for someone who cannot open /observation/courts, in its place. Arabic label: \"الحجوزات\". Roles: court_desk, manager, owner.",
       "route": "/desk"
+    },
+    {
+      "kind": "nav",
+      "ref": "nav:management:courts:/desk/matches",
+      "lang": "ar",
+      "title": "الإدارة › الملاعب: المباريات المفتوحة",
+      "body": "صف \"المباريات المفتوحة\" في مساحة \"الإدارة\" › الملاعب يفتح /desk/matches. الاسم بالإنجليزية: \"Open matches\". الأدوار: court_desk, manager, owner.",
+      "route": "/desk/matches"
+    },
+    {
+      "kind": "nav",
+      "ref": "nav:management:courts:/desk/matches",
+      "lang": "en",
+      "title": "Management › Courts: Open matches",
+      "body": "Rail row \"Open matches\" in the Management workspace › Courts opens /desk/matches. Arabic label: \"المباريات المفتوحة\". Roles: court_desk, manager, owner.",
+      "route": "/desk/matches"
     },
     {
       "kind": "nav",
@@ -6363,6 +6403,14 @@
     },
     {
       "kind": "action",
+      "ref": "action:app.match_pay_at_desk",
+      "lang": "en",
+      "title": "app.match_pay_at_desk",
+      "body": "0370. Internal: whether open-match seats are paid at the desk (platform_settings.match_payment_mode = desk). False when there is no row.\nSignature: app.match_pay_at_desk() returns boolean.\nGranted to: authenticated. Guard: not detected by pattern — read the migration.\nWrites no audit row of its own (or via a helper).\nCalled from: apps/operator/src/features/matches/useOpenMatchesOn.ts (pages /desk).\nDefined in migration 0370 (last definition). The assistant cannot call this; it only explains it.",
+      "route": "/desk"
+    },
+    {
+      "kind": "action",
       "ref": "action:app.match_post_message",
       "lang": "en",
       "title": "app.match_post_message (part 1 of 2)",
@@ -6534,7 +6582,7 @@
       "ref": "action:app.match_settings",
       "lang": "en",
       "title": "app.match_settings",
-      "body": "0257. Manager and owner: the open-match rules of one branch (matches_enabled, match_fill_deadline_minutes, earliest_start_minutes = deadline + 60) and of the chain (match_ticket_price_iqd, max_filling_matches_per_guest, match_terms_version). The role is checked before the branch is resolved (R33); p_venue_id defaults to the caller's resolved branch.\nSignature: app.match_settings(p_venue_id uuid default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager, owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, VENUE_SETTINGS_MISSING.\nCalled from: apps/operator/src/features/matches/useMatches.ts (pages /desk).\nDefined in migration 0257 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "0257, 0370. Manager and owner: the open-match rules of one branch (matches_enabled, match_fill_deadline_minutes, earliest_start_minutes = deadline + 60) and of the chain (match_ticket_price_iqd, max_filling_matches_per_guest, match_terms_version, match_payment_mode). The role is checked before the branch is resolved (R33); p_venue_id defaults to the caller's resolved branch.\nSignature: app.match_settings(p_venue_id uuid default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager, owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, VENUE_SETTINGS_MISSING.\nCalled from: apps/operator/src/features/matches/useMatches.ts (pages /desk).\nDefined in migration 0370 (last definition). The assistant cannot call this; it only explains it.",
       "route": "/desk"
     },
     {
@@ -8510,7 +8558,7 @@
       "ref": "action:app.set_match_settings~2",
       "lang": "en",
       "title": "app.set_match_settings (part 2 of 2)",
-      "body": "0257. Owner only: patch the open-match rules. Keys: matches_enabled (boolean) and match_fill_deadline_minutes (60..2880) for the branch p_venue_id (default: the\nSignature: app.set_match_settings(p_patch jsonb, p_venue_id uuid default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (owner).\nAudit actions written: venue.match_settings.\nError codes: FORBIDDEN, ONLINE_PAYMENTS_PAUSED, INVALID_ARGUMENT.\nCalled from: apps/operator/src/features/admin/settings/MatchSettingsPanel.tsx (pages /admin).\nDefined in migration 0340 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "0257. Owner only: patch the open-match rules. Keys: matches_enabled (boolean) and match_fill_deadline_minutes (60..2880) for the branch p_venue_id (default: the\nSignature: app.set_match_settings(p_patch jsonb, p_venue_id uuid default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (owner).\nAudit actions written: venue.match_settings.\nError codes: FORBIDDEN, INVALID_ARGUMENT, ONLINE_PAYMENTS_PAUSED.\nCalled from: apps/operator/src/features/admin/settings/MatchSettingsPanel.tsx (pages /admin).\nDefined in migration 0370 (last definition). The assistant cannot call this; it only explains it.",
       "route": "/admin"
     },
     {
@@ -12757,15 +12805,23 @@
       "kind": "table",
       "ref": "table:platform_settings",
       "lang": "en",
-      "title": "table platform_settings (part 1 of 9)",
+      "title": "table platform_settings (part 1 of 10)",
       "body": "0207 (multi-venue slice 2, MV5). The settings that belong to the whole chain, not one branch: currency, the chain's accounting timezone for the LLM budget, the per-guest hold cap, and every LLM budget and price-list knob. Exactly one row. Written only by owner RPCs (assistant_set_default_model, assistant_set_monthly_cap) and migrations.\nCreated in migration 0207.\nColumns:\n  id boolean primary key default true check (id)\n  currency char(3) not null default 'IQD'",
+      "route": null
+    },
+    {
+      "kind": "table",
+      "ref": "table:platform_settings~10",
+      "lang": "en",
+      "title": "table platform_settings (part 10 of 10)",
+      "body": "0207 (multi-venue slice 2, MV5). The settings that belong to the whole chain, not one branch: currency, the chain's accounting timezone for the LLM budget, the \n  match_payment_mode text not null default 'tickets' — 0370. How a seat in an open match is paid: tickets (prepaid online, default) or desk (the desk collects the seat's share on arrival; a player's seat then carries no ticket). Owner-set via app.set_match_settings; while online payments are paused (0340) only desk can be set.",
       "route": null
     },
     {
       "kind": "table",
       "ref": "table:platform_settings~2",
       "lang": "en",
-      "title": "table platform_settings (part 2 of 9)",
+      "title": "table platform_settings (part 2 of 10)",
       "body": "0207 (multi-venue slice 2, MV5). The settings that belong to the whole chain, not one branch: currency, the chain's accounting timezone for the LLM budget, the \nCreated in migration 0207.\nColumns:\n  id boolean primary key default true check (id)\n  currency char(3) not null default 'IQD'\n  timezone text not null default 'Asia/Baghdad' — 0207. The chain's day for the global LLM budget (llm_usage is keyed by date). A branch's own trading day uses venues.timezone.\n  max_live_holds_per_guest int not null default 3 — 0207 (from venue_settings, 0048/C1). How many live holds one guest may have across every branch. Global because the guest is.\n  llm_daily_request_limit int not null default 200 — 0207 (from venue_settings, 0079). Requests per chain day; 0 turns every LLM surface off.",
       "route": null
     },
@@ -12773,7 +12829,7 @@
       "kind": "table",
       "ref": "table:platform_settings~3",
       "lang": "en",
-      "title": "table platform_settings (part 3 of 9)",
+      "title": "table platform_settings (part 3 of 10)",
       "body": "0207 (multi-venue slice 2, MV5). The settings that belong to the whole chain, not one branch: currency, the chain's accounting timezone for the LLM budget, the \n  llm_daily_request_limit int not null default 200 — 0207 (from venue_settings, 0079). Requests per chain day; 0 turns every LLM surface off.\n  llm_monthly_cost_cap_micros bigint not null default 20000000 — 0207 (from venue_settings, 0079). USD micros per calendar month (chain timezone).\n  llm_cost_micros_per_mtok bigint not null default 500000 — 0207 (from venue_settings, 0079). Blended fallback rate for a model absent from llm_pricing.",
       "route": null
     },
@@ -12781,7 +12837,7 @@
       "kind": "table",
       "ref": "table:platform_settings~4",
       "lang": "en",
-      "title": "table platform_settings (part 4 of 9)",
+      "title": "table platform_settings (part 4 of 10)",
       "body": "0207 (multi-venue slice 2, MV5). The settings that belong to the whole chain, not one branch: currency, the chain's accounting timezone for the LLM budget, the \n  llm_cost_micros_per_mtok bigint not null default 500000 — 0207 (from venue_settings, 0079). Blended fallback rate for a model absent from llm_pricing.\n  llm_pricing jsonb not null default '{}'::jsonb — 0207 (from venue_settings, 0111), 0312. Model -> four rates in USD micros per 1,000,000 tokens. Since 0312 exactly claude-opus-5-5 and claude-sonnet-5-5.\n  llm_default_model text not null default 'claude-opus-5' — 0207 (from venue_settings, 0140), 0312. The model a new assistant chat uses: claude-opus-5-5 or claude-sonnet-5-5 (CHECK), and a key of llm_pricing.\n  updated_at timestamptz not null default now()",
       "route": null
     },
@@ -12789,7 +12845,7 @@
       "kind": "table",
       "ref": "table:platform_settings~5",
       "lang": "en",
-      "title": "table platform_settings (part 5 of 9)",
+      "title": "table platform_settings (part 5 of 10)",
       "body": "0207 (multi-venue slice 2, MV5). The settings that belong to the whole chain, not one branch: currency, the chain's accounting timezone for the LLM budget, the \n  updated_at timestamptz not null default now()\n  hold_strikes_since timestamptz — 0252: holds taken from this moment on count toward the hold ladder (app.hold_strike_apply). NULL switches the ladder off. Set to the migration time so no hold taken before the rule counts.\n  match_ticket_price_iqd bigint not null default 10000 — 0257. The price of one open-match ticket, chain-wide (OM-46): 1,000..1,000,000 IQD in steps of 250, default 10,000. A change applies to purchases after it, never to tickets already bought (DF-21). Owner-set via app.set_match_settings.",
       "route": null
     },
@@ -12797,7 +12853,7 @@
       "kind": "table",
       "ref": "table:platform_settings~6",
       "lang": "en",
-      "title": "table platform_settings (part 6 of 9)",
+      "title": "table platform_settings (part 6 of 10)",
       "body": "0207 (multi-venue slice 2, MV5). The settings that belong to the whole chain, not one branch: currency, the chain's accounting timezone for the LLM budget, the \n  max_filling_matches_per_guest int not null default 3 — 0257. How many filling open matches one guest may be in at once, chain-wide (OM-37), 1..10, default 3. Owner-set via app.set_match_settings.\n  match_terms_version text — 0257. The oldest accepted terms version that allows open matches (the 0153 format); NULL = any accepted version. Set by migration only, after a build carrying that CURRENT_TERMS_VERSION is on phones.",
       "route": null
     },
@@ -12805,7 +12861,7 @@
       "kind": "table",
       "ref": "table:platform_settings~7",
       "lang": "en",
-      "title": "table platform_settings (part 7 of 9)",
+      "title": "table platform_settings (part 7 of 10)",
       "body": "0207 (multi-venue slice 2, MV5). The settings that belong to the whole chain, not one branch: currency, the chain's accounting timezone for the LLM budget, the \n  lesson_terms_version text — 0277. The oldest accepted terms version (the 0153 format) whose Terms and Privacy carry the lessons section (R50). NULL (the default) = none is live yet: online lesson payment cannot be switched on (ONLINE_PAYMENT_OFF detail terms) and the online booking paths answer TERMS_REQUIRED; desk-paid lessons run. Set by migration only, once a build carrying that CURRENT_TERMS_VERSION is on phones (the match_terms_version precedent).",
       "route": null
     },
@@ -12813,7 +12869,7 @@
       "kind": "table",
       "ref": "table:platform_settings~8",
       "lang": "en",
-      "title": "table platform_settings (part 8 of 9)",
+      "title": "table platform_settings (part 8 of 10)",
       "body": "0207 (multi-venue slice 2, MV5). The settings that belong to the whole chain, not one branch: currency, the chain's accounting timezone for the LLM budget, the \n  llm_web_search_micros bigint not null default 10000 — 0324. USD micros one assistant web search costs (Anthropic: $10 per 1,000 searches = 10000). Read by app.llm_record_web_search for the spend cap and by assistant-chat for the per-call meter.",
       "route": null
     },
@@ -12821,7 +12877,7 @@
       "kind": "table",
       "ref": "table:platform_settings~9",
       "lang": "en",
-      "title": "table platform_settings (part 9 of 9)",
+      "title": "table platform_settings (part 9 of 10)",
       "body": "0207 (multi-venue slice 2, MV5). The settings that belong to the whole chain, not one branch: currency, the chain's accounting timezone for the LLM budget, the \n  online_payments_live boolean not null default false — 0340. Lock on online deposits, online lesson payment and open matches. No RPC or UI sets it; only a migration flips it, when the Qi provider is live. While false, set_deposit_settings refuses a mode other than off, set_coaching_settings refuses an online lesson_payment_mode and set_match_settings refuses matches_enabled = true (ONLINE_PAYMENTS_PAUSED).",
       "route": null
     },
@@ -18775,6 +18831,14 @@
       "lang": "en",
       "title": "platform_settings.llm_web_search_micros",
       "body": "bigint not null default 10000\n0324. USD micros one assistant web search costs (Anthropic: $10 per 1,000 searches = 10000). Read by app.llm_record_web_search for the spend cap and by assistant-chat for the per-call meter.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:platform_settings.match_payment_mode",
+      "lang": "en",
+      "title": "platform_settings.match_payment_mode",
+      "body": "text not null default 'tickets'\n0370. How a seat in an open match is paid: tickets (prepaid online, default) or desk (the desk collects the seat's share on arrival; a player's seat then carries no ticket). Owner-set via app.set_match_settings; while online payments are paused (0340) only desk can be set.",
       "route": null
     },
     {
@@ -25566,7 +25630,7 @@
       "ref": "label:ws.analytics.heatmap",
       "lang": "ar",
       "title": "ws.analytics.heatmap (packages/i18n/src/catalogs/ws/analytics.ar.ts)",
-      "body": "hint: مرّر المؤشر فوق خلية لقراءة قيمتها.\nclosed: مغلق\nofPeak: {pct} من الخلية الأكثر ازدحامًا\ncells: خلية\nless: أقل\nmore: أكثر",
+      "body": "hint: مرّر المؤشر فوق خلية لقراءة قيمتها.\nclosed: مغلق\nofPeak: {pct} من الخلية الأكثر ازدحامًا\ncells: خلية\nless: أقل\nmore: أكثر\nview: العرض\nviewSquares: المربعات\nviewCharts: المخططات\nbyHour: كل ساعة، عبر كل الأيام\nbyDay: كل يوم، عبر كل الساعات",
       "route": "/analytics"
     },
     {
@@ -25574,7 +25638,7 @@
       "ref": "label:ws.analytics.heatmap",
       "lang": "en",
       "title": "ws.analytics.heatmap (packages/i18n/src/catalogs/ws/analytics.en.ts)",
-      "body": "hint: Hover a cell for its value\nclosed: Closed\nofPeak: {pct} of the busiest cell\ncells: cells\nless: Less\nmore: More",
+      "body": "hint: Hover a cell for its value\nclosed: Closed\nofPeak: {pct} of the busiest cell\ncells: cells\nless: Less\nmore: More\nview: View\nviewSquares: Squares\nviewCharts: Charts\nbyHour: Each hour, across every day\nbyDay: Each weekday, across every hour",
       "route": "/analytics"
     },
     {
@@ -33747,6 +33811,22 @@
     },
     {
       "kind": "label",
+      "ref": "label:ws.matches.list",
+      "lang": "ar",
+      "title": "ws.matches.list (packages/i18n/src/catalogs/ws/matchesDesk.ar.ts)",
+      "body": "title: المباريات المفتوحة\nlead: المباريات التي بدأها اللاعبون من التطبيق، يومًا بيوم. افتح مباراة لترى لاعبيها وتستلم حصصهم عند الاستقبال.\npreviousDay: اليوم السابق\nnextDay: اليوم التالي\nbackToToday: اليوم\nstartOnCalendar: ابدأ مباراة من التقويم\noffTitle: المباريات المفتوحة متوقفة\noffBody: فعّلها من إعدادات الملاعب ليبدأ اللاعبون المباريات وينضموا إليها من التطبيق.\noffAction: افتح الإعدادات",
+      "route": "/desk"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.matches.list",
+      "lang": "en",
+      "title": "ws.matches.list (packages/i18n/src/catalogs/ws/matchesDesk.en.ts)",
+      "body": "title: Open matches\nlead: The matches players have started in the app, one day at a time. Open one to see its players and take their share at the desk.\npreviousDay: Previous day\nnextDay: Next day\nbackToToday: Today\nstartOnCalendar: Start one on the calendar\noffTitle: Open matches are not running\noffBody: Switch them on in Court settings to let players start and join matches in the app.\noffAction: Open the rules",
+      "route": "/desk"
+    },
+    {
+      "kind": "label",
       "ref": "label:ws.matches.offline",
       "lang": "ar",
       "title": "ws.matches.offline (packages/i18n/src/catalogs/ws/matches.ar.ts)",
@@ -33926,7 +34006,7 @@
       "ref": "label:ws.matches.settings",
       "lang": "ar",
       "title": "ws.matches.settings (packages/i18n/src/catalogs/ws/matchesAdmin.ar.ts) (part 1 of 2)",
-      "body": "title: المباريات المفتوحة\nlead: يجد اللاعبون المباريات المفتوحة ويبدؤونها وينضمون إليها من التطبيق. تحدّد هذه الإعدادات متى يمكن بدء المباراة وسعر التذكرة.\nthisBranch: هذا الفرع\nallBranches: كل الفروع\nallLead: يسري تغيير هذه الإعدادات على كل الفروع.\nownerOnly: يغيّر هذه الإعدادات المالك فقط.\nenabled: المباريات المفتوحة في هذا الفرع\non: مفعّلة\noff: متوقفة\nonHint: يمكن للاعبين بدء المباريات المفتوحة هنا والانضمام إليها.\noffHint: لا يمكن بدء مباراة مفتوحة جديدة هنا ولا انضمام لاعبين جدد، وتستمر المباريات التي بدأت.\ndeadline: مهلة الاكتمال\nprice: سعر التذكرة\npriceHint: تحتفظ التذاكر المشتراة بسعرها، ويُردّ عند الاسترداد المبلغ المدفوع.\nmaxFilling: المباريات غير المكتملة لكل لاعب\nmaxFillingHint: عدد المباريات غير المكتملة المسموح للاعب الواحد في وقت واحد.\niqd: دينار",
+      "body": "title: المباريات المفتوحة\nlead: يجد اللاعبون المباريات المفتوحة ويبدؤونها وينضمون إليها من التطبيق. تحدّد هذه الإعدادات متى يمكن بدء المباراة وسعر التذكرة.\nthisBranch: هذا الفرع\nallBranches: كل الفروع\nallLead: يسري تغيير هذه الإعدادات على كل الفروع.\nownerOnly: يغيّر هذه الإعدادات المالك فقط.\nenabled: المباريات المفتوحة في هذا الفرع\non: مفعّلة\noff: متوقفة\nonHint: يمكن للاعبين بدء المباريات المفتوحة هنا والانضمام إليها.\noffHint: لا يمكن بدء مباراة مفتوحة جديدة هنا ولا انضمام لاعبين جدد، وتستمر المباريات التي بدأت.\ndeadline: مهلة الاكتمال\npayAtDesk: يدفع اللاعبون عند الاستقبال\npayAtDeskHint: ينضم اللاعبون مجانًا من التطبيق، ويستلم الاستقبال حصة كل مقعد عند وصولهم. لا تُباع تذاكر.",
       "route": "/admin/settings"
     },
     {
@@ -33934,7 +34014,7 @@
       "ref": "label:ws.matches.settings",
       "lang": "en",
       "title": "ws.matches.settings (packages/i18n/src/catalogs/ws/matchesAdmin.en.ts) (part 1 of 2)",
-      "body": "title: Open matches\nlead: Players find, start and join open matches in the app. These rules decide when a match can start and what a ticket costs.\nthisBranch: This branch\nallBranches: All branches\nallLead: Changing these changes them at every branch.\nownerOnly: Only the owner can change these.\nenabled: Open matches at this branch\non: On\noff: Off\nonHint: Players can start open matches here and join them.\noffHint: Nobody can start a new open match here and no new players can join. Matches already started carry on.\ndeadline: Fill deadline\nprice: Ticket price\npriceHint: Tickets already bought keep the price paid; a cash-out returns what was paid.\nmaxFilling: Filling matches per player\nmaxFillingHint: How many open matches one player can have filling at once.\niqd: IQD",
+      "body": "title: Open matches\nlead: Players find, start and join open matches in the app. These rules decide when a match can start and what a ticket costs.\nthisBranch: This branch\nallBranches: All branches\nallLead: Changing these changes them at every branch.\nownerOnly: Only the owner can change these.\nenabled: Open matches at this branch\non: On\noff: Off\nonHint: Players can start open matches here and join them.\noffHint: Nobody can start a new open match here and no new players can join. Matches already started carry on.\ndeadline: Fill deadline\npayAtDesk: Players pay at the desk\npayAtDeskHint: Players join free in the app and the desk collects each seat’s share when they arrive. No tickets are sold.",
       "route": "/admin/settings"
     },
     {
@@ -33942,7 +34022,7 @@
       "ref": "label:ws.matches.settings~2",
       "lang": "ar",
       "title": "ws.matches.settings (packages/i18n/src/catalogs/ws/matchesAdmin.ar.ts) (part 2 of 2)",
-      "body": "title: المباريات المفتوحة\nmaxFilling: المباريات غير المكتملة لكل لاعب\nmaxFillingHint: عدد المباريات غير المكتملة المسموح للاعب الواحد في وقت واحد.\niqd: دينار\nmatchesUnit: مباريات\nsave: حفظ إعدادات المباريات المفتوحة\nsaved: حُفظت إعدادات المباريات المفتوحة.\nappliesNow: تسري التغييرات فور حفظها.\nerrors.step: يلزم أن يكون المبلغ من مضاعفات 250.\nerrors.refused: لم يقبل الخادم هذه القيمة.",
+      "body": "title: المباريات المفتوحة\ndeadline: مهلة الاكتمال\npayAtDesk: يدفع اللاعبون عند الاستقبال\npayAtDeskHint: ينضم اللاعبون مجانًا من التطبيق، ويستلم الاستقبال حصة كل مقعد عند وصولهم. لا تُباع تذاكر.\npayAtDeskLocked: التذاكر تحتاج إلى الدفع عبر الإنترنت وهو غير مفعّل بعد، لذلك تُدفع المقاعد عند الاستقبال.\nprice: سعر التذكرة\npriceHint: تحتفظ التذاكر المشتراة بسعرها، ويُردّ عند الاسترداد المبلغ المدفوع.\nmaxFilling: المباريات غير المكتملة لكل لاعب\nmaxFillingHint: عدد المباريات غير المكتملة المسموح للاعب الواحد في وقت واحد.\niqd: دينار\nmatchesUnit: مباريات\nsave: حفظ إعدادات المباريات المفتوحة\nsaved: حُفظت إعدادات المباريات المفتوحة.\nappliesNow: تسري التغييرات فور حفظها.\nerrors.step: يلزم أن يكون المبلغ من مضاعفات 250.\nerrors.refused: لم يقبل الخادم هذه القيمة.",
       "route": "/admin/settings"
     },
     {
@@ -33950,7 +34030,7 @@
       "ref": "label:ws.matches.settings~2",
       "lang": "en",
       "title": "ws.matches.settings (packages/i18n/src/catalogs/ws/matchesAdmin.en.ts) (part 2 of 2)",
-      "body": "title: Open matches\nmaxFilling: Filling matches per player\nmaxFillingHint: How many open matches one player can have filling at once.\niqd: IQD\nmatchesUnit: matches\nsave: Save open-match rules\nsaved: Open-match rules saved.\nappliesNow: Changes apply as soon as they are saved.\nerrors.step: Use a multiple of 250.\nerrors.refused: The server did not accept this value.",
+      "body": "title: Open matches\ndeadline: Fill deadline\npayAtDesk: Players pay at the desk\npayAtDeskHint: Players join free in the app and the desk collects each seat’s share when they arrive. No tickets are sold.\npayAtDeskLocked: Tickets need online payment, which is not connected yet, so seats are paid at the desk.\nprice: Ticket price\npriceHint: Tickets already bought keep the price paid; a cash-out returns what was paid.\nmaxFilling: Filling matches per player\nmaxFillingHint: How many open matches one player can have filling at once.\niqd: IQD\nmatchesUnit: matches\nsave: Save open-match rules\nsaved: Open-match rules saved.\nappliesNow: Changes apply as soon as they are saved.\nerrors.step: Use a multiple of 250.\nerrors.refused: The server did not accept this value.",
       "route": "/admin/settings"
     },
     {
@@ -33974,7 +34054,7 @@
       "ref": "label:ws.matches.start~2",
       "lang": "ar",
       "title": "ws.matches.start (packages/i18n/src/catalogs/ws/matchesDesk.ar.ts) (part 2 of 3)",
-      "body": "title: بدء مباراة مفتوحة\nsubmit: بدء المباراة\nstartedToast: بدأت المباراة المفتوحة. يمكن مشاركة الرابط أو إضافة لاعبين.\nstartedPriceToast: بدأت المباراة المفتوحة. سعر الملعب الآن {price}، وحصة كل لاعب {share}.\nslotFull: في هذا الموعد مباريات مفتوحة قيد الاكتمال:\nwizard.stepOrganiser: المنظّم\nwizard.stepWhoPlays: مَن يلعب\nwizard.stepWhen: الملعب والوقت\nwizard.openBody: يمكن لأي شخص أن يشغل مقعدًا.\nwizard.womenBody: جميع اللاعبات سيدات.\nwizard.menBody: جميع اللاعبين رجال.\nwizard.whenNote: {time} · {duration}\nwizard.priceFigure: الملعب {price} · حصة كل لاعب {share}\nwizard.priceLine: تُدفع في الاستقبال. من ينضم عبر التطبيق يستخدم تذكرة واحدة، ولا يحتاج لاعبو الاستقبال إلى تذاكر.\nwizard.reviewOrganiser: المنظّم\nwizard.reviewCategory: الفئة\nwizard.reviewJoin: الانضمام",
+      "body": "title: بدء مباراة مفتوحة\nsubmit: بدء المباراة\nstartedToast: بدأت المباراة المفتوحة. يمكن مشاركة الرابط أو إضافة لاعبين.\nstartedPriceToast: بدأت المباراة المفتوحة. سعر الملعب الآن {price}، وحصة كل لاعب {share}.\nslotFull: في هذا الموعد مباريات مفتوحة قيد الاكتمال:\nwizard.stepOrganiser: المنظّم\nwizard.stepWhoPlays: مَن يلعب\nwizard.stepWhen: الملعب والوقت\nwizard.openBody: يمكن لأي شخص أن يشغل مقعدًا.\nwizard.womenBody: جميع اللاعبات سيدات.\nwizard.menBody: جميع اللاعبين رجال.\nwizard.whenNote: {time} · {duration}\nwizard.priceFigure: الملعب {price} · حصة كل لاعب {share}\nwizard.priceLine: تُدفع في الاستقبال. من ينضم عبر التطبيق يستخدم تذكرة واحدة، ولا يحتاج لاعبو الاستقبال إلى تذاكر.\nwizard.priceLineDesk: عند الاستقبال. لا يحتاج أحد إلى تذكرة: يدفع كل لاعب حصته عند الاستقبال.",
       "route": "/desk"
     },
     {
@@ -33982,7 +34062,7 @@
       "ref": "label:ws.matches.start~2",
       "lang": "en",
       "title": "ws.matches.start (packages/i18n/src/catalogs/ws/matchesDesk.en.ts) (part 2 of 3)",
-      "body": "title: Start an open match\nsubmit: Start match\nstartedToast: Open match started. Share the link or add players.\nstartedPriceToast: Open match started. The court price is now {price}; each player pays {share}.\nslotFull: These open matches are already filling at that time:\nwizard.stepOrganiser: Organiser\nwizard.stepWhoPlays: Who plays\nwizard.stepWhen: Court & time\nwizard.openBody: Anyone can take a seat.\nwizard.womenBody: Every player is a woman.\nwizard.menBody: Every player is a man.\nwizard.whenNote: {time} · {duration}\nwizard.priceFigure: Court {price} · each player pays {share}\nwizard.priceLine: At the desk. Players who join in the app use one ticket each; desk players need none.\nwizard.reviewOrganiser: Organiser\nwizard.reviewCategory: Category\nwizard.reviewJoin: Join",
+      "body": "title: Start an open match\nsubmit: Start match\nstartedToast: Open match started. Share the link or add players.\nstartedPriceToast: Open match started. The court price is now {price}; each player pays {share}.\nslotFull: These open matches are already filling at that time:\nwizard.stepOrganiser: Organiser\nwizard.stepWhoPlays: Who plays\nwizard.stepWhen: Court & time\nwizard.openBody: Anyone can take a seat.\nwizard.womenBody: Every player is a woman.\nwizard.menBody: Every player is a man.\nwizard.whenNote: {time} · {duration}\nwizard.priceFigure: Court {price} · each player pays {share}\nwizard.priceLine: At the desk. Players who join in the app use one ticket each; desk players need none.\nwizard.priceLineDesk: At the desk. Nobody needs a ticket: every player pays their share at the desk.",
       "route": "/desk"
     },
     {
@@ -33990,7 +34070,7 @@
       "ref": "label:ws.matches.start~3",
       "lang": "ar",
       "title": "ws.matches.start (packages/i18n/src/catalogs/ws/matchesDesk.ar.ts) (part 3 of 3)",
-      "body": "title: بدء مباراة مفتوحة\nwizard.reviewOrganiser: المنظّم\nwizard.reviewCategory: الفئة\nwizard.reviewJoin: الانضمام\nwizard.reviewFoundBy: يعثر عليها\nwizard.reviewCourt: الملعب\nwizard.reviewPrice: السعر\nwizard.courtWhen: {court} · {range}\nwizard.priceEach: {price} · {share} لكل لاعب",
+      "body": "title: بدء مباراة مفتوحة\nwizard.priceLineDesk: عند الاستقبال. لا يحتاج أحد إلى تذكرة: يدفع كل لاعب حصته عند الاستقبال.\nwizard.reviewOrganiser: المنظّم\nwizard.reviewCategory: الفئة\nwizard.reviewJoin: الانضمام\nwizard.reviewFoundBy: يعثر عليها\nwizard.reviewCourt: الملعب\nwizard.reviewPrice: السعر\nwizard.courtWhen: {court} · {range}\nwizard.priceEach: {price} · {share} لكل لاعب",
       "route": "/desk"
     },
     {
@@ -33998,7 +34078,7 @@
       "ref": "label:ws.matches.start~3",
       "lang": "en",
       "title": "ws.matches.start (packages/i18n/src/catalogs/ws/matchesDesk.en.ts) (part 3 of 3)",
-      "body": "title: Start an open match\nwizard.priceLine: At the desk. Players who join in the app use one ticket each; desk players need none.\nwizard.reviewOrganiser: Organiser\nwizard.reviewCategory: Category\nwizard.reviewJoin: Join\nwizard.reviewFoundBy: Found by\nwizard.reviewCourt: Court\nwizard.reviewPrice: Price\nwizard.courtWhen: {court} · {range}\nwizard.priceEach: {price} · {share} each",
+      "body": "title: Start an open match\nwizard.priceLineDesk: At the desk. Nobody needs a ticket: every player pays their share at the desk.\nwizard.reviewOrganiser: Organiser\nwizard.reviewCategory: Category\nwizard.reviewJoin: Join\nwizard.reviewFoundBy: Found by\nwizard.reviewCourt: Court\nwizard.reviewPrice: Price\nwizard.courtWhen: {court} · {range}\nwizard.priceEach: {price} · {share} each",
       "route": "/desk"
     },
     {
@@ -49382,7 +49462,7 @@
       "ref": "doc:docs/design/assistant/pages.md#10",
       "lang": "en",
       "title": "docs/design/assistant/pages.md › Court desk",
-      "body": "blocks nothing and lists what to move (\"Open booking\", \"Check again\"); then \"Send courts step\" submits the step with the blocks of the plan's windows and an optional note (app.submit_step). A plan sent back and moved has already given its old blocks back.",
+      "body": "en offers \"Open calendar\" and \"Block another\". Opened from a tournament's courts step (?run=&step=) it is \"Block courts for a tournament\" instead: the plan's courts and times from app.tournament_context, each \"Blocked\" or \"To block\"; \"Block N remaining\" calls app.block_courts_for_event, which blocks them all as the tournament's event or, with a booking in the way, blocks nothing and lists what to move (\"Open booking\", \"Check again\"); then \"Send courts step\" submits the step with the blocks of the plan's windows and an optional note (app.submit_step). A plan sent back and moved has already given its old blocks back.",
       "route": null
     },
     {
@@ -50262,7 +50342,7 @@
       "ref": "doc:docs/design/assistant/pages.md#9",
       "lang": "en",
       "title": "docs/design/assistant/pages.md › Court desk (part 1 of 4)",
-      "body": "a sign-up (app.desk_cancel_enrolment) and \"Add student\" (app.desk_add_student); for a manager, \"Refunds due at the desk\" (app.lesson_refunds_due) with \"Refund\" through the till's refund; then the history. Online only.\n- /desk/tournaments — The branch's tournaments for the next two months (app.desk_tournaments): when, format, players of the cap, the waitlist and status, each opening the tournament; one is published from its done protocol run (\"Publish as tournament\", app.tournament_publish). A tournament's court blocks on the calendar read \"Tournament: <name>\" and open it.",
+      "body": "a sign-up (app.desk_cancel_enrolment) and \"Add student\" (app.desk_add_student); for a manager, \"Refunds due at the desk\" (app.lesson_refunds_due) with \"Refund\" through the till's refund; then the history. Online only.\n- /desk/matches — The branch's open matches one day at a time (app.desk_open_matches), Courts › Open matches: when, category, who started it, players of four, requests and the fill deadline, each opening the match, with \"Add player\" (app.desk_add_seat). A match is started on the calendar. With open matches off it says so and links to Court settings › Open matches.",
       "route": null
     },
     {
@@ -50270,7 +50350,7 @@
       "ref": "doc:docs/design/assistant/pages.md#9~2",
       "lang": "en",
       "title": "docs/design/assistant/pages.md › Court desk (part 2 of 4)",
-      "body": "a sign-up (app.desk_cancel_enrolment) and \"Add student\" (app.desk_add_student); for a manager, \"Refunds due at the desk\" (app.lesson_refunds_due) with \"Refund\" \n- /desk/tournaments/$id — One tournament (app.desk_tournament_detail): \"Cancel the tournament\" for management (app.tournament_cancel) and its refunds due; Entries with \"Add a walk-in\" (app.tournament_add_entry), \"Take payment\" (app.tournament_settle), \"Did not show\" with or without a substitute (app.tournament_mark_no_show) and \"Remove\" (app.tournament_remove_entry); Rounds with \"Start the tournament\", \"Next round\" and \"Regenerate from round k\" (app.tournament_set_rounds) and each match's score, a correction asking why (app.tournament_score); Standings. Online only.",
+      "body": "a sign-up (app.desk_cancel_enrolment) and \"Add student\" (app.desk_add_student); for a manager, \"Refunds due at the desk\" (app.lesson_refunds_due) with \"Refund\" \n- /desk/tournaments — The branch's tournaments for the next two months (app.desk_tournaments): when, format, players of the cap, the waitlist and status, each opening the tournament; one is published from its done protocol run (\"Publish as tournament\", app.tournament_publish). A tournament's court blocks on the calendar read \"Tournament: <name>\" and open it.",
       "route": null
     },
     {
@@ -50278,7 +50358,7 @@
       "ref": "doc:docs/design/assistant/pages.md#9~3",
       "lang": "en",
       "title": "docs/design/assistant/pages.md › Court desk (part 3 of 4)",
-      "body": "a sign-up (app.desk_cancel_enrolment) and \"Add student\" (app.desk_add_student); for a manager, \"Refunds due at the desk\" (app.lesson_refunds_due) with \"Refund\" \n- /desk/series/new — The \"New series\" screen for a repeating booking; \"Check clashes\" previews every date with app.preview_series, each clash is resolved with \"Skip this date\" or \"Move to another court\", and \"Create series\" writes the plan through app.create_series.",
+      "body": "a sign-up (app.desk_cancel_enrolment) and \"Add student\" (app.desk_add_student); for a manager, \"Refunds due at the desk\" (app.lesson_refunds_due) with \"Refund\" \n- /desk/tournaments/$id — One tournament (app.desk_tournament_detail): \"Cancel the tournament\" for management (app.tournament_cancel) and its refunds due; Entries with \"Add a walk-in\" (app.tournament_add_entry), \"Take payment\" (app.tournament_settle), \"Did not show\" with or without a substitute (app.tournament_mark_no_show) and \"Remove\" (app.tournament_remove_entry); Rounds with \"Start the tournament\", \"Next round\" and \"Regenerate from round k\" (app.tournament_set_rounds) and each match's score, a correction asking why (app.tournament_score); Standings. Online only.",
       "route": null
     },
     {
@@ -50286,7 +50366,7 @@
       "ref": "doc:docs/design/assistant/pages.md#9~4",
       "lang": "en",
       "title": "docs/design/assistant/pages.md › Court desk (part 4 of 4)",
-      "body": "a sign-up (app.desk_cancel_enrolment) and \"Add student\" (app.desk_add_student); for a manager, \"Refunds due at the desk\" (app.lesson_refunds_due) with \"Refund\" \n- /desk/block — The \"Block court\" form (court, date, from, to, reason); its \"Block court\" button creates a maintenance reservation (reservation.create), shows a conflict notice when the window is already taken, then offers \"Open calendar\" and \"Block another\". Opened from a tournament's courts step (?run=&step=) it is \"Block courts for a tournament\" instead: the plan's courts and times from app.tournament_context, each \"Blocked\" or \"To block\"; \"Block N remaining\" calls app.block_courts_for_event, which blocks them all as the tournament's event or, with a booking in the way,",
+      "body": "a sign-up (app.desk_cancel_enrolment) and \"Add student\" (app.desk_add_student); for a manager, \"Refunds due at the desk\" (app.lesson_refunds_due) with \"Refund\" \n- /desk/series/new — The \"New series\" screen for a repeating booking; \"Check clashes\" previews every date with app.preview_series, each clash is resolved with \"Skip this date\" or \"Move to another court\", and \"Create series\" writes the plan through app.create_series.\n- /desk/block — The \"Block court\" form (court, date, from, to, reason); its \"Block court\" button creates a maintenance reservation (reservation.create), shows a conflict notice when the window is already taken, th",
       "route": null
     },
     {

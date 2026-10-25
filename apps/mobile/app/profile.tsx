@@ -21,7 +21,6 @@ import { Button, Card, ErrorText, Screen, SectionLabel } from '../src/components
 import { MenuRow } from '../src/components/booking';
 import { anyCoaching } from '../src/features/coaching/logic';
 import { anyTournaments } from '../src/features/tournaments/logic';
-import { tournamentsShipped } from '../src/features/tournaments/shipped';
 import { useMyRanks } from '../src/features/ranks/hooks';
 import { levelName } from '../src/features/ranks/logic';
 import { useMyLoyalty } from '../src/features/loyalty/hooks';
@@ -115,10 +114,9 @@ export default function ProfileScreen() {
   // start with no signal at the till; the card itself has its own offline copy.
   const loyalty = useMyLoyalty(!!session && !session.user.is_anonymous);
   const showLoyalty = loyaltyOn(loyalty.data);
-  // The leaderboard (0364): the guest's place and level, on their account too. Only in a build
-  // whose bar carries the Ranks tab (it stands in Play's place while tournaments are left out).
-  const ranksTab = !tournamentsShipped();
-  const ranks = useMyRanks(ranksTab && !!session && !session.user.is_anonymous);
+  // The leaderboard (0364): the guest's place and level, on their account too; the row opens
+  // Club's Ranks segment.
+  const ranks = useMyRanks(!!session && !session.user.is_anonymous);
   const myRanks = ranks.data?.enabled ? ranks.data : null;
   const toast = useToast();
   // "Show guest view" (guestPreview.ts): the way back to the staff side lived over
@@ -529,7 +527,7 @@ export default function ProfileScreen() {
                 ]
                   .filter(Boolean)
                   .join(' · ')}
-                onPress={() => router.navigate('/ranks')}
+                onPress={() => downToTab({ pathname: '/club', params: { show: 'ranks' } })}
               />
             ) : null}
             {tournaments ? (

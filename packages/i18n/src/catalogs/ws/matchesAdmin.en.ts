@@ -120,6 +120,9 @@ export const matchesAdminEn = {
     deadline: 'Fill deadline',
     deadlineHint:
       'A match not full this long before it starts is cancelled, and its tickets go back. A match can only be started for a time at least this long, plus one hour, from now.',
+    payAtDesk: 'Players pay at the desk',
+    payAtDeskHint: 'Players join free in the app and the desk collects each seat’s share when they arrive. No tickets are sold.',
+    payAtDeskLocked: 'Tickets need online payment, which is not connected yet, so seats are paid at the desk.',
     price: 'Ticket price',
     priceHint: 'Tickets already bought keep the price paid; a cash-out returns what was paid.',
     maxFilling: 'Filling matches per player',

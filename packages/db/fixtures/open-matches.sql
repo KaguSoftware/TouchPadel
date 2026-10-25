@@ -3,9 +3,12 @@
 -- Reserved fixture UUID prefix 'f1f7' (see courts.sql / packages/db/README.md).
 -- Suffix namespace: open matches 00000000f0**.
 --
--- Content: open matches switched on at the main branch, seven guests who may
--- play (phone, current terms, gender), paid tickets for each, and six upcoming
--- matches in the states a tester wants to see. Every match is made through the
+-- Content: open matches switched on at the main branch with seats paid at the
+-- desk (platform_settings.match_payment_mode = 'desk', 0370: no ticket, no
+-- online payment), seven guests who may play (phone, current terms, gender),
+-- and six upcoming matches in the states a tester wants to see. Set the mode
+-- back to 'tickets' first (with online payments live) to test the prepaid
+-- model: the guests below are then topped up with paid tickets. Every match is made through the
 -- RPCs the phone and the desk call, with auth.uid() set the way PostgREST sets
 -- it, so every guard, trigger, ticket move and push row is the real one.
 --
@@ -43,6 +46,7 @@ begin;
 -- ---------------------------------------------------------------------------
 -- Settings: matches on at the main branch.
 -- ---------------------------------------------------------------------------
+update platform_settings set match_payment_mode = 'desk' where id;
 update venue_settings set matches_enabled = true
  where venue_id = 'c0000000-0000-4000-8000-000000000001';
 
@@ -94,7 +98,8 @@ update profiles p
 
 -- ---------------------------------------------------------------------------
 -- Tickets: each guest topped up to their count of AVAILABLE tickets, one paid
--- one-ticket purchase each (the shape the fake bank leaves behind).
+-- one-ticket purchase each (the shape the fake bank leaves behind). Only when
+-- seats are NOT paid at the desk; in desk mode nobody holds or needs a ticket.
 -- ---------------------------------------------------------------------------
 do $om_tickets$
 declare
@@ -104,6 +109,9 @@ declare
   v_pay   uuid;
   v_t     uuid;
 begin
+  if app.match_pay_at_desk() then
+    return;
+  end if;
   for g in select * from om_guests loop
     select count(*) into v_have from match_tickets t where t.guest_id = g.id and t.status = 'available';
     for i in 1 .. greatest(g.tickets - v_have, 0) loop

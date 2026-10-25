@@ -15,7 +15,8 @@ import { renderRoute } from '../test/smoke';
 import { routerState } from '../test/routerState';
 import { ranksKeys } from '../features/ranks/keys';
 import { parseBoard, parseMyRanks } from '../features/ranks/logic';
-import RanksScreen from '../../app/(tabs)/ranks';
+import ClubScreen from '../../app/(tabs)/club';
+import { RanksView } from '../features/ranks/RanksView';
 import RanksReportScreen from '../../app/ranks-report';
 
 type Seeds = [readonly unknown[], unknown][];
@@ -107,14 +108,10 @@ const reportParams = {
   courtAr: 'الملعب 2',
 };
 
+// The leaderboard is a segment of Club (2026-10-25); its view is rendered bare here.
+const RanksScreen = () => <RanksView bottomPad={0} />;
+
 const CASES: SmokeCase[] = [
-  {
-    route: 'ranks',
-    Component: RanksScreen,
-    // The podium is drawn, not labelled: the guest's own place under it is the line to find.
-    nearbyKey: 'ranks.me.place',
-    options: { session: 'in', queryData: signedInSeeds() },
-  },
   {
     route: 'ranks-report',
     Component: RanksReportScreen,
@@ -124,6 +121,27 @@ const CASES: SmokeCase[] = [
 ];
 
 runSmokeCases('the leaderboard', CASES);
+
+describe.each<Locale>(['en', 'ar'])('Club carries the leaderboard in %s', (locale) => {
+  const t = makeT(locale);
+
+  it('offers Ranks between the member card and the café menu, and opens it on a show=ranks', () => {
+    const screen = renderRoute(ClubScreen, {
+      locale,
+      session: 'in',
+      params: { show: 'ranks' },
+      queryData: signedInSeeds(),
+    });
+    try {
+      const labels = [t('loyalty.guest.card.title'), t('tabs.ranks'), t('profile.cafeMenu')];
+      const view = screen.getByTestId('club.view');
+      for (const label of labels) expect(within(view).getByText(label)).toBeTruthy();
+      expect(screen.getByTestId('ranks.podium')).toBeTruthy();
+    } finally {
+      screen.unmount();
+    }
+  });
+});
 
 // ── The states a first render cannot show under the primary ─────────────────
 

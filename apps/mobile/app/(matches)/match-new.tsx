@@ -20,6 +20,7 @@ import { requestBookingSheet } from '../../src/features/courtTransition/openInte
 import { useOwnConsent, useOwnProfile } from '../../src/features/profile/hooks';
 import {
   useMatchQuote,
+  useMatchPayAtDesk,
   useMyTickets,
   useStartMatch,
 } from '../../src/features/matches/hooks';
@@ -110,6 +111,7 @@ function MatchNewScreen() {
 
   const quote = useMatchQuote(args);
   const wallet = useMyTickets();
+  const payAtDesk = useMatchPayAtDesk();
   const settings = useVenueSettings(venueId);
   const branches = useBranches();
   const uid = session && !session.user.is_anonymous ? session.user.id : null;
@@ -157,7 +159,7 @@ function MatchNewScreen() {
   const refusal = q?.refusal && q.refusal !== 'GENDER_REQUIRED' ? q.refusal : null;
   const off = !!q && !q.enabled && !refusal;
   const available = wallet.data?.available ?? q?.ticketsAvailable ?? 0;
-  const missing = wallet.data || q ? missingTickets(available, seats) : 0;
+  const missing = !payAtDesk && (wallet.data || q) ? missingTickets(available, seats) : 0;
   const needsDeclaration = needsFriendsDeclaration(category, seats);
   const friends = friendsFor(category, seats);
   const money = (n: number) => isolate(formatIQD(n, locale));
@@ -463,10 +465,12 @@ function MatchNewScreen() {
             </Text>
           ) : null}
           <Text style={{ ...body, marginTop: 4 }}>
-            {t('matches.create.wallet', {
-              use: countPhrase('matches.count.ticketsUse', seats, locale),
-              ready: countPhrase('matches.count.ticketsReady', available, locale),
-            })}
+            {payAtDesk
+              ? t('matches.create.payAtDesk')
+              : t('matches.create.wallet', {
+                  use: countPhrase('matches.count.ticketsUse', seats, locale),
+                  ready: countPhrase('matches.count.ticketsReady', available, locale),
+                })}
           </Text>
         </Card>
 

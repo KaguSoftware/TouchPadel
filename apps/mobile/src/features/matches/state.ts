@@ -398,7 +398,7 @@ export type ActionCard =
  */
 export function actionCardOf(
   detail: MatchDetail,
-  opts: { genderUnset: boolean; nowMs: number },
+  opts: { genderUnset: boolean; nowMs: number; payAtDesk?: boolean },
 ): ActionCard {
   const me = detail.me;
   if (me.excluded) return { kind: 'excluded' };
@@ -415,7 +415,7 @@ export function actionCardOf(
   if (me.can.join || me.can.request) {
     if (opts.genderUnset || me.refusal === 'GENDER_REQUIRED') return { kind: 'gender' };
     const mode = me.can.join ? 'join' : 'ask';
-    const missing = Math.min(3, Math.max(0, me.ticketsNeeded, 1 - me.ticketsAvailable));
+    const missing = opts.payAtDesk ? 0 : Math.min(3, Math.max(0, me.ticketsNeeded, 1 - me.ticketsAvailable));
     if (missing > 0) return { kind: 'buy', mode, missing, maxSeats };
     return mode === 'join' ? { kind: 'join', maxSeats } : { kind: 'ask', maxSeats };
   }

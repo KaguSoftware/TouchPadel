@@ -49,6 +49,7 @@ type Settings = {
   match_ticket_price_iqd: number;
   max_filling_matches_per_guest: number;
   match_terms_version: string | null;
+  match_payment_mode: 'tickets' | 'desk';
 };
 
 describe.skipIf(!up)('0257 open-match settings', () => {
@@ -102,6 +103,7 @@ describe.skipIf(!up)('0257 open-match settings', () => {
       match_ticket_price_iqd: 10000,
       max_filling_matches_per_guest: 3,
       match_terms_version: null,
+      match_payment_mode: 'tickets',
     });
   });
 

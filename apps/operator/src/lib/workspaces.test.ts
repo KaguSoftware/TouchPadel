@@ -501,7 +501,7 @@ describe('families (management rebuild, 2026-10-17)', () => {
   it('prints one short row per job in each section, with no dropdowns', () => {
     const rows = (key: string) => printed(section(key), 'owner').map((i) => i.labelKey);
     expect(rows('money')).toEqual(['reports', 'cash', 'pay']);
-    expect(rows('courts')).toEqual(['bookings', 'tournaments', 'coaches', 'courtSettings']);
+    expect(rows('courts')).toEqual(['bookings', 'tournaments', 'openMatches', 'coaches', 'courtSettings']);
     expect(rows('cafe')).toEqual(['tills', 'menu', 'tables', 'shop']);
     expect(rows('stock')).toEqual(['onHand', 'stockMovement', 'stockCounting', 'stockCosts']);
     expect(rows('team')).toEqual(['staff', 'staffActivity', 'attendance', 'fromTeam', 'protocols']);
@@ -584,12 +584,10 @@ describe('families (management rebuild, 2026-10-17)', () => {
     expect(rowTarget(rowNamed('settings', 'audit'), () => true).to).toBe('/admin/audit');
   });
 
-  it('keeps online deposits and open matches behind the online-payments condition', () => {
+  it('keeps online deposits behind the online-payments condition and open matches behind theirs (0370: desk payment is enough)', () => {
     const courts = rowNamed('courts', 'courtSettings').tabs!;
-    expect(courts.filter((t) => t.when === 'onlinePaymentsLive').map((t) => t.to)).toEqual([
-      '/admin/settings/deposit',
-      '/admin/settings/matches',
-    ]);
+    expect(courts.filter((t) => t.when === 'onlinePaymentsLive').map((t) => t.to)).toEqual(['/admin/settings/deposit']);
+    expect(courts.filter((t) => t.when === 'openMatches').map((t) => t.to)).toEqual(['/admin/settings/matches']);
   });
 
   it('keeps the owner-only settings pages the owner’s', () => {

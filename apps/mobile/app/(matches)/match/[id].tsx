@@ -34,6 +34,7 @@ import {
   useJoinMatch,
   useLeaveMatch,
   useMatch,
+  useMatchPayAtDesk,
   useMyTickets,
   usePostMatchMessage,
   useRemovePlayer,
@@ -164,6 +165,7 @@ function MatchDetailScreen() {
   const branches = useBranches();
   const courts = useAllCourts();
   const wallet = useMyTickets();
+  const payAtDesk = useMatchPayAtDesk();
   const profile = useOwnProfile(!!session);
   const uid = session && !session.user.is_anonymous ? session.user.id : null;
   const consent = useOwnConsent(uid);
@@ -345,7 +347,7 @@ function MatchDetailScreen() {
   const live = d.status !== null && LIVE_MATCH_STATUSES.includes(d.status);
   const court = d.courtId ? courts.data?.find((c) => c.id === d.courtId) : null;
   const courtName = court ? pickLocale({ en: court.name_en, ar: court.name_ar }, locale) : null;
-  const card = actionCardOf(d, { genderUnset, nowMs });
+  const card = actionCardOf(d, { genderUnset, nowMs, payAtDesk });
   // The seats the card shows, and so the seats every write sends: a poll that
   // lowers seats_left under the picked count clamps it (the stepper and the
   // friends' declaration answer this count, OM-39).
@@ -448,7 +450,7 @@ function MatchDetailScreen() {
   const onJoin = (kind: 'join' | 'request') => {
     setActionError(null);
     if (verifyFirst()) return;
-    const missing = missingTickets(available, pickedSeats);
+    const missing = payAtDesk ? 0 : missingTickets(available, pickedSeats);
     if (missing > 0) {
       buyThen(kind, missing);
       return;
@@ -732,9 +734,11 @@ function MatchDetailScreen() {
         return (
           <>
             <Text style={lead}>
-              {t(byCategory(cat, 'matches.detail.requested'), {
-                tickets: countPhrase('matches.count.tickets', card.tickets, locale),
-              })}
+              {payAtDesk
+                ? t(byCategory(cat, 'matches.detail.requestedDesk'))
+                : t(byCategory(cat, 'matches.detail.requested'), {
+                    tickets: countPhrase('matches.count.tickets', card.tickets, locale),
+                  })}
             </Text>
             {me.can.withdraw ? (
               <Button
@@ -841,8 +845,9 @@ function MatchDetailScreen() {
             card.kind === 'join' || (card.kind === 'buy' && card.mode === 'join')
               ? ('join' as const)
               : ('request' as const),
-          missing:
-            card.kind === 'buy'
+          missing: payAtDesk
+            ? 0
+            : card.kind === 'buy'
               ? Math.max(card.missing, missingTickets(available, pickedSeats))
               : missingTickets(available, pickedSeats),
         }
@@ -885,11 +890,13 @@ function MatchDetailScreen() {
                     ready: countPhrase('matches.count.ticketsReady', available, locale),
                   })
                 : t('matches.detail.youHaveNone')
-              : joinPlan.kind === 'join'
-                ? countPhrase('matches.count.ticketsUse', pickedSeats, locale)
-                : t(byCategory(cat, 'matches.detail.askCaption'), {
-                    tickets: countPhrase('matches.count.ticketsGen', pickedSeats, locale),
-                  })}
+              : payAtDesk
+                ? t(joinPlan.kind === 'join' ? 'matches.detail.payAtDesk' : 'matches.detail.askPayAtDesk')
+                : joinPlan.kind === 'join'
+                  ? countPhrase('matches.count.ticketsUse', pickedSeats, locale)
+                  : t(byCategory(cat, 'matches.detail.askCaption'), {
+                      tickets: countPhrase('matches.count.ticketsGen', pickedSeats, locale),
+                    })}
           </Text>
         </View>
         {joinPlan.missing > 0 ? (

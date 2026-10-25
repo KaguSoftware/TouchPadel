@@ -18,7 +18,7 @@ import { keepPreviousData, useQuery, type QueryClient, type UseQueryResult } fro
 import { appRpc, isRpcMissing } from '../../lib/appRpc';
 import { can, useAuth } from '../../lib/auth';
 import { QK, invalidateReservations } from '../../lib/queryKeys';
-import { useOnlinePaymentsLive } from '../deposits/useOnlinePaymentsLive';
+import { useOpenMatchesOn } from './useOpenMatchesOn';
 import { useBroadcast } from '../../lib/realtime';
 import { useStationReach } from '../../lib/stationReach';
 import { isMatchLiteral, matchReadStatus, type MatchCaps, type MatchReadStatus } from './matchLogic';
@@ -68,12 +68,12 @@ export function useOpenMatches(
 ): UseQueryResult<OpenMatches | null> {
   const fromIso = dayStart?.toISOString() ?? '';
   const toIso = dayEnd?.toISOString() ?? '';
-  const onlineLive = useOnlinePaymentsLive();
+  const onlineLive = useOpenMatchesOn();
   return useQuery({
     queryKey: QK.deskMatches.open(fromIso, toIso),
     enabled: enabled && fromIso !== '' && toIso !== '',
     queryFn: () => matchRead(() => appRpc('desk_open_matches', { p_from: fromIso, p_to: toIso }), readOpenMatches),
-    // Paused online payments: answer null ("no matches here"), so the strip,
+    // Open matches off (no desk payment, online payments paused): answer null ("no matches here"), so the strip,
     // the board panel and the Start entry all render nothing.
     select: (data) => (onlineLive ? data : null),
     refetchInterval: 30_000,
@@ -188,8 +188,8 @@ export interface AllMatchCaps extends MatchCaps {
 export function useMatchCaps(): AllMatchCaps {
   // The person, not the role: a second job (0345) brings its capabilities.
   const role = useAuth().staff;
-  // Open matches are paused until online payments are live: no desk surface may run them.
-  const onlineLive = useOnlinePaymentsLive();
+  // Open matches run when seats are paid at the desk or online payments are live: otherwise no desk surface may run them.
+  const onlineLive = useOpenMatchesOn();
   return useMemo(
     () => ({
       runMatches: onlineLive && can(role, 'runMatches'),
