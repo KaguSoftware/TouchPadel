@@ -10,6 +10,7 @@ export const ranksEn = {
   tabs: {
     board: 'Board and results',
     rules: 'Rules and levels',
+    levels: 'Levels to check',
   },
   ownerOnly: 'Only the owner changes the rules and levels. You can read them, record results and void them.',
   saved: 'Saved.',

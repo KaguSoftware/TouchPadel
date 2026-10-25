@@ -20,6 +20,13 @@
  * Lessons panel, where a cashier takes lesson money (R20). A server without
  * coaching (RPC_MISSING) shows none of it.
  *
+ * Player (0368, features/players): who this player is — the age band, the
+ * level the club goes by (the player's own answer until a coach or the desk
+ * confirms one), what their confirmed games suggest when the two disagree,
+ * and the interest tags worked out from what they did here, never asked. The
+ * card opens an editor; a server without 0368 sends no `player` block and the
+ * card is not drawn at all.
+ *
  * Discount (0342, features/discounts): the customer's own price, a café part
  * and a court part, on a section card that opens the editor, and a badge
  * beside the name while they have one. No PIN; a server without 0342 shows
@@ -74,6 +81,10 @@ import { CoachBadge } from '../../coaching/CoachBadge';
 import { CustomerLessonsPanel } from '../../coaching/CustomerLessonsPanel';
 import { useCoachingCaps, useCustomerLessons } from '../../coaching/useCoaching';
 import { CustomerDiscountCard, CustomerDiscountDialog } from '../../discounts/CustomerDiscountCard';
+import { PlayerCard } from '../../players/PlayerCard';
+import { PlayerFactsDialog } from '../../players/PlayerFactsDialog';
+import { parsePlayerFacts } from '../../players/playerLogic';
+import { canJudgeLevel } from '../../players/usePlayers';
 import { canDiscount, rpcMissing, useCustomerDiscount } from '../../discounts/useCustomerDiscount';
 import { useDiscountWords } from '../../discounts/useDiscountWords';
 
@@ -96,6 +107,9 @@ export function CustomerRecordScreen() {
     queryFn: () => appRpc<CustomerRecord | null>('customer_record', { p_customer_id: id }),
   });
   const rec = recordQ.data ?? null;
+  // 0368 (customers contracts §5): who this player is. null on a server
+  // without the block, and then no Player card is drawn.
+  const playerFacts = parsePlayerFacts(rec);
   const [flagsOpen, setFlagsOpen] = useState(false);
 
   const status = recordQ.isError && !recordQ.data ? 'error' : recordQ.data === undefined ? 'loading' : recordQ.data === null ? 'empty' : 'ready';
@@ -149,12 +163,17 @@ export function CustomerRecordScreen() {
   const ticketsRead = useMatchRead(ticketsQ);
   const showTickets = caps.runMatches && ticketsRead.kind !== 'absent';
   const showMatches = matchesKnown && caps.runMatches;
+  // 0368: the court desk, a manager and the owner confirm a level here.
+  const canJudge = canJudgeLevel(staff);
   // Discount (0342): the five till and desk roles; nothing on a server without it.
   const discountAllowed = canDiscount(staff);
   const discountQ = useCustomerDiscount(id, discountAllowed);
   const showDiscount = discountAllowed && discountQ.data !== undefined && !rpcMissing(discountQ.error);
   const discount = discountQ.data ?? null;
   const [discountOpen, setDiscountOpen] = useState(false);
+  // 0368: the facts ride inside the record itself; a server without them
+  // answers null and nothing is shown.
+  const [playerOpen, setPlayerOpen] = useState(false);
   const discountWords = useDiscountWords();
 
   const nowMs = Date.now();
@@ -396,7 +415,12 @@ export function CustomerRecordScreen() {
             {/* The section cards, and the staff notes beside them. */}
             <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(18rem, 22rem)', gap: 'var(--tp-sp-3)', alignItems: 'start' }}>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(16rem, 1fr))', gap: 'var(--tp-sp-3)', alignContent: 'start' }}>
-                {/* First: it is what the desk needs before taking their money. */}
+                {/* Who they are, before anything they owe: the desk reads this
+                    while the guest is still standing there (0368). */}
+                {playerFacts && (
+                  <PlayerCard facts={playerFacts} tz={tz} canJudge={canJudge} onOpen={() => setPlayerOpen(true)} />
+                )}
+                {/* Then what the desk needs before taking their money. */}
                 {showDiscount && <CustomerDiscountCard discount={discount} tz={tz} onOpen={() => setDiscountOpen(true)} />}
                 {showMatches && playsAs && (
                   <SectionCard icon="users" tone="matches" testId="card-matches" title={tr('ws.matches.customers.title')} sub={playsAsLine(playsAs, tr)} openLabel={tr('ws.courtDesk.record.cards.open')} onOpen={() => setSection('matches')}>
@@ -547,6 +571,16 @@ export function CustomerRecordScreen() {
         </SectionDialog>
       )}
 
+      {playerOpen && rec && playerFacts && (
+        <PlayerFactsDialog
+          customerId={id}
+          customerName={rec.customer.full_name}
+          facts={playerFacts}
+          canJudge={canJudge}
+          tz={tz}
+          onClose={() => setPlayerOpen(false)}
+        />
+      )}
       {discountOpen && rec && (
         <CustomerDiscountDialog customerId={id} customerName={rec.customer.full_name} discount={discount} self={staff?.id === id} onClose={() => setDiscountOpen(false)} />
       )}

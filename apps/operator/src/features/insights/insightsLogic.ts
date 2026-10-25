@@ -96,6 +96,29 @@ export interface Insights {
     courtsTrend: Trend;
     cafeTrend: Trend;
   };
+  /**
+   * Who comes (0369; customers contracts §3, Majed 2026-10-24: "there is
+   * nothing that shows exactly who our customers are"). Shares of the crowd
+   * the club KNOWS, in whole percents, with every bucket of fewer than ten
+   * guests already left out by the server. `known` is an about-N, `coverage`
+   * says how much of the crowd has all three facts answered, and `top` names
+   * the biggest groups as shares. No count, no money, no identity.
+   */
+  people: {
+    known: Count;
+    knownTrend: Trend;
+    coverage: Level | null;
+    coveragePct: number | null;
+    coverageTrend: Trend;
+    genders: BucketShare[];
+    ages: BucketShare[];
+    levels: BucketShare[];
+    interests: BucketShare[];
+    judgedShare: number | null;
+    overClaimedShare: number | null;
+    growing: { bucket: string; trend: Trend }[];
+    top: { who: string; band: string; level: string; share: number | null }[];
+  };
   offers: Offer[];
   events: {
     held: boolean;
@@ -167,6 +190,7 @@ export function parseInsights(json: unknown): Insights {
   const m = obj(o.mix);
   const e = obj(o.events);
   const l = obj(o.loyalty);
+  const pe = obj(o.people);
   const next = obj(e.next);
   return {
     period: { from: str(obj(o.period).from), to: str(obj(o.period).to) },
@@ -209,6 +233,28 @@ export function parseInsights(json: unknown): Insights {
       shopTrend: trend(c, 'shopTrend'),
     },
     mix: { courts: share(m.courts), cafe: share(m.cafe), shop: share(m.shop), trend: trend(m, 'trend'), courtsTrend: trend(m, 'courtsTrend'), cafeTrend: trend(m, 'cafeTrend') },
+    people: {
+      known: parseCount(pe.known),
+      knownTrend: trend(pe, 'knownTrend'),
+      coverage: level(pe.coverage),
+      coveragePct: share(pe.coveragePct),
+      coverageTrend: trend(pe, 'coverageTrend', 'pts'),
+      genders: buckets(pe.genders),
+      ages: buckets(pe.ages),
+      levels: buckets(pe.levels),
+      interests: buckets(pe.interests),
+      judgedShare: share(pe.judgedShare),
+      overClaimedShare: share(pe.overClaimedShare),
+      growing: arr(pe.growing)
+        .map((r) => ({ bucket: str(obj(r).bucket), trend: trend(obj(r), 'trend') }))
+        .filter((g) => g.bucket !== ''),
+      top: arr(pe.top)
+        .map((r) => {
+          const x = obj(r);
+          return { who: str(x.who), band: str(x.band), level: str(x.level), share: share(x.share) };
+        })
+        .filter((t) => t.who !== '' || t.band !== '' || t.level !== ''),
+    },
     offers: arr(o.offers)
       .map((r) => {
         const x = obj(r);

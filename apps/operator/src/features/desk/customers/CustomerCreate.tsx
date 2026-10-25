@@ -7,6 +7,11 @@
  * Gender is a must on every new customer (0353, Gender hours): Woman or Man,
  * no default, and Create stays disabled until one is chosen.
  *
+ * Age and level (0368, Majed 2026-10-24) are asked here too, so a walk-in's
+ * record carries what the app asks a guest who signs up on their phone. Both
+ * are OPTIONAL at the desk: a queue of people waiting is no place for a
+ * refusal, and the guest can answer either of them later in the app.
+ *
  * `?attach=match&match=<id>` (open matches operator.md §5.3): the desk was
  * adding a player to an open match and the player had no record yet, so the
  * new customer goes straight back to `/desk/matches/$id?customer=<new id>`,
@@ -22,6 +27,7 @@ import { useToast } from '../../../components/toast';
 import { useLocale } from '../../../lib/i18n';
 import { Button, ErrorText, Field, Select, inputStyle } from '../../../components/ui';
 import { MessagePresenter, PageHeader, Panel, SegmentedControl } from '../../../components/kit';
+import { AGE_BANDS, PLAY_LEVELS, type AgeBand, type PlayLevel } from '../../players/playerLogic';
 
 type Lang = 'en' | 'ar';
 type FieldError = 'DUPLICATE_PHONE' | 'DUPLICATE_EMAIL' | 'INVALID_PHONE';
@@ -34,6 +40,9 @@ interface CreateBody {
   preferredLang: Lang;
   /** A must on every new account (0353): some courts and hours are kept for women or men. */
   gender: 'female' | 'male';
+  /** 0368: optional at the desk, and never over what the guest answered themselves. */
+  ageBand?: AgeBand;
+  playLevel?: PlayLevel;
 }
 
 /** The function name is not in lib/edge's union yet (shell-owned) — proposed for promotion. */
@@ -66,6 +75,9 @@ export function CustomerCreateScreen() {
   const [lang, setLang] = useState<Lang>(locale);
   // No default: the desk asks, it never guesses.
   const [gender, setGender] = useState<'' | 'female' | 'male'>('');
+  // 0368: the same two questions the app asks, optional here.
+  const [ageBand, setAgeBand] = useState<'' | AgeBand>('');
+  const [playLevel, setPlayLevel] = useState<'' | PlayLevel>('');
   const [busy, setBusy] = useState(false);
   const queryClient = useQueryClient();
   const [error, setError] = useState<unknown>(null);
@@ -84,7 +96,15 @@ export function CustomerCreateScreen() {
     setError(null);
     setFieldError(null);
     try {
-      const body: CreateBody = { fullName: fullName.trim(), phone: phone.trim(), preferredLang: lang, gender, ...(email.trim() ? { email: email.trim() } : {}) };
+      const body: CreateBody = {
+        fullName: fullName.trim(),
+        phone: phone.trim(),
+        preferredLang: lang,
+        gender,
+        ...(email.trim() ? { email: email.trim() } : {}),
+        ...(ageBand ? { ageBand } : {}),
+        ...(playLevel ? { playLevel } : {}),
+      };
       const res = await callEdge<CreateBody, { id: string }>(DESK_CUSTOMER_CREATE, body, { ttlMs: 0 });
       toast.ok(tr('ws.courtDesk.createCustomer.created'));
       // The Customers list is kept in memory; the new record belongs in it now.
@@ -160,6 +180,22 @@ export function CustomerCreateScreen() {
                   { value: 'female', label: tr('ws.genderHours.customer.woman'), disabled: busy, testId: 'customer-gender-female' },
                   { value: 'male', label: tr('ws.genderHours.customer.man'), disabled: busy, testId: 'customer-gender-male' },
                 ]}
+              />
+            </Field>
+            <Field label={tr('ws.players.dialog.band')} group optional hint={tr('ws.players.dialog.bandHint')}>
+              <SegmentedControl<'' | AgeBand>
+                value={ageBand}
+                onChange={setAgeBand}
+                size="sm"
+                options={AGE_BANDS.map((b) => ({ value: b, label: tr(`ws.players.band.${b}`), disabled: busy, testId: `customer-age-${b}` }))}
+              />
+            </Field>
+            <Field label={tr('ws.players.dialog.level')} group optional hint={tr('ws.players.create.levelHint')}>
+              <SegmentedControl<'' | PlayLevel>
+                value={playLevel}
+                onChange={setPlayLevel}
+                size="sm"
+                options={PLAY_LEVELS.map((l) => ({ value: l, label: tr(`ws.players.level.${l}`), disabled: busy, testId: `customer-level-${l}` }))}
               />
             </Field>
             <Field label={tr('ws.courtDesk.createCustomer.language')}>

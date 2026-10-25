@@ -690,6 +690,13 @@ export const CAPABILITY_ROLES = {
   readRanksAdmin: ['manager', 'owner'],
   /** Rules, levels and points by hand (set_ranks_settings, set_ranks_levels, ranks_adjust). */
   editRanks: ['owner'],
+  /**
+   * Confirm a player's real level and fill in their age band (0368,
+   * app.staff_set_customer_level / staff_set_customer_age_band; Majed
+   * 2026-10-24: "coach or manager or desk staff"). A coach may too, through
+   * the same RPC, but a coach is a guest account and never signs in here.
+   */
+  judgePlayerLevel: ['court_desk', 'manager', 'owner'],
   /** Record a result, confirmed at once (app.ranks_desk_record), and read the results list. */
   recordRanks: ['court_desk', 'manager', 'owner'],
   /** Void a pending or confirmed result (app.ranks_void). */

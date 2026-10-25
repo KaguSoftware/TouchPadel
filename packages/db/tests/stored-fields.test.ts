@@ -218,6 +218,29 @@ const GUEST_DATA: Record<string, Record<string, Field>> = {
       onDelete: 'scrub',
     },
     play_survey_at: { category: null, onDelete: 'scrub' },
+    // 0368 (customers contracts §1): the age band the guest gave at sign-up,
+    // and the level a coach, the desk or a manager judged — the club's own
+    // note about a player. The tombstone UPDATE empties all seven
+    // (profiles_media_tombstone), proved below.
+    age_band: {
+      category: 'Other personal info',
+      why: 'the age band the guest chose at sign-up, so the club knows who plays there',
+      onDelete: 'scrub',
+    },
+    age_band_set_at: { category: null, onDelete: 'scrub' },
+    level_confirmed: {
+      category: 'Other personal info',
+      why: 'the padel level a coach or the desk judged the player to be, used for matching and coaching',
+      onDelete: 'scrub',
+    },
+    level_confirmed_at: { category: null, onDelete: 'scrub' },
+    level_confirmed_by: { category: null, onDelete: 'scrub' },
+    level_confirmed_role: { category: null, onDelete: 'scrub' },
+    level_note: {
+      category: 'Other personal info',
+      why: 'the judge’s one-line note on the player’s level, seen by staff only',
+      onDelete: 'scrub',
+    },
   },
   // 0318: test accounts that wear every frame. Only a link and a note; the
   // row goes with the profile.
@@ -791,12 +814,24 @@ describe.skipIf(!up)('SEC-20 stored-field allowlist', () => {
         gender: 'female',
         gender_set_at: new Date().toISOString(),
         gender_set_by: 'guest',
+        // 0368: the band with its stamp, and the whole confirmed-level block
+        // (profiles_age_band_stamp, profiles_level_confirmed_stamp).
+        age_band: '25_34',
+        age_band_set_at: new Date().toISOString(),
+        level_confirmed: 'intermediate',
+        level_confirmed_at: new Date().toISOString(),
+        level_confirmed_by: SEED_STAFF_IDS.court_desk,
+        level_confirmed_role: 'court_desk',
+        level_note: 'sec20 level note',
       })
       .eq('id', uid)
-      .select('given_name, family_name, gender')
+      .select('given_name, family_name, gender, age_band, level_confirmed, level_note')
       .single();
     if (filled.error) throw new Error(`profiles fill: ${filled.error.message}`);
-    expect(filled.data).toEqual({ given_name: 'Sec', family_name: 'Twenty', gender: 'female' });
+    expect(filled.data).toEqual({
+      given_name: 'Sec', family_name: 'Twenty', gender: 'female',
+      age_band: '25_34', level_confirmed: 'intermediate', level_note: 'sec20 level note',
+    });
     await svc
       .from('reservations')
       .update({

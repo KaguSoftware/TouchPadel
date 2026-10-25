@@ -5,13 +5,17 @@ import type { Locale } from '@touch/i18n';
 import { useLocale } from '../src/i18n/LocaleProvider';
 import { useAuth } from '../src/features/auth/context';
 import { needsProfileCompletion } from '../src/features/auth/social';
-import { useOwnProfile, useUpdateProfile } from '../src/features/profile/hooks';
+import { useOwnProfile, useSetAgeBand, useUpdateProfile } from '../src/features/profile/hooks';
 import { usePostAuthContinue } from '../src/features/booking/usePostAuthContinue';
 import { clearPendingIntents } from '../src/features/booking/pendingIntent';
 import { mapErrorToKey, rpcErrorCode } from '../src/features/booking/errors';
 import { markGenderAsked, signupGenderOf } from '../src/features/auth/genderGate';
+import { signupAgeBandOf } from '../src/features/auth/ageBand';
+import { captureException } from '../src/lib/telemetry';
+import { parseAgeBand, type AgeBand } from '../src/features/playProfile/logic';
 import { useSetMyGender } from '../src/features/matches/hooks';
 import { errorMessageOf } from '../src/lib/network';
+import { AgeBandPicker } from '../src/components/AgeBandPicker';
 import { GenderPicker, type GenderValue } from '../src/components/GenderPicker';
 import { space } from '../src/theme';
 import {
@@ -55,6 +59,12 @@ type ReturnTo = 'continue' | 'back';
  * once; GENDER_ALREADY_SET (another device answered first) goes on with the
  * stored value. The app-open ask (features/auth/useGenderGate.ts) opens this
  * screen in back mode, and its opening marks the account asked for the launch.
+ *
+ * The age band (0368, Majed 2026-10-24) is asked the same way while the
+ * profile has none, so a social sign-in that never saw the sign-up form
+ * answers it here. Unlike the gender it never blocks Save: no court hour
+ * depends on it (features/auth/ageBand.ts), so a guest who leaves it is asked
+ * again by the survey and by Edit profile.
  */
 export default function CompleteProfileScreen() {
   const { t, locale, setLocale } = useLocale();
@@ -67,6 +77,7 @@ export default function CompleteProfileScreen() {
   const profile = useOwnProfile(!!session);
   const update = useUpdateProfile();
   const setMyGender = useSetMyGender();
+  const setAgeBand = useSetAgeBand();
   const { continueAfterAuth, holdBusy } = usePostAuthContinue();
 
   const [firstName, setFirstName] = useState('');
@@ -81,10 +92,15 @@ export default function CompleteProfileScreen() {
   const [error, setError] = useState<string | null>(null);
   const [gender, setGender] = useState<GenderValue | null>(null);
   const [genderError, setGenderError] = useState<string | null>(null);
+  const [band, setBand] = useState<AgeBand | null>(null);
   const skipped = useRef(false);
 
   // Asked while the row has none; a set gender is the desk's to change.
   const askGender = !!profile.data && !profile.data.gender;
+  // 0368: asked while the row has none. A server or a cached row without the
+  // column reads as "not known", and then nothing is asked.
+  const askAge =
+    !!profile.data && 'age_band' in profile.data && parseAgeBand(profile.data.age_band) === null;
   // Only the gender is missing: the body says so instead of asking for a phone.
   const onlyGender =
     askGender && !!profile.data?.phone?.trim() && !!profile.data?.full_name?.trim();
@@ -96,6 +112,7 @@ export default function CompleteProfileScreen() {
   }, [uid]);
 
   const metaGender = signupGenderOf(session?.user.user_metadata);
+  const metaBand = signupAgeBandOf(session?.user.user_metadata);
   const email = session?.user.email ?? null;
   const nameTouched = useRef(false);
   useEffect(() => {
@@ -108,6 +125,7 @@ export default function CompleteProfileScreen() {
       // The sign-up form's answer, when the account carries one that has not
       // been recorded yet; otherwise nothing is picked.
       setGender(metaGender);
+      setBand(metaBand);
       setInitialised(true);
     }
     // The name keeps following the row until the guest types: the Apple
@@ -122,7 +140,7 @@ export default function CompleteProfileScreen() {
       setFirstName(names.first);
       setLastName(names.last);
     }
-  }, [profile.data, initialised, email, locale, metaGender]);
+  }, [profile.data, initialised, email, locale, metaGender, metaBand]);
 
   const back = useBack();
 
@@ -220,6 +238,15 @@ export default function CompleteProfileScreen() {
               toast(t('matches.errors.genderAlreadySet'), 'info');
             }
           }
+          // 0368: the band, when it was asked and answered. It never stops the
+          // save: a band is worth asking for, not worth a refusal.
+          if (askAge && band) {
+            try {
+              await setAgeBand.mutateAsync(band);
+            } catch (err) {
+              captureException(err, { scope: 'completeProfile.ageBand' });
+            }
+          }
           // ALWAYS, even when unchanged: a new OAuth row has preferred_lang 'en'
           // by trigger default even while the app runs in Arabic. setLocale
           // writes profiles.preferred_lang and, when the choice differs from the
@@ -296,6 +323,14 @@ export default function CompleteProfileScreen() {
               />
               <Hint>{t('guestGender.hint')}</Hint>
             </>
+          ) : null}
+          {askAge ? (
+            <AgeBandPicker
+              testID="complete-profile.age"
+              value={band}
+              onChange={setBand}
+              hint
+            />
           ) : null}
           <PhoneField
             testID="complete-profile.phone"

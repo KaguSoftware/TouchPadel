@@ -4,7 +4,8 @@
  * desk creates a real guest account (auth user + profile) through a
  * staff-gated edge function, so the guest can later claim it").
  *
- *   POST { fullName, phone, email?, preferredLang: 'en' | 'ar', gender?: 'female' | 'male' }
+ *   POST { fullName, phone, email?, preferredLang: 'en' | 'ar', gender?: 'female' | 'male',
+ *          ageBand?, playLevel? }
  *     ->  201 { id }
  *
  * gender (0353): the operator asks for it on every new customer, so women's
@@ -12,7 +13,7 @@
  * build can register a walk-in; when given it must be female or male.
  *
  * Errors (JSON `{ error, message }`):
- *   400 BAD_REQUEST      — body shape, name length, preferredLang, gender
+ *   400 BAD_REQUEST      — body shape, name length, preferredLang, gender, ageBand, playLevel
  *   400 INVALID_PHONE    — fewer than 7 or more than 15 digits once normalised
  *   409 DUPLICATE_PHONE  — a live profile already holds the number's key (canonical
  *                          form, 0065 app.phone_canon: 0770… ≡ +964770… ≡ ٠٧٧٠…;
@@ -60,6 +61,9 @@ import {
 
 const LANGS = ['en', 'ar'] as const;
 const GENDERS = ['female', 'male'] as const;
+// 0368 (customers contracts §5): the desk asks a walk-in what the app asks.
+const AGE_BANDS = ['u18', '18_24', '25_34', '35_44', '45_54', '55_plus'] as const;
+const PLAY_LEVELS = ['new', 'beginner', 'intermediate', 'advanced'] as const;
 type Lang = (typeof LANGS)[number];
 
 interface CreateBody {
@@ -68,6 +72,8 @@ interface CreateBody {
   email?: string | null;
   preferredLang: Lang;
   gender?: 'female' | 'male' | null;
+  ageBand?: string | null;
+  playLevel?: string | null;
 }
 
 function badRequest(message: string): Response {
@@ -121,6 +127,8 @@ Deno.serve(handle('desk-customer-create', async (req) => {
   const phone = typeof body?.phone === 'string' ? body.phone.trim() : '';
   const preferredLang = body?.preferredLang;
   const gender = body?.gender ?? null;
+  const ageBand = body?.ageBand ?? null;
+  const playLevel = body?.playLevel ?? null;
   const givenEmail =
     typeof body?.email === 'string' && body.email.trim() !== '' ? body.email.trim().toLowerCase() : null;
 
@@ -128,6 +136,12 @@ Deno.serve(handle('desk-customer-create', async (req) => {
   if (!LANGS.includes(preferredLang)) return badRequest(`preferredLang must be one of ${LANGS.join(', ')}`);
   if (gender !== null && !(GENDERS as readonly string[]).includes(gender)) {
     return badRequest(`gender must be one of ${GENDERS.join(', ')}`);
+  }
+  if (ageBand !== null && !(AGE_BANDS as readonly string[]).includes(ageBand)) {
+    return badRequest(`ageBand must be one of ${AGE_BANDS.join(', ')}`);
+  }
+  if (playLevel !== null && !(PLAY_LEVELS as readonly string[]).includes(playLevel)) {
+    return badRequest(`playLevel must be one of ${PLAY_LEVELS.join(', ')}`);
   }
   if (!isValidPhone(phone)) {
     return json(
@@ -187,6 +201,8 @@ Deno.serve(handle('desk-customer-create', async (req) => {
     p_preferred_lang: preferredLang,
     p_actor_id: caller.userId,
     p_gender: gender,
+    p_age_band: ageBand,
+    p_play_level: playLevel,
   });
 
   if (error) {

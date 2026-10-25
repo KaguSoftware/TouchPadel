@@ -41,6 +41,7 @@ import { StaffActivityPing } from '../src/features/staff/activity/StaffActivityP
 import { useTermsGate } from '../src/features/profile/useTermsGate';
 import { usePlaySurveyPrompt } from '../src/features/playProfile/usePlaySurveyPrompt';
 import { useGenderGate } from '../src/features/auth/useGenderGate';
+import { useAgeBandRecord } from '../src/features/auth/useAgeBandRecord';
 import { BootOverlay } from '../src/features/boot/BootOverlay';
 import { useAuthDeepLink } from '../src/features/auth/useAuthDeepLink';
 import { usePendingPaymentResume } from '../src/features/deposit/hooks';
@@ -200,6 +201,10 @@ function RootStack() {
   // the session lands, and sends a guest without one to complete-profile on a
   // calm landing on the tabs, once per launch. Never staff (genderGate.ts).
   useGenderGate();
+  // The age band (0368): records the sign-up form's answer once the session
+  // lands. It presents nothing — complete-profile, the survey's age step and
+  // Edit profile are the places that ask (ageBand.ts).
+  useAgeBandRecord();
   // Push registration lives HERE, under AuthProvider, because it needs the live
   // session: the server drops a notification on the floor when the profile
   // holds no token (migration 0075's trigger returns early and nothing

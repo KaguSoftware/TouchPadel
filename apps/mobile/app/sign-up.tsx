@@ -33,6 +33,8 @@ import {
   Screen,
   SegmentedControl,
 } from '../src/components/ui';
+import { AgeBandPicker } from '../src/components/AgeBandPicker';
+import type { AgeBand } from '../src/features/playProfile/logic';
 import { PhoneField } from '../src/components/phone';
 import { DEFAULT_ISO } from '../src/features/profile/phone';
 import { onTermsReviewAccepted } from '../src/features/profile/termsReview';
@@ -46,6 +48,7 @@ type FieldErrors = {
   firstName?: string;
   lastName?: string;
   gender?: string;
+  ageBand?: string;
   email?: string;
   phone?: string;
   password?: string;
@@ -85,6 +88,8 @@ function SignUpScreen() {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [gender, setGender] = useState<GenderValue | null>(null);
+  // 0368: a must on the form, like the gender. One tap of six.
+  const [ageBand, setAgeBand] = useState<AgeBand | null>(null);
   const [email, setEmail] = useState('');
   // Country + national digits; the API receives the composed E.164.
   const [iso, setIso] = useState(DEFAULT_ISO);
@@ -145,6 +150,7 @@ function SignUpScreen() {
       firstName,
       lastName,
       gender,
+      ageBand,
       email: method === 'email' ? email : undefined,
       phoneNational: national,
       password,
@@ -159,6 +165,10 @@ function SignUpScreen() {
     }
     if (invalid === 'GENDER_REQUIRED') {
       setFieldErrors({ gender: t('guestGender.required') });
+      return null;
+    }
+    if (invalid === 'AGE_REQUIRED') {
+      setFieldErrors({ ageBand: t('auth.ageRequired') });
       return null;
     }
     if (invalid === 'EMAIL_INVALID') {
@@ -203,6 +213,7 @@ function SignUpScreen() {
             preferredLang,
             termsVersion: CURRENT_TERMS_VERSION,
             gender: gender ?? undefined,
+            ageBand: ageBand ?? undefined,
           },
           verifyRedirect(),
         );
@@ -216,6 +227,7 @@ function SignUpScreen() {
           preferredLang,
           termsVersion: CURRENT_TERMS_VERSION,
           gender: gender ?? undefined,
+          ageBand: ageBand ?? undefined,
         });
         if (signUpHidExistingAccount(data)) return accountExists(e164);
       }
@@ -306,6 +318,15 @@ function SignUpScreen() {
             setFieldErrors((prev) => ({ ...prev, gender: undefined }));
           }}
           error={fieldErrors.gender}
+        />
+        <AgeBandPicker
+          testID="sign-up.age"
+          value={ageBand}
+          onChange={(next) => {
+            setAgeBand(next);
+            setFieldErrors((prev) => ({ ...prev, ageBand: undefined }));
+          }}
+          error={fieldErrors.ageBand}
           style={{ marginBottom: space.sm }}
         />
         {method === 'email' ? (

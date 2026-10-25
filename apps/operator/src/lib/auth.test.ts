@@ -285,6 +285,9 @@ describe('capability matrix', () => {
     readRanksAdmin: ['manager', 'owner'],
     recordRanks: ['court_desk', 'manager', 'owner'],
     voidRanks: ['manager', 'owner'],
+    // 0368 (Majed 2026-10-24: "coach or manager or desk staff"): a coach may
+    // too, through the same RPC, but a coach never signs in to the operator.
+    judgePlayerLevel: ['court_desk', 'manager', 'owner'],
   };
   /** A role's own work, which the owner does not do: the RPC refuses the owner too. */
   const OWN_WORK: Partial<Record<Capability, readonly StaffRole[]>> = {
@@ -392,6 +395,7 @@ describe('capability matrix', () => {
         // Player ranks (0364).
         'readRanksAdmin',
         'editRanks',
+        'judgePlayerLevel',
         'recordRanks',
         'voidRanks',
       ].sort(),
@@ -399,6 +403,8 @@ describe('capability matrix', () => {
   });
 
   it('lets the desk record a result, management void one and read the rules, the owner change them (0364)', () => {
+    expect(can('court_desk', 'judgePlayerLevel')).toBe(true);
+    expect(can('cashier', 'judgePlayerLevel')).toBe(false);
     expect(can('court_desk', 'recordRanks')).toBe(true);
     expect(can('cashier', 'recordRanks')).toBe(false);
     expect(can('court_desk', 'voidRanks')).toBe(false);

@@ -1,10 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase';
+import type { AgeBand } from '../playProfile/logic';
+import type { ProfileRow } from './api';
 import {
   checkUsername,
   fetchMyBirthDate,
   fetchMyFrames,
   fetchOwnProfile,
+  setMyAgeBand,
   setMyBirthDate,
   setMyFrame,
   setMyUsername,
@@ -99,6 +102,23 @@ export function useSetBirthDate() {
     mutationFn: (birthDate: string | null) => setMyBirthDate(supabase, birthDate),
     onSuccess: (_void, birthDate) => {
       queryClient.setQueryData(profileKeys.birthDate, birthDate);
+    },
+  });
+}
+
+/**
+ * Writes the guest's age band (0368) and patches the cached own profile, so
+ * the survey's step and Edit profile's row agree at once.
+ */
+export function useSetAgeBand() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: ['set-age-band'],
+    mutationFn: (band: AgeBand) => setMyAgeBand(supabase, band),
+    onSuccess: (_void, band) => {
+      queryClient.setQueryData(profileKeys.own, (row: ProfileRow | null | undefined) =>
+        row ? { ...row, age_band: band, age_band_set_at: new Date().toISOString() } : row,
+      );
     },
   });
 }

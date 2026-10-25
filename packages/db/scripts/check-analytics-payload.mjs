@@ -67,6 +67,11 @@ const FORBIDDEN = [
   // Coaching (docs/design/coaching/db.md §4.7.10, R42): the friends a guest
   // brings and a student are guest identity everywhere.
   /friend_names/i, /student/i, /share_bp/i,
+  // 0368 (customers contracts §1): the club's judgment of a player's level is
+  // an aggregate on the People cards and nothing more — who judged it (a
+  // profile id) and their one-line note are staff text about one guest and
+  // never belong in a payload that leaves the venue.
+  /level_confirmed_by/i, /level_note/i,
 ];
 
 /**

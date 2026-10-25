@@ -7253,4 +7253,40 @@ export const matrix: MatrixRule[] = [
     note: "0366: the Branches cards' courts and café tables, per branch the caller manages; read-only",
     drop: 38,
   },
+  // ── 0368 customer_facts (customer-facts.test.ts) ──
+  // Who the customer is: the guest's own age band, the desk's correction of it,
+  // the level a coach, the desk or a manager confirms, and the queue of players
+  // whose measured level disagrees with their claim.
+  {
+    kind: 'rpc', schema: 'app', name: 'set_my_age_band',
+    args: { p_band: 'x' },
+    expect: ex<RpcExpectation>('execute', { anon: 'denied', guest_anon_session: 'guarded' }),
+    note: "0368: the caller's own profile only; an unknown band is INVALID_AGE_BAND, so nothing is written",
+    drop: 38,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'staff_set_customer_age_band',
+    args: { p_customer_id: NIL_UUID, p_band: 'x' }, expect: DESK_UP,
+    note: '0368: INVALID_AGE_BAND past the guard, so the probe writes nothing',
+    drop: 38,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'staff_set_customer_level',
+    args: { p_customer_id: NIL_UUID, p_level: 'x', p_note: null }, expect: DESK_UP,
+    note: '0368: court desk, manager, owner — and a coach, which no matrix principal is; INVALID_PLAY_PROFILE past the guard',
+    drop: 38,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'customer_level_reviews',
+    args: { p_limit: 1 }, expect: DESK_UP,
+    note: '0368: court desk, manager, owner (and a coach): the players whose games disagree with their claim; read-only',
+    drop: 38,
+  },
+  // ── 0369 customer_analytics (customer-analytics.test.ts) ──
+  {
+    kind: 'rpc', schema: 'app', name: 'analytics_customers',
+    args: { p_from: '2026-10-01', p_to: '2026-10-07' }, expect: OWNER_ONLY,
+    note: '0369: app.analytics_guard — the owner, or the transaction of marketing_insights; read-only',
+    drop: 38,
+  },
 ];

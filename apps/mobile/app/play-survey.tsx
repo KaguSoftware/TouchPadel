@@ -22,10 +22,11 @@ import {
   useSavePlayProfile,
   useSuggestionAvailability,
 } from '../src/features/playProfile/hooks';
-import { useOwnProfile } from '../src/features/profile/hooks';
+import { useOwnProfile, useSetAgeBand } from '../src/features/profile/hooks';
 import { useSetMyGender } from '../src/features/matches/hooks';
 import { errorCodeOf } from '../src/features/matches/errors';
 import {
+  AGE_BANDS,
   EMPTY_ANSWERS,
   GENDER_CHOICES,
   PLAY_LEVELS,
@@ -35,10 +36,13 @@ import {
   nextStep,
   previousStep,
   consistentAnswers,
+  parseAgeBand,
+  stepIsRequired,
   surveyStepsFor,
   toggleWant,
   withLevel,
   yearsFitLevel,
+  type AgeBand,
   type GenderChoice,
   type PlayAnswers,
   type PlayProfile,
@@ -52,10 +56,15 @@ import { topSuggestions, type SuggestionKind } from '../src/features/playProfile
  * one place the app asks about the player (2026-10-12); every question is
  * optional.
  *
- *   1. level   one tap chooses and moves on
- *   2. years   one tap chooses and moves on
- *   3. wants   as many as they like, then Next (or Done when it is the last)
- *   4. gender  only while the profile has none: a tap chooses, Done saves.
+ *   1. level   REQUIRED (0368, Majed 2026-10-24): one tap, then Next. This
+ *              step carries no Skip, and a run that ends without a level
+ *              records nothing at all, so the next launch asks again — the
+ *              question is unavoidable without ever trapping anyone.
+ *   2. age     only while the profile has no band (an older account, or a
+ *              social sign-in that skipped the form): one tap of six.
+ *   3. years   one tap chooses and moves on
+ *   4. wants   as many as they like, then Next (or Done when it is the last)
+ *   5. gender  only while the profile has none: a tap chooses, Done saves.
  *              Set once (OM-28, `set_my_gender`; the front desk corrects
  *              it), so it never saves on a tap, a Skip or a swipe, and
  *              "Prefer not to say" writes nothing.
@@ -239,20 +248,31 @@ function PlaySurvey() {
   // save fills the profile in under it.
   const [askGender, setAskGender] = useState(genderUnset);
   if (genderUnset && !askGender) setAskGender(true);
-  const steps = surveyStepsFor({ askGender, genderOnly });
+  // 0368: the band is asked here only while the profile has none. Latched like
+  // the gender, so the step stays once this run has it.
+  // A row cached before 0368, or a server without it, has no `age_band` key at
+  // all: then the band is NOT KNOWN, and the step is not asked (the save would
+  // have nowhere to land).
+  const bandUnset =
+    !!profile.data && 'age_band' in profile.data && parseAgeBand(profile.data.age_band) === null;
+  const [askAge, setAskAge] = useState(bandUnset);
+  if (bandUnset && !askAge) setAskAge(true);
+  const steps = surveyStepsFor({ askGender, genderOnly, askAge: askAge && !editing });
   const lastStep = steps[steps.length - 1];
 
   const [answers, setAnswers] = useState<PlayAnswers>(() => answersOf(play));
   const [gender, setGenderChoice] = useState<GenderChoice | null>(null);
+  const [band, setBand] = useState<AgeBand | null>(null);
   const [phase, setPhase] = useState<Phase>(
     genderOnly ? 'gender' : startAtWants ? 'wants' : 'level',
   );
   const [failed, setFailed] = useState(false);
   const save = useSavePlayProfile();
   const setGender = useSetMyGender();
+  const setAgeBand = useSetAgeBand();
   // 0339: a tournament suggestion only while an open one fits the guest.
   const available = useSuggestionAvailability();
-  const saving = save.isPending || setGender.isPending;
+  const saving = save.isPending || setGender.isPending || setAgeBand.isPending;
 
   // Edit mode opened before the profile landed: fill in once it does, unless
   // the guest has already started choosing.
@@ -277,6 +297,10 @@ function PlaySurvey() {
     () => () => {
       if (editing || settled.current) return;
       settled.current = true;
+      // 0368: the level is required, so a run swiped away before it is
+      // answered stamps nothing — `play_survey_at` stays null and the next
+      // launch asks again.
+      if (latest.current.level === null) return;
       savePlayProfile(queryClient, latest.current).catch((error: unknown) =>
         captureException(error, { scope: 'playSurvey.dismissSave' }),
       );
@@ -296,6 +320,12 @@ function PlaySurvey() {
     }
   };
 
+  /** The band, once, and only when the profile has none: another device's answer stands. */
+  const saveBand = async () => {
+    if (!band || parseAgeBand(profile.data?.age_band) !== null) return;
+    await setAgeBand.mutateAsync(band);
+  };
+
   const finish = async (final: PlayAnswers) => {
     if (saving) return;
     settled.current = true;
@@ -304,6 +334,7 @@ function PlaySurvey() {
       // The gender alone leaves the play answers as they are. A retry after
       // the gender failed saves the play answers again, which changes nothing.
       if (!genderOnly) await save.mutateAsync(final);
+      await saveBand();
       await saveGender();
     } catch (error) {
       // Not settled after all: a swipe now still saves.
@@ -326,8 +357,13 @@ function PlaySurvey() {
     settled.current = true;
     if (!editing) {
       // Fire and forget: the guest asked to be done, so the sheet goes now.
+      // Skip never shows on the level step, so a level is always answered by
+      // the time this runs; a band chosen on the way is kept too.
       savePlayProfile(queryClient, latest.current).catch((error: unknown) =>
         captureException(error, { scope: 'playSurvey.skipSave' }),
+      );
+      void saveBand().catch((error: unknown) =>
+        captureException(error, { scope: 'playSurvey.skipBand' }),
       );
     }
     back();
@@ -362,15 +398,18 @@ function PlaySurvey() {
   };
 
   const canGoBack = phase !== 'result' && previousStep(steps, phase) !== null;
-  // Skip the first time only; editing closes with a swipe or a tap outside.
-  const canSkip = !editing && phase !== 'result';
+  // Skip the first time only, and never on the required level step (0368);
+  // editing closes with a swipe or a tap outside.
+  const canSkip = !editing && phase !== 'result' && !stepIsRequired(phase);
   const question: Record<SurveyStep, MessageKey> = {
     level: 'playProfile.survey.level.question',
+    age: 'playProfile.survey.age.question',
     years: 'playProfile.survey.years.question',
     wants: 'playProfile.survey.wants.question',
     gender: 'playProfile.survey.gender.question',
   };
   const hint: Partial<Record<SurveyStep, MessageKey>> = {
+    age: 'playProfile.survey.age.hint',
     wants: 'playProfile.survey.wants.hint',
     gender: 'playProfile.survey.gender.hint',
   };
@@ -535,6 +574,17 @@ function PlaySurvey() {
                       onPress={() => choose('level', v)}
                     />
                   ))
+                : phase === 'age'
+                  ? AGE_BANDS.map((v, i) => (
+                      <Tile
+                        key={v}
+                        testID={`play-survey.age.${kebab(v)}`}
+                        title={t(`profile.ageBand.${v}`)}
+                        selected={band === v}
+                        index={i + 1}
+                        onPress={() => setBand(v)}
+                      />
+                    ))
                 : phase === 'years'
                   ? PLAY_YEARS.map((v, i) => {
                       const fits = yearsFitLevel(answers.level, v);
@@ -643,7 +693,9 @@ function PlaySurvey() {
             <Button
               testID="play-survey.next"
               label={t('common.next')}
-              disabled={phase !== 'wants' && answers[phase] === null}
+              disabled={
+                phase === 'age' ? band === null : phase !== 'wants' && answers[phase] === null
+              }
               onPress={() => goNext(phase, answers)}
               style={{ flex: 1 }}
             />

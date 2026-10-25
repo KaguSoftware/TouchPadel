@@ -296,7 +296,7 @@ export function TearLine() {
 // ---------------------------------------------------------------------------
 
 /** Each section's icon chip: its own family, clear of the others (operator.ts). */
-export type SectionTone = 'matches' | 'lessons' | 'cafe' | 'series' | 'discount';
+export type SectionTone = 'matches' | 'lessons' | 'cafe' | 'series' | 'discount' | 'player';
 const SECTION_TONE: Record<SectionTone, { fg: string; bg: string; strip: string }> = {
   // The customer's own price (0342): the accent, the colour of what the desk set itself.
   discount: { fg: 'var(--tp-accent-soft-fg)', bg: 'var(--tp-accent-soft)', strip: 'var(--tp-accent)' },
@@ -304,6 +304,9 @@ const SECTION_TONE: Record<SectionTone, { fg: string; bg: string; strip: string 
   lessons: { fg: 'var(--tp-lesson)', bg: 'var(--tp-lesson-soft)', strip: 'var(--tp-lesson)' },
   cafe: { fg: 'var(--tp-warn-fg)', bg: 'var(--tp-warn-soft)', strip: 'var(--tp-warn)' },
   series: { fg: 'var(--tp-tournament)', bg: 'var(--tp-tournament-soft)', strip: 'var(--tp-tournament)' },
+  // Who the player is (0368): the violet of the overview's Breakdown cards,
+  // which already carries a blue-mode value, so no new token is minted.
+  player: { fg: 'var(--tp-breakdown-violet-fg)', bg: 'var(--tp-breakdown-violet)', strip: 'var(--tp-breakdown-violet-edge)' },
 };
 
 export function SectionCard({

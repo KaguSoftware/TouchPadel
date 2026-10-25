@@ -13,6 +13,7 @@ export const ranksAr: DeepMessages<typeof ranksEn> = {
   tabs: {
     board: 'اللوحة والنتائج',
     rules: 'القواعد والمستويات',
+    levels: 'مستويات تحتاج مراجعة',
   },
   ownerOnly: 'المالك وحده يغيّر القواعد والمستويات. يمكنك الاطلاع عليها وتسجيل النتائج وإبطالها.',
   saved: 'تم الحفظ.',

@@ -4,6 +4,9 @@
  *   Board and results  the results list (app.ranks_desk_results) with Void (manager, owner), the
  *                      public board exactly as players see it (app.ranks_board), and points
  *                      adjusted by hand (owner, app.ranks_adjust).
+ *   Levels to check    the players whose confirmed games disagree with the level on record
+ *                      (0368, app.customer_level_reviews): confirm the measured level or write
+ *                      the player's own claim down as right, either of which clears the row.
  *   Rules and levels   points per win, loss and draw, the board's period and size, which results
  *                      count and how long a report may wait (app.set_ranks_settings), and the
  *                      levels (app.set_ranks_levels replaces the list).
@@ -14,7 +17,7 @@
  */
 import { useMemo, useState, type CSSProperties } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { formatDate, formatNumber, formatTime, isolate } from '@touch/i18n';
+import { VENUE_TZ, formatDate, formatNumber, formatTime, isolate } from '@touch/i18n';
 import { useLocale, pickName } from '../../lib/i18n';
 import { can, useAuth } from '../../lib/auth';
 import { useStationReach } from '../../lib/stationReach';
@@ -78,12 +81,13 @@ import {
   useRanksResults,
   voidResult,
 } from './useRanks';
+import { LevelReviews } from '../players/LevelReviews';
 import { PlayerPicker } from './PlayerPicker';
 import { RecordResultDialog } from './RecordResultDialog';
 
 const K = 'ws.ranks';
 
-type View = 'board' | 'rules';
+type View = 'board' | 'rules' | 'levels';
 
 const muted: CSSProperties = { margin: 0, fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' };
 const hintStyle: CSSProperties = { margin: 0, fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' };
@@ -94,6 +98,9 @@ export function RanksScreen() {
   const { staff } = useAuth();
   const canEdit = can(staff, 'editRanks');
   const canRecord = can(staff, 'recordRanks');
+  // 0368: a manager or the owner may confirm a level from here (the desk does
+  // it on the customer record, mid-conversation).
+  const canJudge = can(staff, 'judgePlayerLevel');
   const { reachable } = useStationReach();
   const [view, setView] = useState<View>('board');
   const [recording, setRecording] = useState(false);
@@ -129,9 +136,17 @@ export function RanksScreen() {
         items={[
           { id: 'board', label: tr(`${K}.tabs.board`) },
           { id: 'rules', label: tr(`${K}.tabs.rules`) },
+          // 0368: the players whose games disagree with their level on record.
+          { id: 'levels', label: tr(`${K}.tabs.levels`) },
         ]}
       />
-      {view === 'board' ? <BoardView canEdit={canEdit} /> : <RulesView canEdit={canEdit} />}
+      {view === 'board' ? (
+        <BoardView canEdit={canEdit} />
+      ) : view === 'rules' ? (
+        <RulesView canEdit={canEdit} />
+      ) : (
+        <LevelReviews canJudge={canJudge} tz={VENUE_TZ} />
+      )}
       {recording && <RecordResultDialog onClose={() => setRecording(false)} />}
     </div>
   );

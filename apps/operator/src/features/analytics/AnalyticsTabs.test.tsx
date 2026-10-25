@@ -7,7 +7,7 @@ import { AnalyticsTabs } from './AnalyticsTabs';
 const navigate = vi.fn();
 vi.mock('@tanstack/react-router', () => ({ useNavigate: () => navigate }));
 
-function renderTabs(value: 'courts' | 'cafe') {
+function renderTabs(value: 'courts' | 'cafe' | 'people') {
   return render(
     <LocaleProvider>
       <AnalyticsTabs value={value} />
@@ -18,10 +18,11 @@ function renderTabs(value: 'courts' | 'cafe') {
 describe('AnalyticsTabs', () => {
   beforeEach(() => navigate.mockReset());
 
-  it('renders the two tabs with the current one selected', () => {
+  it('renders the three tabs with the current one selected', () => {
     renderTabs('cafe');
     const tabs = screen.getAllByRole('tab');
-    expect(tabs.map((t) => t.textContent)).toEqual(['Courts', 'Cafe']);
+    // People joined the pair in 0369 (who the customers are).
+    expect(tabs.map((t) => t.textContent)).toEqual(['Courts', 'Cafe', 'People']);
     expect(screen.getByRole('tab', { name: 'Cafe' }).getAttribute('aria-selected')).toBe('true');
     expect(screen.getByRole('tab', { name: 'Courts' }).getAttribute('aria-selected')).toBe('false');
   });
@@ -46,7 +47,7 @@ describe('AnalyticsTabs', () => {
     await userEvent.keyboard('{ArrowRight}');
     expect(navigate).toHaveBeenLastCalledWith(expect.objectContaining({ to: '/analytics/cafe' }));
     await userEvent.keyboard('{End}');
-    expect(navigate).toHaveBeenLastCalledWith(expect.objectContaining({ to: '/analytics/cafe' }));
+    expect(navigate).toHaveBeenLastCalledWith(expect.objectContaining({ to: '/analytics/people' }));
     navigate.mockReset();
     await userEvent.keyboard('{Home}');
     // Already on the first tab: nothing to do.

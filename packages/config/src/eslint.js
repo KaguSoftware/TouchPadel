@@ -191,6 +191,7 @@ const testIdElements = [
   'TermsReader',
   'SegmentedControl',
   'GenderPicker',
+  'AgeBandPicker',
   'ChoiceButton',
   'FilterMenu',
   'SheetTextButton',
