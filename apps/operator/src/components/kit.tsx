@@ -1137,11 +1137,14 @@ export function RowActions({
   actions,
   label,
   style,
+  menu: alwaysMenu = false,
 }: {
   actions: readonly RowAction[];
   /** The row's own name, so the overflow trigger is not the forty-first "More". */
   label?: string;
   style?: CSSProperties;
+  /** Keep the actions behind the three-dots menu even when there are only one or two (the analytics cards, whose trigger is the vertical dots). */
+  menu?: boolean;
 }) {
   const { tr, dir } = useLocale();
   const anchorRef = useRef<HTMLSpanElement>(null);
@@ -1199,7 +1202,7 @@ export function RowActions({
     ...style,
   };
 
-  if (actions.length <= 2) {
+  if (actions.length <= 2 && !alwaysMenu) {
     return (
       <div role="group" aria-label={tr('ws.kit.table.rowActions')} style={container}>
         {actions.map((a) => (
@@ -1231,7 +1234,7 @@ export function RowActions({
         <Button
           size="sm"
           kind="ghost"
-          icon="more"
+          icon={alwaysMenu ? 'moreVertical' : 'more'}
           // Verb + object (rulebook 8.3). Without `label`, a screen-reader
           // user in a 40-row table hears forty buttons called "More".
           aria-label={label ? tr('ws.kit.table.rowActionsFor', { name: label }) : tr('ws.kit.actions.more')}

@@ -12,14 +12,16 @@
  * different. Every value is also in the card's table twin, so nothing is
  * gated on hovering.
  *
- * `totals` adds the grid's margins: a column chart of the hours along the
- * top and a bar per weekday at the row ends, so "which hour" and "which day"
- * read off the same card as "which hour of which day" (they used to be two
- * more charts behind Show more). The caller supplies them, because a rate's
+ * `totals` adds a second view behind a Squares | Charts switch (2026-10-24): the
+ * squares on their own, or a column chart of the hours and a bar per weekday,
+ * so "which hour" and "which day" read off the same card as "which hour of
+ * which day" (they used to be two more charts behind Show more, then margins
+ * crowding the grid). The caller supplies them, because a rate's
  * margin is the server's roll-up (occupancy by hour), never a sum of cells;
  * `sumTotals` (./geometry.ts) is for measures that add up.
  */
 import { useState, type CSSProperties, type ReactNode } from 'react';
+import { SegmentedControl } from '../../../components/kit';
 import { useLocale } from '../../../lib/i18n';
 import { weekdayName } from '../copy';
 import type { Formatters } from '../format';
@@ -38,6 +40,33 @@ export interface HeatValue {
   label?: string;
 }
 
+export type HeatView = 'squares' | 'charts';
+
+/** The card body height each view needs: the charts view stacks an hour chart and seven weekday bars. */
+export const heatHeight = (view: HeatView) => (view === 'charts' ? 400 : 240);
+
+/** The thin rule that parts the view switch from the measure switch beside it. */
+export const heatDivider = <span aria-hidden="true" style={{ inlineSize: 1, blockSize: '1.25rem', background: 'var(--tp-border-strong)' }} />;
+
+/** The Squares | Charts state and its switch, for a card to put in its controls (ahead of the measure switch). */
+export function useHeatView(): { view: HeatView; switcher: ReactNode } {
+  const { tr } = useLocale();
+  const [view, setView] = useState<HeatView>('squares');
+  const switcher = (
+    <SegmentedControl<HeatView>
+      size="sm"
+      aria-label={tr('ws.analytics.heatmap.view')}
+      value={view}
+      onChange={setView}
+      options={[
+        { value: 'squares', label: tr('ws.analytics.heatmap.viewSquares') },
+        { value: 'charts', label: tr('ws.analytics.heatmap.viewCharts') },
+      ]}
+    />
+  );
+  return { view, switcher };
+}
+
 const HOURS = Array.from({ length: 24 }, (_, h) => h);
 const DOWS = [0, 1, 2, 3, 4, 5, 6];
 
@@ -54,6 +83,7 @@ export function WeekHeatmap({
   totals,
   relative = true,
   scaleMax,
+  view = 'squares',
 }: {
   cells: readonly HeatValue[];
   f: Formatters;
@@ -69,6 +99,8 @@ export function WeekHeatmap({
   relative?: boolean;
   /** A fixed top of the ramp (levels 0..4 run against 4), so a quiet week never paints its busiest hour as full. */
   scaleMax?: number;
+  /** With `totals`: the squares, or the hour and weekday charts. The card's controls hold the switch (useHeatView). */
+  view?: HeatView;
 }) {
   const { GRID, HEAT_RAMP } = useChartColors();
   const { tr } = useLocale();
@@ -106,48 +138,79 @@ export function WeekHeatmap({
 
   return (
     <div style={{ display: 'grid', gap: 'var(--tp-sp-2)' }}>
+      {totals && view === 'charts' ? (
+        <div dir="ltr" style={{ display: 'grid', gap: 'var(--tp-sp-4)' }} onPointerLeave={() => setActive(null)}>
+          <section style={{ display: 'grid', gap: 'var(--tp-sp-1-5)' }}>
+            <h4 style={{ margin: 0, fontSize: 'var(--tp-fs-sm)', fontWeight: 600, color: 'var(--tp-muted-fg)' }}>{tr('ws.analytics.heatmap.byHour')}</h4>
+            <div style={{ overflowX: 'auto' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(24, minmax(0, 1fr))', gap: '2px', minInlineSize: '30rem' }}>
+                {HOURS.map((h) => {
+                  const v = totals.hours[h];
+                  const key = `h=${h}`;
+                  return (
+                    <span key={key} data-total-hour={h} onPointerEnter={() => setActive(key)} style={{ display: 'flex', alignItems: 'flex-end', blockSize: '7rem' }}>
+                      <span
+                        style={{
+                          inlineSize: '100%',
+                          blockSize: v == null ? 0 : `${hourMax > 0 ? Math.max(4, (v / hourMax) * 100) : 4}%`,
+                          background: margin(v, hourMax),
+                          borderStartStartRadius: 2,
+                          borderStartEndRadius: 2,
+                          outline: active === key ? '1px solid var(--tp-accent)' : undefined,
+                        }}
+                      />
+                    </span>
+                  );
+                })}
+                {HOURS.map((h) => (
+                  <span key={h} style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)', textAlign: 'center' }}>
+                    {h % 3 === 0 ? h : ''}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </section>
+          <section style={{ display: 'grid', gap: 'var(--tp-sp-1-5)' }}>
+            <h4 style={{ margin: 0, fontSize: 'var(--tp-fs-sm)', fontWeight: 600, color: 'var(--tp-muted-fg)' }}>{tr('ws.analytics.heatmap.byDay')}</h4>
+            <div style={{ display: 'grid', gridTemplateColumns: 'max-content 1fr', columnGap: 'var(--tp-sp-2)', rowGap: '4px', alignItems: 'center' }}>
+              {DOWS.map((dow) => {
+                const v = totals.days[dow];
+                const key = `d=${dow}`;
+                return (
+                  <div key={key} data-total-day={dow} onPointerEnter={() => setActive(key)} style={{ display: 'contents' }}>
+                    <span style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)', whiteSpace: 'nowrap' }}>{f.weekday(dow)}</span>
+                    <span style={{ display: 'flex', alignItems: 'center', blockSize: '1.1rem' }}>
+                      <span
+                        style={{
+                          blockSize: '0.8rem',
+                          // An open day always shows a stub, so "open, nothing booked" never reads as closed.
+                          inlineSize: v == null ? 0 : `${dayMax > 0 ? Math.max(2, ((v ?? 0) / dayMax) * 100) : 2}%`,
+                          background: margin(v, dayMax),
+                          borderStartEndRadius: 2,
+                          borderEndEndRadius: 2,
+                          outline: active === key ? '1px solid var(--tp-accent)' : undefined,
+                        }}
+                      />
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        </div>
+      ) : (
       <div dir="ltr" style={{ overflowX: 'auto' }} onPointerLeave={() => setActive(null)}>
         <div
           role="img"
           aria-label={`${unit}: ${cells.length} ${tr('ws.analytics.heatmap.cells')}`}
-          style={{ display: 'grid', gridTemplateColumns: `max-content repeat(24, minmax(0, 1fr))${totals ? ' 4.5rem' : ''}`, gap: '1px', minInlineSize: '42rem' }}
+          style={{ display: 'grid', gridTemplateColumns: `max-content repeat(24, minmax(0, 1fr))`, gap: '1px', minInlineSize: '42rem' }}
         >
-          {totals && (
-            <>
-              <span />
-              {HOURS.map((h) => {
-                const v = totals.hours[h];
-                const key = `h=${h}`;
-                return (
-                  <span
-                    key={key}
-                    data-total-hour={h}
-                    onPointerEnter={() => setActive(key)}
-                    style={{ display: 'flex', alignItems: 'flex-end', blockSize: '2rem', paddingInline: '1px', marginBlockEnd: '2px' }}
-                  >
-                    <span
-                      style={{
-                        inlineSize: '100%',
-                        blockSize: v == null ? 0 : `${hourMax > 0 ? Math.max(6, (v / hourMax) * 100) : 6}%`,
-                        background: margin(v, hourMax),
-                        borderStartStartRadius: 2,
-                        borderStartEndRadius: 2,
-                        outline: active === key ? '1px solid var(--tp-accent)' : undefined,
-                      }}
-                    />
-                  </span>
-                );
-              })}
-              <span />
-            </>
-          )}
           <span />
           {HOURS.map((h) => (
             <span key={h} style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)', textAlign: 'center' }}>
               {h % 3 === 0 ? h : ''}
             </span>
           ))}
-          {totals && <span />}
           {DOWS.map((dow) => (
             <Row
               key={dow}
@@ -157,31 +220,11 @@ export function WeekHeatmap({
               max={max}
               active={active}
               onActive={setActive}
-              total={
-                totals ? (
-                  <span
-                    data-total-day={dow}
-                    onPointerEnter={() => setActive(`d=${dow}`)}
-                    style={{ display: 'flex', alignItems: 'center', paddingInlineStart: 'var(--tp-sp-1-5)', blockSize: '1.1rem' }}
-                  >
-                    <span
-                      style={{
-                        blockSize: '0.7rem',
-                        // An open day always shows a stub, so "open, nothing booked" never reads as closed.
-                        inlineSize: totals.days[dow] == null ? 0 : `${dayMax > 0 ? Math.max(4, ((totals.days[dow] ?? 0) / dayMax) * 100) : 4}%`,
-                        background: margin(totals.days[dow], dayMax),
-                        borderStartEndRadius: 2,
-                        borderEndEndRadius: 2,
-                        outline: active === `d=${dow}` ? '1px solid var(--tp-accent)' : undefined,
-                      }}
-                    />
-                  </span>
-                ) : undefined
-              }
             />
           ))}
         </div>
       </div>
+      )}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 'var(--tp-sp-3)', minBlockSize: '1.25rem' }}>
         <span aria-live="polite" style={{ fontSize: 'var(--tp-fs-xs)', color: active ? 'var(--tp-fg)' : 'var(--tp-muted-fg)', fontVariantNumeric: 'tabular-nums' }}>
           {readout}
@@ -205,7 +248,6 @@ function Row({
   max,
   active,
   onActive,
-  total,
 }: {
   dow: number;
   label: string;
@@ -213,8 +255,6 @@ function Row({
   max: number;
   active: string | null;
   onActive: (key: string | null) => void;
-  /** The weekday's margin bar, at the row's end. */
-  total?: ReactNode;
 }) {
   const { GRID, HEAT_RAMP } = useChartColors();
   return (
@@ -248,7 +288,6 @@ function Row({
           />
         );
       })}
-      {total}
     </>
   );
 }

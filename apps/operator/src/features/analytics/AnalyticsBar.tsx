@@ -67,8 +67,11 @@ const bar: CSSProperties = {
   // The ground is .tp-glass-bar's, not this object's: it is frosted where the
   // browser can do it and falls back to the opaque --tp-bg where it cannot.
   borderBlockEnd: '1px solid var(--tp-border)',
-  marginInline: 'calc(-1 * var(--tp-sp-4))',
-  paddingInline: 'var(--tp-sp-4)',
+  // Edge to edge: out past the frame's own inline padding (--tp-sp-4) AND
+  // <main>'s (--tp-sp-5), so the bar meets the rail and the screen's edge; the
+  // same amount goes back in as padding so its content stays on the page grid.
+  marginInline: 'calc(-1 * (var(--tp-sp-4) + var(--tp-sp-5)))',
+  paddingInline: 'calc(var(--tp-sp-4) + var(--tp-sp-5))',
   paddingBlock: 'var(--tp-sp-2-5)',
   marginBlockEnd: 'var(--tp-sp-3)',
   display: 'grid',

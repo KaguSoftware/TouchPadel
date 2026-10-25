@@ -517,6 +517,11 @@ export const analyticsAr: DeepMessages<typeof analyticsEn> = {
     cells: 'خلية',
     less: 'أقل',
     more: 'أكثر',
+    view: 'العرض',
+    viewSquares: 'المربعات',
+    viewCharts: 'المخططات',
+    byHour: 'كل ساعة، عبر كل الأيام',
+    byDay: 'كل يوم، عبر كل الساعات',
   },
   components: {
     titles: {

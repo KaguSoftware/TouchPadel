@@ -60,7 +60,7 @@ import { EngagementTrendChart } from '../charts/EngagementTrendChart';
 import { AbandonedViewsChart } from '../charts/AbandonedViewsChart';
 import { FunnelBars } from '../charts/FunnelBars';
 import { PriceBandBars, bandLabel } from '../charts/PriceBandBars';
-import { WeekHeatmap } from '../charts/WeekHeatmap';
+import { WeekHeatmap, heatDivider, heatHeight, useHeatView } from '../charts/WeekHeatmap';
 import { sumTotals } from '../charts/geometry';
 import { MixCard } from '../cards/MixCard';
 import type { TrendDay } from '../charts/EngagementTrendChart';
@@ -97,6 +97,8 @@ export function CafeTab() {
   const { raw, derived, state, stateFor, errorFor } = data;
   const venue = useVenueRevenue(data.range, data.compareRange);
   const [tillMeasure, setTillMeasure] = useState<'orders' | 'revenue'>('orders');
+  const tillHeat = useHeatView();
+  const viewsHeat = useHeatView();
   const drill = useAnalyticsDrill(data.range);
 
   const setSearch = (next: Partial<AnalyticsSearch>) => {
@@ -673,10 +675,13 @@ export function CafeTab() {
           tip={tr('ws.analytics.cafe.tillHeatmapTip')}
           state={stateFor(NEEDS.hourly) === 'ready' && tillCells.every((c) => c.value === 0) ? 'empty' : stateFor(NEEDS.hourly)}
           emptyKey="analytics.empty.sales"
-          height={240}
+          height={heatHeight(tillHeat.view)}
           error={errorFor(NEEDS.hourly)}
           onRetry={data.refetchAll}
           actions={
+            <>
+            {tillHeat.switcher}
+            {heatDivider}
             <SegmentedControl<'orders' | 'revenue'>
               size="sm"
               aria-label={tr('ws.analytics.cafe.tillHeatmap')}
@@ -687,18 +692,20 @@ export function CafeTab() {
                 { value: 'revenue', label: tr('ws.analytics.cafe.toggleRevenue') },
               ]}
             />
+            </>
           }
           twin={heatTwin(heatCells(tillCells), tr('ws.reports.filters.group'), tr('ws.analytics.courts.cards.byHour'), tillMeasure === 'orders' ? tr('ws.analytics.cafe.toggleOrders') : tr('ws.analytics.cafe.toggleRevenue'), `orders-heatmap-${rangeLabel}`)}
         >
-          <WeekHeatmap cells={tillCells} f={f} format={tillFormat} unit={tr('ws.analytics.cafe.tillHeatmap')} hint={tr('ws.analytics.heatmap.hint')} totals={{ ...sumTotals(tillCells), format: tillFormat }} />
+          <WeekHeatmap cells={tillCells} f={f} format={tillFormat} unit={tr('ws.analytics.cafe.tillHeatmap')} hint={tr('ws.analytics.heatmap.hint')} totals={{ ...sumTotals(tillCells), format: tillFormat }} view={tillHeat.view} />
         </ChartCard>
         <MoreCharts id="cafe-time" count={1}>
           <ChartCard
             title={tr('analytics.cards.heatmap')}
             tip={tr('ws.analytics.cafe.viewsHeatmapTip')}
+            actions={viewsHeat.switcher}
             state={engState(engOnly === 'ready' && viewCells.length === 0 ? 'empty' : engOnly)}
             emptyKey="analytics.empty.heatmap"
-            height={240}
+            height={heatHeight(viewsHeat.view)}
             twin={heatTwin(heatCells(viewCells), tr('ws.reports.filters.group'), tr('ws.analytics.courts.cards.byHour'), tr('analytics.cards.viewsSeries'), `views-heatmap-${rangeLabel}`)}
           >
             <WeekHeatmap
@@ -708,6 +715,7 @@ export function CafeTab() {
               unit={tr('analytics.cards.viewsSeries')}
               hint={tr('ws.analytics.heatmap.hint')}
               totals={{ ...sumTotals(viewCells), format: (n) => `${f.num(n)} ${tr('analytics.cards.viewsSeries').toLowerCase()}` }}
+              view={viewsHeat.view}
             />
           </ChartCard>
         </MoreCharts>

@@ -537,6 +537,11 @@ export const analyticsEn = {
     cells: 'cells',
     less: 'Less',
     more: 'More',
+    view: 'View',
+    viewSquares: 'Squares',
+    viewCharts: 'Charts',
+    byHour: 'Each hour, across every day',
+    byDay: 'Each weekday, across every hour',
   },
   components: {
     titles: {

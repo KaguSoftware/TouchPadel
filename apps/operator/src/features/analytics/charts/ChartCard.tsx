@@ -10,8 +10,7 @@
  */
 import { useState, type ReactNode } from 'react';
 import type { MessageKey } from '@touch/i18n';
-import { Button } from '../../../components/ui';
-import { DataTable, type Column } from '../../../components/kit';
+import { DataTable, RowActions, type Column } from '../../../components/kit';
 import { useLocale } from '../../../lib/i18n';
 import { CardShell, type CardState } from '../cards/CardShell';
 import { downloadTable, type CsvCell } from '../exportTables';
@@ -73,17 +72,13 @@ export function ChartCard({
     downloadTable(twin.file, locale, { name: title, columns: twin.columns.map((c) => c.label), rows: cells });
   };
   const twinActions = twin && state === 'ready' && (
-    <>
-      <Button
-        kind="ghost"
-        size="sm"
-        icon="table"
-        aria-label={showTable ? tr('ws.analytics.twin.chart') : tr('ws.analytics.twin.table')}
-        aria-pressed={showTable}
-        onClick={() => setShowTable((v) => !v)}
-      />
-      <Button kind="ghost" size="sm" icon="fileText" aria-label={tr('ws.analytics.twin.csv')} onClick={exportCsv} />
-    </>
+    <RowActions
+      menu
+      actions={[
+        { id: 'view', icon: showTable ? 'chart' : 'table', label: showTable ? tr('ws.analytics.twin.chart') : tr('ws.analytics.twin.table'), onSelect: () => setShowTable((v) => !v) },
+        { id: 'csv', icon: 'fileText', label: tr('ws.analytics.twin.csv'), onSelect: exportCsv },
+      ]}
+    />
   );
   return (
     <CardShell

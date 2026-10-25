@@ -309,12 +309,12 @@ export const operatorBlueVars = {
   // ground a 0.7 white edge reads as a stroke rather than as a highlight.
   '--tp-glass': 'rgb(42 63 95 / 0.88)',
   '--tp-glass-border': 'rgb(255 255 255 / 0.14)',
-  // The sticky bar is the page ground, opaque: on a blue page a translucent
-  // bar picks up the saturate() in --tp-glass-blur and reads as a lighter
-  // blue band across the top, which is exactly what it must not do. Paper
-  // can afford the frost because its ground is near-white; here the bar's
-  // job is to hide what scrolls under it, so it takes --tp-bg flat.
-  '--tp-glass-bar': 'var(--tp-brand-blue)',
+  // The sticky bar is frosted here too (Sait, 2026-10-24): the page blue at
+  // 60%, as translucent as paper's bar. The blur's saturate() is held down from
+  // paper's 1.9 so the content scrolling under it does not turn the band into a
+  // lighter, louder blue.
+  '--tp-glass-bar': 'color-mix(in srgb, var(--tp-brand-blue) 60%, transparent)',
+  '--tp-glass-blur': 'blur(28px) saturate(1.25)',
   '--tp-glass-ctl': 'rgb(42 63 95 / 0.8)',
   '--tp-shadow-dialog': '0 2px 6px rgb(0 0 0 / 0.3), 0 24px 64px rgb(0 0 0 / 0.55)',
 } as const satisfies PaletteVars;

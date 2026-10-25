@@ -10,7 +10,7 @@ import { useState } from 'react';
 import { useLocale } from '../../../../lib/i18n';
 import { SegmentedControl } from '../../../../components/kit';
 import { ChartCard } from '../../charts/ChartCard';
-import { WeekHeatmap } from '../../charts/WeekHeatmap';
+import { WeekHeatmap, heatDivider, heatHeight, useHeatView } from '../../charts/WeekHeatmap';
 import { sumTotals } from '../../charts/geometry';
 import { heatTwin } from '../../charts/twins';
 import { weekdayName } from '../../copy';
@@ -21,6 +21,7 @@ type Measure = 'occupancy' | 'bookings' | 'revenue';
 export function WhenSection({ raw, derived, state, refreshing, f, rangeLabel }: SectionProps) {
   const { tr } = useLocale();
   const [measure, setMeasure] = useState<Measure>('occupancy');
+  const heat = useHeatView();
   const cells = (derived?.cells ?? []).map((c) => ({
     dow: c.dow,
     hour: c.hour,
@@ -45,8 +46,11 @@ export function WhenSection({ raw, derived, state, refreshing, f, rangeLabel }: 
         state={empty ? 'empty' : state}
         refreshing={refreshing}
         emptyKey="ws.analytics.courts.empty.heat"
-        height={240}
+        height={heatHeight(heat.view)}
         actions={
+          <>
+          {heat.switcher}
+          {heatDivider}
           <SegmentedControl<Measure>
             size="sm"
             aria-label={tr('ws.analytics.courts.cards.heatmap')}
@@ -58,6 +62,7 @@ export function WhenSection({ raw, derived, state, refreshing, f, rangeLabel }: 
               { value: 'revenue', label: tr('ws.analytics.courts.units.revenue') },
             ]}
           />
+          </>
         }
         twin={heatTwin(
           [...cells].sort((a, b) => a.dow - b.dow || a.hour - b.hour).map((c) => ({ day: weekdayName(tr, c.dow), hour: f.hour(c.hour), value: c.open ? c.value : null })),
@@ -67,7 +72,7 @@ export function WhenSection({ raw, derived, state, refreshing, f, rangeLabel }: 
           `court-heatmap-${measure}-${rangeLabel}`,
         )}
       >
-        <WeekHeatmap cells={cells} f={f} format={format} unit={unit} hint={tr('ws.analytics.heatmap.hint')} totals={totals} />
+        <WeekHeatmap cells={cells} f={f} format={format} unit={unit} hint={tr('ws.analytics.heatmap.hint')} totals={totals} view={heat.view} />
       </ChartCard>
   );
 }

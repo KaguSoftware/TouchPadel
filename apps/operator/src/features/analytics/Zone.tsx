@@ -9,7 +9,8 @@
  * explanation, not state, so it now sits behind the info button (read on
  * hover, focus or tap) and the heading row stays one line of type.
  */
-import { createContext, useContext, useEffect, useState, type CSSProperties, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useState, type CSSProperties, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import type { MessageKey } from '@touch/i18n';
 import { InfoTip } from '../../components/InfoTip';
 import { BreakdownFrame, useCardRow } from '../../components/BreakdownCards';
@@ -182,6 +183,13 @@ export function ZoneFrame({ lead, children }: { lead?: ReactNode; children: Reac
   );
 }
 
+/**
+ * The end of a Zone's panel, below the cards and the section's sentence, where
+ * its "Show more" buttons land (Sait, 2026-10-24). `claim` is called by each
+ * MoreCharts so the slot only exists (and only adds a gap) when one is there.
+ */
+const MoreSlot = createContext<{ node: HTMLElement | null; claim: () => () => void } | null>(null);
+
 export function Zone({
   zone,
   lead,
@@ -200,6 +208,13 @@ export function Zone({
 }) {
   const { tr } = useLocale();
   const title = tr(zone.titleKey);
+  const [moreNode, setMoreNode] = useState<HTMLElement | null>(null);
+  const [claims, setClaims] = useState(0);
+  const claim = useCallback(() => {
+    setClaims((n) => n + 1);
+    return () => setClaims((n) => n - 1);
+  }, []);
+  const slot = { node: moreNode, claim };
   // scrollMarginBlockStart is replaced with the measured bar height by scrollToZone.
   if (headInFrame) {
     return (
@@ -228,15 +243,19 @@ export function Zone({
         style={{ background: 'var(--tp-breakdown-frame)' }}
       >
         <div style={{ display: 'grid', gap: 'var(--tp-sp-3)', padding: 'var(--tp-sp-4)' }}>
+          {/* Every card in a section wears the Breakdown look (Sait, 2026-10-19). */}
+          <div>
+            <MoreSlot.Provider value={slot}>
+              <BreakdownLook.Provider value="card">{children}</BreakdownLook.Provider>
+            </MoreSlot.Provider>
+          </div>
+          {/* The section's answer sits under its cards (Sait, 2026-10-24). */}
           {lead && (
             <p data-testid={`zone-${zone.id}-lead`} style={leadStyle}>
               {lead}
             </p>
           )}
-          {/* Every card in a section wears the Breakdown look (Sait, 2026-10-19). */}
-          <div>
-            <BreakdownLook.Provider value="card">{children}</BreakdownLook.Provider>
-          </div>
+          {claims > 0 && <div ref={setMoreNode} />}
         </div>
       </Panel>
     </section>
@@ -323,34 +342,54 @@ export function ZoneGrid({ columns = 2, min, children }: { columns?: number; min
 export function MoreCharts({ id, count, children }: { id: string; count: number; children: ReactNode }) {
   const { tr } = useLocale();
   const [open, setOpen] = useState(() => openSections.has(id));
+  // Once opened the charts stay mounted, so closing can collapse them instead of cutting them.
+  const [mounted, setMounted] = useState(open);
   const bodyId = `more-${id}`;
+  const slot = useContext(MoreSlot);
+  const claim = slot?.claim;
+  useEffect(() => (count > 0 && claim ? claim() : undefined), [count, claim]);
   if (count === 0) return null;
   const toggle = () => {
+    setMounted(true);
     setOpen((v) => {
       if (v) openSections.delete(id);
       else openSections.add(id);
       return !v;
     });
   };
-  return (
-    <div style={{ marginBlockStart: 'var(--tp-sp-3)' }}>
-      <button
-        type="button"
-        className="tp-btn"
-        data-kind="ghost"
-        aria-expanded={open}
-        aria-controls={bodyId}
-        onClick={toggle}
-        style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-1)', fontSize: 'var(--tp-fs-sm)', fontWeight: 600 }}
+  const node = (
+    <div style={slot ? undefined : { marginBlockStart: 'var(--tp-sp-3)' }}>
+      {/* Height runs through a 0fr → 1fr track, so it needs no measuring; reduced-motion cuts it in GlobalStyles. */}
+      <div
+        id={bodyId}
+        inert={!open}
+        style={{ display: 'grid', gridTemplateRows: open ? '1fr' : '0fr', transition: 'grid-template-rows var(--tp-dur-base) var(--tp-ease-out)' }}
       >
-        <Icon name="chevronDown" size={14} style={{ transform: open ? 'rotate(180deg)' : undefined }} />
-        {open ? tr('ws.analytics.more.hide') : tr('ws.analytics.more.show', { n: count })}
-      </button>
-      <div id={bodyId} hidden={!open} style={{ marginBlockStart: 'var(--tp-sp-2)', display: open ? 'grid' : undefined, gap: 'var(--tp-sp-3)' }}>
-        {open && children}
+        <div style={{ minBlockSize: 0, overflow: 'hidden' }}>
+          <div className={open ? 'tp-rise' : undefined} style={{ display: 'grid', gap: 'var(--tp-sp-3)', paddingBlockEnd: 'var(--tp-sp-3)' }}>
+            {mounted && children}
+          </div>
+        </div>
+      </div>
+      {/* A rule above the button, so it reads as the foot of the section (Sait, 2026-10-24). */}
+      <div style={{ borderBlockStart: '1px solid var(--tp-border)', paddingBlockStart: 'var(--tp-sp-3)' }}>
+        <button
+          type="button"
+          className="tp-btn"
+          data-kind="soft"
+          aria-expanded={open}
+          aria-controls={bodyId}
+          onClick={toggle}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-1)', fontSize: 'var(--tp-fs-sm)', fontWeight: 600 }}
+        >
+          <Icon name="chevronDown" size={14} style={{ transform: open ? 'rotate(180deg)' : undefined, transition: 'transform var(--tp-dur-fast) var(--tp-ease-out)' }} />
+          {open ? tr('ws.analytics.more.hide') : tr('ws.analytics.more.show', { n: count })}
+        </button>
       </div>
     </div>
   );
+  if (!slot) return node;
+  return slot.node ? createPortal(node, slot.node) : null;
 }
 
 /** Which sections the owner opened, kept across tab switches for the visit. */

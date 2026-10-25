@@ -37,18 +37,19 @@ describe('ChartCard twin', () => {
   it('shows the plot by default and swaps it for the table on the toggle', async () => {
     renderCard();
     expect(screen.getByTestId('plot')).toBeTruthy();
-    const toggle = screen.getByRole('button', { name: 'Show as table' });
-    expect(toggle.getAttribute('aria-pressed')).toBe('false');
-    await userEvent.click(toggle);
+    await userEvent.click(screen.getByRole('button', { name: 'More' }));
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Show as table' }));
     expect(screen.queryByTestId('plot')).toBeNull();
     expect(screen.getByRole('table')).toBeTruthy();
     expect(screen.getByText('19:00')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Show as chart' }).getAttribute('aria-pressed')).toBe('true');
+    await userEvent.click(screen.getByRole('button', { name: 'More' }));
+    expect(screen.getByRole('menuitem', { name: 'Show as chart' })).toBeTruthy();
   });
 
   it('downloads the same rows in column order, on a sheet named for the chart', async () => {
     renderCard();
-    await userEvent.click(screen.getByRole('button', { name: 'Download' }));
+    await userEvent.click(screen.getByRole('button', { name: 'More' }));
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Download' }));
     expect(downloadTable).toHaveBeenCalledWith('by-hour', 'en', {
       name: 'By hour',
       columns: ['Hour', 'Bookings'],
@@ -58,6 +59,6 @@ describe('ChartCard twin', () => {
 
   it('offers no twin controls while loading', () => {
     renderCard('loading');
-    expect(screen.queryByRole('button', { name: 'Show as table' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'More' })).toBeNull();
   });
 });

@@ -4,8 +4,7 @@
  * plot. Rates print as "n of N" below the twenty-booking floor.
  */
 import { pickLocale } from '@touch/core';
-import { Button } from '../../../../components/ui';
-import { DataTable, type Column } from '../../../../components/kit';
+import { DataTable, RowActions, type Column } from '../../../../components/kit';
 import { useLocale } from '../../../../lib/i18n';
 import { CardShell, type CardState } from '../../cards/CardShell';
 import { downloadTable } from '../../exportTables';
@@ -82,7 +81,7 @@ export function CourtTable({
       state={state}
       refreshing={refreshing}
       emptyKey="ws.analytics.courts.empty.bookings"
-      actions={state === 'ready' ? <Button kind="ghost" size="sm" icon="fileText" aria-label={tr('ws.analytics.twin.csv')} onClick={exportCsv} /> : undefined}
+      actions={state === 'ready' ? <RowActions menu actions={[{ id: 'csv', icon: 'fileText', label: tr('ws.analytics.twin.csv'), onSelect: exportCsv }]} /> : undefined}
       skeletonLines={4}
     >
       <DataTable<CourtTableRow>
