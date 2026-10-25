@@ -177,18 +177,20 @@ describe.skipIf(!up)('0330 assistant stored-days cache', () => {
       expect(r.detailRows).toBeGreaterThan(0);
     });
 
+    // 400 is the fill's per-call cap; the seed's history grows a day every day, so a smaller budget
+    // stops covering it and the second init stores one more (it did at 101 days, 2026-10-25).
     it('the top-up is incremental: a second init stores nothing kept already, an invalidated range is recomputed alone', () => {
       const line = inTx(`
         select app.assistant_cache_clear() \\gset
-        select app.assistant_cache_init(100) \\gset
+        select app.assistant_cache_init(400) \\gset
         select count(*) as n1 from assistant_day_facts where scope like 'all:%' \\gset
-        select app.assistant_cache_init(100) \\gset
+        select app.assistant_cache_init(400) \\gset
         select count(*) as n2 from assistant_day_facts where scope like 'all:%' \\gset
         select count(*) as inrange from assistant_day_facts where scope like 'all:%' and business_date = '${FROM}' \\gset
         select app.assistant_cache_invalidate('${FROM}', '${FROM}') as dropped \\gset
         select count(*) as n3 from assistant_day_facts where scope like 'all:%' \\gset
         select max(computed_at) as stamp from assistant_day_facts where scope like 'all:%' \\gset
-        select app.assistant_cache_fill(100) \\gset
+        select app.assistant_cache_fill(400) \\gset
         select json_build_object('n1', :n1, 'n2', :n2, 'inrange', :inrange, 'dropped', :dropped, 'n3', :n3,
                                  'n4', (select count(*) from assistant_day_facts where scope like 'all:%'))::text;`);
       const r = JSON.parse(line) as { n1: number; n2: number; inrange: number; dropped: number; n3: number; n4: number };
