@@ -120,6 +120,10 @@ function MatchSettingsForm({ saved }: { saved: MatchSettings }) {
   const errors = matchSettingsErrors(draft);
   const invalid = Object.keys(errors).length > 0;
   const patch = invalid ? null : matchSettingsPatch(saved, draft);
+  // Online payments are paused, so seats can only be paid at the desk (0370); the server refuses
+  // matches on while the mode is still 'tickets'. The locked switch shows that, and the save sends it.
+  if (patch && !onlineLive && patch.matches_enabled === true && saved.match_payment_mode !== 'desk') patch.match_payment_mode = 'desk';
+  const payAtDesk = draft.payAtDesk || !onlineLive;
   const dirty = invalid ? JSON.stringify(draft) !== JSON.stringify(draftFromMatchSettings(saved)) : Object.keys(patch ?? {}).length > 0;
 
   const save = useMutation({
@@ -193,7 +197,7 @@ function MatchSettingsForm({ saved }: { saved: MatchSettings }) {
         <ScopeHeading scope={tr(`${K}.allBranches`)} lead={tr(`${K}.allLead`)} />
         <div style={{ display: 'grid', gap: 'var(--tp-sp-1)' }}>
           <Switch
-            checked={draft.payAtDesk}
+            checked={payAtDesk}
             onChange={(v) => set('payAtDesk', v)}
             label={tr(`${K}.payAtDesk`)}
             disabled={save.isPending || !onlineLive}
@@ -201,7 +205,7 @@ function MatchSettingsForm({ saved }: { saved: MatchSettings }) {
           <p style={{ margin: 0, fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>{tr(onlineLive ? `${K}.payAtDeskHint` : `${K}.payAtDeskLocked`)}</p>
         </div>
         <div style={{ display: 'grid', gap: 'var(--tp-sp-3)', gridTemplateColumns: 'repeat(auto-fit, minmax(16rem, 1fr))' }}>
-          {!draft.payAtDesk && (
+          {!payAtDesk && (
             <NumberField label={tr(`${K}.price`)} hint={tr(`${K}.priceHint`)} unit={tr(`${K}.iqd`)} value={draft.priceIqd} onChange={(v) => set('priceIqd', v)} error={errorFor('priceIqd')} />
           )}
           <NumberField

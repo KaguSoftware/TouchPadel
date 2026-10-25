@@ -21,6 +21,7 @@ const SETTINGS = {
   match_payment_mode: 'tickets',
 };
 
+let onlineLive = false;
 let settingsRead: () => unknown = () => SETTINGS;
 let saveAnswer: (args: Record<string, unknown>) => unknown = (args) => ({ ...SETTINGS, ...(args.p_patch as object) });
 
@@ -31,6 +32,7 @@ vi.mock('../../../lib/appRpc', async (importOriginal) => {
     ...actual,
     appRpc: vi.fn(async (fn: string, args: Record<string, unknown>) => {
       if (fn === 'match_settings') return settingsRead();
+      if (fn === 'online_payments_live') return onlineLive;
       if (fn === 'set_match_settings') return saveAnswer(args);
       return {};
     }),
@@ -50,6 +52,7 @@ function mount(ui: ReactNode) {
 const calls = (fn: string) => vi.mocked(appRpc).mock.calls.filter(([name]) => name === fn);
 
 beforeEach(() => {
+  onlineLive = false;
   settingsRead = () => SETTINGS;
   saveAnswer = (args) => ({ ...SETTINGS, ...(args.p_patch as object) });
   vi.mocked(appRpc).mockClear();
@@ -58,13 +61,14 @@ beforeEach(() => {
 describe('MatchSettingsPanel', () => {
   it('the owner changes the deadline and the ticket price: only those keys go, for this branch', async () => {
     const user = userEvent.setup();
+    onlineLive = true;
     mount(<MatchSettingsPanel canEdit />);
     const deadline = await screen.findByRole('textbox', { name: /^Fill deadline/ });
     // The chain-wide rules say so.
     expect(screen.getByText('Changing these changes them at every branch.')).toBeTruthy();
     await user.clear(deadline);
     await user.type(deadline, '180');
-    const price = screen.getByRole('textbox', { name: /^Ticket price/ });
+    const price = await screen.findByRole('textbox', { name: /^Ticket price/ });
     await user.clear(price);
     await user.type(price, '12500');
     await user.click(screen.getByRole('button', { name: 'Save open-match rules' }));
@@ -84,8 +88,23 @@ describe('MatchSettingsPanel', () => {
     expect(calls('set_match_settings')[0]![1]).toMatchObject({ p_patch: { matches_enabled: true } });
   });
 
+  it('with online payments paused, turning matches on also sends pay at the desk', async () => {
+    const user = userEvent.setup();
+    mount(<MatchSettingsPanel canEdit />);
+    await user.click(await screen.findByRole('switch', { name: /Open matches at this branch/ }));
+    // The locked switch already reads on, and the ticket price is hidden.
+    expect(screen.getByRole('switch', { name: /Players pay at the desk/ }).getAttribute('aria-checked')).toBe('true');
+    await user.click(screen.getByRole('button', { name: 'Save open-match rules' }));
+    await waitFor(() => expect(calls('set_match_settings')).toHaveLength(1));
+    expect(calls('set_match_settings')[0]![1]).toEqual({
+      p_patch: { matches_enabled: true, match_payment_mode: 'desk' },
+      p_venue_id: null,
+    });
+  });
+
   it('a price off the 250 step is refused before anything is sent', async () => {
     const user = userEvent.setup();
+    onlineLive = true;
     mount(<MatchSettingsPanel canEdit />);
     const price = await screen.findByRole('textbox', { name: /^Ticket price/ });
     await user.clear(price);
