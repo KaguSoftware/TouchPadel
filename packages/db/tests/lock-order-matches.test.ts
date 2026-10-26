@@ -282,7 +282,8 @@ describe.skipIf(!docker)('check:locks over the local stack (0260, 0261, 0262, 02
     const L2 = 'court_advisory -> reservations -> match_venue_advisory -> match_tickets';
     const L1 = 'match_venue_advisory -> match_tickets';
     // match_decide: its approve branch (L2) is written before its decline (L1).
-    for (const fn of ['match_start', 'match_decide']) expect(rowOf(gate.out, fn), fn).toBe(L2 + TAIL);
+    // 0372 desk_decide_request: the same two branches in the same order.
+    for (const fn of ['match_start', 'match_decide', 'desk_decide_request']) expect(rowOf(gate.out, fn), fn).toBe(L2 + TAIL);
     for (const fn of ['match_request', 'match_withdraw', 'match_leave', 'match_remove_player', 'match_cancel']) {
       expect(rowOf(gate.out, fn), fn).toBe(L1);
     }

@@ -21,7 +21,7 @@ import { Button } from '../../components/ui';
 import { Panel, StatusBadge, ViewMore, useListCap, type Tone } from '../../components/kit';
 import { Icon } from '../../components/icons';
 import { useLocale } from '../../lib/i18n';
-import { MATCH_SEATS, needsPlayersRows, type MatchReadStatus, type NeedsPlayersTag } from './matchLogic';
+import { MATCH_SEATS, matchTone, needsPlayersRows, type MatchReadStatus, type NeedsPlayersTag } from './matchLogic';
 import { MatchReadNotice } from './MatchReadNotice';
 import { categoryKey } from './OpenMatchesStrip';
 import type { OpenMatches } from './matchPayloads';
@@ -46,6 +46,8 @@ export interface NeedsPlayersPanelProps {
   onStartMatch: () => void;
   /** The page lists any day, and starting happens on the calendar: no Start button. */
   hideStart?: boolean;
+  /** Courts › Open matches: one coloured card per match instead of the Today board's rows. */
+  cards?: boolean;
   onRetry: () => void;
 }
 
@@ -80,6 +82,84 @@ export function NeedsPlayersPanel(p: NeedsPlayersPanelProps) {
         {tr('ws.matches.today.startMatch')}
       </Button>
     ) : undefined;
+
+  if (p.cards) {
+    return (
+      <div style={{ display: 'grid', gap: 'var(--tp-sp-3)' }}>
+        <MatchReadNotice status={p.status} onRetry={p.onRetry} tz={p.tz} compact />
+        {!enabled && <p style={{ margin: 0, fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>{tr('ws.matches.today.off')}</p>}
+        {rows.length === 0 ? (
+          <p style={{ margin: 0, color: 'var(--tp-muted-fg)' }}>{tr('ws.matches.today.none')}</p>
+        ) : (
+          <ul aria-label={tr('ws.matches.today.title')} className="tp-match-grid">
+            {cap.shown.map((row) => {
+              const m = row.match;
+              const when = formatTimeRange(new Date(m.start_at), new Date(m.end_at), locale, p.tz);
+              const organiser = m.organiser?.full_name ?? tr('ws.matches.common.openMatch');
+              return (
+                <li key={m.match_id} className="tp-match-card tp-tone" data-tone={matchTone(m.match_id)} data-testid={`match-card-${m.match_id}`}>
+                  <span className="tp-branch-band">
+                    <strong>
+                      <bdi>{organiser}</bdi>
+                    </strong>
+                    <StatusBadge size="sm" tone="accent" dot={false} label={tr(categoryKey(m.category))} />
+                  </span>
+                  <span className="tp-branch-body">
+                    <span className="tp-strip-tiles">
+                      <span className="tp-strip-tile">
+                        <span className="tp-strip-tile-band">{tr('ws.matches.today.tilePlayers')}</span>
+                        <span className="tp-strip-tile-value">
+                          {row.taken === null ? '—' : formatNumber(row.taken, locale)}/{formatNumber(MATCH_SEATS, locale)}
+                        </span>
+                      </span>
+                      <span className="tp-strip-tile">
+                        <span className="tp-strip-tile-band">{tr('ws.matches.today.tileStarts')}</span>
+                        <span className="tp-strip-tile-value">
+                          <bdi>{formatTime(new Date(m.start_at), locale, p.tz)}</bdi>
+                        </span>
+                      </span>
+                    </span>
+                    <span className="tp-match-lines">
+                      <bdi>{when}</bdi>
+                      {row.requests > 0 && <span>{tr('ws.matches.today.requests', { count: formatNumber(row.requests, locale) })}</span>}
+                      {row.deadlineAt && (
+                        <Figure warn={row.deadlineWarn}>{tr('ws.matches.today.closes', { time: formatTime(new Date(row.deadlineAt), locale, p.tz) })}</Figure>
+                      )}
+                    </span>
+                    {row.tags.length > 0 && (
+                      <span style={{ display: 'inline-flex', gap: 'var(--tp-sp-1)', flexWrap: 'wrap' }}>
+                        {row.tags.map((tag) => (
+                          <StatusBadge key={tag} size="sm" tone={TAGS[tag].tone} label={tr(TAGS[tag].key)} />
+                        ))}
+                      </span>
+                    )}
+                    <span className="tp-match-actions">
+                      {p.runMatches && row.canAddPlayer && (
+                        <Button
+                          size="sm"
+                          icon="plus"
+                          disabled={!p.reachable}
+                          disabledReason={offline}
+                          onClick={() => p.onAddPlayer(m.match_id)}
+                          aria-label={`${tr('ws.matches.today.addPlayer')} ${when}`}
+                        >
+                          {tr('ws.matches.today.addPlayer')}
+                        </Button>
+                      )}
+                      <Button size="sm" kind="primary" className="tp-match-end" onClick={() => p.onOpenMatch(m.match_id)} aria-label={`${tr('ws.matches.today.open')} ${when}`}>
+                        {tr('ws.matches.today.open')}
+                      </Button>
+                    </span>
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+        <ViewMore hidden={cap.hidden} open={cap.open} onToggle={cap.toggle} style={{ marginBlockStart: 0 }} />
+      </div>
+    );
+  }
 
   return (
     <Panel title={title} actions={start}>

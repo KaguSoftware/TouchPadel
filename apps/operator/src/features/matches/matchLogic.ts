@@ -21,6 +21,7 @@ import { formatIQD, formatTime, isolate, isolateLtr, type Locale, type MessageKe
 import { AppRpcError } from '../../lib/appRpc';
 import { errorToMessageKey } from '../../lib/errors';
 import type { CourtRow } from '../../lib/queries';
+import { branchTone, type BranchTone } from '../admin/branches/branchesLogic';
 import { resolveGuestSiteUrl } from '../admin/qr/qrCardGeometry';
 import { isLessonLiteral } from '../coaching/lessonLogic';
 import { BLOCKING_STATUSES, guestNameOf } from '../desk/deskLogic';
@@ -31,6 +32,16 @@ export type Tr = (key: MessageKey, params?: TParams) => string;
 
 /** The four seats of every match (OM-3). */
 export const MATCH_SEATS = 4;
+
+/**
+ * The card colour of a match: one of the six overview colours, taken from its id so the card on the
+ * Open matches page and the match's own page wear the same one.
+ */
+export function matchTone(id: string): BranchTone {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+  return branchTone(h);
+}
 
 // ---------------------------------------------------------------------------
 // The booking a match makes (§5.8)

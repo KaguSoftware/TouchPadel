@@ -4736,6 +4736,15 @@ export const matrix: MatrixRule[] = [
     drop: 24,
   },
   {
+    kind: 'rpc', schema: 'app', name: 'desk_decide_request',
+    args: { p_request_id: NIL_UUID, p_approve: false },
+    expect: ex<RpcExpectation>('guarded', {
+      anon: 'denied', court_desk: 'execute', manager: 'execute', owner: 'execute',
+    }),
+    note: '0372: REQUEST_NOT_FOUND past the guard',
+    drop: 24,
+  },
+  {
     kind: 'rpc', schema: 'app', name: 'desk_remove_seat',
     args: { p_seat_id: NIL_UUID, p_reason: 'other' },
     expect: ex<RpcExpectation>('guarded', {

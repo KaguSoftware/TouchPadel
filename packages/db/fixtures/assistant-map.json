@@ -1,5 +1,5 @@
 {
-  "generated_from": "04ea3b4301412f997728aa51b79bb08547df648e",
+  "generated_from": "07cbdea60385066f93ae3b50763d41070184fa24",
   "chunks": [
     {
       "kind": "page",
@@ -4815,6 +4815,30 @@
       "lang": "en",
       "title": "app.desk_create_group (part 2 of 2)",
       "body": "0283 (db.md §4.7.4; C-13, D-12, R47, R57). Desk: create a group session for a coach. FORBIDDEN (role first); INVALID_ARGUMENT; LESSON_TYPE_NOT_FOUND (a group ty\nSignature: app.desk_create_group(p_coach_id uuid, p_lesson_type_id uuid, p_start_at timestamptz, p_idempotency_key text) returns jsonb.\nGranted to: authenticated. Guard: staff role in (court_desk, manager, owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, INVALID_ARGUMENT, LESSON_TYPE_NOT_FOUND, VENUE_MISMATCH, COACH_NOT_FOUND, COACH_NOT_AT_BRANCH, COACH_INACTIVE, LESSON_TYPE_INACTIVE, LESSON_TYPE_NOT_OFFERED.\nCalled from: apps/operator/src/features/coaching/StartLessonDialog.tsx (pages /desk).\nDefined in migration 0283 (last definition). The assistant cannot call this; it only explains it.",
+      "route": "/desk"
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.desk_decide_request",
+      "lang": "en",
+      "title": "app.desk_decide_request (part 1 of 3)",
+      "body": "0372. Desk (court desk, manager, owner): approves or declines a pending join request of an ask-to-join match, as the organiser does through match_decide (0261, db.md §4.6.6) but from the branch's staff. Refusals in order: FORBIDDEN; INVALID_ARGUMENT (p_request_id, p_approve); REQUEST_NOT_FOUND (unknown, sandbox, not visible); VENUE_MISMATCH; the same answer again -> duplicate; REQUEST_CLOSED. Approve: the numbers (match_join_refusal 'numbers': MATCH_CLOSED / MATCH_FULL), REQUESTER_INELIGIBLE (detail the first code the requester now fails; the request stays pending), then under L2 everything again; the request's reserved tickets",
+      "route": "/desk"
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.desk_decide_request~2",
+      "lang": "en",
+      "title": "app.desk_decide_request (part 2 of 3)",
+      "body": "0372. Desk (court desk, manager, owner): approves or declines a pending join request of an ask-to-join match, as the organiser does through match_decide (0261, \nseat the requester at once (a refill as in match_join), events approved and joined (staff), the fourth carrier books the court. MATCHES_OFF and DEGRADED_LOCKOUT do not apply (R10, as desk_add_seat). Decline: under the branch mutex; tickets released. Audit match.desk_decide. Returns {request_id, status, duplicate, seats, match_status, tickets_released}.\nSignature: app.desk_decide_request(p_request_id uuid, p_approve boolean) returns jsonb.\nGranted to: authenticated. Guard: staff role in (court_desk, manager, owner).\nAudit actions written: match.desk_decide.",
+      "route": "/desk"
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.desk_decide_request~3",
+      "lang": "en",
+      "title": "app.desk_decide_request (part 3 of 3)",
+      "body": "0372. Desk (court desk, manager, owner): approves or declines a pending join request of an ask-to-join match, as the organiser does through match_decide (0261, \nGranted to: authenticated. Guard: staff role in (court_desk, manager, owner).\nAudit actions written: match.desk_decide.\nError codes: FORBIDDEN, INVALID_ARGUMENT, REQUEST_NOT_FOUND, VENUE_MISMATCH, REQUEST_CLOSED, REQUESTER_INELIGIBLE.\nCalled from: apps/operator/src/features/matches/MatchDetail.tsx (pages /desk).\nDefined in migration 0372 (last definition). The assistant cannot call this; it only explains it.",
       "route": "/desk"
     },
     {
@@ -33693,32 +33717,48 @@
       "kind": "label",
       "ref": "label:ws.matches.detail",
       "lang": "ar",
-      "title": "ws.matches.detail (packages/i18n/src/catalogs/ws/matchesPlayers.ar.ts) (part 1 of 2)",
-      "body": "title: {time} · {category}\ncloses: آخر موعد للاكتمال {time}\ncopyLink: نسخ رابط الدعوة\nlinkCopied: نُسخ الرابط\ncopyFailed: تعذّر نسخ الرابط. يمكن تحديده ونسخه يدويًا.\ncancel: إلغاء المباراة\ncancelBody: يلغي ذلك المباراة لجميع لاعبيها، وتعود التذاكر إليهم دون أي رسوم.\ncancelled: أُلغيت المباراة.\nopenBooking: فتح الحجز\nbanner.filling: اللاعبون {taken} من {total} · ينقصها {players} قبل {time}\nbanner.fillingF: اللاعبات {taken} من {total} · ينقصها {players} قبل {time}\nbanner.booked: محجوزة على {court}\nrequests.title: الطلبات {count}\nrequests.lead: يردّ المنظّم على الطلبات من التطبيق.\nrequests.leadF: تردّ المنظّمة على الطلبات من التطبيق.\nrequests.empty: لا طلبات بانتظار الرد.\nrequests.seats: المقاعد {count}\nrequests.games: المباريات {count}",
+      "title": "ws.matches.detail (packages/i18n/src/catalogs/ws/matchesPlayers.ar.ts) (part 1 of 3)",
+      "body": "title: {time} · {category}\ncloses: آخر موعد للاكتمال {time}\ntiles.players: اللاعبون\ntiles.time: الوقت\ntiles.court: الملعب\ntiles.noCourt: لم يُحدد بعد\ntiles.closes: آخر موعد\ncopyLink: نسخ رابط الدعوة\nlinkCopied: نُسخ الرابط\ncopyFailed: تعذّر نسخ الرابط. يمكن تحديده ونسخه يدويًا.\ncancel: إلغاء المباراة\ncancelBody: يلغي ذلك المباراة لجميع لاعبيها، وتعود التذاكر إليهم دون أي رسوم.\ncancelled: أُلغيت المباراة.\nopenBooking: فتح الحجز\nbanner.filling: اللاعبون {taken} من {total} · ينقصها {players} قبل {time}\nbanner.fillingF: اللاعبات {taken} من {total} · ينقصها {players} قبل {time}\nbanner.booked: محجوزة على {court}\nrequests.title: الطلبات {count}\nrequests.lead: اقبل الطلب لإجلاس اللاعب الآن، أو ارفضه. يمكن للمنظّم أيضًا الرد من التطبيق.",
       "route": "/desk"
     },
     {
       "kind": "label",
       "ref": "label:ws.matches.detail",
       "lang": "en",
-      "title": "ws.matches.detail (packages/i18n/src/catalogs/ws/matchesPlayers.en.ts) (part 1 of 2)",
-      "body": "title: {time} · {category}\ncloses: Closes {time}\ncopyLink: Copy invite link\nlinkCopied: Link copied\ncopyFailed: The link couldn't be copied. Select it and copy it by hand.\ncancel: Cancel match\ncancelBody: Cancels the match for everyone in it. Tickets go back to the players; nobody is charged.\ncancelled: Match cancelled.\nopenBooking: Open booking\nbanner.filling: Players {taken} of {total} · needs {players} more by {time}\nbanner.fillingF: Players {taken} of {total} · needs {players} more by {time}\nbanner.booked: Booked on {court}\nrequests.title: Requests {count}\nrequests.lead: The organiser answers requests in the app.\nrequests.leadF: The organiser answers requests in the app.\nrequests.empty: No requests waiting.\nrequests.seats: Seats {count}",
+      "title": "ws.matches.detail (packages/i18n/src/catalogs/ws/matchesPlayers.en.ts) (part 1 of 3)",
+      "body": "title: {time} · {category}\ncloses: Closes {time}\ntiles.players: Players\ntiles.time: Time\ntiles.court: Court\ntiles.noCourt: Not yet\ntiles.closes: Closes\ncopyLink: Copy invite link\nlinkCopied: Link copied\ncopyFailed: The link couldn't be copied. Select it and copy it by hand.\ncancel: Cancel match\ncancelBody: Cancels the match for everyone in it. Tickets go back to the players; nobody is charged.\ncancelled: Match cancelled.\nopenBooking: Open booking\nbanner.filling: Players {taken} of {total} · needs {players} more by {time}\nbanner.fillingF: Players {taken} of {total} · needs {players} more by {time}\nbanner.booked: Booked on {court}\nrequests.title: Requests {count}",
       "route": "/desk"
     },
     {
       "kind": "label",
       "ref": "label:ws.matches.detail~2",
       "lang": "ar",
-      "title": "ws.matches.detail (packages/i18n/src/catalogs/ws/matchesPlayers.ar.ts) (part 2 of 2)",
-      "body": "title: {time} · {category}\nrequests.leadF: تردّ المنظّمة على الطلبات من التطبيق.\nrequests.empty: لا طلبات بانتظار الرد.\nrequests.seats: المقاعد {count}\nrequests.games: المباريات {count}\nrequests.noShows: الغياب {count}\nrequests.askedAt: وقت الطلب {time}\ninvite.title: رابط الدعوة\ninvite.linkOnly: لا يصل إليها إلا من لديه الرابط.\nhistory.title: السجل\nhistory.empty: لا أحداث في هذه المباراة بعد.\nhistory.automatic: تلقائي\nsandbox: مباراة تجريبية وليست حجزًا حقيقيًا، ولا يمكن تعديل شيء فيها.\nnotFound: هذه المباراة المفتوحة ليست في هذا الفرع.\nbackToToday: العودة إلى اليوم",
+      "title": "ws.matches.detail (packages/i18n/src/catalogs/ws/matchesPlayers.ar.ts) (part 2 of 3)",
+      "body": "title: {time} · {category}\nbanner.booked: محجوزة على {court}\nrequests.title: الطلبات {count}\nrequests.lead: اقبل الطلب لإجلاس اللاعب الآن، أو ارفضه. يمكن للمنظّم أيضًا الرد من التطبيق.\nrequests.leadF: اقبل الطلب لإجلاس اللاعبة الآن، أو ارفضه. يمكن للمنظّمة أيضًا الرد من التطبيق.\nrequests.accept: قبول\nrequests.decline: رفض\nrequests.accepted: {name} صار في المباراة\nrequests.declined: رُفض الطلب\nrequests.empty: لا طلبات بانتظار الرد.\nrequests.seats: المقاعد {count}\nrequests.games: المباريات {count}\nrequests.noShows: الغياب {count}\nrequests.askedAt: وقت الطلب {time}\ninvite.title: رابط الدعوة\ninvite.linkOnly: لا يصل إليها إلا من لديه الرابط.\ninvite.copy: نسخ\ninvite.shareHint: أرسله لدعوة لاعبين.\nhistory.title: السجل\nhistory.empty: لا أحداث في هذه المباراة بعد.\nhistory.automatic: تلقائي",
       "route": "/desk"
     },
     {
       "kind": "label",
       "ref": "label:ws.matches.detail~2",
       "lang": "en",
-      "title": "ws.matches.detail (packages/i18n/src/catalogs/ws/matchesPlayers.en.ts) (part 2 of 2)",
-      "body": "title: {time} · {category}\nrequests.lead: The organiser answers requests in the app.\nrequests.leadF: The organiser answers requests in the app.\nrequests.empty: No requests waiting.\nrequests.seats: Seats {count}\nrequests.games: Games {count}\nrequests.noShows: No-shows {count}\nrequests.askedAt: Asked {time}\ninvite.title: Invite link\ninvite.linkOnly: Only people with this link can find it.\nhistory.title: History\nhistory.empty: Nothing has happened in this match yet.\nhistory.automatic: automatic\nsandbox: Test match: not a real booking. Nothing here can be changed.\nnotFound: That open match isn't at this branch.\nbackToToday: Back to Today",
+      "title": "ws.matches.detail (packages/i18n/src/catalogs/ws/matchesPlayers.en.ts) (part 2 of 3)",
+      "body": "title: {time} · {category}\nbanner.fillingF: Players {taken} of {total} · needs {players} more by {time}\nbanner.booked: Booked on {court}\nrequests.title: Requests {count}\nrequests.lead: Accept a request to seat the player now, or decline it. The organiser can also answer in the app.\nrequests.leadF: Accept a request to seat the player now, or decline it. The organiser can also answer in the app.\nrequests.accept: Accept\nrequests.decline: Decline\nrequests.accepted: {name} is in the match\nrequests.declined: Request declined\nrequests.empty: No requests waiting.\nrequests.seats: Seats {count}\nrequests.games: Games {count}\nrequests.noShows: No-shows {count}\nrequests.askedAt: Asked {time}\ninvite.title: Invite link\ninvite.linkOnly: Only people with this link can find it.\ninvite.copy: Copy",
+      "route": "/desk"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.matches.detail~3",
+      "lang": "ar",
+      "title": "ws.matches.detail (packages/i18n/src/catalogs/ws/matchesPlayers.ar.ts) (part 3 of 3)",
+      "body": "title: {time} · {category}\ninvite.linkOnly: لا يصل إليها إلا من لديه الرابط.\ninvite.copy: نسخ\ninvite.shareHint: أرسله لدعوة لاعبين.\nhistory.title: السجل\nhistory.empty: لا أحداث في هذه المباراة بعد.\nhistory.automatic: تلقائي\nsandbox: مباراة تجريبية وليست حجزًا حقيقيًا، ولا يمكن تعديل شيء فيها.\nnotFound: هذه المباراة المفتوحة ليست في هذا الفرع.\nbackToToday: العودة إلى اليوم",
+      "route": "/desk"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.matches.detail~3",
+      "lang": "en",
+      "title": "ws.matches.detail (packages/i18n/src/catalogs/ws/matchesPlayers.en.ts) (part 3 of 3)",
+      "body": "title: {time} · {category}\nrequests.games: Games {count}\nrequests.noShows: No-shows {count}\nrequests.askedAt: Asked {time}\ninvite.title: Invite link\ninvite.linkOnly: Only people with this link can find it.\ninvite.copy: Copy\ninvite.shareHint: Send it to invite players.\nhistory.title: History\nhistory.empty: Nothing has happened in this match yet.\nhistory.automatic: automatic\nsandbox: Test match: not a real booking. Nothing here can be changed.\nnotFound: That open match isn't at this branch.\nbackToToday: Back to Today",
       "route": "/desk"
     },
     {
@@ -34102,7 +34142,7 @@
       "ref": "label:ws.matches.today",
       "lang": "ar",
       "title": "ws.matches.today (packages/i18n/src/catalogs/ws/matchesDesk.ar.ts)",
-      "body": "title: مباريات مفتوحة تحتاج إلى لاعبين\nstartMatch: بدء مباراة مفتوحة\nplayers: اللاعبون {taken} من {total}\nrequests: الطلبات {count}\ncloses: تُغلق {time}\nlastCourt: آخر ملعب متاح\nbookedSeatFree: محجوزة · مقعد شاغر\naddPlayer: إضافة لاعب\nopen: فتح\noff: المباريات المفتوحة متوقفة هنا، وتستمر المباريات التي بدأت.\nnone: لا مباريات مفتوحة الليلة\nplayersOwing: لاعبون لم يدفعوا: {count}",
+      "body": "title: مباريات مفتوحة تحتاج إلى لاعبين\nstartMatch: بدء مباراة مفتوحة\nplayers: اللاعبون {taken} من {total}\ntilePlayers: اللاعبون\ntileStarts: البداية\nuntil: حتى {time}\nrequests: الطلبات {count}\ncloses: تُغلق {time}\nlastCourt: آخر ملعب متاح\nbookedSeatFree: محجوزة · مقعد شاغر\naddPlayer: إضافة لاعب\nopen: فتح\noff: المباريات المفتوحة متوقفة هنا، وتستمر المباريات التي بدأت.\nnone: لا مباريات مفتوحة الليلة\nplayersOwing: لاعبون لم يدفعوا: {count}",
       "route": "/desk/today"
     },
     {
@@ -34110,7 +34150,7 @@
       "ref": "label:ws.matches.today",
       "lang": "en",
       "title": "ws.matches.today (packages/i18n/src/catalogs/ws/matchesDesk.en.ts)",
-      "body": "title: Open matches needing players\nstartMatch: Start an open match\nplayers: Players {taken} of {total}\nrequests: Requests {count}\ncloses: Closes {time}\nlastCourt: Last court free\nbookedSeatFree: Booked · a seat is free\naddPlayer: Add player\nopen: Open\noff: Open matches are switched off here. Matches already started carry on.\nnone: No open matches tonight\nplayersOwing: Players owing: {count}",
+      "body": "title: Open matches needing players\nstartMatch: Start an open match\nplayers: Players {taken} of {total}\ntilePlayers: Players\ntileStarts: Starts\nuntil: Until {time}\nrequests: Requests {count}\ncloses: Closes {time}\nlastCourt: Last court free\nbookedSeatFree: Booked · a seat is free\naddPlayer: Add player\nopen: Open\noff: Open matches are switched off here. Matches already started carry on.\nnone: No open matches tonight\nplayersOwing: Players owing: {count}",
       "route": "/desk/today"
     },
     {

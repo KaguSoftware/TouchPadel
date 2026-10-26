@@ -533,6 +533,7 @@
     "deposits_due_for_reconcile": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client",
     "desk_add_seat": "map:action",
     "desk_add_student": "map:action",
+    "desk_decide_request": "map:action",
     "desk_book_lesson": "map:action",
     "desk_call_off_short": "map:action",
     "desk_cancel_course": "map:action",

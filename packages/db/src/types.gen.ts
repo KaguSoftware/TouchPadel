@@ -1875,6 +1875,10 @@ export type Database = {
         }
         Returns: Json
       }
+      desk_decide_request: {
+        Args: { p_approve: boolean; p_request_id: string }
+        Returns: Json
+      }
       desk_lesson_detail: { Args: { p_lesson_id: string }; Returns: Json }
       desk_lessons: {
         Args: { p_from: string; p_to: string; p_venue_id: string }

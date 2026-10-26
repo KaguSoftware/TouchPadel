@@ -19,6 +19,7 @@ export const matchesPlayersAr: DeepMessages<typeof matchesPlayersEn> = {
   detail: {
     title: '{time} · {category}',
     closes: 'آخر موعد للاكتمال {time}',
+    tiles: { players: 'اللاعبون', time: 'الوقت', court: 'الملعب', noCourt: 'لم يُحدد بعد', closes: 'آخر موعد' },
     copyLink: 'نسخ رابط الدعوة',
     linkCopied: 'نُسخ الرابط',
     copyFailed: 'تعذّر نسخ الرابط. يمكن تحديده ونسخه يدويًا.',
@@ -35,8 +36,12 @@ export const matchesPlayersAr: DeepMessages<typeof matchesPlayersEn> = {
     },
     requests: {
       title: 'الطلبات {count}',
-      lead: 'يردّ المنظّم على الطلبات من التطبيق.',
-      leadF: 'تردّ المنظّمة على الطلبات من التطبيق.',
+      lead: 'اقبل الطلب لإجلاس اللاعب الآن، أو ارفضه. يمكن للمنظّم أيضًا الرد من التطبيق.',
+      leadF: 'اقبل الطلب لإجلاس اللاعبة الآن، أو ارفضه. يمكن للمنظّمة أيضًا الرد من التطبيق.',
+      accept: 'قبول',
+      decline: 'رفض',
+      accepted: '{name} صار في المباراة',
+      declined: 'رُفض الطلب',
       empty: 'لا طلبات بانتظار الرد.',
       seats: 'المقاعد {count}',
       games: 'المباريات {count}',
@@ -46,6 +51,8 @@ export const matchesPlayersAr: DeepMessages<typeof matchesPlayersEn> = {
     invite: {
       title: 'رابط الدعوة',
       linkOnly: 'لا يصل إليها إلا من لديه الرابط.',
+      copy: 'نسخ',
+      shareHint: 'أرسله لدعوة لاعبين.',
     },
     history: {
       title: 'السجل',

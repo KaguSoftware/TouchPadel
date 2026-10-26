@@ -41,6 +41,7 @@ import {
   messageCodeText,
   reasonText,
   MATCH_SEATS,
+  matchTone,
   type Tr,
 } from './matchLogic';
 import type { MatchDetail, MatchEvent } from './matchPayloads';
@@ -234,31 +235,70 @@ function MatchScreen({
       <PageHeader
         eyebrow={tr('ws.matches.common.openMatch')}
         title={tr('ws.matches.detail.title', { time: formatTimeRange(start, end, locale, tz), category: categoryKey ? tr(categoryKey) : m.category })}
-        subtitle={
-          <span style={{ display: 'inline-flex', gap: 'var(--tp-sp-2)', alignItems: 'center', flexWrap: 'wrap' }}>
-            <StatusBadge tone={STATUS_TONE[m.status] ?? 'neutral'} label={statusKey ? tr(statusKey) : m.status} />
+      />
+
+      <section className="tp-match-card tp-tone" data-tone={matchTone(m.id)} data-testid="match-hero" style={{ marginBlockEnd: 'var(--tp-sp-4)' }}>
+        <div className="tp-branch-band">
+          <strong>
+            <bdi>{m.organiser?.full_name ?? tr('ws.matches.common.openMatch')}</bdi>
+          </strong>
+          <StatusBadge tone={STATUS_TONE[m.status] ?? 'neutral'} label={statusKey ? tr(statusKey) : m.status} />
+        </div>
+        <div className="tp-branch-body">
+          <div className="tp-strip-tiles" data-cols="4">
+            <div className="tp-strip-tile">
+              <span className="tp-strip-tile-band">{tr('ws.matches.detail.tiles.players')}</span>
+              <span className="tp-strip-tile-value">
+                {formatNumber(MATCH_SEATS - openSeatNumbers(detail.seats).length, locale)}/{formatNumber(MATCH_SEATS, locale)}
+              </span>
+            </div>
+            <div className="tp-strip-tile">
+              <span className="tp-strip-tile-band">{tr('ws.matches.detail.tiles.time')}</span>
+              <span className="tp-strip-tile-value">
+                <bdi>{formatTime(start, locale, tz)}</bdi>
+              </span>
+            </div>
+            <div className="tp-strip-tile">
+              <span className="tp-strip-tile-band">{tr('ws.matches.detail.tiles.court')}</span>
+              <span className="tp-strip-tile-value">
+                <bdi>{m.court_id && court ? court : tr('ws.matches.detail.tiles.noCourt')}</bdi>
+              </span>
+            </div>
+            <div className="tp-strip-tile">
+              <span className="tp-strip-tile-band">{tr('ws.matches.detail.tiles.closes')}</span>
+              <span className="tp-strip-tile-value">
+                <bdi>{m.fill_deadline_at ? formatTime(new Date(m.fill_deadline_at), locale, tz) : '—'}</bdi>
+              </span>
+            </div>
+          </div>
+          <div className="tp-match-lines">
+            <bdi>{formatTimeRange(start, end, locale, tz)}</bdi>
             {m.status === 'filling' && m.fill_deadline_at && <bdi>{tr('ws.matches.detail.closes', { time: formatTime(new Date(m.fill_deadline_at), locale, tz) })}</bdi>}
             {m.join_policy === 'approve' && <StatusBadge size="sm" dot={false} tone="neutral" label={tr('ws.matches.common.tag.approve')} />}
             {m.visibility === 'link' && <StatusBadge size="sm" dot={false} tone="neutral" icon="link" label={tr('ws.matches.common.tag.link')} />}
-            {m.court_id && court && <bdi>{court}</bdi>}
-          </span>
-        }
-        actions={
-          <>
+          </div>
+          <div className="tp-match-actions">
             {actions.copyLink.show && live && url && (
               <Button icon="link" onClick={() => void copyLink()}>
                 {tr('ws.matches.detail.copyLink')}
               </Button>
             )}
+            {openBooking}
             {actions.cancel.show && (
-              <Button kind="danger" icon="ban" disabled={actions.cancel.blockedBy !== null} disabledReason={actions.cancel.blockedBy ? offline : undefined} onClick={() => setCancelling(true)}>
+              <Button
+                kind="danger"
+                icon="ban"
+                className="tp-match-end"
+                disabled={actions.cancel.blockedBy !== null}
+                disabledReason={actions.cancel.blockedBy ? offline : undefined}
+                onClick={() => setCancelling(true)}
+              >
                 {tr('ws.matches.detail.cancel')}
               </Button>
             )}
-            {openBooking}
-          </>
-        }
-      />
+          </div>
+        </div>
+      </section>
 
       <div style={{ display: 'grid', gap: 'var(--tp-sp-3)', marginBlockEnd: 'var(--tp-sp-4)' }}>
         {stale}
@@ -280,15 +320,20 @@ function MatchScreen({
         {actions.copyLink.show && live && url && (
           <Panel title={tr('ws.matches.detail.invite.title')}>
             <div style={{ display: 'grid', gap: 'var(--tp-sp-2)' }}>
-              <code dir="ltr" style={{ overflowWrap: 'anywhere', fontSize: 'var(--tp-fs-sm)' }}>
-                {url}
-              </code>
-              {m.visibility === 'link' && <p style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>{tr('ws.matches.detail.invite.linkOnly')}</p>}
-              <div>
-                <Button size="sm" icon="link" onClick={() => void copyLink()}>
-                  {tr('ws.matches.detail.copyLink')}
+              <div style={{ display: 'flex', gap: 'var(--tp-sp-2)', alignItems: 'center' }}>
+                <code
+                  dir="ltr"
+                  style={{ flex: 1, minInlineSize: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', background: 'var(--tp-surface-2)', borderRadius: 'var(--tp-radius-ctl)', paddingBlock: 'var(--tp-sp-1-5)', paddingInline: 'var(--tp-sp-2-5)', fontSize: 'var(--tp-fs-sm)' }}
+                >
+                  {url}
+                </code>
+                <Button size="sm" aria-label={tr('ws.matches.detail.copyLink')} onClick={() => void copyLink()}>
+                  {tr('ws.matches.detail.invite.copy')}
                 </Button>
               </div>
+              <p style={{ margin: 0, color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>
+                {tr(m.visibility === 'link' ? 'ws.matches.detail.invite.linkOnly' : 'ws.matches.detail.invite.shareHint')}
+              </p>
             </div>
           </Panel>
         )}
@@ -347,9 +392,34 @@ function HistoryPanel({ events, tz }: { events: readonly MatchEvent[]; tz: strin
 
 function RequestsPanel({ detail, tz }: { detail: MatchDetail; tz: string }) {
   const { tr, locale } = useLocale();
+  const toast = useToast();
+  const qc = useQueryClient();
+  const caps = useMatchCaps();
+  const { reachable } = useStationReach();
+  const [answering, setAnswering] = useState<string | null>(null);
+  const [errors, setErrors] = useState<Record<string, unknown>>({});
   const requests = detail.requests;
   const cap = useListCap(requests);
   const figure = (key: MessageKey, n: number | null) => tr(key, { count: n === null ? '—' : formatNumber(n, locale) });
+  // The desk answers a request the way the organiser does in the app (0372); a booked match is full already.
+  const canAnswer = caps.runMatches && !detail.match.sandbox && detail.match.status === 'filling';
+
+  async function answer(r: MatchDetail['requests'][number], approve: boolean) {
+    setAnswering(r.request_id);
+    setErrors((prev) => ({ ...prev, [r.request_id]: null }));
+    try {
+      // No type argument on the call: the assistant map finds callers by `appRpc('<name>'` (§5.1).
+      await appRpc('desk_decide_request', { p_request_id: r.request_id, p_approve: approve });
+      toast.ok(approve ? tr('ws.matches.detail.requests.accepted', { name: isolate(r.full_name ?? '—') }) : tr('ws.matches.detail.requests.declined'));
+    } catch (e) {
+      setErrors((prev) => ({ ...prev, [r.request_id]: e }));
+    } finally {
+      // The request may have changed under the desk (the organiser answered, the match booked): show the server's list.
+      invalidateMatchSeats(qc);
+      setAnswering(null);
+    }
+  }
+
   return (
     <Panel title={tr('ws.matches.detail.requests.title', { count: formatNumber(requests.length, locale) })}>
       <p style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)', marginBlockEnd: 'var(--tp-sp-2)' }}>
@@ -380,6 +450,31 @@ function RequestsPanel({ detail, tz }: { detail: MatchDetail; tz: string }) {
                 <span>{figure('ws.matches.detail.requests.noShows', r.no_shows)}</span>
                 {r.created_at && <span>{tr('ws.matches.detail.requests.askedAt', { time: formatTime(new Date(r.created_at), locale, tz) })}</span>}
               </div>
+              {canAnswer && (
+                <div style={{ display: 'flex', gap: 'var(--tp-sp-2)', flexWrap: 'wrap', paddingBlockStart: 'var(--tp-sp-1)' }}>
+                  <Button
+                    size="sm"
+                    kind="primary"
+                    icon="userPlus"
+                    busy={answering === r.request_id}
+                    disabled={!reachable || answering !== null}
+                    disabledReason={!reachable ? tr('ws.matches.offline.needsConnection') : undefined}
+                    onClick={() => void answer(r, true)}
+                  >
+                    {tr('ws.matches.detail.requests.accept')}
+                  </Button>
+                  <Button
+                    size="sm"
+                    icon="x"
+                    disabled={!reachable || answering !== null}
+                    disabledReason={!reachable ? tr('ws.matches.offline.needsConnection') : undefined}
+                    onClick={() => void answer(r, false)}
+                  >
+                    {tr('ws.matches.detail.requests.decline')}
+                  </Button>
+                </div>
+              )}
+              <ErrorText error={errors[r.request_id] ?? null} message={errors[r.request_id] ? matchErrorText(errors[r.request_id], { tr, locale, tz }) : null} />
             </li>
           ))}
         </ul>

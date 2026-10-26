@@ -210,7 +210,7 @@ describe('MatchDetailScreen', () => {
     expect(await screen.findAllByTestId(/^seat-\d$/)).toHaveLength(4);
     // Requests, read only.
     expect(screen.getByText('Requests 1')).toBeTruthy();
-    expect(screen.getByText('The organiser answers requests in the app.')).toBeTruthy();
+    expect(screen.getByText('Accept a request to seat the player now, or decline it. The organiser can also answer in the app.')).toBeTruthy();
     expect(screen.getByText('Seats 2')).toBeTruthy();
     expect(screen.getByText('Games 12')).toBeTruthy();
     expect(screen.getByText('No-shows 1')).toBeTruthy();
@@ -221,6 +221,40 @@ describe('MatchDetailScreen', () => {
     expect(plain(screen.getByText(/Match started/).textContent)).toBe('Match started · Desk Ali');
     await user.click(screen.getAllByRole('button', { name: 'Copy invite link' })[0]!);
     await waitFor(() => expect(toast.ok).toHaveBeenCalledWith('Link copied'));
+  });
+
+  it('0372: the desk accepts or declines a request and the list refreshes; a refusal is said beside it', async () => {
+    const user = userEvent.setup();
+    raw = rawDetail(
+      { join_policy: 'approve' },
+      [rawSeat(1), rawSeat(2)],
+      { requests: [{ request_id: 'q1', full_name: 'Omar Khalid', phone: null, flags: [], seats_requested: 1, games_played: 3, no_shows: 0, created_at: '2026-10-01T14:40:00.000Z' }] },
+    );
+    mount();
+    await user.click(await screen.findByRole('button', { name: 'Accept' }));
+    await waitFor(() => expect(calls.find((c) => c.fn === 'desk_decide_request')?.args).toEqual({ p_request_id: 'q1', p_approve: true }));
+    await waitFor(() => expect(toast.ok).toHaveBeenCalledWith(expect.stringMatching(/Omar Khalid.* is in the match/)));
+    await user.click(screen.getByRole('button', { name: 'Decline' }));
+    await waitFor(() => expect(calls.filter((c) => c.fn === 'desk_decide_request').at(-1)?.args).toEqual({ p_request_id: 'q1', p_approve: false }));
+    await waitFor(() => expect(toast.ok).toHaveBeenCalledWith('Request declined'));
+    rpc.mockImplementationOnce(async (fn: string, args: Record<string, unknown> = {}) => {
+      calls.push({ fn, args });
+      throw new AppRpcError('REQUEST_CLOSED', 'REQUEST_CLOSED');
+    });
+    await user.click(screen.getByRole('button', { name: 'Accept' }));
+    expect(await screen.findByText(/already answered or withdrawn/)).toBeTruthy();
+  });
+
+  it('a booked match, or a sandbox one, offers no Accept or Decline', async () => {
+    raw = rawDetail(
+      { join_policy: 'approve', status: 'booked', reservation_id: 'r1', court_id: 'c1' },
+      [rawSeat(1), rawSeat(2), rawSeat(3), rawSeat(4)],
+      { requests: [{ request_id: 'q1', full_name: 'Omar Khalid', phone: null, flags: [], seats_requested: 1, games_played: 3, no_shows: 0, created_at: null }] },
+    );
+    mount();
+    await screen.findByText('Requests 1');
+    expect(screen.queryByRole('button', { name: 'Accept' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Decline' })).toBeNull();
   });
 
   it('a sandbox match says so and offers nothing', async () => {
