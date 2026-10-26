@@ -11,13 +11,23 @@
  * rows are in matches-tickets.test.ts; the gate's view of these bodies is in
  * lock-order-matches.test.ts.
  */
-import { describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { splitEvenly } from '../../core/src/money/split';
-import { stackAvailable } from './helpers';
+import { setOnlinePaymentsLive, stackAvailable } from './helpers';
 import { KEEP, Q, X, dockerReachable, ok, psql, psqlSession, scenario, waitForSleeper, type Results } from './stores-harness';
 
 const up = await stackAvailable();
 const docker = up && dockerReachable();
+
+// 0371: online payments off means pay at the desk, so these prepaid-ticket scenarios open the
+// platform lock for the file (helpers.ts, setOnlinePaymentsLive) and put it back after.
+let wasLive = false;
+beforeAll(async () => {
+  if (docker) wasLive = await setOnlinePaymentsLive(true);
+});
+afterAll(async () => {
+  if (docker) await setOnlinePaymentsLive(wasLive);
+});
 
 type Json = Record<string, unknown>;
 

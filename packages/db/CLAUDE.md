@@ -17,8 +17,10 @@ is a line in that file.
 
 ## Migrations
 
-- Ordinal strictly greater than the current max, never a reused one. Latest is `0370`
-  (0370 open_matches_pay_at_desk, 2026-10-25 (Sait: "have the open matches but without the online
+- Ordinal strictly greater than the current max, never a reused one. Latest is `0371`
+  (0371 match_pay_at_desk_when_offline, 2026-10-26 (Sait): `match_pay_at_desk()` is also true while the
+  0340 online-payments lock is closed, whatever `match_payment_mode` holds; **0371 holds `match_pay_at_desk`**;
+  0370 open_matches_pay_at_desk, 2026-10-25 (Sait: "have the open matches but without the online
   payments"): `platform_settings.match_payment_mode` (`tickets` default | `desk`,
   `platform_settings_match_payment_mode_chk`); in `desk` mode a player's seat carries no ticket
   (`match_seats_kind` now lets an account or friend seat have a NULL `ticket_id`), the desk

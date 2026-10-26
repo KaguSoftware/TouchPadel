@@ -35,9 +35,13 @@ describe.skipIf(!docker)('open matches, pay at the desk (rolled back)', () => {
       `select pg_temp.branch();`,
       GUEST('g1'), GUEST('g2'), GUEST('g3'), GUEST('g4'), GUEST('g5'), GUEST('g6'),
 
-      // Tickets mode (the default): an empty wallet is refused, as before.
+      // Online payments live and tickets mode (the default): an empty wallet is refused, as before.
+      X(`update platform_settings set online_payments_live = true where id`),
       E('tickets_mode', 'g1', START({ key: 'k-t0' })),
 
+      // 0371: with online payments off, the stored mode is 'tickets' and the desk still takes the seat.
+      X(`update platform_settings set online_payments_live = false where id`),
+      Q('offline_pays_at_desk', `select to_jsonb(app.match_pay_at_desk())`),
       X(`update platform_settings set match_payment_mode = 'desk' where id`),
       E('quote', 'g1', `select app.match_quote({{v}}, {{c1}}, ${at(3)}, 90)`),
 
@@ -70,6 +74,10 @@ describe.skipIf(!docker)('open matches, pay at the desk (rolled back)', () => {
 
   it('keeps the prepaid model in tickets mode', () => {
     expect(failed(r, 'tickets_mode').code).toBe('NEED_TICKETS');
+  });
+
+  it('pays at the desk while online payments are off, whatever the stored mode', () => {
+    expect(data(r, 'offline_pays_at_desk')).toBe(true);
   });
 
   it('starts and joins with no ticket, and the seats carry none', () => {

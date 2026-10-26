@@ -5,8 +5,8 @@ import { LocaleProvider } from '../../../lib/i18n';
 
 // Setup's settings pages (management rebuild, 2026-10-17): every panel that
 // sat inside "Venue settings" is a page of its own. Each page keeps what the
-// panel did: owner edits, manager reads, and online deposits and open
-// matches stay closed while online payments are paused.
+// panel did: owner edits, manager reads, and online deposits stay closed while
+// online payments are paused (open matches stay open, paid at the desk, 0371).
 
 let live = true;
 let role = 'owner';
@@ -92,7 +92,7 @@ describe('Courts › Online deposit and Open matches', () => {
       expect(screen.getByTestId('match-panel')).toBeTruthy();
     });
 
-    it(`${r}: paused, each page says so instead of showing its panel`, async () => {
+    it(`${r}: paused, the deposit page says so; open matches stays open (pay at the desk)`, async () => {
       role = r;
       live = false;
       mount(
@@ -102,8 +102,8 @@ describe('Courts › Online deposit and Open matches', () => {
         </>,
       );
       expect(screen.queryByTestId('deposit-panel')).toBeNull();
-      expect(screen.queryByTestId('match-panel')).toBeNull();
-      expect(screen.getAllByText('Online payments are paused')).toHaveLength(2);
+      expect(screen.getByTestId('match-panel')).toBeTruthy();
+      expect(screen.getAllByText('Online payments are paused')).toHaveLength(1);
     });
   }
 });

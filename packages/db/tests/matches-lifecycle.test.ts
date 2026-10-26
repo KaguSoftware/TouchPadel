@@ -20,32 +20,22 @@
  */
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import {
-  MATCH_MONEY_CHECK,
-  SEED_STAFF,
-  SEED_STAFF_IDS,
-  VENUE_A_ID,
-  appRpc,
-  assertMatchMoney,
-  assertTicketLedger,
-  createTestCourt,
-  createTestMatch,
-  ensureTestRateRule,
-  futureSlot,
-  grantTestTickets,
-  guestClient,
-  serviceClient,
-  signedInClient,
-  stackAvailable,
-  testIdemKey,
-  uniqueTestPhone,
-  setOnlinePaymentsLive,
-} from './helpers';
+import { MATCH_MONEY_CHECK, SEED_STAFF, SEED_STAFF_IDS, VENUE_A_ID, appRpc, assertMatchMoney, assertTicketLedger, createTestCourt, createTestMatch, ensureTestRateRule, futureSlot, grantTestTickets, guestClient, serviceClient, setOnlinePaymentsLive, signedInClient, stackAvailable, testIdemKey, uniqueTestPhone } from './helpers';
 import { Q, X, dockerReachable, psql, psqlSession, scenario, waitForSleeper, type Results } from './stores-harness';
 import { E, GUEST, K, SETUP, START, at, data, failed } from './matches-harness';
 
 const up = await stackAvailable();
 const docker = up && dockerReachable();
+
+// 0371: online payments off means pay at the desk, so these prepaid-ticket scenarios open the
+// platform lock for the file (helpers.ts, setOnlinePaymentsLive) and put it back after.
+let wasLive = false;
+beforeAll(async () => {
+  if (docker) wasLive = await setOnlinePaymentsLive(true);
+});
+afterAll(async () => {
+  if (docker) await setOnlinePaymentsLive(wasLive);
+});
 
 type Json = Record<string, unknown>;
 

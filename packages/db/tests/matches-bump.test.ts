@@ -32,13 +32,23 @@
  * match is bumped exactly once, by a trigger or by the next sweep, never
  * twice (§6 situation 7).
  */
-import { describe, expect, it } from 'vitest';
-import { MATCH_MONEY_CHECK, SEED_STAFF_IDS, stackAvailable } from './helpers';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { MATCH_MONEY_CHECK, SEED_STAFF_IDS, setOnlinePaymentsLive, stackAvailable } from './helpers';
 import { Q, T, X, dockerReachable, psql, psqlSession, scenario, type Results } from './stores-harness';
 import { E, GUEST, K, MONEY, SETUP, at, data, failed } from './matches-harness';
 
 const up = await stackAvailable();
 const docker = up && dockerReachable();
+
+// 0371: online payments off means pay at the desk, so these prepaid-ticket scenarios open the
+// platform lock for the file (helpers.ts, setOnlinePaymentsLive) and put it back after.
+let wasLive = false;
+beforeAll(async () => {
+  if (docker) wasLive = await setOnlinePaymentsLive(true);
+});
+afterAll(async () => {
+  if (docker) await setOnlinePaymentsLive(wasLive);
+});
 
 type Json = Record<string, unknown>;
 

@@ -32,13 +32,23 @@
  * changes a booked match ends with the court-money invariants (money.md §9,
  * MONEY: pg_temp.money_of over every match of the branch with a booking).
  */
-import { describe, expect, it } from 'vitest';
-import { MATCH_MONEY_CHECK, SEED_STAFF, appRpc, guestClient, serviceClient, signedInClient, stackAvailable } from './helpers';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { MATCH_MONEY_CHECK, SEED_STAFF, appRpc, guestClient, serviceClient, setOnlinePaymentsLive, signedInClient, stackAvailable } from './helpers';
 import { Q, X, dockerReachable, scenario, type Results } from './stores-harness';
 import { E, GUEST, K, MONEY, SETUP, START, at, data, failed } from './matches-harness';
 
 const up = await stackAvailable();
 const docker = up && dockerReachable();
+
+// 0371: online payments off means pay at the desk, so these prepaid-ticket scenarios open the
+// platform lock for the file (helpers.ts, setOnlinePaymentsLive) and put it back after.
+let wasLive = false;
+beforeAll(async () => {
+  if (docker) wasLive = await setOnlinePaymentsLive(true);
+});
+afterAll(async () => {
+  if (docker) await setOnlinePaymentsLive(wasLive);
+});
 
 type Json = Record<string, unknown>;
 

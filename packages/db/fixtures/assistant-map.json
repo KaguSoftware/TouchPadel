@@ -1,5 +1,5 @@
 {
-  "generated_from": "6a0adfc781faa35441feea644f337cb70a1dac43",
+  "generated_from": "04ea3b4301412f997728aa51b79bb08547df648e",
   "chunks": [
     {
       "kind": "page",
@@ -6406,7 +6406,7 @@
       "ref": "action:app.match_pay_at_desk",
       "lang": "en",
       "title": "app.match_pay_at_desk",
-      "body": "0370. Internal: whether open-match seats are paid at the desk (platform_settings.match_payment_mode = desk). False when there is no row.\nSignature: app.match_pay_at_desk() returns boolean.\nGranted to: authenticated. Guard: not detected by pattern — read the migration.\nWrites no audit row of its own (or via a helper).\nCalled from: apps/operator/src/features/matches/useOpenMatchesOn.ts (pages /desk).\nDefined in migration 0370 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "0370, 0371. Internal: whether open-match seats are paid at the desk. True while online payments are paused (0340 lock closed) or when platform_settings.match_payment_mode = desk. False when there is no row.\nSignature: app.match_pay_at_desk() returns boolean.\nGranted to: authenticated. Guard: not detected by pattern — read the migration.\nWrites no audit row of its own (or via a helper).\nCalled from: apps/operator/src/features/matches/useOpenMatchesOn.ts (pages /desk).\nDefined in migration 0371 (last definition). The assistant cannot call this; it only explains it.",
       "route": "/desk"
     },
     {
