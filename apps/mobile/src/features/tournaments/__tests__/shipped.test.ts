@@ -10,11 +10,11 @@ import { suggest } from '../../playProfile/suggest';
 afterEach(() => vi.unstubAllEnvs());
 
 describe('parseTournamentsFlag', () => {
-  it('only the literal "on" enables', () => {
-    expect(parseTournamentsFlag('on')).toBe(true);
-    expect(parseTournamentsFlag(' ON ')).toBe(true);
-    for (const v of ['off', '', 'true', '1', 'yes', undefined, null]) {
-      expect(parseTournamentsFlag(v)).toBe(false);
+  it('on by default; only the literal "off" disables', () => {
+    expect(parseTournamentsFlag('off')).toBe(false);
+    expect(parseTournamentsFlag(' OFF ')).toBe(false);
+    for (const v of ['on', '', 'true', '1', undefined, null]) {
+      expect(parseTournamentsFlag(v)).toBe(true);
     }
   });
 

@@ -117,10 +117,17 @@ export function MatchDetailScreen() {
   const tz = settingsQ.data?.timezone ?? VENUE_TZ;
   useMatchesLive();
 
+  const backToList = (
+    <Button kind="soft" icon="chevronStart" onClick={() => void navigate({ to: '/desk/matches' })}>
+      {tr('ws.matches.detail.backToList')}
+    </Button>
+  );
   const backToToday = <Button onClick={() => void navigate({ to: '/desk/today' })}>{tr('ws.matches.detail.backToToday')}</Button>;
   const notFound = (
     <div>
+      <HeaderRow back={backToList}>
       <PageHeader eyebrow={tr('ws.matches.common.openMatch')} title={tr('ws.matches.common.openMatch')} />
+      </HeaderRow>
       <EmptyState icon="users" title={tr('ws.matches.detail.notFound')} action={backToToday} />
     </div>
   );
@@ -129,7 +136,9 @@ export function MatchDetailScreen() {
   if (status.kind === 'loading') {
     return (
       <div>
+        <HeaderRow back={backToList}>
         <PageHeader eyebrow={tr('ws.matches.common.openMatch')} title={tr('ws.matches.common.openMatch')} />
+        </HeaderRow>
         <Skeleton lines={5} />
       </div>
     );
@@ -138,7 +147,9 @@ export function MatchDetailScreen() {
     if (status.error instanceof AppRpcError && status.error.code === 'MATCH_NOT_FOUND') return notFound;
     return (
       <div>
+        <HeaderRow back={backToList}>
         <PageHeader eyebrow={tr('ws.matches.common.openMatch')} title={tr('ws.matches.common.openMatch')} />
+        </HeaderRow>
         <MatchReadNotice status={status} onRetry={() => void q.refetch()} tz={tz} />
       </div>
     );
@@ -148,9 +159,20 @@ export function MatchDetailScreen() {
       detail={status.data}
       tz={tz}
       stale={status.stale ? <MatchReadNotice status={status} onRetry={() => void q.refetch()} tz={tz} /> : null}
+      backToList={backToList}
       handedCustomer={search.customer}
       onHandedDone={() => void navigate({ to: '/desk/matches/$id', params: { id }, search: {} as never, replace: true })}
     />
+  );
+}
+
+/** The back button on its own line, a dividing line under it, then the page header. */
+function HeaderRow({ back, children }: { back: ReactNode; children: ReactNode }) {
+  return (
+    <>
+      <div style={{ borderBlockEnd: '1px solid var(--tp-border)', paddingBlockEnd: 'var(--tp-sp-2)', marginBlockEnd: 'var(--tp-sp-4)' }}>{back}</div>
+      {children}
+    </>
   );
 }
 
@@ -158,12 +180,14 @@ function MatchScreen({
   detail,
   tz,
   stale,
+  backToList,
   handedCustomer,
   onHandedDone,
 }: {
   detail: MatchDetail;
   tz: string;
   stale: ReactNode;
+  backToList: ReactNode;
   handedCustomer?: string;
   onHandedDone: () => void;
 }) {
@@ -232,10 +256,12 @@ function MatchScreen({
 
   return (
     <div>
-      <PageHeader
-        eyebrow={tr('ws.matches.common.openMatch')}
-        title={tr('ws.matches.detail.title', { time: formatTimeRange(start, end, locale, tz), category: categoryKey ? tr(categoryKey) : m.category })}
-      />
+      <HeaderRow back={backToList}>
+        <PageHeader
+          eyebrow={tr('ws.matches.common.openMatch')}
+          title={tr('ws.matches.detail.title', { time: formatTimeRange(start, end, locale, tz), category: categoryKey ? tr(categoryKey) : m.category })}
+        />
+      </HeaderRow>
 
       <section className="tp-match-card tp-tone" data-tone={matchTone(m.id)} data-testid="match-hero" style={{ marginBlockEnd: 'var(--tp-sp-4)' }}>
         <div className="tp-branch-band">

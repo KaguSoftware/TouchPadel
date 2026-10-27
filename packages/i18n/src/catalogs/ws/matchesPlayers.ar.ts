@@ -62,6 +62,7 @@ export const matchesPlayersAr: DeepMessages<typeof matchesPlayersEn> = {
     sandbox: 'مباراة تجريبية وليست حجزًا حقيقيًا، ولا يمكن تعديل شيء فيها.',
     notFound: 'هذه المباراة المفتوحة ليست في هذا الفرع.',
     backToToday: 'العودة إلى اليوم',
+    backToList: 'المباريات المفتوحة',
   },
   events: {
     started: 'بدء المباراة',

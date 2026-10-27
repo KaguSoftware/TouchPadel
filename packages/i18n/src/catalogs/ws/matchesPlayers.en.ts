@@ -60,6 +60,7 @@ export const matchesPlayersEn = {
     sandbox: 'Test match: not a real booking. Nothing here can be changed.',
     notFound: "That open match isn't at this branch.",
     backToToday: 'Back to Today',
+    backToList: 'Open matches',
   },
   // One sentence per match_events.type (§5.12.2), "· {actor}" appended by the screen.
   events: {

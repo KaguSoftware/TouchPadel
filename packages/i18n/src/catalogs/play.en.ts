@@ -7,7 +7,7 @@
  */
 export const playEn = {
   // The page's one action, beside the title: opens the Book sheet, where a free time starts it.
-  start: 'Book & invite players',
+  start: 'Book & invite',
   // The kind switch's middle segment (All is `matches.list.filterAll`, Tournaments
   // `tournaments.guest.list.title`).
   kindMatches: 'Matches',

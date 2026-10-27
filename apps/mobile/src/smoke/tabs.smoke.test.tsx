@@ -203,7 +203,7 @@ describe.each(LOCALES)('the tabs in %s', (locale) => {
   const t = makeT(locale);
 
   describe.each<[boolean, string | undefined]>([
-    [false, undefined],
+    [false, 'off'],
     [true, 'on'],
   ])('with Play %s (EXPO_PUBLIC_TOURNAMENTS=%s)', (withPlay, flag) => {
     const before = process.env.EXPO_PUBLIC_TOURNAMENTS;
