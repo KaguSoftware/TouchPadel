@@ -94,6 +94,7 @@ export function OpenMatchesListScreen() {
             runMatches={caps.runMatches}
             reachable={reachable}
             hideStart
+            cards
             onAddPlayer={setAddPlayerTo}
             onOpenMatch={(id) => void navigate({ to: '/desk/matches/$id', params: { id } })}
             onStartMatch={() => void navigate({ to: '/desk' })}

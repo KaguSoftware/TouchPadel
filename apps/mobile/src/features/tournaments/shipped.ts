@@ -16,9 +16,9 @@
  * Pure module (no RN / expo imports) so node tests can use it.
  */
 
-/** Only the literal "on" enables, as for the payments flag. */
+/** On by default (Sait, 2026-10-26); only the literal "off" disables, as for the payments flag. */
 export function parseTournamentsFlag(value: string | undefined | null): boolean {
-  return (value ?? '').trim().toLowerCase() === 'on';
+  return (value ?? '').trim().toLowerCase() !== 'off';
 }
 
 /**

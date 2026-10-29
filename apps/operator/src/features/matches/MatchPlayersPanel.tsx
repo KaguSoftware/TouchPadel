@@ -40,6 +40,7 @@ import { PaymentPane, type PaymentMethod } from '../till/PaymentPane';
 import { AddSeatDialog, deskOpenNumbers } from './AddSeatDialog';
 import { AssignPaymentDialog } from './AssignPaymentDialog';
 import { assignableTotal, paymentOnTab } from './assignLogic';
+import { branchTone } from '../admin/branches/branchesLogic';
 import { CallOffDialog } from './CallOffDialog';
 import {
   byCategory,
@@ -393,26 +394,35 @@ function PlayersView({
       <li
         key={seat.seat_id}
         data-testid={`seat-${seat.seat_no}${isEarlier ? '-earlier' : ''}`}
-        style={{ display: 'grid', gap: 'var(--tp-sp-1-5)', paddingBlock: 'var(--tp-sp-3)', borderBlockStart: '1px solid var(--tp-border)' }}
+        className="tp-match-card tp-tone"
+        data-tone={isEarlier ? 'sky' : branchTone(seat.seat_no + 1)}
       >
+        <div className="tp-branch-band">
+          <span style={{ display: 'inline-flex', gap: 'var(--tp-sp-2)', alignItems: 'center' }}>
+            {several && a.takeShare.show && (
+              <input
+                type="checkbox"
+                aria-label={tr('ws.matches.take.pick', { name })}
+                checked={picked.has(seat.seat_id)}
+                disabled={payBusy}
+                onChange={(e) => {
+                  const next = new Set(picked);
+                  if (e.target.checked) next.add(seat.seat_id);
+                  else next.delete(seat.seat_id);
+                  setPicked(next);
+                }}
+              />
+            )}
+            <span className="tp-match-seatno">{tr('ws.matches.players.seatNo', { seat: String(seat.seat_no) })}</span>
+          </span>
+          <span style={{ display: 'inline-flex', gap: 'var(--tp-sp-1)', alignItems: 'center', flexWrap: 'wrap' }}>
+            {seat.is_organiser && <StatusBadge size="sm" tone="accent" dot={false} label={tr(byCategory(category, 'ws.matches.players.organiser'))} />}
+            <StatusBadge size="sm" dot={false} tone="neutral" label={kindKey ? tr(kindKey) : seat.kind} />
+          </span>
+        </div>
+        <div className="tp-branch-body" style={{ gap: 'var(--tp-sp-2)' }}>
         <div style={{ display: 'flex', gap: 'var(--tp-sp-2)', alignItems: 'center', flexWrap: 'wrap' }}>
-          {several && a.takeShare.show && (
-            <input
-              type="checkbox"
-              aria-label={tr('ws.matches.take.pick', { name })}
-              checked={picked.has(seat.seat_id)}
-              disabled={payBusy}
-              onChange={(e) => {
-                const next = new Set(picked);
-                if (e.target.checked) next.add(seat.seat_id);
-                else next.delete(seat.seat_id);
-                setPicked(next);
-              }}
-            />
-          )}
-          <span style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', fontWeight: 600 }}>{tr('ws.matches.players.seatNo', { seat: String(seat.seat_no) })}</span>
-          <StatusBadge size="sm" dot={false} tone="neutral" label={kindKey ? tr(kindKey) : seat.kind} />
-          <strong>
+          <strong style={{ fontSize: 'var(--tp-fs-lg)' }}>
             <bdi>{name}</bdi>
           </strong>
           {seat.phone && (
@@ -423,7 +433,6 @@ function PlayersView({
           {seat.flags.map((f, i) => (
             <CustomerFlagBadge key={`${f.type}-${i}`} flag={f} />
           ))}
-          {seat.is_organiser && <StatusBadge size="sm" tone="accent" dot={false} label={tr(byCategory(category, 'ws.matches.players.organiser'))} />}
           {seat.customer_id && (
             <Link to="/desk/customers/$id" params={{ id: seat.customer_id }} style={{ color: 'var(--tp-accent)', fontWeight: 600, fontSize: 'var(--tp-fs-sm)', textDecoration: 'none' }}>
               {tr('ws.matches.players.openCustomer')}
@@ -450,7 +459,7 @@ function PlayersView({
             )}
           </div>
         )}
-        <div style={{ display: 'flex', gap: 'var(--tp-sp-2)', flexWrap: 'wrap' }}>
+        <div className="tp-match-actions">
           {markButton(a.arrived, 'ws.matches.players.arrived', 'attended', true)}
           {markButton(a.noShow, 'ws.matches.players.noShow', 'no_show')}
           {markButton(a.undo, 'ws.matches.players.undo', 'in')}
@@ -494,6 +503,7 @@ function PlayersView({
           )}
         </div>
         <ErrorText error={rowErrors[seat.seat_id] ?? null} message={rowErrors[seat.seat_id] ? errorWords(rowErrors[seat.seat_id]) : null} />
+        </div>
       </li>
     );
   }
@@ -516,24 +526,26 @@ function PlayersView({
     const line = openSeatLineOf(seatNo, detail, elapsedMs);
     const addHere = filling && seatNo === lowestOpen && matchActions.addSeat.show;
     return (
-      <li
-        key={`open-${seatNo}`}
-        data-testid={`seat-${seatNo}`}
-        style={{ display: 'flex', gap: 'var(--tp-sp-2)', alignItems: 'center', flexWrap: 'wrap', paddingBlock: 'var(--tp-sp-3)', borderBlockStart: '1px solid var(--tp-border)' }}
-      >
-        <span style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', fontWeight: 600 }}>{tr('ws.matches.players.seatNo', { seat: String(seatNo) })}</span>
-        <span style={{ color: 'var(--tp-muted-fg)' }}>{tr(seatLineKey(line, category), seatLineParams(line, locale, tr))}</span>
-        {addHere && (
-          <Button
-            size="sm"
-            icon="userPlus"
-            disabled={matchActions.addSeat.blockedBy !== null}
-            disabledReason={matchActions.addSeat.blockedBy === 'offline' ? offline : undefined}
-            onClick={() => setAdding(true)}
-          >
-            {tr('ws.matches.players.addPlayer')}
-          </Button>
-        )}
+      <li key={`open-${seatNo}`} data-testid={`seat-${seatNo}`} className="tp-match-card tp-tone" data-tone={branchTone(seatNo + 1)} data-open="true">
+        <div className="tp-branch-band">
+          <span className="tp-match-seatno">{tr('ws.matches.players.seatNo', { seat: String(seatNo) })}</span>
+        </div>
+        <div className="tp-branch-body" style={{ gap: 'var(--tp-sp-2)' }}>
+          <span style={{ color: 'var(--tp-muted-fg)' }}>{tr(seatLineKey(line, category), seatLineParams(line, locale, tr))}</span>
+          {addHere && (
+            <div className="tp-match-actions">
+              <Button
+                size="sm"
+                icon="userPlus"
+                disabled={matchActions.addSeat.blockedBy !== null}
+                disabledReason={matchActions.addSeat.blockedBy === 'offline' ? offline : undefined}
+                onClick={() => setAdding(true)}
+              >
+                {tr('ws.matches.players.addPlayer')}
+              </Button>
+            </div>
+          )}
+        </div>
       </li>
     );
   }
@@ -627,11 +639,11 @@ function PlayersView({
         {m.sandbox && sandboxLine && <MessagePresenter tone="info" icon="lock" message={tr('ws.matches.detail.sandbox')} />}
         {panelNotice && <MessagePresenter tone="refused" message={panelNotice} />}
         {several && <p style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>{tr('ws.matches.take.severalLead')}</p>}
-        <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>{numbered.map((n) => (n.seat ? seatRow(n.seat, false) : openRow(n.seatNo)))}</ul>
+        <ul className="tp-seat-grid">{numbered.map((n) => (n.seat ? seatRow(n.seat, false) : openRow(n.seatNo)))}</ul>
         {earlier.length > 0 && (
           <section>
             <h3 style={{ fontSize: 'var(--tp-fs-sm)', fontWeight: 700, marginBlockStart: 'var(--tp-sp-2)' }}>{tr('ws.matches.players.earlier')}</h3>
-            <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>{earlierCap.shown.map((s) => seatRow(s, true))}</ul>
+            <ul className="tp-seat-grid">{earlierCap.shown.map((s) => seatRow(s, true))}</ul>
             <ViewMore hidden={earlierCap.hidden} open={earlierCap.open} onToggle={earlierCap.toggle} />
           </section>
         )}

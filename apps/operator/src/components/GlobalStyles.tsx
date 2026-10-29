@@ -1633,6 +1633,27 @@ button.tp-nav-item { background: transparent; }
 .tp-strip-tile { border-radius: 8px; overflow: hidden; background: var(--tp-branch-tile); border: 1px solid var(--tp-bd-edge); display: flex; flex-direction: column; }
 .tp-strip-tile-band { padding: var(--tp-sp-1-5) var(--tp-sp-3); background: var(--tp-bd); color: var(--tp-bd-fg); font-size: var(--tp-fs-sm); font-weight: 600; }
 .tp-strip-tile-value { padding: var(--tp-sp-2) var(--tp-sp-3); font-size: var(--tp-fs-2xl); font-weight: 700; font-variant-numeric: tabular-nums; }
+/* Courts › Open matches and a match's page (Sait, 2026-10-26): a card per match and per seat in the
+   six card colours, the Branches card's band, tiles and foot. The border is the card's own colour. */
+.tp-match-grid, .tp-seat-grid { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--tp-sp-3); align-items: stretch; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.tp-seat-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+@media (max-width: 64rem) { .tp-match-grid, .tp-seat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 40rem) { .tp-match-grid, .tp-seat-grid { grid-template-columns: minmax(0, 1fr); } }
+.tp-match-card { display: flex; flex-direction: column; min-inline-size: 0; border-radius: var(--tp-radius-panel); overflow: hidden; color: var(--tp-fg); background: color-mix(in oklab, var(--tp-bd) var(--tp-breakdown-wash-mix), var(--tp-breakdown-wash)); border: 2px solid var(--tp-bd); }
+.tp-match-card > .tp-branch-body { flex: 1; }
+.tp-match-card > .tp-branch-body > .tp-match-actions { margin-block-start: auto; }
+.tp-match-card[data-open='true'] { background: transparent; border-style: dashed; border-color: var(--tp-bd-edge); }
+.tp-match-card[data-open='true'] .tp-branch-band { background: transparent; color: var(--tp-fg); }
+.tp-match-card .tp-branch-band > strong { font-size: var(--tp-fs-lg); min-inline-size: 0; }
+.tp-match-card .tp-branch-band > .tp-match-seatno { font-size: var(--tp-fs-sm); font-weight: 600; }
+.tp-match-card .tp-strip-tiles[data-cols='4'] { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+@media (max-width: 48rem) { .tp-match-card .tp-strip-tiles[data-cols='4'] { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.tp-match-lines { display: flex; flex-wrap: wrap; gap: var(--tp-sp-1) var(--tp-sp-3); align-items: center; font-size: var(--tp-fs-sm); font-variant-numeric: tabular-nums; }
+.tp-match-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--tp-sp-2); padding-block-start: var(--tp-sp-3); border-block-start: 1px solid color-mix(in srgb, var(--tp-fg) 15%, transparent); }
+.tp-match-actions > .tp-match-end { margin-inline-start: auto; }
+.tp-match-card .tp-btn[data-kind='default'] { background: color-mix(in srgb, var(--tp-branch-tile) 80%, transparent); border: 1.5px solid var(--tp-bd-fg); color: var(--tp-bd-fg); }
+.tp-match-card .tp-btn[data-kind='danger'] { border: 2px solid var(--tp-danger); }
+.tp-match-card .tp-btn[data-kind='primary'] { border-radius: var(--tp-radius-pill); }
 .tp-branch-closed { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; border: 1px solid var(--tp-border); border-radius: 8px; background: var(--tp-surface); }
 .tp-branch-closed > li { display: flex; flex-wrap: wrap; align-items: center; gap: var(--tp-sp-3); padding: var(--tp-sp-3) var(--tp-sp-4); min-block-size: 3rem; }
 .tp-branch-closed > li + li { border-block-start: 1px solid var(--tp-border); }

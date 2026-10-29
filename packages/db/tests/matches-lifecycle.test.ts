@@ -835,6 +835,34 @@ describe.skipIf(!docker)('the lifecycle over HTTP with paid tickets (committed; 
     ids.q = q;
   });
 
+  it('0372: the desk answers a request like the organiser does; a guest cannot', async () => {
+    const desk = await signedInClient(SEED_STAFF.court_desk);
+    // g1..g4 sit in the first match over the same time (R41), so the asker is a fresh player.
+    const g6 = await player('m260-g6', 1);
+    const token = (await svc.from('matches').select('share_token').eq('id', ids.m2).single()).data!.share_token as string;
+    const ask = async () => {
+      const q = await rpc(g6.client, 'match_request', { p_match_id: ids.m2, p_token: token });
+      expect(q.ok, q.code).toBe(true);
+      return q.data.request_id as string;
+    };
+    let q = await ask();
+    expect(await wallet(g6.id)).toEqual({ reserved: 1 });
+    expect((await rpc(g6.client, 'desk_decide_request', { p_request_id: q, p_approve: true })).code).toBe('FORBIDDEN');
+    expect((await rpc(desk, 'desk_decide_request', { p_request_id: crypto.randomUUID(), p_approve: true })).code).toBe('REQUEST_NOT_FOUND');
+    const declined = await rpc(desk, 'desk_decide_request', { p_request_id: q, p_approve: false });
+    expect(declined.ok, declined.code).toBe(true);
+    expect(declined.data).toMatchObject({ status: 'declined', duplicate: false, tickets_released: 1 });
+    expect((await rpc(desk, 'desk_decide_request', { p_request_id: q, p_approve: false })).data).toMatchObject({ duplicate: true });
+    expect((await rpc(desk, 'desk_decide_request', { p_request_id: q, p_approve: true })).code).toBe('REQUEST_CLOSED');
+    expect(await wallet(g6.id)).toEqual({ available: 1 });
+    q = await ask();
+    const approved = await rpc(desk, 'desk_decide_request', { p_request_id: q, p_approve: true });
+    expect(approved.ok, approved.code).toBe(true);
+    expect(approved.data).toMatchObject({ status: 'approved', duplicate: false, match_status: 'filling', seats: [{ seat_no: 3 }] });
+    expect(await wallet(g6.id)).toEqual({ in_use: 1 });
+    expect((await rpc(desk, 'desk_decide_request', { p_request_id: q, p_approve: true })).data).toMatchObject({ duplicate: true });
+  });
+
   it('ends both: the organiser cancels the filling one; the venue cancels the booking of the other', async () => {
     expect((await rpc(g.g5!.client, 'match_cancel', { p_match_id: ids.m2, p_reason: 'other' })).data)
       .toMatchObject({ status: 'cancelled', duplicate: false });

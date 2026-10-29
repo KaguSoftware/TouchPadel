@@ -15,6 +15,7 @@ export const matchesPlayersEn = {
     // "21:00–22:30 · Women"
     title: '{time} · {category}',
     closes: 'Closes {time}',
+    tiles: { players: 'Players', time: 'Time', court: 'Court', noCourt: 'Not yet', closes: 'Closes' },
     copyLink: 'Copy invite link',
     linkCopied: 'Link copied',
     copyFailed: "The link couldn't be copied. Select it and copy it by hand.",
@@ -32,8 +33,12 @@ export const matchesPlayersEn = {
     },
     requests: {
       title: 'Requests {count}',
-      lead: 'The organiser answers requests in the app.',
-      leadF: 'The organiser answers requests in the app.',
+      lead: 'Accept a request to seat the player now, or decline it. The organiser can also answer in the app.',
+      leadF: 'Accept a request to seat the player now, or decline it. The organiser can also answer in the app.',
+      accept: 'Accept',
+      decline: 'Decline',
+      accepted: '{name} is in the match',
+      declined: 'Request declined',
       empty: 'No requests waiting.',
       seats: 'Seats {count}',
       games: 'Games {count}',
@@ -43,6 +48,8 @@ export const matchesPlayersEn = {
     invite: {
       title: 'Invite link',
       linkOnly: 'Only people with this link can find it.',
+      copy: 'Copy',
+      shareHint: 'Send it to invite players.',
     },
     history: {
       title: 'History',
@@ -53,6 +60,7 @@ export const matchesPlayersEn = {
     sandbox: 'Test match: not a real booking. Nothing here can be changed.',
     notFound: "That open match isn't at this branch.",
     backToToday: 'Back to Today',
+    backToList: 'Open matches',
   },
   // One sentence per match_events.type (§5.12.2), "· {actor}" appended by the screen.
   events: {

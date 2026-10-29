@@ -226,6 +226,7 @@
     "desk_add_student",
     "desk_book_lesson",
     "desk_call_off_short",
+    "desk_decide_request",
     "desk_coach_schedule",
     "desk_cancel_course",
     "desk_cancel_enrolment",

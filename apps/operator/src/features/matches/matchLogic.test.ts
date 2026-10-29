@@ -44,6 +44,7 @@ import {
   ticketChipOf,
   ticketInUseDetail,
   type MatchCaps,
+  matchTone,
 } from './matchLogic';
 import type { MatchDetail, MatchInfo, MatchSeat, MatchState, OpenMatch, OpenMatches, SeatMoney } from './matchPayloads';
 
@@ -921,5 +922,13 @@ describe('the lane’s counted phrases (§5.21, R38)', () => {
     expect(countPhrase('ws.matches.count.sharesGen', 1, 'ar')).toBe('حصة واحدة');
     expect(countPhrase('ws.matches.count.sharesGen', 2, 'en')).toBe(`${n(2)} shares`);
     expect(t('ar', 'ws.matches.take.severalButton', { shares: countPhrase('ws.matches.count.sharesGen', 2, 'ar'), amount: '20,000' })).toBe('استلام حصتين · 20,000');
+  });
+});
+
+describe('matchTone', () => {
+  it('gives a match the same one of the six colours every time, so its card and its page agree', () => {
+    const id = '5b0c2d4e-1111-4222-8333-944455556666';
+    expect(matchTone(id)).toBe(matchTone(id));
+    expect(['green', 'violet', 'rose', 'sky', 'teal', 'gold']).toContain(matchTone(id));
   });
 });
