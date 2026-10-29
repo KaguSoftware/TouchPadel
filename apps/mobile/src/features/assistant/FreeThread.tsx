@@ -11,7 +11,7 @@
  * The logic is `free.ts` (vitest); this file draws it.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, View } from 'react-native';
+import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, View, type ScrollViewInstance } from 'react-native';
 import { router, type Href } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { countPhrase } from '@touch/i18n';
@@ -128,7 +128,7 @@ export function FreeThread({ testID, from, onUsePaid }: FreeThreadProps) {
     void chat.ask(text);
   };
 
-  const scroller = useRef<ScrollView>(null);
+  const scroller = useRef<ScrollViewInstance>(null);
   const last = chat.turns[chat.turns.length - 1];
   const tick = `${chat.turns.length}:${last?.text.length ?? 0}:${last?.done ? 1 : 0}`;
   useEffect(() => {

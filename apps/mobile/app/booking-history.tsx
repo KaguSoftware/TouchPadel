@@ -194,7 +194,7 @@ function BookingHistoryScreen() {
               count={history.length}
               style={{ marginBottom: 10 }}
             />
-          ) : null
+          ) : undefined
         }
         ListEmptyComponent={
           <EmptyState
@@ -220,7 +220,7 @@ function BookingHistoryScreen() {
                 {t('booking.clearHistoryHint')}
               </Hint>
             </View>
-          ) : null
+          ) : undefined
         }
       />
 

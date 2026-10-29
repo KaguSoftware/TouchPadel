@@ -225,7 +225,9 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   name: 'TouchPadel',
   slug: 'touchpadel',
   scheme: 'touchpadel',
-  version: '1.0.0',
+  // 1.1.0: Expo SDK 58 (React Native 0.88). `runtimeVersion` follows this, so
+  // an SDK 58 update can never land on a 1.0.0 binary built on SDK 57.
+  version: '1.1.0',
   // EAS project @parsa-mansouri/touchpadel, created by `eas init` on 2026-09-01 on
   // Parsa's PERSONAL Expo account (the org question came before this line was set).
   // Handover item: transfer the project to a Kagu org in expo.dev, then change this.

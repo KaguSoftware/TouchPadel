@@ -102,7 +102,7 @@ export function WheelSheet<T extends string>({
                 onSelectionChange={onChange}
                 modifiers={[
                   pickerStyle('wheel'),
-                  frame({ maxWidth: 10000, height: WHEEL_HEIGHT }),
+                  frame({ maxWidth: 10000, minHeight: WHEEL_HEIGHT, maxHeight: WHEEL_HEIGHT }),
                   clipped(),
                   padding({ bottom: 8 }),
                 ]}

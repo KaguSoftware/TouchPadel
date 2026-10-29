@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, View, type ScrollViewInstance } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -212,7 +212,7 @@ function AssistantThread({
       : stored;
 
   // Keep the newest thing in view as it arrives.
-  const scroller = useRef<ScrollView>(null);
+  const scroller = useRef<ScrollViewInstance>(null);
   const tick = `${rows.length}:${live?.text.length ?? 0}:${live?.tools.length ?? 0}:${live?.done ? 1 : 0}`;
   useEffect(() => {
     scroller.current?.scrollToEnd({ animated: true });

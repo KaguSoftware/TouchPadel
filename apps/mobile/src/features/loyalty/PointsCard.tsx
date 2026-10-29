@@ -76,7 +76,7 @@ interface NameProps {
   /** The card's band of light, 0..1 across it. */
   sweep: Animated.Value;
   /** The card's lean left and right, -1..1. */
-  lean: Animated.AnimatedInterpolation<number> | Animated.AnimatedAddition<number>;
+  lean: Animated.AnimatedInterpolation<number> | Animated.AnimatedAddition;
   moving: boolean;
 }
 

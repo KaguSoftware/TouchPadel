@@ -16,7 +16,7 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
 import { InputAccessoryView, Platform, Pressable, View } from 'react-native';
-import type { TextInput, TextInputProps } from 'react-native';
+import type { TextInputInstance, TextInputProps } from 'react-native';
 import { Text } from '../i18n/text';
 import { useLocale } from '../i18n/LocaleProvider';
 import { space, useTheme } from '../theme';
@@ -25,7 +25,7 @@ type ChainProps = Pick<
   TextInputProps,
   'returnKeyType' | 'submitBehavior' | 'onSubmitEditing' | 'onFocus' | 'inputAccessoryViewID'
 > & {
-  ref: (input: TextInput | null) => void;
+  ref: (input: TextInputInstance | null) => void;
 };
 
 export interface FieldChain {
@@ -38,7 +38,7 @@ export interface FieldChain {
 let nextChainId = 0;
 
 export function useFieldChain(count: number, onDone?: () => void): FieldChain {
-  const inputs = useRef<(TextInput | null)[]>([]);
+  const inputs = useRef<(TextInputInstance | null)[]>([]);
   const done = useRef(onDone);
   useEffect(() => {
     done.current = onDone;

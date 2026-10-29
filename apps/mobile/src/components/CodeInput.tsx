@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { Platform, Pressable, TextInput, View } from 'react-native';
+import { Platform, Pressable, TextInput, View, type TextInputInstance } from 'react-native';
 import { Text } from '../i18n/text';
 import { MicroLabel } from './ui';
 import { brand, radius, space, useTheme } from '../theme';
@@ -57,7 +57,7 @@ export function CodeInput({
   testID?: string;
 }) {
   const { colors, fonts } = useTheme();
-  const ref = useRef<TextInput>(null);
+  const ref = useRef<TextInputInstance>(null);
   const [focused, setFocused] = useState(false);
 
   // Which box the next digit lands in — the caret, drawn as a ring.

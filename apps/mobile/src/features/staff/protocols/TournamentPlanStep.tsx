@@ -12,7 +12,7 @@
  * are the operator's (`@touch/core/protocols` tournamentPlan.ts).
  */
 import { useEffect, useRef, useState, type ComponentType, type ReactNode } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Switch, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Switch, View, type ScrollViewInstance } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -257,7 +257,7 @@ export function TournamentPlanStep({
   const router = useRouter();
   const toast = useToast();
   const refresh = useRefreshProtocols();
-  const scroll = useRef<ScrollView>(null);
+  const scroll = useRef<ScrollViewInstance>(null);
   const draft = useTournamentDraft(planId, variant);
   const { plan } = draft;
   const settings = useVenueSettings(venueId);

@@ -233,7 +233,7 @@ let alerts: { title?: string; body?: string }[] = [];
 beforeEach(() => {
   alerts = [];
   jest.spyOn(Alert, 'alert').mockImplementation((title, body) => {
-    alerts.push({ title, body });
+    alerts.push({ title: title ?? undefined, body: body ?? undefined });
   });
 });
 
@@ -449,7 +449,7 @@ describe.each(LOCALES)('coaching states in %s', (locale) => {
   it('shows the not-found layout when a join is refused LESSON_NOT_FOUND over a cached offer (MB-13)', async () => {
     // The join is refused; the offer re-read still answers the old offer, so
     // only the refusal can end the screen.
-    const rpc = jest.fn((name: string) =>
+    const rpc = jest.fn((name: string, _args?: unknown) =>
       Promise.resolve(
         name === 'lesson_offer'
           ? { data: lessonOfferFixture(), error: null }

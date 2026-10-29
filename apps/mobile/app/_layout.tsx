@@ -67,7 +67,7 @@ import { useIsOnScreen } from '../src/navigation/back';
  * there, which made `/` ambiguous and cost a mount → redirect → mount flash on
  * every cold start. Deep links into the pushed screens get the tabs beneath them.
  */
-export const unstable_settings = { initialRouteName: '(tabs)' };
+export const unstable_settings = { anchor: '(tabs)' };
 
 // Splash stays up until boot prefs + the brand fonts are in (no flash of
 // fallback type, no light→dark flash, no en→ar flash).

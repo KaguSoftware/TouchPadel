@@ -244,7 +244,7 @@ function CoachHoursBody({ coach }: { coach: CoachMe }) {
     );
   };
 
-  // Leaving with unsaved hours asks first (the native `beforeRemove` confirm,
+  // Leaving with unsaved hours asks first (the native prevented-removal confirm,
   // through the one back guard, src/navigation/back.ts).
   useBackGuard({
     when: dirty,

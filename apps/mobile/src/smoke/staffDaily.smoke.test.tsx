@@ -339,7 +339,7 @@ describe.each(LOCALES)('who sees what on the daily-work pages in %s', (locale) =
   });
 
   it('says the list has ended and reads the lists again when a tick is refused CHECKLIST_CLOSED', async () => {
-    const rpc = jest.fn((name: string) =>
+    const rpc = jest.fn((name: string, _args?: unknown) =>
       Promise.resolve(
         name === 'my_checklists_today'
           ? { data: CHECKLISTS, error: null }

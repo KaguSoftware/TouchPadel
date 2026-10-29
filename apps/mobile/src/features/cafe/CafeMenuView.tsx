@@ -7,6 +7,7 @@ import {
   View,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
+  type ScrollViewInstance,
 } from 'react-native';
 import { formatIQD } from '@touch/i18n';
 import { Text } from '../../i18n/text';
@@ -85,8 +86,8 @@ export function CafeMenuView({
   const sections = useMemo(() => menu.data ?? [], [menu.data]);
 
   const [category, setCategory] = useState<string | null>(null);
-  const scrollRef = useRef<ScrollView>(null);
-  const chipsRef = useRef<ScrollView>(null);
+  const scrollRef = useRef<ScrollViewInstance>(null);
+  const chipsRef = useRef<ScrollViewInstance>(null);
   const headerH = useRef(0);
   const listY = useRef(0);
   const sectionY = useRef<Record<string, number>>({});

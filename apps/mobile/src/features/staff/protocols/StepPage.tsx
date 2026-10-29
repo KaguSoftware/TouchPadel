@@ -7,7 +7,7 @@
  * stack, so the native back goes back a step.
  */
 import { type ReactNode, type RefObject } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, View, type ScrollViewInstance } from 'react-native';
 import { Stack } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { formatNumber } from '@touch/i18n';
@@ -48,7 +48,7 @@ export function StepPage({
   total: number;
   action: StepAction;
   error?: string | null;
-  scrollRef?: RefObject<ScrollView | null>;
+  scrollRef?: RefObject<ScrollViewInstance | null>;
   children: ReactNode;
 }) {
   const { t, locale } = useLocale();

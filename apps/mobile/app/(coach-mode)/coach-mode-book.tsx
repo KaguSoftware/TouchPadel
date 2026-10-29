@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { LayoutAnimation, Pressable, ScrollView, View } from 'react-native';
+import { LayoutAnimation, Pressable, ScrollView, View, type ScrollViewInstance } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -137,7 +137,7 @@ function CoachBookBody({ coach }: { coach: CoachMe }) {
   // the student's name or phone over Students, the time over When, anything
   // else at the end of the form.
   const [error, setErrorState] = useState<{ text: string; at: ErrorAt } | null>(null);
-  const scroll = useRef<ScrollView>(null);
+  const scroll = useRef<ScrollViewInstance>(null);
   const sheetY = useRef(0);
   const cardY = useRef<Record<ErrorAt, number>>({ when: 0, students: 0, form: 0 });
   const setError = (text: string | null, at: ErrorAt = 'form', row = 1) => {

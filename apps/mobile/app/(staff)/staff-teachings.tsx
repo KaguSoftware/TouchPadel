@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { RefreshControl, ScrollView, View } from 'react-native';
+import { RefreshControl, ScrollView, View, type ScrollViewInstance } from 'react-native';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -179,7 +179,7 @@ function TeachingsScreen() {
 
   // The form opens at the top of the page; an Edit pressed on a teaching far
   // down the list must bring it into view, or the press looks like nothing.
-  const scroll = useRef<ScrollView>(null);
+  const scroll = useRef<ScrollViewInstance>(null);
   const reduceMotion = useReduceMotion();
   const formOpen = draft !== null;
   useHideAssistantFab(formOpen);

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, RefreshControl, ScrollView, View } from 'react-native';
+import { Pressable, RefreshControl, ScrollView, View, type ScrollViewInstance } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -109,7 +109,7 @@ function MarketingScreen() {
   const example = localIsoDate(new Date());
 
   const [tab, setTab] = useState<MarketingTab>('take');
-  const scroll = useRef<ScrollView>(null);
+  const scroll = useRef<ScrollViewInstance>(null);
   const reduceMotion = useReduceMotion();
 
   // ── The take form's and the draft form's state ─────────────────────────────

@@ -447,7 +447,7 @@ export function useWarmDayGrids(dates: readonly string[], date: string): void {
 
 /** "The app came back to the foreground": AppState going to 'active' from anything else. */
 function onAppForeground(cb: () => void): () => void {
-  let last: AppStateStatus = AppState.currentState;
+  let last = AppState.currentState as AppStateStatus;
   const sub = AppState.addEventListener('change', (next) => {
     if (next === 'active' && last !== 'active') cb();
     last = next;

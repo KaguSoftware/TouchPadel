@@ -37,10 +37,10 @@ describe('back navigation lives in one module', () => {
     expect(callers).toEqual(['src/navigation/back.ts']);
   });
 
-  it('is the only place beforeRemove is intercepted for navigation', () => {
-    // review.tsx also listens, but to RELEASE ITS HOLD on the way out — it
-    // never calls preventDefault, so the departure is not guarded.
-    const guards = SOURCES.filter((f) => /preventDefault\(\)/.test(code(f))).map(rel);
+  it('is the only place a removal is prevented', () => {
+    // review.tsx also listens, to `removed`, but only to RELEASE ITS HOLD on
+    // the way out; the departure is not guarded.
+    const guards = SOURCES.filter((f) => /\busePreventRemove\b|preventDefault\(\)/.test(code(f))).map(rel);
     expect(guards).toEqual(['src/navigation/back.ts']);
   });
 
@@ -51,16 +51,14 @@ describe('back navigation lives in one module', () => {
 });
 
 describe('the native back item is never replaced', () => {
-  it('never uses usePreventRemove', () => {
-    // It registers the route as prevented, and NativeStackView then forces
+  it('keeps the chevron while a removal is prevented', () => {
+    // A prevented route makes NativeStackView force
     // headerBackButtonMenuEnabled: false regardless of what the screen passes.
     // react-native-screens reads that as `disableBackButtonMenu` and swaps
     // UIKit's back item for a plain UIBarButtonItem — a bordered capsule with
-    // NO CHEVRON, in the default tint. `beforeRemove` is the event that hook
-    // wraps and costs nothing.
-    for (const f of SOURCES) {
-      expect(code(f), rel(f)).not.toMatch(/\busePreventRemove\b/);
-    }
+    // NO CHEVRON, in the default tint. The guard hands it back through
+    // unstable_nativeProps.headerConfig, which is spread after.
+    expect(stripComments(BACK)).toMatch(/headerConfig: \{ disableBackButtonMenu: false \}/);
   });
 
   it('never hand-draws a back item into the header', () => {
