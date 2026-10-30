@@ -1,7 +1,7 @@
 set lock_timeout = '3s';
 set statement_timeout = '60s';
 
--- 0373 guest_lesson_no_overlap (Sait, 2026-10-30: "you can make 2 coach lessons
+-- 0374 guest_lesson_no_overlap (Sait, 2026-10-30: "you can make 2 coach lessons
 -- at the same time, that shouldn't be allowed").
 --
 -- lessons_coach_no_overlap (0278) already keeps one coach to one live lesson at
@@ -14,7 +14,7 @@ set statement_timeout = '60s';
 -- coach cannot be enrolled in a lesson that overlaps one they teach.
 
 create or replace function app.trg_lesson_enrolments_guest_no_overlap() returns trigger
-language plpgsql security definer set search_path = public as $trg_lesson_enrolments_guest_no_overlap_0373$
+language plpgsql security definer set search_path = public as $trg_lesson_enrolments_guest_no_overlap_0374$
 declare
   v_phone text := nullif(app.phone_digits(new.guest_phone), '');
 begin
@@ -59,10 +59,10 @@ begin
     raise exception 'GUEST_BUSY' using errcode = 'P0001';
   end if;
   return new;
-end $trg_lesson_enrolments_guest_no_overlap_0373$;
+end $trg_lesson_enrolments_guest_no_overlap_0374$;
 
 comment on function app.trg_lesson_enrolments_guest_no_overlap() is
-  '0373. BEFORE INSERT OR UPDATE OF status, lesson_id, course_id on lesson_enrolments: GUEST_BUSY when a held or booked enrolment has a held or scheduled session overlapping (a) a session of another held or booked enrolment of the same person, the account or, for a typed student, the same phone number (a course counts the sessions it covers), or (b) a session the account itself teaches as a coach.';
+  '0374. BEFORE INSERT OR UPDATE OF status, lesson_id, course_id on lesson_enrolments: GUEST_BUSY when a held or booked enrolment has a held or scheduled session overlapping (a) a session of another held or booked enrolment of the same person, the account or, for a typed student, the same phone number (a course counts the sessions it covers), or (b) a session the account itself teaches as a coach.';
 
 revoke all on function app.trg_lesson_enrolments_guest_no_overlap() from public, anon, authenticated;
 

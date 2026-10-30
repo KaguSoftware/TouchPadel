@@ -12,7 +12,6 @@ import {
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { formatIQD, isolate } from '@touch/i18n';
-import { Text } from '../../src/i18n/text';
 import { useLocale } from '../../src/i18n/LocaleProvider';
 import { BranchPicker } from '../../src/features/availability/BranchPicker';
 import { branchName } from '../../src/features/availability/branch';
@@ -87,7 +86,7 @@ const COURT_AIR = 10;
  */
 export default function CoachesScreen() {
   const { t, locale } = useLocale();
-  const { colors, fonts } = useTheme();
+  const { colors } = useTheme();
   const router = useRouter();
   const toast = useToast();
   const tabBarHeight = useTabBarHeight();

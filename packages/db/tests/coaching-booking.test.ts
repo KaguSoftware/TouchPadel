@@ -132,7 +132,7 @@ const BODY: string[] = [
   BOOK('p_price', 's2', 'c1', 'lt_p', at(2, 2), { price: 29000 }),
   BOOK('p_grid', 's2', 'c1', 'lt_p', at(3, 0, 15)),
   BOOK('p_busy', 's2', 'c1', 'lt_p', at(2)),
-  // 0373: s1 already holds c1 at at(2); c2 is free, but the guest is not.
+  // 0374: s1 already holds c1 at at(2); c2 is free, but the guest is not.
   BOOK('p_guest_busy', 's1', 'c2', 'lt_p', at(2)),
   BOOK('p_party', 's2', 'c1', 'lt_p', at(2, 2), { party: 3 }),
   BOOK('p_friends', 's2', 'c1', 'lt_p', at(2, 2), { party: 1, friends: `array['A']` }),
