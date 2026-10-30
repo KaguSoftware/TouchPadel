@@ -20,8 +20,8 @@
  * full photo still lives in the sheet the row opens. A row stays tappable: an
  * orderable row's name is a real <button> whose ::after covers the whole row
  * (the article is the positioned box), so a tap anywhere opens the sheet and the
- * focus ring is drawn round the row. Only an orderable row gets one, so a
- * sold-out row never opens a sheet with a dead CTA.
+ * focus ring is drawn round the row. Every row with a size gets one, sold out
+ * or not: the sheet shows the description and the photo and disables its CTA.
  *
  * An unavailable row says so in words and keeps its words readable: the
  * "Unavailable" label (or the SOLD OUT stamp) carries the state, and only the

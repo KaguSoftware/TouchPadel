@@ -5,7 +5,8 @@ import { LOGO_BALL_CIRCLE, LOGO_BALL_PATHS } from '../courtTransition/logoPaths'
 import { mirror } from '../../i18n/direction';
 import { Text } from '../../i18n/text';
 import { useLocale } from '../../i18n/LocaleProvider';
-import { brand, radius, space, useTheme } from '../../theme';
+import { brand, palettes, radius, space, useTheme } from '../../theme';
+import { CupIcon } from '../../components/icons';
 import { pickText } from './logic';
 
 /**
@@ -675,6 +676,45 @@ export function CategoryBand({ nameEn, nameAr }: { nameEn: string; nameAr: strin
           </View>
         </View>
       ) : null}
+    </View>
+  );
+}
+
+/**
+ * The stand-in for an item with no photo: its category's own drawing on dark mode's green in dark mode and the blue tint in light mode, filling
+ * a `width` x `height` box. A category with no drawing keeps the generic cup on the green tint.
+ */
+export function CategoryPlaceholder({
+  nameEn,
+  width,
+  height,
+  fill,
+}: {
+  nameEn: string;
+  width: number | '100%';
+  height?: number;
+  /** Fill the parent's box instead of taking a 4:3 frame of the given width. */
+  fill?: boolean;
+}) {
+  const { colors, appearance } = useTheme();
+  const art = categoryArtFor(nameEn);
+  const box = typeof width === 'number' ? Math.min(width, height ?? width) : (height ?? 0);
+  return (
+    <View
+      style={{
+        width,
+        height: fill ? '100%' : height,
+        aspectRatio: !fill && height === undefined ? 4 / 3 : undefined,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: appearance === 'dark' ? palettes.dark.gtint : colors.tint,
+      }}
+    >
+      {art ? (
+        <CategoryArtwork art={art} size={box > 0 ? Math.round(box * 0.78) : 160} />
+      ) : (
+        <CupIcon size={box > 0 ? Math.round(box * 0.4) : 56} color={colors.gstrong} />
+      )}
     </View>
   );
 }

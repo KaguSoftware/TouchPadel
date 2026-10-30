@@ -25,8 +25,9 @@ export async function fetchCafeMenu(client: Client, venueId: string): Promise<Me
     client
       .from('menu_items')
       .select(
-        `id, category_id, name_en, name_ar, hook_en, hook_ar, sold_out, serve_temp, photo_path, sort_order,
-         menu_item_variants ( id, name_en, name_ar, price_iqd, is_default, sort_order )`,
+        `id, category_id, name_en, name_ar, hook_en, hook_ar, description_en, description_ar, sold_out, serve_temp, photo_path, sort_order,
+         menu_item_variants ( id, name_en, name_ar, price_iqd, is_default, sort_order ),
+         menu_item_allergens ( allergens ( code, label_en, label_ar ) )`,
       )
       .eq('is_active', true)
       .eq('venue_id', venueId),

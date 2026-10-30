@@ -36,8 +36,8 @@ const ARABIC = /[؀-ۿ]/;
  *
  * `data-highlight` paints the operator's blue/green tint + inset ring,
  * `data-sold-out` slams the stamp on, `data-unavailable` greys an 86'd item.
- * A non-orderable row is NOT a button - it must not open a sheet whose CTA
- * would then be dead.
+ * A row with no size is NOT a button - there is nothing for its sheet to show.
+ * A sold-out or unavailable row still opens: the sheet disables its CTA.
  *
  * The control is a real `<button>` around the item's name, stretched over the
  * whole row by CSS (card.css.ts), so the row stays one big tap target while the
@@ -60,6 +60,9 @@ export function MenuCard({
   const tr = makeT(locale);
   const ar = locale === 'ar';
   const orderable = item.orderable && item.variants.length > 0;
+  // Every row with a size opens its sheet, sold out or not, so a guest can always read the
+  // description and see the photo large; the sheet itself disables the order button.
+  const openable = item.variants.length > 0;
 
   const warm = useCallback(() => {
     // NB: the browser constructor is window.Image, not next/image.
@@ -101,8 +104,8 @@ export function MenuCard({
       data-highlight={item.highlight !== 'none' ? item.highlight : undefined}
       data-sold-out={item.sold_out ? 'true' : undefined}
       data-unavailable={!orderable ? 'true' : undefined}
-      data-orderable={orderable ? 'true' : undefined}
-      onPointerDown={orderable ? warm : undefined}
+      data-orderable={openable ? 'true' : undefined}
+      onPointerDown={openable ? warm : undefined}
     >
       {/* A category the design draws no icon for (an operator's own) and an item
           with no photo have nothing to put here — that section keeps the
@@ -119,7 +122,7 @@ export function MenuCard({
 
       <div className="tp-menu-item__body">
         <div className="tp-menu-item__head">
-          {orderable ? (
+          {openable ? (
             <button
               type="button"
               className="tp-menu-item__name tp-menu-item__open"
@@ -140,9 +143,9 @@ export function MenuCard({
         {hook && <div className="tp-menu-item__hook">{hook}</div>}
         {/* The description belongs to the item's own sheet, so the row stays a
             name and a price however much prose an item carries. A row that
-            cannot open one (not orderable — see above) keeps it inline, or the
+            cannot open one (no size — see above) keeps it inline, or the
             text would have nowhere left to appear. */}
-        {desc && !orderable && <div className="tp-menu-item__desc">{desc}</div>}
+        {desc && !openable && <div className="tp-menu-item__desc">{desc}</div>}
       </div>
 
       {/* The serve-temp chips ride in their own column just before the price,

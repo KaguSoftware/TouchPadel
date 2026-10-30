@@ -14,18 +14,18 @@ import { Text } from '../../i18n/text';
 import { useLocale } from '../../i18n/LocaleProvider';
 import { radius, space, useTheme } from '../../theme';
 import { EmptyState, ErrorState, SkeletonList } from '../../components/states';
-import { CupIcon } from '../../components/icons';
 import { BranchPicker } from '../availability/BranchPicker';
 import { useGuestVenue } from '../availability/hooks';
-import { CategoryBand } from './categoryArt';
+import { CategoryBand, CategoryPlaceholder } from './categoryArt';
 import { useCafeMenu } from './hooks';
+import { ItemDetail } from './ItemDetail';
 import { menuPhotoUrl, pickText, type MenuViewItem } from './logic';
 import { usePullRefresh } from '../../lib/usePullRefresh';
 
 const THUMB = 56;
 
-/** The item's photo, or a cup on the green tint when it has none or it fails, so rows align. */
-function Thumb({ path }: { path: string | null }) {
+/** The item's photo, or its category's drawing when it has none or it fails, so rows align. */
+function Thumb({ path, categoryEn }: { path: string | null; categoryEn: string }) {
   const { colors } = useTheme();
   const url = menuPhotoUrl(path);
   const [failed, setFailed] = useState(false);
@@ -49,7 +49,7 @@ function Thumb({ path }: { path: string | null }) {
           accessibilityIgnoresInvertColors
         />
       ) : (
-        <CupIcon size={22} color={colors.gstrong} />
+        <CategoryPlaceholder nameEn={categoryEn} width={THUMB} height={THUMB} />
       )}
     </View>
   );
@@ -86,6 +86,7 @@ export function CafeMenuView({
   const sections = useMemo(() => menu.data ?? [], [menu.data]);
 
   const [category, setCategory] = useState<string | null>(null);
+  const [opened, setOpened] = useState<{ item: MenuViewItem; categoryEn: string } | null>(null);
   const scrollRef = useRef<ScrollViewInstance>(null);
   const chipsRef = useRef<ScrollViewInstance>(null);
   const headerH = useRef(0);
@@ -139,15 +140,19 @@ export function CafeMenuView({
 
   const price = (iqd: number) => formatIQD(iqd, locale);
 
-  const itemRow = (item: MenuViewItem, last: boolean) => {
+  const itemRow = (item: MenuViewItem, categoryEn: string, last: boolean) => {
     const name = pickText(item.name_en, item.name_ar, locale);
     const hook = pickText(item.hook_en, item.hook_ar, locale);
     const single = item.sizes.length === 1 ? item.sizes[0]! : null;
     return (
-      <View
+      <Pressable
         key={item.id}
         testID={`${testID}.item.${item.id}`}
-        style={{
+        accessibilityRole="button"
+        accessibilityLabel={name}
+        onPress={() => setOpened({ item, categoryEn })}
+        style={({ pressed }) => ({
+          backgroundColor: pressed ? colors.sub : 'transparent',
           flexDirection: 'row',
           alignItems: 'flex-start',
           gap: space.sm,
@@ -157,10 +162,10 @@ export function CafeMenuView({
           paddingBottom: space.sm,
           borderBottomWidth: last ? 0 : 1,
           borderBottomColor: colors.sub,
-        }}
+        })}
       >
         <View style={{ opacity: item.available ? 1 : 0.5 }}>
-          <Thumb path={item.photo_path} />
+          <Thumb path={item.photo_path} categoryEn={categoryEn} />
         </View>
         <View style={{ flex: 1, minWidth: 0, gap: 3, paddingTop: 2 }}>
           <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: space.s }}>
@@ -255,7 +260,7 @@ export function CafeMenuView({
             </View>
           )}
         </View>
-      </View>
+      </Pressable>
     );
   };
 
@@ -346,7 +351,7 @@ export function CafeMenuView({
                 overflow: 'hidden',
               }}
             >
-              {s.items.map((i, n) => itemRow(i, n === s.items.length - 1))}
+              {s.items.map((i, n) => itemRow(i, s.name_en, n === s.items.length - 1))}
             </View>
           </View>
         ))}
@@ -415,6 +420,7 @@ export function CafeMenuView({
       >
         {body()}
       </View>
+      <ItemDetail item={opened?.item ?? null} categoryEn={opened?.categoryEn ?? ''} testID={`${testID}.detail`} onClose={() => setOpened(null)} />
     </ScrollView>
   );
 }

@@ -124,6 +124,9 @@ export const EnvelopeIcon = ({ size = 16, color, strokeWidth = 2 }: IconProps) =
   </Svg>
 );
 export const CheckIcon = (p: IconProps) => <StrokeIcon d={['M4.5 12.5l5 5 10-11']} {...p} />;
+export const ExpandIcon = (p: IconProps) => (
+  <StrokeIcon d={['M14 4h6v6M10 20H4v-6M20 4l-7 7M4 20l7-7']} {...p} />
+);
 export const CloseIcon = (p: IconProps) => <StrokeIcon d={['M6 6l12 12M18 6L6 18']} {...p} />;
 /**
  * Deliberately NOT flipped. A magnifier is an object, not a direction: the

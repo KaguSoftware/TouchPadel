@@ -26,6 +26,12 @@ export interface VariantRow {
   sort_order: number;
 }
 
+export interface AllergenRow {
+  code: string;
+  label_en: string;
+  label_ar: string;
+}
+
 export interface ItemRow {
   id: string;
   category_id: string;
@@ -33,11 +39,14 @@ export interface ItemRow {
   name_ar: string;
   hook_en: string | null;
   hook_ar: string | null;
+  description_en?: string | null;
+  description_ar?: string | null;
   sold_out: boolean | null;
   serve_temp: string | null;
   photo_path: string | null;
   sort_order: number;
   menu_item_variants: VariantRow[] | null;
+  menu_item_allergens?: { allergens: AllergenRow | null }[] | null;
 }
 
 export interface AvailabilityRow {
@@ -50,6 +59,7 @@ export interface MenuSize {
   name_en: string;
   name_ar: string;
   price_iqd: number;
+  is_default: boolean;
 }
 
 export interface MenuViewItem {
@@ -58,12 +68,15 @@ export interface MenuViewItem {
   name_ar: string;
   hook_en: string;
   hook_ar: string;
+  description_en: string;
+  description_ar: string;
   photo_path: string | null;
   serve_temp: ServeTemp;
   /** False when the manager marked it sold out or an ingredient ran out today. */
   available: boolean;
   /** In menu order. One size is the item's single price. */
   sizes: MenuSize[];
+  allergens: AllergenRow[];
 }
 
 export interface MenuViewSection {
@@ -113,13 +126,18 @@ export function assembleMenu(
           name_ar: i.name_ar,
           hook_en: i.hook_en ?? '',
           hook_ar: i.hook_ar ?? '',
+          description_en: i.description_en ?? '',
+          description_ar: i.description_ar ?? '',
           photo_path: i.photo_path,
           serve_temp: asServeTemp(i.serve_temp),
           available: !(i.sold_out ?? false) && (orderable.get(i.id) ?? true),
+          allergens: (i.menu_item_allergens ?? [])
+            .map((l) => l.allergens)
+            .filter((a): a is AllergenRow => a != null),
           sizes: (i.menu_item_variants ?? [])
             .slice()
             .sort(bySort)
-            .map((v) => ({ id: v.id, name_en: v.name_en, name_ar: v.name_ar, price_iqd: v.price_iqd })),
+            .map((v) => ({ id: v.id, name_en: v.name_en, name_ar: v.name_ar, price_iqd: v.price_iqd, is_default: v.is_default })),
         }))
         .filter((i) => i.sizes.length > 0),
     }))
