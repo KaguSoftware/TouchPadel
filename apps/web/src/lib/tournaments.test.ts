@@ -253,7 +253,9 @@ describe('parseTournamentPublic', () => {
         { player: { name: 'Aya S.', no: 1 }, mine: 'yes' },
       ],
     }).entries;
-    expect(odd).toEqual([{ player: { name: 'Aya S.', former: false, no: 1 }, mine: false }]);
+    expect(odd).toEqual([
+      { player: { name: 'Aya S.', former: false, no: 1 }, mine: false, seat: null },
+    ]);
   });
 
   it('drops a match without two full teams, and a half score', () => {

@@ -227,13 +227,14 @@ export default function TournamentDetailScreen() {
     }
   };
 
-  const onRegister = () => {
+  // `seatNo` is the board chair tapped (0373), null from the Register button.
+  const onRegister = (seatNo: number | null = null) => {
     setNotice(null);
     if (!session) {
       router.push('/welcome');
       return;
     }
-    register.mutate(d.id, {
+    register.mutate({ tournamentId: d.id, seatNo }, {
       onSuccess: (r) =>
         toast(
           t(
@@ -347,7 +348,7 @@ export default function TournamentDetailScreen() {
             variant="cta"
             busy={register.isPending}
             disabled={busy}
-            onPress={onRegister}
+            onPress={() => onRegister(null)}
           />
         );
       case 'withdraw':
@@ -412,6 +413,7 @@ export default function TournamentDetailScreen() {
               const label = chairLabel(ch);
               return {
                 state: ch.state,
+                boardNo: ch.boardNo,
                 label,
                 a11y: t('seating.chairA11y', {
                   court: courtTitle(court.no),

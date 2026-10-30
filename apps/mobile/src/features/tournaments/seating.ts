@@ -3,10 +3,11 @@
  * under plain node, no RN / expo / supabase imports).
  *
  * Americano and Mexicano both play four to a court, two a side, so the board draws
- * `ceil(max_entries / 4)` courts with two chairs on each side of the net. Nobody really picks a
- * seat (Majed, 2026-10-11): before the draw the chairs simply fill in registration order, court by
- * court, side A's two chairs then side B's. Once the desk has drawn the play, the board shows
- * round 1's real courts from `rounds[0]` instead.
+ * `ceil(max_entries / 4)` courts with two chairs on each side of the net. Before the draw each
+ * entry sits on the chair the server says (`seat`, 0373: the chair the guest tapped, Majed
+ * 2026-10-29), numbered court by court, side A's two chairs then side B's; an entry with no
+ * chair (a server before 0373) takes the lowest one left, in registration order. Once the desk has
+ * drawn the play, the board shows round 1's real courts from `rounds[0]` instead.
  *
  * Nothing here decides who plays where or whether a guest may register: it lays out what
  * `tournament_public` sent (`entries`, `rounds`) and which entry is the guest's own (`mine`).
@@ -38,6 +39,11 @@ export interface BoardChair {
   seat: 1 | 2;
   /** 1–4 within the court: side A's two, then side B's (the order a screen reader says). */
   no: number;
+  /**
+   * The chair's number on the whole board before the draw, `(court - 1) * 4 + no`: what a tap on
+   * an open one asks `tournament_register` for (0373). Null on round 1's courts.
+   */
+  boardNo: number | null;
   state: ChairState;
   player: TourPlayer | null;
 }
@@ -55,7 +61,7 @@ export interface BoardSitOut {
 }
 
 export interface SeatingBoard {
-  /** `entries`: chairs by registration order; `draw`: round 1's real courts. */
+  /** `entries`: the chairs the entries sit on; `draw`: round 1's real courts. */
   phase: 'entries' | 'draw';
   courts: BoardCourt[];
   /** Round 1's players sitting out (the draw only). */
@@ -81,10 +87,11 @@ export function chairPlace(index: number): { side: ChairSide; seat: 1 | 2 } {
 }
 
 /**
- * The chairs before the draw: entry i sits at court ⌊i / 4⌋, chair i mod 4. `entriesCount` is
- * the server's count: when it exceeds the listed entries, the extra chairs read as taken with no
- * name, so a server without `entries` never shows a full tournament as empty. Chairs past
- * `maxEntries` are `none`.
+ * The chairs before the draw. An entry with a `seat` on the board sits there (the first of two that
+ * claim one); every other entry takes the lowest chair left, in registration order, which is how
+ * `app.tournament_seats` places a desk add. `entriesCount` is the server's count: when it exceeds
+ * the listed entries, the lowest chairs still free read as taken with no name, so a server without
+ * `entries` never shows a full tournament as empty. Chairs past `maxEntries` are `none`.
  */
 export function seatEntries(
   entries: readonly TourPublicEntry[],
@@ -93,22 +100,39 @@ export function seatEntries(
 ): BoardCourt[] {
   const taken = Math.max(entries.length, entriesCount);
   const courts = boardCourtsCount(maxEntries, taken);
-  const capacity = maxEntries !== null && maxEntries > 0 ? maxEntries : courts * CHAIRS_PER_COURT;
+  const chairs = courts * CHAIRS_PER_COURT;
+  const capacity = maxEntries !== null && maxEntries > 0 ? maxEntries : chairs;
+  // Board chair index (0-based) → the entry on it, or 'unlisted' for a counted, unnamed one.
+  const on: (TourPublicEntry | 'unlisted' | undefined)[] = new Array(chairs);
+  const unseated: TourPublicEntry[] = [];
+  for (const entry of entries) {
+    const i = entry.seat !== null ? entry.seat - 1 : -1;
+    if (i >= 0 && i < chairs && on[i] === undefined) on[i] = entry;
+    else unseated.push(entry);
+  }
+  const rest: (TourPublicEntry | 'unlisted')[] = [
+    ...unseated,
+    ...Array.from({ length: taken - entries.length }, () => 'unlisted' as const),
+  ];
+  for (let i = 0; i < chairs && rest.length > 0; i++) {
+    if (on[i] === undefined) on[i] = rest.shift();
+  }
   return Array.from({ length: courts }, (_, c) => ({
     no: c + 1,
     chairs: Array.from({ length: CHAIRS_PER_COURT }, (_, k) => {
       const i = c * CHAIRS_PER_COURT + k;
-      const entry = entries[i];
+      const sat = on[i];
+      const entry = sat !== undefined && sat !== 'unlisted' ? sat : undefined;
       const state: ChairState = entry
         ? entry.mine
           ? 'mine'
           : 'taken'
-        : i < taken
+        : sat === 'unlisted'
           ? 'taken'
           : i < capacity
             ? 'open'
             : 'none';
-      return { ...chairPlace(k), no: k + 1, state, player: entry?.player ?? null };
+      return { ...chairPlace(k), no: k + 1, boardNo: i + 1, state, player: entry?.player ?? null };
     }),
   }));
 }
@@ -135,6 +159,7 @@ export function seatRound(
   const chair = (p: TourPlayer | undefined, k: number): BoardChair => ({
     ...chairPlace(k),
     no: k + 1,
+    boardNo: null,
     state: !p ? 'open' : isOwn(p, own) ? 'mine' : 'taken',
     player: p ?? null,
   });

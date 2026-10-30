@@ -1,5 +1,5 @@
 {
-  "generated_from": "07cbdea60385066f93ae3b50763d41070184fa24",
+  "generated_from": "02efb6b77e8ca62b7af12174f386fa7a031afba6",
   "chunks": [
     {
       "kind": "page",
@@ -9774,7 +9774,7 @@
       "ref": "action:app.tournament_public",
       "lang": "en",
       "title": "app.tournament_public (part 1 of 4)",
-      "body": "Tournaments (M7, T-8, §1.8, review M8; 0311 c27; 0334 entries; 0339 class, play_years; 0359 classes). Public by design (anon and authenticated; never raises): {missing: true, entries: []} for an unknown id, a branch closed or switched off, or a tournament cancelled more than 7 days ago; otherwise {missing: false, id, venue_id, branch {venue_id, name_en, name_ar, timezone}, name_en, name_ar, format, category, class (the first of classes), classes (0359), play_years, points_target, rounds_planned, starts_at, ends_at, registration_closes_at, entry_fee_iqd, prize_en, prize_ar, status, max_entries, entries_count (registered),",
+      "body": "Tournaments (M7, T-8, §1.8, review M8; 0311 c27; 0334 entries; 0339 class, play_years; 0359 classes; 0373 seat). Public by design (anon and authenticated; never raises): {missing: true, entries: []} for an unknown id, a branch closed or switched off, or a tournament cancelled more than 7 days ago; otherwise {missing: false, id, venue_id, branch {venue_id, name_en, name_ar, timezone}, name_en, name_ar, format, category, class (the first of classes), classes (0359), play_years, points_target, rounds_planned, starts_at, ends_at, registration_closes_at, entry_fee_iqd, prize_en, prize_ar, status, max_entries, entries_count",
       "route": null
     },
     {
@@ -9782,7 +9782,7 @@
       "ref": "action:app.tournament_public~2",
       "lang": "en",
       "title": "app.tournament_public (part 2 of 4)",
-      "body": "Tournaments (M7, T-8, §1.8, review M8; 0311 c27; 0334 entries; 0339 class, play_years; 0359 classes). Public by design (anon and authenticated; never raises): {\nplaces_left, waitlist_open, server_now, rounds [{round_no, sit_out [player], matches [{court_no, a [player, player], b [player, player], points_a, points_b}]}], standings [{rank, player, points_won, diff, played, withdrawn (0311: left the play; ranked after every registered entry)}], entries [{player, mine}] (0334: the registered entries in registration order, promoted_at for a promoted waitlist entry else entered_at, then id; present before and after the schedule exists; mine is the caller's own entry, false for anon), me {entry_id, status, waitlist_position, owed_iqd} (the caller's own entry, with a session) | null}. A player is",
+      "body": "Tournaments (M7, T-8, §1.8, review M8; 0311 c27; 0334 entries; 0339 class, play_years; 0359 classes; 0373 seat). Public by design (anon and authenticated; never\n(registered), places_left, waitlist_open, server_now, rounds [{round_no, sit_out [player], matches [{court_no, a [player, player], b [player, player], points_a, points_b}]}], standings [{rank, player, points_won, diff, played, withdrawn (0311: left the play; ranked after every registered entry)}], entries [{player, mine, seat}] (0334: the registered entries in registration order, promoted_at for a promoted waitlist entry else entered_at, then id; present before and after the schedule exists; mine is the caller's own entry, false for anon; 0373: seat, the entry's seating board chair, 1… max_entries, chair k of court c being (c - 1)",
       "route": null
     },
     {
@@ -9790,7 +9790,7 @@
       "ref": "action:app.tournament_public~3",
       "lang": "en",
       "title": "app.tournament_public (part 3 of 4)",
-      "body": "Tournaments (M7, T-8, §1.8, review M8; 0311 c27; 0334 entries; 0339 class, play_years; 0359 classes). Public by design (anon and authenticated; never raises): {\n{name (\"First I.\" via app.match_display_name, null for a desk-added profile with no accepted terms), former (a deleted account), no (seed_no)}; rounds and standings are empty until a schedule exists (entries is not: 0334, the seating board names the registered entries before the draw; no is null until seeds are given), and the waitlist is never named. court_no is an ordinal; no court id, guest id, phone or full name.\nSignature: app.tournament_public(p_id uuid) returns jsonb.\nGranted to: anon, authenticated. Guard: not detected by pattern — read the migration.\nWrites no audit row of its own (or via a helper).",
+      "body": "Tournaments (M7, T-8, §1.8, review M8; 0311 c27; 0334 entries; 0339 class, play_years; 0359 classes; 0373 seat). Public by design (anon and authenticated; never\n* 4 + k), me {entry_id, status, waitlist_position, owed_iqd} (the caller's own entry, with a session) | null}. A player is {name (\"First I.\" via app.match_display_name, null for a desk-added profile with no accepted terms), former (a deleted account), no (seed_no)}; rounds and standings are empty until a schedule exists (entries is not: 0334, the seating board names the registered entries before the draw; no is null until seeds are given), and the waitlist is never named. court_no is an ordinal; no court id, guest id, phone or full name.\nSignature: app.tournament_public(p_id uuid) returns jsonb.",
       "route": null
     },
     {
@@ -9798,7 +9798,7 @@
       "ref": "action:app.tournament_public~4",
       "lang": "en",
       "title": "app.tournament_public (part 4 of 4)",
-      "body": "Tournaments (M7, T-8, §1.8, review M8; 0311 c27; 0334 entries; 0339 class, play_years; 0359 classes). Public by design (anon and authenticated; never raises): {\nSignature: app.tournament_public(p_id uuid) returns jsonb.\nGranted to: anon, authenticated. Guard: not detected by pattern — read the migration.\nWrites no audit row of its own (or via a helper).\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0359 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "Tournaments (M7, T-8, §1.8, review M8; 0311 c27; 0334 entries; 0339 class, play_years; 0359 classes; 0373 seat). Public by design (anon and authenticated; never\nSignature: app.tournament_public(p_id uuid) returns jsonb.\nGranted to: anon, authenticated. Guard: not detected by pattern — read the migration.\nWrites no audit row of its own (or via a helper).\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0373 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -9845,24 +9845,32 @@
       "kind": "action",
       "ref": "action:app.tournament_register",
       "lang": "en",
-      "title": "app.tournament_register (part 1 of 3)",
-      "body": "Tournaments (M7, T-4, §1.6). Guest: app.match_guest(true) first (AUTH_REQUIRED, ACCOUNT_REQUIRED, PHONE_REQUIRED, TERMS_REQUIRED, MATCH_BANNED, GENDER_REQUIRED); then TOURNAMENT_NOT_FOUND (unknown, or its branch not open to guests), TOURNAMENTS_OFF, a live entry answers duplicate true, TOURNAMENT_NOT_OPEN detail status (not open, or a no-show row) or cutoff (past registration_closes_at), TOURNAMENT_CATEGORY_MISMATCH; 0339: TOURNAMENT_PROFILE_REQUIRED (detail level | years: that play survey question is unanswered), TOURNAMENT_LEVEL_MISMATCH (detail level | years: the level fits none of the classes (0359), or the years are not the",
+      "title": "app.tournament_register (part 1 of 4)",
+      "body": "Tournaments (M7, T-4, §1.6; 0373 seat). Guest: app.match_guest(true) first (AUTH_REQUIRED, ACCOUNT_REQUIRED, PHONE_REQUIRED, TERMS_REQUIRED, MATCH_BANNED, GENDER_REQUIRED); then TOURNAMENT_NOT_FOUND (unknown, or its branch not open to guests), TOURNAMENTS_OFF, a live entry answers duplicate true (its chair unchanged), TOURNAMENT_NOT_OPEN detail status (not open, or a no-show row) or cutoff (past registration_closes_at), TOURNAMENT_CATEGORY_MISMATCH; 0339: TOURNAMENT_PROFILE_REQUIRED (detail level | years: that play survey question is unanswered), TOURNAMENT_LEVEL_MISMATCH (detail level | years: the level fits none of the classes",
       "route": null
     },
     {
       "kind": "action",
       "ref": "action:app.tournament_register~2",
       "lang": "en",
-      "title": "app.tournament_register (part 2 of 3)",
-      "body": "Tournaments (M7, T-4, §1.6). Guest: app.match_guest(true) first (AUTH_REQUIRED, ACCOUNT_REQUIRED, PHONE_REQUIRED, TERMS_REQUIRED, MATCH_BANNED, GENDER_REQUIRED)\ntournament's bracket) (women / men against profiles.gender). registered while fewer than max_entries are, else waitlisted while fewer than waitlist_max are, else TOURNAMENT_FULL; a withdrawn row is re-used with a fresh entered_at. Audit tournament.register. Returns {entry_id, status, waitlist_position, duplicate}.\nSignature: app.tournament_register(p_tournament_id uuid) returns jsonb.\nGranted to: authenticated. Guard: not detected by pattern — read the migration.\nAudit actions written: tournament.register.",
+      "title": "app.tournament_register (part 2 of 4)",
+      "body": "Tournaments (M7, T-4, §1.6; 0373 seat). Guest: app.match_guest(true) first (AUTH_REQUIRED, ACCOUNT_REQUIRED, PHONE_REQUIRED, TERMS_REQUIRED, MATCH_BANNED, GENDE\n(0359), or the years are not the tournament's bracket) (women / men against profiles.gender). registered while fewer than max_entries are, else waitlisted while fewer than waitlist_max are, else TOURNAMENT_FULL; a withdrawn row is re-used with a fresh entered_at. 0373: p_seat_no (default null, so a one-argument call still works) is the seating board chair asked for: a registration sits there (INVALID_ARGUMENT detail p_seat_no outside 1… max_entries; TOURNAMENT_SEAT_TAKEN when app.tournament_seats has someone on it), or with null on the lowest free chair; a waitlisted entry takes none and p_seat_no is ignored. Audit",
       "route": null
     },
     {
       "kind": "action",
       "ref": "action:app.tournament_register~3",
       "lang": "en",
-      "title": "app.tournament_register (part 3 of 3)",
-      "body": "Tournaments (M7, T-4, §1.6). Guest: app.match_guest(true) first (AUTH_REQUIRED, ACCOUNT_REQUIRED, PHONE_REQUIRED, TERMS_REQUIRED, MATCH_BANNED, GENDER_REQUIRED)\nSignature: app.tournament_register(p_tournament_id uuid) returns jsonb.\nGranted to: authenticated. Guard: not detected by pattern — read the migration.\nAudit actions written: tournament.register.\nError codes: TOURNAMENT_NOT_FOUND, TOURNAMENTS_OFF, TOURNAMENT_NOT_OPEN, TOURNAMENT_CATEGORY_MISMATCH, TOURNAMENT_PROFILE_REQUIRED, TOURNAMENT_LEVEL_MISMATCH, TOURNAMENT_FULL.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0359 (last definition). The assistant cannot call this; it only explains it.",
+      "title": "app.tournament_register (part 3 of 4)",
+      "body": "Tournaments (M7, T-4, §1.6; 0373 seat). Guest: app.match_guest(true) first (AUTH_REQUIRED, ACCOUNT_REQUIRED, PHONE_REQUIRED, TERMS_REQUIRED, MATCH_BANNED, GENDE\ntournament.register. Returns {entry_id, status, waitlist_position, seat_no (null when waitlisted), duplicate}.\nSignature: app.tournament_register(p_tournament_id uuid, p_seat_no int default null) returns jsonb.\nGranted to: authenticated. Guard: not detected by pattern — read the migration.\nAudit actions written: tournament.register.\nError codes: TOURNAMENT_NOT_FOUND, TOURNAMENTS_OFF, TOURNAMENT_NOT_OPEN, TOURNAMENT_CATEGORY_MISMATCH, TOURNAMENT_PROFILE_REQUIRED, TOURNAMENT_LEVEL_MISMATCH, TOURNAMENT_FULL, INVALID_ARGUMENT, TOURNAMENT_SEAT_TAKEN.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.tournament_register~4",
+      "lang": "en",
+      "title": "app.tournament_register (part 4 of 4)",
+      "body": "Tournaments (M7, T-4, §1.6; 0373 seat). Guest: app.match_guest(true) first (AUTH_REQUIRED, ACCOUNT_REQUIRED, PHONE_REQUIRED, TERMS_REQUIRED, MATCH_BANNED, GENDE\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0373 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -14285,7 +14293,7 @@
       "kind": "table",
       "ref": "table:tournament_entries",
       "lang": "en",
-      "title": "table tournament_entries (part 1 of 2)",
+      "title": "table tournament_entries (part 1 of 3)",
       "body": "Tournaments (M7). One guest's place in a tournament: registered or waitlisted (live), withdrawn (guest, staff, account_deleted) or no_show. seed_no is stamped 1..N by entered_at at the cut-off or the first set_rounds, and the next number for a later add or substitute. Desk walk-ins are real profiles (added_by_kind staff). No client grant.\nCreated in migration 0299.\nColumns:\n  id uuid primary key default gen_random_uuid()\n  venue_id uuid not null references venues(id)\n  tournament_id uuid not null references tournaments(id)\n  guest_id uuid not null references profiles(id)\n  status text not null\n  seed_no smallint",
       "route": null
     },
@@ -14293,8 +14301,16 @@
       "kind": "table",
       "ref": "table:tournament_entries~2",
       "lang": "en",
-      "title": "table tournament_entries (part 2 of 2)",
+      "title": "table tournament_entries (part 2 of 3)",
       "body": "Tournaments (M7). One guest's place in a tournament: registered or waitlisted (live), withdrawn (guest, staff, account_deleted) or no_show. seed_no is stamped 1\n  venue_id uuid not null references venues(id)\n  tournament_id uuid not null references tournaments(id)\n  guest_id uuid not null references profiles(id)\n  status text not null\n  seed_no smallint\n  entered_at timestamptz not null default now()\n  added_by_kind text not null\n  added_by_staff_id uuid references staff(id)\n  withdrawn_reason text\n  withdrawn_at timestamptz\n  promoted_at timestamptz\n  no_show_at timestamptz\n  substitute_for uuid references tournament_entries(id)\n  created_at timestamptz not null default now()\n  updated_at timestamptz not null default now()",
+      "route": null
+    },
+    {
+      "kind": "table",
+      "ref": "table:tournament_entries~3",
+      "lang": "en",
+      "title": "table tournament_entries (part 3 of 3)",
+      "body": "Tournaments (M7). One guest's place in a tournament: registered or waitlisted (live), withdrawn (guest, staff, account_deleted) or no_show. seed_no is stamped 1\n  no_show_at timestamptz\n  substitute_for uuid references tournament_entries(id)\n  created_at timestamptz not null default now()\n  updated_at timestamptz not null default now()\n  seat_no smallint — 0373. The seating board chair a registered entry sits on (1… max_entries; chair k of court c is (c - 1) * 4 + k), stamped by tournament_register: the chair the guest tapped, else the lowest free. Null for an entry the desk added or the waitlist promoted, which app.tournament_seats places on the lowest chairs left. Kept on a withdrawn row and ignored there. The board only: the draw does not read it.",
       "route": null
     },
     {
@@ -22375,6 +22391,14 @@
       "lang": "en",
       "title": "till_shifts.venue_id",
       "body": "uuid not null references venues(id)\nThe venue: the station's.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:tournament_entries.seat_no",
+      "lang": "en",
+      "title": "tournament_entries.seat_no",
+      "body": "smallint\n0373. The seating board chair a registered entry sits on (1… max_entries; chair k of court c is (c - 1) * 4 + k), stamped by tournament_register: the chair the guest tapped, else the lowest free. Null for an entry the desk added or the waitlist promoted, which app.tournament_seats places on the lowest chairs left. Kept on a withdrawn row and ignored there. The board only: the draw does not read it.",
       "route": null
     },
     {
@@ -33750,7 +33774,7 @@
       "ref": "label:ws.matches.detail~3",
       "lang": "ar",
       "title": "ws.matches.detail (packages/i18n/src/catalogs/ws/matchesPlayers.ar.ts) (part 3 of 3)",
-      "body": "title: {time} · {category}\ninvite.linkOnly: لا يصل إليها إلا من لديه الرابط.\ninvite.copy: نسخ\ninvite.shareHint: أرسله لدعوة لاعبين.\nhistory.title: السجل\nhistory.empty: لا أحداث في هذه المباراة بعد.\nhistory.automatic: تلقائي\nsandbox: مباراة تجريبية وليست حجزًا حقيقيًا، ولا يمكن تعديل شيء فيها.\nnotFound: هذه المباراة المفتوحة ليست في هذا الفرع.\nbackToToday: العودة إلى اليوم",
+      "body": "title: {time} · {category}\ninvite.linkOnly: لا يصل إليها إلا من لديه الرابط.\ninvite.copy: نسخ\ninvite.shareHint: أرسله لدعوة لاعبين.\nhistory.title: السجل\nhistory.empty: لا أحداث في هذه المباراة بعد.\nhistory.automatic: تلقائي\nsandbox: مباراة تجريبية وليست حجزًا حقيقيًا، ولا يمكن تعديل شيء فيها.\nnotFound: هذه المباراة المفتوحة ليست في هذا الفرع.\nbackToToday: العودة إلى اليوم\nbackToList: المباريات المفتوحة",
       "route": "/desk"
     },
     {
@@ -33758,7 +33782,7 @@
       "ref": "label:ws.matches.detail~3",
       "lang": "en",
       "title": "ws.matches.detail (packages/i18n/src/catalogs/ws/matchesPlayers.en.ts) (part 3 of 3)",
-      "body": "title: {time} · {category}\nrequests.games: Games {count}\nrequests.noShows: No-shows {count}\nrequests.askedAt: Asked {time}\ninvite.title: Invite link\ninvite.linkOnly: Only people with this link can find it.\ninvite.copy: Copy\ninvite.shareHint: Send it to invite players.\nhistory.title: History\nhistory.empty: Nothing has happened in this match yet.\nhistory.automatic: automatic\nsandbox: Test match: not a real booking. Nothing here can be changed.\nnotFound: That open match isn't at this branch.\nbackToToday: Back to Today",
+      "body": "title: {time} · {category}\nrequests.games: Games {count}\nrequests.noShows: No-shows {count}\nrequests.askedAt: Asked {time}\ninvite.title: Invite link\ninvite.linkOnly: Only people with this link can find it.\ninvite.copy: Copy\ninvite.shareHint: Send it to invite players.\nhistory.title: History\nhistory.empty: Nothing has happened in this match yet.\nhistory.automatic: automatic\nsandbox: Test match: not a real booking. Nothing here can be changed.\nnotFound: That open match isn't at this branch.\nbackToToday: Back to Today\nbackToList: Open matches",
       "route": "/desk"
     },
     {

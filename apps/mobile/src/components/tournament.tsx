@@ -729,6 +729,8 @@ export function StandingsTable({
 /** A chair as the screen hands it over: its state, the words on it and what a reader says. */
 export interface SeatingChairView {
   state: 'taken' | 'mine' | 'open';
+  /** The chair's number on the whole board (0373), what a tap on an open one registers for; null on round 1's courts. */
+  boardNo: number | null;
   /** "Ali K.", "Player 5", "You", "Open". */
   label: string;
   /** "Court 1, chair 2: Ali K." */
@@ -1068,9 +1070,9 @@ function LegendItem({ state, label }: { state: SeatingChairView['state']; label:
  * The tournament's seating board (play-coaches contracts §5): a top-down court per four places,
  * the net across the middle, two chairs on each side. Before the draw the chairs list the entries
  * in registration order; after it they are round 1's real courts. Every string arrives formatted;
- * the screen decides which chairs a tap may act on (`onOpenChair`, the screen's own Register) and
- * whether it is busy. The tapped chair shows the spinner; the seat a registration gets is simply
- * the next one, which the server's answer then shows.
+ * the screen decides which chairs a tap may act on (`onOpenChair`, the screen's own Register with
+ * the chair's board number) and whether it is busy. The tapped chair shows the spinner, and the
+ * registration sits there (0373), or is refused when someone took it first.
  */
 export function SeatingBoard({
   testID,
@@ -1102,8 +1104,8 @@ export function SeatingBoard({
     title: string;
     players: readonly { key: string; label: string; mine: boolean }[];
   } | null;
-  /** Set while an open chair may register (the screen's Register); unset, open chairs only read "Open". */
-  onOpenChair?: () => void;
+  /** Set while an open chair may register (the screen's Register in that chair); unset, open chairs only read "Open". */
+  onOpenChair?: (boardNo: number | null) => void;
   /** What a reader hears after an open chair's label ("Registers you for this tournament"). */
   openHint?: string;
   busy: boolean;
@@ -1161,7 +1163,7 @@ export function SeatingBoard({
                     open
                       ? () => {
                           setTapped(id);
-                          onOpenChair();
+                          onOpenChair(chair.boardNo);
                         }
                       : undefined
                   }

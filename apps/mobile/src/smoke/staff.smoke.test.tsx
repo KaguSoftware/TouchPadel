@@ -10,7 +10,7 @@
  * staffPages.smoke.test.tsx.
  */
 import { describe, expect, it, jest } from '@jest/globals';
-import { act, fireEvent, waitFor } from '@testing-library/react-native';
+import { act, fireEvent } from '@testing-library/react-native';
 import { supabase } from '../lib/supabase';
 import { makeT, type Locale } from '@touch/i18n';
 import { runSmokeCases } from '../test/smokeCase';
@@ -197,11 +197,19 @@ describe.each(LOCALES)('the staff area’s stops in %s', (locale) => {
       queryData: [[staffKeys.requests(UID), { requests: [row], total: 1, pending: 1 }]],
     });
     try {
-      fireEvent.press(screen.getByTestId('staff-request.withdraw.req-1'));
-      await waitFor(() => expect(screen.queryByTestId('staff-request.withdraw.req-1')).toBeNull());
+      // The query client tells the screen of a cache edit on a timer: let it
+      // fire inside act, or React 19.3 can leave the render queued past waitFor.
+      await act(async () => {
+        fireEvent.press(screen.getByTestId('staff-request.withdraw.req-1'));
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      });
+      expect(screen.queryByTestId('staff-request.withdraw.req-1')).toBeNull();
       expect(screen.getAllByText(t('staff.shell.requests.withdrawn')).length).toBeGreaterThan(0);
-      fireEvent.press(screen.getByTestId('toast.action'));
-      expect(await screen.findByTestId('staff-request.withdraw.req-1')).toBeTruthy();
+      await act(async () => {
+        fireEvent.press(screen.getByTestId('toast.action'));
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      });
+      expect(screen.getByTestId('staff-request.withdraw.req-1')).toBeTruthy();
       expect(rpc).not.toHaveBeenCalled();
     } finally {
       screen.unmount();

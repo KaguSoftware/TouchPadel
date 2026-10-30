@@ -153,7 +153,7 @@ const NO_TOURS: readonly TourListItem[] = [];
  * pitches back under it on the scroll, as it does under the booking card.
  *
  * Ported from the two screens it replaces: the open-matches list (§4.12: the
- * branch's listable matches over the guest window, the category chips, `at`
+ * branch's listable matches over the guest window, the category chips (matches only), `at`
  * scrolls to that time and outlines it, `date` to that night; switched off or
  * banned, its notice) and the tournaments list (plan §5.2: every live branch's
  * upcoming tournaments, the branch named on each when there are several; every
@@ -648,7 +648,8 @@ export default function PlayScreen() {
     ) : null;
 
   // One round button for the category, in the title bar beside the avatar (Sait, 2026-10-20).
-  const filter = anyRows ? (
+  // It narrows matches only: a tournament is for one gender, so the Tournaments view has none.
+  const filter = anyRows && kind !== 'tournaments' ? (
     <FilterMenu<CategoryFilter>
       testID="play.filter"
       label={t('play.filter.label')}

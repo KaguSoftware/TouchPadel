@@ -98,7 +98,13 @@ describe('the parsers read exactly their TOURNAMENT_SHAPES keys', () => {
     [
       'tournament_register',
       TOURNAMENT_SHAPES.tournament_register,
-      { entry_id: TOUR_ENTRY_ID, status: 'waitlisted', waitlist_position: 2, duplicate: false },
+      {
+        entry_id: TOUR_ENTRY_ID,
+        status: 'waitlisted',
+        waitlist_position: 2,
+        seat_no: null,
+        duplicate: false,
+      },
       parseRegisterResult,
     ],
     [
@@ -239,7 +245,17 @@ describe('the write answers', () => {
         waitlist_position: 3,
         duplicate: true,
       }),
-    ).toEqual({ entryId: 'e', status: 'waitlisted', waitlistPosition: 3, duplicate: true });
+    ).toEqual({
+      entryId: 'e',
+      status: 'waitlisted',
+      waitlistPosition: 3,
+      seatNo: null,
+      duplicate: true,
+    });
+    // 0373: the chair a registration sits on.
+    expect(
+      parseRegisterResult({ entry_id: 'e', status: 'registered', seat_no: 6, duplicate: false }),
+    ).toMatchObject({ status: 'registered', seatNo: 6 });
     expect(() => parseRegisterResult({})).toThrow('MALFORMED_TOURNAMENT_REGISTER');
   });
 
@@ -437,7 +453,11 @@ describe('parseTournamentPublic: entries', () => {
   it('reads the registered entries in order, the guest’s own marked', () => {
     const d = parseTournamentPublic(tournamentPublicFixture(), TOUR_ID);
     expect(d.entries.map((e) => e.player.no)).toEqual([1, 2, 3, 4, 5]);
-    expect(d.entries[2]).toEqual({ player: { name: 'Omar H.', former: false, no: 3 }, mine: true });
+    expect(d.entries[2]).toEqual({
+      player: { name: 'Omar H.', former: false, no: 3 },
+      mine: true,
+      seat: 3,
+    });
     expect(d.entries.filter((e) => e.mine)).toHaveLength(1);
   });
 
@@ -452,8 +472,8 @@ describe('parseTournamentPublic: entries', () => {
       parseTournamentPublic(tournamentPublicFixture({ entries: [null, { mine: 'yes' }] }), TOUR_ID)
         .entries,
     ).toEqual([
-      { player: { name: null, former: false, no: null }, mine: false },
-      { player: { name: null, former: false, no: null }, mine: false },
+      { player: { name: null, former: false, no: null }, mine: false, seat: null },
+      { player: { name: null, former: false, no: null }, mine: false, seat: null },
     ]);
     expect(parseTournamentPublic({ missing: true }, TOUR_ID).entries).toEqual([]);
   });

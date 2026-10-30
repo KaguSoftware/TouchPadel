@@ -19,6 +19,7 @@ export const opErrorsTournamentsAr: DeepMessages<typeof opErrorsTournamentsEn> =
   TOURNAMENT_PROFILE_REQUIRED: 'للتسجيل في هذه البطولة، أجِب عن سؤالَي المستوى وسنوات اللعب.',
   TOURNAMENT_LEVEL_MISMATCH: 'هذه البطولة للاعبين من مستوى أو خبرة مختلفة.',
   TOURNAMENT_ENTRY_NOT_FOUND: 'تغيّر هذا الاشتراك، وحُدّثت القائمة.',
+  TOURNAMENT_SEAT_TAKEN: 'حُجز هذا المقعد للتو. يمكن اختيار مقعد متاح آخر.',
   TOURNAMENT_ROUNDS_INVALID: 'تعذّر حفظ هذه الجولات. حدّث الصفحة ثم أنشئها من جديد.',
   TOURNAMENT_SCORE_REFUSED: 'تعذّر حفظ هذه النتيجة. راجِعها وحاول مجددًا.',
   TOURNAMENT_UNDER_FILLED: 'عدد المسجّلين أقل من الحد الأدنى. أضِف لاعبين أو ألغِ البطولة.',

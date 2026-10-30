@@ -87,6 +87,8 @@ export const tournamentsGuestEn = {
       notFound: 'This tournament is no longer available.',
       off: 'Tournaments are switched off at this branch.',
       entryNotFound: 'You are not entered in this tournament.',
+      // 0373: someone sat in the tapped chair first.
+      seatTaken: 'Someone just took that chair. Pick another open one.',
     },
     push: {
       cancelled: 'The tournament was cancelled.',

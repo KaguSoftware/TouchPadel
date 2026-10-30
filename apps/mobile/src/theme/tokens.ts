@@ -251,6 +251,8 @@ export const brand = {
   /** Ink used ON the green CTA. Brand black, 11.85:1. */
   greenInk: '#000000',
   blue: '#3360AB',
+  /** One step down the brand-blue ramp (L38): the points card's far corner, so the blue has a fold. */
+  blueShade: '#2D5495',
   /**
    * The deep brand-blue ground (booking success, review, the court's hard drop
    * shadow). L20 on the brand-blue ramp — the same step as `palettes.dark.page`,

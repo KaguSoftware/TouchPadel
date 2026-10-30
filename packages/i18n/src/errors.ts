@@ -471,6 +471,8 @@ export const ERROR_CODE_KEYS = {
   TOURNAMENT_PROFILE_REQUIRED: 'op.errors.TOURNAMENT_PROFILE_REQUIRED',
   TOURNAMENT_LEVEL_MISMATCH: 'op.errors.TOURNAMENT_LEVEL_MISMATCH',
   TOURNAMENT_ENTRY_NOT_FOUND: 'op.errors.TOURNAMENT_ENTRY_NOT_FOUND',
+  // 0373 tournament_seat_pick: the board chair a guest asked for has someone on it.
+  TOURNAMENT_SEAT_TAKEN: 'op.errors.TOURNAMENT_SEAT_TAKEN',
   TOURNAMENT_VIA_EVENTS: 'op.errors.TOURNAMENT_VIA_EVENTS',
   // tournaments_play: the rounds write (detail status | stale | engine | format | numbering |
   // played | mexicano_one | round_open | seat | court | courts_used | sit_out (0311)) and the

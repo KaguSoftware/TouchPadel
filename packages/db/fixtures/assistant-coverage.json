@@ -1347,6 +1347,7 @@
     "tournament_release_blocks": "excluded: service_role only — the release of a cancelled or finished tournament’s event blocks (tournaments_lifecycle migration), never called by a client",
     "tournament_remove_entry": "map:action",
     "tournament_score": "map:action",
+    "tournament_seats": "excluded: service_role only — every registered entry's seating board chair (tournament_seat_pick migration), read by tournament_register and tournament_public, never called by a client",
     "tournament_set_rounds": "map:action",
     "tournament_settle": "map:action",
     "tournament_standings": "excluded: service_role only — the tournament standings (tournaments_play migration), read through desk_tournament_detail and tournament_public, never called by a client",

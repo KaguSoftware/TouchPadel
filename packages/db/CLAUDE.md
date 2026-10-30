@@ -17,8 +17,16 @@ is a line in that file.
 
 ## Migrations
 
-- Ordinal strictly greater than the current max, never a reused one. Latest is `0372`
-  (0372 desk_decide_request, 2026-10-26 (Sait: "the staff can accept someone joining them"): the desk
+- Ordinal strictly greater than the current max, never a reused one. Latest is `0373`
+  (0373 tournament_seat_pick, 2026-10-29 (Majed: a tap on an open chair at court 6 seats the guest
+  there, not in the first open chair): `tournament_entries.seat_no` (the board chair, backfilled in
+  registration order), `app.tournament_seats(t)` (internal: a seat_no keeps its chair, a desk add or
+  promotion with none takes the lowest left), `tournament_register(p_tournament_id, p_seat_no int
+  default null)` (the one-argument call of older phones still works; TOURNAMENT_SEAT_TAKEN,
+  INVALID_ARGUMENT detail p_seat_no; returns seat_no) and `tournament_public` entries[].seat;
+  `tests/tournament-seat-pick.test.ts`; **0373 holds `tournament_register` and `tournament_public`**
+  (0359 is no longer the latest); the draw does not read seat_no;
+  0372 desk_decide_request, 2026-10-26 (Sait: "the staff can accept someone joining them"): the desk
   (court desk, manager, owner) approves or declines a pending join request of an ask-to-join match,
   `desk_decide_request(p_request_id, p_approve)`, with `match_decide`'s rules (approve seats the
   requester on the tickets the request reserved, the fourth carrier books the court; decline releases

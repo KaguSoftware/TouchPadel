@@ -83,6 +83,7 @@ export const tournamentsGuestAr: DeepMessages<typeof tournamentsGuestEn> = {
       notFound: 'هذه البطولة لم تعد متاحة.',
       off: 'البطولات متوقّفة في هذا الفرع.',
       entryNotFound: 'لا يوجد اشتراك في هذه البطولة.',
+      seatTaken: 'حجز شخص آخر هذا المقعد للتو. يمكن اختيار مقعد متاح آخر.',
     },
     push: {
       cancelled: 'أُلغيت البطولة.',

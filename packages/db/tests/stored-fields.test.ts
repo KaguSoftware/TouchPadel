@@ -541,6 +541,7 @@ const GUEST_DATA: Record<string, Record<string, Field>> = {
     id: n, venue_id: n, tournament_id: n, guest_id: n, status: n, seed_no: n, entered_at: n,
     added_by_kind: n, added_by_staff_id: n, withdrawn_reason: n, withdrawn_at: n, promoted_at: n,
     no_show_at: n, substitute_for: n, created_at: n, updated_at: n,
+    seat_no: n,   // 0373: the board chair the entry sits on
   },
   // Loyalty (Phase 2 M3, build-contracts-2026-10-05 §1.3, §1.4). 0305 adds tabs.customer_id, the
   // guest a desk attached to a tab by their member QR or phone, which puts tabs on this surface.

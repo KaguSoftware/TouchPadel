@@ -351,6 +351,6 @@ describe('the native config (§6.10)', () => {
       'android.permission.READ_EXTERNAL_STORAGE',
       'android.permission.RECORD_AUDIO',
     ]);
-    expect(config.version).toBe('1.0.0');
+    expect(config.version).toBe('1.1.0');
   });
 });

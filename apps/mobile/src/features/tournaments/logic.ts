@@ -225,11 +225,14 @@ export interface TourPublicStanding {
 
 /**
  * One registered entry on the detail, in registration order, before and after the draw
- * (play-coaches contracts §4.3): the seating board's chairs. `mine` is false for anon.
+ * (play-coaches contracts §4.3): the seating board's chairs. `mine` is false for anon. `seat`
+ * (0373) is the board chair it sits on, 1… max_entries (chair k of court c is (c - 1) * 4 + k);
+ * null from a server before 0373, whose board fills by registration order.
  */
 export interface TourPublicEntry {
   player: TourPlayer;
   mine: boolean;
+  seat: number | null;
 }
 
 /** The guest's own entry on the detail, with what the desk takes on the day. */
@@ -325,7 +328,8 @@ function parseRound(json: unknown): TourPublicRound | null {
 
 function parseEntry(json: unknown): TourPublicEntry {
   const o = obj(json);
-  return { player: parsePlayer(o.player), mine: bool(o.mine) };
+  const seat = int(o.seat);
+  return { player: parsePlayer(o.player), mine: bool(o.mine), seat: seat !== null && seat >= 1 ? seat : null };
 }
 
 function parseStanding(json: unknown): TourPublicStanding {
@@ -393,6 +397,8 @@ export interface RegisterResult {
   entryId: string;
   status: TourEntryStatus | null;
   waitlistPosition: number | null;
+  /** The board chair the entry sits on (0373); null when waitlisted or from an older server. */
+  seatNo: number | null;
   /** A live entry answered again (a double tap): nothing changed. */
   duplicate: boolean;
 }
@@ -405,6 +411,7 @@ export function parseRegisterResult(json: unknown): RegisterResult {
     entryId,
     status: oneOf(o.status, TOUR_ENTRY_STATUSES),
     waitlistPosition: int(o.waitlist_position),
+    seatNo: int(o.seat_no),
     duplicate: bool(o.duplicate),
   };
 }
