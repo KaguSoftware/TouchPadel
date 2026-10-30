@@ -19,6 +19,7 @@ import {
   formatDayNumber,
   formatIQD,
   formatMonthShort,
+  formatMonthYear,
   formatTime,
   formatWeekdayLong,
   formatWeekdayShort,
@@ -41,13 +42,7 @@ import { DegradedBanner, slotTestID } from '../../src/components/booking';
 import { ErrorState, SkeletonList } from '../../src/components/states';
 import { MatchNotice, MatchSectionTitle } from '../../src/components/match';
 import { ClassRow, CoachAvatar } from '../../src/components/coaching';
-import {
-  BackChevronIcon,
-  CalendarIcon,
-  ChevronDownIcon,
-  ChevronIcon,
-} from '../../src/components/icons';
-import { DateWheelSheet } from '../../src/components/DateWheelSheet';
+import { BackChevronIcon, CalendarIcon, ChevronIcon } from '../../src/components/icons';
 import { useReduceMotion } from '../../src/lib/useReduceMotion';
 import { liquidGlass } from '../../src/lib/liquidGlass';
 
@@ -55,8 +50,6 @@ import { liquidGlass } from '../../src/lib/liquidGlass';
 const BOOK_BAR_SPACE = 92;
 /** Times in view at once in a scrolling row. */
 const TIMES_IN_VIEW = 3;
-/** Days in the "Next 3 days" list. */
-const NEXT_DAYS = 3;
 /** How far the light sheet rides up over the blue header. */
 const SHEET_OVERLAP = 28;
 /** A row opening or closing, a day or week changing: one short ease. */
@@ -69,14 +62,10 @@ const EASE_MS = 220;
  * A private lesson (design "E"): a brand-blue header under a transparent
  * native bar (the coach's avatar and name, the lesson, chips for its length,
  * group size and price), then a light sheet with:
- *  - "Pick a time": a week of the booking window, with arrows between weeks
- *    and the week's label opening the date-of-birth wheel (`DateWheelSheet`:
- *    the native sheet on iOS, the system dialog on Android) for any night in
- *    the window; the chosen night's free
- *    starts in a sideways row, three in view;
- *  - "Next 3 days": the first three nights with free times, one row each, a row
- *    opening to its starts in the same kind of row.
- * One time is picked across both; the floating book bar books it, through the
+ *  - "Pick a time": a full month calendar over the booking window, with
+ *    arrows between the months it touches; the chosen night's free
+ *    starts in a sideways row, three in view.
+ * The floating book bar books the picked time, through the
  * review signed in or the welcome (keeping the intent) signed out.
  *
  * A group or course lesson shows its upcoming sessions with places, from the
@@ -131,13 +120,10 @@ export default function LessonTimesScreen() {
   });
 
   const [pickedAt, setPickedAt] = useState<number | null>(null);
-  // The week strip's night (unset: the link's date, else the first with free
-  // times) and its week (unset: the night's own).
+  // The calendar's night (unset: the link's date, else the first with free
+  // times) and its month, "YYYY-MM" (unset: the night's own).
   const [dayPicked, setDayPicked] = useState<string | null>(null);
-  const [weekPicked, setWeekPicked] = useState<number | null>(null);
-  const [pickerOpen, setPickerOpen] = useState(false);
-  // The "Next 3 days" row that is open, if any.
-  const [openRow, setOpenRow] = useState<string | null>(null);
+  const [monthPicked, setMonthPicked] = useState<string | null>(null);
   // The native bar as the navigator measured it, for the header's top.
   const headerHeight = useContext(HeaderHeightContext);
   const reduceMotion = useReduceMotion();
@@ -336,20 +322,8 @@ export default function LessonTimesScreen() {
     const day = `${formatWeekdayShort(noonOf(night), locale, tz)} ${dayNum(night)} ${month(night)}`;
     return isToday(night) ? `${t('common.today')} · ${day}` : day;
   };
-  const freeLine = (cells: MergedCell[]) =>
-    [
-      countPhrase('coaching.common.count.freeTimes', cells.length, locale),
-      cells[0]
-        ? t('coaching.guest.coach.fromTime', {
-            time: isolate(formatTime(cells[0].startAt, locale, tz)),
-          })
-        : '',
-    ]
-      .filter(Boolean)
-      .join(' · ');
-
-  // The week strip: calendar weeks, Monday to Sunday, over the window's
-  // nights; a day before or after the window shows greyed and takes no tap.
+  // The calendar: one month at a time, Monday to Sunday, over the months the
+  // window touches; a day outside the window shows greyed and takes no tap.
   const dates = booking.dates;
   const cellsOf = new Map(booking.nights.map((n) => [n.date, n.cells]));
   const day =
@@ -358,33 +332,36 @@ export default function LessonTimesScreen() {
     booking.nights[0]?.date ??
     dates[0] ??
     null;
-  const calendar = (() => {
-    const first = dates[0];
-    const last = dates[dates.length - 1];
-    if (!first || !last) return [];
-    // dayOfWeekOfDate: 0 = Sunday, so Monday is 1 and Sunday counts as 7.
-    const from = addDays(first, -((dayOfWeekOfDate(first) + 6) % 7));
-    const to = addDays(last, 6 - ((dayOfWeekOfDate(last) + 6) % 7));
-    const out: string[] = [];
-    for (let d = from; d <= to; d = addDays(d, 1)) out.push(d);
+  const months = [...new Set(dates.map((d) => d.slice(0, 7)))];
+  const monthIdx = Math.max(
+    0,
+    months.indexOf(
+      monthPicked && months.includes(monthPicked) ? monthPicked : (day ?? '').slice(0, 7),
+    ),
+  );
+  const monthKey = months[monthIdx] ?? null;
+  // The month's grid: leading and trailing blanks (null) pad whole weeks.
+  const grid = (() => {
+    if (!monthKey) return [];
+    const first = `${monthKey}-01`;
+    const out: (string | null)[] = Array.from(
+      { length: (dayOfWeekOfDate(first) + 6) % 7 },
+      () => null,
+    );
+    for (let d = first; d.slice(0, 7) === monthKey; d = addDays(d, 1)) out.push(d);
+    while (out.length % 7 !== 0) out.push(null);
     return out;
   })();
-  const weekOf = (night: string) => Math.max(0, Math.floor(calendar.indexOf(night) / 7));
-  const weekCount = Math.max(1, Math.ceil(calendar.length / 7));
-  const week = Math.min(weekCount - 1, Math.max(0, weekPicked ?? (day ? weekOf(day) : 0)));
-  const weekDays = calendar.slice(week * 7, week * 7 + 7);
-  const weekLabel = (() => {
-    const a = weekDays[0];
-    const b = weekDays[weekDays.length - 1];
-    if (!a || !b) return '';
-    return month(a) === month(b)
-      ? `${dayNum(a)} – ${dayNum(b)} ${month(b)}`
-      : `${dayNum(a)} ${month(a)} – ${dayNum(b)} ${month(b)}`;
-  })();
+  const weekdayHeads = grid.slice(0, 7).map((_, i) => {
+    // Any Monday, then each day after it, for the weekday names.
+    const d = addDays('2024-01-01', i);
+    return formatWeekdayShort(noonOf(d), locale, tz);
+  });
+  const monthLabel = monthKey ? formatMonthYear(noonOf(`${monthKey}-01`), locale, tz) : '';
   const chooseDay = (night: string) => {
     ease();
     setDayPicked(night);
-    setWeekPicked(weekOf(night));
+    setMonthPicked(night.slice(0, 7));
   };
   const dayCells = (day && cellsOf.get(day)) || [];
 
@@ -464,10 +441,10 @@ export default function LessonTimesScreen() {
     </View>
   );
 
-  // The week's arrows and its date pill: iOS's Liquid Glass where the system
-  // has it (interactive, so a tap gets the system's own press), else a flat
-  // fill. Nothing over them fades, so the glass always draws (see the Book
-  // tab's header: glass under an alpha < 1 draws nothing).
+  // The month's arrows: iOS's Liquid Glass where the system has it
+  // (interactive, so a tap gets the system's own press), else a flat fill.
+  // Nothing over them fades, so the glass always draws (see the Book tab's
+  // header: glass under an alpha < 1 draws nothing).
   const glass = (shape: number) =>
     liquidGlass ? (
       <GlassView
@@ -479,22 +456,22 @@ export default function LessonTimesScreen() {
       />
     ) : null;
 
-  const weekArrow = (dir: -1 | 1) => {
-    const can = dir < 0 ? week > 0 : week < weekCount - 1;
+  const monthArrow = (dir: -1 | 1) => {
+    const can = dir < 0 ? monthIdx > 0 : monthIdx < months.length - 1;
     const Icon = dir < 0 ? BackChevronIcon : ChevronIcon;
     return (
       <Pressable
-        testID={dir < 0 ? 'lesson-times.week-prev' : 'lesson-times.week-next'}
+        testID={dir < 0 ? 'lesson-times.month-prev' : 'lesson-times.month-next'}
         accessibilityRole="button"
         accessibilityLabel={t(
-          dir < 0 ? 'coaching.guest.coach.prevWeek' : 'coaching.guest.coach.nextWeek',
+          dir < 0 ? 'coaching.guest.coach.prevMonth' : 'coaching.guest.coach.nextMonth',
         )}
         accessibilityState={{ disabled: !can }}
         disabled={!can}
         hitSlop={8}
         onPress={() => {
           ease();
-          setWeekPicked(week + dir);
+          setMonthPicked(months[monthIdx + dir] ?? null);
         }}
         style={{
           width: 36,
@@ -523,89 +500,86 @@ export default function LessonTimesScreen() {
       }}
     >
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-        {weekArrow(-1)}
-        <Pressable
-          testID="lesson-times.pick-date"
-          accessibilityRole="button"
-          accessibilityLabel={`${t('coaching.guest.coach.pickDate')}, ${weekLabel}`}
-          onPress={() => setPickerOpen(true)}
-          style={({ pressed }) => ({
-            flexDirection: 'row',
-            alignItems: 'center',
-            gap: 6,
-            minHeight: 36,
-            paddingStart: space.sm,
-            paddingEnd: space.sm,
-            borderRadius: radius.pill,
-            overflow: 'hidden',
-            backgroundColor: liquidGlass ? 'transparent' : pressed ? colors.seg : colors.tint,
-          })}
+        {monthArrow(-1)}
+        <View
+          testID="lesson-times.month"
+          style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}
         >
-          {glass(radius.pill)}
           <CalendarIcon size={15} color={colors.blue} />
-          <Text style={{ fontFamily: fonts.display800, fontSize: 14, color: colors.ink }}>
-            {weekLabel}
+          <Text style={{ fontFamily: fonts.display800, fontSize: 15, color: colors.ink }}>
+            {monthLabel}
           </Text>
-          <ChevronDownIcon size={12} color={colors.blue} strokeWidth={2.8} />
-        </Pressable>
-        {weekArrow(1)}
+        </View>
+        {monthArrow(1)}
       </View>
-      <View style={{ flexDirection: 'row', gap: 4 }}>
-        {weekDays.map((d) => {
-          const has = cellsOf.has(d);
-          const on = d === day;
-          // Past or after the window: greyed. In the window but full: crossed out.
-          const full = !has && dates.includes(d);
-          return (
-            <Pressable
-              key={d}
-              testID={`lesson-times.day.${d}`}
-              accessibilityRole="button"
-              accessibilityState={{ selected: on, disabled: !has }}
-              accessibilityLabel={nightLabel(d)}
-              disabled={!has}
-              onPress={() => chooseDay(d)}
-              style={{
-                flex: 1,
-                height: 64,
-                borderRadius: 14,
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 3,
-                backgroundColor: on ? colors.blue : 'transparent',
-              }}
-            >
-              <Text
-                numberOfLines={1}
-                style={{
-                  fontFamily: fonts.body700,
-                  fontSize: 11,
-                  color: on ? colors.card : has ? colors.fnt : colors.fnt3,
-                }}
-              >
-                {formatWeekdayShort(noonOf(d), locale, tz)}
-              </Text>
-              <Text
-                style={{
-                  fontFamily: fonts.display800,
-                  fontSize: 17,
-                  color: on ? colors.card : has ? colors.ink : colors.fnt3,
-                  textDecorationLine: full ? 'line-through' : 'none',
-                }}
-              >
-                {dayNum(d)}
-              </Text>
-              <View
-                style={{
-                  width: 5,
-                  height: 5,
-                  borderRadius: 3,
-                  backgroundColor: has ? (on ? brand.green : colors.gstrong) : 'transparent',
-                }}
-              />
-            </Pressable>
-          );
-        })}
+      <View style={{ flexDirection: 'row' }}>
+        {weekdayHeads.map((w, i) => (
+          <Text
+            key={i}
+            numberOfLines={1}
+            style={{
+              flex: 1,
+              textAlign: 'center',
+              fontFamily: fonts.body700,
+              fontSize: 11,
+              color: colors.fnt,
+            }}
+          >
+            {w}
+          </Text>
+        ))}
+      </View>
+      <View style={{ gap: 4 }}>
+        {Array.from({ length: grid.length / 7 }, (_, w) => (
+          <View key={w} style={{ flexDirection: 'row', gap: 4 }}>
+            {grid.slice(w * 7, w * 7 + 7).map((d, i) => {
+              if (!d) return <View key={`b${i}`} style={{ flex: 1, height: 44 }} />;
+              const has = cellsOf.has(d);
+              const on = d === day;
+              // Outside the window: greyed. In the window but full: crossed out.
+              const full = !has && dates.includes(d);
+              return (
+                <Pressable
+                  key={d}
+                  testID={`lesson-times.day.${d}`}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: on, disabled: !has }}
+                  accessibilityLabel={nightLabel(d)}
+                  disabled={!has}
+                  onPress={() => chooseDay(d)}
+                  style={{
+                    flex: 1,
+                    height: 44,
+                    borderRadius: 12,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 2,
+                    backgroundColor: on ? colors.blue : 'transparent',
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontFamily: fonts.display800,
+                      fontSize: 15,
+                      color: on ? colors.card : has ? colors.ink : colors.fnt3,
+                      textDecorationLine: full ? 'line-through' : 'none',
+                    }}
+                  >
+                    {dayNum(d)}
+                  </Text>
+                  <View
+                    style={{
+                      width: 4,
+                      height: 4,
+                      borderRadius: 2,
+                      backgroundColor: has ? (on ? brand.green : colors.gstrong) : 'transparent',
+                    }}
+                  />
+                </Pressable>
+              );
+            })}
+          </View>
+        ))}
       </View>
       {day ? (
         // A hairline between the week's days and the chosen day's times.
@@ -646,6 +620,7 @@ export default function LessonTimesScreen() {
               pickedAt={pickedAt}
               onPick={onPill}
               label={(c) => formatTime(c.startAt, locale, tz)}
+              sub={money(offer.priceIqd) ?? ''}
             />
           ) : null}
         </View>
@@ -653,117 +628,8 @@ export default function LessonTimesScreen() {
     </View>
   );
 
-  const dayRow = (n: { date: string; cells: MergedCell[] }) => {
-    const open = n.date === openRow;
-    return (
-      <View
-        key={n.date}
-        style={{
-          backgroundColor: colors.card,
-          borderRadius: radius.card,
-          borderWidth: 2,
-          borderColor: open ? colors.blue : colors.card,
-          // Clips the times to the row while it grows open, so they never
-          // hang past its outline mid-animation.
-          overflow: 'hidden',
-        }}
-      >
-        <Pressable
-          testID={`lesson-times.night.${n.date}`}
-          accessibilityRole="button"
-          accessibilityState={{ expanded: open }}
-          accessibilityLabel={`${nightLabel(n.date)}, ${freeLine(n.cells)}`}
-          onPress={() => {
-            ease();
-            setOpenRow(open ? null : n.date);
-          }}
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            gap: space.sm,
-            minHeight: 60,
-            paddingTop: space.sm,
-            paddingBottom: space.sm,
-            paddingStart: space.m,
-            paddingEnd: space.m,
-          }}
-        >
-          {/* The operator's tournament date tile on a solid block, brand
-            blue, and green for today: weekday ("Today"), day, month. */}
-          <View
-            style={{
-              width: 50,
-              height: 58,
-              borderRadius: radius.cell,
-              alignItems: 'center',
-              justifyContent: 'center',
-              backgroundColor: isToday(n.date) ? brand.green : colors.blue,
-            }}
-          >
-            <Text
-              numberOfLines={1}
-              style={{
-                fontFamily: fonts.body700,
-                fontSize: 10.5,
-                lineHeight: 13,
-                color: isToday(n.date) ? brand.greenInk : colors.card,
-              }}
-            >
-              {isToday(n.date) ? t('common.today') : formatWeekdayShort(noonOf(n.date), locale, tz)}
-            </Text>
-            <Text
-              style={{
-                fontFamily: fonts.display800,
-                fontSize: 20,
-                lineHeight: 24,
-                color: isToday(n.date) ? brand.greenInk : colors.card,
-              }}
-            >
-              {dayNum(n.date)}
-            </Text>
-            <Text
-              numberOfLines={1}
-              style={{
-                fontFamily: fonts.body700,
-                fontSize: 10.5,
-                lineHeight: 13,
-                color: isToday(n.date) ? brand.greenInk : colors.card,
-              }}
-            >
-              {month(n.date)}
-            </Text>
-          </View>
-          <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
-            <Text style={{ fontFamily: fonts.display800, fontSize: 15, color: colors.ink }}>
-              {formatWeekdayLong(noonOf(n.date), locale, tz)}
-            </Text>
-            <Text style={{ fontFamily: fonts.body400, fontSize: 13, color: colors.mut }}>
-              {freeLine(n.cells)}
-            </Text>
-          </View>
-          <RowChevron
-            open={open}
-            reduceMotion={reduceMotion}
-            color={open ? colors.blue : colors.fnt}
-          />
-        </Pressable>
-        {open ? (
-          <View style={{ paddingStart: space.m, paddingEnd: space.m, paddingBottom: space.m }}>
-            <TimeRow
-              testID="lesson-times.row-slot"
-              cells={n.cells}
-              pickedAt={pickedAt}
-              onPick={onPill}
-              label={(c) => formatTime(c.startAt, locale, tz)}
-            />
-          </View>
-        ) : null}
-      </View>
-    );
-  };
-
   const sectionTitle = (title: string, sub?: string) => (
-    <View style={{ gap: 2 }}>
+    <View style={{ gap: 2, alignItems: 'center' }}>
       <Text style={{ fontFamily: fonts.display800, fontSize: 18, color: colors.ink }}>{title}</Text>
       {sub ? (
         <Text style={{ fontFamily: fonts.body400, fontSize: 13, color: colors.mut }}>{sub}</Text>
@@ -795,33 +661,19 @@ export default function LessonTimesScreen() {
       );
     }
     return (
-      // The page holds still: "Pick a time" is fixed, and only the next days
-      // scroll, in the room left under it (a short phone, or a row open).
-      <View testID="lesson-times.grid" style={{ flex: 1, minHeight: 0, gap: space.l }}>
-        <View style={{ gap: space.sm }}>
-          {sectionTitle(t('coaching.guest.coach.pickTime'))}
-          {weekCard}
-        </View>
-        <View style={{ flex: 1, minHeight: 0, gap: space.s }}>
-          {sectionTitle(t('coaching.guest.coach.nextThreeDays'), t('coaching.guest.coach.tapDay'))}
-          <ScrollView
-            testID="lesson-times.next-days"
-            style={{ flex: 1 }}
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={{
-              gap: space.s,
-              paddingBottom: space.l + insets.bottom + (picked ? BOOK_BAR_SPACE : 0),
-            }}
-          >
-            {booking.nights.slice(0, NEXT_DAYS).map(dayRow)}
-          </ScrollView>
-        </View>
+      // The page holds still: nothing here scrolls.
+      <View
+        testID="lesson-times.grid"
+        style={{
+          gap: space.sm,
+          paddingBottom: space.l + insets.bottom + (picked ? BOOK_BAR_SPACE : 0),
+        }}
+      >
+        {sectionTitle(t('coaching.guest.coach.pickTime'))}
+        {weekCard}
       </View>
     );
   })();
-
-  const first = dates[0];
-  const last = dates[dates.length - 1];
 
   return (
     <Screen edges={[]} padded={false}>
@@ -854,24 +706,6 @@ export default function LessonTimesScreen() {
           {showTimes ? times : null}
         </View>
       </View>
-      {first && last ? (
-        // The date-of-birth wheel (Edit profile): Apple's wheel in the native
-        // sheet on iOS, the system date dialog on Android; any night in the window.
-        <DateWheelSheet
-          testID="lesson-times.date-sheet"
-          visible={pickerOpen}
-          title={t('coaching.guest.coach.pickDate')}
-          value={day ?? first}
-          min={first}
-          max={last}
-          confirmLabel={t('common.done')}
-          onConfirm={(night) => {
-            if (dates.includes(night)) chooseDay(night);
-            setPickerOpen(false);
-          }}
-          onClose={() => setPickerOpen(false)}
-        />
-      ) : null}
       <BookBar
         visible={!!(picked && pickedNight)}
         when={
@@ -901,12 +735,15 @@ function TimeRow({
   pickedAt,
   onPick,
   label,
+  sub,
 }: {
   testID: string;
   cells: MergedCell[];
   pickedAt: number | null;
   onPick: (cell: MergedCell) => void;
   label: (cell: MergedCell) => string;
+  /** The line under each time: the lesson's price. */
+  sub: string;
 }) {
   const { colors, fonts } = useTheme();
   const [width, setWidth] = useState(0);
@@ -931,57 +768,52 @@ function TimeRow({
               onPress={() => onPick(cell)}
               style={({ pressed }) => ({
                 width: chipWidth,
-                minHeight: 44,
+                minHeight: 60,
                 alignItems: 'center',
                 justifyContent: 'center',
-                borderRadius: radius.cell,
-                backgroundColor: on ? colors.blue : pressed ? colors.seg : colors.sub,
+                gap: 2,
+                paddingTop: 9,
+                paddingBottom: 9,
+                paddingStart: 4,
+                paddingEnd: 4,
+                borderRadius: 12,
+                borderWidth: 2,
+                borderColor: on ? colors.blue : colors.line2,
+                backgroundColor: on ? colors.blue : colors.card,
+                transform: [{ scale: pressed ? 0.96 : 1 }],
               })}
             >
               <Text
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.8}
                 style={{
-                  fontFamily: fonts.body700,
-                  fontSize: 14,
+                  fontFamily: fonts.display900,
+                  fontSize: 18,
                   color: on ? colors.card : colors.ink,
                 }}
               >
                 {label(cell)}
               </Text>
+              {sub ? (
+                <Text
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.8}
+                  style={{
+                    fontFamily: fonts.body800,
+                    fontSize: 12.5,
+                    color: on ? colors.card : colors.gstrong,
+                  }}
+                >
+                  {sub}
+                </Text>
+              ) : null}
             </Pressable>
           );
         })}
       </ScrollView>
     </View>
-  );
-}
-
-/** A row's arrow, turning from down to up as the row opens. */
-function RowChevron({
-  open,
-  reduceMotion,
-  color,
-}: {
-  open: boolean;
-  reduceMotion: boolean;
-  color: string;
-}) {
-  const [turn] = useState(() => new Animated.Value(open ? 1 : 0));
-  useEffect(() => {
-    if (reduceMotion) {
-      turn.setValue(open ? 1 : 0);
-      return;
-    }
-    Animated.timing(turn, {
-      toValue: open ? 1 : 0,
-      duration: EASE_MS,
-      useNativeDriver: true,
-    }).start();
-  }, [open, reduceMotion, turn]);
-  const rotate = turn.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '180deg'] });
-  return (
-    <Animated.View style={{ transform: [{ rotate }] }}>
-      <ChevronDownIcon size={18} color={color} strokeWidth={2.4} />
-    </Animated.View>
   );
 }
 

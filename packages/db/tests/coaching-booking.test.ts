@@ -132,6 +132,8 @@ const BODY: string[] = [
   BOOK('p_price', 's2', 'c1', 'lt_p', at(2, 2), { price: 29000 }),
   BOOK('p_grid', 's2', 'c1', 'lt_p', at(3, 0, 15)),
   BOOK('p_busy', 's2', 'c1', 'lt_p', at(2)),
+  // 0373: s1 already holds c1 at at(2); c2 is free, but the guest is not.
+  BOOK('p_guest_busy', 's1', 'c2', 'lt_p', at(2)),
   BOOK('p_party', 's2', 'c1', 'lt_p', at(2, 2), { party: 3 }),
   BOOK('p_friends', 's2', 'c1', 'lt_p', at(2, 2), { party: 1, friends: `array['A']` }),
   BOOK('p_self', 'g1', 'c1', 'lt_p', at(2, 2)),
@@ -493,6 +495,7 @@ describe.skipIf(!docker)('coaching booking (0283 core writes), one transaction',
     expect(JSON.parse(f.detail!)).toEqual({ quoted_iqd: 29000, current_iqd: 30000 });
     expect(code(r, 'p_grid')).toBe('SLOT_NOT_ON_GRID');
     expect(code(r, 'p_busy')).toBe('COACH_BUSY');
+    expect(code(r, 'p_guest_busy')).toBe('GUEST_BUSY');
     expect(code(r, 'p_party')).toBe('PARTY_TOO_LARGE:2');
     expect(code(r, 'p_friends')).toBe('INVALID_ARGUMENT:p_friend_names');
     expect(code(r, 'p_horizon')).toBe('BEYOND_HORIZON:60');

@@ -1367,6 +1367,7 @@
     "trg_guest_order_item_cap": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client",
     "trg_guest_order_rate_limit": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client",
     "trg_lesson_enrolments_friend_phones_scrub": "excluded: an internal trigger (0335 coach_book_students): empties lesson_enrolments.friend_phones whenever friend_names is emptied, never called by a client",
+    "trg_lesson_enrolments_guest_no_overlap": "excluded: an internal trigger (0373 guest_lesson_no_overlap): refuses a held or booked enrolment that overlaps another live one of the same account (GUEST_BUSY), never called by a client",
     "trg_lesson_events_notify": "excluded: service_role only — coaching push fan-out (lesson_booking migration): the lesson_events trigger, never called by a client",
     "trg_lesson_reminders": "excluded: service_role only — coaching push fan-out (lesson_booking migration): the lessons reminder trigger, never called by a client",
     "trg_low_stock_alert": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client",

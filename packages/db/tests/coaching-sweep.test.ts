@@ -376,14 +376,15 @@ describe.skipIf(!docker)('coaching 0286: lesson_sweep', () => {
           `select pg_temp.genrol({{${s}}}, jsonb_build_object('lesson_id', {{la}}, 'price_iqd', 15000))`,
         ),
       ),
+      // (b and c start an hour apart from a: 0373 keeps one guest to one lesson at a time.)
       // b: one booked of three, nobody paying -> under_filled.
-      GROUP('lb', 'cb', `${NOW_H} + interval '3 hours'`, `now() - interval '1 minute'`),
+      GROUP('lb', 'cb', `${NOW_H} + interval '4 hours'`, `now() - interval '1 minute'`),
       KEEP(
         'eb',
         `select pg_temp.genrol({{s1}}, jsonb_build_object('lesson_id', {{lb}}, 'price_iqd', 15000))`,
       ),
       // c: two booked and one mid-payment, start hours away -> deferred (R38).
-      GROUP('lc', 'cc', `${NOW_H} + interval '3 hours'`, `now() - interval '1 minute'`),
+      GROUP('lc', 'cc', `${NOW_H} + interval '5 hours'`, `now() - interval '1 minute'`),
       KEEP(
         'ec1',
         `select pg_temp.genrol({{s1}}, jsonb_build_object('lesson_id', {{lc}}, 'price_iqd', 15000))`,

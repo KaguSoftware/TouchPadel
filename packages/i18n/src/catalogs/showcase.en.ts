@@ -11,8 +11,6 @@ export const coachShowcaseEn = {
     intermediate: 'Intermediate',
     advanced: 'Advanced',
   },
-  // Under the coaches: why the order moves.
-  fairOrder: 'The order changes every day.',
   // The two ways on from the page.
   classesTitle: 'Group sessions',
   classesSub: 'Join a group, no partner needed',

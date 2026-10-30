@@ -7,7 +7,6 @@ export const coachShowcaseAr = {
     intermediate: 'متوسط',
     advanced: 'متقدّم',
   },
-  fairOrder: 'يتغيّر الترتيب كل يوم.',
   classesTitle: 'الحصص الجماعية',
   classesSub: 'انضمّ إلى مجموعة دون الحاجة إلى شريك',
   myLessonsSub: 'الحصص التي حجزتها',

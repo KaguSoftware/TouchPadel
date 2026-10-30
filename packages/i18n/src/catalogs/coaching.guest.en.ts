@@ -43,6 +43,8 @@ export const coachingGuestEn = {
       pickDate: 'Pick a date',
       prevWeek: 'Previous week',
       nextWeek: 'Next week',
+      prevMonth: 'Previous month',
+      nextMonth: 'Next month',
       nextThreeDays: 'Next 3 days',
       tapDay: 'Tap a day to see its times',
       // The book bar's button once a time is picked.

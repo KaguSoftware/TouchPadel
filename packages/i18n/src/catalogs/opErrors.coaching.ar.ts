@@ -36,6 +36,7 @@ export const opErrorsCoachingAr: DeepMessages<typeof opErrorsCoachingEn> = {
   LESSON_TYPE_INACTIVE: 'نوع الحصة هذا غير معروض للبيع.',
   COACH_UNAVAILABLE: 'المدرّب لا يعمل في هذا الوقت.',
   COACH_BUSY: 'لدى المدرّب حصة أخرى في هذا الوقت.',
+  GUEST_BUSY: 'لديك حصة أخرى في هذا الوقت.',
   NO_COURT_FREE: 'لا يوجد ملعب متاح في هذا الوقت.',
   SLOT_NOT_ON_GRID: 'تبدأ الحصص عند رأس الساعة أو نصفها.',
   PARTY_TOO_LARGE: 'العدد أكبر مما تتّسع له هذه الحصة.',

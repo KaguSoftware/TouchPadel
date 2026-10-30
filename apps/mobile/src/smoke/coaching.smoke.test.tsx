@@ -29,7 +29,7 @@ import { runSmokeCases, type SmokeCase } from '../test/smokeCase';
 import { supabase } from '../lib/supabase';
 import { renderRoute } from '../test/smoke';
 import { routerState } from '../test/routerState';
-import { dayOfWeekOfDate, localParts } from '@touch/core';
+import { localParts } from '@touch/core';
 import {
   TEST_VENUE_ID,
   bookingFixture,
@@ -143,8 +143,8 @@ const CASES: SmokeCase[] = [
     // The Coaches tab (play-coaches contracts §6).
     route: 'coaches',
     Component: CoachesScreen,
-    // A list primary carries no text of its own (U5): the line under the grid is beside it.
-    nearbyKey: 'coachShowcase.fairOrder',
+    // A list primary carries no text of its own (U5): the group sessions row is beside it.
+    nearbyKey: 'coachShowcase.classesTitle',
     options: { session: 'out', queryData: publicSeeds() },
   },
   {
@@ -709,7 +709,7 @@ describe.each(LOCALES)('coaching states in %s', (locale) => {
     }
   });
 
-  it('a private lesson’s page: the header, a week to pick from, and the next days opening one at a time', async () => {
+  it('a private lesson’s page: the header, and a month calendar to pick from', async () => {
     const screen = renderRoute(LessonTimesScreen, {
       locale,
       session: 'out',
@@ -719,30 +719,16 @@ describe.each(LOCALES)('coaching states in %s', (locale) => {
     try {
       expect(screen.getByTestId('lesson-times.hero')).toBeTruthy();
       expect(screen.getByText(t('coaching.guest.coach.pickTime'))).toBeTruthy();
-      expect(screen.getByText(t('coaching.guest.coach.nextThreeDays'))).toBeTruthy();
-      expect(screen.getByTestId('lesson-times.pick-date')).toBeTruthy();
-      // The week runs Monday to Sunday; a day before the window is greyed and takes no tap.
+      expect(screen.getByTestId('lesson-times.month')).toBeTruthy();
+      // The month grid lists each of its days; one before the window is greyed and takes no tap.
       const days = screen.getAllByTestId(/^lesson-times\.day\./);
-      expect(days).toHaveLength(7);
       const firstDay = days[0]!.props.testID.replace('lesson-times.day.', '') as string;
-      expect(dayOfWeekOfDate(firstDay)).toBe(1);
+      expect(firstDay.endsWith('-01')).toBe(true);
       const today = localParts(new Date(), COACH_TZ).date;
       if (firstDay < today) expect(days[0]!.props.accessibilityState?.disabled).toBe(true);
-      // The week strip shows the first night's times from the start.
+      // The calendar shows the first night's times from the start.
       const startMin = Math.floor(Date.parse(START_AT) / 60_000);
       expect(screen.getByTestId(`lesson-times.slot.none-${startMin}`)).toBeTruthy();
-      // A next-days row starts closed, opens to its times, and closes again.
-      const rowSlot = `lesson-times.row-slot.none-${startMin}`;
-      expect(screen.queryByTestId(rowSlot)).toBeNull();
-      const night = screen.getAllByTestId(/^lesson-times\.night\./)[0]!;
-      await act(async () => {
-        fireEvent.press(night);
-      });
-      expect(screen.getByTestId(rowSlot)).toBeTruthy();
-      await act(async () => {
-        fireEvent.press(night);
-      });
-      expect(screen.queryByTestId(rowSlot)).toBeNull();
     } finally {
       screen.unmount();
     }
@@ -904,7 +890,11 @@ describe.each(LOCALES)('coaching states in %s', (locale) => {
   ];
 
   it("the Coaches tab filters by the questionnaire's level and shows no level block", () => {
-    const screen = renderRoute(CoachesScreen, { locale, session: 'in', queryData: withLevel('new') });
+    const screen = renderRoute(CoachesScreen, {
+      locale,
+      session: 'in',
+      queryData: withLevel('new'),
+    });
     try {
       // The level lives in Edit profile (Personal details), not on this tab.
       expect(screen.queryByTestId('coaches.level')).toBeNull();
@@ -917,7 +907,11 @@ describe.each(LOCALES)('coaching states in %s', (locale) => {
   });
 
   it('the Coaches tab with no coach at the saved level offers every coach', () => {
-    const screen = renderRoute(CoachesScreen, { locale, session: 'in', queryData: withLevel('advanced') });
+    const screen = renderRoute(CoachesScreen, {
+      locale,
+      session: 'in',
+      queryData: withLevel('advanced'),
+    });
     try {
       expect(screen.queryByTestId(`coaches.row.${COACH_ID}`)).toBeNull();
       expect(screen.getByText(t('coachShowcase.emptyLevel.title'))).toBeTruthy();
@@ -929,7 +923,11 @@ describe.each(LOCALES)('coaching states in %s', (locale) => {
   });
 
   it('the Coaches tab with no level saved shows every coach', () => {
-    const screen = renderRoute(CoachesScreen, { locale, session: 'in', queryData: withLevel(null) });
+    const screen = renderRoute(CoachesScreen, {
+      locale,
+      session: 'in',
+      queryData: withLevel(null),
+    });
     try {
       expect(screen.queryByTestId('coaches.level')).toBeNull();
       expect(screen.getByTestId(`coaches.row.${COACH_ID}`)).toBeTruthy();

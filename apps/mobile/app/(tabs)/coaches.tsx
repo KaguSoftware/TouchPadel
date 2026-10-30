@@ -276,17 +276,6 @@ export default function CoachesScreen() {
             );
           })}
         </View>
-        <Text
-          style={{
-            fontFamily: fonts.body400,
-            fontSize: 12,
-            color: colors.fnt,
-            textAlign: 'center',
-            marginTop: space.l,
-          }}
-        >
-          {t('coachShowcase.fairOrder')}
-        </Text>
       </View>
     );
   };

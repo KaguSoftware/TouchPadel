@@ -37,6 +37,8 @@ export const coachingGuestAr: DeepMessages<typeof coachingGuestEn> = {
       pickDate: 'اختر تاريخًا',
       prevWeek: 'الأسبوع السابق',
       nextWeek: 'الأسبوع التالي',
+      prevMonth: 'الشهر السابق',
+      nextMonth: 'الشهر التالي',
       nextThreeDays: 'الأيام الثلاثة القادمة',
       tapDay: 'اضغط على يوم لعرض أوقاته',
       bookLesson: 'احجز الحصة',

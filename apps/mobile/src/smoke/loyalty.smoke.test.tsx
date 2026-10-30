@@ -146,7 +146,8 @@ describe.each(LOCALES)('loyalty states in %s', (locale) => {
   it('the loyalty screen shows the tier on its way, rewards and history', () => {
     const screen = renderRoute(LoyaltyScreen, { locale, session: 'in', queryData: homeSeeds() });
     try {
-      expect(screen.getByTestId('loyalty.tier-progress')).toBeTruthy();
+      expect(screen.getByTestId('loyalty.use-progress')).toBeTruthy();
+      expect(screen.getByTestId('loyalty.tier')).toBeTruthy();
       expect(
         screen.getByText(
           t('loyalty.guest.tier.next', { tier: locale === 'ar' ? 'فضي' : 'Silver' }),
@@ -197,10 +198,12 @@ describe.each(LOCALES)('loyalty states in %s', (locale) => {
       queryData: homeSeeds({ next_tier: null, history: [], rewards: [] }),
     });
     try {
-      expect(screen.getByText(t('loyalty.guest.tier.top'))).toBeTruthy();
+      expect(
+        screen.getByText(`${t('loyalty.guest.tier.top')} ${t('loyalty.guest.tier.window')}`),
+      ).toBeTruthy();
       expect(screen.queryByTestId('loyalty.tier-progress')).toBeNull();
       expect(screen.getByTestId('loyalty.history-empty')).toBeTruthy();
-      expect(screen.getByText(t('loyalty.guest.rewards.empty'))).toBeTruthy();
+      expect(screen.getByTestId('loyalty.reward-soon.0')).toBeTruthy();
     } finally {
       screen.unmount();
     }

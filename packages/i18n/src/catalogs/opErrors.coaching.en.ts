@@ -43,6 +43,7 @@ export const opErrorsCoachingEn = {
   LESSON_TYPE_INACTIVE: "This lesson type isn't on sale.",
   COACH_UNAVAILABLE: "The coach isn't working at that time.",
   COACH_BUSY: 'The coach already has a lesson at that time.',
+  GUEST_BUSY: 'You already have a lesson at that time.',
   NO_COURT_FREE: 'No court is free at that time.',
   SLOT_NOT_ON_GRID: 'Lessons start on the hour or at half past.',
   PARTY_TOO_LARGE: "That's more people than this lesson takes.",
