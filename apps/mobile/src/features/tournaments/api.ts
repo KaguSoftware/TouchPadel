@@ -46,14 +46,22 @@ export async function fetchTournamentPublic(client: Client, id: string): Promise
   return parseTournamentPublic(data, id);
 }
 
-/** app.tournament_register: registered while places are left, then waitlisted (§1.6). */
+/**
+ * app.tournament_register: registered while places are left, then waitlisted (§1.6). `seatNo`
+ * (0373) is the seating board chair the guest tapped, null from Register (the lowest free one).
+ * The generated types call the argument an optional number; null is sent all the same.
+ */
 export async function registerTournament(
   client: Client,
   tournamentId: string,
+  seatNo: number | null = null,
 ): Promise<RegisterResult> {
   const { data, error } = await client
     .schema('app')
-    .rpc('tournament_register', { p_tournament_id: tournamentId });
+    .rpc('tournament_register', {
+      p_tournament_id: tournamentId,
+      p_seat_no: seatNo as unknown as number,
+    });
   if (error) throw error;
   return parseRegisterResult(data);
 }

@@ -39,13 +39,22 @@ describe('reads', () => {
 });
 
 describe('writes', () => {
-  it('register and withdraw send the tournament id, and nothing else', async () => {
+  it('register sends the tournament id and the chair (null included); withdraw the id alone', async () => {
     const client = rpcClient({
       data: { entry_id: 'e', status: 'registered', waitlist_position: null, duplicate: false },
       error: null,
     });
     await registerTournament(client as never, 't-1');
-    expect(client.app.rpc).toHaveBeenCalledWith('tournament_register', { p_tournament_id: 't-1' });
+    expect(client.app.rpc).toHaveBeenCalledWith('tournament_register', {
+      p_tournament_id: 't-1',
+      p_seat_no: null,
+    });
+    // 0373: the board chair tapped.
+    await registerTournament(client as never, 't-1', 6);
+    expect(client.app.rpc).toHaveBeenCalledWith('tournament_register', {
+      p_tournament_id: 't-1',
+      p_seat_no: 6,
+    });
     await withdrawTournament(client as never, 't-1');
     expect(client.app.rpc).toHaveBeenCalledWith('tournament_withdraw', { p_tournament_id: 't-1' });
   });

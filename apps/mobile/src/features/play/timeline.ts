@@ -1,7 +1,7 @@
 /**
  * The Play tab's one timeline (docs/design/play-coaches/contracts-2026-10-11.md
  * §7): open matches and tournaments in sections by trading night, interleaved
- * by start time, narrowed by the kind and category chips. PURE (vitest).
+ * by start time, narrowed by the kind chips and (matches only) the category. PURE (vitest).
  *
  * Three sources, one shape. A signed-in guest's matches are `open_matches`
  * rows (ids, the share at the desk, their own state); a signed-out guest has no
@@ -22,7 +22,10 @@ import type { TourListItem } from '../tournaments/logic';
 export const PLAY_KINDS = ['all', 'matches', 'tournaments'] as const;
 export type PlayKind = (typeof PLAY_KINDS)[number];
 
-/** The category chips (the matches list's), applied to both kinds. */
+/**
+ * The category chips (the matches list's), applied to matches only: a tournament
+ * is for one gender (women's or men's), so a gender filter over it says nothing.
+ */
 export type PlayCategory = 'all' | MatchCategory;
 
 export type PlayEntry =
@@ -96,9 +99,7 @@ export function playNights(args: {
   }
   if (args.kind !== 'matches') {
     for (const t of args.tournaments) {
-      if (fits(t.category)) {
-        entries.push({ kind: 'tournament', key: t.id, startAt: t.startsAt, tournament: t });
-      }
+      entries.push({ kind: 'tournament', key: t.id, startAt: t.startsAt, tournament: t });
     }
   }
   entries.sort(compare);

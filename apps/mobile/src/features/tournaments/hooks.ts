@@ -64,7 +64,8 @@ export function useRegisterTournament() {
   const invalidate = useInvalidateTournaments();
   return useMutation({
     mutationKey: tournamentKeys.mutation('register'),
-    mutationFn: (tournamentId: string) => registerTournament(supabase, tournamentId),
+    mutationFn: ({ tournamentId, seatNo }: { tournamentId: string; seatNo: number | null }) =>
+      registerTournament(supabase, tournamentId, seatNo),
     onSettled: () => invalidate(),
   });
 }

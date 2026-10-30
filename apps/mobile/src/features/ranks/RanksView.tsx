@@ -98,7 +98,7 @@ export function RanksView({ bottomPad, testID }: { bottomPad: number; testID?: s
       >
         {/* The period and what a game is worth, said once, quietly. */}
         {live ? (
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.s, marginTop: -space.sm }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.s }}>
             <MicroLabel style={{ color: colors.blue }}>{t(`ranks.period.${live.period}`)}</MicroLabel>
             {mine ? (
               <MicroLabel>

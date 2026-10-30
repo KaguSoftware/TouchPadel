@@ -66,7 +66,7 @@ import { useAuth } from '../../src/features/auth/context';
 import { requestBookingSheet } from '../../src/features/courtTransition/openIntent';
 import { formatPrice } from '../../src/lib/price';
 import { radius, space, useTheme } from '../../src/theme';
-import { Screen, TAB_TITLE_TOP, Title } from '../../src/components/ui';
+import { Button, Screen, TAB_TITLE_TOP, Title } from '../../src/components/ui';
 import { AccountButton } from '../../src/components/AccountButton';
 import {
   FilterChip,
@@ -611,21 +611,16 @@ export default function BookingsScreen() {
           );
         })}
       </View>
-      <Pressable
+      {/* A real outlined button, not bold blue text: as a bare label under the
+          rows it read as the next section's heading, not as something to tap. */}
+      <Button
         testID="bookings.lessons.all"
-        accessibilityRole="link"
+        variant="secondary"
+        size="compact"
+        label={t('coaching.guest.bookings.all')}
         onPress={() => router.push('/my-lessons')}
-        style={({ pressed }) => ({
-          marginTop: 8,
-          paddingTop: 6,
-          paddingBottom: 6,
-          opacity: pressed ? 0.6 : 1,
-        })}
-      >
-        <Text style={{ fontFamily: fonts.body800, fontSize: 12.5, color: colors.blue }}>
-          {t('coaching.guest.bookings.all')}
-        </Text>
-      </Pressable>
+        style={{ marginTop: 10 }}
+      />
     </View>
   );
 

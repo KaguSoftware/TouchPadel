@@ -13,7 +13,8 @@
  *  gender    the gender ask (the play survey's gender step), then Register again
  *  profile   TOURNAMENT_PROFILE_REQUIRED (0339): the play survey, then Register again
  *  banned    the red notice, with "Call {branch}"
- *  refetch   the detail read again: its state replaces the action (full, closed, gone, off)
+ *  refetch   the detail read again: its state replaces the action (full, closed, gone, off, or
+ *            the tapped chair taken first)
  *  inline    the refusal's copy under the action
  *
  * The booking gate does not apply: registering books no court (plan §5.2).
@@ -34,6 +35,7 @@ export const TOURNAMENT_GUEST_KEYS = {
   TOURNAMENT_PROFILE_REQUIRED: 'tournaments.guest.errors.profileRequired',
   TOURNAMENT_LEVEL_MISMATCH: 'tournaments.guest.errors.levelMismatch',
   TOURNAMENT_ENTRY_NOT_FOUND: 'tournaments.guest.errors.entryNotFound',
+  TOURNAMENT_SEAT_TAKEN: 'tournaments.guest.errors.seatTaken',
 } as const satisfies Record<string, MessageKey>;
 
 /** `<code> · <detail>` → its own sentence; an unknown detail falls back to the code's line. */
@@ -96,6 +98,8 @@ const REFETCH = new Set([
   'TOURNAMENT_NOT_OPEN',
   'TOURNAMENT_FULL',
   'TOURNAMENT_ENTRY_NOT_FOUND',
+  // 0373: someone sat in the tapped chair first; the board read again shows it taken.
+  'TOURNAMENT_SEAT_TAKEN',
 ]);
 
 /** What the detail does with a `tournament_register` / `tournament_withdraw` refusal (above). */

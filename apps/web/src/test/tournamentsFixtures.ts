@@ -212,8 +212,8 @@ export function tournamentAnswer({
     // The registered entries in registration order, before and after the draw (play-coaches
     // §4.3); `mine` is false for anon.
     entries: [
-      { player: P[0], mine: false, entry_id: 'x' },
-      ...P.slice(1).map((p) => ({ player: p, mine: false })),
+      { player: P[0], mine: false, seat: 1, entry_id: 'x' },
+      ...P.slice(1).map((p, i) => ({ player: p, mine: false, seat: i + 2 })),
     ],
     rounds: rounds
       ? [

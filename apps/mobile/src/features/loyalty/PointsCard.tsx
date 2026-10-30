@@ -462,9 +462,10 @@ function EmbossedLine({ name, sweep, lean, moving }: NameProps) {
 
 /**
  * The guest's points as a card in the hand (Majed, 2026-10-22): the Club tab's way into Points &
- * rewards. Navy into the brand blue with the court lines across it, the lockup where a bank puts
- * its name, the tier in Padel Green, the balance with what it is worth at the cashier, and the
- * guest's name in puffy chrome along the bottom, as a bank card carries its holder's (EmbossedName).
+ * rewards. Touch Blue, the brand blue itself (Majed, 2026-10-29: the navy read as a dark card),
+ * with the court lines across it, the lockup where a bank puts its name, the tier in Padel Green,
+ * the balance with what it is worth at the cashier, and the guest's name in puffy chrome along the
+ * bottom, as a bank card carries its holder's (EmbossedName).
  *
  * It is lit, not decorated. A band of light crosses it every few seconds, as a card catches a lamp
  * when the hand turns it; a finger on it presses that spot down (a perspective tilt toward the
@@ -559,7 +560,8 @@ export function PointsCard({
           amount: isolate(formatIQD(loyalty.balance * loyalty.point_value_iqd, locale)),
         })
       : null;
-  const ink = brand.navyText;
+  // White, softened: the navy's gray ink is 3.2:1 on the brand blue, too faint for 13 pt.
+  const ink = withAlpha(brand.white, 0.85);
 
   // Pressing a spot pushes it away: the right edge recedes under a finger on the right, the top
   // under a finger at the top.
@@ -697,14 +699,14 @@ export function PointsCard({
         style={{
           flex: 1,
           borderRadius: radius.sheet,
-          backgroundColor: brand.navy,
+          backgroundColor: brand.blue,
           boxShadow: appearance === 'dark' ? shadows.pointsCardDark : shadows.pointsCard,
           transform: [{ perspective: 900 }, { rotateX }, { rotateY }, { scale }],
         }}
       >
         <View style={{ flex: 1, borderRadius: radius.sheet, overflow: 'hidden' }}>
           <LinearGradient
-            colors={[brand.navy, brand.navyCard, brand.navyLine]}
+            colors={[brand.blue, brand.blue, brand.blueShade]}
             locations={[0, 0.55, 1]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}

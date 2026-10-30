@@ -170,6 +170,8 @@ describe.each(LOCALES)('Play states in %s', (locale) => {
     try {
       expect(screen.queryByTestId(`play.match.${TEST_MATCH_ID}`)).toBeNull();
       expect(screen.getByTestId(`play.tournament.${TOUR_ID}`)).toBeTruthy();
+      // A tournament is for one gender: no gender filter over them.
+      expect(screen.queryByTestId('play.filter')).toBeNull();
     } finally {
       screen.unmount();
     }

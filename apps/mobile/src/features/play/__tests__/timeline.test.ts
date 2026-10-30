@@ -128,7 +128,7 @@ describe('playNights', () => {
     expect(keys(nights({ ...ALL, kind: 'tournaments' }))).toEqual([['t1'], ['t2']]);
   });
 
-  it('narrows both kinds to one category', () => {
+  it('narrows the matches to one category, never the tournaments (each is for one gender)', () => {
     const ns = nights({
       matches: [match('mw', '2026-10-11T18:00:00.000Z', { category: 'women' })],
       tournaments: [
@@ -137,7 +137,8 @@ describe('playNights', () => {
       ],
       category: 'women',
     });
-    expect(keys(ns)).toEqual([['mw', 'tw']]);
+    expect(keys(ns)).toEqual([['mw', 'tw', 'to']]);
+    expect(keys(nights({ ...ALL, kind: 'tournaments', category: 'men' }))).toEqual([['t1'], ['t2']]);
   });
 
   it('keeps signed-out slots with a seat left, told apart at one minute', () => {
@@ -161,7 +162,7 @@ describe('playNights', () => {
 
   it('is empty with nothing to show', () => {
     expect(nights()).toEqual([]);
-    expect(nights({ ...ALL, kind: 'tournaments', category: 'men' })).toEqual([]);
+    expect(nights({ ...ALL, kind: 'matches', category: 'men' })).toEqual([]);
   });
 });
 

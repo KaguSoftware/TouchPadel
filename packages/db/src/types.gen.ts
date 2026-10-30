@@ -5456,7 +5456,10 @@ export type Database = {
         }[]
       }
       tournament_refunds_due: { Args: { p_venue_id?: string }; Returns: Json }
-      tournament_register: { Args: { p_tournament_id: string }; Returns: Json }
+      tournament_register: {
+        Args: { p_seat_no?: number; p_tournament_id: string }
+        Returns: Json
+      }
       tournament_release_blocks: {
         Args: { p_note: string; p_tournament_id: string }
         Returns: number
@@ -5474,6 +5477,13 @@ export type Database = {
           p_reason: string
         }
         Returns: Json
+      }
+      tournament_seats: {
+        Args: { p_tournament_id: string }
+        Returns: {
+          entry_id: string
+          seat_no: number
+        }[]
       }
       tournament_set_rounds: {
         Args: {
@@ -17630,6 +17640,7 @@ export type Database = {
           id: string
           no_show_at: string | null
           promoted_at: string | null
+          seat_no: number | null
           seed_no: number | null
           status: string
           substitute_for: string | null
@@ -17648,6 +17659,7 @@ export type Database = {
           id?: string
           no_show_at?: string | null
           promoted_at?: string | null
+          seat_no?: number | null
           seed_no?: number | null
           status: string
           substitute_for?: string | null
@@ -17666,6 +17678,7 @@ export type Database = {
           id?: string
           no_show_at?: string | null
           promoted_at?: string | null
+          seat_no?: number | null
           seed_no?: number | null
           status?: string
           substitute_for?: string | null

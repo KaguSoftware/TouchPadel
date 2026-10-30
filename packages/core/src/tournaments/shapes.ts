@@ -94,7 +94,8 @@ export const TOURNAMENT_SHAPES = {
   },
   tournament_register: {
     rpc: 'tournament_register',
-    keys: ['entry_id', 'status', 'waitlist_position', 'duplicate'],
+    // seat_no (0373): the board chair it sits on, null when waitlisted.
+    keys: ['entry_id', 'status', 'waitlist_position', 'seat_no', 'duplicate'],
   },
   tournament_withdraw: {
     rpc: 'tournament_withdraw',
@@ -347,8 +348,9 @@ export const TOURNAMENT_SHAPES = {
     nested: {
       branch: BRANCH,
       // The registered entries in registration order, before and after the draw (play-coaches
-      // contracts §4.3): the seating board's chairs. `mine` is false for anon.
-      'entries[]': ['player', 'mine'],
+      // contracts §4.3): the seating board's chairs. `mine` is false for anon; `seat` (0373) is
+      // the chair each sits on.
+      'entries[]': ['player', 'mine', 'seat'],
       'entries[].player': PLAYER,
       'rounds[]': ['round_no', 'sit_out', 'matches'],
       'rounds[].sit_out[]': PLAYER,

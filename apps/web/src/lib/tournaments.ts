@@ -120,6 +120,8 @@ export interface TourPublicEntry {
   player: TourPlayer;
   /** The reader's own entry; always false on the site (no session). */
   mine: boolean;
+  /** The seating board chair it sits on (0373; the app's board); null from an older server. */
+  seat: number | null;
 }
 
 export interface TourPublicStanding {
@@ -338,7 +340,7 @@ function parseRound(row: Record<string, unknown>): TourPublicRound | null {
 function parseEntry(row: Record<string, unknown>): TourPublicEntry | null {
   const player = parsePlayer(row.player);
   if (!player) return null;
-  return { player, mine: row.mine === true };
+  return { player, mine: row.mine === true, seat: whole(row.seat) };
 }
 
 function parseStanding(row: Record<string, unknown>): TourPublicStanding | null {

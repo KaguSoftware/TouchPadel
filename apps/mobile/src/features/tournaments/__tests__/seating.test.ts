@@ -94,6 +94,44 @@ describe('seatEntries', () => {
   it('draws one empty court for a tournament with no maximum and no entries', () => {
     expect(states(seatEntries([], null))).toEqual([['open', 'open', 'open', 'open']]);
   });
+
+  // 0373 (Majed, 2026-10-29): the chair a guest tapped is the chair they sit on.
+  const seated = (no: number, seat: number | null, mine = false): TourPublicEntry => ({
+    player: { name: `P${no}`, former: false, no },
+    mine,
+    seat,
+  });
+
+  it('seats each entry on its own chair, wherever on the board it is', () => {
+    // Court 2's second chair is board chair 6.
+    const courts = seatEntries([seated(1, 6, true), seated(2, 1)], 8);
+    expect(states(courts)).toEqual([
+      ['taken', 'open', 'open', 'open'],
+      ['open', 'mine', 'open', 'open'],
+    ]);
+    expect(courts[1]!.chairs[1]!.player?.no).toBe(1);
+  });
+
+  it('numbers every chair across the board, the number a tap on an open one sends', () => {
+    const courts = seatEntries([], 8);
+    expect(courts.map((c) => c.chairs.map((ch) => ch.boardNo))).toEqual([
+      [1, 2, 3, 4],
+      [5, 6, 7, 8],
+    ]);
+  });
+
+  it('puts an entry with no chair, or a second claim on one, on the lowest chair left', () => {
+    const courts = seatEntries([seated(1, 2), seated(2, null), seated(3, 2), seated(4, 99)], 8);
+    expect(courts[0]!.chairs.map((ch) => ch.player?.no ?? null)).toEqual([2, 1, 3, 4]);
+    expect(states(courts)[1]).toEqual(['open', 'open', 'open', 'open']);
+  });
+
+  it('fills the unlisted count after the seated entries', () => {
+    expect(states(seatEntries([seated(1, 4)], 8, 3))).toEqual([
+      ['taken', 'taken', 'open', 'taken'],
+      ['open', 'open', 'open', 'open'],
+    ]);
+  });
 });
 
 describe('ownSeedNo', () => {

@@ -484,7 +484,8 @@ describe.skipIf(!docker)('0334 tournament_public entries', () => {
       'Waiter L.',
     ]);
     for (const e of list) {
-      expect(Object.keys(e).sort()).toEqual(['mine', 'player']);
+      // 0373 added seat, the entry's board chair.
+      expect(Object.keys(e).sort()).toEqual(['mine', 'player', 'seat']);
       expect(Object.keys(e.player).sort()).toEqual(['former', 'name', 'no']);
       expect(e.player.former).toBe(false);
       expect(e.player.no).toBeNull();

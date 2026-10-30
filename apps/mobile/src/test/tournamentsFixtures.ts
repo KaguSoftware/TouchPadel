@@ -113,11 +113,11 @@ export function tournamentPublicFixture(over: Record<string, unknown> = {}) {
     // The registered entries in registration order (play-coaches §4.3): the guest's own is the
     // third, Ali K. and Sara M. before them.
     entries: [
-      { player: player('Ali K.', 1), mine: false },
-      { player: player('Sara M.', 2), mine: false },
-      { player: player('Omar H.', 3), mine: true },
-      { player: player('Huda R.', 4), mine: false },
-      { player: player(null, 5), mine: false },
+      { player: player('Ali K.', 1), mine: false, seat: 1 },
+      { player: player('Sara M.', 2), mine: false, seat: 2 },
+      { player: player('Omar H.', 3), mine: true, seat: 3 },
+      { player: player('Huda R.', 4), mine: false, seat: 4 },
+      { player: player(null, 5), mine: false, seat: 5 },
     ],
     rounds: [
       {
@@ -173,6 +173,8 @@ export function entriesFixture(n: number, mineAt: number | null = null) {
   return Array.from({ length: n }, (_, i) => ({
     player: player(i === 4 ? null : (names[i % names.length] ?? null), i + 1, i === 5),
     mine: i === mineAt,
+    // 0373: the chair each took; here the registration order's.
+    seat: i + 1,
   }));
 }
 

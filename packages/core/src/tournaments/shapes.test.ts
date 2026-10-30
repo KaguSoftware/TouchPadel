@@ -161,10 +161,10 @@ describe('pinned names (§1.6, S13)', () => {
     ]);
   });
 
-  it('the public detail lists its entries as {player, mine} (play-coaches §4.3)', () => {
+  it('the public detail lists its entries as {player, mine, seat} (play-coaches §4.3; 0373)', () => {
     const shape = TOURNAMENT_SHAPES.tournament_public;
     expect(shape.keys).toContain('entries');
-    expect(shape.nested['entries[]']).toEqual(['player', 'mine']);
+    expect(shape.nested['entries[]']).toEqual(['player', 'mine', 'seat']);
     const sample = sampleOf(shape) as { entries: Array<{ player: Record<string, unknown> }> };
     delete sample.entries[0]!.player.no;
     expect(tourMissingKeys(sample, shape)).toEqual(['$.entries[0].player.no']);
