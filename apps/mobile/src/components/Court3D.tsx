@@ -620,13 +620,13 @@ export function Court3D({
    * repaint. `canAnimate` / `canDraw` in features/courtTransition/surfaceState.ts
    * make the distinction; theme/appearanceEvents.ts makes the same one a layer up.
    */
-  const [appState, setAppState] = useState<string>(AppState.currentState);
+  const [appState, setAppState] = useState<string>(AppState.currentState as string);
   /**
    * The lifecycle, for the render loop to read without being rebuilt. expo-gl
    * silently drops every present while the app is not active, so a frame only
    * counts as having reached the screen when this says 'active'.
    */
-  const appStateRef = useRef<string>(AppState.currentState);
+  const appStateRef = useRef<string>(AppState.currentState as string);
 
   sizeCb.current = onSize;
   unavailableCb.current = onUnavailable;

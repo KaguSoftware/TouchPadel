@@ -1,6 +1,6 @@
 # apps/mobile — rules for every change
 
-The guest app: Expo SDK 57 with expo-router screens under `app/` and feature code under
+The guest app: Expo SDK 58 with expo-router screens under `app/` and feature code under
 `src/features/{auth,availability,booking,boot,courtTransition,deposit,matches,profile,staff}`.
 Written 2026-09-20 (Phase 2, Milestone 0 item 12) from `PHASE-2-PLAN.md` Part A5 plus the 09-20
 code verification. Database-side rules are in `packages/db/CLAUDE.md`.

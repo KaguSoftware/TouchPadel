@@ -15,6 +15,7 @@ import {
   View,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
+  type ScrollViewInstance,
 } from 'react-native';
 import { Text } from '../i18n/text';
 import { radius, useTheme } from '../theme';
@@ -29,7 +30,7 @@ export function WheelPicker<T extends string>({
   onChange,
 }: WheelPickerProps<T>) {
   const { colors, fonts } = useTheme();
-  const scroll = useRef<ScrollView>(null);
+  const scroll = useRef<ScrollViewInstance>(null);
   const index = Math.max(
     0,
     options.findIndex((o) => o.value === value),

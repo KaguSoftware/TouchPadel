@@ -9,7 +9,7 @@
  * 2026-10-12). So the page ends at the title's foot rather than passing under it.
  */
 import { useEffect, useMemo, useState, type ReactNode, type RefObject } from 'react';
-import { Animated, Platform, StyleSheet, View } from 'react-native';
+import { Animated, Platform, StyleSheet, View, type ViewInstance } from 'react-native';
 import { BlurTargetView, BlurView } from 'expo-blur';
 import { useTheme, withAlpha } from '../theme';
 
@@ -69,7 +69,7 @@ export function Frost({
 }: {
   scrollY: Animated.Value;
   span: number;
-  target?: RefObject<View | null>;
+  target?: RefObject<ViewInstance | null>;
 }) {
   const { colors, appearance } = useTheme();
   const { blur, fade } = useScrollRamp(scrollY, span, FROST_BLUR);

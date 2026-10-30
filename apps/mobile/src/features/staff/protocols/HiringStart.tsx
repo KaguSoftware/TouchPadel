@@ -10,7 +10,7 @@
  * again on top, and its button goes back to Check.
  */
 import { useRef, useState, type ComponentType, type ReactNode } from 'react';
-import { Pressable, View, type ScrollView } from 'react-native';
+import { Pressable, View, type ScrollViewInstance } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useMutation } from '@tanstack/react-query';
 import * as Haptics from 'expo-haptics';
@@ -247,7 +247,7 @@ export function HiringStart({
   const back = useBack('/staff');
   const toast = useToast();
   const refresh = useRefreshProtocols();
-  const scroll = useRef<ScrollView>(null);
+  const scroll = useRef<ScrollViewInstance>(null);
   const draft = useHiringDraft(planId);
   const a = draft.answers;
   const [picking, setPicking] = useState(false);

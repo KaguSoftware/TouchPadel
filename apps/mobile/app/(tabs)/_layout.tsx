@@ -15,7 +15,7 @@
  * it has to be named explicitly — a navigator otherwise starts on whichever
  * screen is declared first, which is now Bookings.
  */
-export const unstable_settings = { initialRouteName: 'index' };
+export const unstable_settings = { anchor: 'index' };
 
 /**
  * Through the staff gate: a guest gets TabsLayout unchanged, a staff session is

@@ -31,7 +31,7 @@ export function ranksPlayerTopic(profileId: string): string {
 }
 
 function onAppForeground(cb: () => void): () => void {
-  let last: AppStateStatus = AppState.currentState;
+  let last = AppState.currentState as AppStateStatus;
   const sub = AppState.addEventListener('change', (next) => {
     if (next === 'active' && last !== 'active') cb();
     last = next;

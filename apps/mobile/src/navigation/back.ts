@@ -13,9 +13,16 @@
  *   useBack()        leave, from a button in the page
  *   useBackGuard()   intercept a departure the user has to confirm first
  */
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Platform } from 'react-native';
-import { useNavigation, useNavigationContainerRef, useRouter, type Href } from 'expo-router';
+import {
+  useNavigation,
+  useNavigationContainerRef,
+  usePreventRemove,
+  useRoute,
+  useRouter,
+  type Href,
+} from 'expo-router';
 import type { NavigationAction } from 'expo-router/react-navigation';
 
 /**
@@ -202,33 +209,30 @@ export function useIsOnScreen(): (name: string, id: string) => boolean {
 /**
  * Hold a departure open until the screen says it may proceed.
  *
- * JS can hold what JS dispatches: Android's back button and gesture (which
- * native-stack routes through JS), a deep link pushing elsewhere, and any
- * `router` call. On iOS it CANNOT hold what UIKit does itself. The back item
- * and the edge-swipe pop the screen natively, and native-stack only tells JS
- * afterwards (`onDismissed` → a POP sourced from this route). Calling
- * `preventDefault` on that leaves the route in JS state with no screen behind
- * it: "removed natively but didn't get removed from JS state", and a stack the
- * next navigation trips over. So, while armed:
+ * Built on `usePreventRemove`, the only way to hold a removal since SDK 58
+ * (expo-router dropped `beforeRemove`). While armed, the stack marks the route
+ * prevented, which also sets react-native-screens' `preventNativeDismiss`: the
+ * back item and the edge-swipe no longer pop in UIKit, they report the attempt,
+ * the stack turns it into a JS pop, and that pop is what arrives here as a
+ * prevented removal. Android's back button and gesture, a deep link pushing
+ * elsewhere, and any `router` call arrive the same way.
  *
- *   - the edge-swipe is switched off (`gestureEnabled: false`), and
- *   - a native pop is let through: never prevented, never handed to
- *     `onBlocked` (no dialog can ask about a screen that is already gone).
- *     `onDismissed` runs instead, for whatever leaving must still do.
+ * iOS's back item still always leaves (`isNativeDismissal`), as it did before
+ * SDK 58: it is let through, never handed to `onBlocked`, and `onDismissed`
+ * runs instead, for whatever leaving must still do. The edge-swipe is switched
+ * off while armed (`gestureEnabled: false`).
+ *
+ * THE CHEVRON. A prevented route makes NativeStackView force
+ * `headerBackButtonMenuEnabled: false`, which react-native-screens reads as
+ * `disableBackButtonMenu` and answers by swapping UIKit's back item for a plain
+ * UIBarButtonItem carrying only a title: a bordered capsule with NO CHEVRON, in
+ * the default tint. `unstable_nativeProps.headerConfig` is spread after that
+ * (useHeaderConfigProps.js), so while armed the screen hands
+ * `disableBackButtonMenu: false` back and keeps the system item.
  *
  * `when` is read live, so a screen may start and stop guarding as its form
  * turns dirty and clean. `onBlocked` and `onDismissed` are likewise read
- * through a ref: they are rebuilt on every render, and subscribing to them
- * directly would tear the listener down and re-add it mid-gesture.
- *
- * NOT built on `usePreventRemove`, deliberately. That hook registers the route
- * as prevented, and NativeStackView then forces
- * `headerBackButtonMenuEnabled: false` regardless of what the screen passes
- * (NativeStackView.native.js). react-native-screens reads that as
- * `disableBackButtonMenu` and swaps UIKit's back item for a plain
- * UIBarButtonItem carrying only a title — a bordered capsule with NO CHEVRON,
- * in the default tint, for exactly as long as the guard is armed. The price of
- * keeping the chevron is the iOS back item above: it always leaves.
+ * through a ref: they are rebuilt on every render.
  *
  * `onBlocked` is handed a `leave` callback, and `useBackGuard` returns the same
  * one. Calling it lifts the guard for good and completes the departure:
@@ -250,13 +254,17 @@ export function useBackGuard({
 }: {
   when: boolean;
   onBlocked: (leave: Leave) => void;
-  /** iOS only: UIKit already popped the screen (back item), see above. */
+  /** iOS only: the back item was pressed, and leaves regardless (see above). */
   onDismissed?: () => void;
 }): Leave {
   const navigation = useNavigation();
+  const route = useRoute();
   const back = useBack();
   const blocked = useRef<NavigationAction | null>(null);
   const lifted = useRef(false);
+  // The state twin of `lifted`, so the hook below stops preventing too.
+  const [released, setReleased] = useState(false);
+  const armed = when && !released;
   // Written in an effect, not during render: the listener only ever reads them
   // from a callback, so they are never needed before the commit lands.
   const onBlockedRef = useRef(onBlocked);
@@ -266,64 +274,61 @@ export function useBackGuard({
     onDismissedRef.current = onDismissed;
   });
 
+  const disablePrevention = usePreventRemove(armed, ({ data }) => {
+    if (lifted.current) return;
+    if (isNativeDismissal(data.action, route.key)) {
+      lift();
+      onDismissedRef.current?.();
+      navigation.dispatch(data.action);
+      return;
+    }
+    blocked.current = data.action;
+    onBlockedRef.current(leave);
+  });
+
+  // Synchronous on purpose: the action dispatched right after must find the
+  // route no longer prevented.
+  function lift() {
+    lifted.current = true;
+    setReleased(true);
+    disablePrevention();
+  }
+
   const leave = useCallback<Leave>(
     (elsewhere) => {
-      lifted.current = true;
+      lift();
       const action = blocked.current;
       blocked.current = null;
       if (elsewhere) elsewhere();
       else if (action) navigation.dispatch(action);
       else back();
     },
+    // `lift` only touches refs, a state setter and the hook's stable callback.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [navigation, back],
   );
 
-  // The native half of the guard. On iOS the back item and the edge-swipe pop
-  // in UIKit BEFORE `beforeRemove` reaches JS, so `preventDefault` alone left
-  // the screen gone from the stack but still in JS state ("The screen
-  // 'profile-edit' was removed natively but didn't get removed from JS
-  // state"), and "Keep editing" had no screen left to keep (guest report,
-  // 2026-10-11). `preventNativeDismiss` makes react-native-screens put the
-  // screen back and report the attempt instead, which the native stack turns
-  // into a JS pop, and that pop is what the listener below catches. Passed
-  // through `unstable_nativeProps`, which the stack spreads AFTER its own
-  // `preventNativeDismiss`, rather than through `usePreventRemove`, which
-  // would also cost the chevron (above). A pop the screen dispatches itself
-  // (`leave`) is a JS removal and is not blocked by it.
   useEffect(() => {
-    navigation.setOptions({ unstable_nativeProps: { preventNativeDismiss: when } });
-  }, [navigation, when]);
-
-  useEffect(() => {
-    if (!when) return;
-    navigation.setOptions({ gestureEnabled: false });
-    const unsubscribe = navigation.addListener('beforeRemove', (e) => {
-      if (lifted.current) return;
-      if (isNativeDismissal(e.data.action, e.target)) {
-        lifted.current = true;
-        onDismissedRef.current?.();
-        return;
-      }
-      e.preventDefault();
-      blocked.current = e.data.action;
-      onBlockedRef.current(leave);
+    if (!armed) return;
+    navigation.setOptions({
+      gestureEnabled: false,
+      unstable_nativeProps: { headerConfig: { disableBackButtonMenu: false } },
     });
     return () => {
-      unsubscribe();
-      // `undefined`, not `true`: the stack's own default comes back.
-      navigation.setOptions({ gestureEnabled: undefined });
+      // `undefined`, not `true`: the stack's own defaults come back.
+      navigation.setOptions({ gestureEnabled: undefined, unstable_nativeProps: undefined });
     };
-  }, [navigation, when, leave]);
+  }, [navigation, armed]);
 
   return leave;
 }
 
 /**
- * The POP native-stack dispatches from `onDismissed` once UIKit has removed the
- * screen: sourced from the route itself. Android's back item dispatches the
- * same shape from `onHeaderBackButtonClicked`, but there the screen is still
- * up and the pop can be held, hence iOS only. A `router` call is a GO_BACK,
- * POP_TO, NAVIGATE or REPLACE, never this.
+ * The POP native-stack dispatches when UIKit's back item or edge-swipe tried to
+ * leave: sourced from the route itself (`makePopAction`). Android's back item
+ * dispatches the same shape from `onHeaderBackButtonClicked`, but there the
+ * pop is held, hence iOS only. A `router` call is a GO_BACK, POP_TO, NAVIGATE
+ * or REPLACE, never this.
  */
 function isNativeDismissal(action: NavigationAction, routeKey: string | undefined): boolean {
   return Platform.OS === 'ios' && action.type === 'POP' && routeKey !== undefined && action.source === routeKey;

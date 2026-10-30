@@ -370,7 +370,7 @@ export function ThemeProvider({
         preference: preferenceRef.current,
         device,
         painted: appearanceRef.current,
-        appState: AppState.currentState,
+        appState: AppState.currentState as string,
       });
       if (action.type === 'apply') applyNow('automatic', action.appearance);
       else if (action.type === 'crossfade') crossfadeTo('automatic', action.appearance, false);

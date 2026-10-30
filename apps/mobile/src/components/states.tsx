@@ -12,7 +12,7 @@
  * a branch again.
  */
 import { useEffect, useRef, useState } from 'react';
-import { Animated, Easing, View, useWindowDimensions } from 'react-native';
+import { Animated, Easing, View, useWindowDimensions, type ViewInstance } from 'react-native';
 import { Text } from '../i18n/text';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { brand, radius, space, useTheme } from '../theme';
@@ -211,7 +211,7 @@ export function EmptyState({
   actionTestID?: string;
 }) {
   const { colors, fonts } = useTheme();
-  const box = useRef<View>(null);
+  const box = useRef<ViewInstance>(null);
   const { height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const [minHeight, setMinHeight] = useState<number | undefined>(undefined);

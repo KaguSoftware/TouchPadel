@@ -80,7 +80,7 @@ export function startAuthRefreshLifecycle(): () => void {
     }
   };
 
-  apply(AppState.currentState);
+  apply(AppState.currentState as AppStateStatus);
   const sub = AppState.addEventListener('change', apply);
   return () => sub.remove();
 }

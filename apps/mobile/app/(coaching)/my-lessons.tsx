@@ -171,10 +171,10 @@ function MyLessonsScreen() {
         ListHeaderComponent={
           confirmCards.length > 0 ? (
             <View style={{ gap: space.s, marginBottom: space.sm }}>{confirmCards}</View>
-          ) : null
+          ) : undefined
         }
         ListEmptyComponent={
-          confirmCards.length > 0 ? null : (
+          confirmCards.length > 0 ? undefined : (
             <EmptyState
               testID="my-lessons.empty"
               actionTestID="my-lessons.find"

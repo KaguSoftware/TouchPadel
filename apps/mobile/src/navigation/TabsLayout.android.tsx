@@ -1,6 +1,6 @@
 import { forwardRef } from 'react';
 import { Tabs } from 'expo-router';
-import { Platform, Pressable, StyleSheet, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, View, type ViewInstance } from 'react-native';
 import { Text } from '../i18n/text';
 import { BlurView } from 'expo-blur';
 import { InnerScreen, ScreenContext, type ScreenProps } from 'react-native-screens';
@@ -153,7 +153,7 @@ function TabLabel({ text, focused }: { text: string; focused: boolean }) {
  * tab switches are not animated — with an `animation` on the tabs, two screens
  * are visible at once and the order would matter again.
  */
-const StableOrderScreen = forwardRef<View, ScreenProps>(function StableOrderScreen(
+const StableOrderScreen = forwardRef<ViewInstance, ScreenProps>(function StableOrderScreen(
   { style, ...rest },
   ref,
 ) {

@@ -33,6 +33,8 @@ import {
   type TextInputProps,
   type TextStyle,
   type ViewStyle,
+  type TextInputInstance,
+  type ViewInstance,
 } from 'react-native';
 import { AnimatedText, Text } from '../i18n/text';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -108,7 +110,7 @@ const PATTERN_BLUR = 30;
 
 function BlurredPattern() {
   const { colors, appearance } = useTheme();
-  const target = useRef<View>(null);
+  const target = useRef<ViewInstance>(null);
   return (
     <View pointerEvents="none" style={StyleSheet.absoluteFill}>
       <BlurTargetView
@@ -485,7 +487,7 @@ export interface FieldProps extends TextInputProps {
    * keyboard's Next is pressed (fieldChain.ts). React 19 hands it on through
    * the props spread below.
    */
-  ref?: Ref<TextInput>;
+  ref?: Ref<TextInputInstance>;
   /**
    * The unit, inside the box after the number ("kg", "pieces"), so the field
    * itself says what to type (Sait, 2026-10-17).
@@ -609,8 +611,8 @@ export function Field({
   // uses it to space the field against its neighbour. Split the margins off so
   // they land on the bordered box and the rest still reaches the text.
   const flat = StyleSheet.flatten(style) ?? {};
-  const margins: TextStyle = {};
-  const text: TextStyle = {};
+  const margins: { -readonly [K in keyof TextStyle]: TextStyle[K] } = {};
+  const text: { -readonly [K in keyof TextStyle]: TextStyle[K] } = {};
   for (const [k, v] of Object.entries(flat)) {
     (/^margin/.test(k) ? margins : text)[k as keyof TextStyle] = v as never;
   }

@@ -51,6 +51,7 @@ import {
   StyleSheet,
   View,
   useWindowDimensions,
+  type ScrollViewInstance,
 } from 'react-native';
 import { Text } from '../i18n/text';
 import { BlurView } from 'expo-blur';
@@ -170,7 +171,7 @@ export function BookingSheet({
   //
   // A date that is NOT cached shows the skeleton first, so its list mounts
   // fresh at 0 anyway and the ref below is simply null that time round.
-  const gridRef = useRef<ScrollView>(null);
+  const gridRef = useRef<ScrollViewInstance>(null);
   /**
    * The day strip: a swipe track, not a ScrollView (useSwipeTrack in
    * ./booking: on iOS 26 the tab bar fades whichever scroll view it takes,

@@ -208,6 +208,10 @@ jest.mock('expo-router', () => {
     useFocusEffect: (cb: () => void | (() => void)) => {
       mockUseEffect(() => cb(), [cb]);
     },
+    // The back guard (src/navigation/back.ts): nothing leaves a smoke render,
+    // so no removal is ever prevented and the callback never runs.
+    useRoute: () => ({ key: 'smoke-route', name: 'smoke' }),
+    usePreventRemove: () => () => {},
     ThemeProvider: ({ children }: { children: ReactNode }) => children,
     // react-navigation's own theme, which `src/navigation/theme.ts` SPREADS to
     // build the app's. A missing one is `...undefined` inside a `useMemo`, so

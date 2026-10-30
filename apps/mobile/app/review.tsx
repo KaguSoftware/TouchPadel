@@ -141,8 +141,9 @@ function ReviewScreen() {
   /**
    * Give the slot back on the way out.
    *
-   * The trigger is navigation's `beforeRemove` — the screen being POPPED off
-   * the stack (header arrow, Android back, back-swipe, or a replace) — and
+   * The trigger is navigation's `removed` — the screen taken OFF the stack by
+   * a navigation action (header arrow, Android back, back-swipe, or a replace;
+   * `beforeRemove` until SDK 58 dropped it) — and
    * deliberately NOT a plain unmount effect. An unmount says nothing about the
    * guest's intent: it also fires on Fast Refresh, and whenever (gated)/_layout
    * swaps `<Stack>` for `<Loading>`/`<Redirect>` on a session change, which is
@@ -170,13 +171,14 @@ function ReviewScreen() {
   if (confirmed) keepHoldRef.current = true;
   const holdIdRef = useRef(holdId);
   holdIdRef.current = holdId;
-  useEffect(
-    () =>
-      navigation.addListener('beforeRemove', () => {
-        if (holdIdRef.current && !keepHoldRef.current) releaseRef.current(holdIdRef.current);
-      }),
-    [navigation],
-  );
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('removed', () => {
+      if (holdIdRef.current && !keepHoldRef.current) releaseRef.current(holdIdRef.current);
+    });
+    // `removed` is emitted after this screen's effects are cleaned up, so the
+    // listener has to outlive the cleanup by a microtask (expo-router's docs).
+    return () => queueMicrotask(unsubscribe);
+  }, [navigation]);
 
   const pct =
     secondsLeft === null

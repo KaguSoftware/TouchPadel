@@ -6,6 +6,7 @@ import {
   View,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
+  type ScrollViewInstance,
 } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -73,8 +74,8 @@ function MenuScreen() {
   // tap scrolls to its category. Every position is the layout's, in the scroll
   // content's coordinates (the list's y plus a section's y inside it).
   const [category, setCategory] = useState<string | null>(null);
-  const scrollRef = useRef<ScrollView>(null);
-  const chipsRef = useRef<ScrollView>(null);
+  const scrollRef = useRef<ScrollViewInstance>(null);
+  const chipsRef = useRef<ScrollViewInstance>(null);
   const headerH = useRef(0);
   const listY = useRef(0);
   const sectionY = useRef<Record<string, number>>({});

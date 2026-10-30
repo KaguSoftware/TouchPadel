@@ -7,6 +7,7 @@ import {
   useWindowDimensions,
   type LayoutChangeEvent,
   type LayoutRectangle,
+  type ViewInstance,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -155,7 +156,7 @@ export default function CoachesScreen() {
   // pinned over the top of the screen, the clock and battery included, and
   // the scroll view starts at its foot, as on Join (scrollFrost).
   const [titleH, setTitleH] = useState(0);
-  const frostTarget = useRef<View>(null);
+  const frostTarget = useRef<ViewInstance>(null);
   // The court's slot on screen: the scroll view starts at the title's foot.
   const heroTop = heroY === null ? null : heroY + titleH;
 
