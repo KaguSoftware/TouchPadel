@@ -22,6 +22,8 @@ overrides:
   compression@1: 1.8.2
   sharp@0.35: 0.35.5
   dompurify@3: 3.4.17
+  seroval@1: 1.6.12
+  seroval-plugins@1: 1.6.12
 
 importers:
 
@@ -7323,14 +7325,14 @@ packages:
     resolution: {integrity: sha512-3NnuWfM6vBYoy5gZFvHiYsVbafvI9vZv/+jlIigFn4oP4zjNPK3LhcY0xSCgeb1a5L8jO71Mit9LlNoi2UfDDQ==}
     engines: {node: '>=10'}
 
-  seroval-plugins@1.6.3:
-    resolution: {integrity: sha512-zQIy62HW683pMIUOKv9yKueQmOr+xMjpP2eH/qEPhr6nTAC+pJTh508md571Oduf/K/QpAoyeWpOhOp1+RFeDA==}
+  seroval-plugins@1.6.12:
+    resolution: {integrity: sha512-+reiwp/lYxiyctSrdvX7OQ1YLrcbWYgBiZrhSFL+V43b0/DGRLNVSDyZINbQe+tWplPOI2fw2dPrdv6hcc09kQ==}
     engines: {node: '>=10'}
     peerDependencies:
-      seroval: ^1.0
+      seroval: 1.6.12
 
-  seroval@1.6.3:
-    resolution: {integrity: sha512-5PwLbVPpT4DEki1hYVSSsoxWY6xCNMVucAVLK/CH0mXSDfp/I4KaAex72q80GNt5hpn7CCMGdSpIg4YGqH/wXQ==}
+  seroval@1.6.12:
+    resolution: {integrity: sha512-CqbIVfk/7GL3ITwZI55lcPbpQbjHZ2DD5cUj4iH7E9YsCfHNJV1mx7yNp86Z84w5IpmkZZS/2s5vPOWmVWSdQg==}
     engines: {node: '>=10'}
 
   serve-static@1.16.3:
@@ -10975,8 +10977,8 @@ snapshots:
     dependencies:
       '@tanstack/history': 1.162.1
       cookie-es: 3.1.1
-      seroval: 1.6.3
-      seroval-plugins: 1.6.3(seroval@1.6.3)
+      seroval: 1.6.12
+      seroval-plugins: 1.6.12(seroval@1.6.12)
 
   '@tanstack/store@0.9.3': {}
 
@@ -16143,11 +16145,11 @@ snapshots:
     dependencies:
       type-fest: 0.20.2
 
-  seroval-plugins@1.6.3(seroval@1.6.3):
+  seroval-plugins@1.6.12(seroval@1.6.12):
     dependencies:
-      seroval: 1.6.3
+      seroval: 1.6.12
 
-  seroval@1.6.3: {}
+  seroval@1.6.12: {}
 
   serve-static@1.16.3:
     dependencies:
