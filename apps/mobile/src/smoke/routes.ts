@@ -114,7 +114,12 @@ export const SMOKE_ROUTES: readonly SmokeRoute[] = [
   {
     file: '(staff)/staff-checklist.tsx',
     route: 'staff-checklist',
-    primary: 'staff-checklist.done',
+    primary: 'staff-checklist.history',
+  },
+  {
+    file: '(staff)/staff-checklist-history.tsx',
+    route: 'staff-checklist-history',
+    primary: 'staff-checklist-history.more',
   },
   { file: '(staff)/staff-start.tsx', route: 'staff-start', primary: 'staff-start.submit' },
   { file: '(staff)/staff-runs.tsx', route: 'staff-runs', primary: 'staff-runs.filter.waiting' },

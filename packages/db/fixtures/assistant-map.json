@@ -1,5 +1,5 @@
 {
-  "generated_from": "02efb6b77e8ca62b7af12174f386fa7a031afba6",
+  "generated_from": "6b78160975165da90048d64c83c323573b75b647",
   "chunks": [
     {
       "kind": "page",
@@ -5798,7 +5798,7 @@
       "ref": "action:app.loyalty_adjust",
       "lang": "en",
       "title": "app.loyalty_adjust (part 1 of 3)",
-      "body": "Loyalty (M3, contracts §1.3; 0308). Manager or owner, behind a manager PIN grant (app.consume_pin_grant, PIN_GRANT_REQUIRED; 0115 pattern): adds p_delta points (non-zero, at most a million either way; INVALID_ARGUMENT) to a live profile (MEMBER_NOT_FOUND) with a reason (REASON_REQUIRED), as (adjust, adjust, fresh id) with the reason as the note. 0308 (c17): FORBIDDEN detail self_dealing for the caller's own profile or a PIN of the member themself, staff_member for a positive delta to active staff, owner_required when a manager's gift takes the points they gave (any profile) or the profile received (from anyone) in the last 24",
+      "body": "Loyalty (M3, contracts §1.3; 0308, 0376). Manager or owner, behind a manager PIN grant (app.consume_pin_grant, PIN_GRANT_REQUIRED; 0115 pattern): adds p_delta points (non-zero, at most a million either way; INVALID_ARGUMENT) to a live profile (MEMBER_NOT_FOUND) with a reason (REASON_REQUIRED), as (adjust, adjust, fresh id) with the reason as the note. 0308 (c17): FORBIDDEN detail self_dealing for the caller's own profile or a PIN of the member themself, staff_member for a positive delta to active staff, owner_required when a manager's gift takes the points they gave (any profile) or the profile received (from anyone) in the last",
       "route": null
     },
     {
@@ -5806,7 +5806,7 @@
       "ref": "action:app.loyalty_adjust~2",
       "lang": "en",
       "title": "app.loyalty_adjust (part 2 of 3)",
-      "body": "Loyalty (M3, contracts §1.3; 0308). Manager or owner, behind a manager PIN grant (app.consume_pin_grant, PIN_GRANT_REQUIRED; 0115 pattern): adds p_delta points \nhours above 1,000 (hint the two sums); every gift by a manager queues a loyalty_gift staff push to the owners (app.notify_staff, the manager's name only). Moves the balance only: not lifetime, not the 12-month tier points. Returns {balance}. Audited loyalty.adjust with the authorizer.\nSignature: app.loyalty_adjust(p_profile_id uuid, p_delta int, p_reason text) returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager, owner).\nAudit actions written: loyalty.adjust.\nError codes: FORBIDDEN, REASON_REQUIRED, INVALID_ARGUMENT, MEMBER_NOT_FOUND.",
+      "body": "Loyalty (M3, contracts §1.3; 0308, 0376). Manager or owner, behind a manager PIN grant (app.consume_pin_grant, PIN_GRANT_REQUIRED; 0115 pattern): adds p_delta p\n24 hours above 1,000 (hint the two sums); every gift by a manager queues a loyalty_gift staff push to the owners (app.notify_staff, the manager's name only). Since 0376 the points count toward lifetime and the 12-month tier points as well as the balance. Returns {balance}. Audited loyalty.adjust with the authorizer.\nSignature: app.loyalty_adjust(p_profile_id uuid, p_delta int, p_reason text) returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager, owner).\nAudit actions written: loyalty.adjust.\nError codes: FORBIDDEN, REASON_REQUIRED, INVALID_ARGUMENT, MEMBER_NOT_FOUND.",
       "route": null
     },
     {
@@ -5814,7 +5814,7 @@
       "ref": "action:app.loyalty_adjust~3",
       "lang": "en",
       "title": "app.loyalty_adjust (part 3 of 3)",
-      "body": "Loyalty (M3, contracts §1.3; 0308). Manager or owner, behind a manager PIN grant (app.consume_pin_grant, PIN_GRANT_REQUIRED; 0115 pattern): adds p_delta points \nGranted to: authenticated. Guard: staff role in (manager, owner).\nAudit actions written: loyalty.adjust.\nError codes: FORBIDDEN, REASON_REQUIRED, INVALID_ARGUMENT, MEMBER_NOT_FOUND.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0308 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "Loyalty (M3, contracts §1.3; 0308, 0376). Manager or owner, behind a manager PIN grant (app.consume_pin_grant, PIN_GRANT_REQUIRED; 0115 pattern): adds p_delta p\nGranted to: authenticated. Guard: staff role in (manager, owner).\nAudit actions written: loyalty.adjust.\nError codes: FORBIDDEN, REASON_REQUIRED, INVALID_ARGUMENT, MEMBER_NOT_FOUND.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0308 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -5822,7 +5822,7 @@
       "ref": "action:app.loyalty_admin",
       "lang": "en",
       "title": "app.loyalty_admin",
-      "body": "Loyalty (M3, contracts §1.3). Manager or owner: {settings (LoyaltySettings + updated_at), tiers (by sort), rewards (active first)} for Setup > Loyalty.\nSignature: app.loyalty_admin() returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager, owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0305 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "Loyalty (M3, contracts §1.3; 0376). Manager or owner: {settings (LoyaltySettings + updated_at), tiers (by sort, each with its color), rewards (active first)} for Setup > Loyalty.\nSignature: app.loyalty_admin() returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager, owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0376 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -6755,6 +6755,30 @@
     },
     {
       "kind": "action",
+      "ref": "action:app.my_checklist_history",
+      "lang": "en",
+      "title": "app.my_checklist_history (part 1 of 3)",
+      "body": "checklist_live_lines (0375). Any active staff member at the venue: their past lists, newest first, {business_date, lists: [{run_id, template_id, role, slot, name_en, name_ar, done, total, last_done_at, period_start, period_end, due_at, assignee_id, items: [{id, position, text_en, text_ar, done_by_name, done_at, note, photo_required, photo_path}]}], next: {before_date, before_run} or null}. A list is theirs when it is their own copy, their role's shared list (the my_checklists_today rule) or a list they ticked a line of; it is past once it is no longer open (its occurrence ended, the next one started, or the list was archived).",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.my_checklist_history~2",
+      "lang": "en",
+      "title": "app.my_checklist_history (part 2 of 3)",
+      "body": "checklist_live_lines (0375). Any active staff member at the venue: their past lists, newest first, {business_date, lists: [{run_id, template_id, role, slot, nam\np_limit 1..50 (default 20); pass next's pair back as p_before_date and p_before_run for the page after. One person's own lists as they were: no counts across lists, no rates. FORBIDDEN for a venue the caller does not work at; INVALID_ARGUMENT (hint limit, before).\nSignature: app.my_checklist_history(p_venue_id uuid default null, p_before_date date default null, p_before_run uuid default null, p_limit int default 20) returns jsonb.\nGranted to: authenticated. Guard: not detected by pattern — read the migration.\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, INVALID_ARGUMENT.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.my_checklist_history~3",
+      "lang": "en",
+      "title": "app.my_checklist_history (part 3 of 3)",
+      "body": "checklist_live_lines (0375). Any active staff member at the venue: their past lists, newest first, {business_date, lists: [{run_id, template_id, role, slot, nam\nGranted to: authenticated. Guard: not detected by pattern — read the migration.\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, INVALID_ARGUMENT.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0375 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
       "ref": "action:app.my_checklists_today",
       "lang": "en",
       "title": "app.my_checklists_today (part 1 of 2)",
@@ -6870,7 +6894,7 @@
       "ref": "action:app.my_loyalty",
       "lang": "en",
       "title": "app.my_loyalty (part 1 of 2)",
-      "body": "Loyalty (M3, contracts §1.3; 0308). The signed-in guest's points: {enabled, balance, lifetime, points_12m, tier {id, name_en, name_ar, multiplier} (the base tier without an account), next_tier (+ min_points_12m) | null, point_value_iqd, min_redeem_points, history (50 newest LedgerRow; since 0308 the note only on reward and expire rows), rewards (every active one, any branch)}. AUTH_REQUIRED without a session, ACCOUNT_REQUIRED for an anonymous session or a deleted account.\nSignature: app.my_loyalty() returns jsonb.\nGranted to: authenticated. Guard: not detected by pattern — read the migration.",
+      "body": "Loyalty (M3, contracts §1.3; 0308, 0376). The signed-in guest's points: {enabled, balance, lifetime, points_12m, tier {id, name_en, name_ar, multiplier, color} (the base tier without an account), next_tier (+ min_points_12m, color) | null, point_value_iqd, min_redeem_points, history (50 newest LedgerRow; since 0308 the note only on reward and expire rows), rewards (every active one, any branch)}. AUTH_REQUIRED without a session, ACCOUNT_REQUIRED for an anonymous session or a deleted account.\nSignature: app.my_loyalty() returns jsonb.\nGranted to: authenticated. Guard: not detected by pattern — read the migration.",
       "route": null
     },
     {
@@ -6878,7 +6902,7 @@
       "ref": "action:app.my_loyalty~2",
       "lang": "en",
       "title": "app.my_loyalty (part 2 of 2)",
-      "body": "Loyalty (M3, contracts §1.3; 0308). The signed-in guest's points: {enabled, balance, lifetime, points_12m, tier {id, name_en, name_ar, multiplier} (the base tie\nSignature: app.my_loyalty() returns jsonb.\nGranted to: authenticated. Guard: not detected by pattern — read the migration.\nWrites no audit row of its own (or via a helper).\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0308 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "Loyalty (M3, contracts §1.3; 0308, 0376). The signed-in guest's points: {enabled, balance, lifetime, points_12m, tier {id, name_en, name_ar, multiplier, color} \nSignature: app.my_loyalty() returns jsonb.\nGranted to: authenticated. Guard: not detected by pattern — read the migration.\nWrites no audit row of its own (or via a helper).\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0376 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -8093,8 +8117,8 @@
       "kind": "action",
       "ref": "action:app.save_checklist",
       "lang": "en",
-      "title": "app.save_checklist (part 1 of 3)",
-      "body": "checklist_schedules (0323). Owner only, owner at the branch: creates (p_template_id NULL, expected version 0 or NULL) or rewrites one list from p_spec {name_en, name_ar, audience: role|people, role?, copy_mode: shared|each, staff_ids?: uuid[], repeat_kind: weekdays|monthdays, weekdays?: [0..6] (0 = Sunday), month_days?: [1..31] (31 = the last day), slot: open|close|time, due_time?: HH:MM, items: [{text_en, text_ar, photo_required?}]}. A people list is always each, 1 to 50 people who work at the branch; weekdays 1 to 7 distinct; month_days 1 to 4 distinct; slot time stores due_time and a derived slot (before 14:00 open, else",
+      "title": "app.save_checklist (part 1 of 4)",
+      "body": "checklist_schedules (0323), re-issued by checklist_live_lines (0375). Owner only, owner at the branch: creates (p_template_id NULL, expected version 0 or NULL) or rewrites one list from p_spec {name_en, name_ar, audience: role|people, role?, copy_mode: shared|each, staff_ids?: uuid[], repeat_kind: weekdays|monthdays, weekdays?: [0..6] (0 = Sunday), month_days?: [1..31] (31 = the last day), slot: open|close|time, due_time?: HH:MM, items: [{text_en, text_ar, photo_required?}]}. A people list is always each, 1 to 50 people who work at the branch; weekdays 1 to 7 distinct; month_days 1 to 4 distinct; slot time stores due_time and a",
       "route": null
     },
     {
@@ -8125,16 +8149,24 @@
       "kind": "action",
       "ref": "action:app.save_checklist~2",
       "lang": "en",
-      "title": "app.save_checklist (part 2 of 3)",
-      "body": "checklist_schedules (0323). Owner only, owner at the branch: creates (p_template_id NULL, expected version 0 or NULL) or rewrites one list from p_spec {name_en,\nclose). Lines and people replaced whole; an occurrence already running keeps its snapshot (the edit applies from the next one). Returns {template_id, version}. INVALID_ARGUMENT (hint spec, audience, role, copy_mode, staff_ids, repeat_kind, weekdays, month_days, slot, due_time, items), INVALID_ROLE (prep), ASSIGNEE_NOT_AT_BRANCH (hint staff_ids), TEMPLATE_CHANGED, CHECKLIST_NOT_FOUND (unknown or archived), LIST_TOO_LONG, TEXT_BOTH_LANGUAGES_REQUIRED, TEXT_TOO_LONG. Audit checklist.save (counts, never the text).\nSignature: app.save_checklist(p_venue_id uuid, p_template_id uuid, p_expected_version int, p_spec jsonb) returns jsonb.",
+      "title": "app.save_checklist (part 2 of 4)",
+      "body": "checklist_schedules (0323), re-issued by checklist_live_lines (0375). Owner only, owner at the branch: creates (p_template_id NULL, expected version 0 or NULL) \nderived slot (before 14:00 open, else close). Lines and people replaced whole. 0375: at least one line (CHECKLIST_NO_LINES, hint items), and the copies open now follow the new lines at once (app.checklist_sync_run_lines: a new line is added, an unticked line taken off is removed, a ticked line stays, a line that now needs a photo and was ticked without one is unticked); everything else about an occurrence already running keeps its snapshot (the edit applies from the next one). Returns {template_id, version}. INVALID_ARGUMENT (hint spec, audience, role, copy_mode, staff_ids, repeat_kind, weekdays, month_days, slot, due_time,",
       "route": null
     },
     {
       "kind": "action",
       "ref": "action:app.save_checklist~3",
       "lang": "en",
-      "title": "app.save_checklist (part 3 of 3)",
-      "body": "checklist_schedules (0323). Owner only, owner at the branch: creates (p_template_id NULL, expected version 0 or NULL) or rewrites one list from p_spec {name_en,\nSignature: app.save_checklist(p_venue_id uuid, p_template_id uuid, p_expected_version int, p_spec jsonb) returns jsonb.\nGranted to: authenticated. Guard: staff role in (owner).\nAudit actions written: checklist.save.\nError codes: FORBIDDEN, INVALID_ARGUMENT, TEXT_BOTH_LANGUAGES_REQUIRED, TEXT_TOO_LONG, INVALID_ROLE, ASSIGNEE_NOT_AT_BRANCH, LIST_TOO_LONG, TEMPLATE_CHANGED, CHECKLIST_NOT_FOUND.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0323 (last definition). The assistant cannot call this; it only explains it.",
+      "title": "app.save_checklist (part 3 of 4)",
+      "body": "checklist_schedules (0323), re-issued by checklist_live_lines (0375). Owner only, owner at the branch: creates (p_template_id NULL, expected version 0 or NULL) \nitems), INVALID_ROLE (prep), ASSIGNEE_NOT_AT_BRANCH (hint staff_ids), TEMPLATE_CHANGED, CHECKLIST_NOT_FOUND (unknown or archived), LIST_TOO_LONG, TEXT_BOTH_LANGUAGES_REQUIRED, TEXT_TOO_LONG. Audit checklist.save (counts, never the text; 0375 adds copies_updated).\nSignature: app.save_checklist(p_venue_id uuid, p_template_id uuid, p_expected_version int, p_spec jsonb) returns jsonb.\nGranted to: authenticated. Guard: staff role in (owner).\nAudit actions written: checklist.save.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.save_checklist~4",
+      "lang": "en",
+      "title": "app.save_checklist (part 4 of 4)",
+      "body": "checklist_schedules (0323), re-issued by checklist_live_lines (0375). Owner only, owner at the branch: creates (p_template_id NULL, expected version 0 or NULL) \nGranted to: authenticated. Guard: staff role in (owner).\nAudit actions written: checklist.save.\nError codes: FORBIDDEN, INVALID_ARGUMENT, TEXT_BOTH_LANGUAGES_REQUIRED, TEXT_TOO_LONG, INVALID_ROLE, ASSIGNEE_NOT_AT_BRANCH, LIST_TOO_LONG, CHECKLIST_NO_LINES, TEMPLATE_CHANGED, CHECKLIST_NOT_FOUND.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0375 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -10206,7 +10238,7 @@
       "ref": "action:app.upsert_loyalty_tier",
       "lang": "en",
       "title": "app.upsert_loyalty_tier (part 1 of 2)",
-      "body": "Loyalty (M3, contracts §1.3; 0309). Owner: creates a tier (no id) or updates one (id; absent keys kept) from {name_en, name_ar, min_points_12m, earn_multiplier (1-5), sort}. The sort-0 tier is the base (from 0 points) and keeps sort 0. 0309: promotion_id is ignored (always null; a tier promotion names the tier in limits.tierMin), and the sorts are renumbered to follow min_points_12m (c16), so the sort returned may differ from the one sent. INVALID_ARGUMENT (unknown id, the base's sort), INVALID_VALUE (what the table refuses: a duplicate threshold or sort, a missing name). Every account's tier follows at once. Returns the tier",
+      "body": "Loyalty (M3, contracts §1.3; 0309, 0376). Owner: creates a tier (no id) or updates one (id; absent keys kept) from {name_en, name_ar, min_points_12m, earn_multiplier (1-5), sort, color (0376: classic | bronze | silver | gold | platinum | black, default classic)}. The sort-0 tier is the base (from 0 points) and keeps sort 0. 0309: promotion_id is ignored (always null; a tier promotion names the tier in limits.tierMin), and the sorts are renumbered to follow min_points_12m (c16), so the sort returned may differ from the one sent. INVALID_ARGUMENT (unknown id, the base's sort), INVALID_VALUE (what the table refuses: a duplicate",
       "route": null
     },
     {
@@ -10214,7 +10246,7 @@
       "ref": "action:app.upsert_loyalty_tier~2",
       "lang": "en",
       "title": "app.upsert_loyalty_tier (part 2 of 2)",
-      "body": "Loyalty (M3, contracts §1.3; 0309). Owner: creates a tier (no id) or updates one (id; absent keys kept) from {name_en, name_ar, min_points_12m, earn_multiplier \n(LoyaltyAdminTier). Audited loyalty.tier.\nSignature: app.upsert_loyalty_tier(p_tier jsonb) returns jsonb.\nGranted to: authenticated. Guard: staff role in (owner).\nAudit actions written: loyalty.tier.\nError codes: FORBIDDEN, INVALID_ARGUMENT, INVALID_VALUE.\nCalled from: apps/operator/src/features/loyalty/LoyaltySetup.tsx.\nDefined in migration 0309 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "Loyalty (M3, contracts §1.3; 0309, 0376). Owner: creates a tier (no id) or updates one (id; absent keys kept) from {name_en, name_ar, min_points_12m, earn_multi\nthreshold or sort, a missing name, an unknown color). Every account's tier follows at once. Returns the tier (LoyaltyAdminTier). Audited loyalty.tier.\nSignature: app.upsert_loyalty_tier(p_tier jsonb) returns jsonb.\nGranted to: authenticated. Guard: staff role in (owner).\nAudit actions written: loyalty.tier.\nError codes: FORBIDDEN, INVALID_ARGUMENT, INVALID_VALUE.\nCalled from: apps/operator/src/features/loyalty/LoyaltySetup.tsx.\nDefined in migration 0376 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -12101,7 +12133,7 @@
       "kind": "table",
       "ref": "table:loyalty_tiers",
       "lang": "en",
-      "title": "table loyalty_tiers (part 1 of 2)",
+      "title": "table loyalty_tiers (part 1 of 3)",
       "body": "Loyalty (M3). Tiers by points earned in the last 12 months (min_points_12m), each with an earn multiplier and an optional promotion (a promotion with limits.tierMin = this tier's sort is eligible from this tier up). The sort-0 tier (from 0 points) is the base every account starts in and cannot be deleted. Owner-written. No client grant.\nCreated in migration 0305.\nColumns:\n  id uuid primary key default gen_random_uuid()\n  name_en text not null\n  name_ar text not null\n  min_points_12m int not null\n  earn_multiplier numeric(3,2) not null default 1",
       "route": null
     },
@@ -12109,8 +12141,16 @@
       "kind": "table",
       "ref": "table:loyalty_tiers~2",
       "lang": "en",
-      "title": "table loyalty_tiers (part 2 of 2)",
+      "title": "table loyalty_tiers (part 2 of 3)",
       "body": "Loyalty (M3). Tiers by points earned in the last 12 months (min_points_12m), each with an earn multiplier and an optional promotion (a promotion with limits.tie\nColumns:\n  id uuid primary key default gen_random_uuid()\n  name_en text not null\n  name_ar text not null\n  min_points_12m int not null\n  earn_multiplier numeric(3,2) not null default 1\n  promotion_id uuid references promotions(id) — Deprecated (0309, c6): never read; a tier promotion names its tier in promotions.limits.tierMin. Always null; to be dropped.\n  sort smallint not null\n  created_at timestamptz not null default now() — The base tier (sort 0) is the one every account starts in: from 0 points.",
+      "route": null
+    },
+    {
+      "kind": "table",
+      "ref": "table:loyalty_tiers~3",
+      "lang": "en",
+      "title": "table loyalty_tiers (part 3 of 3)",
+      "body": "Loyalty (M3). Tiers by points earned in the last 12 months (min_points_12m), each with an earn multiplier and an optional promotion (a promotion with limits.tie\n  sort smallint not null\n  created_at timestamptz not null default now() — The base tier (sort 0) is the one every account starts in: from 0 points.\n  color text not null default 'classic' — 0376. The colour the owner gave the tier: classic (Padel Green on the brand blue card, the card before 0376) | bronze | silver | gold | platinum | black (a black card). The guest's points card draws its lines, its tier word and the holder's name in it. The same keys as TIER_COLORS in @touch/core/loyalty.",
       "route": null
     },
     {
@@ -17383,6 +17423,14 @@
       "lang": "en",
       "title": "loyalty_settings.enabled_at",
       "body": "timestamptz\nLoyalty (0309, c8). When enabled last turned on (app.set_loyalty_settings). The nightly inactivity expiry measures from greatest(last_activity_at, enabled_at): a pause never counts as inactivity.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:loyalty_tiers.color",
+      "lang": "en",
+      "title": "loyalty_tiers.color",
+      "body": "text not null default 'classic'\n0376. The colour the owner gave the tier: classic (Padel Green on the brand blue card, the card before 0376) | bronze | silver | gold | platinum | black (a black card). The guest's points card draws its lines, its tier word and the holder's name in it. The same keys as TIER_COLORS in @touch/core/loyalty.",
       "route": null
     },
     {
@@ -31221,7 +31269,7 @@
       "kind": "label",
       "ref": "label:ws.loyalty.setup",
       "lang": "en",
-      "title": "ws.loyalty.setup (packages/i18n/src/catalogs/ws/loyalty.en.ts) (part 1 of 4)",
+      "title": "ws.loyalty.setup (packages/i18n/src/catalogs/ws/loyalty.en.ts) (part 1 of 3)",
       "body": "title: Loyalty points\nlead: Points across every branch: what a guest earns, what a point is worth, the tiers and the rewards.\ncard: Points, tiers and rewards guests earn on every bill, at every branch.\nownerOnly: Only the owner can change loyalty.\nsaved: Saved.\nwizardLead: Loyalty\nsettings.title: Points\nsettings.enabled: Loyalty is on\nsettings.enabledHint: Off: no points are earned or used, and guests do not see a balance.\nsettings.iqdPerPoint: Spend for one point\nsettings.iqdPerPointHint: A guest earns one point for every this much paid.\nsettings.pointValue: Value of one point\nsettings.pointValueHint: What one point takes off a bill.\nsettings.minRedeem: Smallest use\nsettings.minRedeemHint: The fewest points a guest can use at once.",
       "route": "/setup"
     },
@@ -31229,56 +31277,88 @@
       "kind": "label",
       "ref": "label:ws.loyalty.setup#2",
       "lang": "ar",
-      "title": "ws.loyalty.setup (packages/i18n/src/catalogs/ws/loyalty.ar.ts) (part 1 of 3)",
-      "body": "tiers.columns.minPoints: ابتداءً من\ntiers.columns.multiplier: الكسب\ntiers.multiplierValue: ×{value}\ntiers.steps.name: الاسم\ntiers.steps.points: النقاط والمضاعف\ntiers.placeNote: تأتي {name} بعد {below}. ينتقل الضيف إليها حين يكسب {points} نقطة خلال 12 شهرًا.\ntiers.review.name: الاسم\ntiers.review.from: ابتداءً من\ntiers.review.fromValue: {points} نقطة خلال 12 شهرًا\ntiers.review.earns: الكسب\ntiers.review.earnsValue: {value}× النقاط\ntiers.errors.names: الاسمان مطلوبان.\ntiers.errors.minPoints: اكتب عددًا صحيحًا، 0 أو أكثر.\ntiers.errors.multiplier: بين 1 و5.\nrewards.title: المكافآت\nrewards.lead: ما يأخذه الضيف مقابل النقاط عند الكاشير. أوقف المكافأة لتتوقف عن عرضها.\nrewards.add: إضافة مكافأة\nrewards.edit: تعديل المكافأة\nrewards.empty: لا توجد مكافآت بعد.",
+      "title": "ws.loyalty.setup (packages/i18n/src/catalogs/ws/loyalty.ar.ts) (part 1 of 4)",
+      "body": "tiers.colors.bronze: برونزي\ntiers.colors.silver: فضي\ntiers.colors.gold: ذهبي\ntiers.colors.platinum: بلاتيني\ntiers.colors.black: أسود\ntiers.sort: الترتيب\ntiers.remove: إزالة\ntiers.removeTitle: إزالة الفئة {name}؟\ntiers.removeBody: ينتقل ضيوفها إلى الفئة الأدنى.\ntiers.base: الفئة الأساسية\ntiers.columns.name: الفئة\ntiers.columns.minPoints: ابتداءً من\ntiers.columns.multiplier: الكسب\ntiers.columns.color: البطاقة\ntiers.multiplierValue: ×{value}\ntiers.steps.name: الاسم\ntiers.steps.points: النقاط والمضاعف\ntiers.steps.color: لون البطاقة\ntiers.placeNote: تأتي {name} بعد {below}. ينتقل الضيف إليها حين يكسب {points} نقطة خلال 12 شهرًا.\ntiers.review.name: الاسم\ntiers.review.from: ابتداءً من\ntiers.review.fromValue: {points} نقطة خلال 12 شهرًا\ntiers.review.earns: الكسب",
       "route": "/setup"
     },
     {
       "kind": "label",
       "ref": "label:ws.loyalty.setup#2",
       "lang": "en",
-      "title": "ws.loyalty.setup (packages/i18n/src/catalogs/ws/loyalty.en.ts) (part 1 of 4)",
-      "body": "tiers.removeBody: Guests in it move to the tier below.\ntiers.base: Base tier\ntiers.columns.name: Tier\ntiers.columns.minPoints: From\ntiers.columns.multiplier: Earns\ntiers.multiplierValue: ×{value}\ntiers.steps.name: Name\ntiers.steps.points: Points & multiplier\ntiers.placeNote: {name} sits after {below}. A guest moves up once they earn {points} points in 12 months.\ntiers.review.name: Name\ntiers.review.from: From\ntiers.review.fromValue: {points} points in 12 months\ntiers.review.earns: Earns\ntiers.review.earnsValue: {value}× points\ntiers.errors.names: Both names are needed.\ntiers.errors.minPoints: Type a whole number, 0 or more.\ntiers.errors.multiplier: Between 1 and 5.\nrewards.title: Rewards",
+      "title": "ws.loyalty.setup (packages/i18n/src/catalogs/ws/loyalty.en.ts) (part 1 of 5)",
+      "body": "tiers.colorHint: The guest’s points card takes this colour in this tier: its lines, the tier’s name and the guest’s name. Black makes the whole card black.\ntiers.colors.classic: Classic\ntiers.colors.bronze: Bronze\ntiers.colors.silver: Silver\ntiers.colors.gold: Gold\ntiers.colors.platinum: Platinum\ntiers.colors.black: Black\ntiers.sort: Order\ntiers.remove: Remove\ntiers.removeTitle: Remove the tier {name}?\ntiers.removeBody: Guests in it move to the tier below.\ntiers.base: Base tier\ntiers.columns.name: Tier\ntiers.columns.minPoints: From\ntiers.columns.multiplier: Earns\ntiers.columns.color: Card\ntiers.multiplierValue: ×{value}",
       "route": "/setup"
     },
     {
       "kind": "label",
       "ref": "label:ws.loyalty.setup#2~2",
       "lang": "ar",
-      "title": "ws.loyalty.setup (packages/i18n/src/catalogs/ws/loyalty.ar.ts) (part 2 of 3)",
-      "body": "tiers.columns.minPoints: ابتداءً من\nrewards.title: المكافآت\nrewards.lead: ما يأخذه الضيف مقابل النقاط عند الكاشير. أوقف المكافأة لتتوقف عن عرضها.\nrewards.add: إضافة مكافأة\nrewards.edit: تعديل المكافأة\nrewards.empty: لا توجد مكافآت بعد.\nrewards.nameEn: الاسم (بالإنجليزية)\nrewards.nameAr: الاسم (بالعربية)\nrewards.cost: الكلفة\nrewards.kind: تمنح\nrewards.kindIqdOff: خصم مبلغ من الفاتورة\nrewards.kindItem: صنف مجاني من القائمة (واحد، بهذا الحجم)\nrewards.iqdOff: مبلغ الخصم\nrewards.variant: صنف القائمة\nrewards.variantPlaceholder: اختر صنفًا\nrewards.active: معروضة\nrewards.steps.name: الاسم\nrewards.steps.gives: ما تمنحه\nrewards.steps.cost: الكلفة\nrewards.kindIqdOffBody: يُخصم عند الكاشير.\nrewards.kindItemTitle: صنف مجاني من القائمة\nrewards.kindItemBody: صنف واحد بهذا الحجم.",
+      "title": "ws.loyalty.setup (packages/i18n/src/catalogs/ws/loyalty.ar.ts) (part 2 of 4)",
+      "body": "tiers.colors.bronze: برونزي\ntiers.review.name: الاسم\ntiers.review.from: ابتداءً من\ntiers.review.fromValue: {points} نقطة خلال 12 شهرًا\ntiers.review.earns: الكسب\ntiers.review.earnsValue: {value}× النقاط\ntiers.review.color: لون البطاقة\ntiers.errors.names: الاسمان مطلوبان.\ntiers.errors.minPoints: اكتب عددًا صحيحًا، 0 أو أكثر.\ntiers.errors.multiplier: بين 1 و5.\nrewards.title: المكافآت\nrewards.lead: ما يأخذه الضيف مقابل النقاط عند الكاشير. أوقف المكافأة لتتوقف عن عرضها.\nrewards.add: إضافة مكافأة\nrewards.edit: تعديل المكافأة\nrewards.empty: لا توجد مكافآت بعد.\nrewards.nameEn: الاسم (بالإنجليزية)\nrewards.nameAr: الاسم (بالعربية)\nrewards.cost: الكلفة\nrewards.kind: تمنح\nrewards.kindIqdOff: خصم مبلغ من الفاتورة\nrewards.kindItem: صنف مجاني من القائمة (واحد، بهذا الحجم)\nrewards.iqdOff: مبلغ الخصم",
       "route": "/setup"
     },
     {
       "kind": "label",
       "ref": "label:ws.loyalty.setup#2~2",
       "lang": "en",
-      "title": "ws.loyalty.setup (packages/i18n/src/catalogs/ws/loyalty.en.ts) (part 2 of 4)",
-      "body": "tiers.removeBody: Guests in it move to the tier below.\ntiers.errors.names: Both names are needed.\ntiers.errors.minPoints: Type a whole number, 0 or more.\ntiers.errors.multiplier: Between 1 and 5.\nrewards.title: Rewards\nrewards.lead: What a guest can take for points at the café cashier. Switch a reward off to stop offering it.\nrewards.add: Add a reward\nrewards.edit: Edit reward\nrewards.empty: No rewards yet.\nrewards.nameEn: Name (English)\nrewards.nameAr: Name (Arabic)\nrewards.cost: Cost\nrewards.kind: Gives\nrewards.kindIqdOff: An amount off the bill\nrewards.kindItem: A free menu item (one, that size)\nrewards.iqdOff: Amount off\nrewards.variant: Menu item\nrewards.variantPlaceholder: Choose an item\nrewards.active: On offer\nrewards.steps.name: Name\nrewards.steps.gives: What it gives",
+      "title": "ws.loyalty.setup (packages/i18n/src/catalogs/ws/loyalty.en.ts) (part 2 of 5)",
+      "body": "tiers.colorHint: The guest’s points card takes this colour in this tier: its lines, the tier’s name and the guest’s name. Black makes the whole card black.\ntiers.base: Base tier\ntiers.columns.name: Tier\ntiers.columns.minPoints: From\ntiers.columns.multiplier: Earns\ntiers.columns.color: Card\ntiers.multiplierValue: ×{value}\ntiers.steps.name: Name\ntiers.steps.points: Points & multiplier\ntiers.steps.color: Card colour\ntiers.placeNote: {name} sits after {below}. A guest moves up once they earn {points} points in 12 months.\ntiers.review.name: Name\ntiers.review.from: From\ntiers.review.fromValue: {points} points in 12 months\ntiers.review.earns: Earns\ntiers.review.earnsValue: {value}× points\ntiers.review.color: Card colour\ntiers.errors.names: Both names are needed.",
       "route": "/setup"
     },
     {
       "kind": "label",
       "ref": "label:ws.loyalty.setup#2~3",
       "lang": "ar",
-      "title": "ws.loyalty.setup (packages/i18n/src/catalogs/ws/loyalty.ar.ts) (part 3 of 3)",
-      "body": "tiers.columns.minPoints: ابتداءً من\nrewards.steps.gives: ما تمنحه\nrewards.steps.cost: الكلفة\nrewards.kindIqdOffBody: يُخصم عند الكاشير.\nrewards.kindItemTitle: صنف مجاني من القائمة\nrewards.kindItemBody: صنف واحد بهذا الحجم.\nrewards.activeOnHint: يستطيع الضيوف استبدالها الآن.\nrewards.activeOffHint: مخفية عن الضيوف حتى تشغّلها.\nrewards.review.name: الاسم\nrewards.review.gives: تمنح\nrewards.review.offValue: خصم {amount} من الفاتورة\nrewards.review.cost: الكلفة\nrewards.columns.name: المكافأة\nrewards.columns.cost: الكلفة\nrewards.columns.gives: تمنح\nrewards.columns.active: معروضة\nrewards.errors.names: الاسمان مطلوبان.\nrewards.errors.cost: اكتب عددًا صحيحًا أكبر من 0.\nrewards.errors.iqdOff: اكتب مبلغًا أكبر من 0.\nrewards.errors.variant: اختر صنف القائمة.\nsave: حفظ\ncancel: إلغاء",
+      "title": "ws.loyalty.setup (packages/i18n/src/catalogs/ws/loyalty.ar.ts) (part 3 of 4)",
+      "body": "tiers.colors.bronze: برونزي\nrewards.nameAr: الاسم (بالعربية)\nrewards.cost: الكلفة\nrewards.kind: تمنح\nrewards.kindIqdOff: خصم مبلغ من الفاتورة\nrewards.kindItem: صنف مجاني من القائمة (واحد، بهذا الحجم)\nrewards.iqdOff: مبلغ الخصم\nrewards.variant: صنف القائمة\nrewards.variantPlaceholder: اختر صنفًا\nrewards.active: معروضة\nrewards.steps.name: الاسم\nrewards.steps.gives: ما تمنحه\nrewards.steps.cost: الكلفة\nrewards.kindIqdOffBody: يُخصم عند الكاشير.\nrewards.kindItemTitle: صنف مجاني من القائمة\nrewards.kindItemBody: صنف واحد بهذا الحجم.\nrewards.activeOnHint: يستطيع الضيوف استبدالها الآن.\nrewards.activeOffHint: مخفية عن الضيوف حتى تشغّلها.\nrewards.review.name: الاسم\nrewards.review.gives: تمنح\nrewards.review.offValue: خصم {amount} من الفاتورة\nrewards.review.cost: الكلفة\nrewards.columns.name: المكافأة",
       "route": "/setup"
     },
     {
       "kind": "label",
       "ref": "label:ws.loyalty.setup#2~3",
       "lang": "en",
-      "title": "ws.loyalty.setup (packages/i18n/src/catalogs/ws/loyalty.en.ts) (part 3 of 4)",
-      "body": "tiers.removeBody: Guests in it move to the tier below.\nrewards.iqdOff: Amount off\nrewards.variant: Menu item\nrewards.variantPlaceholder: Choose an item\nrewards.active: On offer\nrewards.steps.name: Name\nrewards.steps.gives: What it gives\nrewards.steps.cost: Cost\nrewards.kindIqdOffBody: Taken off at the till.\nrewards.kindItemTitle: A free menu item\nrewards.kindItemBody: One, that size.\nrewards.activeOnHint: Guests can redeem it now.\nrewards.activeOffHint: Hidden from guests until you turn it on.\nrewards.review.name: Name\nrewards.review.gives: Gives\nrewards.review.offValue: {amount} off the bill\nrewards.review.cost: Cost\nrewards.columns.name: Reward\nrewards.columns.cost: Cost\nrewards.columns.gives: Gives\nrewards.columns.active: On offer\nrewards.errors.names: Both names are needed.",
+      "title": "ws.loyalty.setup (packages/i18n/src/catalogs/ws/loyalty.en.ts) (part 3 of 5)",
+      "body": "tiers.colorHint: The guest’s points card takes this colour in this tier: its lines, the tier’s name and the guest’s name. Black makes the whole card black.\ntiers.review.fromValue: {points} points in 12 months\ntiers.review.earns: Earns\ntiers.review.earnsValue: {value}× points\ntiers.review.color: Card colour\ntiers.errors.names: Both names are needed.\ntiers.errors.minPoints: Type a whole number, 0 or more.\ntiers.errors.multiplier: Between 1 and 5.\nrewards.title: Rewards\nrewards.lead: What a guest can take for points at the café cashier. Switch a reward off to stop offering it.\nrewards.add: Add a reward\nrewards.edit: Edit reward\nrewards.empty: No rewards yet.\nrewards.nameEn: Name (English)\nrewards.nameAr: Name (Arabic)\nrewards.cost: Cost\nrewards.kind: Gives",
+      "route": "/setup"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.loyalty.setup#2~4",
+      "lang": "ar",
+      "title": "ws.loyalty.setup (packages/i18n/src/catalogs/ws/loyalty.ar.ts) (part 4 of 4)",
+      "body": "tiers.colors.bronze: برونزي\nrewards.review.name: الاسم\nrewards.review.gives: تمنح\nrewards.review.offValue: خصم {amount} من الفاتورة\nrewards.review.cost: الكلفة\nrewards.columns.name: المكافأة\nrewards.columns.cost: الكلفة",
       "route": "/setup"
     },
     {
       "kind": "label",
       "ref": "label:ws.loyalty.setup#2~4",
       "lang": "en",
-      "title": "ws.loyalty.setup (packages/i18n/src/catalogs/ws/loyalty.en.ts) (part 4 of 4)",
-      "body": "tiers.removeBody: Guests in it move to the tier below.\nrewards.review.cost: Cost\nrewards.columns.name: Reward\nrewards.columns.cost: Cost\nrewards.columns.gives: Gives\nrewards.columns.active: On offer\nrewards.errors.names: Both names are needed.\nrewards.errors.cost: Type a whole number above 0.\nrewards.errors.iqdOff: Type an amount above 0.\nrewards.errors.variant: Choose the menu item.\nsave: Save\ncancel: Cancel",
+      "title": "ws.loyalty.setup (packages/i18n/src/catalogs/ws/loyalty.en.ts) (part 4 of 5)",
+      "body": "tiers.colorHint: The guest’s points card takes this colour in this tier: its lines, the tier’s name and the guest’s name. Black makes the whole card black.\nrewards.add: Add a reward\nrewards.edit: Edit reward\nrewards.empty: No rewards yet.\nrewards.nameEn: Name (English)\nrewards.nameAr: Name (Arabic)\nrewards.cost: Cost\nrewards.kind: Gives\nrewards.kindIqdOff: An amount off the bill\nrewards.kindItem: A free menu item (one, that size)\nrewards.iqdOff: Amount off\nrewards.variant: Menu item\nrewards.variantPlaceholder: Choose an item\nrewards.active: On offer\nrewards.steps.name: Name\nrewards.steps.gives: What it gives\nrewards.steps.cost: Cost\nrewards.kindIqdOffBody: Taken off at the till.\nrewards.kindItemTitle: A free menu item\nrewards.kindItemBody: One, that size.",
+      "route": "/setup"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.loyalty.setup#2~5",
+      "lang": "en",
+      "title": "ws.loyalty.setup (packages/i18n/src/catalogs/ws/loyalty.en.ts) (part 5 of 5)",
+      "body": "tiers.colorHint: The guest’s points card takes this colour in this tier: its lines, the tier’s name and the guest’s name. Black makes the whole card black.\nrewards.steps.gives: What it gives\nrewards.steps.cost: Cost\nrewards.kindIqdOffBody: Taken off at the till.\nrewards.kindItemTitle: A free menu item\nrewards.kindItemBody: One, that size.\nrewards.activeOnHint: Guests can redeem it now.",
+      "route": "/setup"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.loyalty.setup#3",
+      "lang": "ar",
+      "title": "ws.loyalty.setup (packages/i18n/src/catalogs/ws/loyalty.ar.ts)",
+      "body": "rewards.columns.gives: تمنح\nrewards.columns.active: معروضة\nrewards.errors.names: الاسمان مطلوبان.\nrewards.errors.cost: اكتب عددًا صحيحًا أكبر من 0.\nrewards.errors.iqdOff: اكتب مبلغًا أكبر من 0.\nrewards.errors.variant: اختر صنف القائمة.\nsave: حفظ\ncancel: إلغاء",
+      "route": "/setup"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.loyalty.setup#3",
+      "lang": "en",
+      "title": "ws.loyalty.setup (packages/i18n/src/catalogs/ws/loyalty.en.ts)",
+      "body": "rewards.activeOffHint: Hidden from guests until you turn it on.\nrewards.review.name: Name\nrewards.review.gives: Gives\nrewards.review.offValue: {amount} off the bill\nrewards.review.cost: Cost\nrewards.columns.name: Reward\nrewards.columns.cost: Cost\nrewards.columns.gives: Gives\nrewards.columns.active: On offer\nrewards.errors.names: Both names are needed.\nrewards.errors.cost: Type a whole number above 0.\nrewards.errors.iqdOff: Type an amount above 0.\nrewards.errors.variant: Choose the menu item.\nsave: Save\ncancel: Cancel",
       "route": "/setup"
     },
     {
@@ -31293,7 +31373,7 @@
       "kind": "label",
       "ref": "label:ws.loyalty.setup~2",
       "lang": "en",
-      "title": "ws.loyalty.setup (packages/i18n/src/catalogs/ws/loyalty.en.ts) (part 2 of 4)",
+      "title": "ws.loyalty.setup (packages/i18n/src/catalogs/ws/loyalty.en.ts) (part 2 of 3)",
       "body": "title: Loyalty points\nsettings.pointValue: Value of one point\nsettings.pointValueHint: What one point takes off a bill.\nsettings.minRedeem: Smallest use\nsettings.minRedeemHint: The fewest points a guest can use at once.\nsettings.earnTitle: Points are earned on\nsettings.earnCafe: Café bills\nsettings.earnShop: Shop sales\nsettings.earnCourt: Court fees\nsettings.earnLesson: Lessons\nsettings.earnTournament: Tournament entry fees\nsettings.inactivity: Points expire after\nsettings.inactivityHint: Months with no points earned or used. Leave empty to keep points for ever.\nsettings.totpStep: Member QR changes every\nsettings.totpStepHint: Between 15 and 120 seconds.\nsettings.unitIqd: IQD\nsettings.unitPoints: points\nsettings.unitMonths: months\nsettings.unitSeconds: seconds\nsettings.save: Save",
       "route": "/setup"
     },
@@ -31302,15 +31382,15 @@
       "ref": "label:ws.loyalty.setup~3",
       "lang": "ar",
       "title": "ws.loyalty.setup (packages/i18n/src/catalogs/ws/loyalty.ar.ts) (part 3 of 4)",
-      "body": "title: نقاط الولاء\nsettings.unitIqd: د.ع\nsettings.unitPoints: نقطة\nsettings.unitMonths: أشهر\nsettings.unitSeconds: ثانية\nsettings.save: حفظ\nsettings.errors.positive: اكتب عددًا صحيحًا أكبر من 0.\nsettings.errors.notNegative: اكتب عددًا صحيحًا، 0 أو أكثر.\nsettings.errors.step: بين 15 و120.\ntiers.title: الفئات\ntiers.lead: يرتقي الضيف بالنقاط التي كسبها في آخر 12 شهرًا. الفئة الأولى للجميع ولا يمكن إزالتها.\ntiers.add: إضافة فئة\ntiers.edit: تعديل الفئة\ntiers.empty: لا توجد فئات.\ntiers.nameEn: الاسم (بالإنجليزية)\ntiers.nameAr: الاسم (بالعربية)\ntiers.minPoints: ابتداءً من النقاط (12 شهرًا)\ntiers.multiplier: مضاعف الكسب\ntiers.multiplierHint: بين 1 و5، مثلًا 1.5.\ntiers.sort: الترتيب\ntiers.remove: إزالة\ntiers.removeTitle: إزالة الفئة {name}؟\ntiers.removeBody: ينتقل ضيوفها إلى الفئة الأدنى.",
+      "body": "title: نقاط الولاء\nsettings.unitIqd: د.ع\nsettings.unitPoints: نقطة\nsettings.unitMonths: أشهر\nsettings.unitSeconds: ثانية\nsettings.save: حفظ\nsettings.errors.positive: اكتب عددًا صحيحًا أكبر من 0.\nsettings.errors.notNegative: اكتب عددًا صحيحًا، 0 أو أكثر.\nsettings.errors.step: بين 15 و120.\ntiers.title: الفئات\ntiers.lead: يرتقي الضيف بالنقاط التي كسبها في آخر 12 شهرًا. الفئة الأولى للجميع ولا يمكن إزالتها.\ntiers.add: إضافة فئة\ntiers.edit: تعديل الفئة\ntiers.empty: لا توجد فئات.\ntiers.nameEn: الاسم (بالإنجليزية)\ntiers.nameAr: الاسم (بالعربية)\ntiers.minPoints: ابتداءً من النقاط (12 شهرًا)\ntiers.multiplier: مضاعف الكسب\ntiers.multiplierHint: بين 1 و5، مثلًا 1.5.\ntiers.color: لون البطاقة",
       "route": "/setup"
     },
     {
       "kind": "label",
       "ref": "label:ws.loyalty.setup~3",
       "lang": "en",
-      "title": "ws.loyalty.setup (packages/i18n/src/catalogs/ws/loyalty.en.ts) (part 3 of 4)",
-      "body": "title: Loyalty points\nsettings.totpStepHint: Between 15 and 120 seconds.\nsettings.unitIqd: IQD\nsettings.unitPoints: points\nsettings.unitMonths: months\nsettings.unitSeconds: seconds\nsettings.save: Save\nsettings.errors.positive: Type a whole number above 0.\nsettings.errors.notNegative: Type a whole number, 0 or more.\nsettings.errors.step: Between 15 and 120.\ntiers.title: Tiers\ntiers.lead: A guest moves up by the points earned in the last 12 months. The first tier is everyone’s and cannot be removed.\ntiers.add: Add a tier\ntiers.edit: Edit tier\ntiers.empty: No tiers.\ntiers.nameEn: Name (English)\ntiers.nameAr: Name (Arabic)\ntiers.minPoints: From points (12 months)\ntiers.multiplier: Earn multiplier\ntiers.multiplierHint: Between 1 and 5, for example 1.5.\ntiers.sort: Order\ntiers.remove: Remove",
+      "title": "ws.loyalty.setup (packages/i18n/src/catalogs/ws/loyalty.en.ts) (part 3 of 3)",
+      "body": "title: Loyalty points\nsettings.totpStepHint: Between 15 and 120 seconds.\nsettings.unitIqd: IQD\nsettings.unitPoints: points\nsettings.unitMonths: months\nsettings.unitSeconds: seconds\nsettings.save: Save\nsettings.errors.positive: Type a whole number above 0.\nsettings.errors.notNegative: Type a whole number, 0 or more.\nsettings.errors.step: Between 15 and 120.\ntiers.title: Tiers\ntiers.lead: A guest moves up by the points earned in the last 12 months. The first tier is everyone’s and cannot be removed.\ntiers.add: Add a tier\ntiers.edit: Edit tier\ntiers.empty: No tiers.\ntiers.nameEn: Name (English)\ntiers.nameAr: Name (Arabic)\ntiers.minPoints: From points (12 months)\ntiers.multiplier: Earn multiplier\ntiers.multiplierHint: Between 1 and 5, for example 1.5.\ntiers.color: Card colour",
       "route": "/setup"
     },
     {
@@ -31318,15 +31398,7 @@
       "ref": "label:ws.loyalty.setup~4",
       "lang": "ar",
       "title": "ws.loyalty.setup (packages/i18n/src/catalogs/ws/loyalty.ar.ts) (part 4 of 4)",
-      "body": "title: نقاط الولاء\ntiers.multiplierHint: بين 1 و5، مثلًا 1.5.\ntiers.sort: الترتيب\ntiers.remove: إزالة\ntiers.removeTitle: إزالة الفئة {name}؟\ntiers.removeBody: ينتقل ضيوفها إلى الفئة الأدنى.\ntiers.base: الفئة الأساسية\ntiers.columns.name: الفئة",
-      "route": "/setup"
-    },
-    {
-      "kind": "label",
-      "ref": "label:ws.loyalty.setup~4",
-      "lang": "en",
-      "title": "ws.loyalty.setup (packages/i18n/src/catalogs/ws/loyalty.en.ts) (part 4 of 4)",
-      "body": "title: Loyalty points\ntiers.nameAr: Name (Arabic)\ntiers.minPoints: From points (12 months)\ntiers.multiplier: Earn multiplier\ntiers.multiplierHint: Between 1 and 5, for example 1.5.\ntiers.sort: Order\ntiers.remove: Remove\ntiers.removeTitle: Remove the tier {name}?",
+      "body": "title: نقاط الولاء\ntiers.nameAr: الاسم (بالعربية)\ntiers.minPoints: ابتداءً من النقاط (12 شهرًا)\ntiers.multiplier: مضاعف الكسب\ntiers.multiplierHint: بين 1 و5، مثلًا 1.5.\ntiers.color: لون البطاقة\ntiers.colorHint: تأخذ بطاقة نقاط الضيف هذا اللون في هذه الفئة: خطوطها واسم الفئة واسم الضيف. الأسود يجعل البطاقة كلها سوداء.\ntiers.colors.classic: كلاسيكي",
       "route": "/setup"
     },
     {
@@ -39653,8 +39725,8 @@
       "kind": "label",
       "ref": "label:ws.supplies.checklists",
       "lang": "ar",
-      "title": "ws.supplies.checklists (packages/i18n/src/catalogs/ws/supplies.ar.ts) (part 1 of 3)",
-      "body": "title: قوائم التحقق\nsummary: قوائم اليوم المكتملة: {done} من {total}\nallDone: اكتملت كل القوائم اليوم.\nnoneTitle: لا توجد قوائم لهذا اليوم\nnoneOwner: اكتب قائمة لدور معيّن أو لأشخاص بأسمائهم، واختر الأيام التي تتكرر فيها. يؤشّر عليها الموظفون من هواتفهم.\nnoneManager: يكتب المالك القوائم ويحدد من ينفّذها ومتى. يؤشّر عليها الموظفون من هواتفهم.\nprogress: {done} من {total}\nfinished: مكتملة\noverdue: متأخرة\ndue: موعدها {time}\ndueOn: موعدها {day}، {time}\nmoreLists: +{count} أخرى\nmorePeople: +{count}\nand: {a} و{b}\nopen: عرض اليوم\nedit: تعديل القوائم\nwrite: كتابة قائمة\ntabToday: اليوم\ntabEdit: تعديل القوائم\ntodayLead: تبيّن كل قائمة لمن هي، ومن أشّر على كل بند ومتى. يؤشّر الموظفون على القوائم من هواتفهم.\nnotOpened: لا توجد نسخة مفتوحة من هذه القائمة اليوم.",
+      "title": "ws.supplies.checklists (packages/i18n/src/catalogs/ws/supplies.ar.ts) (part 1 of 4)",
+      "body": "title: قوائم التحقق\nsummary: قوائم اليوم المكتملة: {done} من {total}\nallDone: اكتملت كل القوائم اليوم.\nnoneTitle: لا توجد قوائم لهذا اليوم\nnoneOwner: اكتب قائمة لدور معيّن أو لأشخاص بأسمائهم، واختر الأيام التي تتكرر فيها. يؤشّر عليها الموظفون من هواتفهم.\nnoneManager: يكتب المالك القوائم ويحدد من ينفّذها ومتى. يؤشّر عليها الموظفون من هواتفهم.\nprogress: {done} من {total}\nfinished: مكتملة\noverdue: متأخرة\ndue: موعدها {time}\ndueOn: موعدها {day}، {time}\nfilter.label: عرض القوائم\nfilter.all: الكل\nfilter.overdue: متأخرة\nfilter.todo: لم تكتمل بعد\nfilter.finished: مكتملة\nfilter.none.overdue: لا توجد قائمة متأخرة.\nfilter.none.todo: لا توجد قائمة تنتظر التعبئة.\nfilter.none.finished: لم تكتمل أي قائمة بعد.\nmorePeople: +{count}\nand: {a} و{b}\nopen: عرض اليوم\nedit: تعديل القوائم",
       "route": null
     },
     {
@@ -39662,15 +39734,15 @@
       "ref": "label:ws.supplies.checklists",
       "lang": "en",
       "title": "ws.supplies.checklists (packages/i18n/src/catalogs/ws/supplies.en.ts) (part 1 of 4)",
-      "body": "title: Checklists\nsummary: {done} of {total} lists finished today\nallDone: Every list is finished today.\nnoneTitle: No lists to tick today\nnoneOwner: Write a list for a role or for named people, and choose the days it repeats. Staff tick them on their phones.\nnoneManager: The owner writes the lists and chooses who does them and when. Staff tick them on their phones.\nprogress: {done} of {total}\nfinished: Finished\noverdue: Overdue\ndue: Due {time}\ndueOn: Due {day}, {time}\nmoreLists: +{count} more\nmorePeople: +{count}\nand: {a} and {b}\nopen: See today\nedit: Edit the lists\nwrite: Write a list\ntabToday: Today\ntabEdit: Edit the lists\ntodayLead: Each list shows who it is for and who ticked each line, and when. Lists are ticked on the phone.",
+      "body": "title: Checklists\nsummary: {done} of {total} lists finished today\nallDone: Every list is finished today.\nnoneTitle: No lists to tick today\nnoneOwner: Write a list for a role or for named people, and choose the days it repeats. Staff tick them on their phones.\nnoneManager: The owner writes the lists and chooses who does them and when. Staff tick them on their phones.\nprogress: {done} of {total}\nfinished: Finished\noverdue: Overdue\ndue: Due {time}\ndueOn: Due {day}, {time}\nfilter.label: Show lists\nfilter.all: All\nfilter.overdue: Overdue\nfilter.todo: Not done yet\nfilter.finished: Finished\nfilter.none.overdue: No list is overdue.\nfilter.none.todo: No list is waiting to be filled.\nfilter.none.finished: No list is finished yet.\nmorePeople: +{count}\nand: {a} and {b}",
       "route": null
     },
     {
       "kind": "label",
       "ref": "label:ws.supplies.checklists#2",
       "lang": "ar",
-      "title": "ws.supplies.checklists (packages/i18n/src/catalogs/ws/supplies.ar.ts) (part 1 of 4)",
-      "body": "editor.eachCopyHint: عند الإيقاف: قائمة واحدة مشتركة يؤشّر عليها أي شخص في هذا الدور.\neditor.people: الأشخاص\neditor.peopleSearch: ابحث بالاسم\neditor.peopleNone: لا يوجد اسم مطابق.\neditor.peopleChosen: المختارون: {count}\neditor.peopleNeeded: اختر شخصًا واحدًا على الأقل.\neditor.peopleTooMany: الحد الأقصى للأشخاص: {max}.\neditor.personAway: لم يعد يعمل في هذا الفرع\neditor.peopleAway: لم يعودوا يعملون في هذا الفرع: {names}. أزلهم من القائمة لتتمكن من الحفظ.\neditor.peopleAwayRemove: أزلهم\neditor.repeats: التكرار\neditor.repeatDaily: كل يوم\neditor.repeatWeekdays: أيام محددة من الأسبوع\neditor.repeatMonthly: مرة في الشهر\neditor.repeatTwice: مرتين في الشهر\neditor.weekdaysNeeded: اختر يومًا واحدًا على الأقل.",
+      "title": "ws.supplies.checklists (packages/i18n/src/catalogs/ws/supplies.ar.ts) (part 1 of 3)",
+      "body": "editor.whoRole: دور\neditor.whoPeople: أشخاص بأسمائهم\neditor.role: الدور\neditor.rolePick: اختر دورًا\neditor.roleNeeded: اختر دورًا.\neditor.eachCopy: لكل شخص نسخته الخاصة\neditor.eachCopyHint: عند الإيقاف: قائمة واحدة مشتركة يؤشّر عليها أي شخص في هذا الدور.\neditor.people: الأشخاص\neditor.peopleSearch: ابحث بالاسم\neditor.peopleNone: لا يوجد اسم مطابق.\neditor.peopleChosen: المختارون: {count}\neditor.peopleNeeded: اختر شخصًا واحدًا على الأقل.\neditor.peopleTooMany: الحد الأقصى للأشخاص: {max}.\neditor.personAway: لم يعد يعمل في هذا الفرع\neditor.peopleAway: لم يعودوا يعملون في هذا الفرع: {names}. أزلهم من القائمة لتتمكن من الحفظ.\neditor.peopleAwayRemove: أزلهم\neditor.repeats: التكرار\neditor.repeatDaily: كل يوم\neditor.repeatWeekdays: أيام محددة من الأسبوع",
       "route": null
     },
     {
@@ -39678,15 +39750,15 @@
       "ref": "label:ws.supplies.checklists#2",
       "lang": "en",
       "title": "ws.supplies.checklists (packages/i18n/src/catalogs/ws/supplies.en.ts) (part 1 of 4)",
-      "body": "editor.eachCopyHint: Off: one shared list that anyone in the role can tick.\neditor.people: People\neditor.peopleSearch: Search by name\neditor.peopleNone: Nobody matches.\neditor.peopleChosen: Chosen: {count}\neditor.peopleNeeded: Choose at least one person.\neditor.peopleTooMany: At most {max} people.\neditor.personAway: No longer at this branch\neditor.peopleAway: No longer at this branch: {names}. Take them off to save.\neditor.peopleAwayRemove: Take them off\neditor.repeats: Repeats\neditor.repeatDaily: Every day\neditor.repeatWeekdays: Chosen weekdays\neditor.repeatMonthly: Once a month\neditor.repeatTwice: Twice a month\neditor.weekdaysNeeded: Choose at least one day.\neditor.monthDay: Date\neditor.monthDayN: Date {n}",
+      "body": "editor.nameAr: Name (Arabic)\neditor.who: Who does it\neditor.whoRole: A role\neditor.whoPeople: Named people\neditor.role: Role\neditor.rolePick: Choose a role\neditor.roleNeeded: Choose a role.\neditor.eachCopy: Everyone does their own copy\neditor.eachCopyHint: Off: one shared list that anyone in the role can tick.\neditor.people: People\neditor.peopleSearch: Search by name\neditor.peopleNone: Nobody matches.\neditor.peopleChosen: Chosen: {count}\neditor.peopleNeeded: Choose at least one person.\neditor.peopleTooMany: At most {max} people.\neditor.personAway: No longer at this branch\neditor.peopleAway: No longer at this branch: {names}. Take them off to save.\neditor.peopleAwayRemove: Take them off\neditor.repeats: Repeats\neditor.repeatDaily: Every day",
       "route": null
     },
     {
       "kind": "label",
       "ref": "label:ws.supplies.checklists#2~2",
       "lang": "ar",
-      "title": "ws.supplies.checklists (packages/i18n/src/catalogs/ws/supplies.ar.ts) (part 2 of 4)",
-      "body": "editor.eachCopyHint: عند الإيقاف: قائمة واحدة مشتركة يؤشّر عليها أي شخص في هذا الدور.\neditor.repeatDaily: كل يوم\neditor.repeatWeekdays: أيام محددة من الأسبوع\neditor.repeatMonthly: مرة في الشهر\neditor.repeatTwice: مرتين في الشهر\neditor.weekdaysNeeded: اختر يومًا واحدًا على الأقل.\neditor.monthDay: التاريخ\neditor.monthDayN: التاريخ {n}\neditor.lastDay: آخر يوم\neditor.sameDate: اختر تاريخين مختلفين.\neditor.monthHint: تبقى القائمة مفتوحة حتى التاريخ التالي. «آخر يوم» يتبع عدد أيام كل شهر.\neditor.due: الموعد\neditor.dueOpen: قبل الافتتاح\neditor.dueClose: قبل الإغلاق\neditor.dueTime: قبل ساعة محددة\neditor.dueHint: يتبع الافتتاح والإغلاق ساعات عمل الفرع. يتلقى الموظفون تذكيرًا قبل الموعد، وتذكيرًا آخر عند التأخر.\neditor.time: الساعة\neditor.timeNeeded: أدخل الساعة.\neditor.lines: البنود",
+      "title": "ws.supplies.checklists (packages/i18n/src/catalogs/ws/supplies.ar.ts) (part 2 of 3)",
+      "body": "editor.whoRole: دور\neditor.peopleAwayRemove: أزلهم\neditor.repeats: التكرار\neditor.repeatDaily: كل يوم\neditor.repeatWeekdays: أيام محددة من الأسبوع\neditor.repeatMonthly: مرة في الشهر\neditor.repeatTwice: مرتين في الشهر\neditor.weekdaysNeeded: اختر يومًا واحدًا على الأقل.\neditor.monthDay: التاريخ\neditor.monthDayN: التاريخ {n}\neditor.lastDay: آخر يوم\neditor.sameDate: اختر تاريخين مختلفين.\neditor.monthHint: تبقى القائمة مفتوحة حتى التاريخ التالي. «آخر يوم» يتبع عدد أيام كل شهر.\neditor.due: الموعد\neditor.dueOpen: قبل الافتتاح\neditor.dueClose: قبل الإغلاق\neditor.dueTime: قبل ساعة محددة\neditor.dueHint: يتبع الافتتاح والإغلاق ساعات عمل الفرع. يتلقى الموظفون تذكيرًا قبل الموعد، وتذكيرًا آخر عند التأخر.\neditor.time: الساعة\neditor.timeNeeded: أدخل الساعة.\neditor.lines: البنود",
       "route": null
     },
     {
@@ -39694,15 +39766,15 @@
       "ref": "label:ws.supplies.checklists#2~2",
       "lang": "en",
       "title": "ws.supplies.checklists (packages/i18n/src/catalogs/ws/supplies.en.ts) (part 2 of 4)",
-      "body": "editor.eachCopyHint: Off: one shared list that anyone in the role can tick.\neditor.repeatMonthly: Once a month\neditor.repeatTwice: Twice a month\neditor.weekdaysNeeded: Choose at least one day.\neditor.monthDay: Date\neditor.monthDayN: Date {n}\neditor.lastDay: Last day\neditor.sameDate: Choose two different dates.\neditor.monthHint: The list stays open until the next date. “Last day” follows each month’s length.\neditor.due: Due\neditor.dueOpen: Before opening\neditor.dueClose: Before closing\neditor.dueTime: By a set time\neditor.dueHint: Opening and closing follow the branch’s opening hours. Staff get a reminder before it is due, and another if it is late.\neditor.time: Time\neditor.timeNeeded: Enter a time.\neditor.lines: Lines\neditor.count: {count} of {max}\neditor.lineEn: Line {n}, English",
+      "body": "editor.nameAr: Name (Arabic)\neditor.peopleAway: No longer at this branch: {names}. Take them off to save.\neditor.peopleAwayRemove: Take them off\neditor.repeats: Repeats\neditor.repeatDaily: Every day\neditor.repeatWeekdays: Chosen weekdays\neditor.repeatMonthly: Once a month\neditor.repeatTwice: Twice a month\neditor.weekdaysNeeded: Choose at least one day.\neditor.monthDay: Date\neditor.monthDayN: Date {n}\neditor.lastDay: Last day\neditor.sameDate: Choose two different dates.\neditor.monthHint: The list stays open until the next date. “Last day” follows each month’s length.\neditor.due: Due\neditor.dueOpen: Before opening\neditor.dueClose: Before closing\neditor.dueTime: By a set time",
       "route": null
     },
     {
       "kind": "label",
       "ref": "label:ws.supplies.checklists#2~3",
       "lang": "ar",
-      "title": "ws.supplies.checklists (packages/i18n/src/catalogs/ws/supplies.ar.ts) (part 3 of 4)",
-      "body": "editor.eachCopyHint: عند الإيقاف: قائمة واحدة مشتركة يؤشّر عليها أي شخص في هذا الدور.\neditor.dueHint: يتبع الافتتاح والإغلاق ساعات عمل الفرع. يتلقى الموظفون تذكيرًا قبل الموعد، وتذكيرًا آخر عند التأخر.\neditor.time: الساعة\neditor.timeNeeded: أدخل الساعة.\neditor.lines: البنود\neditor.count: {count} من {max}\neditor.lineEn: البند {n} بالإنجليزية\neditor.lineAr: البند {n} بالعربية\neditor.addLine: إضافة بند\neditor.removeLine: حذف البند {n}\neditor.photo: صورة مطلوبة\neditor.photoCount: صورة مطلوبة: {count}\neditor.photoLead: فعّل «صورة مطلوبة» للبند الذي يجب إثبات إنجازه، مثل الكاونتر بعد تنظيفه. لا يستطيع الموظف التأشير عليه إلا بالتقاط صورة من الهاتف، وتظهر الصورة هنا تحت «اليوم».\neditor.full: الحد الأقصى للبنود في القائمة: {max}.",
+      "title": "ws.supplies.checklists (packages/i18n/src/catalogs/ws/supplies.ar.ts) (part 3 of 3)",
+      "body": "editor.whoRole: دور\neditor.dueHint: يتبع الافتتاح والإغلاق ساعات عمل الفرع. يتلقى الموظفون تذكيرًا قبل الموعد، وتذكيرًا آخر عند التأخر.\neditor.time: الساعة\neditor.timeNeeded: أدخل الساعة.\neditor.lines: البنود\neditor.count: {count} من {max}\neditor.lineEn: البند {n} بالإنجليزية\neditor.lineAr: البند {n} بالعربية\neditor.addLine: إضافة بند\neditor.removeLine: حذف البند {n}\neditor.photo: صورة مطلوبة\neditor.photoCount: صورة مطلوبة: {count}\neditor.photoLead: فعّل «صورة مطلوبة» للبند الذي يجب إثبات إنجازه، مثل الكاونتر بعد تنظيفه. لا يستطيع الموظف التأشير عليه إلا بالتقاط صورة من الهاتف، وتظهر الصورة هنا تحت «اليوم».\neditor.full: الحد الأقصى للبنود في القائمة: {max}.\neditor.emptyList: لا توجد بنود بعد. أضف بندًا واحدًا على الأقل لحفظ القائمة.\neditor.needLine: أضف بندًا واحدًا على الأقل.",
       "route": null
     },
     {
@@ -39710,15 +39782,7 @@
       "ref": "label:ws.supplies.checklists#2~3",
       "lang": "en",
       "title": "ws.supplies.checklists (packages/i18n/src/catalogs/ws/supplies.en.ts) (part 3 of 4)",
-      "body": "editor.eachCopyHint: Off: one shared list that anyone in the role can tick.\neditor.time: Time\neditor.timeNeeded: Enter a time.\neditor.lines: Lines\neditor.count: {count} of {max}\neditor.lineEn: Line {n}, English\neditor.lineAr: Line {n}, Arabic\neditor.addLine: Add a line\neditor.removeLine: Remove line {n}\neditor.photo: Needs a photo\neditor.photoCount: Needs a photo: {count}\neditor.photoLead: Switch on “Needs a photo” for a line that has to be shown done, like a cleaned counter. Staff can tick it only by taking a photo on the phone, and the photo shows here under Today.\neditor.full: A list holds at most {max} lines.\neditor.emptyList: No lines yet. A list with no lines is not shown to anyone.\neditor.both: Write it in both English and Arabic.\neditor.tooLong: At most {max} characters.",
-      "route": null
-    },
-    {
-      "kind": "label",
-      "ref": "label:ws.supplies.checklists#2~4",
-      "lang": "ar",
-      "title": "ws.supplies.checklists (packages/i18n/src/catalogs/ws/supplies.ar.ts) (part 4 of 4)",
-      "body": "editor.eachCopyHint: عند الإيقاف: قائمة واحدة مشتركة يؤشّر عليها أي شخص في هذا الدور.\neditor.full: الحد الأقصى للبنود في القائمة: {max}.\neditor.emptyList: لا توجد بنود بعد. القائمة التي لا بنود فيها لا تظهر لأحد.\neditor.both: اكتبه بالإنجليزية والعربية معًا.\neditor.tooLong: الحد الأقصى للأحرف: {max}.\neditor.keepsToday: لهذه القائمة نسخة مفتوحة الآن، لذا تحتفظ تلك النسخة ببنودها القديمة. يظهر تعديلك في النسخة التالية.\neditor.save: حفظ القائمة",
+      "body": "editor.nameAr: Name (Arabic)\neditor.due: Due\neditor.dueOpen: Before opening\neditor.dueClose: Before closing\neditor.dueTime: By a set time\neditor.dueHint: Opening and closing follow the branch’s opening hours. Staff get a reminder before it is due, and another if it is late.\neditor.time: Time\neditor.timeNeeded: Enter a time.\neditor.lines: Lines\neditor.count: {count} of {max}\neditor.lineEn: Line {n}, English\neditor.lineAr: Line {n}, Arabic\neditor.addLine: Add a line\neditor.removeLine: Remove line {n}\neditor.photo: Needs a photo\neditor.photoCount: Needs a photo: {count}\neditor.photoLead: Switch on “Needs a photo” for a line that has to be shown done, like a cleaned counter. Staff can tick it only by taking a photo on the phone, and the photo shows here under Today.",
       "route": null
     },
     {
@@ -39726,7 +39790,7 @@
       "ref": "label:ws.supplies.checklists#2~4",
       "lang": "en",
       "title": "ws.supplies.checklists (packages/i18n/src/catalogs/ws/supplies.en.ts) (part 4 of 4)",
-      "body": "editor.eachCopyHint: Off: one shared list that anyone in the role can tick.\neditor.emptyList: No lines yet. A list with no lines is not shown to anyone.\neditor.both: Write it in both English and Arabic.\neditor.tooLong: At most {max} characters.\neditor.keepsToday: This list already has a copy open, so that copy keeps its old lines. Your change shows from the next one.\neditor.save: Save the list",
+      "body": "editor.nameAr: Name (Arabic)\neditor.photoLead: Switch on “Needs a photo” for a line that has to be shown done, like a cleaned counter. Staff can tick it only by taking a photo on the phone, and the photo shows here under Today.\neditor.full: A list holds at most {max} lines.\neditor.emptyList: No lines yet. Add at least one line to save the list.",
       "route": null
     },
     {
@@ -39734,23 +39798,31 @@
       "ref": "label:ws.supplies.checklists#3",
       "lang": "ar",
       "title": "ws.supplies.checklists (packages/i18n/src/catalogs/ws/supplies.ar.ts)",
-      "body": "editor.saved: حُفظت القائمة.\neditor.discard: تجاهل التعديلات\neditor.reload: تحميل الأحدث\neditor.invalid: صحّح الحقول المميّزة بالأحمر أولًا.\neditor.archive: أرشفة القائمة\neditor.archiveTitle: أرشفة «{name}»؟\neditor.archiveBody: تختفي من كل الهواتف فورًا، ومعها النسخ المفتوحة اليوم. لا يمكن إرجاعها من هنا؛ اكتبها من جديد إذا احتجت إليها.\neditor.archived: أُرشفت القائمة.",
+      "body": "editor.both: اكتبه بالإنجليزية والعربية معًا.\neditor.tooLong: الحد الأقصى للأحرف: {max}.\neditor.keepsToday: لهذه القائمة نسخة مفتوحة الآن. تُضاف إليها البنود الجديدة فورًا وتُحذف منها البنود التي تزيلها، أما البند الذي أُشّر عليه فيبقى. والبند الذي تجعله يحتاج إلى صورة يُلغى التأشير عليه إن كان قد أُشّر عليه دون صورة. وتبدأ التعديلات الأخرى من النسخة التالية.\neditor.save: حفظ القائمة\neditor.saved: حُفظت القائمة.\neditor.discard: تجاهل التعديلات\neditor.reload: تحميل الأحدث\neditor.invalid: صحّح الحقول المميّزة بالأحمر أولًا.\neditor.archive: أرشفة القائمة\neditor.archiveTitle: أرشفة «{name}»؟\neditor.archiveBody: تختفي من كل الهواتف فورًا، ومعها النسخ المفتوحة اليوم. لا يمكن إرجاعها من هنا؛ اكتبها من جديد إذا احتجت إليها.\neditor.archived: أُرشفت القائمة.",
       "route": null
     },
     {
       "kind": "label",
       "ref": "label:ws.supplies.checklists#3",
       "lang": "en",
-      "title": "ws.supplies.checklists (packages/i18n/src/catalogs/ws/supplies.en.ts)",
-      "body": "editor.saved: List saved.\neditor.discard: Discard changes\neditor.reload: Load the latest\neditor.invalid: Fix the boxes marked in red first.\neditor.archive: Archive the list\neditor.archiveTitle: Archive “{name}”?\neditor.archiveBody: It goes off every phone at once, copies open today included. It cannot be brought back here; write it again if you need it.\neditor.archived: List archived.",
+      "title": "ws.supplies.checklists (packages/i18n/src/catalogs/ws/supplies.en.ts) (part 1 of 2)",
+      "body": "editor.needLine: Add at least one line.\neditor.both: Write it in both English and Arabic.\neditor.tooLong: At most {max} characters.\neditor.keepsToday: This list has a copy open now. New lines are added to it at once and lines you take off leave it, but a line already ticked stays. A line you set to need a photo is unticked if it was ticked without one. Other changes start from the next copy.\neditor.save: Save the list\neditor.saved: List saved.\neditor.discard: Discard changes\neditor.reload: Load the latest\neditor.invalid: Fix the boxes marked in red first.\neditor.archive: Archive the list\neditor.archiveTitle: Archive “{name}”?",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.supplies.checklists#3~2",
+      "lang": "en",
+      "title": "ws.supplies.checklists (packages/i18n/src/catalogs/ws/supplies.en.ts) (part 2 of 2)",
+      "body": "editor.needLine: Add at least one line.\neditor.discard: Discard changes\neditor.reload: Load the latest\neditor.invalid: Fix the boxes marked in red first.\neditor.archive: Archive the list\neditor.archiveTitle: Archive “{name}”?\neditor.archiveBody: It goes off every phone at once, copies open today included. It cannot be brought back here; write it again if you need it.\neditor.archived: List archived.",
       "route": null
     },
     {
       "kind": "label",
       "ref": "label:ws.supplies.checklists~2",
       "lang": "ar",
-      "title": "ws.supplies.checklists (packages/i18n/src/catalogs/ws/supplies.ar.ts) (part 2 of 3)",
-      "body": "title: قوائم التحقق\ntabToday: اليوم\ntabEdit: تعديل القوائم\ntodayLead: تبيّن كل قائمة لمن هي، ومن أشّر على كل بند ومتى. يؤشّر الموظفون على القوائم من هواتفهم.\nnotOpened: لا توجد نسخة مفتوحة من هذه القائمة اليوم.\nticked: {name} · {time}\nnoTemplates: لا توجد قوائم بعد.\nphotoNeeded: صورة مطلوبة\nseePhoto: عرض الصورة: {line}\nhidePhoto: إخفاء الصورة: {line}\nphotoAlt: صورة: {line}\nwhen: {repeat}، {due}\nwho.shared: {role}: قائمة واحدة مشتركة\nwho.each: {role}: نسخة لكل شخص\nwho.nobody: لم يُختر أحد\nrepeat.daily: كل يوم\nrepeat.weeklyOne: كل أسبوع يوم {days}\nrepeat.weekly: كل أسبوع أيام {days}\nrepeat.monthly: كل شهر في {days}\nrepeat.monthlyNone: كل شهر\nrepeat.nth: يوم {nth}\nrepeat.lastDay: آخر يوم\ndueRule.open: قبل الافتتاح\ndueRule.close: قبل الإغلاق\ndueRule.time: قبل الساعة {time}\nweekday.sun: الأحد",
+      "title": "ws.supplies.checklists (packages/i18n/src/catalogs/ws/supplies.ar.ts) (part 2 of 4)",
+      "body": "title: قوائم التحقق\nfilter.none.todo: لا توجد قائمة تنتظر التعبئة.\nfilter.none.finished: لم تكتمل أي قائمة بعد.\nmorePeople: +{count}\nand: {a} و{b}\nopen: عرض اليوم\nedit: تعديل القوائم\nwrite: كتابة قائمة\ntabToday: اليوم\ntabEdit: تعديل القوائم\ntodayLead: تبيّن كل قائمة لمن هي، ومن أشّر على كل بند ومتى. يؤشّر الموظفون على القوائم من هواتفهم.\nnotOpened: لا توجد نسخة مفتوحة من هذه القائمة اليوم.\nticked: {name} · {time}\nnoTemplates: لا توجد قوائم بعد.\nphotoNeeded: صورة مطلوبة\nseePhoto: عرض الصورة: {line}\nhidePhoto: إخفاء الصورة: {line}\nphotoAlt: صورة: {line}\nwhen: {repeat}، {due}\nwho.shared: {role}: قائمة واحدة مشتركة\nwho.each: {role}: نسخة لكل شخص\nwho.nobody: لم يُختر أحد\nrepeat.daily: كل يوم\nrepeat.weeklyOne: كل أسبوع يوم {days}\nrepeat.weekly: كل أسبوع أيام {days}",
       "route": null
     },
     {
@@ -39758,15 +39830,15 @@
       "ref": "label:ws.supplies.checklists~2",
       "lang": "en",
       "title": "ws.supplies.checklists (packages/i18n/src/catalogs/ws/supplies.en.ts) (part 2 of 4)",
-      "body": "title: Checklists\nedit: Edit the lists\nwrite: Write a list\ntabToday: Today\ntabEdit: Edit the lists\ntodayLead: Each list shows who it is for and who ticked each line, and when. Lists are ticked on the phone.\nnotOpened: No copy of this list is open today.\nticked: {name} · {time}\nnoTemplates: No lists yet.\nphotoNeeded: Needs a photo\nseePhoto: See the photo: {line}\nhidePhoto: Hide the photo: {line}\nphotoAlt: Photo for: {line}\nwhen: {repeat}, {due}\nwho.shared: {role}: one shared list\nwho.each: {role}: everyone their own copy\nwho.nobody: Nobody chosen\nrepeat.daily: Every day\nrepeat.weeklyOne: Every {days}\nrepeat.weekly: Every {days}\nrepeat.monthly: Every month on {days}\nrepeat.monthlyNone: Every month\nrepeat.nth: the {nth}\nrepeat.lastDay: the last day\ndueRule.open: before opening",
+      "body": "title: Checklists\nfilter.none.overdue: No list is overdue.\nfilter.none.todo: No list is waiting to be filled.\nfilter.none.finished: No list is finished yet.\nmorePeople: +{count}\nand: {a} and {b}\nopen: See today\nedit: Edit the lists\nwrite: Write a list\ntabToday: Today\ntabEdit: Edit the lists\ntodayLead: Each list shows who it is for and who ticked each line, and when. Lists are ticked on the phone.\nnotOpened: No copy of this list is open today.\nticked: {name} · {time}\nnoTemplates: No lists yet.\nphotoNeeded: Needs a photo\nseePhoto: See the photo: {line}\nhidePhoto: Hide the photo: {line}\nphotoAlt: Photo for: {line}\nwhen: {repeat}, {due}\nwho.shared: {role}: one shared list\nwho.each: {role}: everyone their own copy\nwho.nobody: Nobody chosen\nrepeat.daily: Every day",
       "route": null
     },
     {
       "kind": "label",
       "ref": "label:ws.supplies.checklists~3",
       "lang": "ar",
-      "title": "ws.supplies.checklists (packages/i18n/src/catalogs/ws/supplies.ar.ts) (part 3 of 3)",
-      "body": "title: قوائم التحقق\nrepeat.monthlyNone: كل شهر\nrepeat.nth: يوم {nth}\nrepeat.lastDay: آخر يوم\ndueRule.open: قبل الافتتاح\ndueRule.close: قبل الإغلاق\ndueRule.time: قبل الساعة {time}\nweekday.sun: الأحد\nweekday.mon: الإثنين\nweekday.tue: الثلاثاء\nweekday.wed: الأربعاء\nweekday.thu: الخميس\nweekday.fri: الجمعة\nweekday.sat: السبت\neditor.pick: اختر قائمة\neditor.lists: القوائم\neditor.newList: قائمة جديدة\neditor.newHeading: قائمة جديدة\neditor.noLists: لا توجد قوائم بعد. اضغط «قائمة جديدة» لكتابة أول قائمة.\neditor.lineCount: البنود: {count}\neditor.nameEn: الاسم (بالإنجليزية)\neditor.nameAr: الاسم (بالعربية)\neditor.who: من ينفّذها\neditor.whoRole: دور\neditor.whoPeople: أشخاص بأسمائهم\neditor.role: الدور\neditor.rolePick: اختر دورًا\neditor.roleNeeded: اختر دورًا.\neditor.eachCopy: لكل شخص نسخته الخاصة",
+      "title": "ws.supplies.checklists (packages/i18n/src/catalogs/ws/supplies.ar.ts) (part 3 of 4)",
+      "body": "title: قوائم التحقق\nwho.shared: {role}: قائمة واحدة مشتركة\nwho.each: {role}: نسخة لكل شخص\nwho.nobody: لم يُختر أحد\nrepeat.daily: كل يوم\nrepeat.weeklyOne: كل أسبوع يوم {days}\nrepeat.weekly: كل أسبوع أيام {days}\nrepeat.monthly: كل شهر في {days}\nrepeat.monthlyNone: كل شهر\nrepeat.nth: يوم {nth}\nrepeat.lastDay: آخر يوم\ndueRule.open: قبل الافتتاح\ndueRule.close: قبل الإغلاق\ndueRule.time: قبل الساعة {time}\nweekday.sun: الأحد\nweekday.mon: الإثنين\nweekday.tue: الثلاثاء\nweekday.wed: الأربعاء\nweekday.thu: الخميس\nweekday.fri: الجمعة\nweekday.sat: السبت\neditor.pick: اختر قائمة\neditor.lists: القوائم\neditor.newList: قائمة جديدة\neditor.newHeading: قائمة جديدة\neditor.noLists: لا توجد قوائم بعد. اضغط «قائمة جديدة» لكتابة أول قائمة.\neditor.lineCount: البنود: {count}\neditor.nameEn: الاسم (بالإنجليزية)",
       "route": null
     },
     {
@@ -39774,7 +39846,15 @@
       "ref": "label:ws.supplies.checklists~3",
       "lang": "en",
       "title": "ws.supplies.checklists (packages/i18n/src/catalogs/ws/supplies.en.ts) (part 3 of 4)",
-      "body": "title: Checklists\nrepeat.weekly: Every {days}\nrepeat.monthly: Every month on {days}\nrepeat.monthlyNone: Every month\nrepeat.nth: the {nth}\nrepeat.lastDay: the last day\ndueRule.open: before opening\ndueRule.close: before closing\ndueRule.time: by {time}\nweekday.sun: Sunday\nweekday.mon: Monday\nweekday.tue: Tuesday\nweekday.wed: Wednesday\nweekday.thu: Thursday\nweekday.fri: Friday\nweekday.sat: Saturday\neditor.pick: Choose a list\neditor.lists: Lists\neditor.newList: New list\neditor.newHeading: New list\neditor.noLists: No lists yet. Press New list to write the first one.\neditor.lineCount: Lines: {count}\neditor.nameEn: Name (English)\neditor.nameAr: Name (Arabic)\neditor.who: Who does it\neditor.whoRole: A role\neditor.whoPeople: Named people\neditor.role: Role\neditor.rolePick: Choose a role",
+      "body": "title: Checklists\nphotoAlt: Photo for: {line}\nwhen: {repeat}, {due}\nwho.shared: {role}: one shared list\nwho.each: {role}: everyone their own copy\nwho.nobody: Nobody chosen\nrepeat.daily: Every day\nrepeat.weeklyOne: Every {days}\nrepeat.weekly: Every {days}\nrepeat.monthly: Every month on {days}\nrepeat.monthlyNone: Every month\nrepeat.nth: the {nth}\nrepeat.lastDay: the last day\ndueRule.open: before opening\ndueRule.close: before closing\ndueRule.time: by {time}\nweekday.sun: Sunday\nweekday.mon: Monday\nweekday.tue: Tuesday\nweekday.wed: Wednesday\nweekday.thu: Thursday\nweekday.fri: Friday\nweekday.sat: Saturday\neditor.pick: Choose a list\neditor.lists: Lists\neditor.newList: New list\neditor.newHeading: New list\neditor.noLists: No lists yet. Press New list to write the first one.",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.supplies.checklists~4",
+      "lang": "ar",
+      "title": "ws.supplies.checklists (packages/i18n/src/catalogs/ws/supplies.ar.ts) (part 4 of 4)",
+      "body": "title: قوائم التحقق\neditor.newList: قائمة جديدة\neditor.newHeading: قائمة جديدة\neditor.noLists: لا توجد قوائم بعد. اضغط «قائمة جديدة» لكتابة أول قائمة.\neditor.lineCount: البنود: {count}\neditor.nameEn: الاسم (بالإنجليزية)\neditor.nameAr: الاسم (بالعربية)\neditor.who: من ينفّذها",
       "route": null
     },
     {
@@ -39782,7 +39862,7 @@
       "ref": "label:ws.supplies.checklists~4",
       "lang": "en",
       "title": "ws.supplies.checklists (packages/i18n/src/catalogs/ws/supplies.en.ts) (part 4 of 4)",
-      "body": "title: Checklists\neditor.nameEn: Name (English)\neditor.nameAr: Name (Arabic)\neditor.who: Who does it\neditor.whoRole: A role\neditor.whoPeople: Named people\neditor.role: Role\neditor.rolePick: Choose a role\neditor.roleNeeded: Choose a role.\neditor.eachCopy: Everyone does their own copy",
+      "body": "title: Checklists\nweekday.sat: Saturday\neditor.pick: Choose a list\neditor.lists: Lists\neditor.newList: New list\neditor.newHeading: New list\neditor.noLists: No lists yet. Press New list to write the first one.\neditor.lineCount: Lines: {count}\neditor.nameEn: Name (English)",
       "route": null
     },
     {

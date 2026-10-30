@@ -64,8 +64,8 @@ vi.mock('./useLoyalty', () => ({
         totp_step_seconds: 30,
       },
       tiers: [
-        { id: 't0', name_en: 'Member', name_ar: 'عضو', min_points_12m: 0, earn_multiplier: 1, promotion_id: null, sort: 0 },
-        { id: 't1', name_en: 'Silver', name_ar: 'فضي', min_points_12m: 500, earn_multiplier: 1.2, promotion_id: null, sort: 1 },
+        { id: 't0', name_en: 'Member', name_ar: 'عضو', min_points_12m: 0, earn_multiplier: 1, promotion_id: null, sort: 0, color: 'classic' },
+        { id: 't1', name_en: 'Silver', name_ar: 'فضي', min_points_12m: 500, earn_multiplier: 1.2, promotion_id: null, sort: 1, color: 'silver' },
       ],
       rewards: [],
     },
@@ -95,12 +95,12 @@ beforeEach(() => {
 });
 
 describe('LoyaltySetupScreen, adding', () => {
-  it('adds a tier in two steps, then Review, and saves it after the last tier', async () => {
+  it('adds a tier in three steps, then Review, and saves it after the last tier', async () => {
     const user = userEvent.setup();
     renderPage();
     await user.click(within(screen.getByTestId('loyalty-tiers')).getByRole('button', { name: 'Add a tier' }));
     const wiz = screen.getByTestId('loyalty-tier-wizard');
-    expect(within(wiz).getByText('Step 1 of 2')).toBeTruthy();
+    expect(within(wiz).getByText('Step 1 of 3')).toBeTruthy();
     const forward = (name: string) => user.click(within(wiz).getAllByRole('button', { name }).at(-1)!);
     await forward('Points & multiplier');
     expect(within(wiz).getByText('Both names are needed.')).toBeTruthy();
@@ -113,14 +113,19 @@ describe('LoyaltySetupScreen, adding', () => {
     await user.clear(within(wiz).getByRole('textbox', { name: /^Earn multiplier/ }));
     await user.type(within(wiz).getByRole('textbox', { name: /^Earn multiplier/ }), '1.5');
     expect(within(wiz).getByText('Gold sits after Silver. A guest moves up once they earn 1,500 points in 12 months.')).toBeTruthy();
+    await forward('Card colour');
+    // 0376: Silver is taken, so a new tier starts on Bronze; the owner picks Gold.
+    expect(within(wiz).getByTestId('loyalty-tier-color-bronze').getAttribute('aria-pressed')).toBe('true');
+    await user.click(within(wiz).getByTestId('loyalty-tier-color-gold'));
+    expect(within(wiz).getByTestId('loyalty-tier-color-gold').getAttribute('aria-pressed')).toBe('true');
     await forward('Review');
-    expect(within(wiz).getByText('All 2 steps done')).toBeTruthy();
+    expect(within(wiz).getByText('All 3 steps done')).toBeTruthy();
     expect(within(wiz).getByText('1,500 points in 12 months')).toBeTruthy();
     expect(within(wiz).getByText('1.5× points')).toBeTruthy();
     await user.click(within(wiz).getByTestId('loyalty-tier-wizard.submit'));
     await waitFor(() => expect(calls.find((c) => c.fn === 'upsert_loyalty_tier')).toBeTruthy());
     expect(calls.find((c) => c.fn === 'upsert_loyalty_tier')?.args).toEqual({
-      p_tier: { name_en: 'Gold', name_ar: 'ذهبي', min_points_12m: 1500, earn_multiplier: 1.5, promotion_id: null, sort: 2 },
+      p_tier: { name_en: 'Gold', name_ar: 'ذهبي', min_points_12m: 1500, earn_multiplier: 1.5, promotion_id: null, sort: 2, color: 'gold' },
     });
     expect(toasts).toEqual(['Saved.']);
   });

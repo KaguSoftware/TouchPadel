@@ -21,8 +21,8 @@
  *     staff are attached behind another manager's PIN; a customer change re-checks the tier
  *     promotion; tournament, lesson and seat tabs and online payments earn on their real paths;
  *     the clawback works on a cumulative target over what earned; the points a cap swallowed or
- *     a refund returned come back; adjustments never raise a tier; the guest never reads a
- *     manager's note.
+ *     a refund returned come back; the guest never reads a manager's note.
+ *   * 0376: points given by hand (adjust) count toward lifetime and the tier again.
  *   * 0350: an item reward frees one unit of its exact size on the tab (a line discount of that
  *     line's unit price), ordering it onto the tab first when no line has a unit free; the court
  *     desk cannot order one; a reward on a line voided before the settle comes back whole.
@@ -210,7 +210,7 @@ begin
   values (pg_temp.var(p_guest)::uuid, p_delta, 'adjust', 'adjust', gen_random_uuid(), 'fixture', now() - p_ago);
 end $f$;
 
--- Points planted as an earn (0308: an adjustment moves the balance only, never the tier).
+-- Points planted as an earn (the tier engine's own kind; an adjustment counts too since 0376).
 create function pg_temp.earnpts(p_guest text, p_delta int) returns void language plpgsql as $f$
 begin
   perform set_config('request.jwt.claims', '', true);
@@ -286,7 +286,7 @@ const STALE = (who: string) =>
   X(
     `update app.pin_grants set created_at = now() - interval '1 day' where caller_id = {{${who}}} and consumed_at is null`,
   );
-/** Points planted as an earn: they count toward the tier (an adjustment no longer does, 0308). */
+/** Points planted as an earn: they count toward the tier (so does an adjustment, 0376). */
 const EARNPTS = (guest: string, delta: number) => X(`select pg_temp.earnpts('${guest}', ${delta})`);
 const TRY = (label: string, sql: string) => `select pg_temp.try('${label}', $q$${sql}$q$);`;
 
@@ -953,9 +953,9 @@ describe.skipIf(!docker)('loyalty redeem (contracts §1.3)', () => {
       history: Array<{ kind: string; note: string }>;
     }>(r, 'customer');
     expect(c.balance).toBe(4970);
-    // an adjustment moves the balance only, never lifetime or the tier points
-    expect(c.lifetime).toBe(0);
-    expect(c.points_12m).toBe(0);
+    // 0376: an adjustment counts toward lifetime and the tier points too (0308 had it balance only)
+    expect(c.lifetime).toBe(4970);
+    expect(c.points_12m).toBe(4970);
     expect(c.history.map((h) => h.note)).toEqual(['owner goodwill', 'correction', 'goodwill']);
     expect(refused(r, 'customer_guest')).toBe('FORBIDDEN');
     expect(refused(r, 'customer_prep')).toBe('FORBIDDEN');

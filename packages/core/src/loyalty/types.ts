@@ -1,5 +1,6 @@
 // Answer shapes of the loyalty RPCs (build contracts §1.3). The RPCs return jsonb, so these are
 // the client-side contract; keys are snake_case as the SQL builds them.
+import type { TierColor } from './tierColors';
 
 export type LedgerKind =
   'earn' | 'redeem' | 'redeem_void' | 'reward' | 'adjust' | 'clawback' | 'expire' | 'merge_in';
@@ -19,6 +20,8 @@ export interface LoyaltyTier {
   name_ar: string;
   multiplier: number;
   min_points_12m?: number;
+  /** 0376: the colour the owner gave the tier; the card's lines, tier word and name. */
+  color: TierColor;
 }
 
 export interface LoyaltyReward {
@@ -89,6 +92,8 @@ export interface LoyaltyAdminTier {
   earn_multiplier: number;
   promotion_id: string | null;
   sort: number;
+  /** 0376 */
+  color: TierColor;
 }
 
 export interface LoyaltyAdminReward extends LoyaltyReward {

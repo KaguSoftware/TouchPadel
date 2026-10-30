@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { RefreshControl, ScrollView, View } from 'react-native';
-import { Stack, useLocalSearchParams } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { formatDate, formatTime, isolate } from '@touch/i18n';
@@ -17,6 +17,7 @@ import { cacheEdit, useUndoable } from '../../src/features/staff/undo';
 import { staffKeys } from '../../src/features/staff/keys';
 import { mapStaffError } from '../../src/features/staff/edge';
 import { fetchChecklistsToday, markChecklistItem } from '../../src/features/staff/checklists/api';
+import { useChecklistsLive } from '../../src/features/staff/checklists/live';
 import {
   applyMark,
   dueText,
@@ -34,7 +35,6 @@ import {
   type MarkArgs,
 } from '../../src/features/staff/checklists/logic';
 import { Lead, StaffPhotoThumb, Tag } from '../../src/features/staff/checklists/parts';
-import { useBack } from '../../src/navigation/back';
 import { usePullRefresh } from '../../src/lib/usePullRefresh';
 import { useToast } from '../../src/components/overlays';
 
@@ -55,6 +55,10 @@ import { useToast } from '../../src/components/overlays';
  * list's name, how it repeats and when it is due; an overdue list says so in
  * a danger tag. A tick on a list whose time is up (`CHECKLIST_CLOSED`: the
  * next one has started) says the list has ended and reads the lists again.
+ *
+ * 0375: live over the branch's checklists topic (a line the owner adds shows
+ * at once, and so does a colleague's tick on a shared list), and "Past
+ * checklists" opens the lists that ended (staff-checklist-history).
  */
 
 type ByItem<T> = Record<string, T>;
@@ -73,7 +77,7 @@ function ChecklistScreen() {
   const queryClient = useQueryClient();
   const { venueId } = useStaffStatus();
   const params = useLocalSearchParams<{ id?: string }>();
-  const back = useBack('/staff');
+  const router = useRouter();
   const toast = useToast();
   const venue = venueId ?? '';
   const key = staffKeys.checklists(venue);
@@ -84,6 +88,7 @@ function ChecklistScreen() {
     enabled: venue !== '',
   });
   const pull = usePullRefresh(() => today.refetch());
+  useChecklistsLive(venue || null);
 
   // A photo taken for a line whose tick has not gone through, by line id.
   const [pending, setPending] = useState<ByItem<AttachedPhoto>>({});
@@ -315,11 +320,11 @@ function ChecklistScreen() {
         ) : null}
         {body()}
         <Button
-          testID="staff-checklist.done"
-          label={t('staff.checklists.done')}
+          testID="staff-checklist.history"
+          label={t('staff.checklists.pastRow')}
           variant="secondary"
           size="medium"
-          onPress={back}
+          onPress={() => router.push('/staff-checklist-history')}
           style={{ marginTop: space.s }}
         />
       </ScrollView>

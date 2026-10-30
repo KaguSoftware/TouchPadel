@@ -171,6 +171,16 @@ export const loyaltyEn = {
       minPoints: 'From points (12 months)',
       multiplier: 'Earn multiplier',
       multiplierHint: 'Between 1 and 5, for example 1.5.',
+      color: 'Card colour',
+      colorHint: 'The guest’s points card takes this colour in this tier: its lines, the tier’s name and the guest’s name. Black makes the whole card black.',
+      colors: {
+        classic: 'Classic',
+        bronze: 'Bronze',
+        silver: 'Silver',
+        gold: 'Gold',
+        platinum: 'Platinum',
+        black: 'Black',
+      },
       sort: 'Order',
       remove: 'Remove',
       removeTitle: 'Remove the tier {name}?',
@@ -180,11 +190,13 @@ export const loyaltyEn = {
         name: 'Tier',
         minPoints: 'From',
         multiplier: 'Earns',
+        color: 'Card',
       },
       multiplierValue: '×{value}',
       steps: {
         name: 'Name',
         points: 'Points & multiplier',
+        color: 'Card colour',
       },
       placeNote: '{name} sits after {below}. A guest moves up once they earn {points} points in 12 months.',
       review: {
@@ -193,6 +205,7 @@ export const loyaltyEn = {
         fromValue: '{points} points in 12 months',
         earns: 'Earns',
         earnsValue: '{value}× points',
+        color: 'Card colour',
       },
       errors: {
         names: 'Both names are needed.',

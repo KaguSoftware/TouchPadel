@@ -28,7 +28,6 @@ export const staffChecklistsEn = {
   untickDone: 'Unticked. Its photo goes with it.',
   untick: 'Untick',
   note: 'Note: {note}',
-  done: 'Done',
 
   // A scheduled list (0323): when it is due, and how it repeats. {time} is the
   // venue's clock; {day} is the day the list started, when that was not today.
@@ -38,6 +37,26 @@ export const staffChecklistsEn = {
   overdueSinceDay: 'Overdue since {day}',
   // A tick refused because the list's time is up and the next one has started.
   closed: 'This list has ended. Pull down to see the current one.',
+
+  // Work alerts' way in when nothing is left to fill, and to the past lists (0375).
+  openAll: 'Your checklists',
+  nothingToFill: 'Nothing to fill right now',
+  pastRow: 'Past checklists',
+  // The past lists page (app/(staff)/staff-checklist-history.tsx, 0375): the lists
+  // that were yours, or that you ticked, once they ended.
+  history: {
+    title: 'Past checklists',
+    lead: 'Lists that were yours, or that you ticked a line of, once they ended. Newest first.',
+    emptyTitle: 'No past checklists yet',
+    emptyBody: 'A list shows here once its time is over.',
+    // A list that ran over several days: {from} and {to} are dates.
+    period: '{from} to {to}',
+    finishedAt: 'Finished at {time}',
+    notFinished: 'Not finished',
+    show: 'Show the lines',
+    hide: 'Hide the lines',
+    more: 'Show older lists',
+  },
   repeat: {
     daily: 'Every day',
     weekly: 'Every {day}',

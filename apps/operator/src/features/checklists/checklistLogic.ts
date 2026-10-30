@@ -60,6 +60,8 @@ export const MAX_PEOPLE = 50;
 
 /** Feature-private keys, under the ['checklists'] root QK.checklistDayState shares. */
 export const CK = {
+  /** Every day's board: what the realtime topic re-reads (0375). */
+  boards: ['checklists', 'board'] as const,
   board: (date: string) => ['checklists', 'board', date] as const,
   staff: ['checklists', 'staff'] as const,
 };
@@ -175,6 +177,32 @@ export const dayListKey = (l: Pick<DayStateList, 'template_id' | 'assignee_name'
 /** The card's headline: copies finished out of copies current today. */
 export function daySummary(state: DayState): { finished: number; total: number } {
   return { finished: state.lists.filter((l) => !isUnfinished(l)).length, total: state.lists.length };
+}
+
+/**
+ * The card's filter (Ameen, 2026-10-31): every copy, the overdue ones, the
+ * ones still to fill that are not late yet, or the finished ones. Each copy
+ * is in exactly one of the last three.
+ */
+export type CardFilter = 'all' | 'overdue' | 'todo' | 'finished';
+
+export const CARD_FILTERS: readonly CardFilter[] = ['all', 'overdue', 'todo', 'finished'];
+
+/** Which of the three groups a copy is in. */
+export function cardGroup(l: Pick<DayStateList, 'done' | 'total' | 'overdue'>): Exclude<CardFilter, 'all'> {
+  return isOverdue(l) ? 'overdue' : isUnfinished(l) ? 'todo' : 'finished';
+}
+
+/** The rows a filter shows, in the card's order. */
+export function filterRows(rows: readonly DayStateList[], filter: CardFilter): DayStateList[] {
+  return filter === 'all' ? [...rows] : rows.filter((l) => cardGroup(l) === filter);
+}
+
+/** How many copies each filter shows. */
+export function filterCounts(rows: readonly DayStateList[]): Record<CardFilter, number> {
+  const counts: Record<CardFilter, number> = { all: rows.length, overdue: 0, todo: 0, finished: 0 };
+  for (const l of rows) counts[cardGroup(l)] += 1;
+  return counts;
 }
 
 /**
@@ -596,6 +624,8 @@ export interface DraftProblems {
   name: TextProblem;
   lines: Map<string, TextProblem>;
   tooMany: boolean;
+  /** No line written: the server refuses a list with none (CHECKLIST_NO_LINES, 0375). */
+  noLines: boolean;
   /**
    * No role chosen, no person chosen, more people than the server takes, or
    * someone chosen who no longer works at the branch (ASSIGNEE_NOT_AT_BRANCH).
@@ -624,6 +654,7 @@ export function draftProblems(draft: ChecklistDraft, away: ReadonlySet<string> =
     name: textProblem(draft.name_en, draft.name_ar, MAX_NAME_LENGTH),
     lines,
     tooMany: draft.lines.filter((l) => !blankLine(l)).length > MAX_LINES,
+    noLines: draft.lines.every(blankLine),
     who:
       draft.audience === 'role'
         ? draft.role === ''
@@ -653,7 +684,7 @@ export const awayIds = (people: readonly Person[]): Set<string> => new Set(peopl
 
 export function draftIsValid(draft: ChecklistDraft, away?: ReadonlySet<string>): boolean {
   const p = draftProblems(draft, away);
-  return p.name === null && p.lines.size === 0 && !p.tooMany && p.who === null && p.repeat === null && p.due === null;
+  return p.name === null && p.lines.size === 0 && !p.tooMany && !p.noLines && p.who === null && p.repeat === null && p.due === null;
 }
 
 export interface SaveItem {

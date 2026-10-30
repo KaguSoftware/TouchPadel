@@ -33,6 +33,7 @@ describe('branchTopic', () => {
     expect(branchTopic('kds', A)).toBe(`kds:${A}`);
     expect(branchTopic('floor', A)).toBe(`floor:${A}`);
     expect(branchTopic('courts', A)).toBe(`courts:${A}`);
+    expect(branchTopic('checklists', A)).toBe(`checklists:${A}`);
     expect(branchTopic('menu', A)).toBe('menu');
     expect(branchTopic('kds', null)).toBe('kds');
   });

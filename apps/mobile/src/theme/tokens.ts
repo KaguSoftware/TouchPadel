@@ -319,6 +319,103 @@ export const frame = {
 } as const;
 
 /**
+ * A loyalty tier's look on the points card (0376: the owner gives each tier a colour, TIER_COLORS
+ * in @touch/core/loyalty).
+ *
+ * The card is glass, not a painted card (Ameen, 2026-10-31: "full glass with a bit of a greenish
+ * or whatever colour is chosen"): clear, frosted, with a wash of the tier's colour in it and the
+ * page's frosted lines showing through. No brand blue of its own.
+ *
+ *   tint    the colour washed into the glass, and the soft glow in its middle (the operator's
+ *           loyalty card has one)
+ *   smoke   how dark the glass is under that wash, by theme: none on blue mode's navy, which is
+ *           ground enough for the white ink; enough on the light page that the white ink keeps a
+ *           ground; a black tier is smoked glass on either
+ *   lines   the court lines across it, and the alpha they are laid at
+ *   word    the tier's name in the corner, a step brighter than the metal so it holds at 11 pt
+ *   metal   the holder's raised name: hi where it rounds toward the light, face, lo the foot,
+ *           shade the slopes and sides turned away
+ *   rim     the cut edge catching the light
+ *
+ * `classic` keeps the card's own colours from before tiers had any: Padel Green wash, lines and
+ * word, the silver name.
+ */
+export interface TierFinish {
+  tint: string;
+  smoke: { light: number; dark: number };
+  lines: string;
+  linesAlpha: number;
+  word: string;
+  metal: { hi: string; face: string; lo: string; shade: string };
+  rim: string;
+}
+
+/** The dark under a smoked glass: brand black, a breath toward the navy. */
+export const GLASS_SMOKE = '#0B1018';
+
+/** Clear on blue mode, smoked enough on the light page for white ink. */
+const CLEAR = { light: 0.6, dark: 0.3 } as const;
+
+export const tierFinish = {
+  classic: {
+    tint: '#A5D06F',
+    smoke: CLEAR,
+    lines: '#A5D06F',
+    linesAlpha: 0.2,
+    word: '#A5D06F',
+    metal: { hi: frame.silverHi, face: frame.silver, lo: frame.silverLo, shade: frame.steel },
+    rim: 'rgba(255,255,255,0.28)',
+  },
+  bronze: {
+    tint: '#E0A67A',
+    smoke: CLEAR,
+    lines: '#E0A67A',
+    linesAlpha: 0.26,
+    word: '#F2C6A2',
+    metal: { hi: '#F2C6A2', face: '#D99A6C', lo: '#9A5F36', shade: '#5E3A20' },
+    rim: 'rgba(242,198,162,0.34)',
+  },
+  silver: {
+    tint: '#E0E0E1',
+    smoke: CLEAR,
+    lines: frame.silverHi,
+    linesAlpha: 0.24,
+    word: frame.silverHi,
+    metal: { hi: '#F4F4F5', face: frame.silverHi, lo: frame.silverLo, shade: frame.steel },
+    rim: 'rgba(224,224,225,0.34)',
+  },
+  gold: {
+    tint: '#E9BF72',
+    smoke: CLEAR,
+    lines: frame.goldHi,
+    linesAlpha: 0.26,
+    word: '#F3D79B',
+    metal: { hi: '#F6DEA8', face: frame.gold, lo: frame.goldLo, shade: '#5C410F' },
+    rim: 'rgba(243,215,155,0.36)',
+  },
+  platinum: {
+    tint: '#D8ECFF',
+    smoke: CLEAR,
+    lines: '#E6F1FF',
+    linesAlpha: 0.24,
+    word: '#E6F1FF',
+    metal: { hi: '#F7FBFF', face: '#D8ECFF', lo: '#8FA6BF', shade: '#56677A' },
+    rim: 'rgba(230,241,255,0.36)',
+  },
+  // Smoked glass: charcoal lines, the word in pale steel, the name in gunmetal with its white
+  // crest, so the raised letters still read on the dark.
+  black: {
+    tint: '#6B6E76',
+    smoke: { light: 0.82, dark: 0.55 },
+    lines: '#8A8D95',
+    linesAlpha: 0.3,
+    word: '#D4D6DB',
+    metal: { hi: '#B4B7BE', face: '#7A7D85', lo: '#3A3C41', shade: '#1C1D20' },
+    rim: 'rgba(212,214,219,0.26)',
+  },
+} as const satisfies Record<string, TierFinish>;
+
+/**
  * Third-party sign-in button colours — Google's official light/dark button
  * themes (developers.google.com/identity/branding-guidelines) and Apple's HIG.
  * Theme-invariant like `brand`; the Google mark is never recoloured.

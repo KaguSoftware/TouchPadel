@@ -63,6 +63,7 @@ describe('parseMyLoyalty', () => {
         name_ar: 'ذهبي',
         multiplier: '1.5',
         min_points_12m: 100,
+        color: 'gold',
       },
       point_value_iqd: 50,
       min_redeem_points: 100,
@@ -83,9 +84,21 @@ describe('parseMyLoyalty', () => {
       ],
     });
     expect(l.enabled).toBe(true);
-    expect(l.next_tier).toMatchObject({ id: 't1', multiplier: 1.5, min_points_12m: 100 });
+    expect(l.next_tier).toMatchObject({
+      id: 't1',
+      multiplier: 1.5,
+      min_points_12m: 100,
+      color: 'gold',
+    });
+    // 0376: a tier with no colour (a server before it) is the classic card
+    expect(l.tier?.color).toBe('classic');
     expect(l.history.map((r) => r.id)).toEqual(['a']);
     expect(l.rewards).toHaveLength(1);
+  });
+
+  it('reads a colour this build does not know as the classic card', () => {
+    const l = parseMyLoyalty({ tier: { id: 't0', name_en: 'M', name_ar: 'م', color: 'purple' } });
+    expect(l.tier?.color).toBe('classic');
   });
 
   it('reads anything unreadable as off and empty, never a crash', () => {
@@ -150,13 +163,14 @@ describe('the refresh clock', () => {
 });
 
 describe('tierProgress', () => {
-  const tier = { id: 't0', name_en: 'Member', name_ar: 'عضو', multiplier: 1 };
+  const tier = { id: 't0', name_en: 'Member', name_ar: 'عضو', multiplier: 1, color: 'classic' as const };
   const next = {
     id: 't1',
     name_en: 'Silver',
     name_ar: 'فضي',
     multiplier: 1.25,
     min_points_12m: 1500,
+    color: 'silver' as const,
   };
 
   it('measures from the base tier when the current threshold is not sent', () => {

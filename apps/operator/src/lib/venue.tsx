@@ -214,8 +214,8 @@ export function useVenue(): VenueContextValue {
   );
 }
 
-/** Staff broadcast topics that exist per branch since 0224 ('kds', 'floor', 'courts'). */
-const PER_BRANCH_TOPICS = new Set(['kds', 'floor', 'courts']);
+/** Staff broadcast topics that exist per branch since 0224 ('kds', 'floor', 'courts'), and 'checklists' since 0375 (per branch only). */
+const PER_BRANCH_TOPICS = new Set(['kds', 'floor', 'courts', 'checklists']);
 
 /** Pure: the realtime topic for a branch; the literal topic while no branch is known. */
 export function branchTopic(topic: string, branchId: string | null): string {

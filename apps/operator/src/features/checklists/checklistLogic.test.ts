@@ -8,6 +8,7 @@ import {
   WEEKDAYS,
   awayIds,
   blankDraft,
+  cardGroup,
   cardRows,
   clockText,
   dayListKey,
@@ -20,6 +21,8 @@ import {
   draftSummary,
   dueLabel,
   dueRule,
+  filterCounts,
+  filterRows,
   findTemplate,
   moveLine,
   photoLineCount,
@@ -134,6 +137,14 @@ describe('daySummary and cardRows', () => {
 
   it('puts overdue first, then the least done, then the finished ones in the server order', () => {
     expect(cardRows(state).map((l) => `${l.role}.${l.slot}`)).toEqual(['cashier.open', 'driver.open', 'barista.close', 'barista.open', 'chef.open', 'waiter.open']);
+  });
+
+  it('files each copy under one filter and counts them (0375)', () => {
+    const rows = cardRows(state);
+    expect(rows.map((l) => cardGroup(l))).toEqual(['overdue', 'todo', 'todo', 'finished', 'finished', 'finished']);
+    expect(filterCounts(rows)).toEqual({ all: 6, overdue: 1, todo: 2, finished: 3 });
+    expect(filterRows(rows, 'todo').map((l) => l.role)).toEqual(['driver', 'barista']);
+    expect(filterRows(rows, 'all')).toEqual(rows);
   });
 });
 
@@ -332,6 +343,13 @@ describe('the owner draft', () => {
   it('drops a line left blank in both languages and trims the rest', () => {
     expect(savePayloadItems(draft({ lines: [line('a', '  Wipe ', ' امسح '), line('b', '', ' ', true)] }))).toEqual([{ text_en: 'Wipe', text_ar: 'امسح', photo_required: false }]);
     expect(draftIsValid(draft())).toBe(true);
+  });
+
+  it('refuses a list with no line written, blank ones not counted (0375, CHECKLIST_NO_LINES)', () => {
+    expect(draftProblems(draft()).noLines).toBe(false);
+    expect(draftProblems(draft({ lines: [] })).noLines).toBe(true);
+    expect(draftProblems(draft({ lines: [line('x', ' ', '')] })).noLines).toBe(true);
+    expect(draftIsValid(draft({ lines: [line('x', '', '')] }))).toBe(false);
   });
 
   it('refuses a line or a name in one language only, and a text past its limit', () => {

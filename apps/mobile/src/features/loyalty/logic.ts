@@ -16,6 +16,7 @@ import {
   type LoyaltyTier,
   type MemberCard,
   type MyLoyalty,
+  tierColor,
 } from '@touch/core/loyalty';
 
 type Obj = Record<string, unknown>;
@@ -44,6 +45,8 @@ function parseTier(raw: unknown): LoyaltyTier | null {
     name_en: str(raw.name_en),
     name_ar: str(raw.name_ar),
     multiplier: num(raw.multiplier ?? 1),
+    // 0376: a server before it, or a colour this build does not know, is the classic card.
+    color: tierColor(raw.color),
   };
   if (raw.min_points_12m !== undefined && raw.min_points_12m !== null) {
     tier.min_points_12m = num(raw.min_points_12m);

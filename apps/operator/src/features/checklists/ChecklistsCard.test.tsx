@@ -214,6 +214,24 @@ describe('ChecklistsCard', () => {
     expect(rpc).toHaveBeenCalledWith('checklist_day_state', { p_business_date: '2026-09-25' });
   });
 
+  it('lists every copy in one scrolling list, filtered to overdue, not done yet or finished, each with its count', async () => {
+    renderCard('manager');
+    await screen.findByText('1 of 3 lists finished today');
+    const shown = () => [...document.querySelectorAll('[data-list]')].map((r) => r.getAttribute('data-list'));
+    expect(screen.getByTestId('checklists-card-list').style.overflowY).toBe('auto');
+    expect(screen.queryByText(/more$/)).toBeNull();
+    const filter = (f: string) => screen.getByTestId(`checklists-filter-${f}`);
+    expect(filter('all').textContent).toContain('3');
+    await userEvent.click(filter('overdue'));
+    expect(shown()).toEqual(['t4:Bareq']);
+    await userEvent.click(filter('todo'));
+    expect(shown()).toEqual(['t3:']);
+    await userEvent.click(filter('finished'));
+    expect(shown()).toEqual(['t1:']);
+    await userEvent.click(filter('all'));
+    expect(shown()).toEqual(['t4:Bareq', 't3:', 't1:']);
+  });
+
   it('shows the manager each copy, its person and who ticked what, and gives the manager no editor', async () => {
     renderCard('manager');
     await screen.findByText('1 of 3 lists finished today');
@@ -430,9 +448,9 @@ describe('ChecklistsCard', () => {
     expect((within(editor).getByRole('button', { name: 'Save the list' }) as HTMLButtonElement).disabled).toBe(true);
   });
 
-  it('says a copy keeps its lines only for a list with a copy open', async () => {
+  it('says how a copy open now takes the change only for a list with a copy open', async () => {
     renderCard('owner');
-    const keeps = /that copy keeps its old lines/;
+    const keeps = /New lines are added to it at once/;
     const { dialog, editor } = await openEditor('t1');
     expect(within(editor).getByText(keeps)).toBeTruthy();
     await userEvent.click(within(dialog).getByTestId('checklist-list-t2'));

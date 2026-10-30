@@ -39,6 +39,7 @@ export const opErrorsProtocolsAr: DeepMessages<typeof opErrorsProtocolsEn> = {
   CHECKLIST_NOT_FOUND: 'تعذّر العثور على قائمة التحقق هذه.',
   // 0323: scheduled checklists.
   CHECKLIST_CLOSED: 'انتهت قائمة التحقق هذه، فلا يمكن التأشير عليها. حدّث الصفحة لترى القائمة الحالية.',
+  CHECKLIST_NO_LINES: 'أضف سطرًا واحدًا على الأقل إلى القائمة قبل حفظها.',
   ASSIGNEE_NOT_AT_BRANCH: 'أحد الأشخاص الذين اخترتهم لم يعد يعمل في هذا الفرع. راجع الأسماء ثم احفظ مرة أخرى.',
   SHOPPING_ITEM_NOT_OPEN: 'لم يعد هذا البند في قائمة التسوق.',
   PURCHASE_NOT_FOUND: 'تعذّر العثور على عملية الشراء هذه.',

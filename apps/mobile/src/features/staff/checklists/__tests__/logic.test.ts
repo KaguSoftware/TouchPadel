@@ -1,15 +1,18 @@
 import { describe, expect, it } from 'vitest';
-import { formatTime } from '@touch/i18n';
+import { formatDate, formatTime } from '@touch/i18n';
 import {
   applyMark,
   checklistTodos,
   dueText,
+  historyLists,
   isClosedError,
   isOverdue,
   localName,
   localText,
   markArgs,
   orderLists,
+  outcomeText,
+  periodText,
   repeatText,
   showsSlotLabel,
   sortForToday,
@@ -17,6 +20,7 @@ import {
   type ChecklistItem,
   type ChecklistList,
   type ChecklistsToday,
+  type HistoryList,
 } from '../logic';
 
 const item = (over: Partial<ChecklistItem> = {}): ChecklistItem => ({
@@ -282,5 +286,51 @@ describe('CHECKLIST_CLOSED', () => {
     expect(isClosedError({ code: 'P0001', message: 'CHECKLIST_CLOSED' })).toBe(true);
     expect(isClosedError({ code: 'P0001', message: 'CHECKLIST_NOT_FOUND' })).toBe(false);
     expect(isClosedError(new Error('network down'))).toBe(false);
+  });
+});
+
+// 0375: the past lists page.
+describe('past lists', () => {
+  const past = (over: Partial<HistoryList> = {}): HistoryList => ({
+    run_id: 'r1',
+    template_id: 't1',
+    role: 'cashier',
+    slot: 'open',
+    name_en: 'Till opening',
+    name_ar: 'افتتاح الصندوق',
+    done: 2,
+    total: 2,
+    last_done_at: '2026-10-26T06:12:00Z',
+    period_start: '2026-10-26',
+    period_end: '2026-10-26',
+    due_at: null,
+    assignee_id: null,
+    items: [],
+    ...over,
+  });
+  const day = (d: string, locale: 'en' | 'ar') => formatDate(new Date(d + 'T12:00:00Z'), locale);
+
+  it('says the day a list ran, or the first and last day of a longer one', () => {
+    expect(periodText(past(), 'en')).toBe(day('2026-10-26', 'en'));
+    expect(periodText(past({ period_end: null }), 'en')).toBe(day('2026-10-26', 'en'));
+    const range = periodText(past({ period_end: '2026-11-01' }), 'en');
+    expect(range).toContain(day('2026-10-26', 'en'));
+    expect(range).toContain(day('2026-11-01', 'en'));
+    expect(periodText(past({ period_end: '2026-11-01' }), 'ar')).toContain(day('2026-11-01', 'ar'));
+  });
+
+  it('says when a finished list was finished, and that an unfinished one was not', () => {
+    expect(outcomeText(past(), 'en')).toBe('Finished at ' + formatTime(new Date('2026-10-26T06:12:00Z'), 'en'));
+    expect(outcomeText(past({ done: 1 }), 'en')).toBe('Not finished');
+    expect(outcomeText(past({ last_done_at: null }), 'en')).toBe('Not finished');
+  });
+
+  it('joins the pages read so far, each list once', () => {
+    const a = past({ run_id: 'a' });
+    const b = past({ run_id: 'b' });
+    const c = past({ run_id: 'c' });
+    const page = (lists: HistoryList[]) => ({ business_date: '2026-10-31', lists, next: null });
+    expect(historyLists([page([a, b]), page([b, c])]).map((l) => l.run_id)).toEqual(['a', 'b', 'c']);
+    expect(historyLists(undefined)).toEqual([]);
   });
 });

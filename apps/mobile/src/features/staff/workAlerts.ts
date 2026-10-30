@@ -18,6 +18,7 @@ import {
 } from '../profile/push';
 import { addBreadcrumb } from '../../lib/telemetry';
 import { fetchChecklistsToday } from './checklists/api';
+import { useChecklistsLive } from './checklists/live';
 import { fetchMyWork } from './protocols/api';
 import { staffKeys } from './keys';
 import { waitingCount } from './workCount';
@@ -25,9 +26,11 @@ import { waitingCount } from './workCount';
 /**
  * How much on the work alerts page waits on the person at `venueId`: the same
  * reads the page makes, so opening it shows what the badge counted. Zero
- * while they load or when there is no venue.
+ * while they load or when there is no venue. Live over the branch's
+ * checklists topic (0375), so the badge moves with a tick or a new line.
  */
 export function useWaitingCount(venueId: string | null): number {
+  useChecklistsLive(venueId);
   const lists = useQuery({
     queryKey: staffKeys.checklists(venueId ?? ''),
     queryFn: () => fetchChecklistsToday(venueId!),

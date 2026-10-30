@@ -6,9 +6,13 @@
  * what the screen offers before it asks. Tested in loyaltyLogic.test.ts under node.
  */
 import {
+  DEFAULT_TIER_COLOR,
   MEMBER_TOKEN_RE,
+  TIER_COLORS,
   parseMemberInput,
   redeemAmount,
+  tierColor,
+  type TierColor,
   type IdentifiedMember,
   type LedgerKind,
   type LoyaltyAdminReward,
@@ -334,6 +338,18 @@ export interface TierDraft {
   earn_multiplier: string;
   promotion_id: string | null;
   sort: number;
+  /** 0376: the card colour the guest's points card takes in this tier. */
+  color: TierColor;
+}
+
+/**
+ * The colour a new tier starts on: the first of the ladder (bronze, silver, gold, platinum,
+ * black) no tier has yet, so three tiers added in a row come out three colours; classic once
+ * every one is taken. The owner can pick any.
+ */
+export function suggestTierColor(tiers: readonly Pick<LoyaltyAdminTier, 'color'>[]): TierColor {
+  const used = new Set(tiers.map((t) => tierColor(t.color)));
+  return TIER_COLORS.find((c) => c !== DEFAULT_TIER_COLOR && !used.has(c)) ?? DEFAULT_TIER_COLOR;
 }
 
 export function tierDraft(
@@ -349,6 +365,7 @@ export function tierDraft(
       earn_multiplier: String(t.earn_multiplier),
       promotion_id: t.promotion_id,
       sort: t.sort,
+      color: tierColor(t.color),
     };
   }
   // A new tier goes after the last one; its order is unique (loyalty_tiers.sort).
@@ -361,6 +378,7 @@ export function tierDraft(
     earn_multiplier: '1',
     promotion_id: null,
     sort,
+    color: suggestTierColor(tiers),
   };
 }
 
@@ -393,6 +411,7 @@ export function tierPayload(d: TierDraft): Record<string, unknown> {
     earn_multiplier: parseMultiplier(d.earn_multiplier) ?? 1,
     promotion_id: d.promotion_id,
     sort: d.sort,
+    color: d.color,
   };
 }
 

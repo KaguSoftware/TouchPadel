@@ -439,6 +439,7 @@ export function ChecklistEditor({
             })}
           </ol>
         )}
+        {tried && problems.noLines && <FieldError>{tr('ws.supplies.checklists.editor.needLine')}</FieldError>}
         {full ? (
           <MessagePresenter tone="info" message={tr('ws.supplies.checklists.editor.full', { max: formatNumber(MAX_LINES, locale) })} />
         ) : (
