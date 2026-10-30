@@ -22,7 +22,7 @@
  * description of the screen, and the period presets count from the venue's
  * business day, the same calendar the management panel and Analytics use.
  */
-import { useMemo, useState, type ReactNode } from 'react';
+import { useContext, useMemo, useState, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { businessTodayISO, normalizeBusinessDayStart } from '@touch/core';
 import { VENUE_TZ, formatDate, formatIQD, formatNumber, formatPercent, type Locale, type MessageKey } from '@touch/i18n';
@@ -39,6 +39,7 @@ import {
   ExportButton,
   HeadlineFigure,
   MessagePresenter,
+  PageFamilyContext,
   PageHeader,
   SegmentedControl,
   TableSkeleton,
@@ -53,6 +54,7 @@ import {
   type SortState,
 } from '../../components/kit';
 import { Icon } from '../../components/icons';
+import { useBranchScopeParts } from './ReportBranchScope';
 import { downloadTable, type CsvCell, type SheetColumn } from '../analytics/exportTables';
 import { reportFilename } from './reportFile';
 import { readCompared, sortBy, type Compared, type FigureChange } from './reportPayloads';
@@ -175,9 +177,12 @@ export function ReportFrame({
   children: ReactNode;
 }) {
   const { tr, locale } = useLocale();
+  const family = useContext(PageFamilyContext);
+  const branchScope = useBranchScopeParts();
   return (
     <div>
       <PageHeader
+        tabsInPage={Boolean(family?.segTabs)}
         title={tr(`ws.reports.nav.${name}`)}
         eyebrow={tr('ws.reports.title')}
         subtitle={
@@ -187,13 +192,24 @@ export function ReportFrame({
         }
         actions={onExport && <ExportButton onExport={onExport} disabled={exportDisabled} scope={tr('ws.reports.frame.exportScope')} />}
       />
-      {/* One line: the period, then the report's filters beside it. */}
-      <Toolbar style={{ alignItems: 'flex-end', gap: 'var(--tp-sp-3)' }}>
-        <Field label={tr('ws.reports.filters.period')} group style={{ marginBlockEnd: 0 }}>
-          <DateRangeControl period={period} onChange={onPeriod} disabled={busy} now={today} />
-        </Field>
-        {filters}
-      </Toolbar>
+      {/* One line, as on Analytics: the branch, the period, the report's filters,
+          and the family's tabs as a segmented control at the end. */}
+      <div className="tp-filter-line">
+        <Toolbar style={{ alignItems: 'flex-end', gap: 'var(--tp-sp-3)' }} end={family?.segTabs}>
+          {branchScope && (
+            <Field label={branchScope.label} group style={{ marginBlockEnd: 0 }}>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-2)' }}>
+                {branchScope.select}
+                {branchScope.note}
+              </span>
+            </Field>
+          )}
+          <Field label={tr('ws.reports.filters.period')} group style={{ marginBlockEnd: 0 }}>
+            <DateRangeControl period={period} onChange={onPeriod} disabled={busy} now={today} />
+          </Field>
+          {filters}
+        </Toolbar>
+      </div>
       {children}
     </div>
   );

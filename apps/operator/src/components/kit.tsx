@@ -32,6 +32,8 @@ export interface PageFamily {
   eyebrow: string;
   title: string;
   tabs: ReactNode;
+  /** The same strip as a segmented control, for a page that places it at the end of its own filter line. */
+  segTabs?: ReactNode;
 }
 export const PageFamilyContext = createContext<PageFamily | null>(null);
 
@@ -44,6 +46,7 @@ export function PageHeader({
   children,
   style,
   ownTitle,
+  tabsInPage,
 }: {
   title: string;
   /**
@@ -62,6 +65,8 @@ export function PageHeader({
    * opened on Goods in): it keeps its own title and shows no family tabs.
    */
   ownTitle?: boolean;
+  /** The page draws the family tabs itself (`PageFamily.segTabs`, at the end of its filter line), so the header leaves them out. */
+  tabsInPage?: boolean;
 }) {
   const inFamily = useContext(PageFamilyContext);
   const family = ownTitle ? null : inFamily;
@@ -100,7 +105,7 @@ export function PageHeader({
         </div>
         {actions && <div className="tp-page-actions" style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>{actions}</div>}
       </div>
-      {family?.tabs}
+      {!tabsInPage && family?.tabs}
       {children}
     </header>
   );
@@ -240,7 +245,7 @@ export function Panel({
               // Wrapped only when something sits beside it, so every other
               // band keeps its heading as a direct child.
               return titleEnd ? (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-1)', minInlineSize: 0 }}>
+                <div className={flat ? undefined : 'tp-band-title'} style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-1)', minInlineSize: 0, color: flat ? undefined : band === 'group' ? 'var(--tp-group-head-fg)' : 'var(--tp-panel-head-fg)' }}>
                   {heading}
                   {titleEnd}
                 </div>
@@ -1784,7 +1789,6 @@ export function DateRangeControl({
       disabled={disabled}
       aria-label={ariaLabelledBy ? undefined : (ariaLabel ?? tr('ws.kit.dateRange.label'))}
       aria-labelledby={ariaLabelledBy}
-      style={{ minBlockSize: '1.85rem', paddingBlock: '0.2rem', fontSize: 'var(--tp-fs-sm)' }}
     />
   );
 }

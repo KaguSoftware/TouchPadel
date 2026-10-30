@@ -41,7 +41,8 @@
  * left out when the server sent neither (before 0288). Like the online group,
  * a row opens its report (revenue; Coach pay) and is never drilled.
  */
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { businessTodayISO, normalizeBusinessDayStart, resolveRange } from '@touch/core';
@@ -145,6 +146,9 @@ export function ManagementPanelScreen() {
     }
   }
 
+  // Where the "Other reports" footer goes: the content column, after <main>.
+  const [footerHost, setFooterHost] = useState<HTMLElement | null>(null);
+  useEffect(() => setFooterHost(document.getElementById('tp-main-column')), []);
   const go = (to: FigureMeta['report']) => void navigate({ to });
   // A card's rows. A row opens its transactions; the online and lesson rows
   // open their report instead (report_drill cannot list them).
@@ -188,6 +192,7 @@ export function ManagementPanelScreen() {
         <PanelNeedsYou />
         <LiveFloor blockSize="24rem" boardLinks />
       </div>
+      <hr aria-hidden="true" style={{ border: 'none', borderBlockStart: '1px solid var(--tp-border)', marginBlock: '0 var(--tp-sp-4)' }} />
 
       <Toolbar end={<ComparisonControl mode={compare} onChange={setCompare} disabled={headlineQ.isFetching} />}>
         <DateRangeControl period={period} onChange={setPeriod} disabled={headlineQ.isFetching} now={today} />
@@ -273,35 +278,34 @@ export function ManagementPanelScreen() {
           )}
         </BreakdownFrame>
 
-        {/* Sticks to the bottom of the window, so the other reports are one
+        {/* A footer under the scrolling area, so the other reports are one
             click away without scrolling past every figure (Sait, 2026-10-17).
-            It bleeds through <main>'s padding (inline --tp-sp-5, block
-            --tp-sp-4, routes/__root.tsx) so it runs from the rail to the
-            window's edge and sits flush on the bottom (Sait, 2026-10-18). */}
-        <nav
-          aria-label={tr('ws.owner.panel.otherReports')}
-          style={{
-            position: 'sticky',
-            insetBlockEnd: 'calc(-1 * var(--tp-sp-4))',
-            zIndex: 'var(--tp-z-sticky)',
-            display: 'flex',
-            gap: 'var(--tp-sp-2)',
-            flexWrap: 'wrap',
-            alignItems: 'center',
-            marginBlockStart: 'var(--tp-sp-4)',
-            marginInline: 'calc(-1 * var(--tp-sp-5))',
-            marginBlockEnd: 'calc(-1 * var(--tp-sp-4))',
-            paddingBlock: 'var(--tp-sp-3)',
-            paddingInline: 'var(--tp-sp-5)',
-            borderBlockStart: '1px solid var(--tp-border)',
-            background: 'var(--tp-surface)',
-          }}
-        >
-          <span style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', fontWeight: 600 }}>{tr('ws.owner.panel.otherReports')}</span>
-          <Button size="sm" icon="chart" onClick={() => go('/reports/revenue')}>{tr('ws.owner.panel.openRevenue')}</Button>
-          <Button size="sm" icon="box" onClick={() => go('/reports/stock')}>{tr('ws.owner.panel.openStock')}</Button>
-          <Button size="sm" icon="users" onClick={() => go('/reports/staff')}>{tr('ws.owner.panel.openStaff')}</Button>
-        </nav>
+            It is portalled into the content column after <main>, not stuck
+            inside it: it runs the full width to the window's edge and the
+            scrollbar ends above it, whole (Sait, 2026-10-27). */}
+        {footerHost && createPortal(
+          <nav
+            className="tp-other-reports"
+            aria-label={tr('ws.owner.panel.otherReports')}
+            style={{
+              flex: 'none',
+              display: 'flex',
+              gap: 'var(--tp-sp-2)',
+              flexWrap: 'wrap',
+              alignItems: 'center',
+              paddingBlock: 'var(--tp-sp-3)',
+              paddingInline: 'var(--tp-sp-5)',
+              borderBlockStart: '1px solid var(--tp-border)',
+              background: 'var(--tp-surface)',
+            }}
+          >
+            <span style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', fontWeight: 600 }}>{tr('ws.owner.panel.otherReports')}</span>
+            <Button size="sm" icon="chart" onClick={() => go('/reports/revenue')}>{tr('ws.owner.panel.openRevenue')}</Button>
+            <Button size="sm" icon="box" onClick={() => go('/reports/stock')}>{tr('ws.owner.panel.openStock')}</Button>
+            <Button size="sm" icon="users" onClick={() => go('/reports/staff')}>{tr('ws.owner.panel.openStaff')}</Button>
+          </nav>,
+          footerHost,
+        )}
       </AsyncStateWrapper>
 
       {/* The same transactions window the reports open, so a figure reads the

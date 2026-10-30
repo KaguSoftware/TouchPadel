@@ -188,7 +188,7 @@ export function ZoneFrame({ lead, children }: { lead?: ReactNode; children: Reac
  * its "Show more" buttons land (Sait, 2026-10-24). `claim` is called by each
  * MoreCharts so the slot only exists (and only adds a gap) when one is there.
  */
-const MoreSlot = createContext<{ node: HTMLElement | null; claim: () => () => void } | null>(null);
+const MoreSlot = createContext<{ node: HTMLElement | null; buttonNode: HTMLElement | null; claim: () => () => void } | null>(null);
 
 export function Zone({
   zone,
@@ -209,12 +209,13 @@ export function Zone({
   const { tr } = useLocale();
   const title = tr(zone.titleKey);
   const [moreNode, setMoreNode] = useState<HTMLElement | null>(null);
+  const [buttonNode, setButtonNode] = useState<HTMLElement | null>(null);
   const [claims, setClaims] = useState(0);
   const claim = useCallback(() => {
     setClaims((n) => n + 1);
     return () => setClaims((n) => n - 1);
   }, []);
-  const slot = { node: moreNode, claim };
+  const slot = { node: moreNode, buttonNode, claim };
   // scrollMarginBlockStart is replaced with the measured bar height by scrollToZone.
   if (headInFrame) {
     return (
@@ -249,13 +250,20 @@ export function Zone({
               <BreakdownLook.Provider value="card">{children}</BreakdownLook.Provider>
             </MoreSlot.Provider>
           </div>
-          {/* The section's answer sits under its cards (Sait, 2026-10-24). */}
-          {lead && (
-            <p data-testid={`zone-${zone.id}-lead`} style={leadStyle}>
-              {lead}
-            </p>
-          )}
           {claims > 0 && <div ref={setMoreNode} />}
+          {/* The section's answer sits under its cards (Sait, 2026-10-24), on the
+              same footer line as "Show more" (at its end), parted by a rule; a
+              section with no "Show more" keeps the line with the answer alone. */}
+          {(lead || claims > 0) && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-3)', borderBlockStart: '1px solid var(--tp-border)', paddingBlockStart: 'var(--tp-sp-3)' }}>
+              {lead && (
+                <p data-testid={`zone-${zone.id}-lead`} style={{ ...leadStyle, flex: '1 1 0', minInlineSize: 0 }}>
+                  {lead}
+                </p>
+              )}
+              {claims > 0 && <div ref={setButtonNode} style={{ flexShrink: 0, marginInlineStart: 'auto' }} />}
+            </div>
+          )}
         </div>
       </Panel>
     </section>
@@ -357,7 +365,7 @@ export function MoreCharts({ id, count, children }: { id: string; count: number;
       return !v;
     });
   };
-  const node = (
+  const body = (
     <div style={slot ? undefined : { marginBlockStart: 'var(--tp-sp-3)' }}>
       {/* Height runs through a 0fr → 1fr track, so it needs no measuring; reduced-motion cuts it in GlobalStyles. */}
       <div
@@ -371,25 +379,38 @@ export function MoreCharts({ id, count, children }: { id: string; count: number;
           </div>
         </div>
       </div>
-      {/* A rule above the button, so it reads as the foot of the section (Sait, 2026-10-24). */}
-      <div style={{ borderBlockStart: '1px solid var(--tp-border)', paddingBlockStart: 'var(--tp-sp-3)' }}>
-        <button
-          type="button"
-          className="tp-btn"
-          data-kind="soft"
-          aria-expanded={open}
-          aria-controls={bodyId}
-          onClick={toggle}
-          style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-1)', fontSize: 'var(--tp-fs-sm)', fontWeight: 600 }}
-        >
-          <Icon name="chevronDown" size={14} style={{ transform: open ? 'rotate(180deg)' : undefined, transition: 'transform var(--tp-dur-fast) var(--tp-ease-out)' }} />
-          {open ? tr('ws.analytics.more.hide') : tr('ws.analytics.more.show', { n: count })}
-        </button>
-      </div>
     </div>
   );
-  if (!slot) return node;
-  return slot.node ? createPortal(node, slot.node) : null;
+  const button = (
+    <button
+      type="button"
+      className="tp-btn"
+      data-kind="soft"
+      aria-expanded={open}
+      aria-controls={bodyId}
+      onClick={toggle}
+      style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-1)', fontSize: 'var(--tp-fs-sm)', fontWeight: 600 }}
+    >
+      <Icon name="chevronDown" size={14} style={{ transform: open ? 'rotate(180deg)' : undefined, transition: 'transform var(--tp-dur-fast) var(--tp-ease-out)' }} />
+      {open ? tr('ws.analytics.more.hide') : tr('ws.analytics.more.show', { n: count })}
+    </button>
+  );
+  if (!slot) {
+    return (
+      <>
+        {body}
+        {/* A rule above the button, so it reads as the foot of the section (Sait, 2026-10-24). */}
+        <div style={{ borderBlockStart: '1px solid var(--tp-border)', paddingBlockStart: 'var(--tp-sp-3)' }}>{button}</div>
+      </>
+    );
+  }
+  // Inside a Zone: the charts open above the footer line, the button sits in it.
+  return (
+    <>
+      {slot.node && createPortal(body, slot.node)}
+      {slot.buttonNode && createPortal(button, slot.buttonNode)}
+    </>
+  );
 }
 
 /** Which sections the owner opened, kept across tab switches for the visit. */

@@ -813,6 +813,9 @@ button.tp-nav-item { background: transparent; }
   transition: background var(--tp-dur-fast) var(--tp-ease-out), border-color var(--tp-dur-fast) var(--tp-ease-out);
 }
 .tp-rail-back:hover { background: var(--tp-rail-active); border-color: var(--tp-rail-green); color: var(--tp-rail-active-fg); }
+/* Dark mode's keyboard focus on the rail is a calmer green than the bright
+   Padel Green (Sait, 2026-10-30). */
+:root[data-theme='operator'][data-mode='blue'] :is(.tp-nav-item:not([data-active='true']), .tp-rail-btn.tp-btn, .tp-rail-back):focus-visible { outline-color: #6F8F45; }
 /* Same frame-of-the-press nudge as .tp-btn, and for the same reason. */
 .tp-rail-back:active { transform: translateY(1px); }
 .tp-rail-back:focus-visible { outline-color: var(--tp-rail-green); }
@@ -903,8 +906,14 @@ button.tp-nav-item { background: transparent; }
   cursor: pointer; white-space: nowrap;
   transition: background var(--tp-dur-fast) var(--tp-ease-out), color var(--tp-dur-fast) var(--tp-ease-out);
 }
+/* On the analytics bar the tab strip stands on the same height as the dropdowns beside it (it ran ~3px taller). */
+#analytics-bar .tp-seg, .tp-filter-line .tp-seg { box-sizing: border-box; min-block-size: var(--tp-row-h); }
+#analytics-bar .tp-seg-btn, .tp-filter-line .tp-seg-btn { padding-block: 0.2rem; }
 .tp-seg[data-size='sm'] .tp-seg-btn { padding-block: 0.2rem; padding-inline: 0.55rem; font-size: var(--tp-fs-sm); }
 .tp-seg[data-block='true'] .tp-seg-btn { flex: 1 1 0; justify-content: center; min-inline-size: 0; min-block-size: var(--tp-touch); border-radius: var(--tp-radius-pill); }
+/* A link strip (family tabs) drawn as the segmented control: aria-current marks the page. */
+.tp-seg-btn { text-decoration: none; }
+.tp-seg:not([data-thumb='true']) .tp-seg-btn[aria-current='page'] { background: var(--tp-seg-on); color: var(--tp-seg-on-fg); font-weight: 700; }
 /* aria-selected: the same look on a role="tab" strip (the Analytics Courts | Café switch). */
 .tp-seg-btn:hover:not(:disabled):not([aria-pressed='true']):not([aria-selected='true']) { background: var(--tp-seg-hover); }
 .tp-seg-btn[aria-pressed='true'], .tp-seg-btn[aria-selected='true'] { color: var(--tp-seg-on-fg); font-weight: 700; }
@@ -1097,7 +1106,7 @@ button.tp-nav-item { background: transparent; }
    of drawing the global ring around the textarea. */
 .tp-assistant-input:focus-visible { outline: none; box-shadow: none; }
 .tp-assistant-box:focus-within { box-shadow: 0 0 0 1px var(--tp-accent), 0 4px 16px color-mix(in oklab, var(--tp-accent) 18%, transparent); }
-:root[data-theme='operator'][data-mode='blue'] .tp-assistant-box:focus-within { box-shadow: 0 0 0 1px var(--tp-brand-green), 0 4px 16px color-mix(in oklab, var(--tp-brand-green) 26%, transparent); }
+:root[data-theme='operator'][data-mode='blue'] .tp-assistant-box:focus-within { box-shadow: 0 0 0 1px #6F8F45, 0 4px 16px color-mix(in oklab, #6F8F45 26%, transparent); }
 :root[data-theme='operator'][data-mode='blue'] .tp-assistant-ask:not(:disabled),
 :root[data-theme='operator'][data-mode='blue'] .tp-btn.tp-assistant-green { background: var(--tp-accent-2); border-color: var(--tp-accent-2); color: var(--tp-accent-2-contrast); }
 :root[data-theme='operator'][data-mode='blue'] .tp-assistant-ask:not(:disabled):hover,
@@ -1230,6 +1239,10 @@ button.tp-nav-item { background: transparent; }
   --tp-table-head: var(--tp-bd); --tp-table-head-fg: var(--tp-bd-fg);
   --tp-table-edge: var(--tp-bd-edge); --tp-table-body: transparent;
 }
+/* The "i" in any coloured band (a card's, a panel's) wears the band's own text colour, like its title, instead of the muted grey. */
+.tp-breakdown-head .tp-infotip-trigger, .tp-breakdown-head .tp-infotip-trigger:focus-visible,
+.tp-band-title .tp-infotip-trigger, .tp-band-title .tp-infotip-trigger:focus-visible { color: inherit; }
+.tp-breakdown-head .tp-infotip-trigger:hover:not(:disabled), .tp-band-title .tp-infotip-trigger:hover:not(:disabled) { background: color-mix(in oklab, currentColor 12%, transparent); color: inherit; }
 .tp-breakdown-head .tp-btn[data-kind='ghost'] { color: inherit; }
 .tp-breakdown-head .tp-btn[data-kind='ghost']:hover:not(:disabled) { background: color-mix(in oklab, currentColor 12%, transparent); color: inherit; }
 /* The three rows a card shows take three of the card row's shared tracks

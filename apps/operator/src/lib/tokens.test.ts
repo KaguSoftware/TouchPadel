@@ -196,12 +196,13 @@ describe('panel colours round 3: the cross scopes', () => {
     expect(ratioOf(resolve(ink, blueVars), resolve('--tp-panel-head', blueVars))).toBeGreaterThanOrEqual(4.5);
   });
 
-  // The selected row is Padel Green in both modes (Sait, 2026-10-19): paper
-  // ink on it, with grey text and accent ink pinned to the row's navy.
+  // The selected row is Padel Green on paper (Sait, 2026-10-19) and a calm dark
+  // green in blue mode (2026-10-27): the row's own ink, with grey text and
+  // accent ink pinned to it.
   it.each(INK)('%s reads on the green selected row in both modes', (ink) => {
     const onRow = { '--tp-muted-fg': 'var(--tp-selected-fg)', '--tp-accent': 'var(--tp-selected-fg)' };
     for (const vars of [paperVars, blueVars]) {
-      expect(ratioOf(resolve(ink, { ...paperVars, ...onRow }), resolve('--tp-selected', vars))).toBeGreaterThanOrEqual(4.5);
+      expect(ratioOf(resolve(ink, { ...vars, ...onRow }), resolve('--tp-selected', vars))).toBeGreaterThanOrEqual(4.5);
     }
   });
 

@@ -159,13 +159,13 @@ export const operatorBlueVars = {
   // lighter than the row, not just more coloured (Sait, 2026-10-21).
   '--tp-breakdown-hover-lift': '20%',
   // Tables (Sait, 2026-10-19): the Breakdown's group band, a Padel Green
-  // selected row and total row with navy ink, the same as on paper.
+  // selected row and total row, a calm dark green with white ink in dark mode (Sait, 2026-10-27).
   '--tp-table-head': 'var(--tp-panel-head)',
   '--tp-table-head-fg': 'var(--tp-panel-head-fg)',
-  '--tp-selected': 'var(--tp-brand-green)',
-  '--tp-selected-fg': 'var(--tp-accent-2-contrast)',
-  '--tp-table-total': 'var(--tp-brand-green)',
-  '--tp-table-total-fg': 'var(--tp-accent-2-contrast)',
+  '--tp-selected': '#38481F',
+  '--tp-selected-fg': 'var(--tp-brand-white)',
+  '--tp-table-total': '#38481F',
+  '--tp-table-total-fg': 'var(--tp-brand-white)',
   // Deliberately the paper values: the drill's figure card and its bar look
   // the same in both modes (Sait, 2026-10-19).
   '--tp-total-card': INK_TOOLBAR,
@@ -183,8 +183,8 @@ export const operatorBlueVars = {
   '--tp-seg-fg': 'var(--tp-brand-white)',
   // A step DARKER on hover: white on the lighter BLUE_L58 measured 3.7:1.
   '--tp-seg-hover': BLUE_L38,
-  '--tp-seg-on': 'var(--tp-brand-green)',
-  '--tp-seg-on-fg': 'var(--tp-accent-2-contrast)',
+  '--tp-seg-on': '#38481F',
+  '--tp-seg-on-fg': 'var(--tp-brand-white)',
   // Hover is a lift of the panel ink, not the selection blue, so a row under
   // the pointer is never mistaken for the selected one.
   '--tp-hover': INK_HOVER,

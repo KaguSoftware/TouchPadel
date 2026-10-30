@@ -12,8 +12,9 @@ export const reportsRoute = createRoute({
   component: () => (
     <RequireRole route="/reports">
       {/* Multi-venue slice 4 (MV8): the owner may widen these pages to every branch. */}
-      <ReportBranchScope />
-      <Outlet />
+      <ReportBranchScope inBar>
+        <Outlet />
+      </ReportBranchScope>
     </RequireRole>
   ),
 });

@@ -12,18 +12,32 @@
  * (occupancy, business days) under "All branches" use the rail branch's clock,
  * which the note names.
  */
-import { useEffect, useRef, useState } from 'react';
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../lib/auth';
 import { useLocale, pickName } from '../../lib/i18n';
 import { useVenue, type VenueRow } from '../../lib/venue';
 import { supabase } from '../../lib/supabase';
 import { setReportScope } from '../../lib/venueScope';
-import { SegmentedControl } from '../../components/kit';
+import { SelectMenu } from '../../components/SelectMenu';
+import { inputStyle } from '../../components/ui';
 
 const REPORT_QUERY = /^(reports|analytics|panel)/;
 
-export function ReportBranchScope() {
+/** The scope picker as parts, for a bar that lays it out itself (the analytics bar). */
+export interface BranchScopeParts {
+  label: string;
+  select: ReactNode;
+  note: ReactNode;
+}
+const BarSlot = createContext<BranchScopeParts | null>(null);
+
+/** The picker the analytics bar places at the end of its period row; null when there is nothing to pick. */
+export function useBranchScopeParts(): BranchScopeParts | null {
+  return useContext(BarSlot);
+}
+
+export function ReportBranchScope({ inBar, children }: { inBar?: boolean; children?: ReactNode } = {}) {
   const { tr, locale } = useLocale();
   const { staff } = useAuth();
   const { venues, current } = useVenue();
@@ -66,26 +80,36 @@ export function ReportBranchScope() {
   // Leaving reports and analytics: the rest of the app is one branch again.
   useEffect(() => () => setReportScope(null), []);
 
-  if (!show || !current) return null;
+  if (!show || !current) return inBar ? <>{children}</> : null;
   const options: { value: string; label: string }[] = [{ value: 'one', label: pickName(locale, current) }];
   if (venues.length > 1) options.push({ value: 'all', label: tr('ws.branches.reports.all') });
   for (const v of closed) {
     options.push({ value: v.id, label: tr('ws.branches.reports.closedBranch', { name: pickName(locale, v) }) });
   }
+  const select = (
+    <SelectMenu<string>
+      value={scope}
+      onChange={(v) => setScope(v)}
+      options={options}
+      style={{ ...inputStyle, inlineSize: 'auto', fontSize: 'var(--tp-fs-sm)', paddingBlock: 'var(--tp-sp-1-5)' }}
+      className="tp-glass-ctl"
+      aria-label={tr('ws.branches.reports.scope')}
+    />
+  );
+  const note =
+    scope === 'all' ? (
+      <span style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>
+        {tr('ws.branches.reports.clockNote', { name: pickName(locale, current) })}
+      </span>
+    ) : null;
+  if (inBar) {
+    return <BarSlot.Provider value={{ label: tr('ws.branches.reports.scope'), select, note }}>{children}</BarSlot.Provider>;
+  }
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-2)', flexWrap: 'wrap', marginBlockEnd: 'var(--tp-sp-2)' }}>
       <span style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>{tr('ws.branches.reports.scope')}</span>
-      <SegmentedControl<string>
-        value={scope}
-        onChange={(v) => setScope(v)}
-        options={options}
-        aria-label={tr('ws.branches.reports.scope')}
-      />
-      {scope === 'all' && (
-        <span style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>
-          {tr('ws.branches.reports.clockNote', { name: pickName(locale, current) })}
-        </span>
-      )}
+      {select}
+      {note}
     </div>
   );
 }

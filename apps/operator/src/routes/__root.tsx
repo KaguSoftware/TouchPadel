@@ -485,7 +485,7 @@ function WorkspaceShell({ who, venue }: { who: StaffAccess; venue: HeartbeatStat
           )}
           {/* tabIndex -1 so the skip link has somewhere to land; the routed
               screen's own first heading is the next stop from here. */}
-          <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minInlineSize: 0, minBlockSize: 0 }}>
+          <div id="tp-main-column" style={{ display: 'flex', flexDirection: 'column', flex: 1, minInlineSize: 0, minBlockSize: 0 }}>
             {/* The strip starts where the rail ends, not at the window's edge.
                 Full width, it ran under the macOS traffic lights: 'hiddenInset'
                 draws them INSIDE the page, and the rail is the only thing that

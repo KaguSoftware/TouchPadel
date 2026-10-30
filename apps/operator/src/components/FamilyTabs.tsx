@@ -57,13 +57,15 @@ export function useFamilyHeader(workspaceKey: WorkspaceKey): PageFamily | null {
       eyebrow: tr(`ws.shell.nav.${row.labelKey}`),
       title: tr(`ws.shell.nav.${current.labelKey}`),
       tabs: <FamilyTabStrip row={row} tabs={tabs} current={current} />,
+      segTabs: <FamilyTabStrip row={row} tabs={tabs} current={current} segmented />,
     };
     // `tabs` is rebuilt every render; its members are what matters.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [row, current, tabs.map((t) => t.labelKey).join(','), tr]);
 }
 
-function FamilyTabStrip({ row, tabs, current }: { row: NavItem; tabs: readonly NavTab[]; current: NavTab }) {
+/** `segmented`: the strip drawn as the analytics bar's segmented control, for a page that puts it at the end of its own filter line. */
+function FamilyTabStrip({ row, tabs, current, segmented }: { row: NavItem; tabs: readonly NavTab[]; current: NavTab; segmented?: boolean }) {
   const { tr, dir } = useLocale();
 
   function onKeyDown(e: KeyboardEvent<HTMLElement>) {
@@ -87,11 +89,11 @@ function FamilyTabStrip({ row, tabs, current }: { row: NavItem; tabs: readonly N
       data-no-print
       data-testid="family-tabs"
       aria-label={tr(`ws.shell.nav.${row.labelKey}`)}
-      className="tp-family-tabs"
+      className={segmented ? 'tp-seg' : 'tp-family-tabs'}
       onKeyDown={onKeyDown}
     >
       {tabs.map((tab) => (
-        <FamilyTab key={`${tab.to}?${tab.labelKey}`} tab={tab} selected={tab === current} />
+        <FamilyTab key={`${tab.to}?${tab.labelKey}`} tab={tab} selected={tab === current} segmented={segmented} />
       ))}
     </nav>
   );
@@ -106,14 +108,14 @@ function tabSearch(tab: NavTab) {
   };
 }
 
-function FamilyTab({ tab, selected }: { tab: NavTab; selected: boolean }) {
+function FamilyTab({ tab, selected, segmented }: { tab: NavTab; selected: boolean; segmented?: boolean }) {
   const { tr, locale } = useLocale();
   const count = useBadgeSum(tab.badge ? [tab.badge] : []);
   return (
     <Link
       to={tab.to as never}
       search={tabSearch(tab) as never}
-      className="tp-family-tab"
+      className={segmented ? 'tp-seg-btn' : 'tp-family-tab'}
       aria-current={selected ? 'page' : undefined}
       data-testid={`family-tab-${tab.labelKey}`}
     >

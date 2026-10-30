@@ -42,8 +42,8 @@ export interface HeatValue {
 
 export type HeatView = 'squares' | 'charts';
 
-/** The card body height each view needs: the charts view stacks an hour chart and seven weekday bars. */
-export const heatHeight = (view: HeatView) => (view === 'charts' ? 400 : 240);
+/** The card body height each view needs: the charts view sets the hour columns and the weekday columns side by side. */
+export const heatHeight = (_view: HeatView) => 240;
 
 /** The thin rule that parts the view switch from the measure switch beside it. */
 export const heatDivider = <span aria-hidden="true" style={{ inlineSize: 1, blockSize: '1.25rem', background: 'var(--tp-border-strong)' }} />;
@@ -137,18 +137,18 @@ export function WeekHeatmap({
     : hint;
 
   return (
-    <div style={{ display: 'grid', gap: 'var(--tp-sp-2)' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--tp-sp-2)', blockSize: '100%' }}>
       {totals && view === 'charts' ? (
-        <div dir="ltr" style={{ display: 'grid', gap: 'var(--tp-sp-4)' }} onPointerLeave={() => setActive(null)}>
-          <section style={{ display: 'grid', gap: 'var(--tp-sp-1-5)' }}>
+        <div dir="ltr" style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--tp-sp-5)', overflowX: 'auto' }} onPointerLeave={() => setActive(null)}>
+          <section style={{ display: 'grid', gap: 'var(--tp-sp-1-5)', flex: '3 1 0', minInlineSize: '26rem' }}>
             <h4 style={{ margin: 0, fontSize: 'var(--tp-fs-sm)', fontWeight: 600, color: 'var(--tp-muted-fg)' }}>{tr('ws.analytics.heatmap.byHour')}</h4>
             <div style={{ overflowX: 'auto' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(24, minmax(0, 1fr))', gap: '2px', minInlineSize: '30rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(24, minmax(0, 1fr))', columnGap: '4px', rowGap: '4px', minInlineSize: '26rem' }}>
                 {HOURS.map((h) => {
                   const v = totals.hours[h];
                   const key = `h=${h}`;
                   return (
-                    <span key={key} data-total-hour={h} onPointerEnter={() => setActive(key)} style={{ display: 'flex', alignItems: 'flex-end', blockSize: '7rem' }}>
+                    <span key={key} data-total-hour={h} onPointerEnter={() => setActive(key)} style={{ display: 'flex', alignItems: 'flex-end', blockSize: '7rem', background: 'color-mix(in oklab, var(--tp-muted-fg) 9%, transparent)', borderStartStartRadius: 3, borderStartEndRadius: 3, borderBlockEnd: '1px solid var(--tp-border-strong)' }}>
                       <span
                         style={{
                           inlineSize: '100%',
@@ -163,38 +163,38 @@ export function WeekHeatmap({
                   );
                 })}
                 {HOURS.map((h) => (
-                  <span key={h} style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)', textAlign: 'center' }}>
-                    {h % 3 === 0 ? h : ''}
+                  <span key={h} style={{ fontSize: '0.65rem', color: 'var(--tp-muted-fg)', textAlign: 'center', fontVariantNumeric: 'tabular-nums' }}>
+                    {h}
                   </span>
                 ))}
               </div>
             </div>
           </section>
-          <section style={{ display: 'grid', gap: 'var(--tp-sp-1-5)' }}>
+          <section style={{ display: 'grid', gap: 'var(--tp-sp-1-5)', flex: '1 1 0', minInlineSize: '11rem' }}>
             <h4 style={{ margin: 0, fontSize: 'var(--tp-fs-sm)', fontWeight: 600, color: 'var(--tp-muted-fg)' }}>{tr('ws.analytics.heatmap.byDay')}</h4>
-            <div style={{ display: 'grid', gridTemplateColumns: 'max-content 1fr', columnGap: 'var(--tp-sp-2)', rowGap: '4px', alignItems: 'center' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0, 1fr))', columnGap: '4px', rowGap: '4px' }}>
               {DOWS.map((dow) => {
                 const v = totals.days[dow];
                 const key = `d=${dow}`;
                 return (
-                  <div key={key} data-total-day={dow} onPointerEnter={() => setActive(key)} style={{ display: 'contents' }}>
-                    <span style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)', whiteSpace: 'nowrap' }}>{f.weekday(dow)}</span>
-                    <span style={{ display: 'flex', alignItems: 'center', blockSize: '1.1rem' }}>
-                      <span
-                        style={{
-                          blockSize: '0.8rem',
-                          // An open day always shows a stub, so "open, nothing booked" never reads as closed.
-                          inlineSize: v == null ? 0 : `${dayMax > 0 ? Math.max(2, ((v ?? 0) / dayMax) * 100) : 2}%`,
-                          background: margin(v, dayMax),
-                          borderStartEndRadius: 2,
-                          borderEndEndRadius: 2,
-                          outline: active === key ? '1px solid var(--tp-accent)' : undefined,
-                        }}
-                      />
-                    </span>
-                  </div>
+                  <span key={key} data-total-day={dow} onPointerEnter={() => setActive(key)} style={{ display: 'flex', alignItems: 'flex-end', blockSize: '7rem', background: 'color-mix(in oklab, var(--tp-muted-fg) 9%, transparent)', borderStartStartRadius: 3, borderStartEndRadius: 3, borderBlockEnd: '1px solid var(--tp-border-strong)' }}>
+                    <span
+                      style={{
+                        inlineSize: '100%',
+                        // An open day always shows a stub, so "open, nothing booked" never reads as closed.
+                        blockSize: v == null ? 0 : `${dayMax > 0 ? Math.max(2, ((v ?? 0) / dayMax) * 100) : 2}%`,
+                        background: margin(v, dayMax),
+                        borderStartStartRadius: 2,
+                        borderStartEndRadius: 2,
+                        outline: active === key ? '1px solid var(--tp-accent)' : undefined,
+                      }}
+                    />
+                  </span>
                 );
               })}
+              {DOWS.map((dow) => (
+                <span key={dow} style={{ fontSize: '0.65rem', color: 'var(--tp-muted-fg)', textAlign: 'center' }}>{f.weekday(dow)}</span>
+              ))}
             </div>
           </section>
         </div>
@@ -225,7 +225,8 @@ export function WeekHeatmap({
         </div>
       </div>
       )}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 'var(--tp-sp-3)', minBlockSize: '1.25rem' }}>
+      {/* The readout and the legend close the card: parted from the chart by a rule, pinned to the bottom. */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 'var(--tp-sp-3)', minBlockSize: '1.25rem', marginBlockStart: 'auto', paddingBlockStart: 'var(--tp-sp-2)', borderBlockStart: '1px solid var(--tp-border)' }}>
         <span aria-live="polite" style={{ fontSize: 'var(--tp-fs-xs)', color: active ? 'var(--tp-fg)' : 'var(--tp-muted-fg)', fontVariantNumeric: 'tabular-nums' }}>
           {readout}
         </span>

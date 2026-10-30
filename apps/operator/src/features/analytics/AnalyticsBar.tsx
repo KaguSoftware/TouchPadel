@@ -24,6 +24,7 @@ import { useCallback, useId, useRef, useState, type CSSProperties, type ReactNod
 import { BUSINESS_DAY_START_OPTIONS, COMPARE_BASES, RANGE_PRESETS, businessTodayISO, resolveRange, type CompareBasis, type DateRange, type RangePreset } from '@touch/core';
 import { VENUE_TZ, type MessageKey } from '@touch/i18n';
 import { Button, ErrorText, inputStyle } from '../../components/ui';
+import { useBranchScopeParts } from '../reports/ReportBranchScope';
 import { SelectMenu } from '../../components/SelectMenu';
 import { DateRangePicker } from '../../components/DateRangePicker';
 import { InfoTip } from '../../components/InfoTip';
@@ -75,7 +76,7 @@ const bar: CSSProperties = {
   paddingBlock: 'var(--tp-sp-2-5)',
   marginBlockEnd: 'var(--tp-sp-3)',
   display: 'grid',
-  gap: 'var(--tp-sp-2-5)',
+  gap: 'var(--tp-sp-4)',
 };
 
 const row: CSSProperties = {
@@ -103,7 +104,9 @@ const small: CSSProperties = { ...inputStyle, inlineSize: 'auto', fontSize: 'var
 const GLASS_CTL = 'tp-glass-ctl';
 
 /** One labelled control group: the label line, then the control band. */
-function Group({ label, tip, children, style }: { label?: ReactNode; tip?: ReactNode; children: ReactNode; style?: CSSProperties }) {
+function Group({ label, tip, children, style, bare }: { label?: ReactNode; tip?: ReactNode; children: ReactNode; style?: CSSProperties; bare?: boolean }) {
+  // `bare`: no label line at all, for a control that shares a line with chips rather than with labelled fields.
+  if (bare) return <div style={{ ...band, ...style }}>{children}</div>;
   return (
     <div style={{ display: 'grid', gap: 'var(--tp-sp-1)', alignContent: 'start', ...style }}>
       <span style={groupLabel} aria-hidden={label === undefined || undefined}>
@@ -148,6 +151,7 @@ export function AnalyticsBar({
   courts?: readonly { id: string; label: string }[];
 }) {
   const { tr } = useLocale();
+  const branchScope = useBranchScopeParts();
   const setSetting = useSetCafeSetting();
   const [excludedOpen, setExcludedOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
@@ -165,12 +169,13 @@ export function AnalyticsBar({
 
   return (
     <div id="analytics-bar" className="tp-glass-bar" style={bar}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 'var(--tp-sp-3)', flexWrap: 'wrap' }}>
-        {tab ? <AnalyticsTabs value={tab} /> : <span />}
-        {zones.length > 0 && <ZoneNav zones={zones} />}
-      </div>
-
       <div style={row}>
+        {branchScope && (
+          <Group label={branchScope.label}>
+            {branchScope.select}
+            {branchScope.note}
+          </Group>
+        )}
         {/* One field for the period (DateRangePicker, 2026-10-19). A chip keeps
             the rolling preset in the URL; any other range is written as custom dates. */}
         <Group label={tr('ws.reports.filters.period')}>
@@ -233,9 +238,19 @@ export function AnalyticsBar({
             />
           </Group>
         )}
+        {tab && (
+          <Group style={{ marginInlineStart: 'auto' }}>
+            <AnalyticsTabs value={tab} />
+          </Group>
+        )}
+      </div>
 
+      {/* Chips and Settings share one line: the chips take what room is left (and wrap among themselves), Settings stays at the end. */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--tp-sp-3)' }}>
+        <div style={{ flex: '1 1 0', minInlineSize: 0 }}>{zones.length > 0 && <ZoneNav zones={zones} />}</div>
+        <div style={{ flexShrink: 0, marginInlineStart: 'auto' }}>
         {deck && (
-          <Group>
+          <Group bare>
             <button
               ref={moreRef}
               type="button"
@@ -282,6 +297,7 @@ export function AnalyticsBar({
             </MorePanel>
           </Group>
         )}
+        </div>
       </div>
 
       {excludedOpen && deck?.cafe && (

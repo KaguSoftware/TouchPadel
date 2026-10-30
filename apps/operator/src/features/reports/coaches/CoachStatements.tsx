@@ -18,12 +18,14 @@
  * A server without the read (RPC_MISSING) shows "Coaching needs a server
  * update…"; a first read that fails shows the coaching refused presenter.
  */
-import { useState, type ReactNode } from 'react';
+import { useContext, useState, type ReactNode } from 'react';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { isolate, type Locale } from '@touch/i18n';
 import { useLocale } from '../../../lib/i18n';
 import { useVenue } from '../../../lib/venue';
 import { Button, Skeleton } from '../../../components/ui';
+import { PageFamilyContext } from '../../../components/kit';
+import { useBranchScopeParts } from '../ReportBranchScope';
 import {
   DataTable,
   EmptyState,
@@ -82,6 +84,8 @@ export function CoachStatementsScreen() {
   const shown = shownMonth(asked, top) ?? q.data?.month ?? null;
 
   const [openRow, setOpenRow] = useState<StatementRow | null>(null);
+  const family = useContext(PageFamilyContext);
+  const branchScope = useBranchScopeParts();
 
   const go = (month: string | null) =>
     void navigate({ to: '/reports/coaches', search: month ? { month } : {}, replace: true });
@@ -89,6 +93,7 @@ export function CoachStatementsScreen() {
   return (
     <div>
       <PageHeader
+        tabsInPage={Boolean(family?.segTabs)}
         title={tr('ws.coaching.coachPay.title')}
         subtitle={tr('ws.coaching.coachPay.lead')}
       />
@@ -104,6 +109,7 @@ export function CoachStatementsScreen() {
       )}
 
       <div
+        className="tp-filter-line"
         style={{
           display: 'flex',
           alignItems: 'center',
@@ -112,6 +118,12 @@ export function CoachStatementsScreen() {
           marginBlockEnd: 'var(--tp-sp-3)',
         }}
       >
+        {branchScope && (
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-2)', marginInlineEnd: 'var(--tp-sp-3)' }}>
+            {branchScope.select}
+            {branchScope.note}
+          </span>
+        )}
         <Button
           aria-label={tr('ws.kit.calendar.prevMonth')}
           disabled={shown === null}
@@ -144,6 +156,7 @@ export function CoachStatementsScreen() {
             {tr('ws.coaching.coachPay.month.thisMonth')}
           </Button>
         )}
+        {family?.segTabs && <div style={{ marginInlineStart: 'auto' }}>{family.segTabs}</div>}
       </div>
 
       {read.kind === 'absent' ? (

@@ -106,6 +106,8 @@ export function InfoTip({
   const [open, setOpen] = useState(false);
   const [pinned, setPinned] = useState(false);
   const [geometry, setGeometry] = useState<Geometry | null>(null);
+  // The lighter body colour of the coloured card the trigger sits in (its wash, not its header band), read when the tip opens: the bubble is portalled to <body>, so it cannot inherit it.
+  const [tone, setTone] = useState<{ bg: string; edge: string } | null>(null);
 
   const clearTimers = useCallback(() => {
     if (openTimer.current !== null) window.clearTimeout(openTimer.current);
@@ -146,6 +148,12 @@ export function InfoTip({
   const show = useCallback(() => {
     clearTimers();
     setGeometry(measure());
+    const trigger = triggerRef.current;
+    if (trigger) {
+      const cs = getComputedStyle(trigger);
+      const bg = cs.getPropertyValue('--tp-bd').trim();
+      setTone(bg ? { bg: `color-mix(in oklab, ${bg} ${cs.getPropertyValue('--tp-breakdown-wash-mix').trim() || '16%'}, ${cs.getPropertyValue('--tp-breakdown-wash').trim() || 'var(--tp-surface)'})`, edge: cs.getPropertyValue('--tp-bd-edge').trim() } : null);
+    } else setTone(null);
     setOpen(true);
   }, [clearTimers, measure]);
 
@@ -300,6 +308,7 @@ export function InfoTip({
           insetBlockStart: geometry ? `${geometry.blockStart}px` : undefined,
           maxInlineSize,
           color: 'var(--tp-fg)',
+          ...(tone ? { background: tone.bg, borderColor: tone.edge || undefined } : null),
           fontSize: 'var(--tp-fs-sm)',
           lineHeight: 1.45,
           paddingBlock: 'var(--tp-sp-2)',

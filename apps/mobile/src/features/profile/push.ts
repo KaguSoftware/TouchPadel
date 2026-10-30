@@ -35,7 +35,8 @@ import type * as ExpoNotifications from 'expo-notifications';
 
 import { supabase } from '../../lib/supabase';
 import { addBreadcrumb, captureException } from '../../lib/telemetry';
-import { updatePushToken } from './api';
+import { lastKnownLocale } from '../../i18n/lastLocale';
+import { updatePreferredLang, updatePushToken } from './api';
 import type { StaffHref } from '../staff/pushRoutes';
 import type { StaffStatusKind } from '../staff/status';
 import { isGuestPushKind } from '../matches/pushRoutes';
@@ -106,6 +107,31 @@ let lastWrittenToken: string | null = null;
 /** Sign-out nulls the column server-side; forget it here so we rewrite later. */
 export function forgetWrittenPushToken(): void {
   lastWrittenToken = null;
+  lastWrittenLang = null;
+}
+
+/**
+ * send-push words every notification in profiles.preferred_lang. The language
+ * switch writes it once, best-effort, so a switch made offline or before
+ * signing in left the column stale and the push arrived in the other
+ * language. The lifecycle re-asserts the device's language on sign-in, start
+ * and every foreground. Independent of push permission: the language is the
+ * guest's even when no token exists yet.
+ */
+let lastWrittenLang: string | null = null;
+
+async function syncPreferredLang(): Promise<void> {
+  const lang = lastKnownLocale();
+  if (lang === lastWrittenLang) return;
+  try {
+    const { data } = await supabase.auth.getSession();
+    const uid = data.session?.user.id;
+    if (!uid) return;
+    await updatePreferredLang(supabase, uid, lang);
+    lastWrittenLang = lang;
+  } catch (error) {
+    captureException(error, { scope: 'push.preferredLang', lang });
+  }
 }
 
 /**
@@ -208,6 +234,7 @@ export function startPushRegistrationLifecycle(args: { hasSession: () => boolean
   const sync = (reason: string) => {
     if (!shouldSync({ cancelled, inFlight, hasSession: args.hasSession() })) return;
     inFlight = true;
+    void syncPreferredLang();
     void registerPushToken({ prompt: false })
       .then((state) => addBreadcrumb('push.sync', { reason, state }))
       .finally(() => {
