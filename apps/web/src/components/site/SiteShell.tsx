@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { makeT, type Locale } from '@touch/i18n';
+import type { Locale } from '@touch/i18n';
 import type { VenueOpeningHours } from '@/lib/menu';
 import type { SiteMode } from '@/lib/site/mode';
 import { RevealObserver } from './Reveal';
@@ -10,7 +10,7 @@ import { SiteStyles } from './SiteStyles';
 /**
  * The frame of every public Touch Padel page (the home page, the legal pages, the 404 for
  * an unknown address):
- * the site stylesheet, a skip link, the header, one `<main>`, the footer. The venue read
+ * the site stylesheet, the header, one `<main>`, the footer. The venue read
  * feeds the header's booking button and the footer's hours, address and contact.
  *
  * `data-theme="padel"` re-scopes every colour token inside (the document itself stays
@@ -38,7 +38,6 @@ export function SiteShell({
   path: string | null;
   children: ReactNode;
 }) {
-  const tr = makeT(locale);
   return (
     <>
       <SiteStyles nonce={nonce} />
@@ -48,9 +47,6 @@ export function SiteShell({
         data-mode={mode}
         data-page={path === '' ? 'home' : 'page'}
       >
-        <a className="tp-site-skip" href="#main">
-          {tr('site.skipToContent')}
-        </a>
         <SiteHeader locale={locale} mode={mode} path={path} phone={venue?.phone ?? null} />
         <main id="main" className="tp-site-main" tabIndex={-1}>
           {children}

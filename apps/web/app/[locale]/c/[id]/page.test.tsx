@@ -89,7 +89,7 @@ describe.each(LOCALES)('coach link page (%s)', (locale: Locale) => {
     const { container } = await renderLink(locale);
     expect(container.querySelector('.tp-clink')?.getAttribute('data-state')).toBe('found');
     expect(heading()).toBe(name);
-    expect(screen.getByText(t(locale, 'coaching.web.link.eyebrow'))).toBeTruthy();
+    expect(screen.getByText(t(locale, 'coachShowcase.levelsTitle'))).toBeTruthy();
     expect(container.querySelector('.tp-clink__photo img')).not.toBeNull();
     expect(plain(container.querySelector('.tp-clink__at')?.textContent)).toBe(
       t(locale, 'coaching.web.link.at', {
@@ -127,11 +127,10 @@ describe.each(LOCALES)('coach link page (%s)', (locale: Locale) => {
     expect(
       screen.getByRole('link', { name: t(locale, 'coaching.web.link.noApp') }).getAttribute('href'),
     ).toBe(`/${locale}#app`);
+    // The page's only ways out are the open button and "Don't have the app?" (the header has Coaches).
     expect(
-      screen
-        .getByRole('link', { name: t(locale, 'coaching.web.link.allCoaches') })
-        .getAttribute('href'),
-    ).toBe(`/${locale}/coaching`);
+      screen.queryByRole('link', { name: t(locale, 'coaching.web.link.allCoaches') }),
+    ).toBeNull();
     expect(container.querySelector('script')).toBeNull();
   });
 
@@ -145,11 +144,10 @@ describe.each(LOCALES)('coach link page (%s)', (locale: Locale) => {
     expect(
       screen.getByRole('link', { name: t(locale, 'coaching.web.link.open') }).getAttribute('href'),
     ).toBe('touchpadel://');
+    // The page's only ways out are the open button and "Don't have the app?" (the header has Coaches).
     expect(
-      screen
-        .getByRole('link', { name: t(locale, 'coaching.web.link.allCoaches') })
-        .getAttribute('href'),
-    ).toBe(`/${locale}/coaching`);
+      screen.queryByRole('link', { name: t(locale, 'coaching.web.link.allCoaches') }),
+    ).toBeNull();
     expect(container.querySelector('.tp-clink__photo')).toBeNull();
   });
 

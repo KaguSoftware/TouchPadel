@@ -48,7 +48,7 @@ export function RevealObserver() {
 
 /**
  * Header scroll state: `data-scrolled` on `.tp-site-header` once the page has moved,
- * so the header can sit transparent over the hero and turn solid above content. The
+ * so the header can sit transparent over the hero (on home, until the hero has finished) and turn solid above content. The
  * listener is passive and only schedules a frame. No JS: the attribute never appears
  * and the header stays solid, which is readable everywhere.
  */
@@ -59,15 +59,30 @@ export function HeaderScrollState() {
     let frame = 0;
     const update = () => {
       frame = 0;
-      header.setAttribute('data-scrolled', window.scrollY > 8 ? 'true' : 'false');
+      // The bar stays transparent until the hero it sits over has scrolled under it: the home
+      // hero, or a coach link's photo tile. That tile is a card beside the text from 48rem (and
+      // absent on a page with no coach), so there the bar is solid from the top.
+      const kind = header.getAttribute('data-hero');
+      const hero =
+        kind === 'true'
+          ? document.querySelector<HTMLElement>('.tp-front')
+          : kind === 'tile'
+            ? document.querySelector<HTMLElement>('.tp-clink__photo')
+            : null;
+      const solidTop =
+        kind === 'tile' && (!hero || window.matchMedia('(min-width: 48rem)').matches);
+      const from = hero ? hero.offsetTop + hero.offsetHeight - header.offsetHeight : 8;
+      header.setAttribute('data-scrolled', solidTop || window.scrollY > from ? 'true' : 'false');
     };
     const onScroll = () => {
       if (!frame) frame = window.requestAnimationFrame(update);
     };
     update();
     window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onScroll, { passive: true });
     return () => {
       window.removeEventListener('scroll', onScroll);
+      window.removeEventListener('resize', onScroll);
       if (frame) window.cancelAnimationFrame(frame);
     };
   }, []);

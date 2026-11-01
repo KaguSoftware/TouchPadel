@@ -80,22 +80,6 @@ export const siteBaseCss = `
 .tp-site :focus-visible { outline: 2px solid var(--tp-site-ring); outline-offset: 3px; }
 .tp-site :focus:not(:focus-visible) { outline: none; }
 
-.tp-site-skip {
-  position: absolute;
-  inset-block-start: 0.75rem;
-  inset-inline-start: var(--tp-site-gutter);
-  z-index: var(--tp-site-z-skip);
-  padding-block: 0.75rem;
-  padding-inline: 1.25rem;
-  border-radius: var(--tp-site-radius-btn);
-  background: var(--tp-site-green);
-  color: var(--tp-site-green-ink);
-  font-weight: var(--tp-site-fw-label);
-  text-decoration: none;
-  transform: translateY(-300%);
-}
-.tp-site-skip:focus-visible { transform: none; }
-
 ${siteOnDarkCss}
 .tp-on-dark, .tp-site-header { --tp-accent-contrast: var(--tp-site-navy); }
 /* On Touch Blue the brand gray is only 3.28:1, so secondary ink is the light gray step. */

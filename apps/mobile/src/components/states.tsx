@@ -146,7 +146,7 @@ export function ErrorState({
           fontFamily: fonts.display900,
           fontSize: 18,
           textTransform: 'uppercase',
-          color: colors.mut2,
+          color: colors.ink,
           textAlign: 'center',
         }}
       >

@@ -36,9 +36,9 @@ export const coachingWebEn = {
     courseLine: '{sessions} · {duration} each',
     // {price} is formatIQD. "From" on a coach card: the lowest price they teach at.
     from: 'From {price}',
-    pricePrivate: '{price} a lesson',
-    pricePlace: '{price} a place',
-    priceCourse: '{price} for the course',
+    pricePrivate: '{price} / lesson',
+    pricePlace: '{price} / place',
+    priceCourse: '{price} / course',
     // A course under way (C-15): its late-join share, the session row's price_iqd (0294, DB-28).
     priceLateJoin: '{price} for the sessions left',
     // {weekday}, {date} and {time} come from the formatters, in the branch's timezone.
@@ -61,7 +61,7 @@ export const coachingWebEn = {
       title: 'Book a lesson',
       eyebrow: 'Padel coach',
       // {branches}: the branch names, joined with " · ".
-      at: 'At {branches}',
+      at: 'Branch: {branches}',
       typesTitle: 'Lessons',
       open: 'Open in the app',
       noApp: "Don't have the app?",

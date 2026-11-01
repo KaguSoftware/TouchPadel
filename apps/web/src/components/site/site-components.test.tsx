@@ -26,10 +26,8 @@ const renderShell = (props: Partial<Parameters<typeof SiteShell>[0]> = {}) =>
   );
 
 describe('SiteShell', () => {
-  it('frames the page: skip link, header, one main, footer, the sheet under the nonce', () => {
+  it('frames the page: header, one main, footer, the sheet under the nonce', () => {
     renderShell();
-    const skip = screen.getByRole('link', { name: t('en', 'site.skipToContent') });
-    expect(skip.getAttribute('href')).toBe('#main');
     expect(document.querySelectorAll('main')).toHaveLength(1);
     expect(document.querySelector('main')?.id).toBe('main');
     expect(within(document.querySelector('main')!).getByText('page body')).toBeTruthy();
@@ -42,9 +40,13 @@ describe('SiteShell', () => {
     ['home', ''],
     ['a legal page', '/privacy'],
     ['the 404', null],
-  ])('has no section links in the header (%s)', (_page, path) => {
+  ])('has only the Coaches and Café menu links in the header (%s)', (_page, path) => {
     renderShell({ path });
-    expect(screen.queryByRole('navigation', { name: t('en', 'site.nav.label'), ...hidden })).toBeNull();
+    const nav = screen.getByRole('navigation', { name: t('en', 'site.nav.label'), ...hidden });
+    expect(within(nav).getAllByRole('link', hidden).map((a) => a.getAttribute('href'))).toEqual([
+      '/en/coaching',
+      '/en/menu',
+    ]);
     // Never framed as the home page (whose header floats transparent over a photo).
     if (path !== '') {
       expect(document.querySelector('.tp-site')?.getAttribute('data-page')).toBe('page');
@@ -79,13 +81,11 @@ describe('SiteShell', () => {
     ]);
     expect(links[1]?.textContent).toBe(t('en', 'site.footer.coaching'));
     expect(links[1]?.getAttribute('aria-current')).toBe('page');
-    // The header carries no section links any more, so none to /coaching: the way in is the
-    // home page's #lessons and this footer link.
-    expect(screen.queryByRole('navigation', { name: t('en', 'site.nav.label'), ...hidden })).toBeNull();
+    // The header's menu also links to /coaching and /menu (Coaches, Café menu).
     const headerHrefs = within(screen.getByRole('banner'))
       .queryAllByRole('link', hidden)
       .map((a) => a.getAttribute('href'));
-    expect(headerHrefs).not.toContain('/en/coaching');
+    expect(headerHrefs).toContain('/en/coaching');
   });
 
   it('names the footer’s Coaching link in Arabic', () => {

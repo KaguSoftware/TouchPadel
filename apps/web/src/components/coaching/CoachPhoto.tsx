@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import Image from 'next/image';
 import type { Locale } from '@touch/i18n';
 import { coachInitial, coachPhotoUrl, type PublicCoach } from '@/lib/coaching';
@@ -15,18 +16,22 @@ export function CoachPhoto({
   locale,
   className,
   sizes,
+  backdrop,
 }: {
   coach: PublicCoach;
   locale: Locale;
   className: string;
   /** The `next/image` sizes for this layout ("(min-width: 40rem) 50vw, 100vw"). */
   sizes: string;
+  /** Drawn behind the letter when the coach has no photo (the coaching page's court lines). */
+  backdrop?: ReactNode;
 }) {
   const url = coachPhotoUrl(coach.photo_path);
   if (!url) {
     return (
       <span className={className} data-letter="" aria-hidden="true">
-        {coachInitial(coach, locale)}
+        {backdrop}
+        <span className="tp-coach-photo__initial">{coachInitial(coach, locale)}</span>
       </span>
     );
   }

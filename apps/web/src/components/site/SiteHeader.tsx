@@ -5,7 +5,7 @@ import { SITE_THEME_COLOR } from '@/lib/site/themeColor';
 import { BrandLockup } from './brand/BrandLockup';
 import { WhatsAppButton } from './ContactButton';
 import { LanguageLink } from './LanguageLink';
-import { GlobeIcon } from './icons';
+import { ArrowIcon, GlobeIcon } from './icons';
 import { HeaderScrollState } from './Reveal';
 import { SiteMenuToggle } from './SiteMenuToggle';
 import { ThemeToggle } from './ThemeToggle';
@@ -55,14 +55,37 @@ export function SiteHeader({
   const other = otherLocale(locale);
   const onHome = path === '';
   const solid = path !== null && SOLID_HEADER_PATHS.includes(path);
+  // What the bar sits over at the top: the home photo, or a coach link's photo tile on a phone.
+  const hero = onHome ? 'true' : path?.startsWith('/c/') ? 'tile' : undefined;
+  const links = [
+    { href: `/${locale}/coaching`, label: tr('site.nav.coaches') },
+    { href: `/${locale}/menu`, label: tr('site.nav.menu') },
+  ];
   return (
-    <header className="tp-site-header" data-menu="closed" data-solid={solid ? 'true' : undefined}>
+    <header
+      className="tp-site-header"
+      data-menu="closed"
+      data-solid={solid ? 'true' : undefined}
+      data-hero={hero}
+    >
       <div className="tp-site-header__inner">
         <a className="tp-site-header__brand" href={`/${locale}`} aria-label={tr('site.brandHome')}>
           <BrandLockup />
         </a>
         <SiteMenuToggle controls={MENU_ID} label={tr('site.nav.toggle')} />
         <div className="tp-site-menu" id={MENU_ID}>
+          <nav className="tp-site-nav" aria-label={tr('site.nav.label')}>
+            <ul className="tp-site-nav__list">
+              {links.map((link) => (
+                <li key={link.href}>
+                  <a className="tp-site-nav__link" href={link.href}>
+                    <span>{link.label}</span>
+                    <ArrowIcon className="tp-site-nav__arrow" />
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </nav>
           <WhatsAppButton
             locale={locale}
             phone={phone}
@@ -82,13 +105,15 @@ export function SiteHeader({
             >
               {tr('site.nav.language')}
             </LanguageLink>
-            <ThemeToggle
-              initialMode={mode}
-              labels={{ toNight: tr('site.theme.toNight'), toLight: tr('site.theme.toLight') }}
-              themeColors={SITE_THEME_COLOR}
-            />
           </div>
         </div>
+        <span className="tp-site-header__theme">
+          <ThemeToggle
+            initialMode={mode}
+            labels={{ toNight: tr('site.theme.toNight'), toLight: tr('site.theme.toLight') }}
+            themeColors={SITE_THEME_COLOR}
+          />
+        </span>
         <WhatsAppButton
           locale={locale}
           phone={phone}
@@ -105,7 +130,8 @@ export function SiteHeader({
           label={tr('site.nav.languageLabel')}
           icon={<GlobeIcon />}
         >
-          {tr('site.nav.language')}
+          <span className="tp-site-header__lang-full">{tr('site.nav.language')}</span>
+          <span className="tp-site-header__lang-short">{tr('site.nav.languageShort')}</span>
         </LanguageLink>
       </div>
       <HeaderScrollState />

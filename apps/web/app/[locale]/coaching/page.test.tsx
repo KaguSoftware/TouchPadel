@@ -89,7 +89,7 @@ describe.each(LOCALES)('coaching page (%s)', (locale: Locale) => {
     expect(document.querySelector('.tp-coaching')?.getAttribute('data-status')).toBe('ok');
   });
 
-  it('shows a card per coach: photo or letter, name, bio, what they teach, Book in the app', async () => {
+  it('shows the app’s card per coach: photo or letter, name, and the whole card is the link', async () => {
     await renderServerPage(CoachingPage, locale);
     expect(cards().map((c) => c.dataset.coach)).toEqual([COACH_ALI, COACH_SARA]);
     const [ali, sara] = cards() as [HTMLElement, HTMLElement];
@@ -99,33 +99,23 @@ describe.each(LOCALES)('coaching page (%s)', (locale: Locale) => {
     ).toBeTruthy();
     expect(ali.querySelector('.tp-coach-card__photo img')).not.toBeNull();
     expect(ali.querySelector('.tp-coach-card__photo img')?.getAttribute('alt')).toBe('');
-    expect(ali.querySelector('.tp-coach-card__bio')?.textContent).toBe(
-      locale === 'ar'
-        ? 'عشر سنوات في الملعب، صبور مع المبتدئين.'
-        : 'Ten years on court. Patient with beginners, sharp with the bandeja.',
-    );
-    const types = [...ali.querySelectorAll('.tp-coach-card__types li')].map((li) => li.textContent);
-    expect(types).toEqual(
-      locale === 'ar' ? ['حصة خاصة', 'حصة جماعية'] : ['Private lesson', 'Group clinic'],
-    );
+    // The app's card carries no bio, kind chips or button.
+    expect(ali.querySelector('.tp-coach-card__bio, .tp-coach-card__types, .tp-coach-card__book')).toBeNull();
 
-    // No photo: the first letter, hidden from screen readers (the name follows).
+    // No photo: the first letter on a disc, hidden from screen readers (the name follows).
     const letter = sara.querySelector('.tp-coach-card__photo');
     expect(letter?.hasAttribute('data-letter')).toBe(true);
     expect(letter?.getAttribute('aria-hidden')).toBe('true');
     expect(letter?.textContent).toBe(locale === 'ar' ? 'س' : 'S');
-    // An empty bio prints nothing.
-    expect(sara.querySelector('.tp-coach-card__bio')).toBeNull();
 
-    // Every card books through its coach's link, which names the coach (0337); the app claims
-    // it where installed.
+    // Every card opens its coach's link, which names the coach (0337); the app claims it where
+    // installed.
     for (const [card, slug] of [
       [ali, 'ali-fixture'],
       [sara, 'sara-fixture'],
     ] as const) {
-      const book = card.querySelector('a.tp-coach-card__book')!;
-      expect(book.getAttribute('href')).toBe(`/${locale}/c/${slug}`);
-      expect(book.textContent).toContain(tr('coaching.web.bookInApp'));
+      expect(card.tagName).toBe('A');
+      expect(card.getAttribute('href')).toBe(`/${locale}/c/${slug}`);
     }
   });
 

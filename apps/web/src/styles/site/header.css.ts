@@ -128,6 +128,7 @@ export const siteHeaderCss = `
     font-size: 0.9375rem;
   }
   .tp-site-tools { gap: 0; margin-inline-start: 0.25rem; }
+  .tp-site-header__theme { display: flex; margin-inline-start: 0.25rem; }
   .tp-site-header__book { margin-inline-start: 0.5rem; }
   .tp-site-header__book.tp-site-btn--sm { padding-inline: 1.125rem; }
   /* The bar's language pill, after "Book a court"; the sheet's link stands down. */
@@ -160,8 +161,33 @@ export const siteHeaderCss = `
   .tp-site-nav__link, .tp-site-tools .tp-site-nav__lang { padding-inline: 0.5rem; }
   .tp-site-header__lang { padding-inline: 0.75rem; }
 }
-/* Below 64rem the language lives in the sheet (or, without JS, in the panel's row). */
-@media (max-width: 63.99rem) { .tp-site-header__lang { display: none; } }
+/* Below 64rem, with JS, the language is a compact globe pill in the bar, after the theme
+   icon and before the burger (the sheet no longer carries it); without JS it stays in the panel's row. */
+/* The bar shows the full word from 64rem and the short form (AR / EN) below it. */
+.tp-site-header__lang-short { display: none; }
+@media (max-width: 63.99rem) {
+  .tp-site-header__lang { display: none; }
+  .tp-site-header__lang-full { display: none; }
+  .tp-site-header__lang-short { display: inline; font-family: var(--tp-font-body); letter-spacing: 0.04em; }
+  .tp-site-header[data-js] .tp-site-header__lang {
+    display: inline-flex;
+    order: 2;
+    flex: none;
+    align-items: center;
+    gap: 0.375rem;
+    min-block-size: 2.5rem;
+    padding-inline: 0.625rem;
+    border: 1.5px solid color-mix(in srgb, currentColor 32%, transparent);
+    border-radius: 999px;
+    font-family: var(--tp-font-arabic);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    text-decoration: none;
+    white-space: nowrap;
+  }
+  .tp-site-header[data-js] .tp-site-header__lang .tp-icon { inline-size: 1.1em; block-size: 1.1em; flex: none; color: var(--tp-site-green-text); }
+  .tp-site-header[data-js] .tp-site-tools { display: none; }
+}
 
 /* Phone-sheet extras (the links' arrows, the language pill's globe, the theme's printed
    label): in the markup at every width, shown only in the sheet below. */
@@ -189,7 +215,9 @@ export const siteHeaderCss = `
    court" and the language and the theme as two labelled pills at the foot. The page under it does not scroll. */
 @media (max-width: 63.99rem) {
   .tp-site-header[data-js] .tp-site-header__book { display: none; }
-  .tp-site-menu-toggle { order: 2; margin-inline-end: -0.625rem; }
+  .tp-site-menu-toggle { order: 3; margin-inline-end: -0.625rem; }
+  /* The theme switch, icon only, comes first, then the language pill, then the burger. */
+  .tp-site-header__theme { display: flex; order: 1; }
 
   html:has(.tp-site-header[data-js][data-menu='open']) { overflow: hidden; }
 
@@ -203,7 +231,21 @@ export const siteHeaderCss = `
     overscroll-behavior: contain;
     box-shadow: none;
   }
-  .tp-site-header[data-js][data-menu='open'] .tp-site-menu { animation: tp-site-sheet-in var(--tp-site-dur-base) var(--tp-site-ease-out); }
+  /* The sheet slides in from the inline end when the burger opens it and back out when it
+     closes (so it stays in the layout, parked off-screen and hidden from focus and the
+     accessibility tree until it is open). */
+  .tp-site-header[data-js] .tp-site-menu {
+    display: flex;
+    visibility: hidden;
+    transform: translateX(100%);
+    transition: transform var(--tp-site-dur-base) var(--tp-site-ease-out), visibility 0s linear var(--tp-site-dur-base);
+  }
+  [dir='rtl'] .tp-site-header[data-js] .tp-site-menu { transform: translateX(-100%); }
+  .tp-site-header[data-js][data-menu='open'] .tp-site-menu {
+    visibility: visible;
+    transform: none;
+    transition-delay: 0s;
+  }
 
   .tp-site-header[data-js] .tp-site-nav__link {
     justify-content: space-between;
@@ -231,39 +273,35 @@ export const siteHeaderCss = `
   .tp-site-header[data-js] .tp-site-nav__list li:nth-child(4) { animation-delay: 120ms; }
 
   .tp-site-header[data-js] .tp-site-menu__book { display: flex; margin-block-start: auto; }
-  .tp-site-header[data-js] .tp-site-tools {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 0.75rem;
-    margin-block-start: -1.25rem;
-  }
-  .tp-site-header[data-js] .tp-site-tools > * {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
-    inline-size: 100%;
-    block-size: auto;
-    min-block-size: 3.25rem;
-    padding-inline: 1rem;
-    border: 1.5px solid var(--tp-site-header-border);
-    border-radius: var(--tp-site-radius-btn);
-    font-size: var(--tp-site-fs-sm);
-    font-weight: 700;
-    white-space: nowrap;
-  }
-  .tp-site-header[data-js] .tp-site-tools .tp-site-iconbtn::before { inset: 0; }
-  .tp-site-header[data-js] .tp-site-tools .tp-icon { display: block; flex: none; inline-size: 1.25rem; block-size: 1.25rem; }
-  .tp-site-header[data-js] .tp-theme-toggle__text { display: inline; font-family: var(--tp-font-body); }
-  .tp-site-header[data-js] .tp-theme-toggle__icon { flex: none; }
+
 }
 
-@keyframes tp-site-sheet-in { from { opacity: 0; } to { opacity: 1; } }
+/* Light mode: the bar follows the page, white with dark ink, at every width: scrolled, on a
+   solid page, with the sheet open, and, on every page but home (whose first section is light),
+   at the very top too. Night keeps the navy; only the transparent bar over the home photo
+   (data-hero) stays white-on-photo. */
+.tp-site:not([data-mode='night']) .tp-site-header[data-menu='open'],
+.tp-site:not([data-mode='night']) .tp-site-header[data-scrolled='true'],
+.tp-site:not([data-mode='night']) .tp-site-header[data-solid='true'],
+.tp-site:not([data-mode='night']) .tp-site-header:not([data-hero]) {
+  --tp-fg: var(--tp-site-header-day-fg);
+  --tp-muted-fg: var(--tp-site-ink-2);
+  --tp-accent: var(--tp-site-block);
+  --tp-accent-contrast: var(--tp-site-page);
+  --tp-site-green-text: var(--tp-site-block);
+  --tp-site-ring: var(--tp-site-block);
+  --tp-site-lockup-ink: var(--tp-site-block);
+  --tp-site-lockup-swoosh-end: var(--tp-site-block);
+  --tp-site-header-bg: var(--tp-site-page);
+  --tp-site-header-border: var(--tp-site-header-day-border);
+  color: var(--tp-fg);
+}
+
 @keyframes tp-site-row-in { from { opacity: 0; transform: translateY(0.75rem); } to { opacity: 1; transform: none; } }
 
 @media (prefers-reduced-motion: reduce) {
   .tp-site-header::before, .tp-burger > span { transition: none; }
-  .tp-site-header[data-js][data-menu='open'] .tp-site-menu,
+  .tp-site-header[data-js] .tp-site-menu { transition: none; }
   .tp-site-header[data-js][data-menu='open'] .tp-site-nav__list li { animation: none; }
 }
 `;

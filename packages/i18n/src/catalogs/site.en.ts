@@ -32,18 +32,20 @@
  * (`hoursCount`, which /terms uses for its cancellation window), {time}, {year}.
  */
 export const siteEn = {
-  skipToContent: 'Skip to content',
   brandHome: 'Touch Padel, home',
   nav: {
     label: 'Main',
     club: 'The club',
     lessons: 'Lessons',
+    coaches: 'Coaches',
     menu: 'Café menu',
     visit: 'Visit',
     book: 'Book a court',
     // The small-screen button that opens the section links (not the café's menu).
     toggle: 'Site menu',
     language: 'العربية',
+    // The phone bar's short form of the same switch.
+    languageShort: 'AR',
     languageLabel: 'Read this page in Arabic',
   },
   theme: {
@@ -156,17 +158,17 @@ export const siteEn = {
   app: {
     titleOne: 'Your court, a touch away.',
     titleTwo: 'Soon.',
-    // The three things the app will do, each shown on its own real screen. The eyebrows
-    // and lines are the app's own store captions (apps/mobile/store/frames.mjs).
-    liveEyebrow: 'Every slot, every day',
-    liveTitle: 'See what’s free before you drive.',
-    liveAlt: 'The app’s Availability screen: the days of the week and every time that is still free.',
-    holdEyebrow: 'Nobody can take it',
-    holdTitle: 'Your slot is held while you decide.',
-    holdAlt: 'The app’s Review and confirm screen: the slot held for you, with the timer counting down.',
-    placeEyebrow: 'Upcoming · played · cancelled',
-    placeTitle: 'Every game in one place.',
-    placeAlt: 'The app’s My reservations screen: the next game first, then every upcoming booking.',
+    // The three screens of the app, each on its own real screen (the phone's own captures,
+    // `/brand/app/*`).
+    bookEyebrow: 'Book a court',
+    bookTitle: 'Book a court from your phone.',
+    bookAlt: 'The app’s Book screen: a padel court and a Check availability button.',
+    timeEyebrow: 'Every court, every time',
+    timeTitle: 'Pick a day, a length and a time.',
+    timeAlt: 'The app’s Pick a time screen: the days, 60, 120 or 180 minutes, and the free times for Court 1 and Court 2.',
+    joinEyebrow: 'Matches and tournaments',
+    joinTitle: 'Find a game and join in.',
+    joinAlt: 'The app’s Join screen: the open seats on the court and the list of tournaments.',
     body: 'Until then, book on WhatsApp or call the desk.',
     downloadOnAppStore: 'Download on the App Store',
     getItOnGooglePlay: 'Get it on Google Play',

@@ -26,17 +26,19 @@ import type { siteEn } from './site.en';
  * «الحصص», as the coaching pages do (`coachingGlossary`).
  */
 export const siteAr: DeepMessages<typeof siteEn> = {
-  skipToContent: 'انتقل إلى المحتوى',
   brandHome: 'تتش بادل، الصفحة الرئيسية',
   nav: {
     label: 'التنقل الرئيسي',
     club: 'النادي',
     lessons: 'الحصص',
+    coaches: 'المدربون',
     menu: 'منيو الكافيه',
     visit: 'زُرنا',
     book: 'احجز ملعبًا',
     toggle: 'قائمة الموقع',
     language: 'English',
+    // The phone bar's short form of the same switch.
+    languageShort: 'EN',
     languageLabel: 'اقرأ هذه الصفحة بالإنجليزية',
   },
   theme: {
@@ -141,15 +143,15 @@ export const siteAr: DeepMessages<typeof siteEn> = {
   app: {
     titleOne: 'ملعبك على بُعد لمسة.',
     titleTwo: 'قريبًا.',
-    liveEyebrow: 'كل المواعيد، كل يوم',
-    liveTitle: 'اعرف الأوقات المتاحة قبل أن تنطلق.',
-    liveAlt: 'شاشة «الأوقات المتاحة» في التطبيق: أيام الأسبوع وكل وقت لا يزال متاحًا.',
-    holdEyebrow: 'لن يسبقك إليه أحد',
-    holdTitle: 'نحتفظ لك بالموعد ريثما تقرّر.',
-    holdAlt: 'شاشة «المراجعة والتأكيد» في التطبيق: الموعد محجوز لك، والعدّاد التنازلي يعمل.',
-    placeEyebrow: 'القادمة · المنتهية · الملغاة',
-    placeTitle: 'كل مبارياتك في مكان واحد.',
-    placeAlt: 'شاشة «حجوزاتي» في التطبيق: المباراة القادمة أولًا، ثم كل الحجوزات القادمة.',
+    bookEyebrow: 'احجز ملعبًا',
+    bookTitle: 'احجز ملعبك من هاتفك.',
+    bookAlt: 'شاشة «احجز» في التطبيق: ملعب بادل وزر «تحقق من المواعيد».',
+    timeEyebrow: 'كل ملعب، كل وقت',
+    timeTitle: 'اختر اليوم والمدة والوقت.',
+    timeAlt: 'شاشة «اختر وقتًا» في التطبيق: الأيام، و60 أو 120 أو 180 دقيقة، والأوقات المتاحة للملعب 1 والملعب 2.',
+    joinEyebrow: 'مباريات وبطولات',
+    joinTitle: 'جد مباراة وانضم إليها.',
+    joinAlt: 'شاشة «انضم» في التطبيق: المقاعد المتاحة على الملعب وقائمة البطولات.',
     body: 'وإلى ذلك الحين، احجز عبر واتساب أو اتصل بالاستقبال.',
     downloadOnAppStore: 'حمّله من App Store',
     getItOnGooglePlay: 'احصل عليه من Google Play',

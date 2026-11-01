@@ -169,7 +169,9 @@ export default async function LocaleLayout({
           dangerouslySetInnerHTML={{ __html: `${themeCss}\n${DOCUMENT_CSS}` }}
         />
       </head>
-      <body>{children}</body>
+      {/* Extensions (ColorZilla's cz-shortcut-listen, say) add attributes to <body> before
+          hydration; this silences that one-level mismatch only, not the children's. */}
+      <body suppressHydrationWarning>{children}</body>
     </html>
   );
 }

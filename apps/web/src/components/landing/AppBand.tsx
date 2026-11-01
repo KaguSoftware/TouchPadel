@@ -6,9 +6,9 @@ import { AppScreens, type AppScreen } from './AppScreens';
 
 /**
  * The app, in one band (owner, 2026-09-25, option E of the band study): "BOOKING IN THE
- * APP. / SOON.", the three things it will do as a list, and one phone showing the real
- * app screen for the one picked (Availability, Review and confirm with its hold timer,
- * My reservations), cut from the app's own store renders in the page's language. Then
+ * APP. / SOON.", its three screens as a list, and one phone showing the real app screen for
+ * the one picked (Book, Pick a time, Join), from phone captures (2026-11-01) in a CSS phone frame. The
+ * captures are English, so the Arabic page shows them too. Then
  * how to book until it ships (WhatsApp, the desk) and both store badges, "Soon" until a
  * listing URL is set.
  */
@@ -24,16 +24,16 @@ export function AppBand({
   const tr = makeT(locale);
   const screens: AppScreen[] = (
     [
-      { key: 'live', shot: 'availability' },
-      { key: 'hold', shot: 'hold' },
-      { key: 'place', shot: 'reservations' },
+      { key: 'book', shot: '1-book' },
+      { key: 'time', shot: '2-pick-a-time' },
+      { key: 'join', shot: '3-join' },
     ] as const
   ).map(({ key, shot }) => ({
     key,
     eyebrow: tr(`site.app.${key}Eyebrow`),
     title: tr(`site.app.${key}Title`),
     alt: tr(`site.app.${key}Alt`),
-    src: `/brand/app/${shot}-${locale}.webp`,
+    src: `/brand/app/${shot}.webp`,
   }));
 
   return (

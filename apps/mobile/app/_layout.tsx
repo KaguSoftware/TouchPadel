@@ -59,7 +59,7 @@ import {
 } from '../src/features/profile/push';
 import { ErrorState, OfflineBanner } from '../src/components/states';
 import { ToastProvider } from '../src/components/overlays';
-import { palettes, ThemeProvider, useTheme } from '../src/theme';
+import { ThemeProvider, useTheme } from '../src/theme';
 import { useIsOnScreen } from '../src/navigation/back';
 
 /**
@@ -142,8 +142,9 @@ export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
 
 function CrashScreen({ error, retry }: ErrorBoundaryProps) {
   const { t } = useLocale();
+  const { colors } = useTheme();
   return (
-    <View style={styles.fill}>
+    <View style={[styles.fill, { backgroundColor: colors.bg }]}>
       <ErrorState
         testID="app.crash"
         title={t('errors.crashTitle')}
@@ -151,7 +152,7 @@ function CrashScreen({ error, retry }: ErrorBoundaryProps) {
         retryLabel={t('common.retry')}
         onRetry={() => void retry()}
       />
-      {__DEV__ ? <Text style={styles.devDetail}>{String(error?.message ?? error)}</Text> : null}
+      {__DEV__ ? <Text style={[styles.devDetail, { color: colors.mut }]}>{String(error?.message ?? error)}</Text> : null}
     </View>
   );
 }
@@ -168,15 +169,16 @@ function ConfigErrorScreen() {
 
 function ConfigErrorBody() {
   const { t } = useLocale();
+  const { colors } = useTheme();
   return (
-    <View style={styles.fill}>
+    <View style={[styles.fill, { backgroundColor: colors.bg }]}>
       <ErrorState
         testID="app.config-error"
         title={t('errors.configTitle')}
         message={t('errors.configBody')}
         retryLabel=""
       />
-      {__DEV__ ? <Text style={styles.devDetail}>{configError}</Text> : null}
+      {__DEV__ ? <Text style={[styles.devDetail, { color: colors.mut }]}>{configError}</Text> : null}
     </View>
   );
 }
@@ -593,10 +595,9 @@ function AppRoot({ prefs }: { prefs: BootPrefs }) {
 }
 
 const styles = StyleSheet.create({
-  fill: { flex: 1, backgroundColor: palettes.light.bg },
+  fill: { flex: 1 },
   devDetail: {
     fontSize: 11,
-    color: palettes.light.mut,
     paddingStart: 16,
     paddingEnd: 16,
     paddingBottom: 24,

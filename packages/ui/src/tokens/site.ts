@@ -54,6 +54,12 @@ export const siteLightVars = {
   // The bar is the night's navy in both modes (owner, 2026-09-27: "always blue").
   '--tp-site-header-bg': '#172C4F',
   '--tp-site-header-border': '#2D5495',
+  // The phone bar and sheet on a light page take the page's ink and hairline (header.css.ts).
+  '--tp-site-header-day-fg': '#1B2C47',
+  '--tp-site-header-day-border': '#D6DEEA',
+  // The coach card's initial disc (the app's gtint / gstrong).
+  '--tp-site-coach-disc': '#ECF6DF',
+  '--tp-site-coach-disc-ink': '#527F19',
   // The court-line pattern (always green bands; opacity per ground, §5.1).
   '--tp-site-pattern': '#A5D06F',
   '--tp-site-pattern-opacity': '0.9',
@@ -132,6 +138,8 @@ export const siteNightVars = {
   '--tp-site-block-deep': '#274982',
   '--tp-site-header-bg': '#172C4F',
   '--tp-site-header-border': '#2D5495',
+  '--tp-site-coach-disc': '#334918',
+  '--tp-site-coach-disc-ink': '#BCDC93',
   '--tp-site-pattern-opacity': '0.45',
   '--tp-site-court-turf': '#3360AB',
   '--tp-site-court-turf-line': '#FFFFFF',
