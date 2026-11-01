@@ -39,7 +39,8 @@ const psql = (sql) =>
  * is judged by a different rule — a guest may of course learn their own order's
  * status. `courts` and `menu` are public-facing catalogue data.
  */
-const STAFF_TOPICS = ['kds', 'floor'];
+// 0375: 'checklists:<venue>', every staff phone at the branch and the operator's card.
+const STAFF_TOPICS = ['kds', 'floor', 'checklists'];
 
 /**
  * Money and identity. Matched against payload KEYS, not values.

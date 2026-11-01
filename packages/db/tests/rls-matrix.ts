@@ -7306,4 +7306,11 @@ export const matrix: MatrixRule[] = [
     note: '0369: app.analytics_guard — the owner, or the transaction of marketing_insights; read-only',
     drop: 38,
   },
+  // ── 0375 checklist_live_lines (checklist-live-lines.test.ts) ──
+  {
+    kind: 'rpc', schema: 'app', name: 'my_checklist_history',
+    args: { p_venue_id: VENUE_A }, expect: STAFF_ANY,
+    note: "0375: any active staff member at the venue: their own past lists (own copies, their role's shared lists, lists they ticked); read-only",
+    drop: 38,
+  },
 ];

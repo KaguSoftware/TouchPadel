@@ -21,6 +21,7 @@ import {
   settingsDraft,
   settingsErrors,
   settingsPatch,
+  suggestTierColor,
   tierDraft,
   tierErrors,
   tierPayload,
@@ -88,7 +89,7 @@ describe('memberView', () => {
       balance: 80,
       lifetime: 300,
       points_12m: 200,
-      tier: { id: 't2', name_en: 'Gold', name_ar: 'ذهبي', multiplier: 1.5 },
+      tier: { id: 't2', name_en: 'Gold', name_ar: 'ذهبي', multiplier: 1.5, color: 'gold' },
       history: [],
     });
     expect(v).toEqual({
@@ -240,6 +241,7 @@ describe('Setup › Loyalty drafts', () => {
       earn_multiplier: 1,
       promotion_id: null,
       sort: 0,
+      color: 'classic',
     },
     {
       id: 't1',
@@ -249,6 +251,7 @@ describe('Setup › Loyalty drafts', () => {
       earn_multiplier: 1.5,
       promotion_id: null,
       sort: 1,
+      color: 'gold',
     },
   ];
 
@@ -266,7 +269,20 @@ describe('Setup › Loyalty drafts', () => {
       earn_multiplier: 2,
       promotion_id: null,
       sort: 1,
+      color: 'gold',
     });
+  });
+
+  it('starts a new tier on the first ladder colour no tier has (0376)', () => {
+    // Gold is taken: bronze comes first.
+    expect(tierDraft(null, tiers).color).toBe('bronze');
+    expect(suggestTierColor([{ color: 'classic' }])).toBe('bronze');
+    expect(suggestTierColor([{ color: 'bronze' }, { color: 'silver' }])).toBe('gold');
+    expect(
+      suggestTierColor(
+        (['bronze', 'silver', 'gold', 'platinum', 'black'] as const).map((color) => ({ color })),
+      ),
+    ).toBe('classic');
   });
 
   it('asks a reward for what it gives and nulls the other kind', () => {

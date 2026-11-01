@@ -16,7 +16,7 @@
  *
  * PURE (vitest): no react-native, no supabase.
  */
-import { errorCode, formatTime, makeT, type Locale, type MessageKey } from '@touch/i18n';
+import { errorCode, formatDate, formatTime, isolate, makeT, type Locale, type MessageKey } from '@touch/i18n';
 
 export type ChecklistSlot = 'open' | 'close';
 export type ChecklistAudience = 'role' | 'people';
@@ -71,6 +71,80 @@ export interface ChecklistList {
 export interface ChecklistsToday {
   business_date: string;
   lists: ChecklistList[];
+}
+
+/** 0375: one past list, as `my_checklist_history` returns it. */
+export interface HistoryList {
+  run_id: string;
+  template_id: string;
+  /** Null on a list for named people. */
+  role: string | null;
+  slot: ChecklistSlot;
+  name_en: string;
+  name_ar: string;
+  done: number;
+  total: number;
+  /** The last tick's time; null when nothing was ticked. */
+  last_done_at: string | null;
+  period_start: string;
+  period_end: string | null;
+  due_at: string | null;
+  assignee_id: string | null;
+  items: ChecklistItem[];
+}
+
+/** The page after this one: passed back as `p_before_date` and `p_before_run`. */
+export interface HistoryCursor {
+  before_date: string;
+  before_run: string;
+}
+
+export interface ChecklistHistory {
+  business_date: string;
+  lists: HistoryList[];
+  next: HistoryCursor | null;
+}
+
+/** A `YYYY-MM-DD` business date as the reader's date; noon UTC keeps the day in every zone. */
+function dayText(date: string, locale: Locale): string {
+  return formatDate(new Date(`${date}T12:00:00Z`), locale);
+}
+
+/**
+ * The days a past list ran: one date for a one-day list, else "Oct 26, 2026
+ * to Nov 1, 2026", each date isolated so the pair keeps its order in Arabic.
+ */
+export function periodText(list: Pick<HistoryList, 'period_start' | 'period_end'>, locale: Locale): string {
+  const from = dayText(list.period_start, locale);
+  if (!list.period_end || list.period_end === list.period_start) return from;
+  return makeT(locale)('staff.checklists.history.period', {
+    from: isolate(from),
+    to: isolate(dayText(list.period_end, locale)),
+  });
+}
+
+/** How a past list ended: "Finished at 5:12 PM", or "Not finished". */
+export function outcomeText(list: Pick<HistoryList, 'done' | 'total' | 'last_done_at'>, locale: Locale): string {
+  const t = makeT(locale);
+  if (list.total > 0 && list.done >= list.total && list.last_done_at) {
+    const at = new Date(list.last_done_at);
+    if (!Number.isNaN(at.getTime())) return t('staff.checklists.history.finishedAt', { time: formatTime(at, locale) });
+  }
+  return t('staff.checklists.history.notFinished');
+}
+
+/** Every past list of the pages read so far, in order, each once. */
+export function historyLists(pages: readonly ChecklistHistory[] | undefined): HistoryList[] {
+  const seen = new Set<string>();
+  const out: HistoryList[] = [];
+  for (const page of pages ?? []) {
+    for (const list of page.lists) {
+      if (seen.has(list.run_id)) continue;
+      seen.add(list.run_id);
+      out.push(list);
+    }
+  }
+  return out;
 }
 
 export function isTicked(item: Pick<ChecklistItem, 'done_at'>): boolean {

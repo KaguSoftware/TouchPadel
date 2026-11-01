@@ -71,6 +71,8 @@ export const staffKeys = {
   venues: (uid: string) => ['staff', 'venues', uid] as const,
   work: (venue: string) => ['staff', 'work', venue] as const,
   checklists: (venue: string) => ['staff', 'checklists', venue] as const,
+  /** 0375: the person's past lists, paged (an infinite query). */
+  checklistHistory: (venue: string) => ['staff', 'checklistHistory', venue] as const,
   runs: (venue: string, filter: string) => ['staff', 'runs', venue, filter] as const,
   run: (id: string) => ['staff', 'run', id] as const,
   step: (id: string) => ['staff', 'step', id] as const,

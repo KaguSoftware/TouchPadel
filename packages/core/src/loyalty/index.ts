@@ -5,4 +5,5 @@ export * from './types';
 export * from './totp';
 export * from './points';
 export * from './qr';
+export * from './tierColors';
 export { sha1, hmacSha1 } from './sha1';

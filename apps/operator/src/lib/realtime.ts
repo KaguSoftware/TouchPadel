@@ -1,7 +1,8 @@
 /**
  * Broadcast-from-database subscriptions (0022_realtime.sql).
  * Topics: 'kds' (private), 'courts' (private, any authenticated), 'floor'
- * (private, staff), 'menu' (public). Private topics require realtime auth —
+ * (private, staff), 'menu' (public), and since 0375 'checklists:<branch>'
+ * (private, any staff at the branch). Private topics require realtime auth —
  * supabase.realtime.setAuth(token) runs in AuthProvider on session change.
  *
  * ONE channel per topic, shared by every mounted subscriber and reference

@@ -15,7 +15,7 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { formatIQD, formatNumber } from '@touch/i18n';
-import type { LoyaltyAdminReward, LoyaltyAdminTier } from '@touch/core/loyalty';
+import { tierColor, type LoyaltyAdminReward, type LoyaltyAdminTier } from '@touch/core/loyalty';
 import { appRpc } from '../../lib/appRpc';
 import { useLocale, pickName } from '../../lib/i18n';
 import { can, useAuth } from '../../lib/auth';
@@ -46,6 +46,7 @@ import {
   type TierDraft,
 } from './loyaltyLogic';
 import { invalidateLoyaltyAdmin, useLoyaltyAdmin } from './useLoyalty';
+import { TierColorLabel, TierColorPicker } from './TierColorPicker';
 
 const K = 'ws.loyalty.setup';
 
@@ -295,6 +296,7 @@ function TiersPanel({ canEdit, tiers }: { canEdit: boolean; tiers: LoyaltyAdminT
               <th>{tr(`${T}.columns.name`)}</th>
               <th style={{ textAlign: 'end' }}>{tr(`${T}.columns.minPoints`)}</th>
               <th style={{ textAlign: 'end' }}>{tr(`${T}.columns.multiplier`)}</th>
+              <th>{tr(`${T}.columns.color`)}</th>
               {canEdit && <th />}
             </tr>
           </thead>
@@ -322,6 +324,9 @@ function TiersPanel({ canEdit, tiers }: { canEdit: boolean; tiers: LoyaltyAdminT
                   {tr(`${T}.multiplierValue`, {
                     value: formatNumber(Number(t.earn_multiplier), locale),
                   })}
+                </td>
+                <td>
+                  <TierColorLabel color={tierColor(t.color)} />
                 </td>
                 {canEdit && (
                   <td style={{ textAlign: 'end', whiteSpace: 'nowrap' }}>
@@ -480,6 +485,13 @@ function TierEditor({ draft0, onClose }: { draft0: TierDraft; onClose: () => voi
               setD({ ...d, earn_multiplier: e.target.value.replace(/[^\d.٫]/g, '') })
             }
           />
+        </Field>
+        <Field
+          label={tr(`${T}.color`)}
+          hint={tr(`${T}.colorHint`)}
+          style={{ marginBlockEnd: 0, gridColumn: '1 / -1' }}
+        >
+          <TierColorPicker value={d.color} onChange={(color) => setD({ ...d, color })} disabled={busy} />
         </Field>
       </div>
       <ErrorText error={error} />
@@ -891,6 +903,18 @@ function TierWizard({
         </>
       ),
     },
+    {
+      key: 'color',
+      label: tr(`${T}.steps.color`),
+      note: tr(`${T}.colors.${d.color}`),
+      problems: [],
+      content: (
+        <>
+          <TierColorPicker value={d.color} onChange={(color) => setD({ ...d, color })} disabled={busy} />
+          <WizardNote>{tr(`${T}.colorHint`)}</WizardNote>
+        </>
+      ),
+    },
   ];
 
   return (
@@ -914,6 +938,7 @@ function TierWizard({
               value: tr(`${T}.review.earnsValue`, { value: formatNumber(multiplier ?? 1, locale) }),
               step: 'points',
             },
+            { label: tr(`${T}.review.color`), value: <TierColorLabel color={d.color} />, step: 'color' },
           ]}
         />
       )}

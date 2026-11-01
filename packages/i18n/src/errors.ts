@@ -321,6 +321,8 @@ export const ERROR_CODE_KEYS = {
   CHECKLIST_NOT_FOUND: 'op.errors.CHECKLIST_NOT_FOUND',
   // 0323: scheduled checklists.
   CHECKLIST_CLOSED: 'op.errors.CHECKLIST_CLOSED',
+  // 0375: save_checklist refuses a list with no lines.
+  CHECKLIST_NO_LINES: 'op.errors.CHECKLIST_NO_LINES',
   ASSIGNEE_NOT_AT_BRANCH: 'op.errors.ASSIGNEE_NOT_AT_BRANCH',
   SHOPPING_ITEM_NOT_OPEN: 'op.errors.SHOPPING_ITEM_NOT_OPEN',
   PURCHASE_NOT_FOUND: 'op.errors.PURCHASE_NOT_FOUND',

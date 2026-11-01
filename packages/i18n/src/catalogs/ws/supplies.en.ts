@@ -106,7 +106,19 @@ export const suppliesEn = {
     // A copy's due time; {day} is a weekday or a date when it is not today.
     due: 'Due {time}',
     dueOn: 'Due {day}, {time}',
-    moreLists: '+{count} more',
+    // The card's filter (0375): every copy, then each group, with its count.
+    filter: {
+      label: 'Show lists',
+      all: 'All',
+      overdue: 'Overdue',
+      todo: 'Not done yet',
+      finished: 'Finished',
+      none: {
+        overdue: 'No list is overdue.',
+        todo: 'No list is waiting to be filled.',
+        finished: 'No list is finished yet.',
+      },
+    },
     morePeople: '+{count}',
     and: '{a} and {b}',
     open: 'See today',
@@ -208,11 +220,12 @@ export const suppliesEn = {
       photoCount: 'Needs a photo: {count}',
       photoLead: 'Switch on “Needs a photo” for a line that has to be shown done, like a cleaned counter. Staff can tick it only by taking a photo on the phone, and the photo shows here under Today.',
       full: 'A list holds at most {max} lines.',
-      emptyList: 'No lines yet. A list with no lines is not shown to anyone.',
+      emptyList: 'No lines yet. Add at least one line to save the list.',
+      needLine: 'Add at least one line.',
       both: 'Write it in both English and Arabic.',
       tooLong: 'At most {max} characters.',
       // Shown only when the list has a copy open now (a copy is a snapshot).
-      keepsToday: 'This list already has a copy open, so that copy keeps its old lines. Your change shows from the next one.',
+      keepsToday: 'This list has a copy open now. New lines are added to it at once and lines you take off leave it, but a line already ticked stays. A line you set to need a photo is unticked if it was ticked without one. Other changes start from the next copy.',
       save: 'Save the list',
       saved: 'List saved.',
       discard: 'Discard changes',

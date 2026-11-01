@@ -9,7 +9,13 @@
  * due. Overdue copies come first, tagged; then the least done; then the
  * finished. The repeat summary and a people list's names come from the same
  * app.checklist_board read the sheet opens with, and a row simply goes
- * without them until it answers. "See today" opens every list with who
+ * without them until it answers. Every copy is on the card, in a list that
+ * scrolls, with a filter for all, overdue, still to fill and finished (Ameen,
+ * 2026-10-31: it showed five and "+N more").
+ *
+ * Live (0375): the private 'checklists:<branch>' topic says a line was
+ * ticked or a list saved, and the card re-reads; the minute's refetch stays
+ * the safety net while the socket is down. "See today" opens every list with who
  * ticked what (ChecklistsSheet); the owner also gets "Edit the lists"
  * (editChecklists). Staff tick their lists on the phone, never here.
  *
@@ -23,17 +29,33 @@ import { formatNumber } from '@touch/i18n';
 import { appRpc } from '../../lib/appRpc';
 import { QK } from '../../lib/queries';
 import { can, useAuth } from '../../lib/auth';
+import { useBroadcast } from '../../lib/realtime';
+import { useVenue } from '../../lib/venue';
 import { pickName, useLocale } from '../../lib/i18n';
 import { useBusinessToday } from '../../lib/settings';
 import { Button, ErrorText, Skeleton } from '../../components/ui';
-import { EmptyState, Panel, StatusBadge } from '../../components/kit';
+import { EmptyState, Panel, SegmentedControl, StatusBadge } from '../../components/kit';
 import { CardTitle, MARK, MARK_FG } from '../ops/OpsVisuals';
 import type { EditorState } from './ChecklistEditor';
 import { ChecklistsSheet, type SheetTab } from './ChecklistsSheet';
-import { CK, cardRows, dayListKey, daySummary, draftChanged, dueLabel, isOverdue, isUnfinished, readBoard, readDayState, repeatSummary, whoSummary } from './checklistLogic';
-
-/** Rows on the card before "+N more": the sheet has the rest. */
-const ROWS_SHOWN = 5;
+import {
+  CARD_FILTERS,
+  CK,
+  cardRows,
+  dayListKey,
+  daySummary,
+  draftChanged,
+  dueLabel,
+  filterCounts,
+  filterRows,
+  isOverdue,
+  isUnfinished,
+  readBoard,
+  readDayState,
+  repeatSummary,
+  whoSummary,
+  type CardFilter,
+} from './checklistLogic';
 
 export function ChecklistsCard() {
   const { tr, locale } = useLocale();
@@ -49,6 +71,12 @@ export function ChecklistsCard() {
   const state = useMemo(() => readDayState(q.data), [q.data]);
   const summary = daySummary(state);
   const rows = cardRows(state);
+  const [filter, setFilter] = useState<CardFilter>('all');
+  const counts = filterCounts(rows);
+  const shown = filterRows(rows, filter);
+  // 'checklists' has no building-wide topic: it is joined once the branch is known.
+  const { branchId } = useVenue();
+  useBroadcast({ topic: 'checklists', isPrivate: true, events: ['changed'], enabled: branchId !== null, invalidateKeys: [QK.checklistDayState.all, CK.boards] });
 
   const [sheet, setSheet] = useState<SheetTab | null>(null);
   // The board, for each list's repeat summary and a people list's names; the sheet opens on the same read.
@@ -126,53 +154,77 @@ export function ChecklistsCard() {
               afternoon. So progress is neutral and only Finished takes a colour,
               until the list is past its due time: then it is Overdue, in danger,
               and the server put it first. Nothing is blocked by it. */}
-          <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--tp-sp-1)' }}>
-            {rows.slice(0, ROWS_SHOWN).map((l) => {
-              const open = isUnfinished(l);
-              const late = isOverdue(l);
-              const pct = l.total === 0 ? 100 : Math.round((l.done / l.total) * 100);
-              const t = l.template_id ? templates.get(l.template_id) : undefined;
-              // Who: the person this copy is for, else the role, else (a people list nobody has a copy of yet) its people.
-              const who =
-                l.assignee_name ?? (l.role ? tr(`op.roles.${l.role}`) : t ? whoSummary(t, t.assignees.map((p) => p.display_name), tr, locale) : '');
-              const due = dueLabel(l.due_at, now, tr, locale);
-              const meta = [who, t ? repeatSummary(t, tr, locale) : '', due ?? ''].filter((x) => x !== '');
-              return (
-                <li key={dayListKey(l)} data-list={dayListKey(l)} data-overdue={late ? 'true' : undefined} style={{ display: 'grid', gap: 'var(--tp-sp-0)', fontSize: 'var(--tp-fs-sm)' }}>
-                  <span style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 'var(--tp-sp-2)' }}>
-                    <span style={{ fontWeight: 600, minInlineSize: 0, overflowWrap: 'anywhere' }}>
-                      <bdi>{pickName(locale, l) || tr(`work.checklist.slot.${l.slot}`)}</bdi>
-                    </span>
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-1-5)', flex: '0 0 auto' }}>
-                      {late && <StatusBadge size="sm" tone="danger" label={tr('ws.supplies.checklists.overdue')} />}
-                      <span style={{ fontWeight: 600, fontVariantNumeric: 'tabular-nums', color: open ? MARK_FG.neutral : MARK_FG.success }}>
-                        {open
-                          ? tr('ws.supplies.checklists.progress', { done: formatNumber(l.done, locale), total: formatNumber(l.total, locale) })
-                          : tr('ws.supplies.checklists.finished')}
+          <SegmentedControl
+            size="sm"
+            value={filter}
+            onChange={setFilter}
+            aria-label={tr('ws.supplies.checklists.filter.label')}
+            options={CARD_FILTERS.map((f) => ({
+              value: f,
+              testId: `checklists-filter-${f}`,
+              label: (
+                <span style={{ display: 'inline-flex', gap: 'var(--tp-sp-1)', alignItems: 'baseline' }}>
+                  {tr(`ws.supplies.checklists.filter.${f}`)}
+                  <span style={{ fontVariantNumeric: 'tabular-nums', color: 'var(--tp-muted-fg)' }}>{formatNumber(counts[f], locale)}</span>
+                </span>
+              ),
+            }))}
+          />
+          {shown.length === 0 ? (
+            // "All" always has a row here: the empty day is the EmptyState above.
+            <p data-testid="checklists-filter-none" style={{ margin: 0, fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>
+              {tr(`ws.supplies.checklists.filter.none.${filter === 'all' ? 'todo' : filter}`)}
+            </p>
+          ) : (
+            <ul
+              data-testid="checklists-card-list"
+              aria-label={tr('ws.supplies.checklists.title')}
+              // Scrolls inside the card, so a branch with many lists keeps the page's other cards in view.
+              tabIndex={0}
+              style={{ listStyle: 'none', margin: 0, padding: 0, paddingInlineEnd: 'var(--tp-sp-1)', display: 'grid', gap: 'var(--tp-sp-2)', maxBlockSize: '22rem', overflowY: 'auto', overscrollBehavior: 'contain' }}
+            >
+              {shown.map((l) => {
+                const open = isUnfinished(l);
+                const late = isOverdue(l);
+                const pct = l.total === 0 ? 100 : Math.round((l.done / l.total) * 100);
+                const t = l.template_id ? templates.get(l.template_id) : undefined;
+                // Who: the person this copy is for, else the role, else (a people list nobody has a copy of yet) its people.
+                const who =
+                  l.assignee_name ?? (l.role ? tr(`op.roles.${l.role}`) : t ? whoSummary(t, t.assignees.map((p) => p.display_name), tr, locale) : '');
+                const due = dueLabel(l.due_at, now, tr, locale);
+                const meta = [who, t ? repeatSummary(t, tr, locale) : '', due ?? ''].filter((x) => x !== '');
+                return (
+                  <li key={dayListKey(l)} data-list={dayListKey(l)} data-overdue={late ? 'true' : undefined} style={{ display: 'grid', gap: 'var(--tp-sp-0)', fontSize: 'var(--tp-fs-sm)' }}>
+                    <span style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 'var(--tp-sp-2)' }}>
+                      <span style={{ fontWeight: 600, minInlineSize: 0, overflowWrap: 'anywhere' }}>
+                        <bdi>{pickName(locale, l) || tr(`work.checklist.slot.${l.slot}`)}</bdi>
+                      </span>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-1-5)', flex: '0 0 auto' }}>
+                        {late && <StatusBadge size="sm" tone="danger" label={tr('ws.supplies.checklists.overdue')} />}
+                        <span style={{ fontWeight: 600, fontVariantNumeric: 'tabular-nums', color: open ? MARK_FG.neutral : MARK_FG.success }}>
+                          {open
+                            ? tr('ws.supplies.checklists.progress', { done: formatNumber(l.done, locale), total: formatNumber(l.total, locale) })
+                            : tr('ws.supplies.checklists.finished')}
+                        </span>
                       </span>
                     </span>
-                  </span>
-                  {meta.length > 0 && (
-                    <span style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-xs)', overflowWrap: 'anywhere' }}>
-                      {meta.map((m, i) => (
-                        <span key={i}>
-                          {i > 0 && <span aria-hidden="true"> · </span>}
-                          <bdi>{m}</bdi>
-                        </span>
-                      ))}
+                    {meta.length > 0 && (
+                      <span style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-xs)', overflowWrap: 'anywhere' }}>
+                        {meta.map((m, i) => (
+                          <span key={i}>
+                            {i > 0 && <span aria-hidden="true"> · </span>}
+                            <bdi>{m}</bdi>
+                          </span>
+                        ))}
+                      </span>
+                    )}
+                    <span aria-hidden="true" style={{ blockSize: 'var(--tp-sp-1)', borderRadius: 'var(--tp-radius-pill)', background: 'var(--tp-surface-2)', overflow: 'hidden' }}>
+                      <span style={{ display: 'block', blockSize: '100%', inlineSize: `${pct}%`, background: open ? (late ? MARK.danger : MARK.neutral) : MARK.success }} />
                     </span>
-                  )}
-                  <span aria-hidden="true" style={{ blockSize: 'var(--tp-sp-1)', borderRadius: 'var(--tp-radius-pill)', background: 'var(--tp-surface-2)', overflow: 'hidden' }}>
-                    <span style={{ display: 'block', blockSize: '100%', inlineSize: `${pct}%`, background: open ? (late ? MARK.danger : MARK.neutral) : MARK.success }} />
-                  </span>
-                </li>
-              );
-            })}
-          </ul>
-          {rows.length > ROWS_SHOWN && (
-            <span style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>
-              {tr('ws.supplies.checklists.moreLists', { count: formatNumber(rows.length - ROWS_SHOWN, locale) })}
-            </span>
+                  </li>
+                );
+              })}
+            </ul>
           )}
         </div>
       )}

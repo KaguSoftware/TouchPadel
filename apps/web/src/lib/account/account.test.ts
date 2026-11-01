@@ -85,13 +85,13 @@ describe('account display helpers', () => {
     expect(
       pointsToNextTier({
         points_12m: 800,
-        next_tier: { id: 'g', name_en: 'G', name_ar: 'G', multiplier: 1.5, min_points_12m: 1000 },
+        next_tier: { id: 'g', name_en: 'G', name_ar: 'G', multiplier: 1.5, min_points_12m: 1000, color: 'gold' },
       }),
     ).toBe(200);
     expect(
       pointsToNextTier({
         points_12m: 1200,
-        next_tier: { id: 'g', name_en: 'G', name_ar: 'G', multiplier: 1.5, min_points_12m: 1000 },
+        next_tier: { id: 'g', name_en: 'G', name_ar: 'G', multiplier: 1.5, min_points_12m: 1000, color: 'gold' },
       }),
     ).toBe(0);
     expect(pointsToNextTier({ points_12m: 800, next_tier: null })).toBeNull();

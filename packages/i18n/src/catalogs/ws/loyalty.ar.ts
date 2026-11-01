@@ -167,6 +167,16 @@ export const loyaltyAr: DeepMessages<typeof loyaltyEn> = {
       minPoints: 'ابتداءً من النقاط (12 شهرًا)',
       multiplier: 'مضاعف الكسب',
       multiplierHint: 'بين 1 و5، مثلًا 1.5.',
+      color: 'لون البطاقة',
+      colorHint: 'تأخذ بطاقة نقاط الضيف هذا اللون في هذه الفئة: خطوطها واسم الفئة واسم الضيف. الأسود يجعل البطاقة كلها سوداء.',
+      colors: {
+        classic: 'كلاسيكي',
+        bronze: 'برونزي',
+        silver: 'فضي',
+        gold: 'ذهبي',
+        platinum: 'بلاتيني',
+        black: 'أسود',
+      },
       sort: 'الترتيب',
       remove: 'إزالة',
       removeTitle: 'إزالة الفئة {name}؟',
@@ -176,11 +186,13 @@ export const loyaltyAr: DeepMessages<typeof loyaltyEn> = {
         name: 'الفئة',
         minPoints: 'ابتداءً من',
         multiplier: 'الكسب',
+        color: 'البطاقة',
       },
       multiplierValue: '×{value}',
       steps: {
         name: 'الاسم',
         points: 'النقاط والمضاعف',
+        color: 'لون البطاقة',
       },
       placeNote: 'تأتي {name} بعد {below}. ينتقل الضيف إليها حين يكسب {points} نقطة خلال 12 شهرًا.',
       review: {
@@ -189,6 +201,7 @@ export const loyaltyAr: DeepMessages<typeof loyaltyEn> = {
         fromValue: '{points} نقطة خلال 12 شهرًا',
         earns: 'الكسب',
         earnsValue: '{value}× النقاط',
+        color: 'لون البطاقة',
       },
       errors: {
         names: 'الاسمان مطلوبان.',

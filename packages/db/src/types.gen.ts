@@ -1039,6 +1039,10 @@ export type Database = {
       }
       checklist_staff_options: { Args: { p_venue_id?: string }; Returns: Json }
       checklist_sweep: { Args: never; Returns: number }
+      checklist_sync_run_lines: {
+        Args: { p_template_id: string }
+        Returns: number
+      }
       claim_due_index: {
         Args: { p_limit?: number }
         Returns: Database["public"]["Tables"]["assistant_index_queue"]["Row"][]
@@ -3317,6 +3321,15 @@ export type Database = {
       }
       my_birth_date: { Args: never; Returns: Json }
       my_campaign_drafts: { Args: { p_venue_id?: string }; Returns: Json }
+      my_checklist_history: {
+        Args: {
+          p_before_date?: string
+          p_before_run?: string
+          p_limit?: number
+          p_venue_id?: string
+        }
+        Returns: Json
+      }
       my_checklists_today: { Args: { p_venue_id?: string }; Returns: Json }
       my_coach_statements: { Args: { p_month?: string }; Returns: Json }
       my_deduction_proposals: {
@@ -10294,6 +10307,7 @@ export type Database = {
       }
       loyalty_tiers: {
         Row: {
+          color: string
           created_at: string
           earn_multiplier: number
           id: string
@@ -10304,6 +10318,7 @@ export type Database = {
           sort: number
         }
         Insert: {
+          color?: string
           created_at?: string
           earn_multiplier?: number
           id?: string
@@ -10314,6 +10329,7 @@ export type Database = {
           sort: number
         }
         Update: {
+          color?: string
           created_at?: string
           earn_multiplier?: number
           id?: string

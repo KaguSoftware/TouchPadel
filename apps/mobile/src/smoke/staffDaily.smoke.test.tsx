@@ -22,13 +22,14 @@ import { headerAdd } from '../test/headerAdd';
 import { routerState } from '../test/routerState';
 import { staffKeys } from '../features/staff/keys';
 import { supabase } from '../lib/supabase';
-import type { ChecklistsToday } from '../features/staff/checklists/logic';
+import type { ChecklistHistory, ChecklistsToday } from '../features/staff/checklists/logic';
 import type { ProductionItem, ProductionLogRow } from '../features/staff/supplies/production';
 import type { StockView } from '../features/staff/stock/logic';
 import type { TeachingsPage } from '../features/staff/teachings/logic';
 import type { SuggestionsPage } from '../features/staff/suggestions/logic';
 import type { RecipeChangesPage, RecipeView } from '../features/staff/recipes/logic';
 import StaffChecklist from '../../app/(staff)/staff-checklist';
+import StaffChecklistHistory from '../../app/(staff)/staff-checklist-history';
 import StaffProduction from '../../app/(staff)/staff-production';
 import StaffStock from '../../app/(staff)/staff-stock';
 import StaffTeachings from '../../app/(staff)/staff-teachings';
@@ -233,6 +234,46 @@ const WAITING: RecipeChangesPage = {
   total: 1,
 };
 
+// 0375: one past list, finished, and a next page to ask for.
+const HISTORY: ChecklistHistory = {
+  business_date: '2026-09-25',
+  lists: [
+    {
+      run_id: 'run-past',
+      template_id: 'tpl-open',
+      role: 'cashier',
+      slot: 'open',
+      name_en: 'Till opening',
+      name_ar: 'افتتاح الصندوق',
+      done: 1,
+      total: 1,
+      last_done_at: '2026-09-24T05:20:00Z',
+      period_start: '2026-09-24',
+      period_end: '2026-09-24',
+      due_at: null,
+      assignee_id: null,
+      items: [
+        {
+          id: 'past-1',
+          position: 1,
+          text_en: 'Count the float',
+          text_ar: 'عُدّ صندوق الفكة',
+          done_by_name: 'Huda',
+          done_at: '2026-09-24T05:20:00Z',
+          note: null,
+          photo_required: false,
+          photo_path: null,
+        },
+      ],
+    },
+  ],
+  next: { before_date: '2026-09-24', before_run: 'run-past' },
+};
+const HISTORY_SEED: [readonly unknown[], unknown] = [
+  staffKeys.checklistHistory(V),
+  { pages: [HISTORY], pageParams: [null] },
+];
+
 const HEAD_RECIPE_SEEDS: [readonly unknown[], unknown][] = [
   [staffKeys.recipes(V, 'all'), RECIPES],
   [staffKeys.ingredients(V), { ingredients: [] }],
@@ -243,8 +284,14 @@ runSmokeCases('staff daily work', [
   {
     route: 'staff-checklist',
     Component: StaffChecklist,
-    labelKey: 'staff.checklists.done',
+    labelKey: 'staff.checklists.pastRow',
     options: { staff: { role: 'barista' }, queryData: [[staffKeys.checklists(V), CHECKLISTS]] },
+  },
+  {
+    route: 'staff-checklist-history',
+    Component: StaffChecklistHistory,
+    labelKey: 'staff.checklists.history.more',
+    options: { staff: { role: 'cashier' }, queryData: [HISTORY_SEED] },
   },
   {
     route: 'staff-production',
@@ -314,6 +361,30 @@ describe.each(LOCALES)('who sees what on the daily-work pages in %s', (locale) =
       expect(screen.getByTestId('staff-checklist.item.line-1').props.accessibilityState.checked).toBe(true);
     } finally {
       screen.unmount();
+    }
+  });
+
+  // 0375: the past lists, closed until pressed, then their lines and who ticked them.
+  it('lists a past checklist, opens its lines, and offers older ones; the checklist page links to it', () => {
+    const screen = renderRoute(StaffChecklistHistory, { locale, staff: { role: 'cashier' }, queryData: [HISTORY_SEED] });
+    try {
+      expect(screen.getByText(t('staff.checklists.history.lead'))).toBeTruthy();
+      expect(screen.queryByText(locale === 'ar' ? 'عُدّ صندوق الفكة' : 'Count the float')).toBeNull();
+      fireEvent.press(screen.getByTestId('staff-checklist-history.list.run-past'));
+      expect(screen.getByText(locale === 'ar' ? 'عُدّ صندوق الفكة' : 'Count the float')).toBeTruthy();
+      expect(screen.getByTestId('staff-checklist-history.more')).toBeTruthy();
+    } finally {
+      screen.unmount();
+    }
+    const page = renderRoute(StaffChecklist, {
+      locale,
+      staff: { role: 'barista' },
+      queryData: [[staffKeys.checklists(V), CHECKLISTS]],
+    });
+    try {
+      expect(page.getByTestId('staff-checklist.history')).toBeTruthy();
+    } finally {
+      page.unmount();
     }
   });
 

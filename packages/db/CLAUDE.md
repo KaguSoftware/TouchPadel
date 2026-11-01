@@ -17,8 +17,28 @@ is a line in that file.
 
 ## Migrations
 
-- Ordinal strictly greater than the current max, never a reused one. Latest is `0373`
-  (0373 tournament_seat_pick, 2026-10-29 (Majed: a tap on an open chair at court 6 seats the guest
+- Ordinal strictly greater than the current max, never a reused one. Latest is `0376`
+  (0376 loyalty_tier_colors, 2026-10-31 (Ameen: a tier made "from 100 points" never reached a
+  gifted account, and the owner picks each tier's card colour): `loyalty_tiers.color` (classic |
+  bronze | silver | gold | platinum | black, default classic, `loyalty_tiers_color`; the same keys
+  as `TIER_COLORS` in `@touch/core/loyalty`), and points given by hand (kind `adjust`) count toward
+  lifetime and the 12-month tier points again (0308's c17 rule undone; the manager's 1,000-a-day cap
+  and the owner's push stay); **0376 holds `loyalty_recompute`, `my_loyalty`** (0308 no longer),
+  **`upsert_loyalty_tier`, `loyalty_nightly_one`** (0309 no longer), **`loyalty_admin` and
+  `loyalty_tier_json`** (0305 no longer); `tests/loyalty-tier-colors.test.ts`;
+  0375 checklist_live_lines, 2026-10-31 (written as 0374 and renumbered before the merge, because
+  saeed's branch took 0374 for guest_lesson_no_overlap; Ameen: a cashier had nowhere to see the lists they
+  filled; a line added to a finished list never reached the person; a list could be saved with no
+  lines; the lists read only on a timer): the internal `checklist_sync_run_lines` (the copies open
+  now follow a list's lines: a new line is added unticked, an unticked line taken off goes, a ticked
+  line stays), **0375 holds `save_checklist`** (0323 no longer: `CHECKLIST_NO_LINES` hint items, the
+  sync after an edit, audit `copies_updated`; the legacy `save_checklist_template` stays 0323's), the
+  client `my_checklist_history(p_venue_id, p_before_date, p_before_run, p_limit)` (a person's own
+  ended lists, keyset paged; no counts across lists) and the private per-branch realtime topic
+  `checklists:<venue>` (event `changed`, payload {at}; `app.rt_checklists` statement triggers on
+  `checklist_run_items` and `checklist_templates`; policy `touchpadel_rt_checklists`, any active
+  staff at the branch; SEC-28 guards it); `tests/checklists.test.ts`;
+  0373 tournament_seat_pick, 2026-10-29 (Majed: a tap on an open chair at court 6 seats the guest
   there, not in the first open chair): `tournament_entries.seat_no` (the board chair, backfilled in
   registration order), `app.tournament_seats(t)` (internal: a seat_no keeps its chair, a desk add or
   promotion with none takes the lowest left), `tournament_register(p_tournament_id, p_seat_no int
@@ -491,7 +511,7 @@ is a line in that file.
   (0184 is no longer the latest), `checklist_day_state` (0188), `notify_staff` (0322 is no longer
   the latest; it gains `checklist_due` and `checklist_overdue`, 43 keys now), `create_branch`
   (0233) and `staff_media_visible` (0238), plus the table `checklist_assignees`, the new
-  `save_checklist`, `archive_checklist`, `checklist_staff_options`, the service-role
+  `save_checklist` (0375 holds it now), `archive_checklist`, `checklist_staff_options`, the service-role
   `checklist_sweep` (cron `tp_checklist_sweep`, every five minutes) and the internals
   `checklist_materialize`, `checklist_occurrence`, `checklist_is_scheduled`, `checklist_due_at`,
   `checklist_current`, `checklist_on_leave` and `checklist_member_at`. `(venue, role, slot)` is no

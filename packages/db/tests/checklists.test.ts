@@ -27,6 +27,11 @@
  * keeps namesakes apart, the board leads a role and slot with the list the
  * legacy save writes, and the sweep pushes only people still at the branch.
  *
+ * checklist_live_lines (0375): an owner's edit reaches the copy open now (a
+ * new line reopens a finished copy, an unticked line taken off goes, a ticked
+ * one stays), a list with no line is refused, my_checklist_history pages a
+ * person's past lists, and the realtime triggers and policy exist.
+ *
  * HOW. Every scenario is ONE psql transaction that is rolled back (the
  * protocols-engine-flow.test.ts harness): staff are created inside it and each
  * call runs as `authenticated` with the caller's JWT claims, as PostgREST runs
@@ -198,6 +203,7 @@ interface Item {
   done_by_name: string | null;
   done_at: string | null;
   note: string | null;
+  photo_required: boolean;
 }
 interface List {
   run_id: string;
@@ -693,6 +699,8 @@ describe.skipIf(!docker)('checklist_schedules (0323, rolled-back transactions)',
       bad('lines_long', { items: Array.from({ length: 31 }, (_, i) => ({ text_en: `L${i}`, text_ar: `س${i}` })) }),
       bad('line_one', { items: [{ text_en: 'Only English', text_ar: '' }] }),
       bad('line_photo', { items: [{ text_en: 'a', text_ar: 'ب', photo_required: 'yes' }] }),
+      // 0375: a list holds at least one line.
+      bad('no_lines', { items: [] }),
       T('new_nonzero', 'owner', saveList(null, 3, spec(base()))),
       T('manager', 'manager', saveList(null, 0, spec(base()))),
       T('cashier', 'cashier', saveList(null, 0, spec(base()))),
@@ -755,6 +763,7 @@ describe.skipIf(!docker)('checklist_schedules (0323, rolled-back transactions)',
     expect(refused(r, 'lines_long')).toBe('LIST_TOO_LONG:items');
     expect(refused(r, 'line_one')).toBe('TEXT_BOTH_LANGUAGES_REQUIRED:items');
     expect(refused(r, 'line_photo')).toBe('INVALID_ARGUMENT:items');
+    expect(refused(r, 'no_lines')).toBe('CHECKLIST_NO_LINES:items');
     expect(refused(r, 'new_nonzero')).toBe('TEMPLATE_CHANGED');
     expect(refused(r, 'manager')).toBe('FORBIDDEN');
     expect(refused(r, 'cashier')).toBe('FORBIDDEN');
@@ -775,7 +784,7 @@ describe.skipIf(!docker)('checklist_schedules (0323, rolled-back transactions)',
     expect(audit[0]!.after).toEqual({
       audience: 'role', role: 'barista', copy_mode: 'shared', repeat_kind: 'monthdays',
       weekdays: [0, 1, 2, 3, 4, 5, 6], month_days: [1, 31], slot: 'close', due_time: '15:30', version: 1,
-      items: 2, people: 0,
+      items: 2, people: 0, copies_updated: 0,
     });
     expect(audit[2]!.after).toEqual({ version: 3, archived: true });
   });
@@ -1467,6 +1476,178 @@ describe.skipIf(!docker)('checklist_schedules (0323, rolled-back transactions)',
     expect(ok<number>(r, 'moved')).toBeGreaterThan(0);
     // cash1 still works here and is pushed; cash2 left and is not.
     expect(ok<Array<{ to: string; key: string }>>(r, 'out')).toEqual([{ to: ok<string>(r, 'c1'), key: 'checklist_overdue' }]);
+  });
+
+  // ── 0375 checklist_live_lines (Ameen, 2026-10-31) ──
+
+  const TILL_LOCK = { text_en: 'Lock the drawer', text_ar: 'اقفل الدرج' };
+  type HistList = SchedList & { last_done_at: string | null };
+  type History = { business_date: string; lists: HistList[]; next: { before_date: string; before_run: string } | null };
+
+  it('0375: an edit reaches the copy open now: a new line reopens a finished copy, an unticked line taken off goes, a ticked one stays', () => {
+    const till = (items: unknown[]) => spec(base({ name_en: 'Till open', role: 'cashier', items }));
+    const r = scenario([
+      T('l', 'owner', saveList(null, 0, till(SCHED_LINES))),
+      RES('lt', 'l', 'template_id'),
+      T('today1', 'cashier', `select app.my_checklists_today({{venue}})`),
+      RES('i1', 'today1', 'lists,0,items,0,id'),
+      RES('i2', 'today1', 'lists,0,items,1,id'),
+      T('tick1', 'cashier', `select app.mark_checklist_item({{i1}}, true)`),
+      T('tick2', 'cashier', `select app.mark_checklist_item({{i2}}, true)`),
+      T('today_done', 'cashier', `select app.my_checklists_today({{venue}})`),
+      // The owner adds a line to the finished list.
+      T('add', 'owner', saveList('lt', 1, till([...SCHED_LINES, TILL_LOCK]))),
+      T('today_added', 'cashier', `select app.my_checklists_today({{venue}})`),
+      // The same save again changes no copy.
+      T('same', 'owner', saveList('lt', 2, till([...SCHED_LINES, TILL_LOCK]))),
+      // Unticked, then taken off; the ticked first line is taken off too and stays.
+      T('untick2', 'cashier', `select app.mark_checklist_item({{i2}}, false)`),
+      T('cut', 'owner', saveList('lt', 3, till([TILL_LOCK]))),
+      T('today_cut', 'cashier', `select app.my_checklists_today({{venue}})`),
+      T('tick_gone', 'cashier', `select app.mark_checklist_item({{i2}}, true)`),
+      // A save with no line is refused, and changes nothing.
+      T('empty', 'owner', saveList('lt', 4, till([]))),
+      Q('audit', `select jsonb_agg((a.after ->> 'copies_updated')::int order by a.at, a.id)
+                    from audit_log a
+                   where a.entity = 'checklist_template' and a.entity_id = {{lt}} and a.action = 'checklist.save'`),
+      Q('triggers', `select jsonb_agg(t.tgname || ' on ' || c.relname order by c.relname, t.tgname)
+                       from pg_trigger t join pg_class c on c.oid = t.tgrelid
+                      where t.tgname like 'rt_checklists%'`),
+      Q('policy', `select to_jsonb(count(*)) from pg_policies where policyname = 'touchpadel_rt_checklists'`),
+    ]);
+
+    const done = ok<SchedToday>(r, 'today_done').lists[0]!;
+    expect([done.done, done.total]).toEqual([2, 2]);
+    const added = ok<SchedToday>(r, 'today_added').lists[0]!;
+    expect(added.run_id).toBe(done.run_id);
+    expect([added.done, added.total]).toEqual([2, 3]);
+    expect(added.items.map((i) => [i.text_en, i.done_at !== null])).toEqual([
+      ['Count the float', true],
+      ['Wipe the counter', true],
+      ['Lock the drawer', false],
+    ]);
+    // The ticks kept who ticked them.
+    expect(added.items[0]!.done_by_name).toBe(done.items[0]!.done_by_name);
+    const cut = ok<SchedToday>(r, 'today_cut').lists[0]!;
+    expect(cut.items.map((i) => [i.text_en, i.done_at !== null]).sort()).toEqual([
+      ['Count the float', true],
+      ['Lock the drawer', false],
+    ]);
+    expect([cut.done, cut.total]).toEqual([1, 2]);
+    expect(refused(r, 'tick_gone')).toBe('CHECKLIST_NOT_FOUND');
+    expect(refused(r, 'empty')).toBe('CHECKLIST_NO_LINES:items');
+    // New, add, the same again, cut.
+    expect(ok<number[]>(r, 'audit')).toEqual([0, 1, 0, 1]);
+    expect(ok<string[]>(r, 'triggers')).toEqual([
+      'rt_checklists_delete on checklist_run_items',
+      'rt_checklists_insert on checklist_run_items',
+      'rt_checklists_update on checklist_run_items',
+      'rt_checklists_insert on checklist_templates',
+      'rt_checklists_update on checklist_templates',
+    ]);
+    expect(ok<number>(r, 'policy')).toBe(1);
+  });
+
+  it('0375: a line that now needs a photo and was ticked without one is unticked, and takes no tick without a photo', () => {
+    const till = (items: unknown[]) => spec(base({ name_en: 'Till open', role: 'cashier', items }));
+    const [count, wipe] = SCHED_LINES;
+    const r = scenario([
+      T('l', 'owner', saveList(null, 0, till(SCHED_LINES))),
+      RES('lt', 'l', 'template_id'),
+      T('today1', 'cashier', `select app.my_checklists_today({{venue}})`),
+      RES('i1', 'today1', 'lists,0,items,0,id'),
+      RES('i2', 'today1', 'lists,0,items,1,id'),
+      T('tick1', 'cashier', `select app.mark_checklist_item({{i1}}, true)`),
+      T('tick2', 'cashier', `select app.mark_checklist_item({{i2}}, true)`),
+      // The owner turns "needs a photo" on for the first line, ticked with none.
+      T('photo_on', 'owner', saveList('lt', 1, till([{ ...count, photo_required: true }, wipe]))),
+      T('today_photo', 'cashier', `select app.my_checklists_today({{venue}})`),
+      T('tick_bare', 'cashier', `select app.mark_checklist_item({{i1}}, true)`),
+      // Off again: the line is ticked without one.
+      T('photo_off', 'owner', saveList('lt', 2, till(SCHED_LINES))),
+      T('today_off', 'cashier', `select app.my_checklists_today({{venue}})`),
+      T('tick_again', 'cashier', `select app.mark_checklist_item({{i1}}, true)`),
+    ]);
+
+    const photo = ok<SchedToday>(r, 'today_photo').lists[0]!;
+    expect(photo.items.map((i) => [i.text_en, i.photo_required, i.done_at !== null])).toEqual([
+      ['Count the float', true, false],
+      ['Wipe the counter', false, true],
+    ]);
+    expect(photo.items[0]!.done_by_name).toBeNull();
+    expect([photo.done, photo.total]).toEqual([1, 2]);
+    expect(refused(r, 'tick_bare')).toBe('RECORD_INVALID:photo_path');
+    const off = ok<SchedToday>(r, 'today_off').lists[0]!;
+    expect(off.items.map((i) => [i.photo_required, i.done_at !== null])).toEqual([
+      [false, false],
+      [false, true],
+    ]);
+    expect(ok<{ done_at: string | null }>(r, 'tick_again').done_at).not.toBeNull();
+  });
+
+  it('0375: my_checklist_history: a person’s past lists, newest first, paged; the open ones and other people’s are left out', () => {
+    const r = scenario([
+      MK('cash2', 'cashier'),
+      MK('drv', 'driver'),
+      T('l', 'owner', saveList(null, 0, spec(base({ name_en: 'Till open', role: 'cashier' })))),
+      RES('lt', 'l', 'template_id'),
+      T('today1', 'cashier', `select app.my_checklists_today({{venue}})`),
+      RES('i1', 'today1', 'lists,0,items,0,id'),
+      T('tick1', 'cashier', `select app.mark_checklist_item({{i1}}, true)`),
+      // The open copy is not history yet.
+      T('h_open', 'cashier', `select app.my_checklist_history({{venue}})`),
+      NOCLAIMS,
+      // Two days on: that copy has ended, and a new one opens.
+      Q('shift1', `with x as (update checklist_runs set business_date = business_date - 2, period_end = period_end - 2
+                    where template_id = {{lt}}::uuid returning 1) select to_jsonb(count(*)) from x`),
+      T('open2', 'cash2', `select app.my_checklists_today({{venue}})`),
+      NOCLAIMS,
+      Q('shift2', `with x as (update checklist_runs set business_date = business_date - 1, period_end = period_end - 1
+                    where template_id = {{lt}}::uuid returning 1) select to_jsonb(count(*)) from x`),
+      T('open3', 'cashier', `select app.my_checklists_today({{venue}})`),
+      T('h_all', 'cashier', `select app.my_checklist_history({{venue}})`),
+      T('h_cash2', 'cash2', `select app.my_checklist_history({{venue}})`),
+      T('h_drv', 'drv', `select app.my_checklist_history({{venue}})`),
+      T('p1', 'cashier', `select app.my_checklist_history({{venue}}, null, null, 1)`),
+      KEEP('bd', `select res #>> '{data,next,before_date}' from pg_temp.out where label = 'p1'`),
+      KEEP('br', `select res #>> '{data,next,before_run}' from pg_temp.out where label = 'p1'`),
+      T('p2', 'cashier', `select app.my_checklist_history({{venue}}, {{bd}}::date, {{br}}::uuid, 1)`),
+      // An archived list's open copy is history at once.
+      T('arch', 'owner', archive('lt', 1)),
+      T('h_arch', 'cashier', `select app.my_checklist_history({{venue}})`),
+      T('bad_limit', 'cashier', `select app.my_checklist_history({{venue}}, null, null, 0)`),
+      T('bad_before', 'cashier', `select app.my_checklist_history({{venue}}, current_date, null, 5)`),
+      T('other_venue', 'cashier', `select app.my_checklist_history('00000000-0000-4000-8000-00000000c1c1')`),
+    ]);
+
+    expect(ok<History>(r, 'h_open').lists).toEqual([]);
+    const all = ok<History>(r, 'h_all');
+    // Newest first: the copy cash2 opened (ended yesterday), then the one ticked three days ago.
+    expect(all.lists.map((l) => [l.name_en, l.done, l.total])).toEqual([
+      ['Till open', 0, 2],
+      ['Till open', 1, 2],
+    ]);
+    expect(all.lists[1]!.items[0]!.done_by_name).not.toBeNull();
+    expect(all.lists[1]!.last_done_at).not.toBeNull();
+    expect(all.lists[0]!.period_start > all.lists[1]!.period_start).toBe(true);
+    expect(all.next).toBeNull();
+    // The open copy (open3) is not among them.
+    const open3 = ok<SchedToday>(r, 'open3').lists[0]!.run_id;
+    expect(all.lists.some((l) => l.run_id === open3)).toBe(false);
+    // The role's other cashier sees the role's shared lists too; a driver sees none.
+    expect(ok<History>(r, 'h_cash2').lists.map((l) => l.run_id)).toEqual(all.lists.map((l) => l.run_id));
+    expect(ok<History>(r, 'h_drv').lists).toEqual([]);
+    // Paged one at a time.
+    const p1 = ok<History>(r, 'p1');
+    expect(p1.lists.map((l) => l.run_id)).toEqual([all.lists[0]!.run_id]);
+    expect(p1.next).toEqual({ before_date: all.lists[0]!.period_start, before_run: all.lists[0]!.run_id });
+    const p2 = ok<History>(r, 'p2');
+    expect(p2.lists.map((l) => l.run_id)).toEqual([all.lists[1]!.run_id]);
+    expect(p2.next).toBeNull();
+    expect(ok<History>(r, 'h_arch').lists.map((l) => l.run_id)).toEqual([open3, ...all.lists.map((l) => l.run_id)]);
+    expect(refused(r, 'bad_limit')).toBe('INVALID_ARGUMENT:limit');
+    expect(refused(r, 'bad_before')).toBe('INVALID_ARGUMENT:before');
+    expect(refused(r, 'other_venue')).toBe('FORBIDDEN');
   });
 
   it('create_branch copies role lists with their schedule, not people or archived lists; the branch guard holds', () => {

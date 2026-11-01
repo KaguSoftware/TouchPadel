@@ -10,7 +10,7 @@ import {
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect } from 'expo-router';
-import Svg, { Circle, Defs, RadialGradient, Stop } from 'react-native-svg';
+import Svg, { Circle, Defs, RadialGradient, Rect, Stop } from 'react-native-svg';
 import type { MyLoyalty } from '@touch/core/loyalty';
 import { formatIQD, formatNumber, isolate, isolateLtr } from '@touch/i18n';
 import { Text } from '../../i18n/text';
@@ -22,7 +22,18 @@ import { ChevronIcon } from '../../components/icons';
 import { MicroLabel } from '../../components/ui';
 import { useReduceMotion } from '../../lib/useReduceMotion';
 import { logoFrame } from '../courtTransition/logoPaths';
-import { brand, frame, radius, shadows, space, useTheme, withAlpha } from '../../theme';
+import {
+  brand,
+  frame,
+  radius,
+  shadows,
+  space,
+  GLASS_SMOKE,
+  tierFinish,
+  useTheme,
+  withAlpha,
+  type TierFinish,
+} from '../../theme';
 import { tierName } from './logic';
 import { useCardMotion } from './useCardMotion';
 
@@ -63,16 +74,21 @@ const PUFF_STEPS = [1.8, 1.2, 0.6];
  * not this much"; a chrome of seven bands with a dark horizon was rejected on sight). The face is
  * the bright silver; the top of each letter is a touch lighter where it rounds toward the light,
  * the bottom a touch darker where it turns away. Fractions of NAME_LINE; null leaves the face.
+ * Since 0376 the face is the tier's metal (tierFinish), silver on the classic card.
  */
-const METAL: readonly (readonly [from: number, to: number, color: string])[] = [
+const metalBands = (
+  metal: TierFinish['metal'],
+): readonly (readonly [from: number, to: number, color: string])[] => [
   [0, 0.42, withAlpha(brand.white, 0.35)],
-  [0.7, 1, withAlpha(frame.silver, 0.6)],
+  [0.7, 1, withAlpha(metal.face, 0.6)],
 ];
 /** The glint: one soft stroke through the letters, faint. */
 const GLINTS: readonly (readonly [width: number, alpha: number])[] = [[22, 0.3]];
 
 interface NameProps {
   name: string;
+  /** The tier's metal (0376): the classic card's is the silver it always was. */
+  metal: TierFinish['metal'];
   /** The card's band of light, 0..1 across it. */
   sweep: Animated.Value;
   /** The card's lean left and right, -1..1. */
@@ -89,12 +105,12 @@ interface NameProps {
  * Black and Bold, spread 1.1 pt, were "too thick, too bold" (Majed): a weight lighter each, 0.5 pt.
  */
 type Bevel = 'foot' | 'shoulder' | 'crest';
-const BEVEL_TONES: Record<Bevel, string> = {
-  foot: frame.silverLo,
-  shoulder: frame.silver,
+const bevelTones = (metal: TierFinish['metal']): Record<Bevel, string> => ({
+  foot: metal.lo,
+  shoulder: metal.face,
   // A near-white crest: the brightest line on the letter is the one the eye reads as its top.
   crest: withAlpha(brand.white, 0.92),
-};
+});
 /**
  * How far the foot is spread past its own outline, in points ("make the outer wider while keeping
  * the inner thin", Majed): the foot's ExtraBold drawn again at SPREAD in eight directions round it,
@@ -118,12 +134,11 @@ const AROUND: readonly (readonly [dx: number, dy: number])[] = [
  * The light, as it falls on raised metal in a room (Majed, 2026-10-22: "colours like real life"):
  * one source above and toward the start. A slope that faces it is near white, a slope that faces
  * away is dark steel, and the sides under the letter are in shade. So every spread copy of the foot
- * takes its tone from its direction (LIT toward the light, SHADE away), each upper step is laid
+ * takes its tone from its direction (LIT toward the light, the tier metal's shade away), each upper step is laid
  * once a hair toward the light in white and once away in steel before its own tone covers the
  * middle, and the crest, a polished highlight, sits a hair toward the light, not dead centre.
  */
 const LIT = withAlpha(brand.white, 0.85);
-const SHADE = frame.steel;
 /** True for a direction that faces the light: up, or level and toward the start. */
 const facesLight = (dx: number, dy: number) => dy < 0 || (dy === 0 && dx < 0);
 /** How far a step's lit and shaded copies sit from it, and the crest from centre. */
@@ -146,10 +161,13 @@ const SIDE_SPREAD: readonly (readonly [dx: number, dy: number])[] = [
 function GlyphRow({
   chars,
   tones,
+  shade,
   sides,
 }: {
   chars: string[];
   tones: Record<Bevel, string>;
+  /** The tier metal's slopes and sides turned away from the light. */
+  shade: string;
   /** The spread foot, the puffy thickness under it and its shadow; off for the glint's copy. */
   sides: boolean;
 }) {
@@ -213,7 +231,7 @@ function GlyphRow({
                   black(
                     `s${k}.${j}`,
                     c,
-                    SHADE,
+                    shade,
                     d * 0.35 + dx * SPREAD,
                     d + dy * SPREAD,
                     k === 0 && j === 2,
@@ -223,12 +241,12 @@ function GlyphRow({
             : null}
           {sides
             ? around.map(([dx, dy], j) =>
-                black(`f${j}`, c, facesLight(dx, dy) ? LIT : SHADE, dx * SPREAD, dy * SPREAD),
+                black(`f${j}`, c, facesLight(dx, dy) ? LIT : shade, dx * SPREAD, dy * SPREAD),
               )
             : null}
           <Text style={[line, { fontFamily: fonts.display800, color: tones.foot }]}>{c}</Text>
           {/* The shoulder's slopes: away from the light in steel, toward it in white. */}
-          {sides ? centred('ss', fonts.display600, SHADE, c, SLOPE.x, SLOPE.y) : null}
+          {sides ? centred('ss', fonts.display600, shade, c, SLOPE.x, SLOPE.y) : null}
           {sides ? centred('sl', fonts.display600, LIT, c, -SLOPE.x, -SLOPE.y) : null}
           {centred('s', fonts.display600, tones.shoulder, c)}
           {centred('c', fonts.display100, tones.crest, c, CREST_NUDGE.x, CREST_NUDGE.y)}
@@ -244,7 +262,7 @@ function GlyphRow({
  * since a row of single letters cannot ellipsize. The glint crosses with the card's band of light
  * on an exact copy of the row with only the crests lit, so it catches the ridges and nothing else.
  */
-function EmbossedGlyphs({ name, sweep, lean, moving }: NameProps) {
+function EmbossedGlyphs({ name, metal, sweep, lean, moving }: NameProps) {
   const [room, setRoom] = useState(0);
   const [rowW, setRowW] = useState(0);
   const chars = Array.from(name.toLocaleUpperCase('en'));
@@ -284,7 +302,7 @@ function EmbossedGlyphs({ name, sweep, lean, moving }: NameProps) {
             transform: [{ scale: fit }],
           }}
         >
-          <GlyphRow chars={chars} tones={BEVEL_TONES} sides />
+          <GlyphRow chars={chars} tones={bevelTones(metal)} shade={metal.shade} sides />
           {glintX ? (
             <Animated.View
               pointerEvents="none"
@@ -308,6 +326,7 @@ function EmbossedGlyphs({ name, sweep, lean, moving }: NameProps) {
                 <GlyphRow
                   chars={chars}
                   tones={{ foot: clear, shoulder: clear, crest: brand.white }}
+                  shade={clear}
                   sides={false}
                 />
               </Animated.View>
@@ -333,7 +352,7 @@ function EmbossedName(props: NameProps) {
  *               thickness, the last one casting a soft black shadow onto the card;
  *   the lit rim a white copy a hair up and back, the edge that catches the light;
  *   the face    the bright silver, lighter over the top of the letters and a touch darker at the
- *               bottom (METAL: copies clipped to those bands);
+ *               bottom (metalBands: copies clipped to those bands);
  *   the glint   one faint stroke through the letters only, crossing them with the card's band of
  *               light and leaning with the card. Still under Reduce Motion.
  *
@@ -341,7 +360,7 @@ function EmbossedName(props: NameProps) {
  * they clip and ellipsize identically. Only the base face is in the flow and gives the box its
  * size. Text with a gradient fill would need a native mask view; slices need nothing new.
  */
-function EmbossedLine({ name, sweep, lean, moving }: NameProps) {
+function EmbossedLine({ name, metal, sweep, lean, moving }: NameProps) {
   const { fonts } = useTheme();
   const [width, setWidth] = useState(0);
   const line = { fontFamily: fonts.display900, fontSize: NAME_PT, lineHeight: NAME_LINE };
@@ -384,7 +403,7 @@ function EmbossedLine({ name, sweep, lean, moving }: NameProps) {
             line,
             layer,
             {
-              color: frame.silverLo,
+              color: metal.lo,
               transform: [{ translateX: d * 0.35 }, { translateY: d }],
             },
             // The deepest copy stands the whole stack on the card.
@@ -416,12 +435,12 @@ function EmbossedLine({ name, sweep, lean, moving }: NameProps) {
       <Text
         numberOfLines={1}
         onLayout={(e) => setWidth(e.nativeEvent.layout.width)}
-        style={[line, { color: frame.silverHi }]}
+        style={[line, { color: metal.hi }]}
       >
         {name}
       </Text>
       {width > 0
-        ? METAL.map(([from, to, color]) =>
+        ? metalBands(metal).map(([from, to, color]) =>
             slice(`c${from}`, from * NAME_LINE, (to - from) * NAME_LINE, color),
           )
         : null}
@@ -463,7 +482,7 @@ function EmbossedLine({ name, sweep, lean, moving }: NameProps) {
 /**
  * The guest's points as a card in the hand (Majed, 2026-10-22): the Club tab's way into Points &
  * rewards. Touch Blue, the brand blue itself (Majed, 2026-10-29: the navy read as a dark card),
- * with the court lines across it, the lockup where a bank puts its name, the tier in Padel Green,
+ * with the court lines across it, the lockup where a bank puts its name, the tier in its colour,
  * the balance with what it is worth at the cashier, and the guest's name in puffy chrome along the
  * bottom, as a bank card carries its holder's (EmbossedName).
  *
@@ -476,6 +495,16 @@ function EmbossedLine({ name, sweep, lean, moving }: NameProps) {
  *
  * Theme-invariant like the navy surfaces in `brand`: a card is the same card on either page. Only
  * its shadow follows the theme.
+ *
+ * The tier dresses it (0376, Ameen: the owner gives each tier a colour): the court lines, the tier
+ * word, the holder's raised name, the cut edge, the glow in the glass and the breath of colour in
+ * the band of light all take the tier's finish (`tierFinish`), and a black tier is smoked glass. A
+ * tier with no colour, or one this build does not know, is the classic card.
+ *
+ * Glass, not paint (Ameen, 2026-10-31: "full glass with a bit of a greenish or whatever colour is
+ * chosen"): no ground of its own. A white frost, a wash of the tier's colour and a soft glow in
+ * its middle (as the operator's loyalty card has), with the page's frosted lines showing through.
+ * On the light page the glass is smoked underneath, or the white ink would have no ground.
  */
 export function PointsCard({
   testID,
@@ -493,6 +522,8 @@ export function PointsCard({
   const { t, locale } = useLocale();
   const { fonts, appearance } = useTheme();
   const reduce = useReduceMotion();
+  const finish = tierFinish[loyalty.tier?.color ?? 'classic'];
+  const smoke = finish.smoke[appearance];
   const [size, setSize] = useState<{ w: number; h: number } | null>(null);
 
   // Finger position on the card, -1..1 on each axis, and how far it is pressed in.
@@ -601,7 +632,7 @@ export function PointsCard({
     ).interpolate({ inputRange: [0, 1], outputRange: [0, 1], extrapolate: 'clamp' });
     return (
       <LtrIsland pointerEvents="none" style={StyleSheet.absoluteFill}>
-        {/* The light band: clear, a breath of Padel Green, white, clear. */}
+        {/* The light band: clear, a breath of the tier's colour, white, clear. */}
         {reduce ? null : (
           <Animated.View
             style={{
@@ -616,7 +647,7 @@ export function PointsCard({
             <LinearGradient
               colors={[
                 withAlpha(brand.white, 0),
-                withAlpha(brand.green, 0.07),
+                withAlpha(finish.word, 0.07),
                 withAlpha(brand.white, 0.2),
                 withAlpha(brand.white, 0.05),
                 withAlpha(brand.white, 0),
@@ -699,23 +730,65 @@ export function PointsCard({
         style={{
           flex: 1,
           borderRadius: radius.sheet,
-          backgroundColor: brand.blue,
+          // Clear: the card is glass, and the page shows through it.
+          backgroundColor: 'transparent',
           boxShadow: appearance === 'dark' ? shadows.pointsCardDark : shadows.pointsCard,
           transform: [{ perspective: 900 }, { rotateX }, { rotateY }, { scale }],
         }}
       >
         <View style={{ flex: 1, borderRadius: radius.sheet, overflow: 'hidden' }}>
+          {/* Smoked underneath where the page is too light for white ink (and a black tier). */}
+          {smoke > 0 ? (
+            <View
+              style={[StyleSheet.absoluteFill, { backgroundColor: withAlpha(GLASS_SMOKE, smoke) }]}
+            />
+          ) : null}
+          {/* The frost: clear glass, a touch whiter than what is behind it. */}
           <LinearGradient
-            colors={[brand.blue, brand.blue, brand.blueShade]}
+            colors={[
+              withAlpha(brand.white, 0.1),
+              withAlpha(brand.white, 0.05),
+              withAlpha(brand.white, 0.02),
+            ]}
             locations={[0, 0.55, 1]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={StyleSheet.absoluteFill}
           />
-          <BrandPattern opacity={0.16} />
-          {/* The sheen of a laminated face: brighter at the top edge, gone by the middle. */}
+          {/* The tier's colour washed into the glass, strongest at the top corner. */}
           <LinearGradient
-            colors={[withAlpha(brand.white, 0.1), withAlpha(brand.white, 0)]}
+            colors={[
+              withAlpha(finish.tint, 0.5),
+              withAlpha(finish.tint, 0.34),
+              withAlpha(finish.tint, 0.22),
+            ]}
+            locations={[0, 0.55, 1]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={StyleSheet.absoluteFill}
+          />
+          {/* The glow in the glass: the tier's colour, soft, from the middle out. */}
+          {size ? (
+            <Svg
+              pointerEvents="none"
+              width={size.w}
+              height={size.h}
+              style={StyleSheet.absoluteFill}
+            >
+              <Defs>
+                <RadialGradient id="tierGlow" cx="50%" cy="48%" rx="62%" ry="78%">
+                  <Stop offset="0" stopColor={finish.tint} stopOpacity={0.35} />
+                  <Stop offset="0.6" stopColor={finish.tint} stopOpacity={0.1} />
+                  <Stop offset="1" stopColor={finish.tint} stopOpacity={0} />
+                </RadialGradient>
+              </Defs>
+              <Rect x={0} y={0} width={size.w} height={size.h} fill="url(#tierGlow)" />
+            </Svg>
+          ) : null}
+          <BrandPattern opacity={finish.linesAlpha} color={finish.lines} />
+          {/* The sheen of the glass's face: brighter at the top edge, gone by the middle. */}
+          <LinearGradient
+            colors={[withAlpha(brand.white, 0.16), withAlpha(brand.white, 0)]}
             locations={[0, 0.5]}
             style={StyleSheet.absoluteFill}
           />
@@ -738,7 +811,7 @@ export function PointsCard({
             >
               <Lockup />
               {loyalty.tier ? (
-                <MicroLabel style={{ color: brand.green, flexShrink: 1 }}>
+                <MicroLabel style={{ color: finish.word, flexShrink: 1 }}>
                   {tierName(loyalty.tier, locale)}
                 </MicroLabel>
               ) : null}
@@ -771,7 +844,13 @@ export function PointsCard({
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm }}>
               <View style={{ flex: 1 }}>
                 {holder ? (
-                  <EmbossedName name={holder} sweep={sweep} lean={leanX} moving={!reduce} />
+                  <EmbossedName
+                    name={holder}
+                    metal={finish.metal}
+                    sweep={sweep}
+                    lean={leanX}
+                    moving={!reduce}
+                  />
                 ) : null}
               </View>
               <View
@@ -795,7 +874,7 @@ export function PointsCard({
               {
                 borderRadius: radius.sheet,
                 borderWidth: 1,
-                borderColor: withAlpha(brand.white, 0.14),
+                borderColor: finish.rim,
               },
             ]}
           />
