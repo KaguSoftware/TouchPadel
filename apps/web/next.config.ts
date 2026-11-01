@@ -114,10 +114,10 @@ const nextConfig: NextConfig = {
       },
       {
         // The café menu, which is where the exchange lands since 2026-09-23 and
-        // which reads the tp-table cookie: a bound response carries the token in
-        // its RSC payload, so it gets the table set too. proxy.ts re-applies
-        // both values, because Next's own Cache-Control on a dynamic page wins
-        // over this list.
+        // which reads the tp-table cookie: a response is one guest's session
+        // (the token itself stays on the server since F-42, 2026-11-01), so it
+        // gets the table set too. proxy.ts re-applies both values, because
+        // Next's own Cache-Control on a dynamic page wins over this list.
         source: '/:locale(en|ar)/menu',
         headers: [...TABLE_ROUTE_HEADERS],
       },

@@ -102,6 +102,7 @@ import {
   type MatchTotalKey,
   type MatchesReport,
 } from './reportPayloads';
+import { csvTypeForKey, csvValueForKey, minutesToHours } from './exportCells';
 
 type View = 'byCourt' | 'cancellations' | 'peak' | 'byHour' | 'byDay' | 'matches' | 'lessons';
 const COURT_VIEWS: readonly View[] = ['byCourt', 'cancellations', 'peak', 'byHour', 'byDay'];
@@ -185,7 +186,9 @@ export function CourtsReportScreen() {
     numeric: true,
     render: (r) => <Fig value={r[key] as number | null} text={fmt(r[key] as number | null)} strong={strong} tone={tone} />,
     sort: (r) => r[key] as number | null,
-    csv: (r) => r[key] as number | null,
+    // F-14: hours in an hours column, a percent sign on a percentage.
+    csv: (r) => csvValueForKey(key, r[key] as number | null),
+    csvType: csvTypeForKey(key),
   });
   const c = (k: Parameters<Tr>[0]) => tr(k);
   const columns: Record<'byCourt' | 'cancellations' | 'peak', ReportColumn<CourtRow>[]> = {
@@ -300,7 +303,7 @@ export function CourtsReportScreen() {
       period,
       parts,
       tableCsv(all, data.rows, [
-        { header: tr('ws.reports.columns.available_hours'), value: (r) => r.availableMinutes },
+        { header: tr('ws.reports.columns.available_hours'), value: (r) => minutesToHours(r.availableMinutes) },
         ...(hasEvents ? [{ header: tr('ws.events.courts.eventMinutesCsv'), value: (r: CourtRow) => r.eventMinutes }] : []),
       ]),
     );

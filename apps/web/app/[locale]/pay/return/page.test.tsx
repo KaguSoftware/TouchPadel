@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { screen } from '@testing-library/react';
 import { en, ar, t, type Locale } from '@touch/i18n';
 import { renderServerPage } from '@/test/renderPage';
@@ -64,7 +64,21 @@ function expectNoResultWords(text: string) {
 
 beforeEach(() => {
   resetSiteRequest();
+  // The suites below are the page as it is once online payment ships; the store build
+  // has it off (F-02/F-03), which is the last describe in this file.
+  vi.stubEnv('NEXT_PUBLIC_ONLINE_PAYMENTS', 'on');
 });
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
+
+/** Every string under a catalog branch, nested ones included. */
+function strings(node: unknown): string[] {
+  if (typeof node === 'string') return [node];
+  if (node && typeof node === 'object') return Object.values(node).flatMap(strings);
+  return [];
+}
 
 describe.each(LOCALES)('pay return page (%s)', (locale: Locale) => {
   it('asks the guest back to the app, with the Open the app button on the app link', async () => {
@@ -111,7 +125,7 @@ describe.each(LOCALES)('pay return page (%s)', (locale: Locale) => {
     expectNoResultWords(readableText(container));
 
     const catalog = locale === 'en' ? en : ar;
-    expectNoResultWords(Object.values(catalog.site.payReturn).join(' '));
+    expectNoResultWords(strings(catalog.site.payReturn).join(' '));
 
     const meta = await generateMetadata({ params: Promise.resolve({ locale }) });
     expectNoResultWords(String(meta.title));
@@ -185,5 +199,63 @@ describe('pay return page, the route', () => {
       expect(src).not.toMatch(/document\.cookie|cookies\(\)\)?\.set\(|set-cookie/i);
       expect(src).not.toMatch(/import[^;]*\b(LanguageLink|ThemeToggle)\b/);
     }
+  });
+});
+
+/**
+ * F-02 / F-03: this build takes no online payment, so `NEXT_PUBLIC_ONLINE_PAYMENTS` is unset
+ * (off) and any visit here is a stray one. The page says that payment is made at the club,
+ * offers home and support, and neither forwards the ref nor jumps to the app.
+ */
+describe.each(LOCALES)('pay return page with online payment off (%s)', (locale: Locale) => {
+  beforeEach(() => {
+    vi.stubEnv('NEXT_PUBLIC_ONLINE_PAYMENTS', '');
+  });
+
+  it('says online payment is not available and that the desk takes payment', async () => {
+    const { container } = await renderServerPage(PayReturnPage, locale, { ref: REF });
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toBe(
+      t(locale, 'site.payReturn.off.title'),
+    );
+    expect(screen.getByText(t(locale, 'site.payReturn.off.body'))).toBeTruthy();
+    expect(container.querySelector('main')?.getAttribute('data-state')).toBe('off');
+    expectNoResultWords(readableText(container));
+  });
+
+  it('never hands the ref to the app or jumps by itself', async () => {
+    const { container } = await renderServerPage(PayReturnPage, locale, { ref: REF });
+    expect(screen.queryByTestId('open-app-on-load')).toBeNull();
+    expect(screen.queryByRole('link', { name: t(locale, 'site.payReturn.open') })).toBeNull();
+    expect(container.innerHTML).not.toContain('touchpadel://');
+    expect(container.innerHTML).not.toContain(REF);
+  });
+
+  it('offers the way home, support and the other language, without the ref', async () => {
+    await renderServerPage(PayReturnPage, locale, { ref: REF });
+    expect(screen.getByRole('link', { name: t(locale, 'site.error.home') }).getAttribute('href')).toBe(
+      `/${locale}`,
+    );
+    expect(
+      screen.getByRole('link', { name: t(locale, 'site.footer.support') }).getAttribute('href'),
+    ).toBe(`/${locale}/support`);
+    const other = locale === 'en' ? 'ar' : 'en';
+    expect(document.querySelector(`a[hreflang="${other}"]`)?.getAttribute('href')).toBe(
+      `/${other}/pay/return`,
+    );
+  });
+
+  it('titles itself for the stray visit, still never indexed', async () => {
+    const meta = await generateMetadata({ params: Promise.resolve({ locale }) });
+    expect(meta.title).toBe(t(locale, 'site.payReturn.off.metaTitle'));
+    expect(meta.robots).toEqual({ index: false, follow: false });
+  });
+
+  it('is off unless the switch says exactly "on"', async () => {
+    const { parseOnlinePaymentsFlag } = await import('@/lib/site/payments');
+    expect(parseOnlinePaymentsFlag(undefined)).toBe(false);
+    expect(parseOnlinePaymentsFlag('')).toBe(false);
+    expect(parseOnlinePaymentsFlag('off')).toBe(false);
+    expect(parseOnlinePaymentsFlag('1')).toBe(false);
+    expect(parseOnlinePaymentsFlag(' ON ')).toBe(true);
   });
 });

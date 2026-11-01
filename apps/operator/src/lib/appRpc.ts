@@ -19,8 +19,9 @@ import {
   normalizeTimeout,
   startDeadline,
 } from '@touch/core';
-import { PIN_GATED_RPC_SET } from '@touch/core/schemas/mutations';
+import { PIN_GATED_RPC_SET, QUEUEABLE_RPC_SET, type QueueableRpc } from '@touch/core/schemas/mutations';
 import { supabase } from './supabase';
+import { isStationOffline, isTransportFailure, setStationReachable } from './connectivity';
 
 export type AppFunctionName = keyof Database['app']['Functions'] & string;
 
@@ -98,6 +99,25 @@ export function toAppRpcError(error: PgError, status?: number): AppRpcError {
   return new AppRpcError(code, message, error.hint ?? undefined, error.details ?? undefined, sqlState, httpStatus);
 }
 
+/**
+ * F-23 (0395): an allowlisted save made while the station is offline was
+ * durably queued, not lost. Thrown (not returned) so an editor keeps its
+ * draft and shows the line; `localId` is the queue row.
+ */
+export class SavedOfflineError extends AppRpcError {
+  readonly localId: string;
+  constructor(localId: string) {
+    super('SAVED_OFFLINE', 'SAVED_OFFLINE');
+    this.name = 'SavedOfflineError';
+    this.localId = localId;
+  }
+}
+
+/** True when a save was queued offline (SAVED_OFFLINE): a soft success, not a failure. */
+export function isSavedOffline(error: unknown): error is SavedOfflineError {
+  return error instanceof AppRpcError && error.code === 'SAVED_OFFLINE';
+}
+
 /** True when the server has no such RPC (PGRST202): the feature is not there yet, not offline. */
 export function isRpcMissing(error: unknown): boolean {
   return error instanceof AppRpcError && error.code === 'RPC_MISSING';
@@ -118,6 +138,7 @@ async function callAppRpc<T>(fn: string, args: Record<string, unknown>, timeoutM
     answer = await (deadline && typeof call.abortSignal === 'function' ? call.abortSignal(deadline.signal) : call);
   } catch (error) {
     if (deadline?.timedOut()) throw new RequestTimeoutError(timeoutMs ?? 0, fn);
+    if (isTransportFailure(error)) setStationReachable(false);
     throw error;
   } finally {
     deadline?.clear();
@@ -126,9 +147,58 @@ async function callAppRpc<T>(fn: string, args: Record<string, unknown>, timeoutM
   if (error) {
     // postgrest-js answers an aborted fetch with an `AbortError: …` error object.
     if (deadline?.timedOut()) throw new RequestTimeoutError(timeoutMs ?? 0, fn);
-    throw toAppRpcError(error, status);
+    const mapped = toAppRpcError(error, status);
+    // No answer at all (postgrest-js wraps the fetch TypeError): the station is
+    // offline now, whatever the last heartbeat said (F-31). Any answer: online.
+    setStationReachable(!isTransportFailure(mapped));
+    throw mapped;
   }
+  setStationReachable(true);
   return data as T;
+}
+
+function inElectron(): boolean {
+  const w = (globalThis as { window?: { touch?: unknown } }).window;
+  return !!w && !!w.touch;
+}
+
+/** What queues one allowlisted call: lib/queuedRpc.ts registers it at load (main.tsx imports it). */
+export type OfflineQueue = (
+  fn: QueueableRpc,
+  args: Record<string, unknown>,
+) => Promise<{ queued: boolean; localId: string; result: unknown }>;
+let offlineQueue: OfflineQueue | null = null;
+
+/**
+ * Set by lib/queuedRpc.ts. Registered rather than imported: queuedRpc -> mutate
+ * -> appRpc would be an import cycle, and this file is also compiled by
+ * packages/db's tests (no DOM), which must not pull the queue in.
+ */
+export function setOfflineQueue(q: OfflineQueue | null): void {
+  offlineQueue = q;
+}
+
+/**
+ * F-23: queue an allowlisted save instead of losing it. Resolves with the
+ * RPC's answer when the queue reached the server inside mutate()'s wait after
+ * all; otherwise throws SavedOfflineError. A manager PIN on a PIN-gated one is
+ * checked against the station's cache first (mutate, F-05).
+ */
+async function queueOffline<T>(fn: QueueableRpc, args: Record<string, unknown>): Promise<T> {
+  if (!offlineQueue) throw new TypeError('Failed to fetch');
+  const outcome = await offlineQueue(fn, args);
+  if (outcome.queued) throw new SavedOfflineError(outcome.localId);
+  return outcome.result as T;
+}
+
+/**
+ * May this failure be queued instead? Only a call that never reached the
+ * server: a fetch that could not connect. A timeout is NOT one — the request
+ * may have landed and its answer been lost, and queuing it would make a
+ * second, unclaimed copy.
+ */
+function queueableFailure(error: unknown): boolean {
+  return !(error instanceof RequestTimeoutError) && isTransportFailure(error);
 }
 
 /** Call an app-schema RPC; resolves to the function result or throws AppRpcError. */
@@ -138,6 +208,22 @@ export async function appRpc<T = unknown>(
   opts: AppRpcOptions = {},
 ): Promise<T> {
   const timeoutMs = normalizeTimeout(opts.timeoutMs, rpcTimeoutMs(fn));
+  // F-23 (0395): offline, an allowlisted save goes to the durable queue rather
+  // than failing with "No connection" and taking the change with it.
+  const queueable = inElectron() && offlineQueue !== null && QUEUEABLE_RPC_SET.has(fn);
+  if (queueable && isStationOffline()) return queueOffline<T>(fn as QueueableRpc, args);
+  try {
+    return await callWithPin<T>(fn, args, timeoutMs);
+  } catch (error) {
+    if (queueable && queueableFailure(error)) {
+      setStationReachable(false);
+      return queueOffline<T>(fn as QueueableRpc, args);
+    }
+    throw error;
+  }
+}
+
+async function callWithPin<T>(fn: string, args: Record<string, unknown>, timeoutMs: number | null): Promise<T> {
   // 0115 (S3): a manager PIN is proved to verify_manager_pin FIRST — its own
   // round trip, so the attempt row commits whatever the money RPC does next and
   // the 5-failure lockout engages. The RPC then consumes the single-use grant

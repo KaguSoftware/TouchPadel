@@ -1,6 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import {
   addClosedDate,
+  addedClosedDates,
+  closedDayActions,
+  closedDayBlock,
+  readClosedDayBookings,
   isIsoDate,
   normalizeClosedDates,
   removeClosedDate,
@@ -103,5 +107,41 @@ describe('sameClosedDates', () => {
   it('sees a real difference', () => {
     expect(sameClosedDates(['2026-12-25'], ['2026-12-26'])).toBe(false);
     expect(sameClosedDates(['2026-12-25'], [])).toBe(false);
+  });
+});
+
+describe('0390 (F-51): bookings on a newly closed day', () => {
+  it('checks only the dates the draft adds', () => {
+    expect(addedClosedDates(['2031-03-05', '2031-03-04', 'x'], ['2031-03-05'])).toEqual(['2031-03-04']);
+    expect(addedClosedDates([], ['2031-03-05'])).toEqual([]);
+    expect(addedClosedDates(['2031-03-05'], ['2031-03-05'])).toEqual([]);
+  });
+
+  it('blocks Save while the list loads, fails or holds a booking; never with no new date', () => {
+    const none = { loading: false, error: false, count: 0 };
+    expect(closedDayBlock([], { ...none, count: 3 })).toBeNull();
+    expect(closedDayBlock(['2031-03-04'], { ...none, loading: true })).toBe('checking');
+    expect(closedDayBlock(['2031-03-04'], { ...none, error: true })).toBe('error');
+    expect(closedDayBlock(['2031-03-04'], { ...none, count: 2 })).toBe('bookings');
+    expect(closedDayBlock(['2031-03-04'], none)).toBeNull();
+  });
+
+  it('reads the server rows and skips malformed ones', () => {
+    const rows = readClosedDayBookings({
+      bookings: [
+        { id: 'b1', day: '2031-03-04', court_name_en: 'Court 1', court_name_ar: 'ملعب 1', start_at: '2031-03-04T09:00:00Z', end_at: '2031-03-04T10:30:00Z', status: 'confirmed', guest_name: ' ', remaining_iqd: 30000, started: false },
+        { id: 'b2' },
+        null,
+      ],
+    });
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ id: 'b1', guestName: null, remainingIqd: 30000, started: false });
+    expect(readClosedDayBookings(null)).toEqual([]);
+  });
+
+  it('offers no-show only once started, and payment only when something is owed', () => {
+    expect(closedDayActions({ status: 'confirmed', started: false, remainingIqd: 40000 })).toEqual({ cancel: true, noShow: false, pay: true });
+    expect(closedDayActions({ status: 'confirmed', started: true, remainingIqd: 0 })).toEqual({ cancel: true, noShow: true, pay: false });
+    expect(closedDayActions({ status: 'pending', started: true, remainingIqd: 40000 })).toEqual({ cancel: true, noShow: false, pay: false });
   });
 });

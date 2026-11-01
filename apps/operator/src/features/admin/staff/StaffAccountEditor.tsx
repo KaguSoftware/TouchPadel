@@ -199,8 +199,8 @@ export function StaffAccountEditor({
               ? tr('ws.owner.staff.pin.hasPin')
               : tr('ws.owner.staff.pin.noPin')
             : staff.has_pin
-              ? tr('ws.owner.staff.pin.hasPinBreakOnly')
-              : tr('ws.owner.staff.pin.noPinBreakOnly')}
+              ? tr('ws.owner.staff.pin.hasPinUnlockOnly')
+              : tr('ws.owner.staff.pin.noPinUnlockOnly')}
         </Note>
         <div style={{ display: 'flex', gap: 'var(--tp-sp-1-5)', flexWrap: 'wrap' }}>
           <Button size="sm" icon="lock" disabled={!canManage || busy || !staff.is_active} onClick={onSetPin}>
@@ -215,14 +215,6 @@ export function StaffAccountEditor({
       </Section>
 
       <BranchesField staff={staff} canManage={canManage && staff.is_active} onError={setError} />
-
-      <Section title={tr('ws.owner.staff.stations.title')}>
-        {approvesWithPin(staff.role) ? (
-          <Note>{tr('ws.owner.staff.stations.management')}</Note>
-        ) : (
-          <StationsField staff={staff} canManage={canManage && staff.is_active} onError={setError} />
-        )}
-      </Section>
 
       <Section title={tr('ws.owner.staff.password.title')}>
         <Note>{tr('ws.owner.staff.password.panelNote')}</Note>
@@ -250,93 +242,6 @@ export function StaffAccountEditor({
         </div>
       </Section>
     </Panel>
-  );
-}
-
-/**
- * 0105: which stations offer this person as cover on their break screen.
- * The list of stations is whatever has reported a heartbeat, plus anything
- * this person is already assigned to (a station retired since still shows,
- * so the owner can untick it). Saved as a whole through app.set_station_staff.
- */
-function StationsField({ staff, canManage, onError }: { staff: StaffRow; canManage: boolean; onError: (e: unknown) => void }) {
-  const { tr } = useLocale();
-  const toast = useToast();
-  const queryClient = useQueryClient();
-  const key = ['stationStaff', staff.id] as const;
-  const stationsQ = useQuery({
-    queryKey: ['stations'],
-    queryFn: async () => {
-      const { data, error } = await supabase.from('device_heartbeats').select('device_id');
-      if (error) throw new Error(error.message);
-      return (data ?? []).map((r) => r.device_id);
-    },
-    staleTime: 60_000,
-  });
-  const assignedQ = useQuery({
-    queryKey: key,
-    queryFn: async () => {
-      const { data, error } = await supabase.from('station_staff').select('station_id').eq('staff_id', staff.id);
-      if (error) throw new Error(error.message);
-      return (data ?? []).map((r) => r.station_id);
-    },
-  });
-  const assigned = useMemo(() => new Set(assignedQ.data ?? []), [assignedQ.data]);
-  const known = useMemo(
-    () => [...new Set([...(stationsQ.data ?? []), ...assigned])].sort(),
-    [stationsQ.data, assigned],
-  );
-  const [draft, setDraft] = useState<Set<string> | null>(null);
-  // A fresh answer from the server replaces an untouched draft.
-  useEffect(() => setDraft(null), [assignedQ.data]);
-  const chosen = draft ?? assigned;
-  const dirty = draft !== null && (draft.size !== assigned.size || [...draft].some((s) => !assigned.has(s)));
-
-  const save = useMutation({
-    mutationFn: (ids: string[]) => appRpc('set_station_staff', { p_staff_id: staff.id, p_station_ids: ids }),
-    onSuccess: () => {
-      toast.ok(tr('ws.owner.staff.stations.saved'));
-      onError(null);
-      void queryClient.invalidateQueries({ queryKey: key });
-    },
-    onError: (e: unknown) => onError(e),
-  });
-
-  if (stationsQ.isLoading || assignedQ.isLoading) return <Note>…</Note>;
-  if (known.length === 0) return <Note>{tr('ws.owner.staff.stations.none')}</Note>;
-
-  return (
-    <>
-      <Note>{tr('ws.owner.staff.stations.lead')}</Note>
-      <div style={{ display: 'flex', gap: 'var(--tp-sp-1-5) var(--tp-sp-3)', flexWrap: 'wrap' }}>
-        {known.map((id) => (
-          <label key={id} style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-1-5)', minBlockSize: 'var(--tp-touch)', cursor: canManage ? 'pointer' : 'default' }}>
-            <input
-              type="checkbox"
-              checked={chosen.has(id)}
-              disabled={!canManage || save.isPending}
-              onChange={(e) => {
-                const next = new Set(chosen);
-                if (e.target.checked) next.add(id);
-                else next.delete(id);
-                setDraft(next);
-              }}
-            />
-            <span dir="ltr" style={{ fontWeight: 600 }}>{id}</span>
-          </label>
-        ))}
-      </div>
-      {dirty && (
-        <Actions>
-          <Button size="sm" kind="ghost" disabled={save.isPending} onClick={() => setDraft(null)}>
-            {tr('ws.kit.actions.discard')}
-          </Button>
-          <Button size="sm" kind="primary" icon="check" busy={save.isPending} onClick={() => save.mutate([...chosen])}>
-            {tr('ws.owner.staff.stations.save')}
-          </Button>
-        </Actions>
-      )}
-    </>
   );
 }
 

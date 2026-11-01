@@ -48,7 +48,7 @@ import { Button, ErrorText, inputStyle, Skeleton } from '../../components/ui';
 import { AsyncStateWrapper, DataTable, EmptyState, PageHeader, Panel, ResultCount, SearchField, SegmentedControl, StatusBadge, Toolbar, ViewMore, asyncStatus, useListCap, type Column } from '../../components/kit';
 import { CardTitle, Step } from '../ops/OpsVisuals';
 import { Footnote, useStockFormat, useStoreName } from './stockUi';
-import { countEntryState, matchesName } from './stockLogic';
+import { afterCountRoute, countEntryState, countFixReason, matchesName } from './stockLogic';
 import { countDifference, phoneCountWaitingAt, phoneCountsWaiting, storeOf, storesForScope, type StockLocation, type UnfinishedCount } from './storeLogic';
 import { useStockScope, useStockWords } from './stockScope';
 import {
@@ -130,6 +130,7 @@ function StoreCount({ store, phoneWaiting }: { store: StockLocation; phoneWaitin
   const confirm = useConfirm();
   const toast = useToast();
   const navigate = useNavigate();
+  const scope = useStockScope();
   const can = usePermissions();
   const [showRecorded, setShowRecorded] = useState(false);
   const [counted, setCounted] = useState<Record<string, string> | null>(null);
@@ -217,7 +218,8 @@ function StoreCount({ store, phoneWaiting }: { store: StockLocation; phoneWaitin
       forgetDraft(open.id);
       toast.ok(tr('ws.manager.stock.count.finished'));
       void queryClient.invalidateQueries({ queryKey: ['stock'] });
-      void navigate({ to: '/stock/variance' });
+      // F-36: the shop's count goes back to the shop's stock (shop staff cannot open /stock).
+      void navigate({ to: afterCountRoute(scope) });
     } catch (e) {
       setError(e);
     } finally {
@@ -340,7 +342,7 @@ function StoreCount({ store, phoneWaiting }: { store: StockLocation; phoneWaitin
                 {lastFinished ? tr('ws.manager.stock.count.lastCount', { date: formatDate(new Date(lastFinished), locale) }) : tr('ws.manager.stock.onHand.neverCounted')}
               </span>
             )}
-            {lastFinished && (
+            {lastFinished && scope !== 'shop' && (
               <Button size="sm" kind="ghost" iconEnd="arrowUpRight" onClick={() => void navigate({ to: '/stock/variance' })}>
                 {tr('op.stockNav.variance')}
               </Button>
@@ -408,7 +410,13 @@ function StoreCount({ store, phoneWaiting }: { store: StockLocation; phoneWaitin
                   icon="check"
                   busy={busy}
                   disabled={!can.adjustStock || invalid.length > 0}
-                  disabledReason={!can.adjustStock ? tr('ws.manager.stock.count.notAllowed') : tr('ws.manager.stock.count.fixInvalid', { count: fmt.num(invalid.length) })}
+                  disabledReason={
+                    !can.adjustStock
+                      ? tr('ws.manager.stock.count.notAllowed')
+                      : countFixReason(invalid.map((l) => entries[l.ingredient_id])) === 'englishDigits'
+                        ? tr('ws.manager.stock.englishDigits')
+                        : tr('ws.manager.stock.count.fixInvalid', { count: fmt.num(invalid.length) })
+                  }
                   onClick={() => void finish()}
                 >
                   {tr('ws.manager.stock.count.finish')}
@@ -513,7 +521,7 @@ function PhoneCountReview({ count, onDone }: { count: UnfinishedCount; onDone: (
       toast.ok(tr('ws.stores.counts.phone.applied'));
       onDone();
       void queryClient.invalidateQueries({ queryKey: ['stock'] });
-      void navigate({ to: '/stock/variance' });
+      void navigate({ to: afterCountRoute(store === 'shop' ? 'shop' : 'venue') });
     } catch (e) {
       setError(e);
     } finally {
@@ -630,7 +638,13 @@ function PhoneCountReview({ count, onDone }: { count: UnfinishedCount; onDone: (
               icon="check"
               busy={busy}
               disabled={!can.adjustStock || invalid.length > 0 || lines.length === 0}
-              disabledReason={!can.adjustStock ? tr('ws.manager.stock.count.notAllowed') : tr('ws.manager.stock.count.fixInvalid', { count: fmt.num(invalid.length) })}
+              disabledReason={
+                !can.adjustStock
+                  ? tr('ws.manager.stock.count.notAllowed')
+                  : countFixReason(invalid.map(valueOf)) === 'englishDigits'
+                    ? tr('ws.manager.stock.englishDigits')
+                    : tr('ws.manager.stock.count.fixInvalid', { count: fmt.num(invalid.length) })
+              }
               onClick={() => void apply()}
               data-testid="phone-count-apply"
             >

@@ -21,7 +21,6 @@ import {
   type OpeningHours,
 } from '@touch/core';
 import { isolate, isolateLtr, type MessageKey, type TParams } from '@touch/i18n';
-import { onlinePaymentsShipped } from '../deposit/enabled';
 
 // ── Server vocabulary (build-contracts §1.3) ────────────────────────────────
 
@@ -1160,8 +1159,11 @@ export interface MatchBranchSettings {
 
 /** The branch has open matches switched on (rule 1: off means no work at all). */
 export function matchesEnabled(settings: MatchBranchSettings | null | undefined): boolean {
-  // Store build: open matches are not shipped, whatever the branch's switch says.
-  return onlinePaymentsShipped() && settings?.matches_enabled === true;
+  // Open matches ship in every build: since 0370 a seat can be paid at the
+  // desk, so they no longer ride on EXPO_PUBLIC_ONLINE_PAYMENTS (Majed,
+  // 2026-11-01: "no online payments", not "no open matches"). Only the
+  // tickets (bought online) follow that flag; see useMatchPayAtDesk.
+  return settings?.matches_enabled === true;
 }
 
 /**

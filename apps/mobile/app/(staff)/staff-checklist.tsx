@@ -334,7 +334,7 @@ function ChecklistScreen() {
 
 export default function StaffChecklistRoute() {
   return (
-    <RequireStaff>
+    <RequireStaff page="staff-checklist">
       <ChecklistScreen />
     </RequireStaff>
   );

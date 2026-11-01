@@ -110,7 +110,7 @@ function ScreenshotsScreen() {
 
 export default function StaffScreenshotsRoute() {
   return (
-    <RequireStaff roles={['owner']}>
+    <RequireStaff page="staff-screenshots" roles={['owner']}>
       <ScreenshotsScreen />
     </RequireStaff>
   );

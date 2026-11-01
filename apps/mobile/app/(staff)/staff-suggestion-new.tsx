@@ -119,7 +119,7 @@ function SuggestionNewScreen() {
 
 export default function StaffSuggestionNewRoute() {
   return (
-    <RequireStaff>
+    <RequireStaff page="staff-suggestion-new">
       <SuggestionNewScreen />
     </RequireStaff>
   );

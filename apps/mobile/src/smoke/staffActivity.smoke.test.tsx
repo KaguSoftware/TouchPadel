@@ -1,6 +1,6 @@
 /**
  * The owner's activity monitor (0341) as a route case, plus what it shows (each
- * person's operator and phone apart, an app never used, the break badge, the
+ * person's operator and phone apart, an app never used, no break badge (F-08), the
  * filter) and Today's tile, in EN and AR. The board is seeded under
  * `activityKeys`, so nothing reaches the (mocked) client on first render.
  */
@@ -44,7 +44,6 @@ const BOARD: ActivityBoard = {
       staffId: ALI,
       name: 'Ali',
       role: 'cashier',
-      onBreak: false,
       operator: part({
         status: 'online',
         lastSeenAt: minutesAgo(3),
@@ -58,9 +57,10 @@ const BOARD: ActivityBoard = {
       staffId: RANA,
       name: 'Rana',
       role: 'waiter',
-      onBreak: true,
       operator: null,
       mobile: part({ status: 'away', state: 'background', lastSeenAt: minutesAgo(8) }),
+      // An older server still sends the break flag (0341); the phone ignores it (F-08).
+      ...({ onBreak: true } as object),
     },
   ],
 };
@@ -111,10 +111,10 @@ describe.each(LOCALES)('staff activity in %s', (locale) => {
       expect(
         within(screen.getByTestId(`${rana}.operator`)).getByText(t('staff.activity.status.never')),
       ).toBeTruthy();
-      expect(
-        within(screen.getByTestId(`${rana}.break`)).getByText(t('staff.activity.onBreak')),
-      ).toBeTruthy();
+      // Breaks left the product (F-08): no badge, even when the server says so.
+      expect(screen.queryByTestId(`${rana}.break`)).toBeNull();
       expect(screen.queryByTestId(`${ali}.break`)).toBeNull();
+      expect(screen.queryByText(locale === 'ar' ? 'في استراحة' : 'On break')).toBeNull();
 
       expect(
         within(screen.getByTestId('staff-activity.summary')).getByText(

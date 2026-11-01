@@ -151,7 +151,7 @@ export const guideEn = {
       },
     },
     more: {
-      title: 'Tasks and breaks',
+      title: 'Tasks and incidents',
       tasks: {
         title: 'My tasks',
         body: 'Your steps in tournaments, new items and price changes are on My tasks.',
@@ -159,10 +159,6 @@ export const guideEn = {
       incident: {
         title: 'Report an incident',
         body: 'Report an incident, an injury, a fight or damage, with photos. A manager reviews every report.',
-      },
-      break: {
-        title: 'Take a break',
-        body: 'Press {goOnBreak} and enter your PIN. A colleague can cover the station with their own PIN, and your PIN ends the break.',
       },
     },
     end: {
@@ -296,7 +292,7 @@ export const guideEn = {
       },
     },
     more: {
-      title: 'Tasks and breaks',
+      title: 'Tasks and incidents',
       tasks: {
         title: 'My tasks',
         body: 'Your steps in new items, tournaments and price changes are on My tasks.',
@@ -304,10 +300,6 @@ export const guideEn = {
       incident: {
         title: 'Report an incident',
         body: 'Report an incident, an injury, a fight or damage, with photos. A manager reviews every report.',
-      },
-      break: {
-        title: 'Take a break',
-        body: 'Press {goOnBreak} and enter your PIN. A colleague can cover the café cashier with their own PIN, and your PIN ends the break.',
       },
     },
     end: {
@@ -489,10 +481,6 @@ export const guideEn = {
       drawer: {
         title: 'Open the drawer by hand',
         body: 'On {cashDrawer}, press {openDrawer} and give the reason.',
-      },
-      break: {
-        title: 'Take a break',
-        body: 'Press {goOnBreak} and enter your PIN. Your PIN ends the break.',
       },
       unpaid: {
         title: 'No unpaid sales',

@@ -72,6 +72,8 @@ export const tournamentsEn = {
       entries: 'Entries',
       rounds: 'Rounds',
       standings: 'Standings',
+      // 0390 (F-40): the entry fees still to take.
+      pay: 'Pay',
     },
     facts: {
       format: 'Format',
@@ -178,6 +180,15 @@ export const tournamentsEn = {
     noShowConfirm: 'Mark did not show',
     noShowDone: '{name} is marked as not showing.',
     roundsRemoved: 'Rounds from {round} on were removed. Generate them again on Rounds.',
+    // 0390 (F-40): only a confirmed participant is in the tournament.
+    confirm: 'Confirm participant',
+    unconfirm: 'Undo confirm',
+    confirmed: 'Confirmed',
+    confirmedBy: 'Confirmed by {name}',
+    notConfirmed: 'Not confirmed',
+    confirmedDone: '{name} is in the tournament.',
+    unconfirmedDone: '{name} is no longer confirmed.',
+    toConfirm: '{count} to confirm before the start',
   },
   rounds: {
     title: 'Rounds',
@@ -209,6 +220,8 @@ export const tournamentsEn = {
     },
     leaderboard: 'Leaderboard',
     allStandings: 'All {count}',
+    // 0390 (F-40): the draw waits for every registered player to be confirmed.
+    unconfirmed: 'Confirm every participant on Entries first ({count} left).',
   },
   score: {
     save: 'Save score',
@@ -287,6 +300,11 @@ export const tournamentsEn = {
       cancelled: 'This tournament is cancelled.',
       nothing_owed: 'Nothing left to take for this player.',
     },
+    // 0390 (F-40): the Pay tab, the entry fees still to take. A confirmed player may still owe.
+    title: 'Entry fees to take',
+    lead: 'Every registered player who still owes. Confirming and paying are separate: a confirmed player may pay later.',
+    empty: 'Nobody owes an entry fee.',
+    total: '{count} owe {amount} in all',
   },
   settings: {
     title: 'Tournaments',

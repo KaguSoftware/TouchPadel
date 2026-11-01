@@ -40,7 +40,6 @@ const OPEN_MATCH_COPY: Record<string, string> = {
   ...Object.fromEntries(Object.entries(terms.openMatches).map(([k, v]) => [`terms.openMatches.${k}`, v])),
   'deleteAccount.what.deleted': deleteAccount.what.deleted,
   'deleteAccount.what.kept': deleteAccount.what.kept,
-  'deleteAccount.what.tickets': deleteAccount.what.tickets,
 };
 
 describe('open-match legal Arabic', () => {

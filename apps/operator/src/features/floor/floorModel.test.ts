@@ -5,7 +5,7 @@ import { COURT_SLOTS, HEARTBEAT_STALE_MS, TABLE_SLOTS, ZOOM_MIN_DIST, composeSna
 
 // Every claim the plan makes is derived here, so every claim is pinned here:
 // what makes a court in play or merely booked, a table occupied, a person at a
-// station or on a break — and, as important, what the model refuses to invent.
+// station — and, as important, what the model refuses to invent.
 
 const NOW = Date.parse('2026-09-18T18:00:00Z');
 const iso = (offsetMin: number) => new Date(NOW + offsetMin * 60_000).toISOString();
@@ -30,7 +30,6 @@ function raw(partial: Partial<FloorRaw> = {}): FloorRaw {
     ],
     stationStaff: [],
     heartbeats: [],
-    breaks: [],
     ...partial,
   };
 }
@@ -170,31 +169,7 @@ describe('staff', () => {
       }),
       NOW,
     );
-    expect(s.staff).toEqual([expect.objectContaining({ id: 's2', name: 'Omar', room: 'bar', status: 'working', stationId: 'TILL-01', coveringFor: null })]);
-  });
-
-  it('is on a break when a break is open, whatever the station is doing', () => {
-    const s = composeSnapshot(
-      raw({
-        stationStaff: [{ station_id: 'TILL-01', staff_id: 's2' }],
-        heartbeats: [{ device_id: 'TILL-01', last_seen_at: iso(0), staff_id: null }],
-        breaks: [{ staff_id: 's2', station_id: 'TILL-01', started_at: iso(-12), covered_by: null, cover_started_at: null }],
-      }),
-      NOW,
-    );
-    expect(s.staff).toEqual([expect.objectContaining({ id: 's2', status: 'break', since: iso(-12), stationId: 'TILL-01' })]);
-    expect(countsOf(s)).toMatchObject({ staffWorking: 0, staffOnBreak: 1 });
-  });
-
-  it('whoever covers a break is at that station, named as covering, even with no assignment or heartbeat', () => {
-    const s = composeSnapshot(
-      raw({
-        breaks: [{ staff_id: 's2', station_id: 'TILL-01', started_at: iso(-12), covered_by: 's3', cover_started_at: iso(-8) }],
-      }),
-      NOW,
-    );
-    const hassan = s.staff.find((p) => p.id === 's3');
-    expect(hassan).toMatchObject({ status: 'working', stationId: 'TILL-01', coveringFor: 'Omar', since: iso(-8), room: 'kitchen' });
+    expect(s.staff).toEqual([expect.objectContaining({ id: 's2', name: 'Omar', room: 'bar', status: 'working', stationId: 'TILL-01' })]);
   });
 
   it('a signed-in beat places anyone, jokers included, at that device — and in the office for a manager or owner', () => {
@@ -234,10 +209,11 @@ describe('staff', () => {
     expect(s.staff).toEqual([]);
   });
 
-  it('draws nobody who is neither at a live station nor on a break', () => {
+  it('draws nobody who is not at a live station (breaks are gone, F-08)', () => {
     const s = composeSnapshot(raw(), NOW);
     expect(s.staff).toEqual([]);
-    expect(countsOf(s)).toMatchObject({ staffWorking: 0, staffOnBreak: 0 });
+    expect(countsOf(s)).toMatchObject({ staffWorking: 0 });
+    expect(countsOf(s)).not.toHaveProperty('staffOnBreak');
   });
 
   it('places roles in the rooms of the plan', () => {

@@ -27,6 +27,7 @@ import { PickList, type PickOption } from '../../src/features/staff/marketing/Pi
 import { intentFor } from '../../src/features/staff/supplies/logic';
 import { fetchDeductionTargets, proposeDeduction } from '../../src/features/staff/deductions/api';
 import {
+  DEDUCT_ROLES,
   DEDUCTION_CAPS,
   deductionArgs,
   deductionsAccess,
@@ -282,8 +283,10 @@ function DeductionProposeScreen() {
 }
 
 export default function StaffDeductionProposeRoute() {
+  // Only the roles that propose (the heads and management); anyone else is sent
+  // back to Today rather than shown a form whose Send never enables (F-59).
   return (
-    <RequireStaff>
+    <RequireStaff page="staff-deduction-propose" roles={DEDUCT_ROLES}>
       <DeductionProposeScreen />
     </RequireStaff>
   );

@@ -85,6 +85,8 @@ function RunBody({ d, selected, onStep }: { d: RunDetail; selected: string | nul
   const qc = useQueryClient();
   const toast = useToast();
   const confirm = useConfirm();
+  // The owner (the only role that edits protocols) stops without a reason (0361, 0391).
+  const ownerStops = canDo(staff, 'editProtocols');
   const [stopping, setStopping] = useState(false);
   const [editing, setEditing] = useState<StepRow | null>(null);
   const [adding, setAdding] = useState(false);
@@ -134,7 +136,16 @@ function RunBody({ d, selected, onStep }: { d: RunDetail; selected: string | nul
                 size="sm"
                 icon="undo"
                 busy={busy === 'unschedule'}
-                onClick={() => void act('unschedule', () => appRpc('cancel_schedule', { p_run_id: run.id }), 'ws.protocols.run.unscheduled')}
+                onClick={async () => {
+                  // F-61: cancelling the date asks first.
+                  const ok = await confirm({
+                    title: tr('ws.protocols.run.unscheduleTitle'),
+                    body: tr('ws.protocols.run.unscheduleBody'),
+                    confirmLabel: tr('ws.protocols.run.unscheduleConfirm'),
+                    kind: 'danger',
+                  });
+                  if (ok) void act('unschedule', () => appRpc('cancel_schedule', { p_run_id: run.id }), 'ws.protocols.run.unscheduled');
+                }}
               >
                 {tr('work.protocol.action.cancelSchedule')}
               </Button>
@@ -246,12 +257,14 @@ function RunBody({ d, selected, onStep }: { d: RunDetail; selected: string | nul
       {stopping && (
         <ReasonDialog
           title={tr('ws.protocols.run.stopTitle')}
-          body={tr('ws.protocols.run.stopBody')}
+          // F-61 (Majed): the owner stops without a reason; a manager says why.
+          body={tr(ownerStops ? 'ws.protocols.run.stopBodyOwner' : 'ws.protocols.run.stopBody')}
           confirm={tr('ws.protocols.run.stop')}
+          optional={ownerStops}
           danger
           onClose={() => setStopping(false)}
           onSubmit={async (reason) => {
-            await appRpc('stop_protocol', { p_run_id: run.id, p_note: reason });
+            await appRpc('stop_protocol', { p_run_id: run.id, p_note: reason === '' ? null : reason });
             toast.ok(tr('ws.protocols.run.stopped'));
             await invalidateProtocols(qc);
           }}

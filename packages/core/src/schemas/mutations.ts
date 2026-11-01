@@ -32,6 +32,9 @@ export const MUTATION_TYPES = [
   'tab.settle_zero',
   'payment.refund',
   'order_item.void',
+  // 0395 (F-23, F-56, F-57, F-58): one generic type for the allowlisted
+  // RPCs below, replayed exactly once through app.queued_rpc.
+  'rpc.queued',
 ] as const;
 
 export type MutationType = (typeof MUTATION_TYPES)[number];
@@ -63,6 +66,98 @@ export const PIN_GATED_RPCS = [
   'coach_statement_void',
 ] as const;
 export const PIN_GATED_RPC_SET: ReadonlySet<string> = new Set(PIN_GATED_RPCS);
+
+/**
+ * 0395 — the RPCs a station may queue while offline as an 'rpc.queued'
+ * mutation (F-23 admin saves, F-56 the shop sale's member, F-57 the KDS
+ * recall, F-58 the deposit actions). Replay hands the call to
+ * app.queued_rpc, which claims the envelope's idempotency key in the SAME
+ * transaction as the write (app.claim_replay, 0049), so it applies exactly
+ * once whatever the network does to the answer.
+ *
+ * Every name here is a save the owner or a manager makes from a settings
+ * page, or one of the four calls named above: something that means the same
+ * thing applied a minute later. Never listed: anything that carries a secret
+ * other than a manager PIN (set_staff_pin), mints a value the screen needs at
+ * once (generate_promo_code, rotate_table_token, register_station), destroys
+ * (delete_court), opens or closes the day, a shift or a branch, or moves
+ * cash (the decisions in apps/operator/CLAUDE.md "Writes"). The list is
+ * mirrored in functions/_shared/mutation-types.json `queueableRpcs` and in
+ * migration 0395's app.queueable_rpcs(); a test holds the three equal.
+ */
+export const QUEUEABLE_RPCS = [
+  // Settings
+  'set_venue_details',
+  'set_waiter_call_cooldown',
+  'set_match_settings',
+  'set_coaching_settings',
+  'set_tournaments_enabled',
+  'set_opening_hours',
+  'set_deposit_settings',
+  'set_loyalty_settings',
+  'set_telegram_staff',
+  // Courts, tables, prices
+  'upsert_court',
+  'reorder_courts',
+  'upsert_court_gender_rule',
+  'upsert_rate_rule',
+  'upsert_cafe_table',
+  'set_table_bell',
+  // Menu
+  'upsert_menu_category',
+  'upsert_menu_item',
+  'upsert_variant',
+  'upsert_modifier',
+  'upsert_modifier_group',
+  'link_item_modifier_group',
+  'set_modifier_reveals',
+  'set_item_sold_out',
+  'set_item_availability',
+  'set_item_cost',
+  'reorder_modifiers',
+  'reorder_menu_items',
+  'reorder_menu_categories',
+  'set_addon_suggestions',
+  // Promotions and loyalty
+  'upsert_promotion',
+  'set_promotion_enabled',
+  'upsert_loyalty_reward',
+  'upsert_loyalty_tier',
+  // Coaching
+  'upsert_lesson_type',
+  'set_coach_lesson_types',
+  'set_coach_price',
+  'set_coach_hours',
+  'set_coach_branches',
+  'set_coach_status',
+  'coach_update',
+  'add_coach_time_off',
+  'cancel_coach_time_off',
+  // Staff (never the PIN)
+  'rename_staff',
+  'set_staff_role',
+  'set_staff_active',
+  'set_staff_access',
+  'set_staff_venues',
+  'set_station_staff',
+  // Shop catalogue and stock settings
+  'upsert_retail_variant',
+  'upsert_shop_category',
+  'upsert_supplier',
+  'set_shop_price_watch',
+  'upsert_ingredient',
+  'set_recipe',
+  // F-56: the member on a shop sale, queued before its settle.
+  'set_tab_customer',
+  // F-57: a completed kitchen ticket brought back (0396).
+  'recall_ticket',
+  // F-58: the online deposit's attention actions.
+  'deposit_refund_retry',
+  'deposit_refund_request',
+  'deposit_refund_manual',
+] as const;
+export type QueueableRpc = (typeof QUEUEABLE_RPCS)[number];
+export const QUEUEABLE_RPC_SET: ReadonlySet<string> = new Set(QUEUEABLE_RPCS);
 
 /** Crockford base32, 26 chars (no I, L, O, U). */
 const ULID_SRC = '[0-9A-HJKMNP-TV-Z]{26}';
@@ -109,13 +204,12 @@ const isoDateTime = z.string().datetime({ offset: true });
 /** Integer IQD amount — money is never fractional. */
 const intIqd = z.number().int().nonnegative();
 /**
- * A manager PIN riding a queued payload. 6–12 digits, the server's own rule
- * (app.set_staff_pin since 0078, SEC-13): the queue used to accept 4–12, so a
- * 4- or 5-digit PIN was durably queued and only refused at replay, after the
- * till had already shown the sale as done.
+ * A manager PIN riding a queued payload. 4–12 digits, the server's own rule
+ * (app.set_staff_pin; F-50, 2026-11-01: Majed set staff PINs to 4 to 12
+ * digits, so the queue accepts exactly what the server will).
  */
-export const MANAGER_PIN_RE = /^\d{6,12}$/;
-const managerPinSchema = z.string().regex(MANAGER_PIN_RE, 'pin must be 6-12 digits');
+export const MANAGER_PIN_RE = /^\d{4,12}$/;
+const managerPinSchema = z.string().regex(MANAGER_PIN_RE, 'pin must be 4-12 digits');
 
 export const orderCreatePayloadSchema = z
   .object({
@@ -427,7 +521,9 @@ export const adjustmentApplyPayloadSchema = z
     z
       .object({
         kind: z.enum(['discount_percent', 'discount_amount']),
-        tabId: uuid,
+        tabId: uuid.optional(),
+        /** F-09: a discount on a tab opened offline names its tab.open key (see orderAddItemsPayloadSchema). */
+        tabIdemKey: idempotencyKeySchema.optional(),
         value: z.number().int().positive(),
         pin: managerPinSchema,
         reasonCode: z.string().min(1).max(64),
@@ -436,6 +532,13 @@ export const adjustmentApplyPayloadSchema = z
       .strict(),
   ])
   .superRefine((p, ctx) => {
+    if (p.kind !== 'price_override' && (p.tabId !== undefined) === (p.tabIdemKey !== undefined)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'exactly one of tabId or tabIdemKey is required',
+        path: ['tabId'],
+      });
+    }
     if (p.kind === 'discount_percent' && p.value > 10_000) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -577,6 +680,36 @@ export const waiterCallActionPayloadSchema = z
   .strict();
 export type WaiterCallActionPayload = z.infer<typeof waiterCallActionPayloadSchema>;
 
+/** A queued RPC's argument object stays small: a settings patch, never a file. */
+export const RPC_QUEUED_MAX_ARGS_BYTES = 32 * 1024;
+
+/**
+ * rpc.queued (0395): one allowlisted RPC and its p_* arguments, exactly as the
+ * online call would send them. `tabIdemKey` names a tab opened offline (its
+ * tab.open envelope's key) when the call needs `p_tab_id` and the tab has no
+ * server id yet; replay fills `p_tab_id` from it. A manager PIN may ride as
+ * `p_pin` only for a PIN-gated RPC, and replay proves it first (0115).
+ */
+export const rpcQueuedPayloadSchema = z
+  .object({
+    fn: z.enum(QUEUEABLE_RPCS),
+    args: z
+      .record(z.string().regex(/^p_[a-z0-9_]+$/, 'argument names are p_*'), z.unknown())
+      .refine((a) => JSON.stringify(a).length <= RPC_QUEUED_MAX_ARGS_BYTES, 'args too large'),
+    tabIdemKey: idempotencyKeySchema.optional(),
+  })
+  .strict()
+  .superRefine((p, ctx) => {
+    const pin = p.args.p_pin;
+    if (pin === undefined) return;
+    if (!PIN_GATED_RPC_SET.has(p.fn)) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'p_pin only rides a PIN-gated RPC', path: ['args', 'p_pin'] });
+    } else if (typeof pin !== 'string' || !MANAGER_PIN_RE.test(pin)) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'pin must be 4-12 digits', path: ['args', 'p_pin'] });
+    }
+  });
+export type RpcQueuedPayload = z.infer<typeof rpcQueuedPayloadSchema>;
+
 // ---------------------------------------------------------------------------
 // Envelope
 // ---------------------------------------------------------------------------
@@ -696,6 +829,13 @@ const envelopeVariants = z.discriminatedUnion('mutationType', [
       ...baseFields,
       mutationType: z.literal('order_item.void'),
       payload: orderItemVoidPayloadSchema,
+    })
+    .strict(),
+  z
+    .object({
+      ...baseFields,
+      mutationType: z.literal('rpc.queued'),
+      payload: rpcQueuedPayloadSchema,
     })
     .strict(),
 ]);

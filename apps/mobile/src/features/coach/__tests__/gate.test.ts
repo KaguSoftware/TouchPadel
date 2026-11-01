@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { coachGate } from '../gate';
+import { coachGate, coachHomeHref } from '../gate';
 import { parseCoachMe, type CoachMe, type CoachMeRetired } from '../logic';
 import { NOT_A_COACH, NO_SESSION, PENDING, READ_ERROR } from '../status';
 import { coachMeRaw, coachMeRetiredRaw } from '../../../test/coachFixtures';
@@ -31,5 +31,18 @@ describe('coachGate', () => {
 
   it('shows the error state when the read failed with no answer', () => {
     expect(coachGate(READ_ERROR, 'mode')).toBe('error');
+  });
+});
+
+describe('coachHomeHref (F-59)', () => {
+  it('sends a staff session back to Today, never to a guest page', () => {
+    for (const kind of ['staff', 'pending', 'revoked', 'unsupported'] as const) {
+      expect(coachHomeHref(kind), kind).toBe('/staff');
+    }
+  });
+
+  it('sends a guest (or no session) to Profile, where the coach row is', () => {
+    expect(coachHomeHref('guest')).toBe('/profile');
+    expect(coachHomeHref('none')).toBe('/profile');
   });
 });

@@ -68,10 +68,12 @@ describe('the LAN KDS protocol cannot reach the printer (SEC-31)', () => {
    * print frame would let anything that reached the LAN socket drive a physical
    * device — and the receipt path opens the cash drawer on some hardware.
    */
-  it('declares exactly three frame types, none of them print', () => {
+  it('declares only ticket, status and refusal frames, none of them print', () => {
     const frames = read('lan-frames.ts');
     const types = [...frames.matchAll(/type:\s*'([a-z.]+)'/g)].map((m) => m[1]);
-    expect(types.sort()).toEqual(['status.update', 'ticket.new', 'ticket.snapshot']);
+    // F-11 / F-57 (2026-11-01) added ticket.synced, ticket.dropped and error
+    // (till → KDS) and ticket.ack (KDS → till, parsed in parseKdsFrame).
+    expect(types.sort()).toEqual(['error', 'status.update', 'ticket.dropped', 'ticket.new', 'ticket.snapshot', 'ticket.synced']);
     expect(frames).not.toMatch(/print/i);
   });
 

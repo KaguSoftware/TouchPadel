@@ -42,7 +42,7 @@ import {
 } from '../../components/icons';
 import { useStaffStatus } from './StaffStatusProvider';
 import { staffKeys } from './keys';
-import { quietRow, todayRows, type StaffRowDef, type TodaySignals } from './rows';
+import { quietRow, todayRows, visibleTodayRows, type StaffRowDef, type TodaySignals } from './rows';
 import { fetchRuns } from './protocols/api';
 import { fetchNoteItems } from './notes/api';
 import { CALL_ROLES } from './calls/logic';
@@ -229,13 +229,16 @@ export function useTodayGroups(): {
     notes: noteItems.data ? noteItems.data.length : null,
   };
   const groups =
-    staffRole === null
+    status.kind !== 'staff'
       ? []
       : groupRows(
-          todayRows(
-            staffRole,
-            // 0345: a second job's rows too (an owner's list is ignored).
-            status.kind === 'staff' && staffRole !== 'owner' ? (status.staff.extraRoles ?? []) : [],
+          visibleTodayRows(
+            todayRows(
+              status.staff.role,
+              // 0345: a second job's rows too (an owner's list is ignored).
+              status.staff.role !== 'owner' ? (status.staff.extraRoles ?? []) : [],
+            ),
+            status.staff,
           ),
         );
 

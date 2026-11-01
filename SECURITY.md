@@ -185,7 +185,8 @@ locally):
 - A clean local Supabase run on every PR: migrations from scratch, RLS, lock-order and
   concurrency tests.
 - Nightly schema-drift check against the hosted project (02:00 Asia/Baghdad).
-- Weekly grouped Dependabot updates.
+- Dependency advisories gated on every push by `pnpm security:audit`, with dated, owned waivers in
+  `.security/audit-waivers.json` (Dependabot is not used).
 
 The reasoning behind each of these lives in `docs/security/`.
 

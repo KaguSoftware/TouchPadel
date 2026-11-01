@@ -31,7 +31,7 @@ import {
   emptyRequestDraft,
   localName,
   requestArgs,
-  MARKETING_REQUEST_ROLES,
+  ASK_MARKETING_ROLES,
   requestsView,
   validateRequest,
   type Issue,
@@ -238,8 +238,10 @@ function AskMarketingScreen() {
 }
 
 export default function StaffMarketingRequestNewRoute() {
+  // Only the people who ask (the manager and the owner): marketing answers the
+  // requests, it never sends one to itself (F-59).
   return (
-    <RequireStaff roles={MARKETING_REQUEST_ROLES}>
+    <RequireStaff page="staff-marketing-request-new" roles={ASK_MARKETING_ROLES}>
       <AskMarketingScreen />
     </RequireStaff>
   );

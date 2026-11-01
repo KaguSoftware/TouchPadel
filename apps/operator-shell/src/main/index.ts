@@ -1,7 +1,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { BrowserWindow, app, dialog, ipcMain, screen, shell } from 'electron';
+import { BrowserWindow, app, dialog, globalShortcut, ipcMain, screen, shell } from 'electron';
 import { IPC, type LeaveRefusal, type PrintResult, type SupplierPageResult } from '../ipc-channels';
 import {
   enqueue,
@@ -18,11 +18,12 @@ import { completeFirstRun } from './first-run';
 import { isPairingCode } from './pairing-code';
 import { LAN_KDS_PORT, pickLanBind, startLanKdsServer, type LanKdsServer } from './lan-kds-server';
 import { startLanKdsClient, type LanKdsClient } from './lan-kds-client';
+import { validateLanAck, validateLanCloudStatus } from './lan-frames';
 import { confirmTill, discoverTill, SCAN_HANDSHAKE_TIMEOUT_MS } from './lan-discover';
 import { startUpdater, updaterPendingFile, type UpdaterHandle } from './updater';
 import { startHeartbeat } from './heartbeat';
 import { getAuthState, setAuthState } from './auth-state';
-import { mayLeave, observePin, unlockPinOffline } from './pin-cache';
+import { mayLeave, observePin, unlockOwnPinOffline, unlockPinOffline } from './pin-cache';
 import { learnSession, ownerMayLeave, runsUnlocked } from './owner-exit';
 import { printReceiptHtml } from './print/print-receipt';
 import { fetchSupplierPage } from './supplier-fetch';
@@ -36,6 +37,9 @@ import {
   mayOpenExternally,
   shouldRecoverToRenderer,
   shouldShowTrafficLights,
+  kioskHardening,
+  shouldRefocusOnBlur,
+  REFOCUS_DELAY_MS,
   type NavigationPolicy,
 } from './window-security';
 import {
@@ -49,6 +53,7 @@ import {
   validateMutationEnvelope,
   validatePin,
   validatePinOwner,
+  validatePinTier,
   validatePrintJob,
   validateRefKey,
   validateResolveQueueRow,
@@ -193,6 +198,47 @@ const released = new WeakSet<BrowserWindow>();
 const lastStaff = new WeakMap<BrowserWindow, string | null>();
 
 /**
+ * F-44: the window side of keeping staff in on Windows (kioskHardening,
+ * window-security.ts): always on top at the 'screen-saver' level, focus taken
+ * back on blur (the blur handler in createWindow reads `hardened`), and the
+ * Alt+Tab / Alt+Esc / Ctrl+Esc / Windows-key combinations Electron can
+ * register taken for ourselves, each best effort. The bare Windows key and
+ * Ctrl+Alt+Del stay the OS's: blocking those is Assigned Access / NoWinKeys
+ * in the station setup runbook. Undone by softenKiosk on release.
+ */
+const hardened = new WeakSet<BrowserWindow>();
+let kioskShortcutsHeld = false;
+
+function hardenKiosk(win: BrowserWindow): void {
+  const plan = kioskHardening(process.platform);
+  hardened.add(win);
+  if (plan.alwaysOnTop) win.setAlwaysOnTop(true, 'screen-saver');
+  if (kioskShortcutsHeld) return;
+  kioskShortcutsHeld = true;
+  for (const accelerator of plan.shortcuts) {
+    try {
+      // A no-op handler: holding the combination is the point. false = the OS
+      // keeps it (Alt+Tab usually), which is expected and not an error.
+      globalShortcut.register(accelerator, () => {});
+    } catch {
+      /* an accelerator this Electron cannot parse: skip it */
+    }
+  }
+}
+
+function softenKiosk(win: BrowserWindow): void {
+  hardened.delete(win);
+  if (!win.isDestroyed()) win.setAlwaysOnTop(false);
+  if (!kioskShortcutsHeld) return;
+  kioskShortcutsHeld = false;
+  try {
+    globalShortcut.unregisterAll();
+  } catch {
+    /* before ready or after quit: nothing is held */
+  }
+}
+
+/**
  * Staff are kept inside the app (owner call, 2026-09-23): a configured
  * station is a kiosk on every platform and in every mode, cannot be minimised,
  * and its only exits — Quit to desktop and Exit forced full screen — take a
@@ -202,9 +248,9 @@ const lastStaff = new WeakMap<BrowserWindow, string | null>();
  * presentation options that disable Cmd+Tab, Hide, Force Quit and the Dock,
  * and none of that can be done from the page. The traffic lights go with it,
  * and the red one was a way out anyway (it opens the same PIN dialog as Quit
- * when the window is released). Windows' kiosk covers the taskbar; locking
- * Alt+Tab and the Windows key there is the OS's job (Assigned Access), not
- * something an app can take.
+ * when the window is released). Windows' kiosk covers the taskbar; Alt+Tab
+ * and the Windows key are held as far as Electron can (hardenKiosk, F-44),
+ * and fully only by the OS's own policy (Assigned Access / NoWinKeys).
  */
 function lockWindow(win: BrowserWindow): void {
   released.delete(win);
@@ -215,6 +261,7 @@ function lockWindow(win: BrowserWindow): void {
   win.setAutoHideMenuBar(true);
   win.setMenuBarVisibility(false);
   if (!win.isKiosk()) win.setKiosk(true);
+  hardenKiosk(win);
 }
 
 /**
@@ -238,6 +285,7 @@ function releaseWindow(win: BrowserWindow): void {
   win.setMenuBarVisibility(true);
   win.setAutoHideMenuBar(false);
   win.setAlwaysOnTop(false);
+  softenKiosk(win);
   // Production windows are built frameless (`frame: relaxed`), and
   // Electron cannot grow a titlebar after creation — so dropping kiosk
   // alone would leave an undecorated sheet still covering the screen,
@@ -448,6 +496,25 @@ function createWindow(): BrowserWindow {
       win.webContents.send(IPC.closeRequested);
     });
   }
+
+  // F-44: a locked station starts hardened, and takes focus back when Alt+Tab
+  // or the Windows key moved it away (kioskHardening, window-security.ts).
+  if (locked) hardenKiosk(win);
+  win.on('blur', () => {
+    const decide = () =>
+      shouldRefocusOnBlur({
+        platform: process.platform,
+        locked: hardened.has(win),
+        released: released.has(win),
+        destroyed: win.isDestroyed(),
+      });
+    if (!decide()) return;
+    setTimeout(() => {
+      if (!decide() || win.isFocused()) return;
+      win.moveTop();
+      win.focus();
+    }, REFOCUS_DELAY_MS);
+  });
   return win;
 }
 
@@ -529,17 +596,40 @@ if (gotTheLock) {
       }),
     );
 
-    ipcMain.on(IPC.lanStatus, (_e, v: unknown) => {
+    ipcMain.on(IPC.lanStatus, (e, v: unknown) => {
       guardIpc('lanStatus', () => {
         // Same rule (SEC-32): an unidentified machine does not announce itself
         // on the venue LAN. kdsStation is how a till labels which kitchen
         // screen acknowledged a ticket.
         if (!canTrade(station)) return null;
         const update = validateLanStatus(v);
-        lanClient?.sendStatus({ ...update, kdsStation: station.stationId });
+        const sent = lanClient?.sendStatus({ ...update, kdsStation: station.stationId }) ?? false;
+        // F-57: a bump with the link down used to vanish. The board puts the
+        // ticket back and says why.
+        if (!sent && !e.sender.isDestroyed()) {
+          e.sender.send(IPC.lanTicket, { type: 'error', data: { reason: 'link-down', ref: update.ref } });
+        }
         return null;
       });
     });
+
+    // F-11: the kitchen screen says which LAN tickets it has drawn.
+    ipcMain.on(IPC.lanAck, (_e, v: unknown) => {
+      guardIpc('lanAck', () => {
+        if (!canTrade(station)) return null;
+        lanClient?.sendAck(validateLanAck(v));
+        return null;
+      });
+    });
+    // F-11: the till's renderer passes on the cloud's ticket statuses.
+    ipcMain.on(IPC.lanCloudStatus, (_e, v: unknown) => {
+      guardIpc('lanCloudStatus', () => {
+        lanServer?.applyCloud(validateLanCloudStatus(v));
+        return null;
+      });
+    });
+    ipcMain.handle(IPC.lanReach, () => lanServer?.reach() ?? null);
+    ipcMain.handle(IPC.lanLink, () => (lanClient ? lanClient.linkUp() : null));
 
     ipcMain.on(IPC.authState, (e, s: unknown) => {
       guardIpc('authState', () => {
@@ -717,12 +807,20 @@ if (gotTheLock) {
       });
     });
 
-    ipcMain.on(IPC.pinObserved, (_e, pin: unknown, owner: unknown) => {
+    ipcMain.on(IPC.pinObserved, (_e, pin: unknown, owner: unknown, tier: unknown) => {
       guardIpc('pinObserved', () => {
-        observePin(validatePin(pin), 'manager', validatePinOwner(owner));
+        // 'self' (F-07): a non-authorising person's own lock-screen PIN, cached
+        // only to unlock their own idle lock offline; it never authorises.
+        observePin(validatePin(pin), validatePinTier(tier), validatePinOwner(owner));
         return null;
       });
     });
+
+    // F-07: the idle lock offline. The PIN must be on file as the SIGNED-IN
+    // person's own (the session main holds, never an id the renderer names).
+    ipcMain.handle(IPC.unlockOwnPin, (_e, pin: unknown) =>
+      guardIpc('unlockOwnPin', () => unlockOwnPinOffline(validatePin(pin), getAuthState()?.staffId ?? null)),
+    );
 
     // Quit to desktop (design-arch §2.5): the ONLY way a production window
     // closes. Behind a manager PIN again (owner call, 2026-09-23, reversing the
@@ -904,6 +1002,8 @@ if (gotTheLock) {
     worker = startSyncWorker({
       onResult: (result) => {
         if (!win.isDestroyed()) win.webContents.send(IPC.mutationResult, result);
+        // F-11: an order on the server shows from the cloud; a refused one leaves the LAN screens.
+        lanServer?.onResult(result);
       },
       onActivity: pushStatus,
     });
@@ -921,6 +1021,10 @@ if (gotTheLock) {
         pushStatus();
         worker?.kick(); // a KDS bump entered the till's queue — replay it
       },
+      // F-11: the till flags orders no kitchen screen has drawn.
+      onReach: (reach) => {
+        if (!win.isDestroyed()) win.webContents.send(IPC.lanReach, reach);
+      },
     });
     lanClient = startLanKdsClient(station, (frame) => {
       if (!win.isDestroyed()) win.webContents.send(IPC.lanTicket, frame);
@@ -934,6 +1038,15 @@ if (gotTheLock) {
     startHeartbeat(station);
   }).catch(reportFatalStartup);
 }
+
+// F-44: hand every kiosk shortcut back to the OS on the way out.
+app.on('will-quit', () => {
+  try {
+    globalShortcut.unregisterAll();
+  } catch {
+    /* nothing held */
+  }
+});
 
 app.on('window-all-closed', () => {
   // Not while an update installs. On macOS Electron's autoUpdater closes the

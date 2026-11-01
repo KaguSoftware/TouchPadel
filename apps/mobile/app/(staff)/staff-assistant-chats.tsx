@@ -131,7 +131,7 @@ function ChatsScreen() {
 
 export default function StaffAssistantChatsRoute() {
   return (
-    <RequireStaff roles={['owner']}>
+    <RequireStaff page="staff-assistant-chats" roles={['owner']}>
       <ChatsScreen />
     </RequireStaff>
   );

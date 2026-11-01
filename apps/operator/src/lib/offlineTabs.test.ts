@@ -29,6 +29,7 @@ import {
   markOfflineSettled,
   offlineTabState,
   removeOfflineTab,
+  serverTotalFrom,
 } from './offlineTabs';
 
 let n = 0;
@@ -70,12 +71,12 @@ describe('offline tab retirement', () => {
     });
     expect(onPlan(k)).toBe(true);
     const t = getOfflineTab(k)!;
-    expect(t.failure).toEqual({ state: 'failed', error: '400: FORBIDDEN' });
+    expect(t.failure).toEqual({ state: 'failed', error: '400: FORBIDDEN', on: 'open' });
     expect(offlineTabState(t)).toBe('failed');
 
     const k2 = open();
     result({ mutationType: 'tab.open', idempotencyKey: k2, state: 'conflict' });
-    expect(getOfflineTab(k2)!.failure).toEqual({ state: 'conflict' });
+    expect(getOfflineTab(k2)!.failure).toEqual({ state: 'conflict', on: 'open' });
   });
 
   it('a queued settle keeps the tab on the plan, marked settled, until the settle acks', () => {
@@ -128,5 +129,46 @@ describe('offline tab retirement', () => {
     // Re-emit through an unrelated write so the snapshot is recomputed.
     open();
     expect(onPlan(k)).toBe(false);
+  });
+
+  // F-09: a payment taken offline is never retired with its tab's open.
+  it('a settled tab outlives its open replaying (off the plan) until the settle answers', () => {
+    const k = open();
+    markOfflineSettled(k, 'TILL1:tab.settle:S3', { method: 'cash', amountIqd: 9000, tenderedIqd: 10000 });
+    result({ mutationType: 'tab.open', idempotencyKey: k, state: 'acked' });
+    // The server tab now shows on the plan; this entry waits, out of sight.
+    expect(onPlan(k)).toBe(false);
+    expect(getOfflineTab(k)).toBeTruthy();
+    result({ mutationType: 'tab.settle', idempotencyKey: 'TILL1:tab.settle:S3', state: 'acked' });
+    expect(getOfflineTab(k)).toBeUndefined();
+  });
+
+  it('a settle refused at replay comes back on the plan with its code, the server total and its own key', () => {
+    const k = open();
+    markOfflineSettled(k, 'TILL1:tab.settle:S4', { method: 'card', amountIqd: 9000, tenderedIqd: null });
+    result({ mutationType: 'tab.open', idempotencyKey: k, state: 'acked' });
+    result({
+      mutationType: 'tab.settle',
+      idempotencyKey: 'TILL1:tab.settle:S4',
+      state: 'failed',
+      serverResult: { error: 'TOTAL_CHANGED', details: 'expected 9000, now 9900' },
+    });
+    expect(onPlan(k)).toBe(true);
+    const t = getOfflineTab(k)!;
+    expect(t.failure).toMatchObject({ on: 'settle', code: 'TOTAL_CHANGED', serverTotalIqd: 9900, settleIdemKey: 'TILL1:tab.settle:S4' });
+    expect(t.settle).toEqual({ method: 'card', amountIqd: 9000, tenderedIqd: null });
+
+    // Taken again at the server's total: the refusal clears and the new key is waited on.
+    markOfflineSettled(k, 'TILL1:tab.settle:S5', { method: 'card', amountIqd: 9900, tenderedIqd: null });
+    expect(getOfflineTab(k)!.failure).toBeUndefined();
+    expect(onPlan(k)).toBe(false);
+    result({ mutationType: 'tab.settle', idempotencyKey: 'TILL1:tab.settle:S5', state: 'acked' });
+    expect(getOfflineTab(k)).toBeUndefined();
+  });
+
+  it("reads TOTAL_CHANGED's server total from the details or the worker's error text", () => {
+    expect(serverTotalFrom({ serverResult: { details: 'expected 5000, now 5750' } })).toBe(5750);
+    expect(serverTotalFrom({ error: '409: TOTAL_CHANGED expected 1, now 2' })).toBe(2);
+    expect(serverTotalFrom({ serverResult: { error: 'TENDER_SHORT' } })).toBeNull();
   });
 });

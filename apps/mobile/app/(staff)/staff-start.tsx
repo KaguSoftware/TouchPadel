@@ -831,7 +831,7 @@ function StartScreen() {
 
 export default function StaffStartRoute() {
   return (
-    <RequireStaff roles={START_ROLES}>
+    <RequireStaff page="staff-start" roles={START_ROLES}>
       <StartScreen />
     </RequireStaff>
   );

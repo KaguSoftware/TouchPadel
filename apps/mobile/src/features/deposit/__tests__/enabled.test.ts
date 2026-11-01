@@ -5,8 +5,8 @@ import { DepositEdgeError, parseDepositQuote, reviewPayment } from '../logic';
 import { defaultPaymentChoice, effectiveChoice, paymentChoices } from '../../coaching/logic';
 import { matchesEnabled } from '../../matches/logic';
 import { guestPushHref } from '../../matches/pushRoutes';
-import { getPendingJoin, setPendingJoin } from '../../matches/pendingJoin';
-import { suggest, topSuggestions } from '../../playProfile/suggest';
+import { clearPendingJoin, getPendingJoin, setPendingJoin } from '../../matches/pendingJoin';
+import { suggest } from '../../playProfile/suggest';
 
 afterEach(() => vi.unstubAllEnvs());
 
@@ -47,15 +47,16 @@ describe('store build (flag off): the server cannot turn the features on', () =>
     expect(effectiveChoice('online_optional', 'online')).toBe('desk');
   });
 
-  it('open matches are off whatever the branch switch says', () => {
+  it('open matches follow the branch switch alone: they ship without online payment (0370, F-02)', () => {
     off();
-    expect(matchesEnabled({ matches_enabled: true })).toBe(false);
+    expect(matchesEnabled({ matches_enabled: true })).toBe(true);
+    expect(matchesEnabled({ matches_enabled: false })).toBe(false);
   });
 
-  it('match and tickets pushes land on Home', () => {
+  it('a match push opens its match; a tickets push lands on Home (no wallet)', () => {
     off();
-    expect(guestPushHref('match', 'm-1')).toEqual({ pathname: '/(tabs)' });
-    expect(guestPushHref('match', null)).toEqual({ pathname: '/(tabs)' });
+    expect(guestPushHref('match', 'm-1')).toEqual({ pathname: '/match/[id]', params: { id: 'm-1' } });
+    expect(guestPushHref('match', null)).toEqual({ pathname: '/play', params: { show: 'matches' } });
     expect(guestPushHref('tickets', null)).toEqual({ pathname: '/(tabs)' });
   });
 
@@ -68,15 +69,15 @@ describe('store build (flag off): the server cannot turn the features on', () =>
     expect(invoke).not.toHaveBeenCalled();
   });
 
-  it('no join is left pending', () => {
+  it('keeps a join waiting across sign-in, as open matches ship', () => {
     off();
     setPendingJoin({ kind: 'link', token: 't' });
-    expect(getPendingJoin()).toBeNull();
+    expect(getPendingJoin()).toEqual({ kind: 'link', token: 't' });
+    clearPendingJoin();
   });
 
-  it('open matches are never suggested', () => {
+  it('still suggests open matches (paid at the desk)', () => {
     off();
-    expect(suggest({ level: 'advanced', years: null, wants: ['matches'] } as never).find((s) => s.kind === 'matches')?.available).toBe(false);
-    expect(topSuggestions({ level: 'advanced', years: null, wants: ['matches'] } as never, 5).map((s) => s.kind)).not.toContain('matches');
+    expect(suggest({ level: 'advanced', years: null, wants: ['matches'] } as never).find((s) => s.kind === 'matches')?.available).toBe(true);
   });
 });

@@ -9,6 +9,12 @@ Written 2026-09-23 alongside the Terms, the Privacy Policy rewrite and the web d
 the App Store label (`docs/store/app-store-submission.md` §2) and the iOS privacy manifest
 (`apps/mobile/app.config.ts` → `ios.privacyManifests`).
 
+**For version 1.1.0 (2026-11-01, F-02/F-03): no online payment and no tickets; open matches on.** `apps/mobile/eas.json`
+sets `EXPO_PUBLIC_ONLINE_PAYMENTS` to "off" and keeps `EXPO_PUBLIC_TOURNAMENTS` "on". Open matches follow the branch
+switch, and each seat is paid at the desk while online payment is off (0370/0371). Courts, match seats, lessons and
+tournament entries are paid at the front desk. When online payment ships, Purchase history (Qi Card on Qi's own page)
+and the deletion answers (ticket refunds) change with it.
+
 ## Links
 
 | Field | Value |
@@ -37,10 +43,11 @@ behalf (Supabase, Expo/FCM, the WhatsApp/SMS code provider) is not "sharing". Ev
 Shared: No, Processed ephemerally: No, Required** (except email), purpose **App functionality** (plus **Account
 management** where noted). Nothing is used for advertising, analytics or fraud-prevention purposes in Play's sense.
 
-"Nothing is shared" still holds with open matches. Other players in a match see a player's first name and surname
-initial only after that player's own action (starting, joining or asking to join a match), which Play treats as a
-user-initiated transfer, not sharing. Qi Card takes the online payments as a service provider. **UNVERIFIED**
-against Play's current wording (open matches, `docs/design/open-matches/guest.md` §4.26).
+"Nothing is shared" holds for open matches, the leaderboard and tournaments too. Other players see a player's first
+name and surname initial (and, on the Ranks leaderboard, their chosen username) only after that player's own action
+(starting, joining or asking to join a match, entering a tournament, reporting a score), which Play treats as a
+user-initiated transfer, not sharing. **UNVERIFIED** against Play's current wording (`docs/design/open-matches/guest.md`
+§4.26).
 
 | Play category → type | Collected | Optional? | Purposes | What it is |
 |---|---|---|---|---|
@@ -48,24 +55,25 @@ against Play's current wording (open matches, `docs/design/open-matches/guest.md
 | Personal info → **Email address** | Yes | **Optional** | App functionality, Account management | Only for email sign-up or Sign in with Google/Apple |
 | Personal info → **Phone number** | Yes | Required | App functionality, Account management | Sign-in, the one-time verification code, the desk calling about a booking |
 | Personal info → **User IDs** | Yes | Required | App functionality, Account management | The account id |
-| Personal info → **Other info** | Yes | **Optional** | App functionality | Gender (woman or man), asked once, only when a player first plays open matches; it decides whether women-only or men-only matches are offered. And an optional date of birth a guest may add in Edit profile, which only they can see |
-| Financial info → **Purchase history** | Yes | Required | App functionality | Court bookings and their prices; court deposits and open-match tickets paid online by Qi Card on Qi's own page (no card data is ever collected) |
+| Personal info → **Other info** | Yes | Required | App functionality | Gender (woman or man) and an age band, asked at sign-up (gender also decides whether women-only or men-only matches are offered); the level, years played and interests in the play survey; the username shown on the Ranks leaderboard; and an optional date of birth a guest may add in Edit profile, which only they can see |
+| Financial info → **Purchase history** | Yes | Required | App functionality | Court bookings, open-match seats, lessons and tournament entries with their prices, and the points earned and rewards used with the member card at the venue's till. All of it is paid at the venue: the app takes no payment and collects no card data |
 | Financial info → **Other financial info** | Yes | Optional | App functionality | **Staff accounts only**: a wage advance a staff member asks for, and pay deductions (amount, date and reason) a head or manager records against a staff member, which that person reads in the staff area. **UNVERIFIED** classification, Majed's call (wave5-addendum-2026-09-25 §7.7) |
-| App activity → **Other actions** | Yes | Required | App functionality | Bookings made and cancelled; open matches started, joined and left, requests to join, preset messages, reports and blocks |
+| App activity → **Other actions** | Yes | Required | App functionality | Bookings made and cancelled; open matches started, joined and left, requests to join, preset messages, reports and blocks; lessons booked; tournaments entered, waitlisted or withdrawn from; match scores reported and confirmed for the Ranks leaderboard |
+| App info and performance → **Crash logs** | Yes | Required | App functionality | A report when the app crashes or an action fails (what failed, on which screen, the app version), sent automatically or when the person presses "Report crash", to the venue's own monitoring page, linked to the account when someone is signed in (F-15, migration 0393). Scrubbed of PINs, tokens, phone numbers, emails and card numbers on the phone and again on the server. **UNVERIFIED** whether Play also wants **Diagnostics** for the non-crash error reports; Majed's call |
 | Device or other IDs → **Device or other IDs** | Yes | Optional | App functionality | The push-notification token, only if notifications are allowed |
 | Photos and videos → **Photos** | Yes | Optional | App functionality | A guest's optional profile photo, taken or chosen in Edit profile and seen by the guest and the venue's staff; and, on staff accounts, a work photo taken or chosen in the staff area (a proposed dish, a receipt, a finished task, an incident report). Both re-encoded on the phone without location metadata |
 | App activity → **Other user-generated content** | Yes | Optional | App functionality | **Staff accounts only**: the text a staff member types into a task, a proposal, a staff request, a note on a new menu item, a marketing draft or an incident report |
 
 **Not collected:** location (approximate or precise), web browsing, contacts, calendar, videos, audio, files,
-health and fitness, messages, app info and performance (crash logs, diagnostics), financial info other than purchase
+health and fitness, messages, app info and performance other than the crash logs above, financial info other than purchase
 history and the staff-only advances and deductions above (no card or bank details), race/religion/political or other
 sensitive info. Photos only as above: a guest's own profile photo, and work photos from staff accounts.
 
 > Only what the **Android app** collects belongs on this form. The website's café table sessions, the order notes
 > guests type there, PostHog page-view analytics, and the notes and labels the front desk writes in the operator app
 > are all outside it. The Privacy Policy discloses each of them. The guest side of the app has no free-text field
-> that reaches the server: other players see only a first name and surname initial, and preset messages that are
-> not free text. The staff area does, and it can attach work photos, so Photos and Other user-generated
+> between players: other players see a first name and surname initial, preset match messages that are not free
+> text, and the username a player chose for the leaderboard. The staff area does, and it can attach work photos, so Photos and Other user-generated
 > content are declared, for staff accounts only, matching the App Store label (`docs/store/app-store-submission.md`
 > §2). Staff accounts are created by the owner; there is no staff sign-up in the app.
 >
@@ -81,15 +89,19 @@ sensitive info. Photos only as above: a guest's own profile photo, and work phot
 |---|---|
 | Account deletion URL | `https://www.touch-padel.com/en/delete-account` |
 | Can users request that some or all of their data is deleted without deleting their account? | Yes: by emailing the privacy contact or asking at the front desk (Privacy Policy → Your rights) |
-| What is deleted | Login, first name, surname, gender, date of birth, profile photo, phone, email, linked Google/Apple sign-in, push token, the players the guest blocked, staff notes and labels about the guest, queued notifications. Immediately. The guest leaves their open matches, and unused open-match tickets are refunded to the card they were paid with (DF-20) |
-| What is kept, and why | Bookings, café orders and open matches played stay **anonymised** (no name, phone or notes) because the venue must keep its accounts, and the record of which Terms version was accepted stays on the anonymised row. Ticket purchases and refunds stay in the accounts without a name; reports between players are kept 12 months, then deleted. Stated on the deletion page and in the Privacy Policy |
+| What is deleted | Login, first name, surname, gender, date of birth, profile photo, phone, email, linked Google/Apple sign-in, push token, the players the guest blocked, staff notes and labels about the guest, queued notifications. Immediately. The guest leaves their open matches, and booked lessons are cancelled |
+| What is kept, and why | Bookings, café orders and open matches played stay **anonymised** (no name, phone or notes) because the venue must keep its accounts, and the record of which Terms version was accepted stays on the anonymised row. Reports between players are kept 12 months, then deleted. Stated on the deletion page and in the Privacy Policy |
 | Staff accounts | Not deleted through this page. The owner switches a leaver's account off (sessions ended, push token cleared); the account and its work records stay, as the staff privacy notice (`docs/legal/staff-privacy-notice.md`) tells every employee |
 
 ## Before submitting
 
-- [ ] `LEGAL_STRICT=1 pnpm check:legal` passes: the legal pages name the company, not `[FILL: …]`.
+- [ ] `LEGAL_STRICT=1 pnpm check:legal` passes: the legal pages name the company, not `[FILL: …]` (minimum play
+      age 4, filled 2026-11-01).
+- [ ] The Android build is version 1.1.0 with `EXPO_PUBLIC_ONLINE_PAYMENTS` "off" (`apps/mobile/eas.json`).
 - [ ] Migration 0153 is on the hosted project (the app's consent gate calls `app.accept_terms`).
-- [ ] The 1.0 terms version (`CURRENT_TERMS_VERSION`, open matches and Qi Card) is the one the web pages print.
+- [ ] The terms version (`CURRENT_TERMS_VERSION`, **2026-11-01**: no online payment, every payment at the venue,
+      open-match seats paid at the desk) is the one the web pages print. Every guest who accepted an older
+      version meets the app's consent screen once more.
 - [ ] The web deletion page works against hosted: sign in with the review account and stop at the confirmation word.
       Deleting the review account for real means recreating it with `scripts/create-review-account.mjs`.
 - [ ] The staff review account exists (`scripts/create-staff-review-account.mjs`) and its login is in the review

@@ -52,6 +52,15 @@ export const filesAr: DeepMessages<typeof filesEn> = {
   nameOnly: 'الاسم فقط',
   nameOnlyHint: 'تعذّرت قراءة أي كلمات من هذا الملف (صورة أو صفحة ممسوحة ضوئيًا). يرى المساعد اسمه وملاحظته.',
   download: 'تنزيل',
+  // F-64: a PDF opens here, page by page, without downloading it.
+  view: 'عرض',
+  viewer: {
+    page: 'الصفحة {n} من {total}',
+    previous: 'الصفحة السابقة',
+    next: 'الصفحة التالية',
+    loading: 'جارٍ فتح الملف…',
+    failed: 'تعذّر فتح هذا الملف هنا. نزّله بدلًا من ذلك.',
+  },
   edit: 'تعديل',
   remove: 'حذف',
   removeTitle: 'حذف {name}؟',

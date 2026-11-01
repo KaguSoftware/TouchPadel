@@ -328,8 +328,9 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         'NSPrivacyCollectedDataTypePhoneNumber',
         'NSPrivacyCollectedDataTypeUserID',
         'NSPrivacyCollectedDataTypeOtherDataTypes',
-        // Court deposits and open-match tickets paid by Qi Card on Qi's own
-        // page: what was bought, when and the amount. No card data.
+        // Bookings, lessons and entries with their prices, and the member
+        // card's points at the till. This build takes no payment in the app
+        // (F-02); everything is paid at the venue. No card data.
         'NSPrivacyCollectedDataTypePurchaseHistory',
         // Work photos on staff accounts (build-contracts §6.10) and a guest's
         // own profile photo (0302); the free text of step notes, requests,
@@ -338,6 +339,9 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         'NSPrivacyCollectedDataTypeOtherUserContent',
         // Staff accounts only (wave 5): wage advances and pay deductions.
         'NSPrivacyCollectedDataTypeOtherFinancialInfo',
+        // Crash and error reports to the venue's monitoring page (F-15), linked
+        // to the account when someone is signed in.
+        'NSPrivacyCollectedDataTypeCrashData',
       ].map((type) => ({
         NSPrivacyCollectedDataType: type,
         NSPrivacyCollectedDataTypeLinked: true,

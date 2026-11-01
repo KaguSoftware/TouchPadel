@@ -31,8 +31,6 @@ export function LocaleSwitcher({
   locale,
 }: {
   locale: Locale;
-  /** Unused since 2026-09-23 (see the default below); TopBar still passes it. */
-  token?: string | null;
 }) {
   const other = otherLocale(locale);
   // SSR-safe default; refined to the live URL (with its query) after mount.

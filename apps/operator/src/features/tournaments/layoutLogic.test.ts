@@ -135,6 +135,8 @@ function entry(status: TourEntry['status'], owed: number, paid: number, refundDu
     net_paid_iqd: paid,
     refund_due_iqd: refundDue,
     substitute_for: null,
+    confirmed: true,
+    confirmed_by_name: null,
   };
 }
 

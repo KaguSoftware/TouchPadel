@@ -473,4 +473,33 @@ export const cashierEn = {
       since: 'since {time}',
     },
   },
+  // F-11 (0396): an order no kitchen screen has shown yet.
+  kitchenReach: {
+    waiting: 'Sent. Waiting for a kitchen screen to show it…',
+    seen: 'On the kitchen screen.',
+    queued: 'Saved on this till. It goes to the kitchen when the connection is back.',
+    notReceived: 'Not received by the kitchen yet. Tell the kitchen about this order.',
+    flag: 'Kitchen has not received it',
+    flagHint: 'No kitchen screen has shown this order yet. Tell the kitchen.',
+  },
+  // F-06, F-09, F-32 (lane OP-RUNTIME C): the offline tab's payment and the till's disclaimers.
+  offlinePay: {
+    chargeNote: 'Charged at this total. If the server works out a different one, the payment comes back here to take again.',
+    discountQueued: 'Discount saved on this till. It reaches the server with the tab.',
+    refusedTitle: 'The server refused this payment',
+    refusedBody: 'The {amount} taken here was not recorded. {reason}',
+    refusedTotal: 'The server’s total for this tab is {amount}.',
+    refusedNoTotal: 'Check the tab on the plan before taking the payment again.',
+    retry: 'Take payment again',
+    retryHint: 'Charge the server’s total and settle any difference with the guest.',
+    resolve: 'Resolve with a manager PIN',
+    resolveAction: 'set the refused payment aside',
+    resolveHint: 'Sets the refused payment aside on this till, the way Day close does. The tab can then be paid from the plan.',
+    unsentTitle: 'Items not sent yet',
+    unsentAck: 'I understand these items are not on this bill.',
+    unsentPayAnyway: 'Take payment without them',
+    unsentGoBack: 'Go back and send them',
+    sendQueuing: 'No connection. Saving the order on this till…',
+    shareChange: 'Change {amount}',
+  },
 } as const;

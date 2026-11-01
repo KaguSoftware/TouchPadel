@@ -10,6 +10,7 @@ import { dirAttr, t } from '@touch/i18n';
 import { asLocale, LOCALES } from '@/lib/locales';
 import { siteOrigin } from '@/lib/site/origin';
 import { siteOgImage } from '@/lib/site/ogImage';
+import { manifestPath } from '@/lib/site/manifest';
 
 export function generateStaticParams() {
   return LOCALES.map((locale) => ({ locale }));
@@ -90,7 +91,8 @@ export async function generateMetadata({
       ],
       apple: '/brand/site/apple-icon-180.png',
     },
-    manifest: '/manifest.webmanifest',
+    // The manifest in the page's language (F-63): src/lib/site/manifest.ts.
+    manifest: manifestPath(locale),
     appleWebApp: { capable: true, title: siteName, statusBarStyle: 'default' },
     openGraph: {
       title,

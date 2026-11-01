@@ -22,6 +22,8 @@
  * supabase-js, so it is ./supabase.ts `callerClient`.
  */
 
+import { reportEvent, reportUnhandled } from './monitoring.ts';
+
 // Record<string,string>, not HeadersInit: this module is also typechecked by the
 // Node test suite (tests/replay-transport.test.ts), which has no DOM lib.
 export function json(body: unknown, status = 200, headers: Record<string, string> = {}): Response {
@@ -182,7 +184,17 @@ export function logError(where: string, err: unknown, ...context: unknown[]): vo
  */
 export function pgErrorBody(err: PgError, where: string): { status: number; body: { error: string; message: string } } {
   const mapped = mapPgError(err);
-  if (err.code !== 'P0001') logError(where, err);
+  if (err.code !== 'P0001') {
+    logError(where, err);
+    // Dev monitoring (0393): a database error that is not a business refusal is
+    // a fault worth seeing. Fire and forget; reportEvent never throws.
+    void reportEvent({
+      level: 'error',
+      kind: 'edge_error',
+      message: `${where}: ${mapped.code} ${err.code ?? ''}`.trim(),
+      detail: { function: where, code: err.code ?? null, status: mapped.status, message: err.message ?? null },
+    });
+  }
   return { status: mapped.status, body: { error: mapped.code, message: mapped.code } };
 }
 
@@ -228,6 +240,9 @@ export function handle(
       return withCors(await fn(req));
     } catch (err) {
       logError(name, err);
+      // Dev monitoring (0393): every throw that escapes a handler is stored for
+      // the dev role's Monitoring page. Bounded (2.5 s) and never throws.
+      await reportUnhandled(name, err, req);
       return withCors(onError ? onError(req) : errorResponse('INTERNAL', 500));
     }
   };

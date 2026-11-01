@@ -9,6 +9,21 @@ export type Json =
 export type Database = {
   app: {
     Tables: {
+      access_area_rpcs: {
+        Row: {
+          area: string
+          rpc: string
+        }
+        Insert: {
+          area: string
+          rpc: string
+        }
+        Update: {
+          area?: string
+          rpc?: string
+        }
+        Relationships: []
+      }
       assistant_readable_columns: {
         Row: {
           column_name: string
@@ -36,6 +51,72 @@ export type Database = {
           note?: string | null
           ordinal?: number | null
           table_name?: string
+        }
+        Relationships: []
+      }
+      monitoring_cursor: {
+        Row: {
+          checked_at: string | null
+          id: boolean
+          last_runid: number
+        }
+        Insert: {
+          checked_at?: string | null
+          id?: boolean
+          last_runid?: number
+        }
+        Update: {
+          checked_at?: string | null
+          id?: boolean
+          last_runid?: number
+        }
+        Relationships: []
+      }
+      monitoring_events: {
+        Row: {
+          app_version: string | null
+          at: string
+          caller_key: string | null
+          detail: Json
+          id: number
+          kind: string
+          level: string
+          message: string
+          profile_id: string | null
+          source: string
+          staff_id: string | null
+          user_reported: boolean
+          venue_id: string | null
+        }
+        Insert: {
+          app_version?: string | null
+          at?: string
+          caller_key?: string | null
+          detail?: Json
+          id?: never
+          kind: string
+          level: string
+          message: string
+          profile_id?: string | null
+          source: string
+          staff_id?: string | null
+          user_reported?: boolean
+          venue_id?: string | null
+        }
+        Update: {
+          app_version?: string | null
+          at?: string
+          caller_key?: string | null
+          detail?: Json
+          id?: never
+          kind?: string
+          level?: string
+          message?: string
+          profile_id?: string | null
+          source?: string
+          staff_id?: string | null
+          user_reported?: boolean
+          venue_id?: string | null
         }
         Relationships: []
       }
@@ -150,6 +231,24 @@ export type Database = {
         Update: {
           name?: string
           value?: string
+        }
+        Relationships: []
+      }
+      setup_expected: {
+        Row: {
+          added_at: string
+          kind: string
+          name: string
+        }
+        Insert: {
+          added_at?: string
+          kind: string
+          name: string
+        }
+        Update: {
+          added_at?: string
+          kind?: string
+          name?: string
         }
         Relationships: []
       }
@@ -512,6 +611,7 @@ export type Database = {
         Returns: Json
       }
       archive_teaching: { Args: { p_id: string }; Returns: undefined }
+      area_blocked_rpc: { Args: { p_rpc: string }; Returns: boolean }
       assert_bookable: {
         Args: { p_court_id: string; p_end_at: string; p_start_at: string }
         Returns: undefined
@@ -1139,6 +1239,17 @@ export type Database = {
         }
         Returns: Json
       }
+      closed_day_bookings: {
+        Args: { p_dates: string[]; p_venue_id?: string }
+        Returns: Json
+      }
+      closed_day_unresolved: {
+        Args: { p_dates: string[]; p_venue: string }
+        Returns: {
+          day: string
+          reservation_id: string
+        }[]
+      }
       coach_accept_public: { Args: never; Returns: Json }
       coach_add_student: {
         Args: {
@@ -1266,6 +1377,10 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      coach_set_student_level: {
+        Args: { p_enrolment_id: string; p_level: string; p_note?: string }
+        Returns: Json
       }
       coach_slots: {
         Args: {
@@ -1562,6 +1677,25 @@ export type Database = {
           p_start_time: string
           p_starts_on: string
           p_weekdays: number[]
+        }
+        Returns: Json
+      }
+      create_shop_product: {
+        Args: {
+          p_barcode?: string
+          p_category_id: string
+          p_idempotency_key?: string
+          p_is_active?: boolean
+          p_low_stock_threshold?: number
+          p_name_ar: string
+          p_name_en: string
+          p_pack_cost_iqd?: number
+          p_price_iqd: number
+          p_purchase_line_id?: string
+          p_size_name_ar: string
+          p_size_name_en: string
+          p_sku?: string
+          p_supplier_id?: string
         }
         Returns: Json
       }
@@ -1960,6 +2094,7 @@ export type Database = {
         Returns: Json
       }
       discard_count: { Args: { p_count_id: string }; Returns: Json }
+      discard_staff_media: { Args: { p_paths: string[] }; Returns: number }
       duplicate_account_groups: { Args: never; Returns: Json }
       duplicate_groups_internal: {
         Args: never
@@ -2005,6 +2140,14 @@ export type Database = {
           p_staff_id: string
         }
         Returns: Json
+      }
+      ensure_cron: {
+        Args: { p_command: string; p_name: string; p_schedule: string }
+        Returns: undefined
+      }
+      expect_setup: {
+        Args: { p_kind: string; p_name: string }
+        Returns: undefined
       }
       expire_stale_holds: {
         Args: { p_court_id?: string; p_period?: unknown }
@@ -2167,7 +2310,9 @@ export type Database = {
         }[]
       }
       jsonb_top_keys_text: { Args: { p: Json }; Returns: string }
+      kds_ack_tickets: { Args: { p_ticket_ids: string[] }; Returns: Json }
       kitchen_board: { Args: { p_venue_id?: string }; Returns: Json }
+      kitchen_reach: { Args: { p_since?: string }; Returns: Json }
       legacy_add_to_figures: {
         Args: { p_fig: Json; p_lg: Json }
         Returns: Json
@@ -3309,6 +3454,63 @@ export type Database = {
         Args: { p_min?: number; p_now: number; p_prev: number }
         Returns: string
       }
+      monitor: {
+        Args: {
+          p_detail?: Json
+          p_kind: string
+          p_level: string
+          p_message: string
+          p_source: string
+        }
+        Returns: undefined
+      }
+      monitor_cron_failures: { Args: never; Returns: number }
+      monitor_detail: { Args: { p_detail: Json }; Returns: Json }
+      monitor_insert: {
+        Args: {
+          p_app_version: string
+          p_caller_key: string
+          p_detail: Json
+          p_kind: string
+          p_level: string
+          p_message: string
+          p_source: string
+          p_user_reported: boolean
+        }
+        Returns: number
+      }
+      monitor_key_is_secret: { Args: { p_key: string }; Returns: boolean }
+      monitor_scrub: {
+        Args: { p_depth?: number; p_value: Json }
+        Returns: Json
+      }
+      monitor_scrub_text: { Args: { p_text: string }; Returns: string }
+      monitoring_events_page: {
+        Args: {
+          p_before_id?: number
+          p_from?: string
+          p_kind?: string
+          p_level?: string
+          p_limit?: number
+          p_source?: string
+          p_to?: string
+          p_user_reported?: boolean
+        }
+        Returns: Json
+      }
+      monitoring_prune: { Args: never; Returns: number }
+      monitoring_summary: {
+        Args: {
+          p_bucket?: string
+          p_from?: string
+          p_kind?: string
+          p_level?: string
+          p_source?: string
+          p_to?: string
+          p_user_reported?: boolean
+        }
+        Returns: Json
+      }
       move_reservation: {
         Args: {
           p_court_id?: string
@@ -3395,6 +3597,10 @@ export type Database = {
         }[]
       }
       my_rewards: { Args: { p_venue_id?: string }; Returns: Json }
+      my_staff_roles: {
+        Args: never
+        Returns: Database["public"]["Enums"]["staff_role"][]
+      }
       my_suggestions: {
         Args: { p_limit?: number; p_venue_id?: string }
         Returns: Json
@@ -3523,6 +3729,7 @@ export type Database = {
       }
       play_level_name: { Args: { p_rank: number }; Returns: string }
       play_level_rank: { Args: { p_level: string }; Returns: number }
+      pre_request: { Args: never; Returns: undefined }
       preview_series: {
         Args: {
           p_court_id: string
@@ -3982,8 +4189,22 @@ export type Database = {
       }
       protocols_overview: { Args: { p_venue_id?: string }; Returns: Json }
       protocols_waiting_count: { Args: { p_venue_id?: string }; Returns: Json }
+      prune_housekeeping: {
+        Args: { p_batch?: number; p_cron_days?: number; p_replay_days?: number }
+        Returns: Json
+      }
       purchases_to_receive: { Args: { p_venue_id?: string }; Returns: Json }
       push_nudge: { Args: never; Returns: undefined }
+      queueable_rpcs: { Args: never; Returns: string[] }
+      queued_rpc: {
+        Args: { p_args: Json; p_fn: string; p_idempotency_key: string }
+        Returns: Json
+      }
+      queued_rpc_claim: { Args: { p_fn: string; p_key: string }; Returns: Json }
+      queued_rpc_finish: {
+        Args: { p_key: string; p_result: Json }
+        Returns: undefined
+      }
       raise_waiter_call: {
         Args: { p_reason: Database["public"]["Enums"]["waiter_call_reason"] }
         Returns: Json
@@ -4054,6 +4275,10 @@ export type Database = {
       }
       readable_venue_ids: { Args: never; Returns: string[] }
       reason_given: { Args: { p_reason: string }; Returns: boolean }
+      recall_ticket: {
+        Args: { p_device_id?: string; p_ticket_id: string }
+        Returns: Json
+      }
       receipt_begin_reading: {
         Args: { p_id: string; p_requested_by?: string }
         Returns: Json
@@ -4356,6 +4581,18 @@ export type Database = {
         Args: { p_figure: string; p_from: string; p_key: string; p_to: string }
         Returns: Json
       }
+      report_event: {
+        Args: {
+          p_app_version?: string
+          p_detail?: Json
+          p_kind: string
+          p_level: string
+          p_message: string
+          p_source: string
+          p_user_reported?: boolean
+        }
+        Returns: undefined
+      }
       report_lessons: { Args: { p_from: string; p_to: string }; Returns: Json }
       report_matches: {
         Args: { p_filters?: Json; p_from: string; p_to: string }
@@ -4405,6 +4642,7 @@ export type Database = {
         }
         Returns: Json
       }
+      request_station_retired: { Args: never; Returns: string }
       request_surface: { Args: never; Returns: string }
       resolve_match_report: {
         Args: { p_outcome: string; p_report_id: string }
@@ -4423,6 +4661,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      retired_station_rpcs: { Args: never; Returns: string[] }
       retry_telegram_outbox: { Args: { p_id: number }; Returns: undefined }
       review_incident: { Args: { p_id: string; p_note: string }; Returns: Json }
       revise_content: {
@@ -4922,6 +5161,15 @@ export type Database = {
         }
         Returns: Json
       }
+      setup_check: { Args: never; Returns: number }
+      setup_missing: {
+        Args: never
+        Returns: {
+          kind: string
+          name: string
+        }[]
+      }
+      shares_branch_with: { Args: { p_staff_id: string }; Returns: boolean }
       shop_reward_info: { Args: never; Returns: Json }
       shop_reward_lines: {
         Args: { p_from: string; p_to: string; p_venue: string }
@@ -5092,6 +5340,7 @@ export type Database = {
         Returns: Database["public"]["Enums"]["staff_role"]
       }
       staff_venue_ids: { Args: never; Returns: string[] }
+      staff_visible_to_me: { Args: { p_staff_id: string }; Returns: boolean }
       start_break: {
         Args: { p_device_id: string; p_pin: string }
         Returns: Json
@@ -5117,6 +5366,24 @@ export type Database = {
       stock_cost_estimate: {
         Args: { p_ingredient: string }
         Returns: Record<string, unknown>
+      }
+      stock_log_kinds: {
+        Args: { p_roles: Database["public"]["Enums"]["staff_role"][] }
+        Returns: string[]
+      }
+      stock_may_count_at: {
+        Args: {
+          p_loc: Database["public"]["Enums"]["stock_location"]
+          p_roles: Database["public"]["Enums"]["staff_role"][]
+        }
+        Returns: boolean
+      }
+      stock_may_log_at: {
+        Args: {
+          p_loc: Database["public"]["Enums"]["stock_location"]
+          p_roles: Database["public"]["Enums"]["staff_role"][]
+        }
+        Returns: boolean
       }
       stock_pick_list: {
         Args: {
@@ -5401,6 +5668,10 @@ export type Database = {
       tournament_close_internal: {
         Args: { p_by: string; p_tournament_id: string }
         Returns: number
+      }
+      tournament_confirm_entry: {
+        Args: { p_confirmed?: boolean; p_entry_id: string }
+        Returns: Json
       }
       tournament_context: { Args: { p_run_step_id: string }; Returns: Json }
       tournament_entry_money: {
@@ -5920,6 +6191,7 @@ export type Database = {
         }
         Returns: Json
       }
+      venue_files_gc: { Args: never; Returns: number }
       venue_files_list: { Args: { p_venue_id?: string }; Returns: Json }
       venue_files_quota_bytes: { Args: never; Returns: number }
       venue_files_venue: { Args: { p_venue_id: string }; Returns: string }
@@ -17450,6 +17722,7 @@ export type Database = {
           device_id: string | null
           id: string
           idempotency_key: string | null
+          kds_seen_at: string | null
           last_actor_label: string | null
           order_id: string
           ready_at: string | null
@@ -17465,6 +17738,7 @@ export type Database = {
           device_id?: string | null
           id?: string
           idempotency_key?: string | null
+          kds_seen_at?: string | null
           last_actor_label?: string | null
           order_id: string
           ready_at?: string | null
@@ -17480,6 +17754,7 @@ export type Database = {
           device_id?: string | null
           id?: string
           idempotency_key?: string | null
+          kds_seen_at?: string | null
           last_actor_label?: string | null
           order_id?: string
           ready_at?: string | null
@@ -17650,6 +17925,8 @@ export type Database = {
         Row: {
           added_by_kind: string
           added_by_staff_id: string | null
+          confirmed_at: string | null
+          confirmed_by: string | null
           created_at: string
           entered_at: string
           guest_id: string
@@ -17669,6 +17946,8 @@ export type Database = {
         Insert: {
           added_by_kind: string
           added_by_staff_id?: string | null
+          confirmed_at?: string | null
+          confirmed_by?: string | null
           created_at?: string
           entered_at?: string
           guest_id: string
@@ -17688,6 +17967,8 @@ export type Database = {
         Update: {
           added_by_kind?: string
           added_by_staff_id?: string | null
+          confirmed_at?: string | null
+          confirmed_by?: string | null
           created_at?: string
           entered_at?: string
           guest_id?: string
@@ -17708,6 +17989,13 @@ export type Database = {
           {
             foreignKeyName: "tournament_entries_added_by_staff_id_fkey"
             columns: ["added_by_staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tournament_entries_confirmed_by_fkey"
+            columns: ["confirmed_by"]
             isOneToOne: false
             referencedRelation: "staff"
             referencedColumns: ["id"]
@@ -19096,6 +19384,7 @@ export type Database = {
         | "assistant_barista"
         | "waiter"
         | "shop_staff"
+        | "dev"
       stock_location: "cafe" | "bakery" | "shop"
       stock_unit: "g" | "ml" | "pc"
       tab_status: "open" | "awaiting_payment" | "settled" | "void"
@@ -19295,6 +19584,7 @@ export const Constants = {
         "assistant_barista",
         "waiter",
         "shop_staff",
+        "dev",
       ],
       stock_location: ["cafe", "bakery", "shop"],
       stock_unit: ["g", "ml", "pc"],

@@ -16,7 +16,7 @@ export const staffAssistantAr: DeepMessages<typeof staffAssistantEn> = {
     yesterday: 'كيف كان أداؤنا أمس؟',
     stock: 'ما الذي أوشك على النفاد أو انتهاء الصلاحية؟',
     courts: 'أي الملاعب فارغة هذا الأسبوع؟',
-    staff: 'من في استراحة الآن؟',
+    staff: 'من يعمل الآن؟',
   },
   composer: {
     placeholder: 'اكتب سؤالك',

@@ -353,7 +353,7 @@ function CallsScreen() {
 
 export default function StaffCallsRoute() {
   return (
-    <RequireStaff roles={CALL_ROLES}>
+    <RequireStaff page="staff-calls" roles={CALL_ROLES}>
       <CallsScreen />
     </RequireStaff>
   );

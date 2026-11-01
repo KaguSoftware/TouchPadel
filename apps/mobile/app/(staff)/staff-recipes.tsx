@@ -397,7 +397,7 @@ function RecipesScreen() {
 
 export default function StaffRecipesRoute() {
   return (
-    <RequireStaff roles={RECIPE_ROLES}>
+    <RequireStaff page="staff-recipes" roles={RECIPE_ROLES}>
       <RecipesScreen />
     </RequireStaff>
   );

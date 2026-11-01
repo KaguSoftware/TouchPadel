@@ -29,6 +29,8 @@ export const reportsAr: DeepMessages<typeof reportsEn> = {
     month: 'الشهر',
   },
   frame: {
+    // F-37: the server reads at most 400 days at a time.
+    rangeTooLong: 'لا تزيد الفترة على 400 يوم. اختر فترة أقصر.',
     comparedWith: '{period}، مقارنة بـ {previous}',
     period: '{from} – {to}',
     show: 'عرض',

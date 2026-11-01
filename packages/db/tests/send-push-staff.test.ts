@@ -388,7 +388,7 @@ describe('staffMessage — params', () => {
 });
 
 describe('staffMessage — data and refusals', () => {
-  it('carries {kind, route, id} and nothing else', () => {
+  it('carries {kind, route, id, title_key} and nothing else', () => {
     const m = staffMessage(
       'en',
       'staff_decide',
@@ -399,6 +399,7 @@ describe('staffMessage — data and refusals', () => {
       kind: 'staff_decide',
       route: 'staff-step',
       id: '11111111-2222-4333-8444-555555555555',
+      title_key: 'step_submitted',
     });
   });
 
@@ -409,7 +410,7 @@ describe('staffMessage — data and refusals', () => {
       { title_key: 'shopping_new', route: 'booking', id: 7 },
       ROUTES,
     );
-    expect(m.ok && m.data).toEqual({ kind: 'staff_task' });
+    expect(m.ok && m.data).toEqual({ kind: 'staff_task', title_key: 'shopping_new' });
   });
 
   it('refuses an unknown or missing title key with UNKNOWN_TITLE_KEY', () => {

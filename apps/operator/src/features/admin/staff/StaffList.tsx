@@ -35,7 +35,6 @@ import { useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { formatNumber, isolate } from '@touch/i18n';
-import { useCafeSettings, useSetCafeSetting } from '../../../lib/settings';
 import { appRpc } from '../../../lib/appRpc';
 import { callEdge } from '../../../lib/edge';
 import { currentBranchId } from '../../../lib/venueScope';
@@ -137,7 +136,7 @@ export function StaffList() {
       key: 'pin',
       header: tr('ws.owner.staff.columns.pin'),
       render: (s) =>
-        // Every role holds a PIN since 0105 (breaks, idle lock). A missing one
+        // Every role holds a PIN since 0105 (the idle lock). A missing one
         // is a warning only where it also blocks approvals: a manager without a
         // PIN cannot approve anything at the till.
         s.has_pin ? (
@@ -192,7 +191,6 @@ export function StaffList() {
           {/* One owner is a real risk, not trivia: if that account is lost,
               nobody can manage staff. Said once, above the list it concerns. */}
           {staffQ.data && owners === 1 && <MessagePresenter tone="info" message={tr('op.staff.oneOwner')} />}
-          <BreakAllowancePanel canManage={can.manageStaff} />
           <AsyncStateWrapper
             status={asyncStatus(staffQ, (d) => d.length === 0)}
             error={staffQ.error}
@@ -588,73 +586,6 @@ function PasswordDialog({ staff, onClose }: { staff: StaffRow; onClose(): void }
       </Field>
       <StaffErrorText error={reset.error} />
     </Modal>
-  );
-}
-
-/**
- * 0105: the daily break allowance, per person, across all their breaks. It
- * lives on the Staff screen rather than under Settings because it is a rule
- * about people, and the owner who sets PINs is the one who sets it.
- */
-function BreakAllowancePanel({ canManage }: { canManage: boolean }) {
-  const { tr } = useLocale();
-  const toast = useToast();
-  const { settings, isLoading } = useCafeSettings();
-  const save = useSetCafeSetting();
-  const [draft, setDraft] = useState<string | null>(null);
-  const current = settings.break_allowance_minutes;
-  const value = draft ?? String(current);
-  const parsed = Number(value);
-  const valid = value.trim() !== '' && Number.isInteger(parsed) && parsed >= 0 && parsed <= 480;
-  const dirty = draft !== null && parsed !== current;
-
-  return (
-    <Panel title={tr('ws.owner.staff.breaks.title')}>
-      <div style={{ display: 'flex', gap: 'var(--tp-sp-3)', alignItems: 'end', flexWrap: 'wrap' }}>
-        <Field label={tr('ws.owner.staff.breaks.allowance')} hint={tr('ws.owner.staff.breaks.hint')} style={{ marginBlockEnd: 0, flex: '1 1 18rem' }}>
-          <div style={{ display: 'flex', gap: 'var(--tp-sp-2)', alignItems: 'center' }}>
-            <input
-              style={{ ...inputStyle, inlineSize: '6rem', textAlign: 'center' }}
-              inputMode="numeric"
-              dir="ltr"
-              value={value}
-              disabled={!canManage || isLoading || save.isPending}
-              onChange={(e) => setDraft(e.target.value.replace(/\D/g, '').slice(0, 3))}
-            />
-            <span style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>{tr('ws.owner.staff.breaks.minutes')}</span>
-          </div>
-        </Field>
-        {dirty && (
-          <div style={{ display: 'flex', gap: 'var(--tp-sp-1-5)' }}>
-            <Button size="sm" kind="ghost" disabled={save.isPending} onClick={() => setDraft(null)}>
-              {tr('ws.kit.actions.discard')}
-            </Button>
-            <Button
-              size="sm"
-              kind="primary"
-              icon="check"
-              busy={save.isPending}
-              disabled={!valid || !canManage}
-              disabledReason={!valid ? tr('ws.owner.staff.breaks.hint') : undefined}
-              onClick={() =>
-                save.mutate(
-                  { key: 'break_allowance_minutes', value: parsed },
-                  {
-                    onSuccess: () => {
-                      setDraft(null);
-                      toast.ok(tr('ws.owner.staff.breaks.saved'));
-                    },
-                    onError: (e) => toast.err(e),
-                  },
-                )
-              }
-            >
-              {tr('ws.owner.staff.breaks.save')}
-            </Button>
-          </div>
-        )}
-      </div>
-    </Panel>
   );
 }
 

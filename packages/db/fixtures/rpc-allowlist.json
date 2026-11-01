@@ -20,6 +20,11 @@
     "Baseline 2026-09-04: 19 public, 108 guarded, 60 of 127 covered by tests/rls-matrix.ts."
   ],
   "publicByDesign": {
+    "staff_visible_to_me": "0400 (F-27): tells the caller only whether THEY may see a given staff row (their own, the owner every row, a manager the owners and their own branches' people); reveals no row. Granted to anon too because the staff_select policy evaluates it as the reading role",
+    "area_blocked_rpc": "0384 (F-16): tells the caller only about the caller: whether THEIR staff.blocked_areas covers every page the named RPC belongs to. False for a guest (no staff row), an owner and an RPC no page owns. Granted to anon because app.pre_request, which PostgREST runs as the request role before every call, reads it",
+    "my_staff_roles": "0383 (F-18): returns the caller's OWN jobs (main role and second jobs), nothing about anybody else; an empty array for a guest. Granted to anon and authenticated because app.staff_media_visible, read by a storage policy as the reading role, calls it",
+    "pre_request": "0384 (F-16): the PostgREST pre-request hook (authenticator pgrst.db_pre_request). PostgREST calls it as the request role, anon included, before every request; it returns nothing and only raises AREA_BLOCKED for the caller's own blocked pages",
+    "shares_branch_with": "0382 (F-28): tells the caller only whether THEY share a not-closed branch with the given staff id (always false for a guest, true for the owner); reveals no row. Granted to anon too because the staff_requests_read_mgmt policy evaluates it as the reading role",
     "avatar_owner": "profile_avatar_birth_date (0302): pure text — splits the profile segment off an avatar storage path (NULL for any other name), reads no data and never raises; a storage policy evaluates it as the reading role",
     "avatar_upload_room": "profile_avatar_birth_date (0302): answers only about the caller — whether their own avatars folder has room for one more object (the insert policy's cap); no argument, never raises",
     "cancel_reservation": "booking: guarded by reservation OWNERSHIP, not by role",
@@ -80,7 +85,8 @@
     "venue_file_object_uploadable": "venue_files (0354): the venue-files storage insert rule as a definer helper; answers false unless the name is the caller's own unfinished upload from the last hour, never raises; a storage policy evaluates it as the reading role, so every guest must be able to execute it",
     "venue_mode": "guest menu, pre-identity: open / closed / degraded. 0137 adds an optional p_venue argument for the per-venue answer; the zero-arg form falls back to app.current_venue_or_default() so a first page load cannot fail",
     "verify_table_token": "guest menu, pre-identity: validates a printed QR token",
-    "visible_venue_ids": "0226/multi-venue: the branches the CALLER's staff reads cover right now (the scope header, their station, their own memberships), always a subset of their own staff_venue_ids; an empty array for a guest. Granted to anon as well as authenticated because every staff read policy calls it (the 0121 trap). It narrows, never widens, what the caller may read"
+    "visible_venue_ids": "0226/multi-venue: the branches the CALLER's staff reads cover right now (the scope header, their station, their own memberships), always a subset of their own staff_venue_ids; an empty array for a guest. Granted to anon as well as authenticated because every staff read policy calls it (the 0121 trap). It narrows, never widens, what the caller may read",
+    "report_event": "monitoring_events (0393): every app's crash and error reporter. Anon and authenticated by design (a crash can happen before sign-in); stores one scrubbed, size-capped, rate-limited row and never raises. A client may claim only source operator, mobile or web"
   },
   "guarded": [
     "accept_terms",
@@ -161,6 +167,7 @@
     "close_day",
     "close_till_shift",
     "close_till_shift_for",
+    "closed_day_bookings",
     "coach_accept_public",
     "coach_add_student",
     "coach_book_private",
@@ -170,6 +177,7 @@
     "coach_create_group",
     "coach_hours_mine",
     "coach_lesson",
+    "coach_set_student_level",
     "coach_mark_attendance",
     "coach_promote",
     "coach_remove_student",
@@ -194,6 +202,7 @@
     "create_order_slip",
     "create_receipt",
     "create_series",
+    "create_shop_product",
     "customer_directory",
     "customer_discount",
     "customer_lessons",
@@ -247,6 +256,7 @@
     "desk_tournament_detail",
     "desk_tournaments",
     "discard_count",
+    "discard_staff_media",
     "duplicate_account_groups",
     "edit_customer_note",
     "edit_run_items",
@@ -270,6 +280,7 @@
     "incidents_page",
     "is_media_path",
     "kitchen_board",
+    "kitchen_reach",
     "lesson_blocked_refund_record",
     "lesson_book_private",
     "lesson_cancel_mine",
@@ -561,6 +572,7 @@
     "tournament_add_entry",
     "tournament_cancel",
     "tournament_close",
+    "tournament_confirm_entry",
     "tournament_context",
     "tournament_feasibility",
     "tournament_finish",
@@ -614,6 +626,13 @@
     "withdraw_release_idea",
     "withdraw_staff_request",
     "withdraw_step",
-    "write_off_expired"
+    "write_off_expired",
+    "kds_ack_tickets",
+    "queued_rpc",
+    "queued_rpc_claim",
+    "queued_rpc_finish",
+    "recall_ticket",
+    "monitoring_events_page",
+    "monitoring_summary"
   ]
 }

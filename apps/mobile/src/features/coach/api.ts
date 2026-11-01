@@ -44,6 +44,9 @@ import {
   parseSavedStudents,
 } from './logic';
 
+import { levelArgs, parseLevelSetResult, type LevelSetResult } from './level';
+import type { PlayLevel } from '../playProfile/logic';
+
 type Client = SupabaseClient<Database>;
 
 /** Every RPC coach mode calls (build contracts §1.6, R44, R61). */
@@ -68,6 +71,7 @@ export const COACH_RPCS = [
   'coach_cancel_course',
   'coach_reschedule_session',
   'my_coach_statements',
+  'coach_set_student_level',
 ] as const satisfies readonly (keyof Database['app']['Functions'])[];
 
 export type CoachRpcName = (typeof COACH_RPCS)[number];
@@ -289,6 +293,23 @@ export async function coachRemoveStudent(
 }
 
 /** app.coach_mark_attendance: state-idempotent (CD-11). */
+/**
+ * app.coach_set_student_level (0401, F-70): confirm, change or clear a linked student's level,
+ * keyed on the roster place.
+ */
+export async function coachSetStudentLevel(
+  client: Client,
+  args: { enrolmentId: string; level: PlayLevel | null; note: string },
+): Promise<LevelSetResult> {
+  return parseLevelSetResult(
+    await coachRpc(
+      client,
+      'coach_set_student_level',
+      levelArgs(args.enrolmentId, args.level, args.note),
+    ),
+  );
+}
+
 export async function coachMarkAttendance(
   client: Client,
   args: { lessonId: string; enrolmentId: string; status: AttendanceMark },

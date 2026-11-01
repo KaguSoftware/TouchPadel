@@ -5,6 +5,7 @@ import {
   type DiscoverRequest,
   type DiscoverResult,
   type LanFrameForRenderer,
+  type LanReach,
   type LeaveResult,
   type MutationEnvelope,
   type MutationResult,
@@ -46,6 +47,22 @@ const touch = {
   sendLanStatus: (update: { ref: string; status: 'preparing' | 'ready' | 'completed' }): void =>
     ipcRenderer.send(IPC.lanStatus, update),
 
+  // F-11 / F-57: kitchen reach over the LAN.
+  /** KDS: refs of LAN tickets this screen has drawn. */
+  sendLanAck: (refs: string[]): void => ipcRenderer.send(IPC.lanAck, refs),
+  /** KDS: the link to the till (null = this station has none). */
+  getLanLink: (): Promise<boolean | null> => ipcRenderer.invoke(IPC.lanLink),
+  /** Till: the cloud's statuses of tickets the LAN ring may hold. */
+  pushLanCloudStatus: (updates: { ref: string; status: 'queued' | 'preparing' | 'ready' | 'completed' }[]): void =>
+    ipcRenderer.send(IPC.lanCloudStatus, updates),
+  /** Till: which of its LAN tickets a kitchen screen drew; the current state first, then every change. */
+  onLanReach: (cb: (reach: LanReach | null) => void): (() => void) => {
+    const listener = (_e: IpcRendererEvent, reach: LanReach) => cb(reach);
+    ipcRenderer.on(IPC.lanReach, listener);
+    void ipcRenderer.invoke(IPC.lanReach).then((reach: LanReach | null) => cb(reach));
+    return () => ipcRenderer.removeListener(IPC.lanReach, listener);
+  },
+
   quitApp: (pin: string): Promise<LeaveResult> => ipcRenderer.invoke(IPC.quitApp, pin),
 
   exitFullscreen: (pin: string): Promise<LeaveResult> =>
@@ -60,8 +77,8 @@ const touch = {
   pushChromeless: (chromeless: boolean): void => ipcRenderer.send(IPC.chromeless, chromeless),
   cachePut: (key: string, payload: unknown): void =>
     ipcRenderer.send(IPC.cachePut, { key, payload }),
-  pinObserved: (pin: string, staffId?: string): void =>
-    ipcRenderer.send(IPC.pinObserved, pin, staffId),
+  pinObserved: (pin: string, staffId?: string, tier?: 'manager' | 'self'): void =>
+    ipcRenderer.send(IPC.pinObserved, pin, staffId, tier),
 
   /**
    * Full-screen state, pushed on every change and once on subscribe — the
@@ -97,6 +114,7 @@ const touch = {
 
   unlockPin: (pin: string): Promise<PinUnlockResult | null> =>
     ipcRenderer.invoke(IPC.unlockPin, pin),
+  unlockOwnPin: (pin: string): Promise<boolean> => ipcRenderer.invoke(IPC.unlockOwnPin, pin),
 
   // Sync by design (design-arch.md §2.1) — fetched once per call via sendSync; the
   // value is static per boot.

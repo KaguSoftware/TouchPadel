@@ -9,9 +9,10 @@
  * with app.record_shop_supplier_price. The server keeps the price and pushes
  * the owner and the shop staff on a change; nothing here decides that.
  *
- * The push never reaches the person signed in here (notify_staff skips the
- * caller), and the change shows only on Shop > Products, so a pass that left
- * a new price to apply says so in a toast on whatever page is open.
+ * The push reaches the person signed in here too: notify_staff skips its
+ * caller, so 0322 queues that one push itself, under the same dedupe. The
+ * change shows only on Shop > Products, so a pass that left a new price to
+ * apply also says so in a toast on whatever page is open.
  *
  * Renders nothing of its own. Offline, the pass waits for the next hour.
  */

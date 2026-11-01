@@ -2,6 +2,7 @@
 import { AppRpcError } from '../../../lib/appRpc';
 import { EdgeError } from '../../../lib/edge';
 import type { StaffRole } from '../../../lib/auth';
+import { PIN_MAX, PIN_MIN } from '../../../lib/pinRules';
 
 /**
  * Every role an account can be given, in the order the picker lists them: the
@@ -23,6 +24,8 @@ export const ASSIGNABLE_ROLES: readonly StaffRole[] = [
   'chef',
   'driver',
   'marketing',
+  // 0392: the developer, who opens Monitoring only.
+  'dev',
   'manager',
   'owner',
 ];
@@ -67,9 +70,8 @@ export function onRetiredRole(rows: readonly StaffRow[]): number {
 /** Matches the edge function's floor; stated here so the form can say so first. */
 export const MIN_PASSWORD = 10;
 
-/** app.set_staff_pin since 0078 (SEC-13): 6 to 12 digits. */
-export const PIN_MIN = 6;
-export const PIN_MAX = 12;
+/** app.set_staff_pin: 4 to 12 digits since F-50 (2026-11-01; 6 to 12 from 0078, SEC-13). One pair for the whole operator: lib/pinRules.ts. */
+export { PIN_MAX, PIN_MIN };
 
 export const STAFF_QUERY_KEY = ['staffList'] as const;
 
@@ -83,9 +85,9 @@ export interface StaffRow {
 }
 
 /**
- * Every active staff member may hold a PIN since 0105: it starts and ends
- * their breaks and unlocks the idle lock. Kept as a function so the one place
- * that decides can still say no for a role later.
+ * Every active staff member may hold a PIN since 0105: it unlocks the idle
+ * lock. Kept as a function so the one place that decides can still say no for
+ * a role later.
  */
 export function holdsPin(_role: StaffRole): boolean {
   return true;

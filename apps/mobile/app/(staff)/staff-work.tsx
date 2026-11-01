@@ -8,6 +8,7 @@ import { space, useTheme } from '../../src/theme';
 import { Button, Card, Hint, Screen } from '../../src/components/ui';
 import { EmptyState } from '../../src/components/states';
 import { RequireStaff } from '../../src/features/staff/RequireStaff';
+import { pageBlocked } from '../../src/features/staff/access';
 import { useStaffStatus } from '../../src/features/staff/StaffStatusProvider';
 import { staffKeys } from '../../src/features/staff/keys';
 import { fetchChecklistsToday } from '../../src/features/staff/checklists/api';
@@ -36,26 +37,32 @@ function WorkScreen() {
   const insets = useSafeAreaInsets();
   const { status, venueId } = useStaffStatus();
   const owner = status.kind === 'staff' && status.staff.role === 'owner' ? status.staff : null;
+  // The owner's blocked pages (0345, F-16): a part that only opens a blocked
+  // page is not shown here either (checklists, and the protocol work list).
+  const showLists = status.kind === 'staff' && !pageBlocked('staff-checklist', status.staff);
+  const showWork = status.kind === 'staff' && !pageBlocked('staff-step', status.staff);
   const alerts = useWorkAlerts();
   // The same reads the two blocks make, for the pull and the empty state.
   const lists = useQuery({
     queryKey: staffKeys.checklists(venueId ?? ''),
     queryFn: () => fetchChecklistsToday(venueId!),
-    enabled: !!venueId,
+    enabled: !!venueId && showLists,
   });
   const work = useQuery({
     queryKey: staffKeys.work(venueId ?? ''),
     queryFn: () => fetchMyWork(venueId!),
-    enabled: !!venueId,
+    enabled: !!venueId && showWork,
   });
-  const pull = usePullRefresh(() => Promise.all([lists.refetch(), work.refetch()]));
+  const pull = usePullRefresh(() =>
+    Promise.all([showLists ? lists.refetch() : null, showWork ? work.refetch() : null]),
+  );
 
   const w = work.data;
-  const empty =
-    lists.isSuccess &&
-    checklistTodos(lists.data).length === 0 &&
-    !!w &&
-    w.to_decide.length + w.todo.length + w.waiting.length + w.decided.length === 0;
+  const noLists = !showLists || (lists.isSuccess && checklistTodos(lists.data).length === 0);
+  const noWork =
+    !showWork ||
+    (!!w && w.to_decide.length + w.todo.length + w.waiting.length + w.decided.length === 0);
+  const empty = noLists && noWork;
 
   return (
     <Screen edges={[]}>
@@ -110,8 +117,9 @@ function WorkScreen() {
         {/* The owner's protocol status pushes (0363). */}
         {owner ? <ProtocolUpdates uid={owner.id} testID={`${T}.follow`} /> : null}
 
-        {venueId ? <TodayChecklists venueId={venueId} /> : <Hint>{t('staff.shell.venue.none')}</Hint>}
-        {venueId ? <WorkList venueId={venueId} /> : null}
+        {!venueId ? <Hint>{t('staff.shell.venue.none')}</Hint> : null}
+        {venueId && showLists ? <TodayChecklists venueId={venueId} /> : null}
+        {venueId && showWork ? <WorkList venueId={venueId} /> : null}
         {empty ? <EmptyState testID={`${T}.empty`} title={t('staff.shell.work.empty')} /> : null}
       </ScrollView>
     </Screen>
@@ -120,7 +128,7 @@ function WorkScreen() {
 
 export default function StaffWorkRoute() {
   return (
-    <RequireStaff>
+    <RequireStaff page="staff-work">
       <WorkScreen />
     </RequireStaff>
   );

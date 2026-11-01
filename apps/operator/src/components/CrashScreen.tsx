@@ -14,9 +14,10 @@
  *   2. navigate to the role's home screen — the rest of the app is fine;
  *   3. reload the whole renderer.
  */
-import { Component, type CSSProperties, type ErrorInfo, type ReactNode } from 'react';
+import { Component, useState, type CSSProperties, type ErrorInfo, type ReactNode } from 'react';
 import { useLocale } from '../lib/i18n';
 import { captureException, describeError } from '../lib/telemetry';
+import { reportError, type ReportOutcome } from '../lib/monitoring';
 import { Button, card } from './ui';
 import { Icon, type IconName } from './icons';
 
@@ -129,6 +130,48 @@ function RestartButton({ label }: { label: string }) {
   );
 }
 
+type ReportState = 'idle' | 'sending' | ReportOutcome;
+
+const REPORT_LINE = {
+  sending: 'crashReport.sending',
+  sent: 'crashReport.sent',
+  queued: 'crashReport.queued',
+  failed: 'crashReport.failed',
+} as const satisfies Record<Exclude<ReportState, 'idle'>, string>;
+
+/**
+ * "Report crash" (F-15): sends this error to the developers' Monitoring page
+ * (lib/monitoring.ts, `userReported`), so the person never has to describe
+ * it. Offline it is kept and sent when the station is back online, and the
+ * line under the button says so. Once sent the button stays disabled.
+ */
+export function ReportCrashButton({ error, where }: { error: unknown; where: string }) {
+  const { tr } = useLocale();
+  const [state, setState] = useState<ReportState>('idle');
+  const done = state === 'sent' || state === 'queued';
+  const send = async () => {
+    setState('sending');
+    const outcome = await reportError('crash', error, { userReported: true, detail: { where } });
+    setState(outcome);
+  };
+  return (
+    <div style={{ display: 'grid', justifyItems: 'center', gap: 'var(--tp-sp-1-5)', inlineSize: '100%' }}>
+      <Button
+        icon={done ? 'check' : 'upload'}
+        onClick={() => void send()}
+        disabled={state === 'sending' || done}
+        data-testid="crash-report"
+        style={fullWidth}
+      >
+        {tr('crashReport.button')}
+      </Button>
+      <p role="status" aria-live="polite" style={hint}>
+        {state === 'idle' ? tr('crashReport.hint') : tr(REPORT_LINE[state])}
+      </p>
+    </div>
+  );
+}
+
 /**
  * Presentational crash panel. `error` is rendered only inside a collapsed
  * <details> — a guest can see this screen over a cashier's shoulder, and a
@@ -167,6 +210,7 @@ export function CrashPanel({
         {/* What to do if the cheap escapes do not hold, in words: nothing on
             this screen can report the fault, a person can. */}
         <p style={hint}>{tr('op.crash.again')}</p>
+        <ReportCrashButton error={error} where={fullBleed ? 'shell' : 'route'} />
         <div style={divider} />
         <div style={{ display: 'grid', justifyItems: 'center', gap: 'var(--tp-sp-2)' }}>
           {/* Reload always works, so the station is never left with zero ways out. */}

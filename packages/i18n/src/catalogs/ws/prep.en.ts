@@ -49,4 +49,20 @@ export const prepEn = {
     toggle: 'Tick the item',
     clear: 'Deselect',
   },
+  // F-57 (0396): a ticket completed by mistake comes back for ten minutes.
+  recall: {
+    title: 'Just completed',
+    hint: 'Completed by mistake? Bring it back within 10 minutes.',
+    action: 'Bring back',
+    actionLabel: 'Bring back {tag}',
+    ago: '{min} min ago',
+    queued: 'Saved. The ticket comes back on the board when the connection does.',
+  },
+  // F-57 / F-11: the café cashier's local network link, while the screen works without the internet.
+  lan: {
+    linkDown: 'No internet and no link to the café cashier. New orders cannot reach this screen. Tell the cashier.',
+    bumpLinkDown: 'Not saved: this screen has no link to the café cashier. Tell the cashier, then try again.',
+    bumpNoStaff: 'Not saved: nobody is signed in at the café cashier. Ask the cashier to sign in, then try again.',
+    bumpRefused: 'The café cashier did not take that change. Try again.',
+  },
 } as const;

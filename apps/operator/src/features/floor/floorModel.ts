@@ -2,8 +2,8 @@
  * The live floor — the pure half.
  *
  * Turns the rows the boards already read (courts, today's bookings, cafe
- * tables, open tabs, staff, station assignments, station heartbeats, open
- * breaks) into one snapshot the plan can draw: what every court, table and
+ * tables, open tabs, staff, station assignments, station heartbeats) into
+ * one snapshot the plan can draw: what every court, table and
  * person is doing at this moment. No formatting, no fetching, no three.js, so
  * it is testable on its own.
  *
@@ -21,12 +21,12 @@
  *    guests are there, so the model never says so; the drawn figure at the
  *    table means "a tab is open", and its colour whether that tab is waiting
  *    to be paid.
- *  - A person is ON BREAK when they have an open break; AT A STATION when a
- *    device they are signed in on has beaten within the stale window (0107:
- *    the heartbeat names who is signed in), when they are covering somebody's
- *    break, or when they are assigned to a station whose device is live.
- *    Managers and owners hold no assignment — they are the jokers who may
- *    cover any station — so for them the signed-in beat is the whole signal,
+ *  - A person is AT A STATION when a device they are signed in on has beaten
+ *    within the stale window (0107: the heartbeat names who is signed in), or
+ *    when they are assigned to a station whose device is live. (Breaks, 0105,
+ *    were taken out of the operator on 2026-11-01, F-08: nobody is drawn on
+ *    one.) Managers and owners hold no assignment, so for them the signed-in
+ *    beat is the whole signal,
  *    and it puts them in the office. Anyone else is simply not on the plan:
  *    an absence is not drawn, because a floor covered in ghosts of everyone
  *    who is off today says nothing about tonight.
@@ -107,14 +107,6 @@ export interface RawHeartbeat {
   staff_id: string | null;
 }
 
-export interface RawBreak {
-  staff_id: string;
-  station_id: string;
-  started_at: string;
-  covered_by: string | null;
-  cover_started_at: string | null;
-}
-
 export interface FloorRaw {
   courts: RawCourt[];
   bookings: RawBooking[];
@@ -123,7 +115,6 @@ export interface FloorRaw {
   staff: RawStaff[];
   stationStaff: RawStationStaff[];
   heartbeats: RawHeartbeat[];
-  breaks: RawBreak[];
 }
 
 // ---------------------------------------------------------------------------
@@ -175,7 +166,7 @@ export interface FloorTable {
   tab: { id: string; label: string | null; guest: string | null; state: TabState; openedAt: string } | null;
 }
 
-export type StaffStatus = 'working' | 'break';
+export type StaffStatus = 'working';
 
 /** The rooms of the plan a person can stand in. */
 export type Room = 'reception' | 'bar' | 'kitchen' | 'office' | 'meeting' | 'floor';
@@ -188,10 +179,6 @@ export interface FloorStaff {
   status: StaffStatus;
   /** The live station they are at, when that is how they were placed. */
   stationId: string | null;
-  /** Who they are covering for, when that is how they were placed. */
-  coveringFor: string | null;
-  /** ISO start of the break, when on one. */
-  since: string | null;
 }
 
 export interface FloorSnapshot {
@@ -206,7 +193,6 @@ export interface FloorCounts {
   tablesOccupied: number;
   tablesTotal: number;
   staffWorking: number;
-  staffOnBreak: number;
   courtsNotDrawn: number;
   tablesNotDrawn: number;
 }
@@ -332,39 +318,12 @@ export function composeSnapshot(raw: FloorRaw, nowMs: number, staleMs = HEARTBEA
     list.push(s.station_id);
     stationsOf.set(s.staff_id, list);
   }
-  const nameOf = new Map(raw.staff.map((s) => [s.id, s.display_name] as const));
-  const breakOf = new Map<string, RawBreak>();
-  const coverOf = new Map<string, RawBreak>();
-  for (const b of raw.breaks) {
-    breakOf.set(b.staff_id, b);
-    if (b.covered_by) coverOf.set(b.covered_by, b);
-  }
-
   const staff: FloorStaff[] = [];
   for (const s of raw.staff.slice().sort((a, b) => a.display_name.localeCompare(b.display_name) || a.id.localeCompare(b.id))) {
     const room = roomForRole(s.role);
-    const brk = breakOf.get(s.id);
-    if (brk) {
-      staff.push({ id: s.id, name: s.display_name, role: s.role, room, status: 'break', stationId: brk.station_id, coveringFor: null, since: brk.started_at });
-      continue;
-    }
-    const cover = coverOf.get(s.id);
-    if (cover) {
-      staff.push({
-        id: s.id,
-        name: s.display_name,
-        role: s.role,
-        room,
-        status: 'working',
-        stationId: cover.station_id,
-        coveringFor: nameOf.get(cover.staff_id) ?? null,
-        since: cover.cover_started_at,
-      });
-      continue;
-    }
     const live = ownStation.get(s.id) ?? (stationsOf.get(s.id) ?? []).find((id) => liveStations.has(id));
     if (live) {
-      staff.push({ id: s.id, name: s.display_name, role: s.role, room, status: 'working', stationId: live, coveringFor: null, since: null });
+      staff.push({ id: s.id, name: s.display_name, role: s.role, room, status: 'working', stationId: live });
     }
   }
 
@@ -378,7 +337,6 @@ export function countsOf(s: FloorSnapshot): FloorCounts {
     tablesOccupied: s.tables.filter((t) => t.status === 'occupied').length,
     tablesTotal: s.tables.length,
     staffWorking: s.staff.filter((p) => p.status === 'working').length,
-    staffOnBreak: s.staff.filter((p) => p.status === 'break').length,
     courtsNotDrawn: s.courts.filter((c) => c.slot === null).length,
     tablesNotDrawn: s.tables.filter((t) => t.slot === null).length,
   };

@@ -93,6 +93,8 @@ export function usePostAuthContinue(): { continueAfterAuth: () => void; holdBusy
               // '' = no deadline (duplicate replay); Review shows no countdown.
               expiresAt: result.holdExpiresAt ?? '',
               priceIqd: String(result.priceIqd ?? pending.priceIqd ?? ''),
+              // What the grid showed before sign-in: Review warns when it moved (F-21).
+              shownPriceIqd: pending.priceIqd == null ? '' : String(pending.priceIqd),
               // Both names: Review picks at render (a switch mid-checkout renames it).
               courtNameEn: pending.courtNameEn,
               courtNameAr: pending.courtNameAr,

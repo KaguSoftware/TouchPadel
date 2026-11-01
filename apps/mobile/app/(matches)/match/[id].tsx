@@ -106,7 +106,6 @@ import {
   ShareGlyph,
 } from '../../../src/components/match';
 import { nativeChoice } from '../../../src/components/nativeChoice';
-import { withOnlinePaymentsGate } from '../../../src/features/deposit/OnlinePaymentsGate';
 
 /** A preset message rests this long after a send (GD-7): a local courtesy, the server decides. */
 const MESSAGE_REST_MS = 2 * 60_000;
@@ -1169,4 +1168,6 @@ function GuardedMatchDetailScreen() {
   );
 }
 
-export default withOnlinePaymentsGate(GuardedMatchDetailScreen);
+// Open matches ship in every build: since 0370 a seat is paid at the desk
+// without online payment (F-02 keeps only the tickets and /pay behind the gate).
+export default GuardedMatchDetailScreen;

@@ -39,6 +39,8 @@ export interface Branch {
   coaching_enabled: boolean;
   /** Tournaments are on at this branch (tournaments file 1, plan §5.2). False for a row from before it. */
   tournaments_enabled: boolean;
+  /** Open matches are on at this branch (0257). With tournaments, it keeps the Play tab in the bar (F-71). */
+  matches_enabled: boolean;
 }
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -77,6 +79,7 @@ export function toBranches(rows: readonly Record<string, unknown>[] | null | und
       timezone: str(r.timezone),
       coaching_enabled: r.coaching_enabled === true,
       tournaments_enabled: r.tournaments_enabled === true,
+      matches_enabled: r.matches_enabled === true,
     });
   }
   return out.sort((a, b) => {

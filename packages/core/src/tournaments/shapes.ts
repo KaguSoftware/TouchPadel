@@ -259,6 +259,9 @@ export const TOURNAMENT_SHAPES = {
         'refund_due_iqd',
         'substitute_for',
         'payments',
+        // 0390 (F-40): the desk confirmed this person is in (null: not yet).
+        'confirmed_at',
+        'confirmed_by_name',
       ],
       'entries[].payments[]': ENTRY_PAYMENT,
       'courts[]': ['court_id', 'name_en', 'name_ar', 'sort_order'],

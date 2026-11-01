@@ -166,3 +166,13 @@ describe('search', () => {
     expect(validatePostsSearch({ open: 'nope' })).toEqual({});
   });
 });
+
+describe('the business day between 00:00 and 04:00 (F-37)', () => {
+  it("keeps the night's idea current: plan.today is the server's business date, not the calendar date", () => {
+    // At 01:30 on the 19th Baghdad, marketing_plan answers today = the 18th (venue_business_date, start 04:00).
+    const today = '2026-10-18';
+    expect(ideaStage({ status: 'approved', day: '2026-10-18', result: null }, today)).toBe('toMake');
+    expect(ideaStage({ status: 'approved', day: '2026-10-17', result: null }, today)).toBe('late');
+    expect(resultDay('2026-10-18', today)).toBe('2026-10-18');
+  });
+});

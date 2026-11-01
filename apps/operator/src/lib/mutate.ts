@@ -10,8 +10,14 @@
  * function's arg mappers (packages/db/supabase/functions/replay/index.ts) —
  * one payload shape, two transports, identical server behaviour.
  *
- * Admin editors deliberately stay on direct appRpc: replay does not register
- * their types, and offline menu editing is pointless.
+ * Admin editors call appRpc directly online. Offline, appRpc queues an
+ * allowlisted save as an 'rpc.queued' mutation instead of losing it (0395,
+ * F-23; lib/queuedRpc.ts); replay runs it exactly once through
+ * app.queued_rpc.
+ *
+ * A payload carrying a manager `pin` is checked against the station's own
+ * PIN cache first while offline (lib/offlinePin.ts, F-05): a PIN the cache
+ * does not know is refused on the spot, not queued to fail at replay.
  */
 import {
   makeIdempotencyKey,
@@ -23,6 +29,7 @@ import { appRpc, AppRpcError, type AppFunctionName } from './appRpc';
 import { clientRef, deviceId } from './idem';
 import { currentBranchId } from './venueScope';
 import { awaitResult, errorStringCode, serverErrorCode } from './queueResults';
+import { assertManagerPinOffline } from './offlinePin';
 
 export interface MutateOutcome<T = unknown> {
   /** true = durably queued with no server echo yet (offline / slow link). */
@@ -270,6 +277,15 @@ export const DIRECT_RPC: Record<MutationType, PayloadMapper> = {
     fn: 'void_after_send',
     args: { p_order_item_id: p?.orderItemId, p_pin: p?.pin, p_reason_code: p?.reasonCode, p_device_id: device },
   }),
+  // 0395: replay sends app.queued_rpc(p_fn, p_args, p_idempotency_key), which
+  // calls app.<fn>(args) once under the envelope's key. Browser mode has no
+  // queue and no retries, so it calls the RPC itself: same arguments, and
+  // appRpc's PIN-first path for a PIN-gated one. (A tabIdemKey is queue-only
+  // and refused above, as for every type.)
+  'rpc.queued': (p) => ({
+    fn: String(p?.fn),
+    args: { ...(p?.args ?? {}), ...(p?.tabId ? { p_tab_id: p.tabId } : {}) },
+  }),
 };
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
@@ -294,6 +310,15 @@ function toError(state: 'conflict' | 'failed', serverResult: unknown, fallback?:
   return new AppRpcError(code, message, undefined, typeof body.details === 'string' ? body.details : undefined);
 }
 
+/** The manager PIN a payload carries: `pin`, or an rpc.queued call's `args.p_pin`. */
+export function queuedPin(payload: unknown): string | null {
+  if (!payload || typeof payload !== 'object') return null;
+  const p = payload as { pin?: unknown; args?: { p_pin?: unknown } | null };
+  if (typeof p.pin === 'string') return p.pin;
+  if (p.args && typeof p.args === 'object' && typeof p.args.p_pin === 'string') return p.args.p_pin;
+  return null;
+}
+
 /**
  * Fire one registered mutation through the single write path.
  *
@@ -310,6 +335,11 @@ export async function mutate<T = unknown>(
 ): Promise<MutateOutcome<T>> {
   const device = deviceId();
   const key = makeIdempotencyKey(device, type);
+
+  // F-05: offline, a manager PIN the station has never seen succeed is refused
+  // now (PIN_INVALID), not queued to fail at replay after the screen said done.
+  const pin = queuedPin(payload);
+  if (pin !== null) await assertManagerPinOffline(pin);
 
   if (!isElectron()) {
     // tabIdemKey/ticketIdemKey only exist for rows queued OFFLINE — impossible

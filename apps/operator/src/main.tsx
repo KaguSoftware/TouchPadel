@@ -5,6 +5,8 @@ import { QueryClient } from '@tanstack/react-query';
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import { PERSIST_BUSTER, makePersister, shouldPersistQuery } from './lib/persist';
 import { MUTATION_RETRY, queryRetry } from './lib/queryPolicy';
+// F-23 (0395): registers the offline queue appRpc hands an allowlisted save to.
+import './lib/queuedRpc';
 import { ThemeProvider } from '@touch/ui';
 import { rootRoute } from './routes/__root';
 import { indexRoute } from './routes/index';
@@ -43,6 +45,7 @@ import { attendanceRoute } from './routes/attendance';
 import { rewardsRoute } from './routes/rewards';
 import { safeRoute } from './routes/safe';
 import { filesRoute } from './routes/files';
+import { monitoringRoute } from './routes/monitoring';
 import { insightsRoute } from './routes/insights';
 // Marketing's content plan and its posts for approval (0362).
 import { planRoute } from './routes/plan';
@@ -56,6 +59,7 @@ import { AuthProvider, useAuth, homeRouteFor } from './lib/auth';
 import { VenueProvider } from './lib/venue';
 import { AppErrorBoundary, CrashPanel, NotFoundPanel } from './components/CrashScreen';
 import { captureException, installGlobalHandlers } from './lib/telemetry';
+import { installMonitoringReporter, startMonitoringOutbox } from './lib/monitoring';
 import { initQueueResults } from './lib/queueResults';
 import { initOfflineTabRetirement } from './lib/offlineTabs';
 import { isElectron } from './lib/mutate';
@@ -90,6 +94,7 @@ const routeTree = rootRoute.addChildren([
   rewardsRoute,
   safeRoute,
   filesRoute,
+  monitoringRoute,
   insightsRoute,
   planRoute,
   postsRoute,
@@ -197,6 +202,10 @@ function ThemedApp() {
 // Errors React cannot see: handlers that escape, timers, unawaited promises.
 // On a kiosk with no devtools these otherwise leave no trace at all.
 installGlobalHandlers();
+// Dev monitoring (0393): every captured error reaches the Monitoring page,
+// and reports made offline go out when the station is back online.
+installMonitoringReporter();
+startMonitoringOutbox();
 
 const rootEl = document.getElementById('root');
 if (!rootEl) throw new Error('#root missing in index.html');

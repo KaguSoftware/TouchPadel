@@ -58,6 +58,7 @@ import { Button, ErrorText, Modal } from '../../../components/ui';
 import { MessagePresenter, Money, Panel, StatusBadge, ViewMore, useListCap, type Tone } from '../../../components/kit';
 import { PaymentPane } from '../../till/PaymentPane';
 import { AddCafeBillDialog } from './AddCafeBillDialog';
+import { CourtReceiptPrint } from './CourtReceiptPrint';
 import { MemberAttach } from '../../loyalty/MemberAttach';
 import {
   canAddCafeBill,
@@ -78,6 +79,7 @@ import { useBookingBill } from './useBookingBill';
 import { BillDiscountDialog } from '../../discounts/BillDiscountDialog';
 import { canDiscount, rpcMissing, useAutoCustomerDiscount, useBillDiscount } from '../../discounts/useCustomerDiscount';
 import { useDiscountWords } from '../../discounts/useDiscountWords';
+import { KitchenReachFlag } from '../../till/KitchenReachFlag';
 
 type Method = 'cash' | 'card';
 
@@ -373,6 +375,8 @@ export function CourtBillView({
         {dayBlocked && (canTakePayment(state) || state === 'closeBill') && <MessagePresenter tone="refused" icon="lock" message={tr('ws.courtDesk.payment.dayClosed')} />}
         {notice && <MessagePresenter tone="refused" message={notice} />}
         <ErrorText error={paying || confirmClose ? null : error} />
+        {/* F-11 (0399): a café order on this booking's bill no kitchen screen has drawn. */}
+        {tab && <KitchenReachFlag tabId={tab.id} />}
         {tab && state === 'billOpen' && !matchBooking && <MemberAttach tabId={tab.id} remainingIqd={Math.min(tab.due_iqd, tab.subtotal_iqd)} />}
 
         {onlinePaid > 0 && (
@@ -455,6 +459,9 @@ export function CourtBillView({
             )}
           </div>
         )}
+
+        {/* F-30: the desk prints its own receipt, with Print again. */}
+        <CourtReceiptPrint bill={bill} tz={tz} />
 
         {history.length > 0 && (
           <section>

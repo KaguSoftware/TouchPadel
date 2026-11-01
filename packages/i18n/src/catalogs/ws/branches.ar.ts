@@ -125,6 +125,8 @@ export const branchesAr: DeepMessages<typeof branchesEn> = {
     title: 'المحطات',
     intro: 'كل كاشير ومكتب ملاعب وشاشة مطبخ يتبع فرعًا واحدًا.',
     register: 'تسجيل هذه المحطة',
+    // F-65: the toast says what happened, not the button.
+    registered: 'سُجّلت هذه المحطة.',
     name: 'اسم المحطة',
     nameHint: 'حروف إنجليزية كبيرة وأرقام وشرطات، مثل TILL-2.',
     mode: 'نوع المحطة',

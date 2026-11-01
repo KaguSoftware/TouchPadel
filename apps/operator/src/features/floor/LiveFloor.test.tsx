@@ -29,8 +29,7 @@ const snapshot: FloorSnapshot = {
     { id: 't2', slot: 1, number: '2', status: 'free', tab: null },
   ],
   staff: [
-    { id: 's1', name: 'Zainab', role: 'court_desk', room: 'reception', status: 'working', stationId: 'DESK-01', coveringFor: null, since: null },
-    { id: 's2', name: 'Omar', role: 'cashier', room: 'bar', status: 'break', stationId: 'TILL-01', coveringFor: null, since: '2026-09-18T18:10:00Z' },
+    { id: 's1', name: 'Zainab', role: 'court_desk', room: 'reception', status: 'working', stationId: 'DESK-01' },
   ],
 };
 
@@ -52,7 +51,7 @@ beforeEach(() => {
 });
 
 describe('LiveFloor', () => {
-  it('says the counts in words: courts of total, tables of total, staff at a station and on break', () => {
+  it('says the counts in words: courts of total, tables of total, staff at a station', () => {
     live.mockReturnValue(result());
     renderFloor();
     expect(screen.getByRole('heading', { name: 'Live floor' })).toBeTruthy();
@@ -60,14 +59,10 @@ describe('LiveFloor', () => {
     expect(counts.getByText('Courts in play').nextSibling?.textContent).toBe('1 of 3');
     expect(counts.getByText('Tables occupied').nextSibling?.textContent).toBe('1 of 2');
     expect(counts.getByText('Staff at a station').nextSibling?.textContent).toBe('1');
-    expect(counts.getByText('On break').nextSibling?.textContent).toBe('1');
+    // Breaks were taken out (F-08): no count and no key for them.
+    expect(counts.queryByText('On break')).toBeNull();
+    expect(screen.queryByText('Staff on break')).toBeNull();
     expect(screen.getByTestId('connection-pill').getAttribute('data-status')).toBe('live');
-  });
-
-  it('hides the break count when nobody is on one — a zero there is not a fact worth a line', () => {
-    live.mockReturnValue(result({ snapshot: { ...snapshot, staff: snapshot.staff.filter((p) => p.status !== 'break') } }));
-    renderFloor();
-    expect(screen.queryByText('On break')).toBeNull();
   });
 
   it('admits what the plan cannot draw', () => {

@@ -270,7 +270,7 @@ function RequestsScreen() {
 
 export default function StaffRequestRoute() {
   return (
-    <RequireStaff>
+    <RequireStaff page="staff-request">
       <RequestsScreen />
     </RequireStaff>
   );

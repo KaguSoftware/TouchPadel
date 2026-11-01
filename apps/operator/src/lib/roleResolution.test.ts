@@ -98,6 +98,7 @@ describe('STAFF_ROLES', () => {
       'assistant_barista',
       'waiter',
       'shop_staff',
+      'dev',
     ]);
   });
 });

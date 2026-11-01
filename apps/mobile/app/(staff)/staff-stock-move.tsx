@@ -347,7 +347,7 @@ function MoveScreen() {
 
 export default function StaffStockMoveRoute() {
   return (
-    <RequireStaff roles={MOVE_ROLES}>
+    <RequireStaff page="staff-stock-move" roles={MOVE_ROLES}>
       <MoveScreen />
     </RequireStaff>
   );

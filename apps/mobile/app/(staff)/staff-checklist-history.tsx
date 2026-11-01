@@ -230,7 +230,7 @@ function HistoryScreen() {
 
 export default function StaffChecklistHistoryRoute() {
   return (
-    <RequireStaff>
+    <RequireStaff page="staff-checklist-history">
       <HistoryScreen />
     </RequireStaff>
   );

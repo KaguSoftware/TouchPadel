@@ -5,12 +5,20 @@
  * SERVER state since 0061 (app.set_order_item_ready) — they survive a reload
  * and a second prep station sees them. Ticket lifecycle goes through
  * app.set_ticket_status; both are optimistic here (transition-idempotent
- * server-side, rollback on refusal). Completed tickets drop off 2 min after.
+ * server-side, rollback on refusal). Completed tickets drop off 2 min after,
+ * and stay under "Just completed" for ten minutes, where Bring back undoes
+ * Complete (F-57, app.recall_ticket through the queue: it works offline).
+ *
+ * F-11: the board tells the till's side what it drew (useKdsAck: cloud
+ * tickets → app.kds_ack_tickets, LAN tickets → the till), and while the TILL
+ * has no internet but this board does, the till's orders that have not reached
+ * the server yet are shown from the LAN beside the cloud ones.
  *
  * Presentation lives in KitchenDisplayScreen (06.20); this file owns the
  * queries, the mutations, the clock, the alarms and the LAN fallback.
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import type { MessageKey } from '@touch/i18n';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { appRpc } from '../../lib/appRpc';
@@ -22,10 +30,24 @@ import { QK } from '../../lib/queryKeys';
 import { useWorkspaceOrNull } from '../../routes/__root';
 import { WORKSPACES, workspaceHome, type WorkspaceKey } from '../../lib/workspaces';
 import { asyncStatus, type AsyncStatus } from '../../components/kit';
-import { lanTicketViews, useLanTickets, useVariantNames } from './LanBoard';
+import { lanTicketViews, useLanState, useLanTickets, useVariantNames } from './LanBoard';
+import { isLanRef, lanNotice, lanOnlyTickets, refusalMessageKey } from './lanState';
+import { forgetRecalled, minutesSinceCompleted, recallCandidates, rememberCompleted } from './recall';
+import { useKdsAck } from './useKdsAck';
+import { tagLabel } from './TicketList';
+import type { RecallItem } from './RecallStrip';
+import { queueRpc } from '../../lib/queuedRpc';
+import { deviceId } from '../../lib/idem';
 import { useKdsAlarms } from './useKdsAlarms';
 import { KitchenDisplayScreen } from './KitchenDisplayScreen';
-import { BOARD_REFETCH_MS, COMPLETED_LINGER_MS, ticketViews, type TicketAction, type TicketRow } from './ticketView';
+import {
+  BOARD_REFETCH_MS,
+  COMPLETED_LINGER_MS,
+  ticketViewFromRow,
+  ticketViews,
+  type TicketAction,
+  type TicketRow,
+} from './ticketView';
 import { TK } from '../tasks/keys';
 import { fetchMyWork } from '../tasks/api';
 import { kitchenTaskCount } from '../tasks/tasksLogic';
@@ -160,31 +182,90 @@ export function KdsBoard() {
   // Degraded fallback (design-arch §2.4): when the cloud query cannot answer,
   // the board renders LAN frames from the till instead — food keeps reaching
   // the pass. Bumps travel back over the LAN into the till's queue.
-  const lanTickets = useLanTickets();
+  const lan = useLanState();
+  const lanTickets = useLanTickets(lan);
   const variantNames = useVariantNames();
   const lanFallback = ticketsQ.isError && isElectron();
+  // F-11: on the cloud board, the till's orders still waiting in ITS queue.
+  const lanOnly = useMemo(() => (isElectron() && !lanFallback ? lanOnlyTickets(lan) : []), [lan, lanFallback]);
 
-  const tickets = useMemo(
-    () =>
-      lanFallback
-        ? lanTicketViews(lanTickets, variantNames, now, locale)
-        : ticketViews(rows, now, stale, locale),
-    [lanFallback, lanTickets, variantNames, rows, now, stale, locale],
-  );
+  const tickets = useMemo(() => {
+    if (lanFallback) return lanTicketViews(lanTickets, variantNames, now, locale);
+    const cloud = ticketViews(rows, now, stale, locale);
+    if (lanOnly.length === 0) return cloud;
+    return [...cloud, ...lanTicketViews(lanOnly, variantNames, now, locale)].sort((a, b) =>
+      a.createdAt.localeCompare(b.createdAt),
+    );
+  }, [lanFallback, lanTickets, lanOnly, variantNames, rows, now, stale, locale]);
 
   const status: AsyncStatus = lanFallback
     ? tickets.length === 0
       ? 'empty'
       : 'ready'
-    : asyncStatus(ticketsQ, () => rows.length === 0);
+    : asyncStatus(ticketsQ, () => rows.length === 0 && lanOnly.length === 0);
+
+  // F-11: say what this board has drawn, once per ticket.
+  const drawn = status === 'ready' ? tickets.map((t) => t.id) : [];
+  useKdsAck(
+    drawn.filter((id) => !isLanRef(id)),
+    drawn.filter(isLanRef),
+    lan.link,
+  );
 
   const onStatus = useCallback(
     (ticketId: string, next: TicketAction) => {
-      if (lanFallback) touch.sendLanStatus({ ref: ticketId, status: next });
+      // A LAN ticket's bump goes to the till, which queues it (single writer).
+      if (lanFallback || isLanRef(ticketId)) touch.sendLanStatus({ ref: ticketId, status: next });
       else setStatus.mutate({ ticketId, status: next });
     },
     [lanFallback, setStatus],
   );
+
+  // ---- F-57: Bring back a ticket completed by mistake (ten minutes) ---------
+  // Only on the cloud board. A LAN ticket cannot be recalled: the LAN carries
+  // the till's order key, not the server's ticket id app.recall_ticket takes,
+  // and the till's queue replays a LAN bump as set_ticket_status, whose
+  // transition table has no way back from completed. So the strip is hidden
+  // while the board works from the LAN, rather than offering a button that
+  // would be refused later.
+  const [recallMem, setRecallMem] = useState<ReadonlyMap<string, TicketRow>>(() => new Map());
+  useEffect(() => {
+    setRecallMem((m) => rememberCompleted(m, ticketsQ.data ?? [], now));
+  }, [ticketsQ.data, now]);
+  const [recallQueued, setRecallQueued] = useState(false);
+  const recall = useMutation({
+    mutationFn: (ticketId: string) => queueRpc('recall_ticket', { p_ticket_id: ticketId, p_device_id: deviceId() }),
+    onMutate: (ticketId) => {
+      const row = recallMem.get(ticketId);
+      setRecallQueued(false);
+      setRecallMem((m) => forgetRecalled(m, ticketId));
+      // The card comes back at once when the board still holds it.
+      queryClient.setQueryData<TicketRow[]>(['tickets'], (rs) =>
+        rs?.map((t) => (t.id === ticketId ? { ...t, status: 'ready', completed_at: null } : t)),
+      );
+      return { row };
+    },
+    onSuccess: (out) => setRecallQueued(out.queued),
+    onError: (_e, ticketId, ctx) => {
+      const row = ctx?.row;
+      if (row) setRecallMem((m) => new Map(m).set(ticketId, row));
+    },
+    onSettled: () => void queryClient.invalidateQueries({ queryKey: ['tickets'] }),
+  });
+  const recallItems = useMemo<RecallItem[]>(
+    () =>
+      recallCandidates(recallMem, now).map((row) => {
+        const view = ticketViewFromRow(row, now, false, locale);
+        return {
+          id: row.id,
+          label: tagLabel(view, tr),
+          summary: view.items.map((i) => `${i.qty}× ${i.name}`).join(' · '),
+          minutesAgo: minutesSinceCompleted(row, now),
+        };
+      }),
+    [recallMem, now, locale, tr],
+  );
+  const lanRefusal: MessageKey | null = isElectron() ? refusalMessageKey(lan.refusal, now) : null;
   const onItemReady = useCallback(
     (_ticketId: string, itemId: string, ready: boolean) =>
       itemReady.mutate({ orderItemId: itemId, ready }),
@@ -248,8 +329,20 @@ export function KdsBoard() {
       staleCount={stale.size}
       nowMs={now}
       degraded={lanFallback}
+      lanLinkDown={lanNotice(lanFallback, lan.link) === 'linkDown'}
+      lanRefusal={lanRefusal}
+      recall={
+        lanFallback
+          ? undefined
+          : {
+              items: recallItems,
+              busyId: recall.isPending ? recall.variables : null,
+              queued: recallQueued,
+              onRecall: (id) => recall.mutate(id),
+            }
+      }
       error={ticketsQ.error}
-      actionError={setStatus.error ?? itemReady.error}
+      actionError={setStatus.error ?? itemReady.error ?? recall.error}
       busyTicketId={setStatus.isPending ? setStatus.variables.ticketId : null}
       onRetry={retry}
       onStatus={onStatus}

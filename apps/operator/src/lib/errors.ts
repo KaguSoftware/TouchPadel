@@ -15,13 +15,17 @@ import {
   type ErrorKeyOptions,
   type MessageKey,
 } from '@touch/i18n';
+import { isStationOffline, isTransportFailure } from './connectivity';
 
 /** Every code the catalogue words (kept for call sites that test membership). */
 export const MAPPED_CODES: ReadonlySet<string> = new Set(Object.keys(ERROR_CODE_KEYS));
 
 const OPERATOR: ErrorKeyOptions = {
-  // A fetch that never got an answer (offline, DNS, CORS) rejects with a TypeError.
-  isTransport: (error) => error instanceof TypeError,
+  // A fetch that never got an answer (offline, DNS, CORS) rejects with a TypeError,
+  // or comes back from postgrest-js / functions-js as an error object that says so
+  // (F-31). And while the station knows it is offline, a failure the catalogue
+  // cannot name is the connection, not "Something went wrong".
+  isTransport: (error) => isTransportFailure(error) || isStationOffline(),
 };
 
 /** Map a raw server code (a queued write's refusal, a reported code) to a message key. */

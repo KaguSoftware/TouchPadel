@@ -44,7 +44,6 @@ import {
 } from '../../src/features/matches/logic';
 import { matchErrorText } from '../../src/features/matches/errors';
 import { useTournamentsPublic } from '../../src/features/tournaments/hooks';
-import { tournamentsShipped } from '../../src/features/tournaments/shipped';
 import { tournamentErrorText } from '../../src/features/tournaments/errors';
 import {
   timezoneOf,
@@ -250,16 +249,14 @@ export default function PlayScreen() {
     if (slots.data) return 'ready';
     return slots.isError ? 'error' : 'loading';
   })();
-  // A build without tournaments (features/tournaments/shipped.ts) reads them as switched off.
-  const toursState: SourceState = !tournamentsShipped()
-    ? 'off'
-    : pub.data
-      ? pub.data.off
-        ? 'off'
-        : 'ready'
-      : pub.isError
-        ? 'error'
-        : 'loading';
+  // The branches' switches decide (F-71): the server answers `off` when none has tournaments on.
+  const toursState: SourceState = pub.data
+    ? pub.data.off
+      ? 'off'
+      : 'ready'
+    : pub.isError
+      ? 'error'
+      : 'loading';
 
   // ── Filters, and the params that move them ────────────────────────────────
   const [kindPick, setKindPick] = useState<PlayKind>(() => showFromParam(params.show));

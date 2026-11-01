@@ -25,7 +25,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
-import { mutate } from '../../lib/mutate';
+import { isElectron, mutate } from '../../lib/mutate';
+import { isStationOffline } from '../../lib/connectivity';
 import { LOCAL_TAB_PREFIX, appendOfflineLines, listOfflineTabs, offlineTabState, subscribeOfflineTabs } from '../../lib/offlineTabs';
 import { QK, fetchActiveCafeTables, fetchOpenDay } from '../../lib/queries';
 import { useBroadcast } from '../../lib/realtime';
@@ -47,6 +48,8 @@ import { LineNoteDialog } from './LineNoteDialog';
 import { NewTabDialog } from './NewTabDialog';
 import { TabDetailPanel } from './TabDetailPanel';
 import { OfflineTabPanel } from './OfflineTabPanel';
+import { KitchenSendStatus } from './KitchenReachFlag';
+import { noteKitchenSend } from './kitchenReachStore';
 import { KeymapHelp } from './KeymapHelp';
 import { mergeQuickLine, quickVariant } from './quickAdd';
 import { resolveTillKey, type TillAction } from './keymap';
@@ -85,6 +88,8 @@ export function TillScreen() {
   const [basketExpanded, setBasketExpanded] = useState(true);
   const [sendError, setSendError] = useState<unknown>(null);
   const [sending, setSending] = useState(false);
+  /** F-32: an offline send says at once that it is being saved on the queue, not after mutate()'s 8 s wait. */
+  const [sendNotice, setSendNotice] = useState<string | null>(null);
   /* Pick up or bring it (0351), as the cashier set it for one tab. Keyed on
      the tab so moving to another tab starts that tab on its own default
      rather than carrying a choice made for someone else. */
@@ -320,6 +325,10 @@ export function TillScreen() {
     if (!selectedTabId || basket.length === 0 || sending) return;
     setSending(true);
     setSendError(null);
+    // Offline, mutate() only answers once its wait runs out (the write is on
+    // the queue long before that): say so at once rather than spin for 8 s.
+    const offline = isElectron() && isStationOffline();
+    setSendNotice(offline ? tr('ws.cashier.offlinePay.sendQueuing') : null);
     try {
       const part = basket;
       const items = part.map((l) => ({
@@ -331,24 +340,35 @@ export function TillScreen() {
       // Single write path: queued durably in Electron, direct RPC in browser mode.
       if (selectedTabId.startsWith(LOCAL_TAB_PREFIX)) {
         const idemKey = selectedTabId.slice(LOCAL_TAB_PREFIX.length);
-        await mutate('order.add_items', { tabIdemKey: idemKey, items, service });
+        const outcome = await mutate('order.add_items', { tabIdemKey: idemKey, items, service });
+        // F-11: watched until a kitchen screen draws it (KitchenSendStatus, KitchenReachFlag).
+        noteKitchenSend({ key: outcome.idempotencyKey, tabId: selectedTabId, queued: outcome.queued });
+        // The category rides along so the offline bill taxes it the way the server will (F-06).
+        const categoryOf = new Map((menuQ.data?.items ?? []).flatMap((i) => i.menu_item_variants.map((v) => [v.id, i.category_id] as const)));
         appendOfflineLines(
           idemKey,
-          part.map((l) => ({ name: `${l.itemName} (${l.variantName})`, qty: l.qty, priceIqd: basketLineEstimate(l) / l.qty })),
+          part.map((l) => ({ name: `${l.itemName} (${l.variantName})`, qty: l.qty, priceIqd: basketLineEstimate(l) / l.qty, categoryId: categoryOf.get(l.variantId) ?? null })),
         );
       } else {
-        await mutate('order.add_items', { tabId: selectedTabId, items, service });
+        const outcome = await mutate('order.add_items', { tabId: selectedTabId, items, service });
+        noteKitchenSend({ key: outcome.idempotencyKey, tabId: selectedTabId, queued: outcome.queued });
       }
+      // Once on the queue, the queued state is KitchenSendStatus's to show (F-11).
+      setSendNotice(null);
       const sent = new Set(part.map((l) => l.key));
       setBasket((b) => b.filter((l) => !sent.has(l.key)));
       void queryClient.invalidateQueries({ queryKey: ['tab', selectedTabId] });
       void queryClient.invalidateQueries({ queryKey: ['tabs'] });
     } catch (e) {
+      setSendNotice(null);
       setSendError(e);
     } finally {
       setSending(false);
     }
   }
+
+  // The queued notice belongs to the tab it was sent to.
+  useEffect(() => setSendNotice(null), [selectedTabId]);
 
   // ---- keyboard (spec R11) ----------------------------------------------------
   const latest = useRef({ visibleItems, categories, sendBasket, addOrOpen, selectedTabId });
@@ -796,6 +816,7 @@ export function TillScreen() {
               onService={(s) => selectedTabId && setServiceChoice({ tabId: selectedTabId, service: s })}
               sending={sending}
               error={sendError}
+              notice={sendNotice}
               canSend={basket.length > 0}
               onBump={bumpBasketQty}
               onNote={setNoteLineKey}
@@ -803,6 +824,8 @@ export function TillScreen() {
               onClear={() => setBasket([])}
               onSend={() => void sendBasket()}
             />
+            {/* F-11: the last order sent here, until a kitchen screen shows it. */}
+            <KitchenSendStatus tabId={selectedTabId} />
           </div>
         </section>
 
@@ -825,6 +848,7 @@ export function TillScreen() {
           {!selectedIsOffline && (
             <TabDetailPanel
               tabId={selectedTabId}
+              unsentCount={basket.length}
               onClosedTab={() => {
                 setSelectedTabId(null);
                 void queryClient.invalidateQueries({ queryKey: ['tabs'] });
@@ -838,7 +862,7 @@ export function TillScreen() {
           )}
           {selectedIsOffline && (
             <div style={{ minBlockSize: 0, overflowY: 'auto' }}>
-              <OfflineTabPanel idemKey={selectedTabId.slice(LOCAL_TAB_PREFIX.length)} onSettled={() => setSelectedTabId(null)} />
+              <OfflineTabPanel idemKey={selectedTabId.slice(LOCAL_TAB_PREFIX.length)} unsentCount={basket.length} onSettled={() => setSelectedTabId(null)} />
               {/* Off with its hint until the open replays: loyalty calls are online only. */}
               <MemberAttach tabId={selectedTabId} remainingIqd={null} />
             </div>

@@ -10,7 +10,7 @@
  * station's heartbeat says it cannot reach the server. A payment is never held
  * up by a shift the screen cannot see.
  *
- * Mounted inside the break provider in WorkspaceShell. Outside it (a screen
+ * Mounted inside WorkspaceShell. Outside it (a screen
  * test, the sign-in screen) `useTillShiftOptional()` is null and nothing is
  * gated, which is what the existing PaymentPane and CourtBillPanel tests rely
  * on.

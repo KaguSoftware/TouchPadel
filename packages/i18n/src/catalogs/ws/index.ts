@@ -93,6 +93,9 @@ import { safeAr } from './safe.ar';
 // The Files page (0354): documents kept compressed, read by the owner's assistant.
 import { filesEn } from './files.en';
 import { filesAr } from './files.ar';
+// Dev monitoring (0393): crashes and errors from every app, for the dev role and the owner.
+import { monitoringEn } from './monitoring.en';
+import { monitoringAr } from './monitoring.ar';
 // The owner's activity monitor (0341): last seen and last action, operator and mobile apart.
 import { activityEn } from './activity.en';
 import { activityAr } from './activity.ar';
@@ -152,6 +155,7 @@ export const wsEn = {
   rewards: rewardsEn,
   safe: safeEn,
   files: filesEn,
+  monitoring: monitoringEn,
   activity: activityEn,
   discounts: discountsEn,
   assistantFree: assistantFreeEn,
@@ -197,6 +201,7 @@ export const wsAr = {
   rewards: rewardsAr,
   safe: safeAr,
   files: filesAr,
+  monitoring: monitoringAr,
   activity: activityAr,
   discounts: discountsAr,
   assistantFree: assistantFreeAr,

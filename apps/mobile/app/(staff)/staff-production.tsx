@@ -387,7 +387,7 @@ function ProductionScreen() {
 
 export default function StaffProductionRoute() {
   return (
-    <RequireStaff roles={PRODUCTION_ROLES}>
+    <RequireStaff page="staff-production" roles={PRODUCTION_ROLES}>
       <ProductionScreen />
     </RequireStaff>
   );

@@ -27,7 +27,9 @@ import { Icon } from '../../components/icons';
 import { downloadName } from './compress';
 import { FK, deleteFile, fetchFileBlob, fetchFiles, updateFile, uploadFile, type UploadStage } from './api';
 import {
+  FILES_REFRESH_MS,
   KIND_ICON,
+  isPdf,
   NAME_MAX,
   NOTE_MAX,
   fileKind,
@@ -40,12 +42,14 @@ import {
   type FilesView,
   type StoredFile,
 } from './filesLogic';
+import { PdfViewer } from './PdfViewer';
 
 const muted = { color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' } as const;
 
 export function FilesPageScreen() {
   const { tr } = useLocale();
-  const q = useQuery({ queryKey: FK.list(), queryFn: fetchFiles });
+  // F-64: read again every minute, so a file another manager added (or removed) shows.
+  const q = useQuery({ queryKey: FK.list(), queryFn: fetchFiles, refetchInterval: FILES_REFRESH_MS });
   const view = readList(q.data);
   const [query, setQuery] = useState('');
   const shown = view.files.filter((f) => matchesQuery(f, query));
@@ -381,6 +385,7 @@ function RowButtons({ file, onEdit }: { file: StoredFile; onEdit: () => void }) 
   const confirm = useConfirm();
   const qc = useQueryClient();
   const [downloading, setDownloading] = useState(false);
+  const [viewing, setViewing] = useState(false);
 
   const remove = useMutation({
     mutationFn: () => deleteFile(file),
@@ -422,6 +427,12 @@ function RowButtons({ file, onEdit }: { file: StoredFile; onEdit: () => void }) 
 
   return (
     <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--tp-sp-1)', flexWrap: 'wrap' }}>
+      {isPdf(file) && (
+        <Button size="sm" kind="ghost" icon="fileText" onClick={() => setViewing(true)} data-testid={`files.view.${file.id}`}>
+          {tr('ws.files.view')}
+        </Button>
+      )}
+      {viewing && <PdfViewer file={file} onClose={() => setViewing(false)} />}
       <Button size="sm" kind="ghost" icon="download" busy={downloading} onClick={() => void download()} data-testid={`files.download.${file.id}`}>
         {tr('ws.files.download')}
       </Button>

@@ -1,3 +1,5 @@
+import { IpcValidationError } from './ipc-validate';
+
 /**
  * LAN KDS wire protocol (design-arch.md §2.4) — the degraded-mode fallback that
  * keeps food reaching the pass when Supabase Realtime cannot.
@@ -5,8 +7,19 @@
  *   till → KDS : ticket.new       one kitchen-bound order, as enqueued
  *                ticket.snapshot  the ring buffer, sent on every successful auth
  *                status.update    echo of an ACCEPTED update, so every KDS converges
+ *                ticket.synced    the order reached the server: its cloud ticket id
+ *                                 (F-11; a KDS on the cloud board stops showing
+ *                                 the LAN copy, the cloud copy takes over)
+ *                ticket.dropped   the server refused the order: take it off
+ *                error            a bump the till refused, with the ref and why
  *   KDS  → till: status.update    a bump; the till wraps it as a ticket.status
  *                                 envelope on ITS OWN queue (single writer)
+ *                ticket.ack       refs a kitchen screen has DRAWN (F-11): the till
+ *                                 stops flagging "not received by the kitchen"
+ *
+ * The KDS's own main process adds two frames of its own on the way to the
+ * renderer (never on the wire): `link` (the socket to the till opened or
+ * closed) and `error` with reason 'link-down' (a bump that could not be sent).
  *
  * Tickets are identified by `ref` — the order envelope's idempotency key. An
  * offline order has no server ticket id yet; the ref is unique, known to both
@@ -32,12 +45,24 @@ export interface LanTicket {
   items: LanTicketItem[];
   createdAt: string;
   status: 'queued' | 'preparing' | 'ready' | 'completed';
+  /**
+   * F-11: true once the order reached the server (the sync worker acked it),
+   * false while it waits in the till's queue. Absent from an older till's
+   * frame, which a KDS on the cloud board then never shows (it cannot tell).
+   */
+  synced?: boolean;
 }
+
+/** Why the till refused a KDS frame. 'no-staff': nobody is signed in at the till. */
+export type LanRefusal = 'no-staff' | 'enqueue-failed' | 'malformed';
 
 export type LanServerFrame =
   | { type: 'ticket.new'; data: LanTicket }
   | { type: 'ticket.snapshot'; data: LanTicket[] }
-  | { type: 'status.update'; data: { ref: string; status: LanTicket['status'] } };
+  | { type: 'status.update'; data: { ref: string; status: LanTicket['status'] } }
+  | { type: 'ticket.synced'; data: { ref: string; ticketId: string | null } }
+  | { type: 'ticket.dropped'; data: { ref: string } }
+  | { type: 'error'; data: { reason: LanRefusal; ref?: string } };
 
 export interface LanStatusUpdate {
   ref: string;
@@ -72,4 +97,108 @@ export function parseStatusUpdate(raw: unknown): LanStatusUpdate | null {
   if (status !== 'preparing' && status !== 'ready' && status !== 'completed') return null;
   if (typeof kdsStation !== 'string' || !/^[A-Z][A-Z0-9-]{0,31}$/.test(kdsStation)) return null;
   return { ref, status, kdsStation };
+}
+
+/** A KDS → till ack: the refs a kitchen screen has drawn (F-11). */
+export interface LanAck {
+  refs: string[];
+  kdsStation: string;
+}
+
+/** At most this many refs per ack frame; the KDS batches. */
+export const LAN_ACK_MAX = 200;
+
+function refOk(ref: unknown): ref is string {
+  return typeof ref === 'string' && ref.length > 0 && ref.length <= 128;
+}
+
+/**
+ * Parse any KDS → till frame. `parseStatusUpdate` stays the bump's parser
+ * (and its tests); this adds the ack. null on anything malformed.
+ */
+export function parseKdsFrame(
+  raw: unknown,
+): { kind: 'status'; update: LanStatusUpdate } | { kind: 'ack'; ack: LanAck } | null {
+  let value: unknown = raw;
+  if (typeof raw === 'string' || Buffer.isBuffer(raw)) {
+    try {
+      value = JSON.parse(raw.toString());
+    } catch {
+      return null;
+    }
+  }
+  if (typeof value !== 'object' || value === null) return null;
+  const frame = value as { type?: unknown; data?: unknown };
+  if (frame.type === 'status.update') {
+    const update = parseStatusUpdate(value);
+    return update ? { kind: 'status', update } : null;
+  }
+  if (frame.type !== 'ticket.ack') return null;
+  const d = frame.data as { refs?: unknown; kdsStation?: unknown } | undefined;
+  if (!d || typeof d !== 'object') return null;
+  if (!Array.isArray(d.refs) || d.refs.length === 0 || d.refs.length > LAN_ACK_MAX) return null;
+  if (!d.refs.every(refOk)) return null;
+  if (typeof d.kdsStation !== 'string' || !/^[A-Z][A-Z0-9-]{0,31}$/.test(d.kdsStation)) return null;
+  return { kind: 'ack', ack: { refs: [...new Set(d.refs as string[])], kdsStation: d.kdsStation } };
+}
+
+// ---------------------------------------------------------------------------
+// The till's ring: what a KDS gets on connect (F-11).
+// ---------------------------------------------------------------------------
+
+/**
+ * The snapshot a KDS gets on connect. A completed ticket is history: sending
+ * it again is what brought tickets finished on the cloud board back as new
+ * work when the LAN took over (F-11). The ring keeps it (a later status may
+ * still arrive), the snapshot leaves it out.
+ */
+export function snapshotOf(ring: readonly LanTicket[]): LanTicket[] {
+  return ring.filter((t) => t.status !== 'completed');
+}
+
+/**
+ * The cloud's word on tickets the till also holds on the LAN, pushed by the
+ * till's renderer from its own read of the tickets (ref = the order's
+ * idempotency key). A ring entry takes the cloud status when the cloud is
+ * further on (never back: a LAN bump not yet replayed stays). Returns the
+ * refs that changed, so the till echoes them to every KDS.
+ */
+export function applyCloudStatuses(
+  ring: LanTicket[],
+  updates: readonly { ref: string; status: LanTicket['status'] }[],
+): { ref: string; status: LanTicket['status'] }[] {
+  const rank: Record<LanTicket['status'], number> = { queued: 0, preparing: 1, ready: 2, completed: 3 };
+  const changed: { ref: string; status: LanTicket['status'] }[] = [];
+  for (const u of updates) {
+    const entry = ring.find((t) => t.ref === u.ref);
+    if (!entry) continue;
+    entry.synced = true;
+    if (rank[u.status] > rank[entry.status]) {
+      entry.status = u.status;
+      changed.push({ ref: u.ref, status: u.status });
+    }
+  }
+  return changed;
+}
+
+/** Renderer → main: the KDS's ack (the main process adds its station id). */
+export function validateLanAck(value: unknown): string[] {
+  if (!Array.isArray(value) || value.length === 0 || value.length > LAN_ACK_MAX || !value.every(refOk)) {
+    throw new IpcValidationError('invalid IPC payload: lanAck must be 1..200 refs');
+  }
+  return [...new Set(value as string[])];
+}
+
+/** Renderer → main (till): the cloud statuses of tickets the ring may hold. */
+export function validateLanCloudStatus(value: unknown): { ref: string; status: LanTicket['status'] }[] {
+  if (!Array.isArray(value) || value.length > 500) {
+    throw new IpcValidationError('invalid IPC payload: lanCloudStatus must be at most 500 entries');
+  }
+  return value.map((v) => {
+    const o = v as { ref?: unknown; status?: unknown } | null;
+    if (!o || typeof o !== 'object' || !refOk(o.ref) || !LAN_STATUSES.includes(o.status as never)) {
+      throw new IpcValidationError('invalid IPC payload: lanCloudStatus entry');
+    }
+    return { ref: o.ref as string, status: o.status as LanTicket['status'] };
+  });
 }

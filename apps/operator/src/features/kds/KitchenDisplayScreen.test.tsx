@@ -305,3 +305,26 @@ describe('KitchenDisplayScreen guide', () => {
     expect(props.onItemReady).toHaveBeenCalledWith('t1', 'i1', true);
   });
 });
+
+describe('KitchenDisplayScreen LAN link and recall (F-57)', () => {
+  it('the LAN notice becomes "link down" when the till link drops', () => {
+    renderScreen({ degraded: true, lanLinkDown: true, tickets: [ticket({ canMarkItems: false })] });
+    expect(screen.queryByTestId('kds-lan-mode')).toBeNull();
+    expect(screen.getByTestId('kds-lan-down').textContent).toContain('No internet and no link to the café cashier');
+  });
+
+  it('says why a bump did not land', () => {
+    renderScreen({ degraded: true, lanRefusal: 'ws.prep.lan.bumpNoStaff', tickets: [ticket({ canMarkItems: false })] });
+    expect(screen.getByTestId('kds-lan-refused').textContent).toContain('nobody is signed in at the café cashier');
+  });
+
+  it('offers Bring back for a just-completed ticket', async () => {
+    const onRecall = vi.fn();
+    renderScreen({
+      recall: { items: [{ id: 'r1', label: 'Table 4', summary: '1× Latte', minutesAgo: 2 }], busyId: null, queued: false, onRecall },
+    });
+    expect(screen.getByTestId('kds-recall').textContent).toContain('2 min ago');
+    await userEvent.click(screen.getByRole('button', { name: 'Bring back Table 4' }));
+    expect(onRecall).toHaveBeenCalledWith('r1');
+  });
+});

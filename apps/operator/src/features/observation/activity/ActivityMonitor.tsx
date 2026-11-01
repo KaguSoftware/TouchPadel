@@ -131,7 +131,6 @@ export function ActivityMonitorScreen() {
             <bdi>{r.name}</bdi>
           </strong>
           <span style={muted}>{roleWords(r.role, tr)}</span>
-          {r.onBreak && <StatusBadge size="sm" tone="warn" icon="hourglass" label={tr('ws.activity.onBreak')} />}
         </div>
       ),
     },

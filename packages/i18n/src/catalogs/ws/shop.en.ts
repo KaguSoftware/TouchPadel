@@ -37,6 +37,7 @@ export const shopEn = {
     next: 'Next sale',
     queued: 'Saved on this PC. It goes through when the connection is back.',
     receiptHeading: 'Touch Shop · {label}',
+    offlineReceipt: 'Offline receipt. The total is confirmed when the connection is back.',
   },
   dayClose: {
     title: 'Touch Shop',

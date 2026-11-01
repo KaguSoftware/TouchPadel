@@ -4,13 +4,14 @@
  * (docs/design/coaching/guest.md §4.13.1).
  */
 import type { CoachStatus } from './status';
+import { isStaffArea, type StaffStatusKind } from '../staff/status';
 
 export type CoachGateDecision =
   | 'loading'
   | 'allow'
   /** A retired coach on any screen but the statements (C-25, R45). */
   | 'redirect-statements'
-  /** Not a coach, or signed out: Profile (a staff session goes on to the hub through GuestTabsGate). */
+  /** Not a coach, or signed out: home (`coachHomeHref`: Today for a staff session, Profile for a guest). */
   | 'redirect-home'
   | 'error';
 
@@ -31,4 +32,14 @@ export function coachGate(status: CoachStatus, screen: CoachScreen): CoachGateDe
     case 'guest':
       return 'redirect-home';
   }
+}
+
+/**
+ * Where `redirect-home` goes. A guest goes to Profile, where the coach row
+ * lives; a staff session (any staff-area status) goes back to Today, never to
+ * a guest page: a coach-mode deep link opened by a staff member who does not
+ * coach used to end on the guest Profile (F-59).
+ */
+export function coachHomeHref(staff: StaffStatusKind): '/staff' | '/profile' {
+  return isStaffArea(staff) ? '/staff' : '/profile';
 }

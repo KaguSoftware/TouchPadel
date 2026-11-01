@@ -52,6 +52,9 @@ export const STAFF_ROLES = [
   'assistant_barista',
   'waiter',
   'shop_staff',
+  // 0392: the developer, who opens the operator's Monitoring page (0393) and
+  // holds the any-staff baseline, nothing else. Never hired through a protocol.
+  'dev',
 ] as const;
 
 export type StaffRole = (typeof STAFF_ROLES)[number];

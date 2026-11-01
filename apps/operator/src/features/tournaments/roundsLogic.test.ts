@@ -47,6 +47,8 @@ const entry = (
   net_paid_iqd: 0,
   refund_due_iqd: 0,
   substitute_for: null,
+  confirmed: true,
+  confirmed_by_name: null,
 });
 
 const E = ['e1', 'e2', 'e3', 'e4', 'e5', 'e6', 'e7', 'e8'];
@@ -96,6 +98,7 @@ function detail(over: Partial<TournamentDetail> = {}): TournamentDetail {
       close: false,
       finish: false,
       settle: true,
+      confirm: false,
     },
     ...over,
   };

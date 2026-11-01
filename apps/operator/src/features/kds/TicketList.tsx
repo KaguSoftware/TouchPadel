@@ -191,7 +191,8 @@ function TagText({ ticket }: { ticket: TicketView }) {
   return <bdi>{tag.label ?? '—'}</bdi>;
 }
 
-function tagLabel(ticket: TicketView, tr: (k: MessageKey, p?: TParams) => string): string {
+/** The card's "where it goes" line as plain text (also the recall strip's label, F-57). */
+export function tagLabel(ticket: TicketView, tr: (k: MessageKey, p?: TParams) => string): string {
   const tag = ticket.tag;
   const where =
     tag.kind === 'table'

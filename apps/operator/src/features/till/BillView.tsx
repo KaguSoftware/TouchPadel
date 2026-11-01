@@ -9,8 +9,10 @@
  * composed as a rendered image because low-cost printers cannot shape it from
  * their built-in fonts) is the Electron half and lands with the print pipeline.
  * This component is deliberately the same markup either way: `GlobalStyles`
- * already carries a print stylesheet keyed on `data-no-print`, so the browser's
- * own print is a usable stopgap on a station whose printer is not installed yet.
+ * already carries a print stylesheet keyed on `data-no-print`. On a station
+ * whose printer is missing or failing, the system dialog is offered as "Use
+ * another printer" beside the message that says so (F-30), never opened by
+ * itself.
  *
  * Money comes from `tabTotals`, the same computation the settle buttons use —
  * a bill that disagrees with the amount charged is worse than no bill. That
@@ -30,9 +32,8 @@ import lamaRegularSrc from '../../../../../packages/ui/fonts/lama/woff2/LamaSans
 import lamaBoldSrc from '../../../../../packages/ui/fonts/lama/woff2/LamaSans-Bold.woff2?inline';
 import { useLocale, pickName } from '../../lib/i18n';
 import { Button, Modal } from '../../components/ui';
-import { touch } from '../../ipc/bridge';
-import { isElectron } from '../../lib/mutate';
-import { captureException } from '../../lib/telemetry';
+import { usePrint, PrintStatus } from '../../components/PrintStatus';
+import type { PrintWhat } from '../../lib/print';
 import type { TabTotals } from './tabTotals';
 
 /**
@@ -115,6 +116,8 @@ export function BillView({
   taxInclusive,
   onClose,
   autoPrint = false,
+  note,
+  printWhat = 'till_bill',
 }: {
   venueName: string;
   /** Table number, guest name or tab label — whatever identifies this bill. */
@@ -128,30 +131,27 @@ export function BillView({
   onClose(): void;
   /** Print once as it opens: the shop desk prints a receipt after every sale (0244). */
   autoPrint?: boolean;
+  /** F-30: what the monitoring report calls a failed print of this bill. */
+  printWhat?: PrintWhat;
+  /**
+   * A line printed under the heading (F-56): a receipt for a sale the server
+   * has not confirmed yet says so on the paper itself.
+   */
+  note?: string;
 }) {
   const { tr, locale, dir } = useLocale();
   const lines = orders
     .filter((o) => o.status !== 'voided')
     .flatMap((o) => o.order_items.filter((i) => !i.voided));
 
-  // Thermal first (SOW L425-433: Arabic as a rendered image), browser print as
-  // the standing fallback — no printer configured, print failure, or dev.
+  // Thermal (SOW L425-433: Arabic as a rendered image). F-30: a missing or
+  // failed printer is said under the buttons, reported to monitoring, and
+  // offers Print again and the system dialog (lib/print.ts) — it no longer
+  // opens the system dialog on its own. Browser mode prints with the browser.
+  const billRef = useRef<HTMLDivElement>(null);
+  const printer = usePrint(printWhat, () => (billRef.current ? buildReceiptDoc(billRef.current.outerHTML, dir) : null));
   async function printBill() {
-    if (isElectron()) {
-      const node = document.querySelector('[data-bill]');
-      if (node) {
-        try {
-          const res = await touch.print({
-            kind: 'receipt',
-            data: { html: buildReceiptDoc(node.outerHTML, dir) },
-          });
-          if (res.ok) return;
-        } catch (error) {
-          captureException(error, { label: 'print.receipt' });
-        }
-      }
-    }
-    window.print();
+    await printer.print();
   }
 
   // Once per bill: the ref keeps a re-render (a query refresh) from printing twice.
@@ -166,13 +166,18 @@ export function BillView({
   return (
     <Modal title={tr('op.till.bill')} onClose={onClose}>
       {/* data-bill so the print stylesheet can isolate it from the shell. */}
-      <div data-bill style={{ fontSize: '0.9rem' }}>
+      <div data-bill ref={billRef} style={{ fontSize: '0.9rem' }}>
         <div style={{ textAlign: 'center', marginBlockEnd: '0.6rem' }}>
           <div style={{ fontWeight: 700 }}>{venueName}</div>
           <div style={{ color: 'var(--tp-muted-fg)' }}>{heading}</div>
           <div style={{ color: 'var(--tp-muted-fg)', fontSize: '0.8rem' }}>
             {formatTime(new Date(), locale)}
           </div>
+          {note && (
+            <div data-testid="bill-note" style={{ fontWeight: 700, fontSize: '0.8rem', marginBlockStart: '0.3rem' }}>
+              {note}
+            </div>
+          )}
         </div>
 
         <table style={{ inlineSize: '100%', borderCollapse: 'collapse' }}>
@@ -241,11 +246,14 @@ export function BillView({
         </p>
       </div>
 
-      <div data-no-print style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
-        <Button onClick={onClose}>{tr('common.close')}</Button>
-        <Button kind="primary" onClick={() => void printBill()}>
-          {tr('op.till.printBill')}
-        </Button>
+      <div data-no-print style={{ display: 'grid', gap: '0.5rem' }}>
+        <PrintStatus printer={printer} />
+        <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+          <Button onClick={onClose}>{tr('common.close')}</Button>
+          <Button kind="primary" icon="printer" busy={printer.state === 'printing'} onClick={() => void printBill()}>
+            {tr('op.till.printBill')}
+          </Button>
+        </div>
       </div>
     </Modal>
   );

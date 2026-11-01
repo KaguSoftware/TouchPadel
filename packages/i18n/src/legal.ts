@@ -106,8 +106,6 @@ export const TERMS_SECTIONS: readonly LegalSection[] = [
         kind: 'list',
         items: [
           { lead: 'legal.terms.openMatches.startLead', text: 'legal.terms.openMatches.start' },
-          { lead: 'legal.terms.openMatches.ticketsLead', text: 'legal.terms.openMatches.tickets' },
-          { lead: 'legal.terms.openMatches.refundLead', text: 'legal.terms.openMatches.refund' },
           { lead: 'legal.terms.openMatches.shareLead', text: 'legal.terms.openMatches.share' },
           { lead: 'legal.terms.openMatches.venueLead', text: 'legal.terms.openMatches.venue' },
           { lead: 'legal.terms.openMatches.genderLead', text: 'legal.terms.openMatches.gender' },
@@ -229,7 +227,6 @@ export const PRIVACY_SECTIONS: readonly LegalSection[] = [
           'legal.privacy.share.supabase',
           'legal.privacy.share.push',
           'legal.privacy.share.signIn',
-          'legal.privacy.share.qi',
           'legal.privacy.share.whatsapp',
           'legal.privacy.share.telegram',
           'legal.privacy.share.ai',

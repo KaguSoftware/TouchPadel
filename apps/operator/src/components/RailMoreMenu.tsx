@@ -24,7 +24,7 @@ import { navButtonStyle, railLabelStyle } from './railStyles';
  * drawer of settings to get to. It keeps its `rail.more.workspace` id so the
  * rail's tests and anything pointing at it still find it.
  *
- * Sign out, Go on break, Pair kitchen screen and the update row stay outside
+ * Sign out, Pair kitchen screen and the update row stay outside
  * too: none of them is a preference, and burying Sign out costs a press on
  * every shift change.
  *

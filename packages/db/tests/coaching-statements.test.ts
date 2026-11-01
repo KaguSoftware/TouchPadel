@@ -624,6 +624,40 @@ describe.skipIf(!docker)('coaching 0287: mark paid and void (S3, S4)', () => {
   });
 });
 
+// ── 0387: a statement paid from the safe needs the money in it (F-12) ──
+describe.skipIf(!docker)('coaching 0387: mark paid from a safe that holds too little', () => {
+  it('SAFE_NOT_ENOUGH from an empty safe and nothing is written; once the cash is in, it pays', () => {
+    const r = scenario('cf387', [
+      ...BASE,
+      GUEST('s1'),
+      PRIVATE_LESSON('b1', -3, 5),
+      KEEP('b1e', `select pg_temp.genrol({{s1}}, jsonb_build_object('lesson_id', {{b1}}))`),
+      X(`select pg_temp.paid({{b1e}})`),
+      E('build', `select to_jsonb(app.coach_statement_build({{c1}}, {{venue}}, pg_temp.mon(-3)))`),
+      STATEMENT_ID('st1', -3),
+      T('approve', 'manager', `select app.coach_statement_approve({{st1}})`),
+      // An empty safe at the branch: the dev's own rows are voided inside the rolled-back transaction.
+      X(`update main_cash_entries set voided_at = now(), voided_by = {{manager}}, void_reason = 'test'
+          where venue_id = {{venue}} and voided_at is null`),
+      X(`update app.pin_grants set created_at = now() - interval '1 day' where caller_id = {{manager}} and consumed_at is null`),
+      X(`select pg_temp.grant_pin({{manager}})`),
+      T('short', 'manager', `select app.coach_statement_mark_paid({{st1}}, 'TRX-387', '380517', null, 'safe')`),
+      Q('st1_after_short', `select to_jsonb(status) from coach_statements where id = {{st1}}`),
+      Q('safe_rows_after_short', `select to_jsonb(count(*)) from main_cash_entries where venue_id = {{venue}} and voided_at is null`),
+      T('fund', 'manager', `select app.main_cash_move('owner_in', 1000000, null, null, {{venue}})`),
+      X(`select pg_temp.grant_pin({{manager}})`),
+      T('safe', 'manager', `select app.coach_statement_mark_paid({{st1}}, 'TRX-387', '380517', null, 'safe')`),
+      Q('balance', `select to_jsonb(app.main_cash_balance({{venue}}))`),
+    ]);
+    expect(failure(r, 'short')).toMatchObject({ code: 'SAFE_NOT_ENOUGH', hint: '0' });
+    expect(ok(r, 'st1_after_short')).toBe('approved');
+    expect(ok(r, 'safe_rows_after_short')).toBe(0);
+    const paid = ok<{ status: string; total_iqd: number }>(r, 'safe');
+    expect(paid.status).toBe('paid');
+    expect(ok(r, 'balance')).toBe(1_000_000 - paid.total_iqd);
+  });
+});
+
 describe.skipIf(!docker)('coaching 0287: drafting rules and the detail (S5, S6, S12, S7)', () => {
   it('one live draft per pair; stale until refreshed; coach-booked no-shows listed', () => {
     const r = scenario('cf284-d', [

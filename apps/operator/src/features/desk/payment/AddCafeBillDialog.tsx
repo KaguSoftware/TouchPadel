@@ -29,6 +29,7 @@ import { useToast } from '../../../components/toast';
 import { ErrorText, inputStyle } from '../../../components/ui';
 import { ReviewList, StepWizard, WizardNote, type WizardStep } from '../../../components/StepWizard';
 import { useBookingBill } from './useBookingBill';
+import { KitchenReachFlag } from '../../till/KitchenReachFlag';
 
 interface OpenCafeTab {
   id: string;
@@ -194,6 +195,8 @@ export function AddCafeBillDialog({
                         {tr('ws.courtDesk.cafeBill.opened', { time: formatTime(new Date(t.opened_at), locale, tz) })}
                       </bdi>
                     </span>
+                    {/* F-11 (0399): this bill has an order no kitchen screen has drawn. */}
+                    <KitchenReachFlag tabId={t.id} compact />
                   </button>
                 );
               })}

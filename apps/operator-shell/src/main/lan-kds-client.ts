@@ -12,7 +12,12 @@ import type { StationConfig } from './station';
  */
 
 export interface LanKdsClient {
+  /** false when the link to the till is down: nothing was sent (F-57, the caller tells the screen). */
   sendStatus(update: LanStatusUpdate): boolean;
+  /** F-11: refs this screen drew, back to the till. false when the link is down. */
+  sendAck(refs: string[]): boolean;
+  /** F-57: the socket to the till is open right now. */
+  linkUp(): boolean;
   close(): void;
 }
 
@@ -29,6 +34,14 @@ export function startLanKdsClient(
   let socket: WebSocket | null = null;
   let closed = false;
   let backoffMs = 2_000;
+  let up = false;
+
+  /** F-57: the board's "tickets arriving over the LAN" strip follows this. */
+  function setLink(next: boolean): void {
+    if (next === up) return;
+    up = next;
+    onFrame({ type: 'link', data: { up } });
+  }
 
   function connect(): void {
     if (closed) return;
@@ -38,6 +51,7 @@ export function startLanKdsClient(
     socket = ws;
     ws.on('open', () => {
       backoffMs = 2_000;
+      setLink(true);
       console.log('[lan-kds-client] connected to till', station.tillHost);
     });
     ws.on('message', (raw) => {
@@ -48,6 +62,7 @@ export function startLanKdsClient(
       }
     });
     ws.on('close', () => {
+      if (socket === ws) setLink(false);
       if (closed) return;
       setTimeout(connect, backoffMs);
       backoffMs = Math.min(backoffMs * 2, 30_000);
@@ -66,6 +81,12 @@ export function startLanKdsClient(
       socket.send(JSON.stringify({ type: 'status.update', data: update }));
       return true;
     },
+    sendAck(refs) {
+      if (!socket || socket.readyState !== WebSocket.OPEN || refs.length === 0) return false;
+      socket.send(JSON.stringify({ type: 'ticket.ack', data: { refs, kdsStation: station.stationId } }));
+      return true;
+    },
+    linkUp: () => up,
     close() {
       closed = true;
       socket?.close();

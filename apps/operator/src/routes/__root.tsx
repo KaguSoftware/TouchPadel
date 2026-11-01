@@ -73,7 +73,16 @@ import { useCafeSettings } from '../lib/settings';
 import { GlobalStyles } from '../components/GlobalStyles';
 import { ToastProvider } from '../components/toast';
 import { ConfirmProvider, useConfirm } from '../components/ConfirmDialog';
-import { touch, type LeaveResult, type UpdateReadyInfo } from '../ipc/bridge';
+import { touch, type UpdateReadyInfo } from '../ipc/bridge';
+import { InlineQuitPanel, LeavePinField, QuitNotes, hasShell, leaveRefusal, proveLeavePin, useQuitFlow } from '../components/LeaveStation';
+import { verifyUnlockPin } from '../lib/idleUnlock';
+import { verifyOwnPinOffline } from '../lib/offlinePin';
+import { isStationOffline, isTransportFailure } from '../lib/connectivity';
+import { approvesWithPin } from '../features/admin/staff/staffModel';
+import { pinLongEnough } from '../lib/pinRules';
+import { idleLockTimeout, nextRetired, rememberIdleLock, rememberRetired, rememberedIdleLock, rememberedRetired } from '../lib/stationRetired';
+import { StationRetiredScreen } from '../components/StationRetiredScreen';
+import { useQueryClient } from '@tanstack/react-query';
 import { useHeartbeat, type HeartbeatState } from '../lib/heartbeat';
 import { useActivityPing } from '../lib/useActivityPing';
 import { VenueStatusBanner } from '../components/VenueStatusBanner';
@@ -83,10 +92,7 @@ import { useUpdateReady } from '../lib/updates';
 import { UpdateReadyControl } from '../components/UpdateReady';
 import { StationSetupContainer } from '../features/setup/StationSetupContainer';
 import { QueueFailureToasts } from '../components/QueueFailureToasts';
-import { BreakProvider, useBreak } from '../features/breaks/BreakProvider';
 import { PriceWatchCrawler } from '../features/shop/priceWatch/PriceWatchCrawler';
-import { BreakOverlay } from '../features/breaks/BreakOverlay';
-import { BreakRailControl } from '../features/breaks/BreakRailControl';
 import { AssistantDrawer, AssistantDrawerProvider } from '../features/assistant/AssistantDrawer';
 import { GuideProvider, WorkspaceGuideHost } from '../features/guide/GuideProvider';
 import { GuideRailButton } from '../features/guide/GuideRailButton';
@@ -236,6 +242,25 @@ function RootShell() {
   // than silently trading as TILL1. Both are Electron-only: the browser mock
   // always reports a configured station.
   const station = useMemo(() => touch.getStation(), []);
+  // F-49: a retired station does nothing until it is registered again. The
+  // server says so on every beat (0397); the machine remembers it, so a
+  // restart or an outage never lifts it — only a beat saying it is live again.
+  const queryClient = useQueryClient();
+  const [retired, setRetired] = useState(() => rememberedRetired(station.stationId));
+  useEffect(() => {
+    if (venue) setRetired((cur) => nextRetired(cur, venue.station));
+  }, [venue]);
+  useEffect(() => {
+    rememberRetired(station.stationId, retired);
+  }, [station.stationId, retired]);
+  // F-48: the owner's idle-lock timeout reaches every role on the beat (0397);
+  // kept on the machine for an offline boot. A failed beat changes nothing.
+  const [idleLockSeconds, setIdleLockSeconds] = useState<number | null>(() => rememberedIdleLock());
+  useEffect(() => {
+    if (!venue || venue.idleLockSeconds === undefined) return;
+    setIdleLockSeconds(venue.idleLockSeconds);
+    rememberIdleLock(venue.idleLockSeconds);
+  }, [venue]);
   if (isElectron() && !station.configured) return <StationSetupContainer />;
   if (isElectron() && station.configError) {
     return <AppBootScreen fullBleed error={tr('ws.shell.setup.configError', { error: station.configError })} />;
@@ -246,8 +271,20 @@ function RootShell() {
   if (notStaff || !staff) {
     return <NotStaffScreen email={session.user.email ?? null} onSignOut={() => void signOut()} />;
   }
+  if (retired) {
+    // Nothing of the shell is mounted: no rail, no screen, no till, no write.
+    return (
+      <StationRetiredScreen
+        stationId={station.stationId}
+        onRegistered={() => {
+          setRetired(false);
+          void queryClient.invalidateQueries();
+        }}
+      />
+    );
+  }
 
-  return <WorkspaceShell who={staff} venue={venue} />;
+  return <WorkspaceShell who={staff} venue={venue} idleLockSeconds={idleLockSeconds} />;
 }
 
 // ---------------------------------------------------------------------------
@@ -355,7 +392,7 @@ function NotStaffScreen({ email, onSignOut }: { email: string | null; onSignOut:
 // ---------------------------------------------------------------------------
 // WorkspaceShell — rail + banner region + routed screen
 // ---------------------------------------------------------------------------
-function WorkspaceShell({ who, venue }: { who: StaffAccess; venue: HeartbeatState | null }) {
+function WorkspaceShell({ who, venue, idleLockSeconds }: { who: StaffAccess; venue: HeartbeatState | null; idleLockSeconds: number | null }) {
   // Every screen remounts when the branch changes, so no editor keeps a draft
   // seeded from the last branch and saves it into this one.
   const { branchId } = useVenue();
@@ -444,10 +481,6 @@ function WorkspaceShell({ who, venue }: { who: StaffAccess; venue: HeartbeatStat
           reads the supplier links every hour, whichever page is open and
           whoever of the shop's roles is signed in. Elsewhere it does nothing. */}
       <PriceWatchCrawler />
-      {/* Break state (0105) sits above the rail, the routed screen and both
-          locks: the rail row starts a break, the overlay owns the station
-          while somebody is away, and the idle lock defers to it. */}
-      <BreakProvider>
       {/* Till shifts (wave5-addendum §2.9): the station's shift, read once for
           the rail row, the payment pane's gate and the leaving guard. Offline
           (the beat itself failed) the gate fails open. */}
@@ -458,7 +491,7 @@ function WorkspaceShell({ who, venue }: { who: StaffAccess; venue: HeartbeatStat
       <StationReachProvider venue={venue}>
       {/* The owner assistant's drawer (docs/design/assistant §5.1) is one
           sheet for the whole shell: the rail footer row and Ctrl/⌘ K open it,
-          and it is mounted once, beside the break overlay. */}
+          and it is mounted once, beside the idle lock. */}
       <AssistantDrawerProvider>
       {/* The workspace guide (court desk, till, kitchen, Touch Shop): opened
           from the rail footer or the kitchen legend, shown by the host below. */}
@@ -467,8 +500,7 @@ function WorkspaceShell({ who, venue }: { who: StaffAccess; venue: HeartbeatStat
         data-workspace={noNav && !board ? undefined : active}
         style={{ display: 'flex', flexDirection: 'column', blockSize: '100vh', background: board ? 'var(--tp-kds-bg)' : 'var(--tp-bg)' }}
       >
-        <IdleLock />
-        <BreakOverlay />
+        <IdleLock serverSeconds={idleLockSeconds} />
         {goToOpen && managing && <GoToPalette workspaceKey={active} onClose={() => setGoToOpen(false)} />}
         <AssistantDrawer />
         <WorkspaceGuideHost />
@@ -518,7 +550,6 @@ function WorkspaceShell({ who, venue }: { who: StaffAccess; venue: HeartbeatStat
       </AssistantDrawerProvider>
       </StationReachProvider>
       </ShiftProvider>
-      </BreakProvider>
     </WorkspaceContext.Provider>
   );
 }
@@ -988,15 +1019,9 @@ function WorkspaceNav({
           />
         )}
 
-        {/* 0105: "Go on break" / "{name} is back". Same box as the rows above
-            it; its caption uses the identity block's muted line. */}
-        <BreakRailControl
-          style={navButtonStyle}
-          captionStyle={{ paddingInline: RAIL_ITEM_PAD, fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-rail-muted)' }}
-        />
-
-        {/* Wave 5 §5.1: the till shift, under the break row and drawn the same
-            way: "Start my shift", or "End my shift" over "My shift · since …". */}
+        {/* Wave 5 §5.1: the till shift, drawn the same way as the rows above:
+            "Start my shift", or "End my shift" over "My shift · since …".
+            (Breaks, 0105, were removed from the operator on 2026-11-01, F-08.) */}
         <ShiftRailControl
           style={navButtonStyle}
           captionStyle={{ paddingInline: RAIL_ITEM_PAD, fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-rail-muted)' }}
@@ -1084,18 +1109,11 @@ function WorkspaceNav({
   );
 }
 
-/**
- * Who is at this station. Normally the signed-in person and their role; while
- * a cover holds the till (0105) it is the cover's name with a "Covering"
- * badge and, underneath, whom they are covering for — the session behind the
- * screen is still the first person's, and the rail must not pretend otherwise.
- */
+/** Who is at this station: the signed-in person and their role. */
 function RailIdentity() {
   const { tr } = useLocale();
   const { staff } = useAuth();
-  const brk = useBreak();
-  const cover = brk.phase === 'covered' ? (brk.status?.open?.cover ?? null) : null;
-  const name = cover ? cover.display_name : staff?.displayName;
+  const name = staff?.displayName;
   return (
     /* No padding of its own: the rail's foot now wraps this and the station /
        version lines in one padded row beside the sign-out button. */
@@ -1110,16 +1128,11 @@ function RailIdentity() {
         <StatusBadge
           size="sm"
           dot={false}
-          tone={cover ? 'warn' : 'neutral'}
-          label={cover ? tr('ws.shell.break.covering') : tr(`op.roles.${staff?.role ?? 'cashier'}`)}
+          tone="neutral"
+          label={tr(`op.roles.${staff?.role ?? 'cashier'}`)}
           style={{ flexShrink: 0 }}
         />
       </div>
-      {cover && (
-        <p style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-rail-muted)', overflowWrap: 'anywhere' }}>
-          {tr('ws.shell.break.coveringFor', { name: staff?.displayName ?? '' })}
-        </p>
-      )}
     </div>
   );
 }
@@ -1130,29 +1143,27 @@ function RailIdentity() {
  * screen without losing in-progress state. Unlock = the signed-in staff
  * member's OWN pin (app.verify_own_pin, 0064) or their password. "Switch
  * user" signs out. UI-only by design: the RPCs remain the wall.
+ *
+ * Offline (F-07) the PIN is checked against the shell's PIN cache for the
+ * signed-in person instead (lib/idleUnlock.ts): a till that idle-locked in an
+ * outage unlocks with the PIN its person last used online here. The timeout
+ * is the owner's (Settings › Stations, F-48), and Quit is offered on the card
+ * itself so a locked station can still be shut down.
  */
-function IdleLock() {
+function IdleLock({ serverSeconds }: { serverSeconds: number | null }) {
   const { tr } = useLocale();
   const { staff, session, signOut } = useAuth();
   const { settings } = useCafeSettings();
-  const brk = useBreak();
-  /**
-   * 0105. While somebody COVERS the station, the lock asks for THEIR PIN —
-   * the signed-in person is on a break and not here to type theirs. The
-   * cover's PIN is re-verified through app.cover_station, which is
-   * idempotent for the same person. `ownerBack` is the other way off: the
-   * person on break has returned to a locked till and ends the break with
-   * their own PIN, which unlocks as well. While the person is AWAY with no
-   * cover, the break screen is the lock, and this one stands down.
-   */
-  const cover = brk.phase === 'covered' ? (brk.status?.open?.cover ?? null) : null;
-  const [ownerBack, setOwnerBack] = useState(false);
+  // F-48: Quit, drawn inside this card (a dialog would sit under the lock).
+  const [quitting, setQuitting] = useState(false);
   // Wave 5 §5.1, the leaving guard: Switch user with the signed-in person's
   // own till shift open here asks first, inside this card. A dialog over the
   // lock would sit under it (--tp-z-lock), and the lock is not closable.
   const tillShift = useTillShift();
   const [leaving, setLeaving] = useState(false);
-  const timeoutS = settings.till_idle_lock_seconds;
+  // F-48: the owner's value from the beat (every role), else what this
+  // person's settings read gives (managers and owners), else the default.
+  const timeoutS = idleLockTimeout(serverSeconds, settings.till_idle_lock_seconds);
   const [locked, setLocked] = useState(false);
   const [pin, setPin] = useState('');
   const [password, setPassword] = useState('');
@@ -1166,7 +1177,7 @@ function IdleLock() {
   const [empty, setEmpty] = useState(false);
   const [capsLock, setCapsLock] = useState(false);
 
-  const enabled = !!staff && timeoutS > 0 && brk.phase !== 'away';
+  const enabled = !!staff && timeoutS > 0;
 
   /**
    * SEC-34, the self-unlock gap. Does THIS person have an unlock PIN?
@@ -1230,8 +1241,8 @@ function IdleLock() {
     // the PIN box would put the cashier back in front of the credential they do
     // not have on the very next idle timeout, which is the whole gap.
     setUsePassword(hasPin === false);
-    setOwnerBack(false);
     setLeaving(false);
+    setQuitting(false);
     setError(null);
     setEmpty(false);
     lastActivity.current = Date.now();
@@ -1256,24 +1267,15 @@ function IdleLock() {
     refocus();
   }
 
-  // The password belongs to the signed-in account; a cover has only a PIN.
-  const pinOnly = !!cover;
-  const askPassword = usePassword && !pinOnly;
+  const askPassword = usePassword;
 
   /**
    * The line under "Station locked", or null when there is nothing worth
    * saying. A plain idle lock is the null case: the title and the PIN box
-   * already say it. The three that remain each carry a fact the screen does
-   * not otherwise give — who is covering, that the break is ending, and why
-   * a password is being asked of somebody who has no PIN.
+   * already say it. The one that remains carries a fact the screen does not
+   * otherwise give: why a password is being asked of somebody who has no PIN.
    */
-  const lead = cover
-    ? ownerBack
-      ? tr('ws.shell.break.endLead')
-      : tr('ws.shell.break.lockCovering', { name: cover.display_name })
-    : hasPin === false && usePassword
-      ? tr('ws.shell.lock.hintPassword')
-      : null;
+  const lead = hasPin === false && usePassword ? tr('ws.shell.lock.hintPassword') : null;
 
   async function unlock() {
     if (busy) return;
@@ -1286,13 +1288,6 @@ function IdleLock() {
     setBusy(true);
     setError(null);
     try {
-      if (cover) {
-        // Both throw PIN_INVALID / PIN_LOCKED like verify_own_pin would.
-        if (ownerBack) await brk.end(pin);
-        else await brk.cover(cover.id, pin);
-        clearAndUnlock();
-        return;
-      }
       if (askPassword) {
         const email = session?.user.email;
         if (!email) throw new Error('no email on session');
@@ -1301,21 +1296,31 @@ function IdleLock() {
         clearAndUnlock();
         return;
       }
-      const ok = await appRpc<boolean>('verify_own_pin', {
-        p_pin: pin,
-        p_device_id: touch.getStation().stationId,
+      // F-07: online the server decides; offline (known, or the call never got
+      // an answer) the shell's PIN cache does, and a PIN it does not hold for
+      // this person is refused on the spot.
+      const { ok } = await verifyUnlockPin(pin, {
+        offline: isStationOffline,
+        verifyOnline: (p) => appRpc<boolean>('verify_own_pin', { p_pin: p, p_device_id: touch.getStation().stationId }),
+        verifyOffline: verifyOwnPinOffline,
+        isTransport: isTransportFailure,
+        hasCache: isElectron(),
+        observe: (p) => {
+          if (!staff) return;
+          // An authorising role's pin feeds the offline manager-pin cache,
+          // tagged as this person's own: offline, it is what stops them
+          // letting themselves out of the station with it (Quit / Exit full
+          // screen). Everyone else's is cached as a self-unlock PIN only, so
+          // the next outage can still unlock this lock (F-07).
+          if (approvesWithPin(staff.role)) touch.pinObserved(p, staff.id);
+          else touch.pinObserved(p, staff.id, 'self');
+        },
       });
       if (!ok) {
         setError(new AppRpcError('PIN_INVALID', 'PIN_INVALID'));
         setPin('');
         refocus();
         return;
-      }
-      // Only an authorising role's pin feeds the offline manager-pin cache,
-      // tagged as this person's own: offline, it is what stops them letting
-      // themselves out of the station with it (Quit / Exit full screen).
-      if (staff && (staff.role === 'manager' || staff.role === 'owner')) {
-        touch.pinObserved(pin, staff.id);
       }
       clearAndUnlock();
     } catch (e) {
@@ -1412,17 +1417,13 @@ function IdleLock() {
               work: a screen reader still announces "Station locked" on open.
 
               The line beneath carries only what the screen does NOT otherwise
-              say — who is covering, that a break is ending, and (SEC-34) why a
-              password is being asked of somebody with no PIN. A plain idle lock
-              has nothing to add, so the line is absent rather than empty. */}
+              say — (SEC-34) why a password is being asked of somebody with no
+              PIN. A plain idle lock has nothing to add, so the line is absent
+              rather than empty. */}
           <div style={{ display: 'grid', justifyItems: 'center', textAlign: 'center', gap: 'var(--tp-sp-2)' }}>
             <h2 style={{ fontSize: 'var(--tp-fs-2xl)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--tp-sp-2)', flexWrap: 'wrap' }}>
-              <bdi>{cover && !ownerBack ? cover.display_name : staff.displayName}</bdi>
-              {cover && !ownerBack ? (
-                <StatusBadge size="sm" dot={false} tone="warn" label={tr('ws.shell.break.covering')} />
-              ) : (
-                <StatusBadge size="sm" dot={false} label={tr(`op.roles.${staff.role}`)} />
-              )}
+              <bdi>{staff.displayName}</bdi>
+              <StatusBadge size="sm" dot={false} label={tr(`op.roles.${staff.role}`)} />
             </h2>
             {lead !== null && (
               <p style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)', textWrap: 'balance' }}>{lead}</p>
@@ -1491,23 +1492,7 @@ function IdleLock() {
                 Offered only to somebody who HAS a PIN. For a cashier with
                 none, the password is the only route, and a PIN link would
                 imply a PIN they could have used. */}
-            {cover ? (
-              <Button
-                kind="ghost"
-                size="sm"
-                icon={ownerBack ? undefined : 'undo'}
-                onClick={() => {
-                  setOwnerBack((v) => !v);
-                  setError(null);
-                  setPin('');
-                  refocus();
-                }}
-                disabled={busy}
-                style={{ justifySelf: 'center', marginBlockStart: 'calc(-1 * var(--tp-sp-2))' }}
-              >
-                {ownerBack ? tr('ws.shell.break.chooseAgain') : tr('ws.shell.break.lockOwnerBack', { cover: cover.display_name, name: staff.displayName })}
-              </Button>
-            ) : hasPin !== false ? (
+            {hasPin !== false ? (
               <Button
                 kind="ghost"
                 size="sm"
@@ -1536,8 +1521,13 @@ function IdleLock() {
           {leaving ? (
             /* The leaving guard, in place of the way off it guards. */
             <LockLeaveGuard name={staff.displayName} onBack={() => setLeaving(false)} onSignOut={() => void signOut()} />
+          ) : quitting ? (
+            /* F-48: Quit, in place of the ways off, with the rail's own PIN rule. */
+            <div style={{ borderBlockStart: '1px solid var(--tp-border)', paddingBlockStart: 'var(--tp-sp-3)' }}>
+              <InlineQuitPanel onBack={() => setQuitting(false)} />
+            </div>
           ) : (
-          <div style={{ display: 'flex', justifyContent: 'center', borderBlockStart: '1px solid var(--tp-border)', paddingBlockStart: 'var(--tp-sp-3)' }}>
+          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 'var(--tp-sp-1)', flexWrap: 'wrap', borderBlockStart: '1px solid var(--tp-border)', paddingBlockStart: 'var(--tp-sp-3)' }}>
             <Button
               kind="ghost"
               size="sm"
@@ -1557,6 +1547,14 @@ function IdleLock() {
               <Icon name="logOut" size={14} style={{ marginBlockStart: '1px' }} />
               <bdi style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{tr('ws.shell.lock.switchUser', { name: staff.displayName })}</bdi>
             </Button>
+            {/* F-48: a locked station could not be shut down without the PIN
+                of whoever was signed in. Quit takes the rail's rule instead
+                (a manager's PIN that is not this person's; the owner none). */}
+            {hasShell() && (
+              <Button kind="ghost" size="sm" icon="x" onClick={() => setQuitting(true)} disabled={busy} data-testid="lock.quit" style={{ flexShrink: 0, color: 'var(--tp-muted-fg)' }}>
+                {tr('ws.shell.nav.quit')}
+              </Button>
+            )}
           </div>
           )}
         </div>
@@ -1673,7 +1671,7 @@ function ExitFullscreen() {
           footer={
             <>
               <Button onClick={close}>{tr('common.back')}</Button>
-              <Button kind="primary" busy={busy} disabled={pin.length < 4} onClick={() => void exit()}>
+              <Button kind="primary" busy={busy} disabled={!pinLongEnough(pin)} onClick={() => void exit()}>
                 {tr('ws.shell.nav.exitFullscreen')}
               </Button>
             </>
@@ -1685,77 +1683,6 @@ function ExitFullscreen() {
         </Modal>
       )}
     </>
-  );
-}
-
-/**
- * Staff are kept inside the app (owner call, 2026-09-23): on a locked station
- * (StationInfo.locked — every configured production one) Quit and Exit forced
- * full screen take a manager's PIN, and never the signed-in person's own.
- *
- * Signed in, the PIN is proved to verify_manager_pin first. It returns the
- * manager's id, which is how "not your own" is told, and the PIN is then
- * cached tagged with that id so main — which re-checks every exit against the
- * offline cache (pin-cache.ts mayLeave) — can tell the same thing offline.
- * Offline, the call fails as UNKNOWN and main's cache is the whole check.
- * Signed out there is no session to ask the server with, and no "own" to
- * exclude: main's cache alone decides.
- */
-async function proveLeavePin(pin: string, signedInStaffId: string | null): Promise<void> {
-  if (!signedInStaffId) return;
-  try {
-    const authorizer = await appRpc<string | null>('verify_manager_pin', {
-      p_pin: pin,
-      p_device_id: touch.getStation().stationId,
-    });
-    // null is a wrong PIN (the function raises only for a lockout or a
-    // non-staff caller); refused before the cache can learn it.
-    if (authorizer === null) throw new AppRpcError('PIN_INVALID', 'PIN_INVALID');
-    if (authorizer === signedInStaffId) throw new AppRpcError('PIN_OWN', 'PIN_OWN');
-    touch.pinObserved(pin, authorizer);
-  } catch (e) {
-    if (e instanceof AppRpcError && e.code !== 'UNKNOWN') throw e;
-  }
-}
-
-/** Main's answer to quitApp / exitFullscreen, as the error the dialog shows (null: let out). */
-function leaveRefusal(res: LeaveResult): Error | null {
-  if (res.ok) return null;
-  if (res.error === 'own pin') return new AppRpcError('PIN_OWN', res.error);
-  // The same fact the server states as PIN_INVALID, so it reads "Incorrect
-  // PIN." — at sign-in the cache is the only check that ran.
-  if (res.error === 'pin not recognised') return new AppRpcError('PIN_INVALID', res.error);
-  return new Error(res.error);
-}
-
-function LeavePinField({
-  pin,
-  setPin,
-  busy,
-  onEnter,
-}: {
-  pin: string;
-  setPin: (pin: string) => void;
-  busy: boolean;
-  onEnter: () => void;
-}) {
-  const { tr } = useLocale();
-  return (
-    <Field label={tr('ws.shell.nav.leavePin')} hint={tr('ws.shell.nav.leavePinHint')}>
-      <input
-        style={inputStyle}
-        type="password"
-        inputMode="numeric"
-        autoComplete="off"
-        dir="ltr"
-        autoFocus
-        maxLength={12}
-        disabled={busy}
-        value={pin}
-        onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
-        onKeyDown={(e) => e.key === 'Enter' && pin.length >= 4 && !busy && onEnter()}
-      />
-    </Field>
   );
 }
 
@@ -1789,22 +1716,14 @@ function LeavePinField({
  */
 function QuitToDesktop({ variant = 'rail' }: { variant?: 'rail' | 'signIn' | 'windowClose' }) {
   const { tr, dir } = useLocale();
-  const { staff } = useAuth();
   const [open, setOpen] = useState(false);
-  const [pin, setPin] = useState('');
-  const [error, setError] = useState<unknown>(null);
-  const [busy, setBusy] = useState(false);
-  // With an update waiting, Quit installs it and the app opens again on it
-  // (main/updater.ts installOnQuit): someone quitting to reach the desktop
-  // is told before the app comes back on its own.
-  const update = useUpdateReady();
+  // The PIN, the press and main's answer: one flow for the rail, the sign-in
+  // corner, the idle lock and the retired screen (components/LeaveStation.tsx).
+  const flow = useQuitFlow();
   // The sign-in variant sits in the top INLINE-END corner, inside the band
   // the window-drag strip covers. It has to out-rank that strip and opt out
   // of the drag, or the corner it lives in belongs to the window, not to it.
   const inset = useTitleBarInset();
-  // The owner quits with the confirmation alone (leaveStationWithoutPin);
-  // askPin is main saying it could not confirm the role, and the PIN after all.
-  const [askPin, setAskPin] = useState(false);
 
   // 'windowClose' renders no control of its own: it is the macOS red traffic
   // light's dialog. Main prevents the close and pushes touch:close-requested,
@@ -1821,36 +1740,10 @@ function QuitToDesktop({ variant = 'rail' }: { variant?: 'rail' | 'signIn' | 'wi
   // the idea that the red light already asks this question — but since every
   // configured station opens in kiosk (lockWindow, 2026-09-23) the lights are
   // hidden there, so a signed-out Mac till had no way out at all.
-  const locked = touch.getStation().locked === true;
-  const needsPin = locked && (askPin || !can(staff, 'leaveStationWithoutPin'));
 
   function close() {
     setOpen(false);
-    setPin('');
-    setError(null);
-    setAskPin(false);
-  }
-
-  async function quit() {
-    setBusy(true);
-    setError(null);
-    try {
-      if (needsPin) await proveLeavePin(pin, staff?.id ?? null);
-      // Main exits ~50 ms after replying, so `busy` is the last thing the
-      // screen shows on success.
-      const res = await touch.quitApp(needsPin ? pin : '');
-      if (!res.ok && res.error === 'pin required') {
-        setAskPin(true);
-        setBusy(false);
-        return;
-      }
-      const refusal = leaveRefusal(res);
-      if (refusal) throw refusal;
-    } catch (e) {
-      setError(e);
-      setPin('');
-      setBusy(false);
-    }
+    flow.reset();
   }
 
   return (
@@ -1912,17 +1805,15 @@ function QuitToDesktop({ variant = 'rail' }: { variant?: 'rail' | 'signIn' | 'wi
           footer={
             <>
               <Button onClick={close}>{tr('common.back')}</Button>
-              <Button kind="danger" busy={busy} disabled={needsPin && pin.length < 4} onClick={() => void quit()}>
+              <Button kind="danger" busy={flow.busy} disabled={!flow.ready} onClick={() => void flow.quit()}>
                 {tr('ws.shell.nav.quit')}
               </Button>
             </>
           }
         >
-          <p style={{ color: 'var(--tp-muted-fg)' }}>{tr('ws.shell.nav.quitConfirm')}</p>
-          {update && <p style={{ color: 'var(--tp-muted-fg)' }}>{tr('ws.shell.nav.quitInstallsUpdate')}</p>}
-          {askPin && <p style={{ color: 'var(--tp-muted-fg)' }}>{tr('ws.shell.nav.leaveOwnerUnconfirmed')}</p>}
-          {needsPin && <LeavePinField pin={pin} setPin={setPin} busy={busy} onEnter={() => void quit()} />}
-          <ErrorText error={error} />
+          <QuitNotes flow={flow} />
+          {flow.needsPin && <LeavePinField pin={flow.pin} setPin={flow.setPin} busy={flow.busy} onEnter={() => void flow.quit()} />}
+          <ErrorText error={flow.error} />
         </Modal>
       )}
     </>

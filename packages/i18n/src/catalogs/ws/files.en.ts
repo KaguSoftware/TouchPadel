@@ -57,6 +57,15 @@ export const filesEn = {
   nameOnly: 'Name only',
   nameOnlyHint: 'No words could be read from this file (a photo or a scanned page). The assistant sees its name and note.',
   download: 'Download',
+  // F-64: a PDF opens here, page by page, without downloading it.
+  view: 'View',
+  viewer: {
+    page: 'Page {n} of {total}',
+    previous: 'Previous page',
+    next: 'Next page',
+    loading: 'Opening the file…',
+    failed: 'This file could not be opened here. Download it instead.',
+  },
   edit: 'Edit',
   remove: 'Remove',
   removeTitle: 'Remove {name}?',

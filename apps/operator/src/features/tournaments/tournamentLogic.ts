@@ -233,9 +233,13 @@ export function entryActions(
   e: TourEntry,
   d: Pick<TournamentDetail, 'status' | 'can' | 'entry_fee_iqd'>,
   caps: { run: boolean; pay: boolean },
-): { pay: boolean; remove: boolean; noShow: boolean; promote: boolean } {
+): { pay: boolean; remove: boolean; noShow: boolean; promote: boolean; confirm: boolean; unconfirm: boolean } {
   const live = d.status === 'open' || d.status === 'closed' || d.status === 'running';
+  // 0390 (F-40): the desk confirms a registered entry before the draw; payment is separate.
+  const confirmable = caps.run && d.can.confirm && e.status === 'registered';
   return {
+    confirm: confirmable && !e.confirmed,
+    unconfirm: confirmable && e.confirmed,
     pay:
       caps.pay &&
       d.can.settle &&
@@ -261,4 +265,16 @@ export function substitutes(d: Pick<TournamentDetail, 'entries'>): TourEntry[] {
 /** Registered players now / the cap. */
 export function registeredCount(d: Pick<TournamentDetail, 'entries'>): number {
   return d.entries.filter((e) => e.status === 'registered').length;
+}
+
+/** 0390 (F-40): registered entries the desk has not confirmed yet; the draw waits for none. */
+export function unconfirmedEntries(d: Pick<TournamentDetail, 'entries'>): TourEntry[] {
+  return d.entries.filter((e) => e.status === 'registered' && !e.confirmed);
+}
+
+/** 0390 (F-40): the Pay list, registered entries that still owe, confirmed first then by seed. */
+export function owingEntries(d: Pick<TournamentDetail, 'entries'>): TourEntry[] {
+  return sortEntries(d.entries.filter((e) => e.status === 'registered' && e.owed_iqd > 0)).sort(
+    (a, b) => Number(b.confirmed) - Number(a.confirmed),
+  );
 }

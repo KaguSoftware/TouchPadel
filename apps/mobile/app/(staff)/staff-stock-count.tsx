@@ -492,7 +492,7 @@ function CountScreen() {
 
 export default function StaffStockCountRoute() {
   return (
-    <RequireStaff roles={COUNT_ROLES}>
+    <RequireStaff page="staff-stock-count" roles={COUNT_ROLES}>
       <CountScreen />
     </RequireStaff>
   );

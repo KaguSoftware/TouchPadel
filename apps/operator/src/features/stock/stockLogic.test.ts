@@ -20,6 +20,8 @@ import {
   stockLevel,
   unitCostFromPack,
   type DeliveryLineDraft,
+  afterCountRoute,
+  countFixReason,
 } from './stockLogic';
 import type { OnHandRow } from './stockKeys';
 
@@ -232,5 +234,17 @@ describe('margins', () => {
     expect(names('marginDesc')).toEqual(['a', 'b', 'free', 'c']);
     expect(names('name')).toEqual(['a', 'b', 'c', 'free']);
     expect(rows.map((r) => r.n)).toEqual(['b', 'free', 'a', 'c']); // the input is untouched
+  });
+});
+
+describe('counts (F-35, F-36)', () => {
+  it('Finish goes to the variance report at the café and back to the shop stock at the shop', () => {
+    expect(afterCountRoute('venue')).toBe('/stock/variance');
+    expect(afterCountRoute('shop')).toBe('/shop/stock');
+  });
+  it('says the digits are the problem when they are', () => {
+    expect(countFixReason(['12', '', undefined])).toBeNull();
+    expect(countFixReason(['١٢'])).toBe('englishDigits');
+    expect(countFixReason(['-3'])).toBe('invalid');
   });
 });

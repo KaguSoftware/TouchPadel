@@ -29,6 +29,7 @@ import { Button, ErrorText, Field, Modal, inputStyle, Select } from '../../compo
 import { AsyncStateWrapper, DataTable, EmptyState, PageHeader, Panel, ResultCount, SearchField, SegmentedControl, StatusBadge, TableSkeleton, Toolbar, type Column } from '../../components/kit';
 import { AttentionList, useStockFormat } from './stockUi';
 import { SK, fetchIngredients, type IngredientRow } from './stockKeys';
+import { hasNonEnglishDigits } from './decimalInput';
 
 type TargetKind = 'variant' | 'modifier' | 'output';
 type Show = 'all' | 'missing' | 'set';
@@ -380,7 +381,10 @@ function RecipeDialog({
             busy={busy}
             disabled={!dirty || incomplete.length > 0 || batchBad}
             disabledReason={
-              incomplete.length > 0
+              // F-35: say that the digits are the problem, not "incomplete".
+              draft.some((l) => hasNonEnglishDigits(l.qty)) || hasNonEnglishDigits(batchText)
+                ? tr('ws.manager.stock.englishDigits')
+                : incomplete.length > 0
                 ? tr('ws.manager.stock.recipes.incompleteLine')
                 : batchBad
                   ? tr('ws.manager.stock.recipes.batchInvalid')
@@ -433,7 +437,12 @@ function RecipeDialog({
                         ]}
                       />
                     </Field>
-                    <Field label={ing ? tr('ws.manager.stock.recipes.amountIn', { unit: fmt.unit(ing.unit) }) : tr('ws.manager.stock.recipes.amount')} style={{ marginBlockEnd: 0 }}>
+                    <Field
+                      label={ing ? tr('ws.manager.stock.recipes.amountIn', { unit: fmt.unit(ing.unit) }) : tr('ws.manager.stock.recipes.amount')}
+                      // F-35: English digits only, and the box says so.
+                      error={hasNonEnglishDigits(l.qty) ? tr('ws.manager.stock.englishDigits') : undefined}
+                      style={{ marginBlockEnd: 0 }}
+                    >
                       <input
                         style={{ ...inputStyle, borderColor: bad && l.qty.trim() !== '' && !(Number(l.qty) > 0) ? 'var(--tp-danger)' : undefined }}
                         dir="ltr"

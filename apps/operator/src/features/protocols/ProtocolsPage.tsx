@@ -50,6 +50,7 @@ import { RunSheet } from './RunSheet';
 import { StartSheet } from './StartSheet';
 import { StepSheet } from './StepPanel';
 import { PROTOCOL_KINDS, type ProtocolFilter, type ProtocolsSearch } from './search';
+import { FollowEveryStep } from './FollowEveryStep';
 
 const CARD_ICON: Record<ProtocolKind, IconName> = {
   product_release: 'spark',
@@ -84,7 +85,7 @@ export function ProtocolsPageScreen() {
 
   return (
     <div data-testid="protocols-page">
-      <PageHeader title={tr('ws.protocols.title')} subtitle={tr('ws.protocols.lead')} />
+      <PageHeader title={tr('ws.protocols.title')} subtitle={tr('ws.protocols.lead')} actions={owner ? <FollowEveryStep /> : undefined} />
 
       <section aria-label={tr('ws.protocols.cards.label')} style={{ display: 'grid', gap: 'var(--tp-sp-3)', marginBlockEnd: 'var(--tp-sp-5)' }}>
         {/* The four protocols are peers and read as one row of four. The two

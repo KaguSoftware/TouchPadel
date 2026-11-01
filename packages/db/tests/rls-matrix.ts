@@ -17,6 +17,20 @@ export const PRINCIPALS = [
   'court_desk',
   'manager',
   'owner',
+  // F-67 (2026-11-01): every hireable role is checked against every rule, plus
+  // a manager who works only at another branch. The runner creates these
+  // accounts (createStaffOfRole); their expectations follow the real guards.
+  'waiter',
+  'head_barista',
+  'barista',
+  'assistant_barista',
+  'head_chef',
+  'chef',
+  'shop_staff',
+  'marketing',
+  'dev',
+  /** A manager filed only at a second, preparing branch (not venue A). */
+  'branch_b_manager',
 ] as const;
 export type Principal = (typeof PRINCIPALS)[number];
 
@@ -113,22 +127,30 @@ const MANAGER_PIN = '380517';
 // 'guarded' = the in-function role check raises FORBIDDEN; 'execute' = the
 // principal passes the guard and fails on the arguments instead.
 const OWNER_ONLY = ex<RpcExpectation>('guarded', { anon: 'denied', owner: 'execute' });
+// F-67: a manager of another branch passes the same role guard (is_staff is
+// chain-wide); with these nil arguments the call fails past the guard.
 const MANAGER_UP = ex<RpcExpectation>('guarded', {
-  anon: 'denied', manager: 'execute', owner: 'execute',
+  anon: 'denied', manager: 'execute', owner: 'execute', branch_b_manager: 'execute',
 });
 const CASHIER_UP = ex<RpcExpectation>('guarded', {
-  anon: 'denied', cashier: 'execute', manager: 'execute', owner: 'execute',
+  anon: 'denied', cashier: 'execute', manager: 'execute', owner: 'execute', branch_b_manager: 'execute',
 });
 const PREP_UP = ex<RpcExpectation>('guarded', {
   anon: 'denied', prep: 'execute', cashier: 'execute', manager: 'execute', owner: 'execute',
+  branch_b_manager: 'execute',
 });
 /** The till surface plus the court desk (0106: the desk takes court payment). */
 const CASHIER_DESK_UP = ex<RpcExpectation>('guarded', {
   anon: 'denied', cashier: 'execute', court_desk: 'execute', manager: 'execute', owner: 'execute',
+  branch_b_manager: 'execute',
 });
-/** Any active staff role (0105 breaks): guests are refused, anon has no grant. */
+/** Any active staff role (0105 breaks; 0156: `staff_role() is null` guards): guests are refused, anon has no grant. */
 const STAFF_ANY = ex<RpcExpectation>('guarded', {
   anon: 'denied', cashier: 'execute', prep: 'execute', court_desk: 'execute', manager: 'execute', owner: 'execute',
+  // F-67: every other role holds a staff row too, and so does another branch's manager.
+  waiter: 'execute', head_barista: 'execute', barista: 'execute', assistant_barista: 'execute',
+  head_chef: 'execute', chef: 'execute', shop_staff: 'execute', marketing: 'execute', dev: 'execute',
+  branch_b_manager: 'execute',
 });
 /** Granted to `authenticated` only; answers about the caller alone. */
 const SELF_AUTHED = ex<RpcExpectation>('execute', { anon: 'denied' });
@@ -142,7 +164,7 @@ const SELF_ANON_OK = ex<RpcExpectation>('execute');
 const GUEST_OR_COACH = ex<RpcExpectation>('execute', { anon: 'denied', guest_anon_session: 'guarded' });
 /** Coaching desk writes (0283): the court desk, managers and the owner (not the till, R57). */
 const DESK_UP = ex<RpcExpectation>('guarded', {
-  anon: 'denied', court_desk: 'execute', manager: 'execute', owner: 'execute',
+  anon: 'denied', court_desk: 'execute', manager: 'execute', owner: 'execute', branch_b_manager: 'execute',
 });
 
 export const matrix: MatrixRule[] = [
@@ -195,6 +217,8 @@ export const matrix: MatrixRule[] = [
       court_desk: 'rows',
       manager: 'rows', // all rows
       owner: 'rows',
+      // F-67 (real guard / policy outcome):
+      waiter: 'rows', head_barista: 'rows', barista: 'rows', assistant_barista: 'rows', head_chef: 'rows', chef: 'rows', shop_staff: 'rows', marketing: 'rows', dev: 'rows', branch_b_manager: 'rows',
     }),
     drop: 1,
   },
@@ -257,6 +281,8 @@ export const matrix: MatrixRule[] = [
       court_desk: 'rows',
       manager: 'rows',
       owner: 'rows',
+      // F-67 (real guard / policy outcome):
+      waiter: 'rows', head_barista: 'rows', barista: 'rows', assistant_barista: 'rows', head_chef: 'rows', chef: 'rows', shop_staff: 'rows', marketing: 'rows', dev: 'rows',
     }),
     note: 'the settings row is staff-only; since 0297 the grant is per column (the two coach columns are not granted, so * is denied)',
     drop: 1,
@@ -281,7 +307,7 @@ export const matrix: MatrixRule[] = [
   {
     kind: 'select',
     name: 'tax_groups',
-    expect: ex<SelectExpectation>('rows', { anon: 'rows' }),
+    expect: ex<SelectExpectation>('rows', { anon: 'rows', branch_b_manager: 'silence' }),
     note: 'active groups public; retired groups visible to staff only (probe: Standard is active)',
     drop: 1,
   },
@@ -290,7 +316,7 @@ export const matrix: MatrixRule[] = [
   {
     kind: 'select',
     name: 'courts',
-    expect: ex<SelectExpectation>('rows'),
+    expect: ex<SelectExpectation>('rows', { branch_b_manager: 'silence' }),
     note: 'active courts are public reads',
     drop: 1,
   },
@@ -306,13 +332,13 @@ export const matrix: MatrixRule[] = [
   {
     kind: 'select',
     name: 'rate_rules',
-    expect: ex<SelectExpectation>('rows'),
+    expect: ex<SelectExpectation>('rows', { branch_b_manager: 'silence' }),
     drop: 1,
   },
   {
     kind: 'select',
     name: 'rate_rule_prices',
-    expect: ex<SelectExpectation>('rows'),
+    expect: ex<SelectExpectation>('rows', { branch_b_manager: 'silence' }),
     drop: 1,
   },
   {
@@ -416,6 +442,8 @@ export const matrix: MatrixRule[] = [
       court_desk: 'execute',
       manager: 'execute',
       owner: 'execute',
+      // F-67 (real guard / policy outcome):
+      branch_b_manager: 'execute',
     }),
     drop: 1,
   },
@@ -429,6 +457,8 @@ export const matrix: MatrixRule[] = [
       court_desk: 'execute',
       manager: 'execute',
       owner: 'execute',
+      // F-67 (real guard / policy outcome):
+      branch_b_manager: 'execute',
     }),
     drop: 1,
   },
@@ -442,6 +472,8 @@ export const matrix: MatrixRule[] = [
       court_desk: 'execute',
       manager: 'execute',
       owner: 'execute',
+      // F-67 (real guard / policy outcome):
+      branch_b_manager: 'execute',
     }),
     drop: 1,
   },
@@ -455,6 +487,8 @@ export const matrix: MatrixRule[] = [
       court_desk: 'execute',
       manager: 'execute',
       owner: 'execute',
+      // F-67 (real guard / policy outcome):
+      branch_b_manager: 'execute',
     }),
     drop: 1,
   },
@@ -505,20 +539,20 @@ export const matrix: MatrixRule[] = [
   {
     kind: 'select',
     name: 'menu_categories',
-    expect: ex<SelectExpectation>('rows'),
+    expect: ex<SelectExpectation>('rows', { branch_b_manager: 'silence' }),
     note: 'active categories are public (guest QR menu)',
     drop: 2,
   },
   {
     kind: 'select',
     name: 'menu_items',
-    expect: ex<SelectExpectation>('rows'),
+    expect: ex<SelectExpectation>('rows', { branch_b_manager: 'silence' }),
     drop: 2,
   },
   {
     kind: 'select',
     name: 'menu_item_variants',
-    expect: ex<SelectExpectation>('rows'),
+    expect: ex<SelectExpectation>('rows', { branch_b_manager: 'silence' }),
     drop: 2,
   },
   {
@@ -537,7 +571,7 @@ export const matrix: MatrixRule[] = [
     // wraps the logic in ONE granted SECURITY DEFINER function
     // (app.menu_availability) and points the view at it; the internal helpers
     // stay revoked. Design intent (§1.4) restored: public 'rows'.
-    expect: ex<SelectExpectation>('rows'),
+    expect: ex<SelectExpectation>('rows', { branch_b_manager: 'silence' }),
     note: 'stock-aware availability is public (0025 wrapper fn; internal helpers stay revoked)',
     drop: 3,
   },
@@ -562,6 +596,8 @@ export const matrix: MatrixRule[] = [
       court_desk: 'rows',
       manager: 'rows',
       owner: 'rows',
+      // F-67 (real guard / policy outcome):
+      waiter: 'rows', head_barista: 'rows', barista: 'rows', assistant_barista: 'rows', head_chef: 'rows', chef: 'rows', shop_staff: 'rows', marketing: 'rows', dev: 'rows',
     }),
     note: 'guests learn their table from open_table_session, never from the table',
     drop: 2,
@@ -608,6 +644,8 @@ export const matrix: MatrixRule[] = [
       court_desk: 'rows',
       manager: 'rows',
       owner: 'rows',
+      // F-67 (real guard / policy outcome):
+      shop_staff: 'rows',
     }),
     note: 'guest sees a tab only via own-session orders — probe tab is silence',
     drop: 2,
@@ -621,6 +659,8 @@ export const matrix: MatrixRule[] = [
       court_desk: 'rows',
       manager: 'rows',
       owner: 'rows',
+      // F-67 (real guard / policy outcome):
+      shop_staff: 'rows',
     }),
     drop: 2,
   },
@@ -633,6 +673,8 @@ export const matrix: MatrixRule[] = [
       court_desk: 'rows',
       manager: 'rows',
       owner: 'rows',
+      // F-67 (real guard / policy outcome):
+      shop_staff: 'rows',
     }),
     drop: 2,
   },
@@ -645,6 +687,8 @@ export const matrix: MatrixRule[] = [
       prep: 'rows',
       manager: 'rows',
       owner: 'rows',
+      // F-67 (real guard / policy outcome):
+      head_barista: 'rows', barista: 'rows', assistant_barista: 'rows', head_chef: 'rows', chef: 'rows',
     }),
     note: 'KDS + till read tickets; court_desk does not',
     drop: 2,
@@ -668,6 +712,8 @@ export const matrix: MatrixRule[] = [
       cashier: 'rows',
       manager: 'rows',
       owner: 'rows',
+      // F-67 (real guard / policy outcome):
+      shop_staff: 'rows',
     }),
     note: 'money reads are till + management; guests and prep never',
     drop: 2,
@@ -711,6 +757,8 @@ export const matrix: MatrixRule[] = [
       cashier: 'rows',
       manager: 'rows',
       owner: 'rows',
+      // F-67 (real guard / policy outcome):
+      shop_staff: 'rows',
     }),
     drop: 2,
   },
@@ -761,6 +809,8 @@ export const matrix: MatrixRule[] = [
       cashier: 'rows',
       manager: 'rows',
       owner: 'rows',
+      // F-67 (real guard / policy outcome):
+      waiter: 'rows',
     }),
     note: 'guest reads own-session calls only (probe call is not theirs)',
     drop: 2,
@@ -779,26 +829,26 @@ export const matrix: MatrixRule[] = [
   {
     kind: 'select',
     name: 'ingredients',
-    expect: ex<SelectExpectation>('silence', { anon: 'denied', manager: 'rows', owner: 'rows' }),
+    expect: ex<SelectExpectation>('silence', { anon: 'denied', manager: 'rows', owner: 'rows', shop_staff: 'rows' }),
     note: 'stock is management-only; cashier/prep/desk get RLS silence',
     drop: 3,
   },
   {
     kind: 'select',
     name: 'recipe_lines',
-    expect: ex<SelectExpectation>('silence', { anon: 'denied', manager: 'rows', owner: 'rows' }),
+    expect: ex<SelectExpectation>('silence', { anon: 'denied', manager: 'rows', owner: 'rows', shop_staff: 'rows' }),
     drop: 3,
   },
   {
     kind: 'select',
     name: 'stock_batches',
-    expect: ex<SelectExpectation>('silence', { anon: 'denied', manager: 'rows', owner: 'rows' }),
+    expect: ex<SelectExpectation>('silence', { anon: 'denied', manager: 'rows', owner: 'rows', shop_staff: 'rows' }),
     drop: 3,
   },
   {
     kind: 'select',
     name: 'stock_movements',
-    expect: ex<SelectExpectation>('silence', { anon: 'denied', manager: 'rows', owner: 'rows' }),
+    expect: ex<SelectExpectation>('silence', { anon: 'denied', manager: 'rows', owner: 'rows', shop_staff: 'rows' }),
     drop: 3,
   },
   {
@@ -844,6 +894,8 @@ export const matrix: MatrixRule[] = [
       court_desk: 'rows',
       manager: 'rows',
       owner: 'rows',
+      // F-67 (real guard / policy outcome):
+      shop_staff: 'rows',
     }),
     drop: 2,
   },
@@ -865,7 +917,7 @@ export const matrix: MatrixRule[] = [
   {
     kind: 'select',
     name: 'sync_replays',
-    expect: ex<SelectExpectation>('silence', { anon: 'denied', manager: 'rows', owner: 'rows' }),
+    expect: ex<SelectExpectation>('silence', { anon: 'denied', owner: 'rows' }), // 0400 (F-27): no branch column, the owner's alone
     drop: 3,
   },
   {
@@ -894,6 +946,8 @@ export const matrix: MatrixRule[] = [
       anon: 'denied',
       manager: 'execute',
       owner: 'execute',
+      // F-67 (real guard / policy outcome):
+      branch_b_manager: 'execute',
     }),
     note: 'menu editor is manager/owner; nil category then fails CATEGORY_NOT_FOUND',
     drop: 2,
@@ -907,6 +961,8 @@ export const matrix: MatrixRule[] = [
       anon: 'denied',
       manager: 'execute',
       owner: 'execute',
+      // F-67 (real guard / policy outcome):
+      branch_b_manager: 'execute',
     }),
     drop: 2,
   },
@@ -928,6 +984,8 @@ export const matrix: MatrixRule[] = [
       anon: 'denied',
       manager: 'execute',
       owner: 'execute',
+      // F-67 (real guard / policy outcome):
+      branch_b_manager: 'execute',
     }),
     note: 'negative float fails INVALID_FLOAT past the guard — no side effect',
     drop: 2,
@@ -941,6 +999,8 @@ export const matrix: MatrixRule[] = [
       anon: 'denied',
       manager: 'execute',
       owner: 'execute',
+      // F-67 (real guard / policy outcome):
+      branch_b_manager: 'execute',
     }),
     drop: 3,
   },
@@ -953,6 +1013,8 @@ export const matrix: MatrixRule[] = [
       anon: 'denied',
       manager: 'execute',
       owner: 'execute',
+      // F-67 (real guard / policy outcome):
+      shop_staff: 'execute', branch_b_manager: 'execute',
     }),
     drop: 3,
   },
@@ -965,6 +1027,8 @@ export const matrix: MatrixRule[] = [
       anon: 'denied',
       manager: 'execute',
       owner: 'execute',
+      // F-67 (real guard / policy outcome):
+      branch_b_manager: 'execute',
     }),
     drop: 3,
   },
@@ -977,6 +1041,8 @@ export const matrix: MatrixRule[] = [
       anon: 'denied',
       manager: 'execute',
       owner: 'execute',
+      // F-67 (real guard / policy outcome):
+      branch_b_manager: 'execute',
     }),
     drop: 3,
   },
@@ -1001,6 +1067,8 @@ export const matrix: MatrixRule[] = [
       cashier: 'execute',
       manager: 'execute',
       owner: 'execute',
+      // F-67 (real guard / policy outcome):
+      shop_staff: 'execute', branch_b_manager: 'execute',
     }),
     drop: 2,
   },
@@ -1014,6 +1082,8 @@ export const matrix: MatrixRule[] = [
       cashier: 'execute',
       manager: 'execute',
       owner: 'execute',
+      // F-67 (real guard / policy outcome):
+      branch_b_manager: 'execute',
     }),
     note: '0352: a nil order is ORDER_NOT_FOUND past the guard — no side effect',
     drop: 2,
@@ -1023,7 +1093,7 @@ export const matrix: MatrixRule[] = [
     schema: 'app',
     name: 'settle_tab',
     args: { p_tab_id: NIL_UUID, p_method: 'cash' },
-    expect: CASHIER_DESK_UP,
+    expect: { ...CASHIER_DESK_UP, shop_staff: 'execute' },
     note: 'prep can SEE tabs/orders but can NOT settle; the court desk can (0106)',
     drop: 2,
   },
@@ -1037,6 +1107,8 @@ export const matrix: MatrixRule[] = [
       cashier: 'execute',
       manager: 'execute',
       owner: 'execute',
+      // F-67 (real guard / policy outcome):
+      branch_b_manager: 'execute',
     }),
     drop: 2,
   },
@@ -1058,6 +1130,8 @@ export const matrix: MatrixRule[] = [
       cashier: 'execute',
       manager: 'execute',
       owner: 'execute',
+      // F-67 (real guard / policy outcome):
+      shop_staff: 'execute', branch_b_manager: 'execute',
     }),
     note: 'empty reason fails REASON_REQUIRED before the PIN is ever checked',
     drop: 2,
@@ -1071,6 +1145,8 @@ export const matrix: MatrixRule[] = [
       anon: 'denied',
       manager: 'execute',
       owner: 'execute',
+      // F-67 (real guard / policy outcome):
+      branch_b_manager: 'execute',
     }),
     note: 'cashiers can NOT refund (manager/owner only); the helper proves the PIN first (0115), then the role guard, then the reason check',
     drop: 2,
@@ -1085,6 +1161,8 @@ export const matrix: MatrixRule[] = [
       cashier: 'execute',
       manager: 'execute',
       owner: 'execute',
+      // F-67 (real guard / policy outcome):
+      shop_staff: 'execute', branch_b_manager: 'execute',
     }),
     note: 'the ONE cashier stock path; prep/desk stay guarded',
     drop: 3,
@@ -1100,6 +1178,8 @@ export const matrix: MatrixRule[] = [
       cashier: 'execute',
       manager: 'execute',
       owner: 'execute',
+      // F-67 (real guard / policy outcome):
+      head_barista: 'execute', barista: 'execute', assistant_barista: 'execute', head_chef: 'execute', chef: 'execute', branch_b_manager: 'execute',
     }),
     note: 'prep updates tickets via THIS RPC only (direct update denied above)',
     drop: 2,
@@ -1114,6 +1194,8 @@ export const matrix: MatrixRule[] = [
       cashier: 'execute',
       manager: 'execute',
       owner: 'execute',
+      // F-67 (real guard / policy outcome):
+      waiter: 'execute', branch_b_manager: 'execute',
     }),
     drop: 2,
   },
@@ -1160,6 +1242,8 @@ export const matrix: MatrixRule[] = [
       court_desk: 'execute',
       manager: 'execute',
       owner: 'execute',
+      // F-67 (real guard / policy outcome):
+      waiter: 'execute', head_barista: 'execute', barista: 'execute', assistant_barista: 'execute', head_chef: 'execute', chef: 'execute', shop_staff: 'execute', marketing: 'execute', dev: 'execute', branch_b_manager: 'execute',
     }),
     note: 'staff devices only; PROBE device id never flips degraded mode',
     drop: 3,
@@ -1293,7 +1377,7 @@ export const matrix: MatrixRule[] = [
   {
     kind: 'select',
     name: 'telegram_staff',
-    expect: ex<SelectExpectation>('silence', { anon: 'denied', manager: 'rows', owner: 'rows' }),
+    expect: ex<SelectExpectation>('silence', { anon: 'denied', owner: 'rows' }), // 0400 (F-27): no branch column, the owner's alone
     note: '0039 allowlist: who may drive the bot, and who may void from it',
     drop: 4,
   },
@@ -1309,7 +1393,7 @@ export const matrix: MatrixRule[] = [
   {
     kind: 'select',
     name: 'telegram_chats',
-    expect: ex<SelectExpectation>('silence', { anon: 'denied', manager: 'rows', owner: 'rows' }),
+    expect: ex<SelectExpectation>('silence', { anon: 'denied', owner: 'rows' }), // 0400 (F-27): no branch column, the owner's alone
     note: '0091 detected groups: the operator picks the staff group from these',
     drop: 7,
   },
@@ -1371,6 +1455,8 @@ export const matrix: MatrixRule[] = [
       anon: 'denied',
       manager: 'execute',
       owner: 'execute',
+      // F-67 (real guard / policy outcome):
+      branch_b_manager: 'execute',
     }),
     note: 'content key: manager may write; the bogus enum value fails INVALID_SETTING_VALUE past the guard — nothing stored',
     drop: 4,
@@ -1384,6 +1470,8 @@ export const matrix: MatrixRule[] = [
       anon: 'denied',
       manager: 'execute',
       owner: 'execute',
+      // F-67 (real guard / policy outcome):
+      branch_b_manager: 'execute',
     }),
     note: 'nil modifier fails MODIFIER_NOT_FOUND past the guard',
     drop: 4,
@@ -1397,6 +1485,8 @@ export const matrix: MatrixRule[] = [
       anon: 'denied',
       manager: 'execute',
       owner: 'execute',
+      // F-67 (real guard / policy outcome):
+      branch_b_manager: 'execute',
     }),
     note: 'valid path, nil item -> ITEM_NOT_FOUND past the guard',
     drop: 4,
@@ -1410,6 +1500,8 @@ export const matrix: MatrixRule[] = [
       anon: 'denied',
       manager: 'execute',
       owner: 'execute',
+      // F-67 (real guard / policy outcome):
+      branch_b_manager: 'execute',
     }),
     drop: 4,
   },
@@ -1422,6 +1514,8 @@ export const matrix: MatrixRule[] = [
       anon: 'denied',
       manager: 'execute',
       owner: 'execute',
+      // F-67 (real guard / policy outcome):
+      branch_b_manager: 'execute',
     }),
     drop: 4,
   },
@@ -1434,6 +1528,8 @@ export const matrix: MatrixRule[] = [
       anon: 'denied',
       manager: 'execute',
       owner: 'execute',
+      // F-67 (real guard / policy outcome):
+      branch_b_manager: 'execute',
     }),
     note: 'nil table fails TABLE_NOT_FOUND past the guard',
     drop: 4,
@@ -1447,6 +1543,8 @@ export const matrix: MatrixRule[] = [
       anon: 'denied',
       manager: 'execute',
       owner: 'execute',
+      // F-67 (real guard / policy outcome):
+      branch_b_manager: 'execute',
     }),
     note: 'blank number fails INVALID_TABLE_NUMBER past the guard — no side effect',
     drop: 4,
@@ -1460,6 +1558,8 @@ export const matrix: MatrixRule[] = [
       anon: 'denied',
       manager: 'execute',
       owner: 'execute',
+      // F-67 (real guard / policy outcome):
+      branch_b_manager: 'execute',
     }),
     note: 'QR export is manager|owner (0014 tier); one audit row per successful call',
     drop: 4,
@@ -1547,6 +1647,8 @@ export const matrix: MatrixRule[] = [
       court_desk: 'rows',
       manager: 'rows',
       owner: 'rows',
+      // F-67 (real guard / policy outcome):
+      branch_b_manager: 'rows',
     }),
     note: 'CRITICAL: staff-only notes — guest_account / guest_anon_session must read ZERO rows',
     drop: 5,
@@ -1587,6 +1689,8 @@ export const matrix: MatrixRule[] = [
       court_desk: 'rows',
       manager: 'rows',
       owner: 'rows',
+      // F-67 (real guard / policy outcome):
+      branch_b_manager: 'rows',
     }),
     note: 'flags surface wherever the customer appears on STAFF screens; never to guests',
     drop: 5,
@@ -1620,6 +1724,8 @@ export const matrix: MatrixRule[] = [
       court_desk: 'execute',
       manager: 'execute',
       owner: 'execute',
+      // F-67 (real guard / policy outcome):
+      branch_b_manager: 'execute',
     }),
     note: 'search is court_desk|cashier|manager|owner; guests are refused before the query is read',
     drop: 5,
@@ -1635,6 +1741,8 @@ export const matrix: MatrixRule[] = [
       court_desk: 'execute',
       manager: 'execute',
       owner: 'execute',
+      // F-67 (real guard / policy outcome):
+      branch_b_manager: 'execute',
     }),
     note: 'the Customers list (0148) is court_desk|cashier|manager|owner, the same roles as customer_search',
     drop: 5,
@@ -1650,6 +1758,8 @@ export const matrix: MatrixRule[] = [
       court_desk: 'execute',
       manager: 'execute',
       owner: 'execute',
+      // F-67 (real guard / policy outcome):
+      branch_b_manager: 'execute',
     }),
     note: 'nil customer fails CUSTOMER_NOT_FOUND past the guard',
     drop: 5,
@@ -1664,6 +1774,8 @@ export const matrix: MatrixRule[] = [
       court_desk: 'execute',
       manager: 'execute',
       owner: 'execute',
+      // F-67 (real guard / policy outcome):
+      branch_b_manager: 'execute',
     }),
     note: 'cashier reads notes but does not write them; nil customer fails CUSTOMER_NOT_FOUND past the guard',
     drop: 5,
@@ -1678,6 +1790,8 @@ export const matrix: MatrixRule[] = [
       court_desk: 'execute',
       manager: 'execute',
       owner: 'execute',
+      // F-67 (real guard / policy outcome):
+      branch_b_manager: 'execute',
     }),
     note: 'nil note fails NOTE_NOT_FOUND past the guard',
     drop: 5,
@@ -1692,6 +1806,8 @@ export const matrix: MatrixRule[] = [
       court_desk: 'execute',
       manager: 'execute',
       owner: 'execute',
+      // F-67 (real guard / policy outcome):
+      branch_b_manager: 'execute',
     }),
     note: 'nil customer fails CUSTOMER_NOT_FOUND past the guard — nothing replaced',
     drop: 5,
@@ -1797,6 +1913,8 @@ export const matrix: MatrixRule[] = [
       court_desk: 'execute',
       manager: 'execute',
       owner: 'execute',
+      // F-67 (real guard / policy outcome):
+      branch_b_manager: 'execute',
     }),
     note: 'read-only desk surface; nil court fails COURT_NOT_FOUND past the guard',
     drop: 5,
@@ -1820,6 +1938,8 @@ export const matrix: MatrixRule[] = [
       court_desk: 'execute',
       manager: 'execute',
       owner: 'execute',
+      // F-67 (real guard / policy outcome):
+      branch_b_manager: 'execute',
     }),
     note: 'nil court fails COURT_NOT_FOUND past the guard — nothing written, no lock taken',
     drop: 5,
@@ -1845,6 +1965,8 @@ export const matrix: MatrixRule[] = [
       court_desk: 'execute',
       manager: 'execute',
       owner: 'execute',
+      // F-67 (real guard / policy outcome):
+      branch_b_manager: 'execute',
     }),
     note: 'empty reason fails REASON_REQUIRED past the guard — no side effect',
     drop: 5,
@@ -1942,6 +2064,8 @@ export const matrix: MatrixRule[] = [
       anon: 'denied',
       manager: 'execute',
       owner: 'execute',
+      // F-67 (real guard / policy outcome):
+      branch_b_manager: 'execute',
     }),
     note: 'the guard admits manager|owner; since price_promo (#57) a manager is refused PRICE_VIA_PROTOCOL past it on every save (a promotion is proposed through a price or promotion change), the owner fails NAME_REQUIRED on empty args — no side effect',
     drop: 5,
@@ -1955,6 +2079,8 @@ export const matrix: MatrixRule[] = [
       anon: 'denied',
       manager: 'execute',
       owner: 'execute',
+      // F-67 (real guard / policy outcome):
+      branch_b_manager: 'execute',
     }),
     note: 'nil id fails PROMOTION_NOT_FOUND past the guard; since price_promo (#57) a manager\'s switch-on of a promotion that is off is PRICE_VIA_PROTOCOL, a switch-off passes',
     drop: 5,
@@ -1968,6 +2094,8 @@ export const matrix: MatrixRule[] = [
       anon: 'denied',
       manager: 'execute',
       owner: 'execute',
+      // F-67 (real guard / policy outcome):
+      branch_b_manager: 'execute',
     }),
     note: 'the owner fails PROMOTION_NOT_FOUND on a nil id past the guard; since price_promo (#57) a manager is refused PRICE_VIA_PROTOCOL past it (a code travels in the change\'s record)',
     drop: 5,
@@ -1982,6 +2110,8 @@ export const matrix: MatrixRule[] = [
       cashier: 'execute',
       manager: 'execute',
       owner: 'execute',
+      // F-67 (real guard / policy outcome):
+      branch_b_manager: 'execute',
     }),
     note: 'till roles only (prep/desk guarded); nil tab fails TAB_NOT_FOUND past the guard',
     drop: 5,
@@ -1996,6 +2126,8 @@ export const matrix: MatrixRule[] = [
       cashier: 'execute',
       manager: 'execute',
       owner: 'execute',
+      // F-67 (real guard / policy outcome):
+      branch_b_manager: 'execute',
     }),
     note: 'cashier+ apply; nil tab fails TAB_NOT_FOUND past the guard — nothing written',
     drop: 5,
@@ -2036,6 +2168,8 @@ export const matrix: MatrixRule[] = [
       court_desk: 'execute',
       manager: 'execute',
       owner: 'execute',
+      // F-67 (real guard / policy outcome):
+      waiter: 'execute', head_barista: 'execute', barista: 'execute', assistant_barista: 'execute', head_chef: 'execute', chef: 'execute', shop_staff: 'execute', marketing: 'execute', dev: 'execute', branch_b_manager: 'execute',
     }),
     note: 'any staff may ask; guests refused by staff_role() is null. Bad kind fails BAD_KIND past the guard — nothing inserted',
     drop: 6,
@@ -2052,6 +2186,8 @@ export const matrix: MatrixRule[] = [
       court_desk: 'execute',
       manager: 'execute',
       owner: 'execute',
+      // F-67 (real guard / policy outcome):
+      waiter: 'execute', head_barista: 'execute', barista: 'execute', assistant_barista: 'execute', head_chef: 'execute', chef: 'execute', shop_staff: 'execute', marketing: 'execute', dev: 'execute', branch_b_manager: 'execute',
     }),
     note: 'own request only; nil id fails past the guard',
     drop: 6,
@@ -2068,6 +2204,8 @@ export const matrix: MatrixRule[] = [
       court_desk: 'execute',
       manager: 'execute',
       owner: 'execute',
+      // F-67 (real guard / policy outcome):
+      waiter: 'execute', head_barista: 'execute', barista: 'execute', assistant_barista: 'execute', head_chef: 'execute', chef: 'execute', shop_staff: 'execute', marketing: 'execute', dev: 'execute', branch_b_manager: 'execute',
     }),
     note: 'read-only; a guest cannot list staff requests at all',
     drop: 6,
@@ -2093,6 +2231,8 @@ export const matrix: MatrixRule[] = [
       anon: 'denied',
       manager: 'execute',
       owner: 'execute',
+      // F-67 (real guard / policy outcome):
+      branch_b_manager: 'execute',
     }),
     note: 'nil id fails past the guard — no court is removed',
     drop: 6,
@@ -2118,6 +2258,8 @@ export const matrix: MatrixRule[] = [
       anon: 'denied',
       manager: 'execute',
       owner: 'execute',
+      // F-67 (real guard / policy outcome):
+      branch_b_manager: 'execute',
     }),
     note: 'counts an audience; returns a number, never guest identifiers',
     drop: 6,
@@ -2131,6 +2273,8 @@ export const matrix: MatrixRule[] = [
       anon: 'denied',
       manager: 'execute',
       owner: 'execute',
+      // F-67 (real guard / policy outcome):
+      branch_b_manager: 'execute',
     }),
     note: 'read-only; nil campaign returns nothing',
     drop: 6,
@@ -2321,7 +2465,7 @@ export const matrix: MatrixRule[] = [
   { kind: 'rpc', schema: 'app', name: 'list_staff', args: {}, expect: MANAGER_UP, drop: 7 },
 
   // ── manager + owner: menu, courts, stock and venue configuration ──────────
-  { kind: 'rpc', schema: 'app', name: 'finalize_count', args: { p_count_id: NIL_UUID }, expect: MANAGER_UP, drop: 7 },
+  { kind: 'rpc', schema: 'app', name: 'finalize_count', args: { p_count_id: NIL_UUID }, expect: { ...MANAGER_UP, shop_staff: 'execute' }, drop: 7 },
   { kind: 'rpc', schema: 'app', name: 'link_item_modifier_group', args: { p_item_id: NIL_UUID, p_group_id: NIL_UUID }, expect: MANAGER_UP, drop: 7 },
   { kind: 'rpc', schema: 'app', name: 'reorder_courts', args: { p_ids: [NIL_UUID] }, expect: MANAGER_UP, drop: 7 },
   { kind: 'rpc', schema: 'app', name: 'reorder_menu_categories', args: { p_ids: [NIL_UUID] }, expect: MANAGER_UP, drop: 7 },
@@ -2376,12 +2520,12 @@ export const matrix: MatrixRule[] = [
   { kind: 'rpc', schema: 'app', name: 'upsert_variant', args: { p_item_id: NIL_UUID, p_name_en: 'x', p_name_ar: 'x', p_price_iqd: 1000 }, expect: MANAGER_UP, drop: 7 },
 
   // ── cashier + manager + owner: the till surface ───────────────────────────
-  { kind: 'rpc', schema: 'app', name: 'merge_tabs', args: { p_donor_tab_id: NIL_UUID, p_survivor_tab_id: NIL_UUID }, expect: CASHIER_DESK_UP, drop: 7 },
+  { kind: 'rpc', schema: 'app', name: 'merge_tabs', args: { p_donor_tab_id: NIL_UUID, p_survivor_tab_id: NIL_UUID }, expect: { ...CASHIER_DESK_UP, shop_staff: 'execute' }, drop: 7 },
   // Nil tab stops at NO_OPEN_DAY/TAB_NOT_FOUND past the guard — nothing is voided.
   // The reason is mandatory (0100), so it is supplied here: without it every
   // allowed role would stop at REASON_REQUIRED and the row would prove nothing
   // about the guard it exists to test.
-  { kind: 'rpc', schema: 'app', name: 'cancel_tab', args: { p_tab_id: NIL_UUID, p_reason_code: 'matrix' }, expect: CASHIER_DESK_UP, drop: 7 },
+  { kind: 'rpc', schema: 'app', name: 'cancel_tab', args: { p_tab_id: NIL_UUID, p_reason_code: 'matrix' }, expect: { ...CASHIER_DESK_UP, shop_staff: 'execute' }, drop: 7 },
   {
     kind: 'rpc', schema: 'app', name: 'override_price',
     // The CORRECT manager PIN on purpose. A wrong one writes a failed row to
@@ -2390,14 +2534,14 @@ export const matrix: MatrixRule[] = [
     // suites assert on. A successful check writes success=true and counts
     // toward nothing. The NIL line id then stops it at ITEM_NOT_FOUND.
     args: { p_order_item_id: NIL_UUID, p_new_unit_price_iqd: 1000, p_pin: MANAGER_PIN, p_reason_code: 'matrix' },
-    expect: CASHIER_UP, drop: 7,
+    expect: { ...CASHIER_UP, shop_staff: 'execute' }, drop: 7,
   },
   {
     kind: 'rpc', schema: 'app', name: 'record_drawer_open',
     args: { p_reason_code: '' }, // REASON_REQUIRED — nothing is recorded
-    expect: CASHIER_DESK_UP, drop: 7,
+    expect: { ...CASHIER_DESK_UP, shop_staff: 'execute' }, drop: 7,
   },
-  { kind: 'rpc', schema: 'app', name: 'resolve_waiter_call', args: { p_call_id: NIL_UUID }, expect: CASHIER_UP, drop: 7 },
+  { kind: 'rpc', schema: 'app', name: 'resolve_waiter_call', args: { p_call_id: NIL_UUID }, expect: { ...CASHIER_UP, waiter: 'execute' }, drop: 7 },
   { kind: 'rpc', schema: 'app', name: 'split_by_item', args: { p_tab_id: NIL_UUID, p_groups: [] }, expect: CASHIER_UP, drop: 7 },
   {
     kind: 'rpc', schema: 'app', name: 'void_after_send',
@@ -2411,7 +2555,7 @@ export const matrix: MatrixRule[] = [
   },
 
   // ── prep + cashier + manager + owner: the kitchen surface ─────────────────
-  { kind: 'rpc', schema: 'app', name: 'set_order_item_ready', args: { p_order_item_id: NIL_UUID, p_ready: true }, expect: PREP_UP, drop: 7 },
+  { kind: 'rpc', schema: 'app', name: 'set_order_item_ready', args: { p_order_item_id: NIL_UUID, p_ready: true }, expect: { ...PREP_UP, head_barista: 'execute', barista: 'execute', assistant_barista: 'execute', head_chef: 'execute', chef: 'execute' }, drop: 7 },
 
   // ── ownership-guarded, not role-guarded ───────────────────────────────────
   {
@@ -2491,7 +2635,7 @@ export const matrix: MatrixRule[] = [
   // does not exist.
   {
     kind: 'rpc', schema: 'app', name: 'settle_zero_tab',
-    args: { p_tab_id: NIL_UUID, p_reason_code: 'matrix' }, expect: CASHIER_DESK_UP, drop: 10,
+    args: { p_tab_id: NIL_UUID, p_reason_code: 'matrix' }, expect: { ...CASHIER_DESK_UP, shop_staff: 'execute' }, drop: 10,
   },
   { kind: 'rpc', schema: 'app', name: 'booking_bill', args: { p_reservation_id: NIL_UUID }, expect: CASHIER_DESK_UP, drop: 10 },
   { kind: 'rpc', schema: 'app', name: 'booking_bill_states', args: { p_reservation_ids: [] }, expect: CASHIER_DESK_UP, drop: 10 },
@@ -2598,6 +2742,8 @@ export const matrix: MatrixRule[] = [
     expect: ex<SelectExpectation>('silence', {
       anon: 'denied',
       cashier: 'rows', prep: 'rows', court_desk: 'rows', manager: 'rows', owner: 'rows',
+      // F-67 (real guard / policy outcome):
+      waiter: 'rows', head_barista: 'rows', barista: 'rows', assistant_barista: 'rows', head_chef: 'rows', chef: 'rows', shop_staff: 'rows', marketing: 'rows', dev: 'rows', branch_b_manager: 'rows',
     }),
     drop: 13,
   },
@@ -2608,6 +2754,8 @@ export const matrix: MatrixRule[] = [
     expect: ex<SelectExpectation>('silence', {
       anon: 'denied',
       cashier: 'rows', prep: 'rows', court_desk: 'rows', manager: 'rows', owner: 'rows',
+      // F-67 (real guard / policy outcome):
+      waiter: 'rows', head_barista: 'rows', barista: 'rows', assistant_barista: 'rows', head_chef: 'rows', chef: 'rows', shop_staff: 'rows', marketing: 'rows', dev: 'rows',
     }),
     drop: 13,
   },
@@ -2690,7 +2838,7 @@ export const matrix: MatrixRule[] = [
   {
     kind: 'select',
     name: 'suppliers',
-    expect: ex<SelectExpectation>('silence', { anon: 'denied', manager: 'rows', owner: 'rows' }),
+    expect: ex<SelectExpectation>('silence', { anon: 'denied', manager: 'rows', owner: 'rows', shop_staff: 'rows' }),
     note: '0144: suppliers are management data, venue-scoped like ingredients; the till never reads them',
     drop: 14,
   },
@@ -2711,13 +2859,13 @@ export const matrix: MatrixRule[] = [
   },
   {
     kind: 'rpc', schema: 'app', name: 'upsert_supplier',
-    args: { p_name: '' }, expect: MANAGER_UP,
+    args: { p_name: '' }, expect: { ...MANAGER_UP, shop_staff: 'execute' },
     note: '0145: a blank name fails INVALID_ARGUMENT past the guard',
     drop: 14,
   },
   {
     kind: 'rpc', schema: 'app', name: 'upsert_retail_variant',
-    args: { p_item_id: NIL_UUID, p_name_en: 'x', p_name_ar: 'x', p_price_iqd: 1 }, expect: MANAGER_UP,
+    args: { p_item_id: NIL_UUID, p_name_en: 'x', p_name_ar: 'x', p_price_iqd: 1 }, expect: { ...MANAGER_UP, shop_staff: 'execute' },
     note: '0145: variant + its own retail stock row in one transaction; an unknown item fails ITEM_NOT_FOUND past the guard',
     drop: 14,
   },
@@ -2765,7 +2913,7 @@ export const matrix: MatrixRule[] = [
   // ── kitchen board read (kitchen_board_read, build-contracts §2.23) ────────
   {
     kind: 'rpc', schema: 'app', name: 'kitchen_board',
-    args: {}, expect: PREP_UP,
+    args: {}, expect: { ...PREP_UP, head_barista: 'execute', barista: 'execute', assistant_barista: 'execute', head_chef: 'execute', chef: 'execute' },
     note:
       'the kitchen list of set_ticket_status at the venue (the bar and kitchen roles too, not in ' +
       'this matrix); court_desk and guests are refused FORBIDDEN, anon holds no grant. No window ' +
@@ -2795,7 +2943,7 @@ export const matrix: MatrixRule[] = [
   },
   {
     kind: 'rpc', schema: 'app', name: 'staff_media_slot',
-    args: { p_venue_id: VENUE_A, p_folder: 'matrix-never', p_ext: 'jpg' }, expect: STAFF_ANY,
+    args: { p_venue_id: VENUE_A, p_folder: 'matrix-never', p_ext: 'jpg' }, expect: { ...STAFF_ANY, branch_b_manager: 'guarded' },
     note: 'any active staff member at the venue; an unknown folder fails INVALID_ARGUMENT past the guard, so no slot is minted',
     drop: 17,
   },
@@ -2821,7 +2969,7 @@ export const matrix: MatrixRule[] = [
   // ── ingredient names for the staff phone (staff_ingredient_options, §2.5) ──
   {
     kind: 'rpc', schema: 'app', name: 'staff_ingredient_options',
-    args: { p_venue_id: VENUE_A, p_query: 'matrix-never' }, expect: MANAGER_UP,
+    args: { p_venue_id: VENUE_A, p_query: 'matrix-never' }, expect: { ...MANAGER_UP, head_barista: 'execute', barista: 'execute', head_chef: 'execute', chef: 'execute', branch_b_manager: 'guarded' },
     note:
       'the bar and kitchen family, the driver and MGMT (the new roles are not in this matrix: ' +
       'tests/staff-ingredient-options.test.ts); names, unit, kind and pack size only, no cost',
@@ -2912,7 +3060,7 @@ export const matrix: MatrixRule[] = [
   },
   {
     kind: 'rpc', schema: 'app', name: 'start_protocol',
-    args: { p_kind: 'price_promo' }, expect: MANAGER_UP,
+    args: { p_kind: 'price_promo' }, expect: { ...MANAGER_UP, marketing: 'execute' },
     note:
       'starters by kind (product_release adds the heads, price_promo marketing; not in this matrix); ' +
       'no title and no first record, so a caller past the guard stops at TEXT_REQUIRED or RECORD_INVALID',
@@ -2993,13 +3141,13 @@ export const matrix: MatrixRule[] = [
   },
   {
     kind: 'rpc', schema: 'app', name: 'protocols_overview',
-    args: { p_venue_id: VENUE_A }, expect: MANAGER_UP,
+    args: { p_venue_id: VENUE_A }, expect: { ...MANAGER_UP, branch_b_manager: 'guarded' },
     note: 'MGMT at the venue: the Protocols cards',
     drop: 17,
   },
   {
     kind: 'rpc', schema: 'app', name: 'protocol_runs_page',
-    args: { p_venue_id: VENUE_A, p_filter: 'matrix-never' }, expect: STAFF_ANY,
+    args: { p_venue_id: VENUE_A, p_filter: 'matrix-never' }, expect: { ...STAFF_ANY, branch_b_manager: 'guarded' },
     note: 'any active staff member at the venue (MGMT every run, others the runs they are in); an unknown filter fails INVALID_ARGUMENT past the guard',
     drop: 17,
   },
@@ -3017,13 +3165,13 @@ export const matrix: MatrixRule[] = [
   },
   {
     kind: 'rpc', schema: 'app', name: 'my_protocol_work',
-    args: { p_venue_id: VENUE_A }, expect: STAFF_ANY,
+    args: { p_venue_id: VENUE_A }, expect: { ...STAFF_ANY, branch_b_manager: 'guarded' },
     note: 'any active staff member at the venue: their To do, waiting, decided and to decide',
     drop: 17,
   },
   {
     kind: 'rpc', schema: 'app', name: 'protocols_waiting_count',
-    args: { p_venue_id: VENUE_A }, expect: STAFF_ANY,
+    args: { p_venue_id: VENUE_A }, expect: { ...STAFF_ANY, branch_b_manager: 'guarded' },
     note: 'any active staff member at the venue: the badge counts',
     drop: 17,
   },
@@ -3092,7 +3240,7 @@ export const matrix: MatrixRule[] = [
   },
   {
     kind: 'rpc', schema: 'app', name: 'my_checklists_today',
-    args: { p_venue_id: VENUE_A }, expect: STAFF_ANY,
+    args: { p_venue_id: VENUE_A }, expect: { ...STAFF_ANY, branch_b_manager: 'guarded' },
     note: 'any active staff member at the venue: their own role\'s lists for today (opens a list that has lines)',
     drop: 17,
   },
@@ -3104,7 +3252,7 @@ export const matrix: MatrixRule[] = [
   },
   {
     kind: 'rpc', schema: 'app', name: 'checklist_board',
-    args: { p_venue_id: VENUE_A }, expect: MANAGER_UP,
+    args: { p_venue_id: VENUE_A }, expect: { ...MANAGER_UP, branch_b_manager: 'guarded' },
     note: 'MGMT at the venue: every list and its day',
     drop: 17,
   },
@@ -3118,7 +3266,7 @@ export const matrix: MatrixRule[] = [
   },
   {
     kind: 'rpc', schema: 'app', name: 'checklist_day_state',
-    args: { p_venue_id: VENUE_A }, expect: MANAGER_UP,
+    args: { p_venue_id: VENUE_A }, expect: { ...MANAGER_UP, branch_b_manager: 'guarded' },
     note: 'MGMT at the venue: day close\'s checklist warning',
     drop: 17,
   },
@@ -3152,14 +3300,14 @@ export const matrix: MatrixRule[] = [
   },
   {
     kind: 'rpc', schema: 'app', name: 'shopping_list',
-    args: { p_venue_id: VENUE_A, p_status: 'matrix-never' }, expect: MANAGER_UP,
+    args: { p_venue_id: VENUE_A, p_status: 'matrix-never' }, expect: { ...MANAGER_UP, head_barista: 'execute', barista: 'execute', head_chef: 'execute', chef: 'execute', branch_b_manager: 'guarded' },
     note: 'the bar and kitchen family, the driver and MGMT (not in this matrix: tests/shopping-purchases.test.ts); an unknown status fails INVALID_ARGUMENT past the guard',
     drop: 17,
   },
   {
     kind: 'rpc', schema: 'app', name: 'add_shopping_item',
     args: { p_venue_id: VENUE_A, p_ingredient_id: null, p_label: null, p_qty: 1, p_unit: 'pc' },
-    expect: MANAGER_UP,
+    expect: { ...MANAGER_UP, head_barista: 'execute', head_chef: 'execute', chef: 'execute', branch_b_manager: 'guarded' },
     note: 'the head barista, the head chef and MGMT; since shopping_head_approval (#66) the chef too, whose line waits as pending for the head chef\'s OK (tests/shopping-head-approval.test.ts); no ingredient and no label stops at SHOPPING_LABEL_REQUIRED',
     drop: 17,
   },
@@ -3172,19 +3320,19 @@ export const matrix: MatrixRule[] = [
   {
     kind: 'rpc', schema: 'app', name: 'record_purchase',
     args: { p_venue_id: VENUE_A, p_lines: [], p_total_iqd: 0, p_shop: null, p_receipt_path: null },
-    expect: MANAGER_UP,
+    expect: { ...MANAGER_UP, branch_b_manager: 'guarded' },
     note: 'the driver and MGMT; no lines stops at INVALID_ARGUMENT',
     drop: 17,
   },
   {
     kind: 'rpc', schema: 'app', name: 'my_purchases',
-    args: { p_venue_id: VENUE_A }, expect: MANAGER_UP,
+    args: { p_venue_id: VENUE_A }, expect: { ...MANAGER_UP, branch_b_manager: 'guarded' },
     note: 'the driver (own purchases) and MGMT (every purchase)',
     drop: 17,
   },
   {
     kind: 'rpc', schema: 'app', name: 'purchases_to_receive',
-    args: { p_venue_id: VENUE_A }, expect: MANAGER_UP,
+    args: { p_venue_id: VENUE_A }, expect: { ...MANAGER_UP, branch_b_manager: 'guarded' },
     note: 'MGMT at the venue: Goods in\'s "Bought by the driver"',
     drop: 17,
   },
@@ -3203,19 +3351,19 @@ export const matrix: MatrixRule[] = [
   // staff_production (§2.16)
   {
     kind: 'rpc', schema: 'app', name: 'record_batch',
-    args: { p_ingredient_id: NIL_UUID, p_qty: 1, p_venue_id: VENUE_A }, expect: MANAGER_UP,
+    args: { p_ingredient_id: NIL_UUID, p_qty: 1, p_venue_id: VENUE_A }, expect: { ...MANAGER_UP, head_chef: 'execute', chef: 'execute', branch_b_manager: 'guarded' },
     note: 'the head chef, the chef and MGMT (the chefs: tests/staff-production.test.ts); an unknown ingredient is INGREDIENT_NOT_FOUND',
     drop: 17,
   },
   {
     kind: 'rpc', schema: 'app', name: 'production_today',
-    args: { p_venue_id: VENUE_A }, expect: MANAGER_UP,
+    args: { p_venue_id: VENUE_A }, expect: { ...MANAGER_UP, head_chef: 'execute', chef: 'execute', branch_b_manager: 'guarded' },
     note: 'the head chef, the chef and MGMT: what to make, no cost',
     drop: 17,
   },
   {
     kind: 'rpc', schema: 'app', name: 'production_log_today',
-    args: { p_venue_id: VENUE_A }, expect: MANAGER_UP,
+    args: { p_venue_id: VENUE_A }, expect: { ...MANAGER_UP, head_chef: 'execute', chef: 'execute', branch_b_manager: 'guarded' },
     note: 'the head chef, the chef and MGMT: made today, no cost',
     drop: 17,
   },
@@ -3232,13 +3380,13 @@ export const matrix: MatrixRule[] = [
   },
   {
     kind: 'rpc', schema: 'app', name: 'suggest_campaign',
-    args: { p_venue_id: VENUE_A }, expect: ex<RpcExpectation>('guarded', { anon: 'denied' }),
+    args: { p_venue_id: VENUE_A }, expect: ex<RpcExpectation>('guarded', { anon: 'denied', marketing: 'execute' }),
     note: 'marketing at the venue only; the owner saves campaigns through save_marketing_campaign',
     drop: 17,
   },
   {
     kind: 'rpc', schema: 'app', name: 'my_campaign_drafts',
-    args: { p_venue_id: VENUE_A }, expect: ex<RpcExpectation>('guarded', { anon: 'denied' }),
+    args: { p_venue_id: VENUE_A }, expect: ex<RpcExpectation>('guarded', { anon: 'denied', marketing: 'execute' }),
     note: 'marketing at the venue only: its own suggestions',
     drop: 17,
   },
@@ -3251,19 +3399,19 @@ export const matrix: MatrixRule[] = [
   {
     kind: 'rpc', schema: 'app', name: 'add_marketing_note',
     args: { p_venue_id: VENUE_A, p_subject_kind: 'item', p_subject_id: NIL_UUID, p_body: 'matrix' },
-    expect: ex<RpcExpectation>('guarded', { anon: 'denied' }),
+    expect: ex<RpcExpectation>('guarded', { anon: 'denied', marketing: 'execute' }),
     note: 'marketing at the venue only: its own take',
     drop: 17,
   },
   {
     kind: 'rpc', schema: 'app', name: 'marketing_notes_for',
-    args: { p_subject_kind: 'item', p_subject_id: NIL_UUID }, expect: MANAGER_UP,
+    args: { p_subject_kind: 'item', p_subject_id: NIL_UUID }, expect: { ...MANAGER_UP, marketing: 'execute' },
     note: 'MGMT and marketing at the subject\'s venue; an unknown subject is REF_NOT_FOUND',
     drop: 17,
   },
   {
     kind: 'rpc', schema: 'app', name: 'my_marketing_notes',
-    args: { p_venue_id: VENUE_A }, expect: ex<RpcExpectation>('guarded', { anon: 'denied' }),
+    args: { p_venue_id: VENUE_A }, expect: ex<RpcExpectation>('guarded', { anon: 'denied', marketing: 'execute' }),
     note: 'marketing at the venue only: its own notes',
     drop: 17,
   },
@@ -3278,6 +3426,8 @@ export const matrix: MatrixRule[] = [
     args: { p_run_id: NIL_UUID, p_blocks: [] },
     expect: ex<RpcExpectation>('guarded', {
       anon: 'denied', court_desk: 'execute', manager: 'execute', owner: 'execute',
+      // F-67 (real guard / policy outcome):
+      branch_b_manager: 'execute',
     }),
     note: 'the court desk and MGMT at the run\'s venue, while the courts step is open; an unknown run is PROTOCOL_NOT_FOUND',
     drop: 17,
@@ -3358,7 +3508,7 @@ export const matrix: MatrixRule[] = [
   },
   {
     kind: 'rpc', schema: 'app', name: 'submit_release_idea',
-    args: { p_record: {}, p_venue_id: VENUE_A }, expect: ex<RpcExpectation>('guarded', { anon: 'denied' }),
+    args: { p_record: {}, p_venue_id: VENUE_A }, expect: ex<RpcExpectation>('guarded', { anon: 'denied', barista: 'execute', chef: 'execute' }),
     note: 'the barista and the chef (chef assistant) at the venue only (#65); every principal here is refused',
     drop: 17,
   },
@@ -3376,13 +3526,13 @@ export const matrix: MatrixRule[] = [
   },
   {
     kind: 'rpc', schema: 'app', name: 'release_ideas_to_review',
-    args: { p_venue_id: VENUE_A }, expect: MANAGER_UP,
+    args: { p_venue_id: VENUE_A }, expect: { ...MANAGER_UP, head_barista: 'execute', head_chef: 'execute', branch_b_manager: 'guarded' },
     note: 'the head barista, the head chef and MGMT at the venue (the heads: tests/product-release.test.ts)',
     drop: 17,
   },
   {
     kind: 'rpc', schema: 'app', name: 'my_release_ideas',
-    args: { p_venue_id: VENUE_A }, expect: ex<RpcExpectation>('guarded', { anon: 'denied' }),
+    args: { p_venue_id: VENUE_A }, expect: ex<RpcExpectation>('guarded', { anon: 'denied', barista: 'execute', chef: 'execute' }),
     note: 'the barista and the chef at the venue only: their own ideas',
     drop: 17,
   },
@@ -3406,7 +3556,7 @@ export const matrix: MatrixRule[] = [
   },
   {
     kind: 'rpc', schema: 'app', name: 'release_notes_for_me',
-    args: { p_venue_id: VENUE_A }, expect: STAFF_ANY,
+    args: { p_venue_id: VENUE_A }, expect: { ...STAFF_ANY, branch_b_manager: 'guarded' },
     note: 'any active staff member at the venue: new items in their 30-day note window',
     drop: 17,
   },
@@ -3438,7 +3588,7 @@ export const matrix: MatrixRule[] = [
   // raises past the guard. ─────────────────────────────────────────────────
   {
     kind: 'rpc', schema: 'app', name: 'price_promo_targets',
-    args: { p_change: 'price', p_venue_id: VENUE_A }, expect: MANAGER_UP,
+    args: { p_change: 'price', p_venue_id: VENUE_A }, expect: { ...MANAGER_UP, marketing: 'execute', branch_b_manager: 'guarded' },
     note: 'manager, marketing and owner at the venue (shop_launch: MGMT only): list prices, rules and discounts, no cost and no sales',
     drop: 17,
   },
@@ -3468,7 +3618,7 @@ export const matrix: MatrixRule[] = [
   },
   {
     kind: 'rpc', schema: 'app', name: 'save_teaching',
-    args: { p_title: '', p_body: '', p_venue_id: VENUE_A }, expect: MANAGER_UP,
+    args: { p_title: '', p_body: '', p_venue_id: VENUE_A }, expect: { ...MANAGER_UP, head_barista: 'execute', head_chef: 'execute', branch_b_manager: 'guarded' },
     note: 'a new teaching: the head barista and the head chef for their own team (tests/teachings.test.ts), MGMT for either; MGMT with no team stops at INVALID_ARGUMENT (hint team), so nothing is written',
     drop: 17,
   },
@@ -3480,7 +3630,7 @@ export const matrix: MatrixRule[] = [
   },
   {
     kind: 'rpc', schema: 'app', name: 'teachings_for_me',
-    args: { p_venue_id: VENUE_A, p_team: 'matrix-never' }, expect: MANAGER_UP,
+    args: { p_venue_id: VENUE_A, p_team: 'matrix-never' }, expect: { ...MANAGER_UP, head_barista: 'execute', barista: 'execute', assistant_barista: 'execute', head_chef: 'execute', chef: 'execute', branch_b_manager: 'guarded' },
     note: 'the bar and kitchen teams (their own team) and MGMT at the venue; an unknown team fails INVALID_ARGUMENT past the guard',
     drop: 17,
   },
@@ -3496,19 +3646,19 @@ export const matrix: MatrixRule[] = [
   },
   {
     kind: 'rpc', schema: 'app', name: 'add_suggestion',
-    args: { p_body: '', p_venue_id: VENUE_A }, expect: STAFF_ANY,
+    args: { p_body: '', p_venue_id: VENUE_A }, expect: { ...STAFF_ANY, branch_b_manager: 'guarded' },
     note: 'any active staff member at the venue; an empty body stops at TEXT_REQUIRED, so nothing is written',
     drop: 17,
   },
   {
     kind: 'rpc', schema: 'app', name: 'my_suggestions',
-    args: { p_venue_id: VENUE_A }, expect: STAFF_ANY,
+    args: { p_venue_id: VENUE_A }, expect: { ...STAFF_ANY, branch_b_manager: 'guarded' },
     note: 'any active staff member at the venue: their own suggestions',
     drop: 17,
   },
   {
     kind: 'rpc', schema: 'app', name: 'suggestions_page',
-    args: { p_venue_id: VENUE_A, p_filter: 'matrix-never' }, expect: MANAGER_UP,
+    args: { p_venue_id: VENUE_A, p_filter: 'matrix-never' }, expect: { ...MANAGER_UP, branch_b_manager: 'guarded' },
     note: 'MGMT at the venue: every suggestion with its author; an unknown filter fails INVALID_ARGUMENT past the guard',
     drop: 17,
   },
@@ -3522,14 +3672,14 @@ export const matrix: MatrixRule[] = [
   {
     kind: 'rpc', schema: 'app', name: 'staff_stock_view',
     args: { p_venue_id: VENUE_A, p_kind: 'matrix-never' },
-    expect: MANAGER_UP,
+    expect: { ...MANAGER_UP, waiter: 'execute', head_barista: 'execute', head_chef: 'execute', shop_staff: 'execute', branch_b_manager: 'guarded' },
     note: 'the head barista, the head chef, the waiter and the shop assistant (not in this matrix) and MGMT at the venue: quantities only, no cost; the court desk lost its shop-stock view in 0245; an unknown kind fails INVALID_ARGUMENT past the guard',
     drop: 17,
   },
   // recipe_view (§2.24.6)
   {
     kind: 'rpc', schema: 'app', name: 'recipe_view',
-    args: { p_venue_id: VENUE_A, p_menu_item_id: NIL_UUID }, expect: MANAGER_UP,
+    args: { p_venue_id: VENUE_A, p_menu_item_id: NIL_UUID }, expect: { ...MANAGER_UP, head_barista: 'execute', barista: 'execute', assistant_barista: 'execute', head_chef: 'execute', chef: 'execute' },
     note: 'the bar and kitchen family (not in this matrix) and MGMT: ingredient names, no quantity; an unknown item is REF_NOT_FOUND',
     drop: 17,
   },
@@ -3546,7 +3696,7 @@ export const matrix: MatrixRule[] = [
   {
     kind: 'rpc', schema: 'app', name: 'request_recipe_change',
     args: { p_target: 'variant', p_target_id: NIL_UUID, p_ops: [], p_venue_id: VENUE_A },
-    expect: ex<RpcExpectation>('guarded', { anon: 'denied' }),
+    expect: ex<RpcExpectation>('guarded', { anon: 'denied', head_barista: 'execute', head_chef: 'execute' }),
     note: 'the head barista and the head chef at the venue only (#71); every principal here is refused',
     drop: 17,
   },
@@ -3564,13 +3714,13 @@ export const matrix: MatrixRule[] = [
   },
   {
     kind: 'rpc', schema: 'app', name: 'recipe_changes_page',
-    args: { p_venue_id: VENUE_A, p_filter: 'matrix-never' }, expect: MANAGER_UP,
+    args: { p_venue_id: VENUE_A, p_filter: 'matrix-never' }, expect: { ...MANAGER_UP, branch_b_manager: 'guarded' },
     note: 'MGMT at the venue (the manager reads, the owner decides); an unknown filter fails INVALID_ARGUMENT past the guard',
     drop: 17,
   },
   {
     kind: 'rpc', schema: 'app', name: 'my_recipe_changes',
-    args: { p_venue_id: VENUE_A }, expect: ex<RpcExpectation>('guarded', { anon: 'denied' }),
+    args: { p_venue_id: VENUE_A }, expect: ex<RpcExpectation>('guarded', { anon: 'denied', head_barista: 'execute', head_chef: 'execute' }),
     note: 'the head barista and the head chef at the venue only: their own requests, no current quantity',
     drop: 17,
   },
@@ -3603,7 +3753,7 @@ export const matrix: MatrixRule[] = [
   },
   {
     kind: 'rpc', schema: 'app', name: 'add_marketing_request',
-    args: { p_title: '', p_body: '', p_venue_id: VENUE_A }, expect: MANAGER_UP,
+    args: { p_title: '', p_body: '', p_venue_id: VENUE_A }, expect: { ...MANAGER_UP, branch_b_manager: 'guarded' },
     note: 'the manager and the owner at the venue (0249; was any staff but marketing); an empty title stops at TEXT_REQUIRED, so nothing is written',
     drop: 17,
   },
@@ -3621,19 +3771,19 @@ export const matrix: MatrixRule[] = [
   },
   {
     kind: 'rpc', schema: 'app', name: 'my_marketing_requests',
-    args: { p_venue_id: VENUE_A }, expect: STAFF_ANY,
+    args: { p_venue_id: VENUE_A }, expect: { ...STAFF_ANY, marketing: 'guarded', branch_b_manager: 'guarded' },
     note: 'any active staff member at the venue except marketing: their own requests',
     drop: 17,
   },
   {
     kind: 'rpc', schema: 'app', name: 'marketing_requests_page',
-    args: { p_venue_id: VENUE_A, p_filter: 'matrix-never' }, expect: MANAGER_UP,
+    args: { p_venue_id: VENUE_A, p_filter: 'matrix-never' }, expect: { ...MANAGER_UP, marketing: 'execute', branch_b_manager: 'guarded' },
     note: 'marketing and MGMT at the venue; an unknown filter fails INVALID_ARGUMENT past the guard',
     drop: 17,
   },
   {
     kind: 'rpc', schema: 'app', name: 'marketing_campaign_results',
-    args: { p_venue_id: VENUE_A }, expect: MANAGER_UP,
+    args: { p_venue_id: VENUE_A }, expect: { ...MANAGER_UP, marketing: 'execute', branch_b_manager: 'guarded' },
     note: 'marketing and MGMT at the venue: the venue\'s campaigns with send and redemption counts, no money',
     drop: 17,
   },
@@ -3658,14 +3808,14 @@ export const matrix: MatrixRule[] = [
   },
   {
     kind: 'rpc', schema: 'app', name: 'deduction_targets',
-    args: { p_venue_id: VENUE_A }, expect: MANAGER_UP,
+    args: { p_venue_id: VENUE_A }, expect: { ...MANAGER_UP, head_barista: 'execute', head_chef: 'execute', branch_b_manager: 'guarded' },
     note: 'the head barista and the head chef (their own team, not in this matrix) and MGMT at the venue',
     drop: 18,
   },
   {
     kind: 'rpc', schema: 'app', name: 'propose_deduction',
     args: { p_staff_id: NIL_UUID, p_amount_iqd: 0, p_date: DAY_FROM, p_reason: 'matrix', p_venue_id: VENUE_A },
-    expect: MANAGER_UP,
+    expect: { ...MANAGER_UP, head_barista: 'execute', head_chef: 'execute', branch_b_manager: 'guarded' },
     note: 'the heads (not in this matrix) and MGMT at the venue; an amount of 0 stops at INVALID_AMOUNT before the target check, so nothing is written',
     drop: 18,
   },
@@ -3689,25 +3839,25 @@ export const matrix: MatrixRule[] = [
   },
   {
     kind: 'rpc', schema: 'app', name: 'deductions_page',
-    args: { p_venue_id: VENUE_A, p_filter: 'matrix-never' }, expect: MANAGER_UP,
+    args: { p_venue_id: VENUE_A, p_filter: 'matrix-never' }, expect: { ...MANAGER_UP, branch_b_manager: 'guarded' },
     note: 'MGMT at the venue; an unknown filter fails INVALID_ARGUMENT past the guard',
     drop: 18,
   },
   {
     kind: 'rpc', schema: 'app', name: 'deductions_month',
-    args: { p_venue_id: VENUE_A, p_month: DAY_FROM }, expect: MANAGER_UP,
+    args: { p_venue_id: VENUE_A, p_month: DAY_FROM }, expect: { ...MANAGER_UP, branch_b_manager: 'guarded' },
     note: 'MGMT at the venue: one pay month by person',
     drop: 18,
   },
   {
     kind: 'rpc', schema: 'app', name: 'my_deduction_proposals',
-    args: { p_venue_id: VENUE_A }, expect: MANAGER_UP,
+    args: { p_venue_id: VENUE_A }, expect: { ...MANAGER_UP, head_barista: 'execute', head_chef: 'execute', branch_b_manager: 'guarded' },
     note: 'the heads (not in this matrix) and MGMT at the venue: their own proposals',
     drop: 18,
   },
   {
     kind: 'rpc', schema: 'app', name: 'my_deductions',
-    args: { p_venue_id: VENUE_A, p_month: DAY_FROM }, expect: STAFF_ANY,
+    args: { p_venue_id: VENUE_A, p_month: DAY_FROM }, expect: { ...STAFF_ANY, branch_b_manager: 'guarded' },
     note: 'any active staff member at the venue: their own approved and cancelled deductions',
     drop: 18,
   },
@@ -3725,7 +3875,7 @@ export const matrix: MatrixRule[] = [
   {
     kind: 'rpc', schema: 'app', name: 'submit_incident',
     args: { p_kind: 'matrix-never', p_occurred_at: TS_FROM, p_place: 'cafe', p_description: 'matrix', p_venue_id: VENUE_A },
-    expect: STAFF_ANY,
+    expect: { ...STAFF_ANY, branch_b_manager: 'guarded' },
     note: 'any active staff member at the venue; an unknown kind fails INVALID_ARGUMENT past the guard, so nothing is written',
     drop: 18,
   },
@@ -3743,13 +3893,13 @@ export const matrix: MatrixRule[] = [
   },
   {
     kind: 'rpc', schema: 'app', name: 'my_incidents',
-    args: { p_venue_id: VENUE_A }, expect: STAFF_ANY,
+    args: { p_venue_id: VENUE_A }, expect: { ...STAFF_ANY, branch_b_manager: 'guarded' },
     note: 'any active staff member at the venue: their own reports',
     drop: 18,
   },
   {
     kind: 'rpc', schema: 'app', name: 'incidents_page',
-    args: { p_venue_id: VENUE_A, p_filter: 'matrix-never' }, expect: MANAGER_UP,
+    args: { p_venue_id: VENUE_A, p_filter: 'matrix-never' }, expect: { ...MANAGER_UP, branch_b_manager: 'guarded' },
     note: 'MGMT at the venue; an unknown filter fails INVALID_ARGUMENT past the guard',
     drop: 18,
   },
@@ -3791,7 +3941,7 @@ export const matrix: MatrixRule[] = [
   {
     kind: 'rpc', schema: 'app', name: 'submit_content',
     args: { p_title: '', p_channel: 'instagram', p_planned_for: DAY_FROM, p_body: '', p_venue_id: VENUE_A },
-    expect: ex<RpcExpectation>('guarded', { anon: 'denied' }),
+    expect: ex<RpcExpectation>('guarded', { anon: 'denied', marketing: 'execute' }),
     note: 'marketing at the venue only; every principal here, the manager and the owner included, is refused',
     drop: 18,
   },
@@ -3815,7 +3965,7 @@ export const matrix: MatrixRule[] = [
   },
   {
     kind: 'rpc', schema: 'app', name: 'content_page',
-    args: { p_venue_id: VENUE_A, p_filter: 'matrix-never' }, expect: OWNER_ONLY,
+    args: { p_venue_id: VENUE_A, p_filter: 'matrix-never' }, expect: { ...OWNER_ONLY, marketing: 'execute' },
     note: 'marketing (not in this matrix) and the owners at the venue, never a manager (§8 Q14); an unknown filter fails INVALID_ARGUMENT past the guard',
     drop: 18,
   },
@@ -3843,26 +3993,26 @@ export const matrix: MatrixRule[] = [
   },
   {
     kind: 'rpc', schema: 'app', name: 'open_till_shift',
-    args: { p_opening_float_iqd: 0, p_device_id: 'MATRIX-NEVER' }, expect: CASHIER_DESK_UP,
+    args: { p_opening_float_iqd: 0, p_device_id: 'MATRIX-NEVER' }, expect: { ...CASHIER_DESK_UP, shop_staff: 'execute' },
     note: 'the till, the desk and MGMT; an unregistered station stops at STATION_UNKNOWN, so nothing is written',
     drop: 18,
   },
   {
     kind: 'rpc', schema: 'app', name: 'close_till_shift',
     args: { p_till_shift_id: NIL_UUID, p_counted_iqd: -1, p_pin: '000000', p_device_id: 'MATRIX-NEVER' },
-    expect: CASHIER_DESK_UP,
+    expect: { ...CASHIER_DESK_UP, shop_staff: 'execute' },
     note: 'the till, the desk and MGMT; a negative count stops at INVALID_COUNT before the PIN is read, so no attempt is counted',
     drop: 18,
   },
   {
     kind: 'rpc', schema: 'app', name: 'close_till_shift_for',
-    args: { p_till_shift_id: NIL_UUID, p_counted_iqd: -1, p_device_id: 'MATRIX-NEVER' }, expect: CASHIER_DESK_UP,
+    args: { p_till_shift_id: NIL_UUID, p_counted_iqd: -1, p_device_id: 'MATRIX-NEVER' }, expect: { ...CASHIER_DESK_UP, shop_staff: 'execute' },
     note: 'the till, the desk and MGMT, with a manager-PIN grant; a negative count stops at INVALID_COUNT',
     drop: 18,
   },
   {
     kind: 'rpc', schema: 'app', name: 'till_shift_status',
-    args: { p_device_id: 'matrix never' }, expect: CASHIER_DESK_UP,
+    args: { p_device_id: 'matrix never' }, expect: { ...CASHIER_DESK_UP, shop_staff: 'execute' },
     note: 'the till, the desk and MGMT; a malformed station id fails INVALID_STATION past the guard',
     drop: 18,
   },
@@ -3884,19 +4034,19 @@ export const matrix: MatrixRule[] = [
   // stock_counts_by_location: start_count now takes p_location, so it has a row at last.
   {
     kind: 'rpc', schema: 'app', name: 'start_count',
-    args: { p_location: 'matrix-never', p_venue_id: VENUE_A }, expect: MANAGER_UP,
+    args: { p_location: 'matrix-never', p_venue_id: VENUE_A }, expect: { ...MANAGER_UP, shop_staff: 'execute', branch_b_manager: 'guarded' },
     note: 'MGMT at the venue; an unknown store fails INVALID_ARGUMENT (hint location) before any count is opened',
     drop: 18,
   },
   {
     kind: 'rpc', schema: 'app', name: 'submit_stock_count',
-    args: { p_location: 'matrix-never', p_lines: [], p_venue_id: VENUE_A }, expect: MANAGER_UP,
+    args: { p_location: 'matrix-never', p_lines: [], p_venue_id: VENUE_A }, expect: { ...MANAGER_UP, head_chef: 'execute', chef: 'execute', shop_staff: 'execute', branch_b_manager: 'guarded' },
     note: 'the head chef and the chef (not in this matrix) and MGMT at the venue; an unknown store fails INVALID_ARGUMENT (hint location) past the guard',
     drop: 18,
   },
   {
     kind: 'rpc', schema: 'app', name: 'discard_count',
-    args: { p_count_id: NIL_UUID }, expect: MANAGER_UP,
+    args: { p_count_id: NIL_UUID }, expect: { ...MANAGER_UP, shop_staff: 'execute' },
     note: 'MGMT at the count\'s venue; an unknown count is COUNT_NOT_FOUND',
     drop: 18,
   },
@@ -3921,14 +4071,14 @@ export const matrix: MatrixRule[] = [
   },
   {
     kind: 'rpc', schema: 'app', name: 'transfer_stock',
-    args: { p_from: 'matrix-never', p_to: 'cafe', p_lines: [], p_venue_id: VENUE_A }, expect: MANAGER_UP,
+    args: { p_from: 'matrix-never', p_to: 'cafe', p_lines: [], p_venue_id: VENUE_A }, expect: { ...MANAGER_UP, waiter: 'execute', branch_b_manager: 'guarded' },
     note: 'the waiter (not in this matrix) and MGMT at the venue; an unknown store fails INVALID_ARGUMENT (hint location) past the guard',
     drop: 18,
   },
   // stock_logs.
   {
     kind: 'rpc', schema: 'app', name: 'log_stock',
-    args: { p_location: 'matrix-never', p_lines: [], p_venue_id: VENUE_A }, expect: CASHIER_UP,
+    args: { p_location: 'matrix-never', p_lines: [], p_venue_id: VENUE_A }, expect: { ...CASHIER_UP, head_barista: 'execute', head_chef: 'execute', shop_staff: 'execute', branch_b_manager: 'guarded' },
     note: 'the heads and the shop assistant (not in this matrix), the cashier and MGMT at the venue (the desk until 0245); an unknown store fails INVALID_ARGUMENT (hint location) past the guard',
     drop: 18,
   },
@@ -3941,13 +4091,13 @@ export const matrix: MatrixRule[] = [
   // stock_store_reads.
   {
     kind: 'rpc', schema: 'app', name: 'stock_pick_list',
-    args: { p_purpose: 'matrix-never', p_venue_id: VENUE_A }, expect: CASHIER_UP,
+    args: { p_purpose: 'matrix-never', p_venue_id: VENUE_A }, expect: { ...CASHIER_UP, waiter: 'execute', head_barista: 'execute', head_chef: 'execute', chef: 'execute', shop_staff: 'execute' },
     note: 'LOG, MOVE or COUNT at the venue (of these principals the cashier and MGMT; the desk until 0245); an unknown purpose fails INVALID_ARGUMENT (hint purpose) past the guard',
     drop: 18,
   },
   {
     kind: 'rpc', schema: 'app', name: 'stock_today',
-    args: { p_venue_id: VENUE_A }, expect: CASHIER_UP,
+    args: { p_venue_id: VENUE_A }, expect: { ...CASHIER_UP, waiter: 'execute', head_barista: 'execute', head_chef: 'execute', chef: 'execute', shop_staff: 'execute', branch_b_manager: 'guarded' },
     note: 'LOG, MOVE or COUNT at the venue: a read, each section only for its roles, no cost (the desk until 0245)',
     drop: 18,
   },
@@ -3967,19 +4117,21 @@ export const matrix: MatrixRule[] = [
       cashier: 'rows',
       manager: 'rows',
       owner: 'rows',
+      // F-67 (real guard / policy outcome):
+      waiter: 'rows',
     }),
     note: 'the cashier, the waiter (not in this matrix) and MGMT at the call\'s venue; a guest reads own-session calls only (the probe call is not theirs)',
     drop: 18,
   },
   {
     kind: 'rpc', schema: 'app', name: 'ack_waiter_call',
-    args: { p_call_id: NIL_UUID }, expect: CASHIER_UP,
+    args: { p_call_id: NIL_UUID }, expect: { ...CASHIER_UP, waiter: 'execute' },
     note: 'the cashier, the waiter (not in this matrix) and MGMT; an unknown call, or one at another venue, is CALL_NOT_FOUND past the guard',
     drop: 18,
   },
   {
     kind: 'rpc', schema: 'app', name: 'resolve_waiter_call',
-    args: { p_call_id: NIL_UUID }, expect: CASHIER_UP,
+    args: { p_call_id: NIL_UUID }, expect: { ...CASHIER_UP, waiter: 'execute' },
     note: 'the cashier, the waiter (not in this matrix) and MGMT; an unknown call, or one at another venue, is CALL_NOT_FOUND past the guard',
     drop: 18,
   },
@@ -3998,6 +4150,8 @@ export const matrix: MatrixRule[] = [
       court_desk: 'rows',
       manager: 'rows',
       owner: 'rows',
+      // F-67 (real guard / policy outcome):
+      waiter: 'rows', head_barista: 'rows', barista: 'rows', assistant_barista: 'rows', head_chef: 'rows', chef: 'rows', shop_staff: 'rows', marketing: 'rows', dev: 'rows', branch_b_manager: 'rows',
     }),
     note: 'the chain row is staff-only; guests reach nothing here',
     drop: 19,
@@ -4031,7 +4185,7 @@ export const matrix: MatrixRule[] = [
   // unknown one at STATION_UNKNOWN; nothing written.
   {
     kind: 'rpc', schema: 'app', name: 'register_station',
-    args: { p_id: '', p_venue_id: 'c0000000-0000-4000-8000-000000000001', p_mode: 'till' }, expect: MANAGER_UP,
+    args: { p_id: '', p_venue_id: 'c0000000-0000-4000-8000-000000000001', p_mode: 'till' }, expect: { ...MANAGER_UP, branch_b_manager: 'guarded' },
     note: 'manager or owner at the branch; an empty name is INVALID_STATION past the guard',
     drop: 19,
   },
@@ -4050,7 +4204,7 @@ export const matrix: MatrixRule[] = [
   },
   {
     kind: 'rpc', schema: 'app', name: 'branch_readiness',
-    args: { p_venue: 'c0000000-0000-4000-8000-000000000001' }, expect: MANAGER_UP,
+    args: { p_venue: 'c0000000-0000-4000-8000-000000000001' }, expect: { ...MANAGER_UP, branch_b_manager: 'guarded' },
     note: 'manager or owner at the branch; read-only',
     drop: 19,
   },
@@ -4130,13 +4284,13 @@ export const matrix: MatrixRule[] = [
   },
   {
     kind: 'rpc', schema: 'app', name: 'create_receipt',
-    args: { p_venue_id: VENUE_A, p_storage_path: null }, expect: MANAGER_UP,
+    args: { p_venue_id: VENUE_A, p_storage_path: null }, expect: { ...MANAGER_UP, branch_b_manager: 'guarded' },
     note: 'the driver and MGMT; no photo stops at PHOTO_PATH_INVALID',
     drop: 20,
   },
   {
     kind: 'rpc', schema: 'app', name: 'receipts_to_review',
-    args: { p_venue_id: VENUE_A }, expect: MANAGER_UP,
+    args: { p_venue_id: VENUE_A }, expect: { ...MANAGER_UP, branch_b_manager: 'guarded' },
     note: 'MGMT at the branch: Goods in\'s "Scanned receipts"',
     drop: 20,
   },
@@ -4198,13 +4352,13 @@ export const matrix: MatrixRule[] = [
   },
   {
     kind: 'rpc', schema: 'app', name: 'create_order_slip',
-    args: { p_venue_id: VENUE_A, p_storage_path: null }, expect: CASHIER_UP,
+    args: { p_venue_id: VENUE_A, p_storage_path: null }, expect: { ...CASHIER_UP, waiter: 'execute', branch_b_manager: 'guarded' },
     note: 'the waiter, the cashier and MGMT; no photo stops at PHOTO_PATH_INVALID',
     drop: 20,
   },
   {
     kind: 'rpc', schema: 'app', name: 'slips_to_send',
-    args: { p_venue_id: VENUE_A }, expect: CASHIER_UP,
+    args: { p_venue_id: VENUE_A }, expect: { ...CASHIER_UP, branch_b_manager: 'guarded' },
     note: 'the cashier and MGMT at the branch: the till\'s "Scanned orders"',
     drop: 20,
   },
@@ -4228,13 +4382,13 @@ export const matrix: MatrixRule[] = [
   },
   {
     kind: 'rpc', schema: 'app', name: 'my_order_slips',
-    args: { p_venue_id: VENUE_A }, expect: STAFF_ANY,
+    args: { p_venue_id: VENUE_A }, expect: { ...STAFF_ANY, branch_b_manager: 'guarded' },
     note: 'any active staff member: their own slips of the last 24 hours',
     drop: 20,
   },
   {
     kind: 'rpc', schema: 'app', name: 'my_receipts',
-    args: { p_venue_id: VENUE_A }, expect: STAFF_ANY,
+    args: { p_venue_id: VENUE_A }, expect: { ...STAFF_ANY, branch_b_manager: 'guarded' },
     note: 'any active staff member: their own supplier receipts of the last 30 days',
     drop: 20,
   },
@@ -4259,7 +4413,7 @@ export const matrix: MatrixRule[] = [
   },
   {
     kind: 'rpc', schema: 'app', name: 'deposit_settings',
-    args: { p_venue_id: VENUE_A }, expect: MANAGER_UP,
+    args: { p_venue_id: VENUE_A }, expect: { ...MANAGER_UP, branch_b_manager: 'guarded' },
     note: 'manager and owner read the branch\'s deposit rules',
     drop: 21,
   },
@@ -4271,7 +4425,7 @@ export const matrix: MatrixRule[] = [
   },
   {
     kind: 'rpc', schema: 'app', name: 'deposit_attention',
-    args: { p_venue_id: VENUE_A }, expect: MANAGER_UP,
+    args: { p_venue_id: VENUE_A }, expect: { ...MANAGER_UP, branch_b_manager: 'guarded' },
     note: 'online refunds a person must look at',
     drop: 21,
   },
@@ -4293,13 +4447,13 @@ export const matrix: MatrixRule[] = [
   },
   {
     kind: 'rpc', schema: 'app', name: 'upsert_shop_category',
-    args: { p_name_en: '', p_name_ar: '', p_tax_group_id: NIL_UUID }, expect: MANAGER_UP,
+    args: { p_name_en: '', p_name_ar: '', p_tax_group_id: NIL_UUID }, expect: { ...MANAGER_UP, shop_staff: 'execute' },
     note: '0246: the shop assistant, manager or owner make or edit a shop section (shop_staff is not a matrix principal); a blank name fails INVALID_ARGUMENT past the guard',
     drop: 22,
   },
   {
     kind: 'rpc', schema: 'app', name: 'day_close_shop',
-    args: { p_day_session_id: NIL_UUID }, expect: MANAGER_UP,
+    args: { p_day_session_id: NIL_UUID }, expect: { ...MANAGER_UP, shop_staff: 'execute' },
     note: '0246: the day close Shop block for the shop assistant and MGMT; an unknown day fails DAY_NOT_FOUND past the guard',
     drop: 22,
   },
@@ -4313,19 +4467,19 @@ export const matrix: MatrixRule[] = [
   },
   {
     kind: 'rpc', schema: 'app', name: 'floor_tables',
-    args: { p_venue_id: VENUE_A }, expect: CASHIER_UP,
+    args: { p_venue_id: VENUE_A }, expect: { ...CASHIER_UP, waiter: 'execute', branch_b_manager: 'guarded' },
     note: '0251: the waiter, the cashier and MGMT read the tables and their open tabs, no money (the waiter is not a matrix principal)',
     drop: 23,
   },
   {
     kind: 'rpc', schema: 'app', name: 'floor_menu',
-    args: { p_venue_id: VENUE_A }, expect: CASHIER_UP,
+    args: { p_venue_id: VENUE_A }, expect: { ...CASHIER_UP, waiter: 'execute', branch_b_manager: 'guarded' },
     note: '0251: the waiter, the cashier and MGMT read the café menu the phone orders from',
     drop: 23,
   },
   {
     kind: 'rpc', schema: 'app', name: 'place_floor_order',
-    args: { p_table_id: NIL_UUID }, expect: CASHIER_UP,
+    args: { p_table_id: NIL_UUID }, expect: { ...CASHIER_UP, waiter: 'execute' },
     note: '0251: the waiter, the cashier and MGMT open a tab or add to one from the phone; an unknown table fails TABLE_NOT_FOUND past the guard, so nothing is written',
     drop: 23,
   },
@@ -4344,7 +4498,7 @@ export const matrix: MatrixRule[] = [
   // 0257: the open-match rules. The role is checked before the branch (R33).
   {
     kind: 'rpc', schema: 'app', name: 'match_settings',
-    args: { p_venue_id: VENUE_A }, expect: MANAGER_UP,
+    args: { p_venue_id: VENUE_A }, expect: { ...MANAGER_UP, branch_b_manager: 'guarded' },
     note: '0257: manager and owner read the branch\'s and the chain\'s open-match rules',
     drop: 24,
   },
@@ -4371,6 +4525,8 @@ export const matrix: MatrixRule[] = [
     args: { p_customer_id: NIL_UUID },
     expect: ex<RpcExpectation>('guarded', {
       anon: 'denied', court_desk: 'execute', manager: 'execute', owner: 'execute',
+      // F-67 (real guard / policy outcome):
+      branch_b_manager: 'execute',
     }),
     note: '0259: chain data, like customer_flags; money.md owns the shape',
     drop: 24,
@@ -4694,6 +4850,8 @@ export const matrix: MatrixRule[] = [
     args: { p_from: TS_FROM, p_to: TS_TO },
     expect: ex<RpcExpectation>('guarded', {
       anon: 'denied', court_desk: 'execute', manager: 'execute', owner: 'execute',
+      // F-67 (real guard / policy outcome):
+      branch_b_manager: 'execute',
     }),
     note: "0262: the desk's open matches; a window over 3 days is INVALID_ARGUMENT past the guard",
     drop: 24,
@@ -4703,6 +4861,8 @@ export const matrix: MatrixRule[] = [
     args: { p_reservation_ids: [NIL_UUID] },
     expect: ex<RpcExpectation>('guarded', {
       anon: 'denied', court_desk: 'execute', manager: 'execute', owner: 'execute',
+      // F-67 (real guard / policy outcome):
+      branch_b_manager: 'execute',
     }),
     note: '0262: match facts by booking; an unknown booking answers {}',
     drop: 24,
@@ -4712,6 +4872,8 @@ export const matrix: MatrixRule[] = [
     args: { p_match_id: NIL_UUID },
     expect: ex<RpcExpectation>('guarded', {
       anon: 'denied', court_desk: 'execute', manager: 'execute', owner: 'execute',
+      // F-67 (real guard / policy outcome):
+      branch_b_manager: 'execute',
     }),
     note: '0262: one match with names and phones; MATCH_NOT_FOUND past the guard',
     drop: 24,
@@ -4722,6 +4884,8 @@ export const matrix: MatrixRule[] = [
             p_venue_id: VENUE_A },
     expect: ex<RpcExpectation>('guarded', {
       anon: 'denied', court_desk: 'execute', manager: 'execute', owner: 'execute',
+      // F-67 (real guard / policy outcome):
+      branch_b_manager: 'execute',
     }),
     note: '0262: no key is INVALID_ARGUMENT p_idempotency_key, so nothing is written',
     drop: 24,
@@ -4731,6 +4895,8 @@ export const matrix: MatrixRule[] = [
     args: { p_match_id: NIL_UUID },
     expect: ex<RpcExpectation>('guarded', {
       anon: 'denied', court_desk: 'execute', manager: 'execute', owner: 'execute',
+      // F-67 (real guard / policy outcome):
+      branch_b_manager: 'execute',
     }),
     note: '0262: MATCH_NOT_FOUND past the guard',
     drop: 24,
@@ -4740,6 +4906,8 @@ export const matrix: MatrixRule[] = [
     args: { p_request_id: NIL_UUID, p_approve: false },
     expect: ex<RpcExpectation>('guarded', {
       anon: 'denied', court_desk: 'execute', manager: 'execute', owner: 'execute',
+      // F-67 (real guard / policy outcome):
+      branch_b_manager: 'execute',
     }),
     note: '0372: REQUEST_NOT_FOUND past the guard',
     drop: 24,
@@ -4749,6 +4917,8 @@ export const matrix: MatrixRule[] = [
     args: { p_seat_id: NIL_UUID, p_reason: 'other' },
     expect: ex<RpcExpectation>('guarded', {
       anon: 'denied', court_desk: 'execute', manager: 'execute', owner: 'execute',
+      // F-67 (real guard / policy outcome):
+      branch_b_manager: 'execute',
     }),
     note: '0262: SEAT_NOT_FOUND past the guard',
     drop: 24,
@@ -4758,6 +4928,8 @@ export const matrix: MatrixRule[] = [
     args: { p_match_id: NIL_UUID, p_reason: 'other' },
     expect: ex<RpcExpectation>('guarded', {
       anon: 'denied', court_desk: 'execute', manager: 'execute', owner: 'execute',
+      // F-67 (real guard / policy outcome):
+      branch_b_manager: 'execute',
     }),
     note: '0262: MATCH_NOT_FOUND past the guard',
     drop: 24,
@@ -4767,6 +4939,8 @@ export const matrix: MatrixRule[] = [
     args: { p_seat_ids: [NIL_UUID], p_attendance: 'attended' },
     expect: ex<RpcExpectation>('guarded', {
       anon: 'denied', court_desk: 'execute', manager: 'execute', owner: 'execute',
+      // F-67 (real guard / policy outcome):
+      branch_b_manager: 'execute',
     }),
     note: '0262: SEAT_NOT_FOUND past the guard',
     drop: 24,
@@ -4776,6 +4950,8 @@ export const matrix: MatrixRule[] = [
     args: { p_match_id: NIL_UUID },
     expect: ex<RpcExpectation>('guarded', {
       anon: 'denied', court_desk: 'execute', manager: 'execute', owner: 'execute',
+      // F-67 (real guard / policy outcome):
+      branch_b_manager: 'execute',
     }),
     note: '0262: MATCH_NOT_FOUND past the guard',
     drop: 24,
@@ -4785,6 +4961,8 @@ export const matrix: MatrixRule[] = [
     args: { p_customer_id: NIL_UUID, p_gender: 'x' },
     expect: ex<RpcExpectation>('guarded', {
       anon: 'denied', court_desk: 'execute', manager: 'execute', owner: 'execute',
+      // F-67 (real guard / policy outcome):
+      branch_b_manager: 'execute',
     }),
     note: '0262: INVALID_ARGUMENT past the guard',
     drop: 24,
@@ -4797,7 +4975,7 @@ export const matrix: MatrixRule[] = [
   },
   {
     kind: 'rpc', schema: 'app', name: 'match_reports_open',
-    args: { p_venue_id: VENUE_A }, expect: MANAGER_UP,
+    args: { p_venue_id: VENUE_A }, expect: { ...MANAGER_UP, branch_b_manager: 'guarded' },
     note: '0262: the role, then the branch (R33)',
     drop: 24,
   },
@@ -4814,6 +4992,8 @@ export const matrix: MatrixRule[] = [
             p_idempotency_key: 'matrix-match-seat-settle' },
     expect: ex<RpcExpectation>('guarded', {
       anon: 'denied', cashier: 'execute', court_desk: 'execute', manager: 'execute', owner: 'execute',
+      // F-67 (real guard / policy outcome):
+      branch_b_manager: 'execute',
     }),
     note: '0262: the till and the court desk (not shop_staff); a nil seat is SEAT_NOT_FOUND before the key is claimed',
     drop: 24,
@@ -4823,6 +5003,8 @@ export const matrix: MatrixRule[] = [
     args: { p_payment_id: NIL_UUID, p_allocations: [], p_idempotency_key: 'matrix-match-link-payment' },
     expect: ex<RpcExpectation>('guarded', {
       anon: 'denied', cashier: 'execute', court_desk: 'execute', manager: 'execute', owner: 'execute',
+      // F-67 (real guard / policy outcome):
+      branch_b_manager: 'execute',
     }),
     note: '0262: the till and the court desk (not shop_staff); a nil payment is PAYMENT_NOT_FOUND before the key is claimed',
     drop: 24,
@@ -4832,6 +5014,8 @@ export const matrix: MatrixRule[] = [
     args: { p_seat_id: NIL_UUID, p_reason: 'other', p_pin: MANAGER_PIN },
     expect: ex<RpcExpectation>('guarded', {
       anon: 'denied', court_desk: 'execute', manager: 'execute', owner: 'execute',
+      // F-67 (real guard / policy outcome):
+      branch_b_manager: 'execute',
     }),
     note: '0262 (R1): the helper proves the PIN first (0115), then the role guard; a nil seat is SEAT_NOT_FOUND before any grant is spent',
     drop: 24,
@@ -4867,7 +5051,7 @@ export const matrix: MatrixRule[] = [
   },
   {
     kind: 'rpc', schema: 'app', name: 'hold_reviews',
-    args: { p_venue_id: VENUE_A }, expect: MANAGER_UP,
+    args: { p_venue_id: VENUE_A }, expect: { ...MANAGER_UP, branch_b_manager: 'guarded' },
     note: '0252: the day close list of guests the hold ladder suspended at the branch',
     drop: 23,
   },
@@ -4948,14 +5132,14 @@ export const matrix: MatrixRule[] = [
   },
   {
     kind: 'rpc', schema: 'app', name: 'attendance_month',
-    args: { p_venue_id: VENUE_A, p_month: DAY_FROM }, expect: MANAGER_UP,
+    args: { p_venue_id: VENUE_A, p_month: DAY_FROM }, expect: { ...MANAGER_UP, branch_b_manager: 'guarded' },
     note: '0271: MGMT at the branch: one month of recorded days, never a day about the caller',
     drop: 25,
   },
   {
     kind: 'rpc', schema: 'app', name: 'record_attendance',
     args: { p_staff_id: NIL_UUID, p_date: DAY_FROM, p_late_minutes: 5, p_early_leave_minutes: 0, p_venue_id: VENUE_A },
-    expect: MANAGER_UP,
+    expect: { ...MANAGER_UP, branch_b_manager: 'guarded' },
     note: '0271: MGMT at the branch; a date outside the 60-day window stops at INVALID_ARGUMENT:date before the target check',
     drop: 25,
   },
@@ -4972,7 +5156,7 @@ export const matrix: MatrixRule[] = [
   // nothing changes.
   {
     kind: 'rpc', schema: 'app', name: 'coaching_settings',
-    args: { p_venue_id: VENUE_A }, expect: MANAGER_UP,
+    args: { p_venue_id: VENUE_A }, expect: { ...MANAGER_UP, branch_b_manager: 'guarded' },
     note: 'coaching_settings: manager and owner read the branch\'s coaching rules and whether online lesson payment is available',
     drop: 25,
   },
@@ -5268,7 +5452,7 @@ export const matrix: MatrixRule[] = [
   {
     kind: 'rpc', schema: 'app', name: 'coaches_admin',
     args: { p_venue_id: VENUE_A },
-    expect: MANAGER_UP,
+    expect: { ...MANAGER_UP, branch_b_manager: 'guarded' },
     note: 'coaching_admin: the coaches and lesson types of a branch (X19)',
     drop: 25,
   },
@@ -5297,14 +5481,14 @@ export const matrix: MatrixRule[] = [
   {
     kind: 'rpc', schema: 'app', name: 'set_coach_lesson_types',
     args: { p_coach_id: NIL_UUID, p_venue_id: VENUE_A, p_lesson_type_ids: [] },
-    expect: MANAGER_UP,
+    expect: { ...MANAGER_UP, branch_b_manager: 'guarded' },
     note: 'coaching_admin: a nil coach is COACH_NOT_FOUND past the guard',
     drop: 25,
   },
   {
     kind: 'rpc', schema: 'app', name: 'upsert_lesson_type',
     args: { p_venue_id: VENUE_A, p_id: NIL_UUID, p_patch: {} },
-    expect: MANAGER_UP,
+    expect: { ...MANAGER_UP, branch_b_manager: 'guarded' },
     note: 'coaching_admin: a nil type is LESSON_TYPE_NOT_FOUND past the guard; nothing is written',
     drop: 25,
   },
@@ -5318,7 +5502,7 @@ export const matrix: MatrixRule[] = [
   {
     kind: 'rpc', schema: 'app', name: 'set_coach_hours',
     args: { p_coach_id: NIL_UUID, p_venue_id: VENUE_A, p_windows: [] },
-    expect: MANAGER_UP,
+    expect: { ...MANAGER_UP, branch_b_manager: 'guarded' },
     note: 'coaching_admin: a nil coach is COACH_NOT_FOUND past the guard',
     drop: 25,
   },
@@ -6219,14 +6403,14 @@ export const matrix: MatrixRule[] = [
   {
     kind: 'rpc', schema: 'app', name: 'loyalty_identify',
     args: { p_code: 'TP-00000000-000000', p_venue_id: null },
-    expect: CASHIER_DESK_UP,
+    expect: { ...CASHIER_DESK_UP, shop_staff: 'execute' },
     note: 'loyalty (0305; 0308): an unknown member code is answered {error: MEMBER_CODE_INVALID} past the guard (the miss is counted); the audit row is written only on a match',
     drop: 29,
   },
   {
     kind: 'rpc', schema: 'app', name: 'set_tab_customer',
     args: { p_tab_id: NIL_UUID, p_customer_id: null },
-    expect: CASHIER_DESK_UP,
+    expect: { ...CASHIER_DESK_UP, shop_staff: 'execute' },
     note: 'loyalty (0305): a nil tab is TAB_NOT_FOUND past the guard',
     drop: 29,
   },
@@ -6239,28 +6423,28 @@ export const matrix: MatrixRule[] = [
       p_idempotency_key: 'matrix-loyalty-redeem',
       p_member_token: null,
     },
-    expect: CASHIER_DESK_UP,
+    expect: { ...CASHIER_DESK_UP, shop_staff: 'execute' },
     note: 'loyalty (0305; 0308 p_member_token): neither points nor a reward is INVALID_ARGUMENT before the key is claimed and before any token or PIN grant is spent',
     drop: 29,
   },
   {
     kind: 'rpc', schema: 'app', name: 'loyalty_unredeem',
     args: { p_adjustment_id: NIL_UUID },
-    expect: CASHIER_DESK_UP,
+    expect: { ...CASHIER_DESK_UP, shop_staff: 'execute' },
     note: 'loyalty (0305): a nil adjustment is INVALID_ARGUMENT (not a loyalty redemption) past the guard',
     drop: 29,
   },
   {
     kind: 'rpc', schema: 'app', name: 'loyalty_till_terms',
     args: { p_venue_id: VENUE_A },
-    expect: CASHIER_DESK_UP,
+    expect: { ...CASHIER_DESK_UP, shop_staff: 'execute' },
     note: 'loyalty (integration): the till\'s terms and active rewards; read-only',
     drop: 29,
   },
   {
     kind: 'rpc', schema: 'app', name: 'loyalty_customer',
     args: { p_profile_id: NIL_UUID },
-    expect: CASHIER_DESK_UP,
+    expect: { ...CASHIER_DESK_UP, shop_staff: 'execute' },
     note: 'loyalty (0305; 0308 c43): the desk roles, as every other loyalty desk read; a nil profile is MEMBER_NOT_FOUND past the guard',
     drop: 29,
   },
@@ -6431,14 +6615,14 @@ export const matrix: MatrixRule[] = [
   {
     kind: 'rpc', schema: 'app', name: 'set_shop_price_watch',
     args: { p_variant_id: NIL_UUID, p_url: 'https://supplier.example.com/p/1' },
-    expect: MANAGER_UP,
+    expect: { ...MANAGER_UP, shop_staff: 'execute' },
     note: '0322: shop assistant, manager, owner (shop_staff is not a matrix principal); a nil size is VARIANT_NOT_FOUND past the guard, nothing is written',
     drop: 30,
   },
   {
     kind: 'rpc', schema: 'app', name: 'record_shop_supplier_price',
     args: { p_variant_id: NIL_UUID, p_url: 'https://supplier.example.com/p/1', p_price_iqd: null, p_error: 'matrix-never' },
-    expect: MANAGER_UP,
+    expect: { ...MANAGER_UP, shop_staff: 'execute' },
     note: '0322: the shop desk PC reports a read; an error outside the closed list is INVALID_ARGUMENT past the guard, nothing is written',
     drop: 30,
   },
@@ -6476,7 +6660,7 @@ export const matrix: MatrixRule[] = [
   {
     kind: 'rpc', schema: 'app', name: 'checklist_staff_options',
     args: { p_venue_id: VENUE_A },
-    expect: MANAGER_UP,
+    expect: { ...MANAGER_UP, branch_b_manager: 'guarded' },
     note: '0323: MGMT at the branch: the people a list can be for (the editor\'s picker)',
     drop: 30,
   },
@@ -6569,7 +6753,7 @@ export const matrix: MatrixRule[] = [
   },
   {
     kind: 'rpc', schema: 'app', name: 'my_rewards',
-    args: { p_venue_id: VENUE_A }, expect: STAFF_ANY,
+    args: { p_venue_id: VENUE_A }, expect: { ...STAFF_ANY, branch_b_manager: 'guarded' },
     note: '0332: any active staff member at the branch: their own order count and rewards this business month, never anyone else\'s',
     drop: 31,
   },
@@ -6741,6 +6925,8 @@ export const matrix: MatrixRule[] = [
     args: { p_customer_id: NIL_UUID },
     expect: ex<RpcExpectation>('guarded', {
       anon: 'denied', cashier: 'execute', court_desk: 'execute', manager: 'execute', owner: 'execute',
+      // F-67 (real guard / policy outcome):
+      shop_staff: 'execute', branch_b_manager: 'execute',
     }),
     note: '0342: court_desk|cashier|shop_staff|manager|owner; nil customer fails CUSTOMER_NOT_FOUND past the guard',
     drop: 34,
@@ -6750,6 +6936,8 @@ export const matrix: MatrixRule[] = [
     args: { p_customer_id: NIL_UUID, p_cafe_kind: 'percent', p_cafe_value: 10000, p_reason: 'other' },
     expect: ex<RpcExpectation>('guarded', {
       anon: 'denied', cashier: 'execute', court_desk: 'execute', manager: 'execute', owner: 'execute',
+      // F-67 (real guard / policy outcome):
+      shop_staff: 'execute', branch_b_manager: 'execute',
     }),
     note: '0342: any till or desk staff, no PIN; nil customer fails CUSTOMER_NOT_FOUND past the guard, nothing written',
     drop: 34,
@@ -6759,6 +6947,8 @@ export const matrix: MatrixRule[] = [
     args: { p_tab_id: NIL_UUID },
     expect: ex<RpcExpectation>('guarded', {
       anon: 'denied', cashier: 'execute', court_desk: 'execute', manager: 'execute', owner: 'execute',
+      // F-67 (real guard / policy outcome):
+      shop_staff: 'execute', branch_b_manager: 'execute',
     }),
     note: '0342: any till or desk staff, no PIN; nil tab fails TAB_NOT_FOUND past the guard',
     drop: 34,
@@ -6768,6 +6958,8 @@ export const matrix: MatrixRule[] = [
     args: { p_reservation_id: NIL_UUID },
     expect: ex<RpcExpectation>('guarded', {
       anon: 'denied', cashier: 'execute', court_desk: 'execute', manager: 'execute', owner: 'execute',
+      // F-67 (real guard / policy outcome):
+      branch_b_manager: 'execute',
     }),
     note: '0342: court_desk|cashier|manager|owner, no PIN; nil booking fails RESERVATION_NOT_FOUND past the guard',
     drop: 34,
@@ -6777,6 +6969,8 @@ export const matrix: MatrixRule[] = [
     args: { p_tab_id: NIL_UUID },
     expect: ex<RpcExpectation>('guarded', {
       anon: 'denied', cashier: 'execute', court_desk: 'execute', manager: 'execute', owner: 'execute',
+      // F-67 (real guard / policy outcome):
+      shop_staff: 'execute', branch_b_manager: 'execute',
     }),
     note: '0342: court_desk|cashier|shop_staff|manager|owner; nil tab fails TAB_NOT_FOUND past the guard',
     drop: 34,
@@ -6813,26 +7007,26 @@ export const matrix: MatrixRule[] = [
   },
   {
     kind: 'rpc', schema: 'app', name: 'main_cash_overview',
-    args: { p_venue_id: VENUE_A }, expect: MANAGER_UP,
+    args: { p_venue_id: VENUE_A }, expect: { ...MANAGER_UP, branch_b_manager: 'guarded' },
     note: '0343: MGMT at the branch: the balance, the month\'s rows and costs; a wage row\'s person hidden from a manager',
     drop: 35,
   },
   {
     kind: 'rpc', schema: 'app', name: 'main_cash_pay',
     args: { p_amount_iqd: 0, p_category: 'other', p_payee: 'matrix', p_paid_from: 'safe', p_venue_id: VENUE_A },
-    expect: MANAGER_UP,
+    expect: { ...MANAGER_UP, branch_b_manager: 'guarded' },
     note: '0343: MGMT at the branch; an amount of 0 is INVALID_ARGUMENT:amount past the guard, nothing written',
     drop: 35,
   },
   {
     kind: 'rpc', schema: 'app', name: 'main_cash_move',
-    args: { p_kind: 'matrix', p_amount_iqd: 1, p_venue_id: VENUE_A }, expect: MANAGER_UP,
+    args: { p_kind: 'matrix', p_amount_iqd: 1, p_venue_id: VENUE_A }, expect: { ...MANAGER_UP, branch_b_manager: 'guarded' },
     note: '0343: MGMT at the branch; an unknown kind is INVALID_ARGUMENT:kind past the guard, nothing written',
     drop: 35,
   },
   {
     kind: 'rpc', schema: 'app', name: 'main_cash_count',
-    args: { p_counted_iqd: -1, p_expected_iqd: 0, p_venue_id: VENUE_A }, expect: MANAGER_UP,
+    args: { p_counted_iqd: -1, p_expected_iqd: 0, p_venue_id: VENUE_A }, expect: { ...MANAGER_UP, branch_b_manager: 'guarded' },
     note: '0343: MGMT at the branch; a count below 0 is INVALID_ARGUMENT:counted past the guard, nothing written',
     drop: 35,
   },
@@ -6918,7 +7112,7 @@ export const matrix: MatrixRule[] = [
   },
   {
     kind: 'rpc', schema: 'app', name: 'venue_files_list',
-    args: { p_venue_id: VENUE_A }, expect: MANAGER_UP,
+    args: { p_venue_id: VENUE_A }, expect: { ...MANAGER_UP, branch_b_manager: 'guarded' },
     note: '0354: manager or owner at the branch; read only',
     drop: 37,
   },
@@ -6928,7 +7122,7 @@ export const matrix: MatrixRule[] = [
       p_name: 'matrix.pdf', p_mime: 'application/pdf', p_size_bytes: 1, p_stored_bytes: 1,
       p_encoding: 'matrix', p_venue_id: VENUE_A,
     },
-    expect: MANAGER_UP,
+    expect: { ...MANAGER_UP, branch_b_manager: 'guarded' },
     note: '0354: manager or owner at the branch; an unknown encoding is INVALID_ARGUMENT past the guard, nothing recorded',
     drop: 37,
   },
@@ -6992,7 +7186,7 @@ export const matrix: MatrixRule[] = [
   // silence). Only the settle trigger and app.shop_reward_sweep write them.
   {
     kind: 'rpc', schema: 'app', name: 'shop_reward_info',
-    args: {}, expect: MANAGER_UP,
+    args: {}, expect: { ...MANAGER_UP, shop_staff: 'execute' },
     note: '0355: shop assistant, manager, owner at the branch (shop_staff is not a matrix principal): the percent, each shop size\'s price, cost and reward, and the caller\'s own month',
     drop: 38,
   },
@@ -7038,7 +7232,7 @@ export const matrix: MatrixRule[] = [
   {
     kind: 'rpc', schema: 'app', name: 'marketing_insights',
     args: { p_from: DAY_FROM, p_to: DAY_TO, p_cmp_from: '2025-12-01', p_cmp_to: '2025-12-31' },
-    expect: OWNER_ONLY,
+    expect: { ...OWNER_ONLY, marketing: 'execute' },
     note: '0360: marketing and the owner (marketing is not among the eight principals; tests/marketing-insights.test.ts runs it)',
     drop: 38,
   },
@@ -7109,32 +7303,32 @@ export const matrix: MatrixRule[] = [
   },
   {
     kind: 'rpc', schema: 'app', name: 'marketing_plan',
-    args: { p_month: DAY_FROM, p_venue_id: VENUE_A }, expect: OWNER_ONLY,
+    args: { p_month: DAY_FROM, p_venue_id: VENUE_A }, expect: { ...OWNER_ONLY, marketing: 'execute' },
     note: '0362: marketing (not in this matrix) and the owners at the branch, never a manager',
     drop: 38,
   },
   {
     kind: 'rpc', schema: 'app', name: 'save_plan_idea',
     args: { p_id: null, p_days: [DAY_FROM], p_title: '', p_venue_id: VENUE_A },
-    expect: ex<RpcExpectation>('guarded', { anon: 'denied' }),
+    expect: ex<RpcExpectation>('guarded', { anon: 'denied', marketing: 'execute' }),
     note: '0362: marketing at the branch only; every principal here, the manager and the owner included, is refused',
     drop: 38,
   },
   {
     kind: 'rpc', schema: 'app', name: 'remove_plan_idea',
-    args: { p_id: NIL_UUID }, expect: ex<RpcExpectation>('guarded', { anon: 'denied' }),
+    args: { p_id: NIL_UUID }, expect: ex<RpcExpectation>('guarded', { anon: 'denied', marketing: 'execute' }),
     note: '0362: marketing only; every principal here is refused before the idea is looked up',
     drop: 38,
   },
   {
     kind: 'rpc', schema: 'app', name: 'send_marketing_plan',
-    args: { p_month: DAY_FROM, p_venue_id: VENUE_A }, expect: ex<RpcExpectation>('guarded', { anon: 'denied' }),
+    args: { p_month: DAY_FROM, p_venue_id: VENUE_A }, expect: ex<RpcExpectation>('guarded', { anon: 'denied', marketing: 'execute' }),
     note: '0362: marketing at the branch only',
     drop: 38,
   },
   {
     kind: 'rpc', schema: 'app', name: 'take_back_marketing_plan',
-    args: { p_month: DAY_FROM, p_venue_id: VENUE_A }, expect: ex<RpcExpectation>('guarded', { anon: 'denied' }),
+    args: { p_month: DAY_FROM, p_venue_id: VENUE_A }, expect: ex<RpcExpectation>('guarded', { anon: 'denied', marketing: 'execute' }),
     note: '0362: marketing at the branch only',
     drop: 38,
   },
@@ -7290,7 +7484,7 @@ export const matrix: MatrixRule[] = [
   {
     kind: 'rpc', schema: 'app', name: 'staff_set_customer_level',
     args: { p_customer_id: NIL_UUID, p_level: 'x', p_note: null }, expect: DESK_UP,
-    note: '0368: court desk, manager, owner — and a coach, which no matrix principal is; INVALID_PLAY_PROFILE past the guard',
+    note: '0368, 0401: court desk, manager, owner (no longer a coach: F-70); INVALID_PLAY_PROFILE past the guard',
     drop: 38,
   },
   {
@@ -7309,8 +7503,139 @@ export const matrix: MatrixRule[] = [
   // ── 0375 checklist_live_lines (checklist-live-lines.test.ts) ──
   {
     kind: 'rpc', schema: 'app', name: 'my_checklist_history',
-    args: { p_venue_id: VENUE_A }, expect: STAFF_ANY,
+    args: { p_venue_id: VENUE_A }, expect: { ...STAFF_ANY, branch_b_manager: 'guarded' },
     note: "0375: any active staff member at the venue: their own past lists (own copies, their role's shared lists, lists they ticked); read-only",
+    drop: 38,
+  },
+  // ── 0395 queued_rpc (queued-rpc.test.ts) ──
+  // An admin save queued offline, replayed exactly once. The dispatcher is
+  // security invoker: the guard a guest meets is the claim's; a staff caller
+  // with a malformed key is INVALID_ARGUMENT before anything runs.
+  {
+    kind: 'rpc', schema: 'app', name: 'queued_rpc',
+    args: { p_fn: 'set_venue_details', p_args: { p_patch: {} }, p_idempotency_key: 'matrix-never' },
+    expect: STAFF_ANY,
+    note: '0395: the claim is any active staff; a malformed key is INVALID_ARGUMENT, so nothing runs',
+    drop: 38,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'queued_rpc_claim',
+    args: { p_key: 'matrix-never', p_fn: 'set_venue_details' }, expect: STAFF_ANY,
+    note: '0395: any active staff; a malformed key is INVALID_ARGUMENT past the guard',
+    drop: 38,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'queued_rpc_finish',
+    args: { p_key: 'matrix-never', p_result: {} }, expect: STAFF_ANY,
+    note: "0395: any active staff; only the caller's own unanswered queued claim, so the probe changes nothing",
+    drop: 38,
+  },
+  // ── 0396 kds_recall_and_seen (kds-recall.test.ts) ──
+  {
+    kind: 'rpc', schema: 'app', name: 'recall_ticket',
+    args: { p_ticket_id: NIL_UUID }, expect: { ...PREP_UP, head_barista: 'execute', barista: 'execute', assistant_barista: 'execute', head_chef: 'execute', chef: 'execute' },
+    note: '0396 (F-57): the kitchen list of set_ticket_status; the nil ticket is TICKET_NOT_FOUND past the guard, so the probe changes nothing',
+    drop: 38,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'kds_ack_tickets',
+    args: { p_ticket_ids: [NIL_UUID] }, expect: { ...PREP_UP, head_barista: 'execute', barista: 'execute', assistant_barista: 'execute', head_chef: 'execute', chef: 'execute' },
+    note: '0396 (F-11): the kitchen list; stamps tickets.kds_seen_at once for tickets in scope, skips the rest (the nil id stamps nothing)',
+    drop: 38,
+  },
+  // ── 0382 branch_isolation / 0383 second_jobs / 0384 blocked_areas_enforced (LANE DB) ──
+  {
+    kind: 'rpc', schema: 'app', name: 'shares_branch_with',
+    args: { p_staff_id: NIL_UUID }, expect: SELF_ANON_OK,
+    note: "0382 (F-28): whether the CALLER shares a branch with that staff id; false for a guest, reveals no row",
+    drop: 38,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'my_staff_roles',
+    args: {}, expect: SELF_ANON_OK,
+    note: "0383 (F-18): the caller's own jobs (main role and second jobs); an empty array for a guest",
+    drop: 38,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'area_blocked_rpc',
+    args: { p_rpc: 'split_evenly' }, expect: SELF_ANON_OK,
+    note: "0384 (F-16): whether the caller's own blocked pages cover the RPC; false for a guest and an owner",
+    drop: 38,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'pre_request',
+    args: {}, expect: SELF_ANON_OK,
+    note: '0384 (F-16): the PostgREST pre-request hook; returns nothing, raises AREA_BLOCKED only for the caller\'s own blocked pages',
+    drop: 38,
+  },
+  // ── 0393 monitoring_events (monitoring.test.ts) ──
+  // Every app reports through app.report_event, signed in or not; it never
+  // raises, so every principal executes it (an invalid source is dropped
+  // silently, so the probe stores nothing). The panel's reads are the dev
+  // role's and the owner's; no matrix principal is a dev.
+  {
+    kind: 'rpc', schema: 'app', name: 'report_event',
+    args: { p_source: 'probe', p_level: 'error', p_kind: 'probe', p_message: 'rls-matrix probe' }, expect: SELF_ANON_OK,
+    note: '0393: publicByDesign, anon included; never raises; a source other than operator, mobile or web from a client is dropped, so nothing is written',
+    drop: 38,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'monitoring_events_page',
+    args: { p_limit: 1 }, expect: { ...OWNER_ONLY, dev: 'execute' },
+    note: '0393: the dev role and the owner: the Monitoring page\'s events, newest first; read-only',
+    drop: 38,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'monitoring_summary',
+    args: { p_bucket: 'hour' }, expect: { ...OWNER_ONLY, dev: 'execute' },
+    note: '0393: the dev role and the owner: the Monitoring page\'s counts; read-only',
+    drop: 38,
+  },
+  // ── 0399 kitchen_reach (kitchen-reach.test.ts) ──
+  {
+    kind: 'rpc', schema: 'app', name: 'kitchen_reach',
+    args: { p_since: null }, expect: { ...STAFF_ANY, dev: 'guarded', marketing: 'guarded' },
+    note: "0399 (F-11), 0400 (F-27): the till, kitchen and bar, desk, waiter, shop and management roles (not dev, driver, marketing), the caller's own branches' recent tickets (a manager of another branch gets none); read-only",
+    drop: 38,
+  },
+  // ── 0389–0391 OP-BACK (F-36, F-40, F-51, F-61) ──
+  {
+    kind: 'rpc', schema: 'app', name: 'create_shop_product',
+    args: { p_category_id: NIL_UUID, p_name_en: 'Matrix', p_name_ar: 'مصفوفة', p_size_name_en: 'One', p_size_name_ar: 'واحد', p_price_iqd: 1 },
+    expect: { ...MANAGER_UP, shop_staff: 'execute' },
+    note: '0389 (F-36): shop assistant, manager, owner; with no idempotency key it is INVALID_ARGUMENT past the guard, so nothing is written',
+    drop: 38,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'tournament_confirm_entry',
+    args: { p_entry_id: NIL_UUID }, expect: DESK_UP,
+    note: '0390 (F-40): court desk, manager, owner; the nil entry is TOURNAMENT_ENTRY_NOT_FOUND past the guard',
+    drop: 38,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'closed_day_bookings',
+    args: { p_dates: [] }, expect: MANAGER_UP,
+    note: '0390 (F-51): manager or owner at the resolved branch; a read, no dates lists nothing',
+    drop: 38,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'discard_staff_media',
+    args: { p_paths: [] }, expect: STAFF_ANY,
+    note: '0391 (F-61): any active staff, only their own unclaimed uploads; no paths marks nothing',
+    drop: 38,
+  },
+  // ── 0401 coach_student_level (coach-student-level.test.ts) ──
+  {
+    kind: 'rpc', schema: 'app', name: 'coach_set_student_level',
+    args: { p_enrolment_id: NIL_UUID, p_level: 'x', p_note: null },
+    expect: ex<RpcExpectation>('guarded', { anon: 'denied' }),
+    note: '0401 (F-70): a coach only (app.coach_self), which no matrix principal is: FORBIDDEN for every account, staff included; a coach with a nil enrolment would be REF_NOT_FOUND, nothing written',
+    drop: 38,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'staff_visible_to_me',
+    args: { p_staff_id: NIL_UUID }, expect: SELF_ANON_OK,
+    note: "0400 (F-27): whether the CALLER may see that staff row; false for a guest, reveals no row",
     drop: 38,
   },
 ];

@@ -742,7 +742,7 @@ function MarketingScreen() {
 
 export default function StaffMarketingRoute() {
   return (
-    <RequireStaff roles={['marketing']}>
+    <RequireStaff page="staff-marketing" roles={['marketing']}>
       <MarketingScreen />
     </RequireStaff>
   );

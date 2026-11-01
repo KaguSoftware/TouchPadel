@@ -46,6 +46,7 @@ import {
   levelKey,
   parseInsights,
   shareWord,
+  shownShares,
   trendSize,
   trendTone,
   type BucketShare,
@@ -409,12 +410,33 @@ function RankCard({ title, items, common, tip, emptyKey, aside }: { title: strin
   );
 }
 
-/** A row of rounded shares as the analytics share bar, the words in the legend. */
-function ShareCard({ title, rows, w, f, common, tip }: { title: string; rows: readonly { key: string; label: string; share: number | null }[]; w: Words; f: Formatters; common: Common; tip?: string }) {
+/**
+ * A row of rounded shares as the analytics share bar, the words in the legend.
+ * F-38: every percent is the server's as given (shownShares), never rescaled;
+ * `overlapping` rows (one person in several) are one meter each.
+ */
+function ShareCard({ title, rows, w, f, common, tip, overlapping }: { title: string; rows: readonly { key: string; label: string; share: number | null }[]; w: Words; f: Formatters; common: Common; tip?: string; overlapping?: boolean }) {
   const empty = common.state === 'ready' && rows.every((r) => r.share === null || r.share === 0);
+  const shown = shownShares(rows);
   return (
     <CardShell title={title} tip={tip} {...common} state={empty ? 'empty' : common.state} emptyKey="ws.insights.unknown" skeletonLines={2}>
-      <ShareBars segments={rows.map((r) => ({ key: r.key, label: r.label, value: r.share ?? 0 }))} format={(n) => w.shareWords(n)} pct={(n) => f.pct(n)} />
+      {overlapping ? (
+        <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--tp-sp-2)' }}>
+          {shown.map((s) => (
+            <li key={s.key} data-share={s.share ?? ''} style={{ display: 'grid', gap: 'var(--tp-sp-1)' }}>
+              <span style={{ display: 'flex', justifyContent: 'space-between', gap: 'var(--tp-sp-2)', fontSize: 'var(--tp-fs-sm)' }}>
+                <span>{s.label}</span>
+                <span style={{ fontFamily: 'var(--tp-font-numeric)', fontVariantNumeric: 'tabular-nums', fontWeight: 600 }}>{w.share(s.share)}</span>
+              </span>
+              <span aria-hidden="true" style={{ display: 'block', blockSize: '0.5rem', borderRadius: 'var(--tp-radius-pill)', background: 'var(--tp-surface-2)', overflow: 'hidden' }}>
+                <span style={{ display: 'block', blockSize: '100%', inlineSize: `${s.width}%`, background: 'var(--tp-accent)' }} />
+              </span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <ShareBars asGiven segments={shown.map((s) => ({ key: s.key, label: s.label, value: s.share ?? 0 }))} format={(n) => w.shareWords(n)} pct={(n) => f.pct(n)} />
+      )}
     </CardShell>
   );
 }
@@ -540,6 +562,8 @@ function PeopleSection({ d, w, f, common }: SectionProps) {
           title={tr('ws.insights.cards.interests')}
           tip={tr('ws.insights.cards.interestsTip')}
           rows={bucketRows(p?.interests ?? [], INTEREST_BUCKETS, (b) => tr(`ws.insights.people.interest.${b as (typeof INTEREST_BUCKETS)[number]}`))}
+          // F-38: one guest has several interests; each is a share of the guests.
+          overlapping
           w={w}
           f={f}
           common={{ ...common, state: thin(p?.interests) }}

@@ -156,3 +156,16 @@ export function usedShare(view: Pick<FilesView, 'usedBytes' | 'quotaBytes'>): nu
   if (view.quotaBytes <= 0) return 0;
   return Math.min(1, Math.max(0, view.usedBytes / view.quotaBytes));
 }
+
+/** F-64: a stored PDF opens in the app's own viewer (by its type, else its name). */
+export function isPdf(file: Pick<StoredFile, 'mime' | 'name'>): boolean {
+  return file.mime === 'application/pdf' || /\.pdf$/i.test(file.name);
+}
+
+/** F-64: the Files list reads itself again every minute, so another manager's upload shows. */
+export const FILES_REFRESH_MS = 60_000;
+
+/** The page a viewer's Previous / Next lands on, kept inside 1..total. */
+export function stepPage(current: number, by: number, total: number): number {
+  return Math.min(Math.max(current + by, 1), Math.max(total, 1));
+}

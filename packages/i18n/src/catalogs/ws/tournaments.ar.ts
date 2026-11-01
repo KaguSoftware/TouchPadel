@@ -68,6 +68,8 @@ export const tournamentsAr: DeepMessages<typeof tournamentsEn> = {
       entries: 'الاشتراكات',
       rounds: 'الجولات',
       standings: 'الترتيب',
+      // 0390 (F-40): the entry fees still to take.
+      pay: 'الدفع',
     },
     facts: {
       format: 'النظام',
@@ -173,6 +175,15 @@ export const tournamentsAr: DeepMessages<typeof tournamentsEn> = {
     noShowConfirm: 'تسجيل عدم الحضور',
     noShowDone: 'سُجِّل أن {name} لم يحضر.',
     roundsRemoved: 'حُذفت الجولات من {round} فما بعد. أنشئها من جديد في الجولات.',
+    // 0390 (F-40): only a confirmed participant is in the tournament.
+    confirm: 'تأكيد المشارك',
+    unconfirm: 'إلغاء التأكيد',
+    confirmed: 'مؤكَّد',
+    confirmedBy: 'أكّده {name}',
+    notConfirmed: 'غير مؤكَّد',
+    confirmedDone: 'أصبح {name} مشاركًا في البطولة.',
+    unconfirmedDone: 'أُلغي تأكيد {name}.',
+    toConfirm: '{count} بانتظار التأكيد قبل البدء',
   },
   rounds: {
     title: 'الجولات',
@@ -204,6 +215,8 @@ export const tournamentsAr: DeepMessages<typeof tournamentsEn> = {
     },
     leaderboard: 'المتصدّرون',
     allStandings: 'الكل ({count})',
+    // 0390 (F-40): the draw waits for every registered player to be confirmed.
+    unconfirmed: 'أكِّد كل المشاركين في تبويب الاشتراكات أولًا (المتبقي {count}).',
   },
   score: {
     save: 'حفظ النتيجة',
@@ -279,6 +292,11 @@ export const tournamentsAr: DeepMessages<typeof tournamentsEn> = {
       cancelled: 'هذه البطولة ملغاة.',
       nothing_owed: 'لم يبقَ ما يُستلم من هذا اللاعب.',
     },
+    // 0390 (F-40): the Pay tab, the entry fees still to take. A confirmed player may still owe.
+    title: 'رسوم اشتراك لم تُستلم بعد',
+    lead: 'كل لاعب مسجَّل ما زال عليه مبلغ. التأكيد والدفع منفصلان: يمكن للاعب المؤكَّد أن يدفع لاحقًا.',
+    empty: 'لا أحد عليه رسوم اشتراك.',
+    total: '{count} عليهم {amount} إجمالًا',
   },
   settings: {
     title: 'البطولات',

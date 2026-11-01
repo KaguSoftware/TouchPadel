@@ -5,6 +5,7 @@
  */
 import { rolesOf, type StaffRole } from '@touch/core';
 import type { StaffStatus } from './status';
+import { pageBlocked, type StaffPage } from './access';
 
 export type StaffGateDecision =
   | 'loading'
@@ -18,10 +19,17 @@ export type StaffGateDecision =
 
 /**
  * A staff page. `roles` narrows it (production is for the chefs and
- * management); left out, every staff role may open it. The server is the wall
+ * management); left out, every staff role may open it. `page` names the
+ * screen, and a page the owner blocked for this person (0345, F-16; see
+ * access.ts) sends them back to Today like a role it is not for, whichever
+ * way they came: a row, a push or a deep link. The server is the wall
  * either way: this only keeps a page from rendering a refusal.
  */
-export function staffGate(status: StaffStatus, roles?: readonly StaffRole[]): StaffGateDecision {
+export function staffGate(
+  status: StaffStatus,
+  roles?: readonly StaffRole[],
+  page?: StaffPage,
+): StaffGateDecision {
   switch (status.kind) {
     case 'none':
     case 'guest':
@@ -34,7 +42,10 @@ export function staffGate(status: StaffStatus, roles?: readonly StaffRole[]): St
       return 'unsupported';
     case 'staff':
       // 0345: a second job opens its pages too, as the server's is_staff does.
-      return roles && !rolesOf(status.staff).some((r) => roles.includes(r)) ? 'redirect-staff-home' : 'allow';
+      if (roles && !rolesOf(status.staff).some((r) => roles.includes(r))) return 'redirect-staff-home';
+      // 0345 blocked pages: always blocked, no exceptions (F-16).
+      if (page && pageBlocked(page, status.staff)) return 'redirect-staff-home';
+      return 'allow';
   }
 }
 

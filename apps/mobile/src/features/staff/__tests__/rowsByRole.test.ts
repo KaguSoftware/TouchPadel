@@ -100,6 +100,8 @@ const EXPECTED: Record<StaffRole, string[]> = {
   assistant_barista: ['protocols', 'requests', 'notes', 'teachings', 'recipes', 'suggestions'],
   waiter: ['protocols', 'requests', 'notes', 'stock', 'stock-move', 'suggestions', 'calls'],
   shop_staff: ['protocols', 'requests', 'notes', 'stock', 'stock-log', 'stock-count', 'suggestions'],
+  // 0392: the developer holds the any-staff baseline and nothing else.
+  dev: ['protocols', 'requests', 'notes', 'suggestions'],
 };
 
 /**
@@ -124,6 +126,7 @@ const PEOPLE: Record<StaffRole, string[]> = {
   assistant_barista: ['incidents'],
   waiter: ['incidents'],
   shop_staff: ['incidents'],
+  dev: ['incidents'],
 };
 
 /**
@@ -146,6 +149,7 @@ const SCAN: Record<StaffRole, string[]> = {
   assistant_barista: [],
   waiter: ['order'],
   shop_staff: [],
+  dev: [],
 };
 
 describe('Today rows by role', () => {

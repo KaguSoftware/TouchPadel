@@ -618,4 +618,17 @@ export const courtDeskEn = {
       searchAria: 'Search bills',
     },
   },
+  // F-30: the desk's printed receipt for a booking's court fee and bill.
+  receipt: {
+    print: 'Print receipt',
+    heading: 'Court receipt',
+    court: 'Court',
+    time: 'Time',
+    guest: 'Guest',
+    paidCash: 'Paid in cash',
+    paidCard: 'Paid by card',
+    change: 'Change given',
+    refunded: 'Refunded',
+    thanks: 'Thank you for playing with us.',
+  },
 } as const;

@@ -130,7 +130,7 @@ function MyReports() {
         />
       </div>
       {rows.length === 0 ? (
-        <p style={muted}>{tr(`ws.incidents.empty.${filter}`)}</p>
+        <p style={muted}>{tr(`ws.incidents.mine.emptyFilter.${filter}`)}</p>
       ) : (
         <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(20rem, 1fr))', gridAutoRows: '1fr', gap: 'var(--tp-sp-3)' }}>
           {cap.shown.map((r) => {

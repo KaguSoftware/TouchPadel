@@ -454,7 +454,7 @@ function DeductionsScreen() {
 
 export default function StaffDeductionsRoute() {
   return (
-    <RequireStaff>
+    <RequireStaff page="staff-deductions">
       <DeductionsScreen />
     </RequireStaff>
   );

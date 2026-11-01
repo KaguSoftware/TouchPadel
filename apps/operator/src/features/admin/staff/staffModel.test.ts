@@ -10,16 +10,20 @@ import {
   looksLikeEmail,
   onRetiredRole,
   pinFormatOk,
+  PIN_MAX,
+  PIN_MIN,
   roleChoices,
   staffRefusal,
   type StaffRow,
 } from './staffModel';
 
 describe('pinFormatOk', () => {
-  // The field used to stop at 6 digits while its hint promised "4 to 6", and
-  // the server (0078) wants 6 to 12 — so a 4-digit PIN left Save dead.
-  it('matches app.set_staff_pin: 6 to 12 digits, nothing else', () => {
-    expect(pinFormatOk('1234')).toBe(false);
+  // F-50 (2026-11-01): PINs are 4 to 12 digits again, as app.set_staff_pin.
+  it('matches app.set_staff_pin: 4 to 12 digits, nothing else', () => {
+    expect(PIN_MIN).toBe(4);
+    expect(PIN_MAX).toBe(12);
+    expect(pinFormatOk('123')).toBe(false);
+    expect(pinFormatOk('4829')).toBe(true);
     expect(pinFormatOk('482913')).toBe(true);
     expect(pinFormatOk('482913570146')).toBe(true);
     expect(pinFormatOk('4829135701468')).toBe(false);
@@ -28,7 +32,7 @@ describe('pinFormatOk', () => {
 });
 
 describe('holdsPin / approvesWithPin', () => {
-  it('every role holds a PIN since 0105 (breaks, idle lock), the 0155 roles included', () => {
+  it('every role holds a PIN since 0105 (idle lock), the 0155 roles included', () => {
     expect(STAFF_ROLES.filter((r) => !holdsPin(r))).toEqual([]);
   });
   it('only managers and owners approve with it', () => {
@@ -57,6 +61,7 @@ describe('assignable and retired roles (0155)', () => {
       'chef',
       'driver',
       'marketing',
+      'dev',
       'manager',
       'owner',
     ]);

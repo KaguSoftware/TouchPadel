@@ -185,7 +185,7 @@ export const siteEn = {
     bookQ: 'How do I book a court?',
     bookA: 'Message us on WhatsApp, call the front desk, or walk in while we are open.',
     payQ: 'How do I pay?',
-    payA: 'At the front desk when you arrive. If you book in the app, you may be able to pay a deposit first with Qi Card.',
+    payA: 'At the front desk when you arrive, for courts, lessons and tournaments alike. There is no online payment.',
     racketQ: 'I do not have a racket. Can I still play?',
     racketA: 'Yes. Rackets and balls are available to rent at the desk.',
     lockersQ: 'Is there somewhere to leave my things?',
@@ -254,6 +254,11 @@ export const siteEn = {
     body: 'Something went wrong on our side. Try again, or go back to the home page.',
     retry: 'Try again',
     home: 'Back to Touch Padel',
+    // "Report crash" (F-15/F-43): sends this error to the team's monitoring page, not to a mail app.
+    report: 'Report this problem',
+    reporting: 'Sending…',
+    reported: 'Thanks, the report reached our team.',
+    reportFailed: 'The report did not send. Check your connection and try again.',
   },
   // /{locale}/pay/return, where Qi's payment page sends the guest's browser back
   // (docs/design/payments/qi-deposit-plan-2026-09-20.md §6). The page cannot know how
@@ -265,6 +270,12 @@ export const siteEn = {
     body: 'The app has the latest on your booking. If it did not open by itself, use the button below.',
     open: 'Open the app',
     noApp: 'Don’t have the app?',
+    // This build takes no online payment (F-02/F-03, 2026-11-01): what a visit here says instead.
+    off: {
+      metaTitle: 'Pay at the club',
+      title: 'Online payment is not available',
+      body: 'Court bookings, lessons and tournament entries are settled at the front desk when you arrive.',
+    },
   },
   seo: {
     title: 'Touch Padel · Padel club and café in Karbala',

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { allUnknown, demandAdvice, heatCells, levelKey, parseCount, parseInsights, shareWord, trendSize, trendTone, type Trend, type TrendDir } from './insightsLogic';
+import { allUnknown, demandAdvice, heatCells, levelKey, parseCount, parseInsights, shareWord, shownShares, trendSize, trendTone, type Trend, type TrendDir } from './insightsLogic';
 
 describe('parseInsights', () => {
   it('turns garbage into a safe empty shape', () => {
@@ -163,5 +163,41 @@ describe('people (0369)', () => {
       people: { genders: [{ bucket: 'female', share: 140 }, { bucket: '', share: 10 }] },
     }).people;
     expect(p.genders).toEqual([{ bucket: 'female', share: null }]);
+  });
+});
+
+describe('shares the page shows are the server\'s (F-38)', () => {
+  it('passes every share through as the server rounded it: no rescaling to 100, no decimals', () => {
+    // The server's whole percents, which add up to 99 after its rounding.
+    const rows = [
+      { key: 'app', label: 'App', share: 33 },
+      { key: 'desk', label: 'Desk', share: 66 },
+    ];
+    const shown = shownShares(rows);
+    expect(shown.map((s) => s.share)).toEqual([33, 66]);
+    expect(shown.map((s) => s.width)).toEqual([33, 66]);
+  });
+
+  it('keeps overlapping shares as shares of the people: they may add past 100', () => {
+    const interests = [
+      { key: 'competitive', label: 'Competitive', share: 70 },
+      { key: 'social', label: 'Social', share: 55 },
+      { key: 'cafe', label: 'Café', share: 40 },
+    ];
+    const shown = shownShares(interests);
+    expect(shown.reduce((a, s) => a + (s.share ?? 0), 0)).toBe(165);
+    expect(shown.find((s) => s.key === 'social')?.share).toBe(55);
+  });
+
+  it('draws nothing for a share the server did not send, and reads it as unknown', () => {
+    expect(shownShares([{ key: 'x', label: 'X', share: null }])).toEqual([{ key: 'x', label: 'X', share: null, width: 0 }]);
+  });
+
+  it('parseInsights never changes a share the server sent', () => {
+    const parsed = parseInsights({ channels: { appShare: 33, deskShare: 66 }, mix: { courts: 61, cafe: 30, shop: 8 }, people: { interests: [{ bucket: 'social', share: 55 }] } });
+    expect(parsed.channels.appShare).toBe(33);
+    expect(parsed.channels.deskShare).toBe(66);
+    expect([parsed.mix.courts, parsed.mix.cafe, parsed.mix.shop]).toEqual([61, 30, 8]);
+    expect(parsed.people.interests).toEqual([{ bucket: 'social', share: 55 }]);
   });
 });

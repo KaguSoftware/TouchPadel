@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cleanMime, cleanName, fileKind, matchesQuery, pickProblem, readList, savedPercent, sizeParts, usedShare, type StoredFile } from './filesLogic';
+import { FILES_REFRESH_MS, cleanMime, cleanName, fileKind, isPdf, stepPage, matchesQuery, pickProblem, readList, savedPercent, sizeParts, usedShare, type StoredFile } from './filesLogic';
 
 const row = (over: Record<string, unknown> = {}) => ({
   id: 'f1',
@@ -90,5 +90,22 @@ describe('what may be stored', () => {
     expect(cleanMime('Text/CSV; charset=utf-8')).toBe('text/csv');
     expect(cleanMime('')).toBe('application/octet-stream');
     expect(cleanMime('weird type')).toBe('application/octet-stream');
+  });
+});
+
+describe('F-64', () => {
+  it('opens a PDF in the viewer, by type or by name', () => {
+    expect(isPdf({ mime: 'application/pdf', name: 'a' })).toBe(true);
+    expect(isPdf({ mime: 'application/octet-stream', name: 'Lease.PDF' })).toBe(true);
+    expect(isPdf({ mime: 'image/webp', name: 'photo.webp' })).toBe(false);
+  });
+  it('pages stay inside the document', () => {
+    expect(stepPage(1, -1, 5)).toBe(1);
+    expect(stepPage(5, 1, 5)).toBe(5);
+    expect(stepPage(2, 1, 5)).toBe(3);
+    expect(stepPage(1, 1, 0)).toBe(1);
+  });
+  it('reads the list again every minute', () => {
+    expect(FILES_REFRESH_MS).toBe(60_000);
   });
 });

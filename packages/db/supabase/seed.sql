@@ -76,12 +76,12 @@ update venue_settings
  where id;
 
 -- ---------------------------------------------------------------------------
--- 2. Tax groups: Standard 0% (active), Restaurant 10% (inactive until the
---    accountant says otherwise)
+-- 2. Tax groups: Standard (active) and Restaurant (inactive), both 0% since
+--    0380 (F-06: every tax rate is 0; the till's offline estimate has none)
 -- ---------------------------------------------------------------------------
 insert into tax_groups (id, name_en, name_ar, rate_bp, is_active) values
-  ('b0000000-0000-4000-8000-000000000001', 'Standard',   'قياسي', 0,    true),
-  ('b0000000-0000-4000-8000-000000000002', 'Restaurant', 'مطعم',  1000, false)
+  ('b0000000-0000-4000-8000-000000000001', 'Standard',   'قياسي', 0, true),
+  ('b0000000-0000-4000-8000-000000000002', 'Restaurant', 'مطعم',  0, false)
 on conflict (id) do nothing;
 
 -- ---------------------------------------------------------------------------

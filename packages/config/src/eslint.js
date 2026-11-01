@@ -271,6 +271,9 @@ const testIdElements = [
   'ReasonCard',
   'HoursDayEditor',
   'TimeOffRow',
+  // A linked student's level (0401, F-70): the line under a roster row and its sheet.
+  'StudentLevelLine',
+  'StudentLevelSheet',
   // Tournaments, the guest's side (tournaments plan §5.2): takes a required
   // testID and forwards it explicitly (apps/mobile src/components/tournament.tsx).
   // TournamentRound and StandingsTable render no Pressable. SeatingBoard (play-coaches

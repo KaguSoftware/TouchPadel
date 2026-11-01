@@ -430,7 +430,7 @@ function RequestsScreen() {
 
 export default function StaffMarketingRequestsRoute() {
   return (
-    <RequireStaff roles={MARKETING_REQUEST_ROLES}>
+    <RequireStaff page="staff-marketing-requests" roles={MARKETING_REQUEST_ROLES}>
       <RequestsScreen />
     </RequireStaff>
   );

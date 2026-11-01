@@ -36,7 +36,7 @@ import { ExcludedItemsModal } from './ExcludedItemsModal';
 import { MorePanel } from './MorePanel';
 import { ZoneNav } from './ZoneNav';
 import type { ZoneDef } from './Zone';
-import type { AnalyticsSearch } from './search';
+import { rangeTooLong, type AnalyticsSearch } from './search';
 import type { MenuSnapshotRow } from './shape';
 
 const PRESET_KEY: Record<Exclude<RangePreset, 'custom'>, MessageKey> = {
@@ -158,6 +158,8 @@ export function AnalyticsBar({
   const moreRef = useRef<HTMLButtonElement>(null);
   const moreId = useId();
   const closeMore = useCallback(() => setMoreOpen(false), []);
+  // F-37: a picked period past the server's 400 days is refused with the limit named.
+  const [tooLong, setTooLong] = useState(false);
   // The business day the presets count back from, the same one the data hooks use.
   const todayISO = businessTodayISO(new Date(), deck?.startHour ?? 4, VENUE_TZ);
   const presets = RANGE_PRESETS.filter((p): p is Exclude<RangePreset, 'custom'> => p !== 'custom').map((p) => ({
@@ -185,9 +187,12 @@ export function AnalyticsBar({
             presets={presets}
             today={todayISO}
             max={todayISO}
-            onChange={(next, key) =>
-              key ? setSearch({ range: key as RangePreset, from: undefined, to: undefined }) : setSearch({ range: 'custom', from: next.from, to: next.to })
-            }
+            onChange={(next, key) => {
+              if (!key && rangeTooLong(next.from, next.to)) return setTooLong(true);
+              setTooLong(false);
+              if (key) setSearch({ range: key as RangePreset, from: undefined, to: undefined });
+              else setSearch({ range: 'custom', from: next.from, to: next.to });
+            }}
             style={small}
             className={GLASS_CTL}
           />
@@ -219,7 +224,11 @@ export function AnalyticsBar({
               value={compareRange}
               today={todayISO}
               max={todayISO}
-              onChange={(next) => setSearch({ cmp: 'custom', cmpFrom: next.from, cmpTo: next.to })}
+              onChange={(next) => {
+                if (rangeTooLong(next.from, next.to)) return setTooLong(true);
+                setTooLong(false);
+                setSearch({ cmp: 'custom', cmpFrom: next.from, cmpTo: next.to });
+              }}
               style={small}
               className={GLASS_CTL}
             />
@@ -244,6 +253,11 @@ export function AnalyticsBar({
           </Group>
         )}
       </div>
+      {tooLong && (
+        <p role="alert" data-testid="analytics.rangeTooLong" style={{ margin: 0, color: 'var(--tp-danger-fg)', fontSize: 'var(--tp-fs-sm)' }}>
+          {tr('ws.reports.frame.rangeTooLong')}
+        </p>
+      )}
 
       {/* Chips and Settings share one line: the chips take what room is left (and wrap among themselves), Settings stays at the end. */}
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--tp-sp-3)' }}>

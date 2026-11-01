@@ -18,7 +18,13 @@
  * A member (loyalty build contracts §5) is identified before the sale exists: the Member button,
  * or a scanner burst that is a member card (TP-…) rather than a barcode. The sale is rung up
  * with them attached (set_tab_customer), and a step before the payment offers Use points and
- * Rewards on it. Offline there is no server tab to attach to, so the sale goes without.
+ * Rewards on it. Offline (F-56) the attach is queued against the sale's tab.open key, before
+ * its settle, so the replay attaches the member first and the points are earned with the
+ * payment; the points and rewards step itself needs the server and is skipped.
+ *
+ * A receipt prints after every sale. One recorded offline, or settled slowly enough that
+ * mutate() answered "queued", prints a local receipt from the lines as sold and the total
+ * charged, marked as not yet confirmed (F-56); it used to print nothing.
  *
  * That same step brings the member's own discount onto the sale (0342, features/discounts):
  * their standing café and shop discount comes on by itself, and "Customer discount" sets or
@@ -39,6 +45,8 @@ import { mutate } from '../../lib/mutate';
 import { AppRpcError } from '../../lib/appRpc';
 import { useLocale, pickName } from '../../lib/i18n';
 import { LOCAL_TAB_PREFIX, appendOfflineLines, markOfflineSettled, removeOfflineTab } from '../../lib/offlineTabs';
+import { queueRpc } from '../../lib/queuedRpc';
+import { offlineSettlePayload, offlineTabTotals } from '../till/offlineTotals';
 import { Button, ErrorText, Modal } from '../../components/ui';
 import { EmptyState, MessagePresenter, Money, PageHeader, Panel, SearchField, ViewMore, useListCap } from '../../components/kit';
 import { TILL_MENU_QUERY, fetchTabDetail } from '../till/tillData';
@@ -62,12 +70,18 @@ import {
   addToBasket,
   basketCount,
   basketEstimate,
+  detailReceiptLines,
   findSizeByCode,
+  localReceiptBill,
   matchesSearch,
+  memberQueueCall,
   saleItems,
   saleLabel,
+  saleReceiptLines,
   setLineQty,
   shopCatalogue,
+  type LocalReceipt,
+  type ReceiptLine,
   type ShopLine,
   type ShopSize,
 } from './shopTillLogic';
@@ -101,6 +115,8 @@ interface Paying {
   label: string;
   due: number;
   method: PaymentMethod;
+  /** The lines as sold, for a local receipt when the server has not answered (F-56). */
+  lines?: readonly ReceiptLine[];
 }
 
 /** A sale just paid: its tab (for the receipt) and the change given, or queued offline. */
@@ -109,6 +125,8 @@ interface Paid {
   label: string;
   change: number | null;
   queued: boolean;
+  /** Queued (offline or slow): what the local receipt prints. */
+  receipt?: LocalReceipt | null;
 }
 
 export function ShopTill() {
@@ -116,6 +134,7 @@ export function ShopTill() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const menuQ = useQuery(TILL_MENU_QUERY);
+  const taxCtx = useTaxContext();
   const openQ = useQuery(OPEN_SHOP_SALES);
   const rewardQ = useQuery({ queryKey: SHOP_REWARD_KEY, queryFn: fetchShopRewardInfo, refetchInterval: 60_000 });
   const me = rewardQ.data?.me ?? null;
@@ -199,17 +218,27 @@ export function ShopTill() {
     try {
       const tabId = await openTabOn({ kind: 'shop', label }, null);
       const items = saleItems(basket);
+      const lines = saleReceiptLines(basket, catalogue.sizes, name);
       let due = estimate;
       if (tabId.startsWith(LOCAL_TAB_PREFIX)) {
         const idemKey = tabId.slice(LOCAL_TAB_PREFIX.length);
         await mutate('order.add_items', { tabIdemKey: idemKey, items, shop: true });
-        appendOfflineLines(
-          idemKey,
-          basket.map((l) => {
-            const s = byId.get(l.variantId);
-            return { name: s ? name(s) : l.variantId, qty: l.qty, priceIqd: s?.priceIqd ?? 0 };
-          }),
-        );
+        appendOfflineLines(idemKey, lines);
+        // What the server will charge at replay (tax per group at the cached rate, F-06).
+        due = offlineTabTotals({ lines }, taxCtx).total;
+        if (member) {
+          // F-56: the member rides the queue ahead of the settle, so the points land with it.
+          // Not awaited: the write is on the queue as soon as the call starts
+          // (ahead of the settle, which waits on the payment pane), and offline
+          // mutate() would hold the till for its whole wait before saying so.
+          const call = memberQueueCall(member.customer_id, idemKey);
+          void queueRpc(call.fn, call.args, call.opts).catch((e: unknown) => setError(e));
+          setMember(null);
+        }
+        setBasket([]);
+        setPaying({ tabId, label, due, method, lines });
+        void queryClient.invalidateQueries({ queryKey: ['tabs'] });
+        return;
       } else {
         await mutate('order.add_items', { tabId, items, shop: true });
         // The server's total (tax, rounding) is what is charged.
@@ -222,7 +251,7 @@ export function ShopTill() {
         try {
           await setTabCustomer(tabId, member.customer_id);
           setMember(null);
-          setMemberStep({ tabId, label, due, method });
+          setMemberStep({ tabId, label, due, method, lines });
           void queryClient.invalidateQueries({ queryKey: ['tabs'] });
           return;
         } catch (e) {
@@ -230,7 +259,7 @@ export function ShopTill() {
         }
       }
       setMember(null);
-      setPaying({ tabId, label, due, method });
+      setPaying({ tabId, label, due, method, lines });
       void queryClient.invalidateQueries({ queryKey: ['tabs'] });
     } catch (e) {
       setError(e);
@@ -264,7 +293,7 @@ export function ShopTill() {
       const detail = await fetchTabDetail(sale.id);
       const paidSoFar = detail.payments.reduce((s, p) => s + p.amount_iqd, 0);
       const due = Math.max((detail.total_iqd ?? detail.subtotal_iqd ?? 0) - paidSoFar, 0);
-      setPaying({ tabId: sale.id, label: sale.label ?? '', due, method: 'cash' });
+      setPaying({ tabId: sale.id, label: sale.label ?? '', due, method: 'cash', lines: detailReceiptLines(detail.orders, locale) });
     } catch (e) {
       setError(e);
     } finally {
@@ -279,13 +308,20 @@ export function ShopTill() {
     try {
       if (paying.tabId.startsWith(LOCAL_TAB_PREFIX)) {
         const idemKey = paying.tabId.slice(LOCAL_TAB_PREFIX.length);
-        // Offline the server charges its own full due at replay (OfflineTabPanel).
-        const settled = await mutate('tab.settle', { tabIdemKey: idemKey, method, ...(tenderedIqd != null ? { tenderedIqd } : {}) });
+        // The amount shown is the amount charged (F-06): a server total that
+        // differs is refused TOTAL_CHANGED and comes back on the till's plan.
+        const settled = await mutate('tab.settle', offlineSettlePayload({ tabIdemKey: idemKey, method, totalIqd: paying.due, tenderedIqd }));
         // Queued: the tab stays, marked settled, until this settle acks. Acked
         // inside mutate()'s wait: its result has already fired, so retire it here.
-        if (settled.queued) markOfflineSettled(idemKey, settled.idempotencyKey);
+        if (settled.queued) markOfflineSettled(idemKey, settled.idempotencyKey, { method, amountIqd: paying.due, tenderedIqd });
         else removeOfflineTab(idemKey);
-        setPaid({ tabId: paying.tabId, label: paying.label, change: null, queued: true });
+        setPaid({
+          tabId: paying.tabId,
+          label: paying.label,
+          change: tenderedIqd != null ? tenderedIqd - paying.due : null,
+          queued: true,
+          receipt: paying.lines ? { lines: paying.lines, totalIqd: paying.due, method } : null,
+        });
         setPaying(null);
         return;
       }
@@ -306,7 +342,14 @@ export function ShopTill() {
         setPaying({ ...paying, due: Math.max((detail.total_iqd ?? 0) - paidSoFar, 0) });
         return;
       }
-      setPaid({ tabId: paying.tabId, label: paying.label, change: outcome.result?.change_iqd ?? null, queued: !outcome.result });
+      const slow = !outcome.result;
+      setPaid({
+        tabId: paying.tabId,
+        label: paying.label,
+        change: outcome.result?.change_iqd ?? (slow && tenderedIqd != null ? tenderedIqd - (amountIqd ?? paying.due) : null),
+        queued: slow,
+        receipt: slow && paying.lines ? { lines: paying.lines, totalIqd: amountIqd ?? paying.due, method } : null,
+      });
       setPaying(null);
     } catch (e) {
       if (e instanceof AppRpcError && e.code === 'TOTAL_CHANGED') {
@@ -602,10 +645,42 @@ function ShopMemberStep({ tabId, fallbackDue }: { tabId: string; fallbackDue: nu
 
 /**
  * The receipt of the sale just paid, printed as it opens (Parsa: a receipt
- * after every sale). A sale queued offline has no server bill yet: it says so
- * and prints nothing.
+ * after every sale). A sale the server has not confirmed yet (queued offline,
+ * or a slow settle) prints a LOCAL receipt from the lines as sold and the
+ * total charged, marked so on the paper (F-56); it used to print nothing.
  */
 function PaidReceipt({ paid, onNext }: { paid: Paid; onNext: () => void }) {
+  if (paid.queued && paid.receipt) return <LocalPaidReceipt paid={paid} receipt={paid.receipt} onNext={onNext} />;
+  return <ServerPaidReceipt paid={paid} onNext={onNext} />;
+}
+
+/** The receipt of a sale the server has not answered for yet (F-56). */
+function LocalPaidReceipt({ paid, receipt, onNext }: { paid: Paid; receipt: LocalReceipt; onNext: () => void }) {
+  const { tr, locale } = useLocale();
+  const bill = localReceiptBill(receipt);
+  return (
+    <>
+      <div role="status" style={{ position: 'fixed', insetInlineStart: 0, insetInlineEnd: 0, insetBlockStart: 'var(--tp-sp-4)', textAlign: 'center', zIndex: 60, fontSize: 'var(--tp-fs-lg)', fontWeight: 700 }}>
+        {paid.change != null && paid.change > 0 ? `${tr('ws.shop.till.change', { amount: formatIQD(paid.change, locale) })} · ` : ''}
+        {tr('ws.shop.till.queued')}
+      </div>
+      <BillView
+        venueName={tr('common.appName')}
+        heading={tr('ws.shop.till.receiptHeading', { label: paid.label })}
+        note={tr('ws.shop.till.offlineReceipt')}
+        orders={bill.orders}
+        totals={bill.totals}
+        payments={bill.payments}
+        taxInclusive={false}
+        onClose={onNext}
+        autoPrint
+        printWhat="shop_receipt"
+      />
+    </>
+  );
+}
+
+function ServerPaidReceipt({ paid, onNext }: { paid: Paid; onNext: () => void }) {
   const { tr, locale } = useLocale();
   const taxCtx = useTaxContext();
   const detailQ = useQuery({
@@ -639,6 +714,7 @@ function PaidReceipt({ paid, onNext }: { paid: Paid; onNext: () => void }) {
         taxInclusive={Boolean(taxCtx?.taxInclusive)}
         onClose={onNext}
         autoPrint
+        printWhat="shop_receipt"
       />
     </>
   );

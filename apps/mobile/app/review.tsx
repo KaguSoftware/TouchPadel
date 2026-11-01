@@ -13,8 +13,10 @@ import { useConfirmBooking, useReleaseHold } from '../src/features/booking/hooks
 import { useDepositQuote, useStartPayment } from '../src/features/deposit/hooks';
 import { reviewPayment } from '../src/features/deposit/logic';
 import { secondsUntil } from '../src/features/booking/logic';
+import { confirmPriceMove, heldPriceMove } from '../src/features/booking/priceCheck';
+import { useQueryClient } from '@tanstack/react-query';
 import { isDegradedRefusal, mapErrorToKey, rpcErrorCode } from '../src/features/booking/errors';
-import { useVenueSettings } from '../src/features/availability/hooks';
+import { availabilityKeys, useVenueSettings } from '../src/features/availability/hooks';
 import { venuePhoneOf } from '../src/features/availability/assemble';
 import { useAuth } from '../src/features/auth/context';
 import { bookingGateState } from '../src/features/auth/social';
@@ -59,6 +61,8 @@ function ReviewScreen() {
     origin?: string;
     /** '1' when app.hold_slot said a hold of this guest's lapsed lately (0252). */
     holdWarning?: string;
+    /** The price the Book grid showed for the slot, before the hold stamped the server's (F-21). */
+    shownPriceIqd?: string;
   }>();
   const holdId = typeof params.holdId === 'string' ? params.holdId : '';
   // '' means "no deadline" — the duplicate-replay path of app.hold_slot, when
@@ -66,6 +70,9 @@ function ReviewScreen() {
   const expiresAt =
     typeof params.expiresAt === 'string' && params.expiresAt ? params.expiresAt : null;
   const price = params.priceIqd ? Number(params.priceIqd) : NaN;
+  // F-21: the grid showed one price, the hold carries another. Said above
+  // Reserve, before the confirmation, never first on Success.
+  const priceMove = heldPriceMove(params.shownPriceIqd, params.priceIqd);
   const startAt =
     typeof params.startAt === 'string' && params.startAt ? new Date(params.startAt) : null;
   const durationMin = params.durationMin ? Number(params.durationMin) : null;
@@ -125,11 +132,15 @@ function ReviewScreen() {
   const initialSeconds = useRef(Math.max(secondsLeft ?? 0, 1)).current;
   const [dialogOpen, setDialogOpen] = useState(false);
   const [slotTaken, setSlotTaken] = useState(false);
+  // F-21: confirm_booking refused PRICE_CHANGED (the rates moved after the
+  // hold). Holds the new price, or null when the refusal carried none.
+  const [priceMoved, setPriceMoved] = useState<{ toIqd: number | null } | null>(null);
+  const queryClient = useQueryClient();
   const [error, setError] = useState<string | null>(null);
   const [footerHeight, setFooterHeight] = useState(96);
 
   const confirmed = confirm.isSuccess;
-  const expired = !confirmed && !slotTaken && secondsLeft === 0;
+  const expired = !confirmed && !slotTaken && !priceMoved && secondsLeft === 0;
 
   // Tick only while there is a live countdown.
   useEffect(() => {
@@ -237,6 +248,14 @@ function ReviewScreen() {
           setSecondsLeft(0);
         } else if (code === 'SLOT_TAKEN') {
           setSlotTaken(true);
+        } else if (code === 'PRICE_CHANGED') {
+          // The rates moved after the hold: nothing was booked. Show the new
+          // price and send the guest back to pick the time again (the next
+          // hold is stamped with it); the grid reads the rates afresh.
+          const move = confirmPriceMove(err, Number.isInteger(price) ? price : null);
+          setPriceMoved({ toIqd: move?.toIqd ?? null });
+          void queryClient.invalidateQueries({ queryKey: availabilityKeys.ratePrices });
+          void queryClient.invalidateQueries({ predicate: (q) => q.queryKey[0] === 'rate-rules' });
         } else if (code === 'PHONE_REQUIRED') {
           // 0059's backstop fired (the gate above was 'unknown'): collect it now.
           addPhone();
@@ -318,6 +337,75 @@ function ReviewScreen() {
   };
 
   // ── Terminal states ────────────────────────────────────────────────────────
+  if (priceMoved) {
+    return (
+      <Screen edges={['bottom']}>
+        <View
+          testID="review.price-moved"
+          style={{
+            flex: 1,
+            alignItems: 'center',
+            justifyContent: 'center',
+            paddingStart: 32,
+            paddingEnd: 32,
+          }}
+        >
+          <View
+            style={{
+              width: 64,
+              height: 64,
+              borderRadius: radius.pill,
+              backgroundColor: colors.amb,
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <TagIcon size={24} color={colors.ambtext} />
+          </View>
+          <Text
+            style={{
+              fontFamily: fonts.display900,
+              fontSize: 20,
+              textTransform: 'uppercase',
+              color: colors.ink,
+              marginTop: 18,
+              textAlign: 'center',
+            }}
+          >
+            {t('booking.priceMovedTitle')}
+          </Text>
+          <Text
+            style={{
+              fontFamily: fonts.body400,
+              fontSize: 13,
+              lineHeight: 21,
+              color: colors.mut,
+              marginTop: 8,
+              textAlign: 'center',
+            }}
+          >
+            {priceMoved.toIqd !== null
+              ? t('booking.priceMovedBody', { price: isolate(formatIQD(priceMoved.toIqd, locale)) })
+              : t('booking.priceChanged')}
+          </Text>
+          <Button
+            testID="review.back-to-availability"
+            label={t('booking.backToAvailability')}
+            onPress={backToAvailability}
+            variant="cta"
+            style={{
+              marginTop: 22,
+              paddingTop: 14,
+              paddingBottom: 14,
+              paddingStart: 26,
+              paddingEnd: 26,
+            }}
+          />
+        </View>
+      </Screen>
+    );
+  }
+
   if (expired || slotTaken) {
     const taken = slotTaken;
     return (
@@ -552,6 +640,38 @@ function ReviewScreen() {
             }
           />
         </View>
+
+        {/* F-21: the price moved between the grid and the hold. Said before Reserve. */}
+        {priceMove ? (
+          <View
+            testID="review.price-changed"
+            style={{
+              marginTop: space.sm,
+              backgroundColor: colors.amb,
+              borderWidth: 1,
+              borderColor: colors.ambline,
+              borderRadius: radius.cell,
+              paddingStart: 13,
+              paddingEnd: 13,
+              paddingTop: 10,
+              paddingBottom: 10,
+            }}
+          >
+            <Text
+              style={{
+                fontFamily: fonts.body600,
+                fontSize: 12.5,
+                lineHeight: 19,
+                color: colors.ambtext,
+              }}
+            >
+              {t('booking.priceMovedNotice', {
+                from: isolate(formatIQD(priceMove.fromIqd, locale)),
+                to: isolate(formatIQD(priceMove.toIqd, locale)),
+              })}
+            </Text>
+          </View>
+        ) : null}
 
         {/* 0252: a hold of theirs lapsed lately. A kind word, nothing refused yet. */}
         {params.holdWarning === '1' ? (

@@ -65,7 +65,7 @@ function GroupSheet() {
 
 export default function StaffGroupRoute() {
   return (
-    <RequireStaff>
+    <RequireStaff page="staff-group">
       {/* Bigger text on the staff pages (Sait, 2026-10-17). */}
       <MinFontSize value={STAFF_MIN_FONT}>
         <GroupSheet />

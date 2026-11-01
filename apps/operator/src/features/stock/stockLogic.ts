@@ -255,3 +255,22 @@ export function sortMargins<T extends MarginSortRow>(rows: readonly T[], sort: M
     case 'name': return out.sort((a, b) => name(a).localeCompare(name(b)));
   }
 }
+
+/**
+ * Where Finish on a count goes (F-36): the café's counts to the variance
+ * report; the shop's (/shop/counts, which the shop assistant runs and who
+ * cannot open /stock/variance) back to the shop's stock page.
+ */
+export function afterCountRoute(scope: 'venue' | 'shop'): '/stock/variance' | '/shop/stock' {
+  return scope === 'shop' ? '/shop/stock' : '/stock/variance';
+}
+
+/**
+ * F-35: why Finish is off while a count holds entries it cannot take: a digit
+ * that is not 0-9 says so ('englishDigits'), anything else is 'invalid'.
+ */
+export function countFixReason(values: readonly (string | undefined)[]): 'englishDigits' | 'invalid' | null {
+  const bad = values.filter((v) => countEntryState(v) === 'invalid');
+  if (bad.length === 0) return null;
+  return bad.some((v) => v !== undefined && /[٠-٩۰-۹٫]/.test(v)) ? 'englishDigits' : 'invalid';
+}

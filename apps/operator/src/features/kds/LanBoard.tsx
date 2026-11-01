@@ -15,6 +15,7 @@ import { touch, type KitchenTicket } from '../../ipc/bridge';
 import { pickName } from '../../lib/i18n';
 import { ageState } from './ageColor';
 import { isStale } from './alarms';
+import { EMPTY_LAN, lanOpenTickets, reduceLanFrame, type LanBoardState } from './lanState';
 import type { TicketView } from './ticketView';
 
 interface VariantNameRow {
@@ -51,34 +52,35 @@ export function useVariantNames(): Map<string, VariantNameRow> {
   return names;
 }
 
-export function useLanTickets(): KitchenTicket[] {
-  const [tickets, setTickets] = useState<Map<string, KitchenTicket>>(new Map());
-  useEffect(
-    () =>
-      touch.onLanTicket((frame) => {
-        setTickets((prev) => {
-          const next = new Map(prev);
-          if (frame.type === 'ticket.snapshot') {
-            next.clear();
-            for (const t of frame.data) next.set(t.ref, t);
-          } else if (frame.type === 'ticket.new') {
-            next.set(frame.data.ref, frame.data);
-          } else if (frame.type === 'status.update') {
-            const existing = next.get(frame.data.ref);
-            if (existing) next.set(frame.data.ref, { ...existing, status: frame.data.status });
-          }
-          return next;
-        });
-      }),
-    [],
-  );
-  return useMemo(
-    () =>
-      [...tickets.values()]
-        .filter((t) => t.status !== 'completed')
-        .sort((a, b) => a.createdAt.localeCompare(b.createdAt)),
-    [tickets],
-  );
+/**
+ * The till's LAN frames as board state (lanState.ts): tickets, the link to
+ * the till, and the last bump that did not land. The link's first value is
+ * asked for (a `link` frame may have gone by before this mounted).
+ */
+export function useLanState(): LanBoardState {
+  const [state, setState] = useState<LanBoardState>(EMPTY_LAN);
+  useEffect(() => {
+    const unsub = touch.onLanTicket((frame) => setState((prev) => reduceLanFrame(prev, frame, Date.now())));
+    let cancelled = false;
+    touch
+      .getLanLink()
+      .then((up) => {
+        if (cancelled) return;
+        // Only fill the gap: a frame that already arrived is newer.
+        setState((prev) => (prev.link === undefined ? { ...prev, link: up } : prev));
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+      unsub();
+    };
+  }, []);
+  return state;
+}
+
+/** The open LAN tickets, oldest first (the board while it has no internet). */
+export function useLanTickets(state: LanBoardState): KitchenTicket[] {
+  return useMemo(() => lanOpenTickets(state), [state]);
 }
 
 /**

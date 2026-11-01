@@ -37,31 +37,17 @@ import { TABLE_COOKIE } from '@/lib/security/headers';
  * trade: the menu itself still comes from the shared cached read model
  * (getCachedMenu), so this costs a render, not a database round trip.
  *
- * ── KNOWN RESIDUAL, measured not assumed ─────────────────────────────────────
- * The token is read from the HttpOnly cookie here and then passed to <CafeApp>
- * as a prop, which means it is serialised into the RSC payload and IS readable
- * by page script. Verified: it appears exactly once in the rendered HTML.
- *
- * So what the exchange actually bought is precise, and worth stating plainly:
- *   FIXED     the token no longer sits in the address bar, so it is no longer
- *             sent in `Referer` to PostHog or the image CDN, no longer captured
- *             as `$current_url`, no longer written to browser history, and no
- *             longer visible in a screenshot or a shared link.
- *   NOT FIXED an XSS in this app could still read the token out of the RSC
- *             payload. HttpOnly stops `document.cookie`, not this.
- *
- * Closing that last gap means never sending the token to the client at all:
- * a route handler would read the cookie server-side and call
- * `app.open_table_session` as the guest (their Supabase session is already in
- * cookies via @supabase/ssr), returning only the resulting session. That is a
- * real refactor of the guest ordering boot in `useTableSession.ts`, and it is
- * NOT done here — it could not be validated without the e2e suite, which needs
- * the local Supabase stack. Tracked as the follow-up to this box.
- *
- * The residual is wider since the move: the cookie is `path: '/'` with a 12 h
- * life and nothing clears it, and this URL is now also the walk-in menu, so a
- * guest who scanned within 12 h and opens the menu from the landing page gets
- * their table bound (or the "scan again" chip) and the token in this payload.
+ * ── THE TOKEN NEVER LEAVES THE SERVER (F-42, 2026-11-01) ────────────────────
+ * Until this date the token was read here and passed to <CafeApp> as a prop,
+ * so it was serialised into the RSC payload and readable by page script for
+ * the cookie's whole life (12 h, and nothing cleared it). Now the page passes
+ * only `hasTable`; the browser signs in anonymously and asks
+ * `/{locale}/menu/table` (a route handler) to open the session, which reads
+ * the cookie on the server and answers the session alone. The cookie lives
+ * 2 h, and that route clears it when the token is refused or the session runs
+ * out, so a guest who later opens the menu from the landing page is a walk-in.
+ * The token is still read here for one thing: `app.table_branch(token)` on the
+ * server, while several branches are open.
  *
  * ── WHICH BRANCH (multi-venue slice 4) ───────────────────────────────────────
  * The menu, the café settings (hero, featured, ticker) and the degraded check
@@ -154,12 +140,13 @@ export default async function CafeMenuPage({
   const tableBranchId = token && branches.length > 1 ? await getTableBranch(token) : null;
   const tableBranch = branches.find((b) => b.id === tableBranchId) ?? null;
   // Multi-venue audit: a branch the guest names (?b=) wins over a table cookie
-  // left from an earlier visit (it lives 12 h). The table then only browses:
+  // left from an earlier visit (it lives 2 h). The table then only browses:
   // it can order at its own branch, never another's, so a guest looking at B
   // is not handed A's table to order into.
   const asked = slug ? (branches.find((b) => b.slug === slug) ?? null) : null;
   const branch = asked ?? tableBranch ?? pickBranch(branches, null);
-  const orderToken = asked && tableBranch && asked.id !== tableBranch.id ? null : token;
+  // Whether to bind the table at all; the token itself never goes to the client.
+  const hasTable = token !== null && !(asked && tableBranch && asked.id !== tableBranch.id);
 
   // The branch list could not be read: say so, rather than render every
   // branch's menu at once (the unfiltered read mixes and repeats them).
@@ -169,7 +156,7 @@ export default async function CafeMenuPage({
         <CafeStyles nonce={nonce} />
         <CafeApp
           locale={locale}
-          token={null}
+          hasTable={false}
           initialMenu={[]}
           menuStatus="error"
           settings={await getCachedCafeSettings(null)}
@@ -202,7 +189,7 @@ export default async function CafeMenuPage({
       <CafeStyles nonce={nonce} />
       <CafeApp
         locale={locale}
-        token={orderToken}
+        hasTable={hasTable}
         initialMenu={menuResult.categories}
         menuStatus={menuResult.status}
         settings={settings}

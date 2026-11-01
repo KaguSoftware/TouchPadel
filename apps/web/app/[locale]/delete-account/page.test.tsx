@@ -5,6 +5,14 @@ import { resetServerData } from '@/test/fixtures';
 import { renderServerPage } from '@/test/renderPage';
 import DeleteAccountPage from './page';
 
+/** The words a reader meets: the page's text without its inline stylesheet. */
+function readable(root: Element): string {
+  const copy = root.cloneNode(true) as Element;
+  copy.querySelectorAll('style, script').forEach((n) => n.remove());
+  return copy.textContent ?? '';
+}
+
+
 /**
  * The Google Play account-deletion URL. Play's reviewer reads it without the
  * app, so the page must explain deletion in server-rendered text — what is
@@ -58,9 +66,9 @@ describe.each(LOCALES)('delete-account page (%s)', (locale: Locale) => {
     expect(screen.getByText(t(locale, 'legal.deleteAccount.inApp.body'))).toBeTruthy();
     expect(screen.getByText(t(locale, 'legal.deleteAccount.what.deleted'))).toBeTruthy();
     expect(screen.getByText(t(locale, 'legal.deleteAccount.what.kept'))).toBeTruthy();
-    // DF-20: unused open-match tickets go back to the card.
-    expect(screen.getByText(t(locale, 'legal.deleteAccount.what.tickets'))).toBeTruthy();
-    // Coaching (guest.md §4.16, R50, R63): lessons cancelled and refunded; a coach's profile
+    // F-02/F-03: no tickets in this build, so nothing on the page speaks of refunds to a card.
+    expect(readable(document.body)).not.toMatch(locale === 'en' ? /ticket|card you paid with/i : /تذاكر|البطاقة التي دفعت بها/);
+    // Coaching (guest.md §4.16, R50, R63): lessons cancelled; a coach's profile
     // leaves, photo and bio deleted, statements kept.
     expect(screen.getByText(t(locale, 'legal.deleteAccount.what.lessons'))).toBeTruthy();
     expect(screen.getByText(t(locale, 'legal.deleteAccount.what.coaching'))).toBeTruthy();

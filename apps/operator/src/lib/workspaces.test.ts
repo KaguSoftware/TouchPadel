@@ -64,8 +64,11 @@ describe('navigation sets', () => {
   });
   it('the team workspace is one untitled group: marketing’s plan and posts (0362), My tasks and Insights', () => {
     expect(WORKSPACES.team.groups.map((g) => [g.labelKey, g.items.map((i) => [i.to, i.labelKey])])).toEqual([
-      [null, [['/plan', 'contentPlan'], ['/posts', 'posts'], ['/tasks', 'myTasks'], ['/insights', 'insights']]],
+      [null, [['/plan', 'contentPlan'], ['/posts', 'posts'], ['/tasks', 'myTasks'], ['/insights', 'insights'], ['/monitoring', 'monitoring']]],
     ]);
+    // The dev role (0392) holds the team workspace for Monitoring alone, and opens on it.
+    expect(workspacesForRole('dev')).toEqual(['team']);
+    expect(workspaceHome(WORKSPACES.team, (p) => canAccess('dev', p))).toBe('/monitoring');
     // Marketing opens on its plan; the driver and the waiter, who cannot, on My tasks.
     expect(workspaceHome(WORKSPACES.team, (p) => canAccess('marketing', p))).toBe('/plan');
     for (const role of ['driver', 'waiter'] as const) {
@@ -88,7 +91,9 @@ describe('navigation sets', () => {
     };
     for (const ws of Object.values(WORKSPACES)) {
       for (const item of workspaceItems(ws)) {
-        expect(canAccess(roleFor[ws.key], item.to), `${ws.key} → ${item.to}`).toBe(true);
+        // Monitoring (0393) is the dev role's row on the team rail; the rail drops it for the rest.
+        const who = ws.key === 'team' && item.to === '/monitoring' ? 'dev' : roleFor[ws.key];
+        expect(canAccess(who, item.to), `${ws.key} → ${item.to}`).toBe(true);
       }
       for (const section of ws.sections ?? []) {
         expect(canAccess(roleFor[ws.key], section.home), `${ws.key} → ${section.key} home`).toBe(true);
@@ -105,7 +110,8 @@ describe('navigation sets', () => {
         for (const item of workspaceItems(WORKSPACES[key])) {
           // The team's Insights, Content plan and Sent for approval rows are
           // marketing's alone; the rail hides them from the rest (rowShown).
-          if (['/insights', '/plan', '/posts'].includes(item.to) && role !== 'marketing') {
+          // Monitoring (0393) is the dev role's alone, hidden from every one of these.
+          if (item.to === '/monitoring' || (['/insights', '/plan', '/posts'].includes(item.to) && role !== 'marketing')) {
             expect(rowShown(item, (p) => canAccess(role, p), (t) => canAccess(role, t.to)), `${role} sees no ${item.to} row`).toBe(false);
             continue;
           }
@@ -506,7 +512,7 @@ describe('families (management rebuild, 2026-10-17)', () => {
     expect(rows('stock')).toEqual(['onHand', 'stockMovement', 'stockCounting', 'stockCosts']);
     expect(rows('team')).toEqual(['staff', 'staffActivity', 'attendance', 'fromTeam', 'protocols']);
     expect(rows('customers')).toEqual(['customers', 'loyalty', 'ranks', 'marketing', 'insights', 'guestApp']);
-    expect(rows('settings')).toEqual(['branches', 'computersScreens', 'audit']);
+    expect(rows('settings')).toEqual(['branches', 'computersScreens', 'audit', 'monitoring']);
   });
 
   it('opens club details from a branch card only, and keeps Branches lit there', () => {

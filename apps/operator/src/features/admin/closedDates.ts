@@ -62,3 +62,78 @@ export function sameClosedDates(a: readonly string[], b: readonly string[]): boo
   const nb = normalizeClosedDates(b);
   return na.length === nb.length && na.every((v, i) => v === nb[i]);
 }
+
+/**
+ * 0390 (F-51): the dates the draft closes that the saved list does not. Only
+ * these are checked for bookings: a date already closed, or one taken off the
+ * list, never blocks the save (app.set_opening_hours applies the same rule).
+ */
+export function addedClosedDates(draft: readonly string[], saved: readonly string[]): string[] {
+  const before = new Set(normalizeClosedDates(saved));
+  return normalizeClosedDates(draft).filter((d) => !before.has(d));
+}
+
+/** One booking on a newly closed date, as app.closed_day_bookings answers it. */
+export interface ClosedDayBooking {
+  id: string;
+  day: string;
+  courtNameEn: string | null;
+  courtNameAr: string | null;
+  startAt: string;
+  endAt: string;
+  status: string;
+  guestName: string | null;
+  remainingIqd: number | null;
+  started: boolean;
+}
+
+/** app.closed_day_bookings → rows; anything malformed is skipped, never invented. */
+export function readClosedDayBookings(raw: unknown): ClosedDayBooking[] {
+  const list = raw && typeof raw === 'object' ? (raw as { bookings?: unknown }).bookings : null;
+  if (!Array.isArray(list)) return [];
+  const out: ClosedDayBooking[] = [];
+  for (const b of list) {
+    if (!b || typeof b !== 'object') continue;
+    const r = b as Record<string, unknown>;
+    if (typeof r.id !== 'string' || typeof r.start_at !== 'string' || typeof r.end_at !== 'string') continue;
+    out.push({
+      id: r.id,
+      day: typeof r.day === 'string' ? r.day : '',
+      courtNameEn: typeof r.court_name_en === 'string' ? r.court_name_en : null,
+      courtNameAr: typeof r.court_name_ar === 'string' ? r.court_name_ar : null,
+      startAt: r.start_at,
+      endAt: r.end_at,
+      status: typeof r.status === 'string' ? r.status : '',
+      guestName: typeof r.guest_name === 'string' && r.guest_name.trim() !== '' ? r.guest_name : null,
+      remainingIqd: typeof r.remaining_iqd === 'number' ? r.remaining_iqd : null,
+      started: r.started === true,
+    });
+  }
+  return out;
+}
+
+/**
+ * Why Save cannot run yet because of the closed days: 'checking' while the
+ * list for the new dates is loading, 'error' when it failed, 'bookings' while
+ * any is left, else null. No new date: never blocked.
+ */
+export type ClosedDayBlock = 'checking' | 'error' | 'bookings' | null;
+export function closedDayBlock(added: readonly string[], q: { loading: boolean; error: boolean; count: number }): ClosedDayBlock {
+  if (added.length === 0) return null;
+  if (q.loading) return 'checking';
+  if (q.error) return 'error';
+  return q.count > 0 ? 'bookings' : null;
+}
+
+/** No-show needs the booking to have started (the server refuses RESERVATION_NOT_STARTED); pending cannot be paid. */
+export function closedDayActions(b: Pick<ClosedDayBooking, 'status' | 'started' | 'remainingIqd'>): {
+  cancel: boolean;
+  noShow: boolean;
+  pay: boolean;
+} {
+  return {
+    cancel: true,
+    noShow: b.started && b.status !== 'pending',
+    pay: b.status !== 'pending' && (b.remainingIqd ?? 0) > 0,
+  };
+}

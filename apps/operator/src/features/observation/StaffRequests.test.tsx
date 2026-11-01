@@ -98,6 +98,9 @@ describe('StaffRequestsScreen', () => {
     // Two buttons now read "Decline": the row's and the dialog's. The dialog
     // opens last, so it is the final one in the tree.
     await screen.findByRole('textbox');
+    // F-69: the dialog says the reason is optional, as the server takes none (0361).
+    expect(screen.getByText(/A reason is optional; if you give one, the person will read it\./)).toBeTruthy();
+    expect(screen.queryByText(/has to say why/)).toBeNull();
     await user.click(screen.getAllByRole('button', { name: 'Decline' }).at(-1)!);
 
     expect(screen.queryByText('A reason is required.')).toBeNull();

@@ -20,7 +20,6 @@ import type { TableSession, TableSessionState } from '@/hooks/cafe/useTableSessi
  */
 export function TopBar({
   locale,
-  token,
   sessionState,
   session,
   basketCount,
@@ -29,7 +28,6 @@ export function TopBar({
   onNeedsRescan,
 }: {
   locale: Locale;
-  token: string | null;
   sessionState: TableSessionState;
   session: TableSession | null;
   basketCount: number;
@@ -57,7 +55,7 @@ export function TopBar({
           priority
         />
         <div className="tp-cafe__topbar-side tp-cafe__topbar-side--end">
-          <LocaleSwitcher locale={locale} token={token} />
+          <LocaleSwitcher locale={locale} />
           <BasketButton
             locale={locale}
             count={basketCount}

@@ -284,4 +284,13 @@ export const kitEn = {
     /** The unit, not the number: Arabic uses U+066A, so it cannot be a literal. */
     percent: '%',
   },
+  // F-30: every printed receipt or slip, and what happens when the printer fails.
+  print: {
+    printed: 'Sent to the printer.',
+    printing: 'Printing…',
+    noPrinter: 'The receipt did not print: no receipt printer is set up on this station. Ask a manager to set one up, or use another printer.',
+    failed: 'The receipt did not print. Check the printer is on, has paper and is connected, then print again.',
+    again: 'Print again',
+    otherPrinter: 'Use another printer',
+  },
 } as const;

@@ -124,6 +124,18 @@ export const opErrorsCodesEn = {
   FILE_TOO_LARGE: 'This file is over 50 MB. Split it or save a smaller copy.',
   FILES_QUOTA_FULL: 'There is no room left in Files at this branch. Remove files you no longer need.',
   WAGE_ADVANCE_TOO_LARGE: 'That is more than they are still owed this month.',
+  // 0387: a wage, advance or coach statement paid from the safe needs the money in it.
+  SAFE_NOT_ENOUGH: 'Not enough money in the safe. Put cash into the safe first, or pay by bank transfer.',
+  // 0390: a closed day with bookings on it.
+  CLOSED_DAY_HAS_BOOKINGS: 'There are still bookings on that date. Cancel each one, mark it no-show or take its payment, then close the day.',
+  // 0401 (F-70): a coach sets the level only of a linked student.
+  LEVEL_NOT_LINKED: "This student's account is not linked yet. Confirm the link first, then set their level.",
+  // 0384 (F-16): a page the owner blocked for this person, on the server too.
+  AREA_BLOCKED: 'The owner has blocked this page for you. Ask the owner if you need it.',
+  // 0386 (F-55): a setup step failed on the server.
+  SETUP_FAILED: 'A setup step failed on the server. Tell the developer: it is on the Monitoring page.',
   // Gender hours (0353).
   SLOT_GENDER_RESTRICTED: 'This court is kept for women only or men only at this time. Pick another time or court.',
+  // 0396 (F-57): a completed kitchen ticket comes back only within ten minutes.
+  TICKET_RECALL_EXPIRED: 'This ticket was completed more than ten minutes ago, so it can no longer be brought back. Ask the till to send the order again.',
 };

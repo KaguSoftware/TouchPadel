@@ -29,8 +29,6 @@
  * (`available`) sinks below every kind it has, in the same relative order.
  */
 import type { PlayAnswers, PlayLevel, PlayWant, PlayYears } from './logic';
-import { onlinePaymentsShipped } from '../deposit/enabled';
-import { tournamentsShipped } from '../tournaments/shipped';
 
 export const SUGGESTION_KINDS = ['matches', 'americano', 'coaches', 'classes', 'mexicano'] as const;
 /**
@@ -131,13 +129,8 @@ export function suggest(
         reason = rule.reason;
       }
     }
-    // Store build: open matches are not shipped, so they are never suggested.
-    // And tournaments, while a build leaves them out (tournaments/shipped.ts).
-    const offered =
-      (kind === 'matches' && !onlinePaymentsShipped()) ||
-      ((kind === 'americano' || kind === 'mexicano') && !tournamentsShipped())
-        ? false
-        : (available?.[kind] ?? true);
+    // What the branches offer decides (F-71; open matches ship without online payment too).
+    const offered = available?.[kind] ?? true;
     return { kind, reason, score, available: offered, order };
   });
 

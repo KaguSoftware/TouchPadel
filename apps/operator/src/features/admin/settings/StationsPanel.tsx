@@ -45,7 +45,7 @@ export function StationsPanel() {
   const confirm = useConfirm();
   const qc = useQueryClient();
   const { branchId, current, stationBranchId } = useVenue();
-  const canManage = can(staff, 'editVenueDetails') || staff?.role === 'manager';
+  const canManage = can(staff, 'registerStation');
   const here = station();
   const hereMode = touch.getStation().mode;
 
@@ -77,7 +77,7 @@ export function StationsPanel() {
         p_mode: hereMode === 'desk' || hereMode === 'kds' || hereMode === 'shop' ? hereMode : 'till',
       }),
     onSuccess: () => {
-      toast.ok(tr('ws.branches.stations.register'));
+      toast.ok(tr('ws.branches.stations.registered'));
       refresh();
     },
     onError: (e) => toast.err(e),

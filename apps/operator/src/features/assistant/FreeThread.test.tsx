@@ -73,7 +73,7 @@ describe('FreeThread', () => {
     renderThread();
     expect(screen.getByText(/It can't see sales, bookings or any other data/)).toBeTruthy();
     expect(screen.getByTestId('assistant.free.starter.tasks')).toBeTruthy();
-    expect(screen.getByTestId('assistant.free.starter.break')).toBeTruthy();
+    expect(screen.getByTestId('assistant.free.starter.startShift')).toBeTruthy();
     expect(screen.getByTestId('assistant.free.starter.incident')).toBeTruthy();
     expect(screen.getByText('Free')).toBeTruthy();
     expect(screen.queryByTestId('assistant.free.usePaid')).toBeNull();
@@ -97,10 +97,10 @@ describe('FreeThread', () => {
     expect(onNavigate).toHaveBeenCalled();
 
     // The next question carries the finished turn; the chat is saved on this computer.
-    answers('Press Go on break in the rail.');
-    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'and a break?' } });
+    answers('Press Start my shift in the rail.');
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'and the end of it?' } });
     fireEvent.keyDown(screen.getByRole('textbox'), { key: 'Enter' });
-    await screen.findByText('Press Go on break in the rail.');
+    await screen.findByText('Press Start my shift in the rail.');
     expect((h.stream.mock.calls[1]![1] as { history: unknown[] }).history).toEqual([
       { role: 'user', text: 'Where do I see my tasks?' },
       { role: 'assistant', text: 'Open /tasks for your list; the owner sets staff on /admin/staff.' },
@@ -127,16 +127,16 @@ describe('FreeThread', () => {
     h.staff = { id: 'o1', role: 'owner' };
     answers("I can't see any of the club's data. Takings are on the Revenue report.");
     renderThread();
-    fireEvent.click(screen.getByTestId('assistant.free.starter.break'));
+    fireEvent.click(screen.getByTestId('assistant.free.starter.startShift'));
     fireEvent.click(await screen.findByTestId('assistant.free.askPaid'));
     await waitFor(() => expect(JSON.parse(localStorage.getItem('touch-assistant-mode-v1')!)).toEqual({ owner: 'o1', mode: 'paid' }));
-    expect(takePendingQuestion()).toBe('How do I take a break?');
+    expect(takePendingQuestion()).toBe('How do I start my shift?');
   });
 
   it('offers staff no paid hand-off', async () => {
     answers("I can't see any of the club's data.");
     renderThread();
-    fireEvent.click(screen.getByTestId('assistant.free.starter.break'));
+    fireEvent.click(screen.getByTestId('assistant.free.starter.startShift'));
     await screen.findByText("I can't see any of the club's data.");
     expect(screen.queryByTestId('assistant.free.askPaid')).toBeNull();
   });
@@ -144,19 +144,19 @@ describe('FreeThread', () => {
   it('says how long to wait after a per-minute refusal, and retries', async () => {
     h.stream.mockRejectedValueOnce(new EdgeError(429, 'RATE_LIMITED', 'x', 'RATE_LIMITED', { scope: 'minute', retry_after_s: 20 }));
     renderThread();
-    fireEvent.click(screen.getByTestId('assistant.free.starter.break'));
+    fireEvent.click(screen.getByTestId('assistant.free.starter.startShift'));
     expect((await screen.findByRole('alert')).textContent).toContain("You've asked a lot in a minute; try again in");
     expect(screen.getByRole('alert').textContent).toContain('20');
-    answers('Use Go on break.');
+    answers('Use Start my shift.');
     fireEvent.click(screen.getByTestId('assistant.free.retry'));
-    await screen.findByText('Use Go on break.');
+    await screen.findByText('Use Start my shift.');
     expect(screen.queryByRole('alert')).toBeNull();
   });
 
   it('offers no retry once the day is used up', async () => {
     h.stream.mockRejectedValueOnce(new EdgeError(429, 'RATE_LIMITED', 'x', 'RATE_LIMITED', { scope: 'day', retry_after_s: 3600 }));
     renderThread();
-    fireEvent.click(screen.getByTestId('assistant.free.starter.break'));
+    fireEvent.click(screen.getByTestId('assistant.free.starter.startShift'));
     expect((await screen.findByRole('alert')).textContent).toContain("Today's free questions are used up");
     expect(screen.queryByTestId('assistant.free.retry')).toBeNull();
   });

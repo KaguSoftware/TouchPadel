@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   advanceMaxFromHint,
+  keyForValues,
+  safeShort,
   advanceMonthInRange,
   bonusKind,
   canGiveAdvance,
@@ -401,5 +403,35 @@ describe('advances (0344)', () => {
     expect(advanceMaxFromHint('0')).toBe(0);
     expect(advanceMaxFromHint(null)).toBeNull();
     expect(advanceMaxFromHint('amount')).toBeNull();
+  });
+});
+
+describe('keyForValues (F-13: the idempotency key follows the values sent)', () => {
+  const mint = (() => {
+    let n = 0;
+    return () => `k${++n}`;
+  })();
+  it('keeps the key for an unchanged retry, mints one for changed values, and reuses it when they come back', () => {
+    const keys = new Map<string, string>();
+    const a = keyForValues(keys, ['s1', '2026-10-01', 100000, 'safe', null], mint);
+    expect(keyForValues(keys, ['s1', '2026-10-01', 100000, 'safe', null], mint)).toBe(a);
+    const b = keyForValues(keys, ['s1', '2026-10-01', 120000, 'safe', null], mint);
+    expect(b).not.toBe(a);
+    const c = keyForValues(keys, ['s1', '2026-10-01', 100000, 'bank', null], mint);
+    expect(c).not.toBe(a);
+    expect(c).not.toBe(b);
+    expect(keyForValues(keys, ['s1', '2026-10-01', 100000, 'safe', null], mint)).toBe(a);
+  });
+});
+
+describe('safeShort (F-12, 0387)', () => {
+  it('is short only from the safe, above a known balance', () => {
+    expect(safeShort(150000, 'safe', 100000)).toBe(true);
+    expect(safeShort(100000, 'safe', 100000)).toBe(false);
+    expect(safeShort(150000, 'bank', 100000)).toBe(false);
+    expect(safeShort(150000, 'safe', null)).toBe(false);
+    expect(safeShort(null, 'safe', 0)).toBe(false);
+    expect(safeShort(0, 'safe', -5)).toBe(false);
+    expect(safeShort(1, 'safe', -5)).toBe(true);
   });
 });

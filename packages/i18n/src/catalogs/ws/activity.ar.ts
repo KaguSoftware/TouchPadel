@@ -23,7 +23,6 @@ export const activityAr: DeepMessages<typeof activityEn> = {
     signedOut: 'سجّل الخروج',
     never: 'لم يستخدمه قط',
   },
-  onBreak: 'في استراحة',
   lastSeen: 'آخر ظهور: {time}',
   lastAction: '{action}، {time}',
   noAction: 'لا إجراءات بعد',

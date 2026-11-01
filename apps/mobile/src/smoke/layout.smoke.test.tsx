@@ -21,7 +21,8 @@ import { describe, expect, it } from '@jest/globals';
 import { render } from '@testing-library/react-native';
 import { StyleSheet } from 'react-native';
 import { SMOKE_ROUTES } from './routes';
-import RootLayout from '../../app/_layout';
+import RootLayout, { ErrorBoundary } from '../../app/_layout';
+import { makeT } from '@touch/i18n';
 import { onlinePaymentsOnForFile } from '../test/onlinePaymentsEnv';
 
 onlinePaymentsOnForFile();
@@ -49,6 +50,22 @@ describe('the root layout', () => {
       // stored it is the device's — pinned to en-AE in jest.setup.ts.
       const flat = StyleSheet.flatten(root.props.style) as { direction?: string } | undefined;
       expect(flat?.direction).toBe('ltr');
+    } finally {
+      screen.unmount();
+    }
+  });
+});
+
+// F-15: the crash screen carries "Report crash", which sends the error to the
+// developers' Monitoring page (src/lib/monitoring.ts).
+describe('the crash screen', () => {
+  it('offers Report crash beside Try again', async () => {
+    const screen = render(<ErrorBoundary error={new Error('KABOOM')} retry={async () => {}} />);
+    try {
+      const button = await screen.findByTestId('app.crash.report');
+      expect(button).toBeTruthy();
+      expect(screen.getByText(makeT('en')('crashReport.button'))).toBeTruthy();
+      expect(screen.getByText(makeT('en')('crashReport.hint'))).toBeTruthy();
     } finally {
       screen.unmount();
     }

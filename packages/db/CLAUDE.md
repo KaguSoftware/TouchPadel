@@ -17,6 +17,77 @@ is a line in that file.
 
 ## Migrations
 
+- **0380–0386 (2026-11-01, launch findings; tests next to each):** 0380 tax_zero (every
+  `tax_groups.rate_bp` is 0, seed too; `tests/tax-zero.test.ts`); 0381 pin_length (**0381 holds
+  `set_staff_pin`**: 4–12 digits); 0382 branch_isolation (no broadcast on the literal `kds`,
+  `floor`, `courts` topics, the realtime policies admit `<topic>:<venue>` only; **0382 holds
+  `rt_ticket`, `rt_order_item_ready`, `rt_waiter_call`, `rt_reservation`, `rt_court_changed`,
+  `rt_order_slip`, `order_set_delivery`, `delete_court`, `split_evenly`, `split_by_item`,
+  `eligible_promotions`, `staff_requests_page`**; `app.shares_branch_with`, trigger
+  `staff_requests_branch_guard`); 0383 second_jobs (`app.my_staff_roles()` replaces
+  `staff_role()` where a second job must count; **0383 holds `my_checklists_today`,
+  `my_checklist_history`, `checklist_materialize`, `checklist_day_state`, `teachings_for_me`,
+  `staff_media_visible`, `log_stock`, `submit_stock_count`, `stock_pick_list`, `stock_today`,
+  `staff_stock_view`**; `_shared/auth.ts` counts `extra_roles`); 0384 blocked_areas_enforced
+  (`staff.blocked_areas` is a server wall: PostgREST pre-request hook `app.pre_request` +
+  the data table `app.access_area_rpcs`, AREA_BLOCKED; a new page's RPCs need rows there);
+  0385 setup_checks (`app.setup_expected`, `app.setup_missing()`, `app.setup_check()` hourly
+  `tp_setup_check`; **schedule new cron jobs with `app.ensure_cron(name, schedule, command)`,
+  which raises SETUP_FAILED, and register other setup with `app.expect_setup`**; the migration
+  itself raises when anything expected is missing); 0386 prune_jobs (`app.prune_housekeeping`,
+  cron `tp_housekeeping_prune`: `cron.job_run_details` 7 days, `app.rpc_replays` and
+  `sync_replays` 90 days).
+- **0387–0391 (2026-11-01, launch findings, lane OP-BACK; tests next to each):** 0387
+  safe_balance_guard (F-12: **0387 holds `main_cash_record_payment`**, the one writer of the safe
+  rows of `mark_wage_paid`, `give_wage_advance` and `coach_statement_mark_paid`: paid from the
+  safe, an amount above the balance raises `SAFE_NOT_ENOUGH` hint the balance, under
+  `app.lock_main_cash`, and the caller's whole write rolls back; bank is never refused;
+  `main_cash_pay` keeps 0343's rule; `tests/main-cash.test.ts`, `tests/coaching-statements.test.ts`);
+  0388 report_exports (F-14: **0388 holds `report_drill`**, 0292 no longer: + `totals {count,
+  amountIqd, kinds [{key, count, sum}], days {date: {count, sum}}}` over every match, `capped`,
+  and each row's business `day` by `analytics_business_day_start_hour` (default 4);
+  `tests/report-drill-totals.test.ts`); 0389 shop_products_never_lost (F-36: **0389 holds
+  `receive_delivery_internal`**, 0245 no longer: on goods_in, shop (retail) lines bound for
+  another store go to the shop store, their own delivery `shop_delivery_id` when mixed, a staff log
+  is still refused; triggers `menu_items_shop_no_delete` / `menu_item_variants_shop_no_delete`
+  (FORBIDDEN hint shop_product); the client `create_shop_product(p_category_id, p_name_en,
+  p_name_ar, p_size_name_en, p_size_name_ar, p_price_iqd, p_sku, p_barcode, p_supplier_id,
+  p_pack_cost_iqd, p_low_stock_threshold, p_is_active, p_purchase_line_id, p_idempotency_key)`
+  (product + first size in one transaction, key required; with a purchase line, manager or owner,
+  it approves a driver's new product: the line becomes its stock item and is booked into the
+  shop store; REQUEST_NOT_PENDING, PURCHASE_NOT_FOUND); `tests/shop-new-product.test.ts`);
+  0390 closed_days_and_tournament_confirm (F-51: **0390 holds `set_opening_hours`**, 0208 no
+  longer: a newly closed date with a booking still to cancel, mark no-show or pay is
+  `CLOSED_DAY_HAS_BOOKINGS` detail the count, hint the first date; internal
+  `closed_day_unresolved`; client `closed_day_bookings(p_dates date[], p_venue_id uuid default
+  null)`; F-40: `tournament_entries.confirmed_at` / `confirmed_by`, the client
+  `tournament_confirm_entry(p_entry_id, p_confirmed boolean default true)` (court desk, manager,
+  owner; open or closed tournament; registered entry), the trigger `tournament_rounds_confirmed`
+  (`TOURNAMENT_UNCONFIRMED` detail the count: no draw while a registered entry is unconfirmed),
+  `tournament_entries_confirm` (leaving the list clears it, a no-show substitute is confirmed),
+  **0390 holds `desk_tournament_detail`** (0359 no longer: `entries[].confirmed_at`,
+  `confirmed_by_name`, `can.confirm`); `tests/closed-day-bookings.test.ts`,
+  `tests/tournament-confirm.test.ts`; the tournaments plant confirms its fields); 0391
+  protocols_files_cleanup (F-61: **0391 holds `stop_protocol`** (0164 no longer: the owner stops a
+  run with no reason, as `decide_step` (still 0361's) lets the owner stop or send back; every
+  other decider says why), `staff_media_orphan_purge_due` (0240 no longer) and `protocol_tick_nudge` (0302 no longer): a
+  protocol-folder slot nobody claimed in 7 days is purged; client `discard_staff_media(p_paths
+  text[])` (own unclaimed slots only); F-64: service-role `venue_files_gc()`, cron
+  `tp_venue_files_gc` every 10 minutes, deletes ready rows whose blob is gone and uploads stuck a
+  day; `tests/protocol-photos-files-gc.test.ts`).
+- **0402 (2026-11-01, sweeps_report; owner: every failure reaches the dev monitoring panel):**
+  every `exception when others` handler of the six background bodies 0394 left over now also calls
+  `app.monitor('cron', 'error', '<function>_failed', <the warning's text>, <ids + sqlstate>)`
+  (0393; never raises), so a caught item, branch or step error is on the Monitoring page and not
+  only in a `raise warning`. **0402 holds `match_sweep`** (0263 no longer: per match, DF-20
+  refunds, report purge), **`lesson_sweep`** (0295 no longer: per item, refund net, CD-8 purge),
+  **`tournament_sweep`** (0310 no longer: cut-off, deleted account, finish, cancel, mark),
+  **`checklist_sweep`** (0323 no longer), **`loyalty_nightly_one`** (0376 no longer) and
+  **`price_promo_apply_due`** (0177 no longer: the run that did not apply, which had no warning,
+  and its put-back). A new catch-all in a cron body reports the same way;
+  `tests/sweeps-report.test.ts` counts handlers against `app.monitor` calls in each latest body.
+  `app.monitor_scrub_text` masks any run of eight digits, dashes included, so a digit-heavy uuid
+  in a message or detail is stored as `[number]`.
 - Ordinal strictly greater than the current max, never a reused one. Latest is `0376`
   (0376 loyalty_tier_colors, 2026-10-31 (Ameen: a tier made "from 100 points" never reached a
   gifted account, and the owner picks each tier's card colour): `loyalty_tiers.color` (classic |
@@ -779,6 +850,12 @@ is a line in that file.
   by decision (scope ledger row in `HANDOFF.md`). A state-idempotent RPC (`set_ticket_status`,
   `void_after_send`) takes no key; every other money write takes `p_idempotency_key` +
   `app.claim_replay`.
+- `rpc.queued` (0395) is the one generic type: an allowlisted RPC name plus its `p_*` arguments,
+  dispatched by replay to `app.queued_rpc` (security invoker; claims the key through the definer
+  `queued_rpc_claim` in the same transaction, then calls the RPC as the caller). The allowlist has
+  three copies held equal by `tests/queued-rpc.test.ts`: core `QUEUEABLE_RPCS`,
+  `_shared/mutation-types.json` `queueableRpcs`, `app.queueable_rpcs()`. A PIN rides as
+  `args.p_pin` only for a PIN-gated name; replay proves it first and `redact.ts` strips `p_pin`.
 - `PIN_GATED_RPCS` (three copies: `packages/core/src/schemas/mutations.ts`,
   `_shared/mutation-types.json` `pinGatedRpcs`, `tests/helpers.ts`) gained `match_seat_write_off`
   in 0262 (online only, never queued).

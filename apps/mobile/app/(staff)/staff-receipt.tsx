@@ -9,7 +9,7 @@ import { RECEIPT_ROLES } from '../../src/features/staff/scan/logic';
  */
 export default function StaffReceiptRoute() {
   return (
-    <RequireStaff roles={RECEIPT_ROLES}>
+    <RequireStaff page="staff-receipt" roles={RECEIPT_ROLES}>
       <ScanPage kind="receipt" />
     </RequireStaff>
   );

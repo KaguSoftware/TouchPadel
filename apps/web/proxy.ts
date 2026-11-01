@@ -83,8 +83,9 @@ const TABLE_HOP_URL = new RegExp(`^(?:/(${LOCALES.join('|')}))?/t/?$`);
  *
  * The exchange is a 307 to the token-less `/{locale}/menu`, carrying a
  * Set-Cookie. From then on the address bar reads `/{locale}/menu` and the
- * credential lives where page script cannot read it (but see the RSC-payload
- * residual in app/[locale]/menu/page.tsx).
+ * credential lives where page script cannot read it: since F-42 (2026-11-01)
+ * the menu never hands it to the client, and the table is bound on the server
+ * by app/[locale]/menu/table/route.ts.
  *
  * PRINTED QR CARDS ARE UNAFFECTED. The token is still in the QR code and still
  * arrives on that first request — this only changes where it lives afterwards.

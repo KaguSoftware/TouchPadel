@@ -140,6 +140,8 @@ export function branchFixture(over: Record<string, unknown> = {}) {
     coaching_enabled: false,
     // Tournaments off by default, likewise.
     tournaments_enabled: false,
+    // Open matches off on the branch row (the Play tab reads both, F-71).
+    matches_enabled: false,
     ...over,
   };
 }

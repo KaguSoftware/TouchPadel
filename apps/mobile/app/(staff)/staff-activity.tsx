@@ -16,7 +16,6 @@ import { radius, space, useTheme } from '../../src/theme';
 import { Screen, SegmentedControl } from '../../src/components/ui';
 import { EmptyState, ErrorState, SkeletonList } from '../../src/components/states';
 import { RequireStaff } from '../../src/features/staff/RequireStaff';
-import { Tag } from '../../src/features/staff/checklists/parts';
 import {
   BOARD_REFRESH_MS,
   activityKeys,
@@ -206,11 +205,6 @@ function PersonCard({ row, ago }: { row: ActivityRow; ago: (at: string) => strin
             {t(`op.roles.${row.role}` as MessageKey)}
           </Text>
         </View>
-        {row.onBreak ? (
-          <View testID={`${id}.break`}>
-            <Tag label={t('staff.activity.onBreak')} tone="warn" />
-          </View>
-        ) : null}
       </View>
       <PartSection
         label={t('staff.activity.surface.operator')}
@@ -318,7 +312,7 @@ function ActivityScreen() {
 
 export default function StaffActivityRoute() {
   return (
-    <RequireStaff roles={['owner']}>
+    <RequireStaff page="staff-activity" roles={['owner']}>
       <ActivityScreen />
     </RequireStaff>
   );

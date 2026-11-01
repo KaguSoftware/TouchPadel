@@ -234,7 +234,7 @@ function NewRequestScreen() {
 
 export default function StaffRequestNewRoute() {
   return (
-    <RequireStaff>
+    <RequireStaff page="staff-request-new">
       <NewRequestScreen />
     </RequireStaff>
   );

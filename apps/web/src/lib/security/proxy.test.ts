@@ -5,7 +5,7 @@ import type { ProxyMatcher } from 'next/dist/build/analysis/get-page-static-info
 import { getMiddlewareRouteMatcher } from 'next/dist/shared/lib/router/utils/middleware-route-matcher';
 import { config, proxy } from '../../../proxy';
 import { GET } from '../../../app/[locale]/t/[token]/route';
-import { buildCsp, TABLE_COOKIE } from './headers';
+import { buildCsp, TABLE_COOKIE, TABLE_COOKIE_MAX_AGE_S } from './headers';
 
 // Exported at runtime by Next 16.3.4 but missing from its .d.ts, so it is
 // typed here by hand. If it disappears, this test fails loudly at import —
@@ -230,6 +230,10 @@ describe('proxy()', () => {
     expect(cookie).toMatch(new RegExp(`^${TABLE_COOKIE}=abc123;`));
     expect(cookie).toMatch(/HttpOnly/);
     expect(cookie).toMatch(/SameSite=lax/i);
+    // F-42: two hours, not the old twelve, so a walk-in later that day is not bound to
+    // the table they sat at before.
+    expect(cookie).toMatch(/Max-Age=7200(;|$)/);
+    expect(TABLE_COOKIE_MAX_AGE_S).toBe(2 * 60 * 60);
     // The only request whose URL carries the credential: never stored, never referred.
     expect(res.headers.get('cache-control')).toMatch(/no-store/);
     expect(res.headers.get('referrer-policy')).toBe('no-referrer');
@@ -268,6 +272,7 @@ describe('the route-level exchange (proxy bypassed)', () => {
     expect(res.status).toBe(307);
     expect(location(res)).toBe('/en/menu');
     expect(res.headers.get('set-cookie')).toMatch(new RegExp(`^${TABLE_COOKIE}=abc123;.*HttpOnly`));
+    expect(res.headers.get('set-cookie')).toMatch(/Max-Age=7200(;|$)/);
     expect(res.headers.get('cache-control')).toMatch(/no-store/);
     expect(res.headers.get('referrer-policy')).toBe('no-referrer');
   });

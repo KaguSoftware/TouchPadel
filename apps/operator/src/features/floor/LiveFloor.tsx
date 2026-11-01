@@ -4,7 +4,7 @@
  *
  * WHAT IT ANSWERS: "what is happening on the floor this minute?" — which
  * courts are in play, which tables have a tab open and whether it is waiting
- * to be paid, who is at a live station and who is on a break. The plan is the
+ * to be paid, and who is at a live station. The plan is the
  * picture; the three counts above it are the answer in words, and they do not
  * depend on the picture: a machine that cannot draw WebGL still gets them.
  *
@@ -133,7 +133,6 @@ function FloorBody({ snapshot, blockSize }: { snapshot: FloorSnapshot; blockSize
           <Count label={tr('ws.owner.floor.counters.courts')} value={of(counts.courtsInPlay, counts.courtsTotal)} live={counts.courtsInPlay > 0} />
           <Count label={tr('ws.owner.floor.counters.tables')} value={of(counts.tablesOccupied, counts.tablesTotal)} live={counts.tablesOccupied > 0} />
           <Count label={tr('ws.owner.floor.counters.staff')} value={n(counts.staffWorking)} live={counts.staffWorking > 0} />
-          {counts.staffOnBreak > 0 && <Count label={tr('ws.owner.floor.counters.onBreak')} value={n(counts.staffOnBreak)} live={false} />}
         </dl>
 
         <Legend />
@@ -258,10 +257,10 @@ function Stage({ snapshot, blockSize }: { snapshot: FloorSnapshot; blockSize: st
 
   // The wheel zooms the plan wherever it is (owner request, 2026-09-21), and
   // only over the plan — the handler is on the canvas, so the wheel means what
-  // it always meant everywhere else on the page. Inside the scrolling panel it
-  // hands the wheel back once the plan is all the way out or all the way in,
-  // so the page still scrolls past rather than trapping the reader on the
-  // canvas; see the note on the handler in floorScene.ts.
+  // it always meant everywhere else on the page. While the pointer is on the
+  // plan the wheel stays the plan's, at the ends of the zoom too (it simply
+  // stops moving there, as a map does; owner call, 2026-09-21); see the note
+  // on the handler in floorScene.ts.
   //
   // Full screen additionally covers the window, and Escape is the way out
   // alongside the button.
@@ -718,15 +717,12 @@ export function describeTarget(
         people.map((p) => (
           <span key={p.id} style={{ display: 'flex', alignItems: 'baseline', gap: 'var(--tp-sp-2)', flexWrap: 'wrap' }}>
             <bdi>{p.name}</bdi>
-            <Status tone={p.status === 'working' ? 'success' : 'neutral'}>{tr(`ws.owner.floor.staff.${p.status}`)}</Status>
-            <Parts small>
-              {p.coveringFor ? (
-                <span>{tr('ws.owner.floor.staff.covering', { name: p.coveringFor })}</span>
-              ) : p.stationId ? (
+            <Status tone="success">{tr(`ws.owner.floor.staff.${p.status}`)}</Status>
+            {p.stationId && (
+              <Parts small>
                 <span>{tr('ws.owner.floor.staff.station', { station: p.stationId })}</span>
-              ) : null}
-              {p.since && <span>{tr('ws.owner.floor.staff.since', { time: time(p.since) })}</span>}
-            </Parts>
+              </Parts>
+            )}
           </span>
         ))
       )}
@@ -794,7 +790,6 @@ function Legend() {
       <li>{item(cap('var(--tp-surface)', '1px solid #BCBDBF'), tr('ws.owner.floor.legend.seated'))}</li>
       <li>{item(cap('#D9A64B'), tr('ws.owner.floor.legend.paying'))}</li>
       <li>{item(hat('#A5D06F'), tr('ws.owner.floor.legend.staffWorking'))}</li>
-      <li>{item(hat('#BCBDBF'), tr('ws.owner.floor.legend.staffBreak'))}</li>
     </ul>
   );
 }

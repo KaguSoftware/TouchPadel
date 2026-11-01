@@ -530,7 +530,7 @@ function AssistantScreen() {
 export default function StaffAssistantRoute() {
   return (
     // Every staff role: the owner's paid assistant or anyone's free one (AssistantScreen decides).
-    <RequireStaff>
+    <RequireStaff page="staff-assistant">
       <AssistantScreen />
     </RequireStaff>
   );

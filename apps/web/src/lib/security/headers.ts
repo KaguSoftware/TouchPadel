@@ -194,14 +194,23 @@ export function buildCsp(nonce: string, opts: { isDev: boolean; supabaseUrl?: st
  */
 export const TABLE_COOKIE = 'tp-table';
 
+/**
+ * Two hours (F-42, Majed 2026-11-01). It was 12 h, and since 2026-09-23 the
+ * menu a walk-in opens from the landing page is the same URL a scanned table
+ * lands on, so a guest who came back the same evening was bound to the table
+ * they sat at hours before. Two hours covers a visit; a guest still at the
+ * table after that scans the QR again. The table session itself also ends:
+ * the menu clears the cookie as soon as `open_table_session` refuses the token
+ * or the session runs out (src/lib/cafe/tableSession.server.ts).
+ */
+export const TABLE_COOKIE_MAX_AGE_S = 60 * 60 * 2;
+
 export function tableCookieOptions(isDev: boolean) {
   return {
     httpOnly: true,
     secure: !isDev,
     sameSite: 'lax' as const,
     path: '/',
-    // Matches the server-side table-session inactivity TTL closely enough that
-    // a stale cookie is refused by app.open_table_session rather than trusted.
-    maxAge: 60 * 60 * 12,
+    maxAge: TABLE_COOKIE_MAX_AGE_S,
   };
 }

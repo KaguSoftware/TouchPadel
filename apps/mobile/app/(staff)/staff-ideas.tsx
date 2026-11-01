@@ -383,7 +383,7 @@ function IdeasScreen() {
 
 export default function StaffIdeasRoute() {
   return (
-    <RequireStaff roles={IDEA_ROLES}>
+    <RequireStaff page="staff-ideas" roles={IDEA_ROLES}>
       <IdeasScreen />
     </RequireStaff>
   );

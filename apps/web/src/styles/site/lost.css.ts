@@ -54,6 +54,7 @@ body:has(> .tp-lost-page) { margin: 0; }
 .tp-lost__title--sized { font-size: clamp(2.5rem, 1.5rem + 5vw, 5.5rem); }
 [dir='rtl'] .tp-lost__title { text-transform: none; letter-spacing: 0; line-height: var(--tp-site-lh-display-ar); }
 .tp-lost__body { max-inline-size: 40ch; font-size: var(--tp-site-fs-lg); line-height: 1.5; color: var(--tp-site-ink-2); }
+.tp-lost__status { flex-basis: 100%; margin: 0; min-block-size: 1.5em; color: var(--tp-site-ink-2); font-size: var(--tp-site-fs-sm); }
 .tp-lost__actions { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-block-start: 0.5rem; }
 .tp-lost__btn {
   display: inline-flex;

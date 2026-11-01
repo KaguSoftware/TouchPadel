@@ -771,3 +771,26 @@ export function startTemplateId(
   const t = (templates ?? []).find((x) => x.kind === kind && (kind !== 'tournament' || x.variant === variant));
   return t?.template_id || null;
 }
+
+/**
+ * F-61 (0391): a photo taken off a form leaves storage too. The caller's own
+ * upload that no record claimed is marked for the orphan purge
+ * (app.discard_staff_media); a photo a sent step already names is left alone
+ * by the server. Best effort: a failure here leaves the photo to the weekly
+ * orphan sweep, so it never blocks the form.
+ */
+export async function discardRemovedPhoto(
+  path: string,
+  call: (fn: string, args: Record<string, unknown>) => Promise<unknown>,
+): Promise<void> {
+  try {
+    await call('discard_staff_media', { p_paths: [path] });
+  } catch {
+    // The weekly sweep (staff_media_orphan_purge_due, 7 days) takes it instead.
+  }
+}
+
+/** app.my_push_prefs → the "Follow every step" switch (0363: no row, or anything but false, is on). */
+export function readFollowEveryStep(raw: unknown): boolean {
+  return !(raw !== null && typeof raw === 'object' && (raw as { protocol_updates?: unknown }).protocol_updates === false);
+}

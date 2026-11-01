@@ -11,9 +11,10 @@
  *   never made by a tick either.
  * - **Blocked pages** (`staff.blocked_areas`). A page the person's jobs open
  *   that the owner has unticked. The operator and the staff phone keep them
- *   out of it (rail, section homes, the route guard). This is the screens'
- *   wall only: the role's RPCs still answer, so a block is "not on this
- *   person's screens", not a server refusal.
+ *   out of it (rail, section homes, the route guard), and since 0384 (F-16)
+ *   the server refuses the page's RPCs too: app.pre_request answers
+ *   AREA_BLOCKED for an RPC whose every page (app.access_area_rpcs, keyed by
+ *   the ACCESS_AREAS below) is blocked for the caller.
  *
  * An owner account has neither: owners open everything, and the RPC refuses to
  * set either list on one.

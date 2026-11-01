@@ -52,6 +52,12 @@ export const HEARTBEAT_INTERVAL_MS = 10_000;
 export interface HeartbeatResult {
   degraded: boolean;
   server_time: string;
+  /** 0229: false when this machine is not a live station of the caller's branch. */
+  registered?: boolean;
+  /** 0397 (F-49): true when this machine's id names a RETIRED station. */
+  retired?: boolean;
+  /** 0397 (F-48): the branch's till_idle_lock_seconds; null when never set. */
+  idle_lock_seconds?: number | null;
 }
 
 export interface HeartbeatState {
@@ -62,6 +68,19 @@ export interface HeartbeatState {
   /** Set when the beat itself failed: the station cannot reach the server. */
   error: unknown;
   lastOkAt: number | null;
+  /**
+   * F-49: the server answered, and what it said about this machine: 'retired'
+   * (stop everything), 'live' (registered, trading), or 'other' (never
+   * registered, another branch's, or a server before 0397). Null when the beat
+   * failed (or absent): an outage proves nothing either way.
+   */
+  station?: 'retired' | 'live' | 'other' | null;
+  /**
+   * F-48: the idle-lock timeout the owner set for the branch, as the server
+   * sent it on this beat (every role gets it here; cafe_settings is for
+   * managers and owners only). Null when never set; absent when the beat failed.
+   */
+  idleLockSeconds?: number | null;
 }
 
 /**
@@ -101,6 +120,13 @@ export async function sendHeartbeat(
     // detected as degraded at all.
     p_is_till: identity.isTill,
   });
+}
+
+/** What a beat's answer says about this machine (F-49). */
+export function stationVerdict(res: HeartbeatResult): 'retired' | 'live' | 'other' {
+  if (res.retired === true) return 'retired';
+  if (res.registered === true) return 'live';
+  return 'other';
 }
 
 /**
@@ -150,6 +176,8 @@ export function useHeartbeat({
           queueDepth,
           error: null,
           lastOkAt: Date.now(),
+          station: stationVerdict(res),
+          idleLockSeconds: typeof res.idle_lock_seconds === 'number' ? res.idle_lock_seconds : null,
         });
       } catch (error) {
         if (cancelled) return;
@@ -157,7 +185,7 @@ export function useHeartbeat({
         // unnoticed for a week; the station shows it and telemetry records it.
         captureException(error, { label: 'heartbeat' });
         touch.pushConnState(false);
-        onStateRef.current({ degraded: false, queueDepth, error, lastOkAt: null });
+        onStateRef.current({ degraded: false, queueDepth, error, lastOkAt: null, station: null });
       }
     }
 

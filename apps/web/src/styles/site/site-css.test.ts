@@ -3,6 +3,7 @@ import { courtCss } from '@/features/court3d/court.css';
 import { PHOTO_GRADE_ID } from '@/lib/site/photoGrade';
 import { siteCssModules } from './index';
 import { siteLostCss, siteLostFrameCss } from './lost.css';
+import { globalErrorCss } from './globalError.css';
 import { sitePayReturnCss } from './payReturn.css';
 import { siteMatchInviteCss } from './matchInvite.css';
 import { siteCoachLinkCss } from './coachLink.css';
@@ -88,5 +89,16 @@ describe('site css guard', () => {
     expect(siteLostCss.length).toBeLessThan(4000);
     expect(siteLostFrameCss.length).toBeLessThan(2500);
     expect(siteLostFrameCss).not.toMatch(/\.tp-front|\.tp-site-header/);
+  });
+
+  it('the global error page declares every token its screen reads, and stays far smaller than the theme', () => {
+    // app/global-error.tsx replaces the root layout, so nothing else declares a token there (F-43).
+    const used = new Set(Array.from(globalErrorCss.matchAll(/var\((--tp-[a-z0-9-]+)/g), (m) => m[1]));
+    const declared = new Set(Array.from(globalErrorCss.matchAll(/(--tp-[a-z0-9-]+):/g), (m) => m[1]));
+    const missing = [...used].filter((name) => !declared.has(name));
+    expect(missing).toEqual([]);
+    expect(globalErrorCss).toContain("[data-theme='padel'][data-mode='night']");
+    expect(globalErrorCss).toContain('@font-face');
+    expect(globalErrorCss.length).toBeLessThan(16_000);
   });
 });

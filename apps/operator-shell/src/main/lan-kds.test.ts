@@ -1,7 +1,17 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import WebSocket from 'ws';
 import { setAuthState } from './auth-state';
-import { parseStatusUpdate, type LanServerFrame } from './lan-frames';
+import {
+  applyCloudStatuses,
+  parseKdsFrame,
+  parseStatusUpdate,
+  snapshotOf,
+  validateLanAck,
+  validateLanCloudStatus,
+  type LanServerFrame,
+  type LanTicket,
+} from './lan-frames';
+import type { LanReach } from '../ipc-channels';
 import { pickLanBind, startLanKdsServer, type LanKdsServer } from './lan-kds-server';
 import { openQueue, listBlockingRows } from './queue';
 import { ulid } from './ulid';
@@ -45,6 +55,7 @@ function orderEnvelope(): MutationEnvelope {
 }
 
 let server: LanKdsServer | null = null;
+let reaches: LanReach[] = [];
 const sockets: WebSocket[] = [];
 
 function track(ws: WebSocket): WebSocket {
@@ -57,8 +68,9 @@ beforeEach(() => {
   setAuthState({ accessToken: 't', staffId: STAFF, supabaseUrl: 'https://x.test', anonKey: 'k' });
   server = startLanKdsServer(
     { stationId: 'TILL1', mode: 'till', lanPsk: PSK, lanBind: '127.0.0.1', configured: true, appVersion: 't' },
-    { port: PORT },
+    { port: PORT, onReach: (r) => reaches.push(r) },
   );
+  reaches = [];
   expect(server).not.toBeNull();
 });
 
@@ -178,9 +190,98 @@ describe('lan kds server', () => {
         data: { ref: 'TILL1:order.add_items:X', status: 'ready', kdsStation: 'KDS-01' },
       }),
     );
-    const err = (await errPending) as unknown as { type: string; data: { reason: string } };
+    const err = (await errPending) as unknown as { type: string; data: { reason: string; ref?: string } };
     expect(err.type).toBe('error');
     expect(err.data.reason).toMatch(/staff/);
+    // F-57: the KDS knows WHICH bump was refused, so it can put the card back and say why.
+    expect(err.data).toEqual({ reason: 'no-staff', ref: 'TILL1:order.add_items:X' });
+  });
+
+  // F-11: a kitchen screen says what it drew; the till stops flagging it.
+  it('records a KDS ack of a ticket it sent, and ignores refs it never sent', async () => {
+    const env = orderEnvelope();
+    server!.onEnqueued(env);
+    const ws = track(connect(PSK));
+    await nextMessage(ws);
+    ws.send(JSON.stringify({ type: 'ticket.ack', data: { refs: [env.idempotencyKey, 'TILL1:order.add_items:NOT-OURS'], kdsStation: 'KDS-01' } }));
+    await new Promise((r) => setTimeout(r, 50));
+    expect(server!.reach()).toEqual({ acked: [env.idempotencyKey], kdsConnected: 1 });
+    expect(reaches.at(-1)?.acked).toEqual([env.idempotencyKey]);
+  });
+
+  it('tells every KDS when an order reached the server, and drops one the server refused', async () => {
+    const synced = orderEnvelope();
+    const refused = orderEnvelope();
+    server!.onEnqueued(synced);
+    server!.onEnqueued(refused);
+    const ws = track(connect(PSK));
+    await nextMessage(ws);
+    const a = nextMessage(ws);
+    server!.onResult({ localId: synced.localId, idempotencyKey: synced.idempotencyKey, mutationType: 'order.add_items', state: 'acked', serverResult: { ticket_id: 't-1' } });
+    expect(await a).toEqual({ type: 'ticket.synced', data: { ref: synced.idempotencyKey, ticketId: 't-1' } });
+    const b = nextMessage(ws);
+    server!.onResult({ localId: refused.localId, idempotencyKey: refused.idempotencyKey, mutationType: 'order.add_items', state: 'conflict', error: 'ITEM_UNAVAILABLE' });
+    expect(await b).toEqual({ type: 'ticket.dropped', data: { ref: refused.idempotencyKey } });
+
+    // A fresh screen gets the synced one (marked) and never the refused one.
+    const ws2 = track(connect(PSK));
+    const snap = await nextMessage(ws2);
+    expect(snap.type).toBe('ticket.snapshot');
+    if (snap.type === 'ticket.snapshot') {
+      expect(snap.data.map((t) => [t.ref, t.synced])).toEqual([[synced.idempotencyKey, true]]);
+    }
+  });
+
+  it('never replays a ticket the cloud board already completed (F-11)', async () => {
+    const done = orderEnvelope();
+    const live = orderEnvelope();
+    server!.onEnqueued(done);
+    server!.onEnqueued(live);
+    server!.applyCloud([{ ref: done.idempotencyKey, status: 'completed' }]);
+    const ws = track(connect(PSK));
+    const snap = await nextMessage(ws);
+    if (snap.type !== 'ticket.snapshot') throw new Error('expected a snapshot');
+    expect(snap.data.map((t) => t.ref)).toEqual([live.idempotencyKey]);
+  });
+});
+
+describe('lan frames (F-11, F-57)', () => {
+  const ticket = (ref: string, status: LanTicket['status']): LanTicket => ({
+    ref, tabLabel: null, items: [], createdAt: '2026-11-01T10:00:00Z', status,
+  });
+
+  it('parses an ack and refuses a malformed one', () => {
+    const ack = parseKdsFrame(JSON.stringify({ type: 'ticket.ack', data: { refs: ['a', 'a', 'b'], kdsStation: 'KDS-01' } }));
+    expect(ack).toEqual({ kind: 'ack', ack: { refs: ['a', 'b'], kdsStation: 'KDS-01' } });
+    expect(parseKdsFrame(JSON.stringify({ type: 'ticket.ack', data: { refs: [], kdsStation: 'KDS-01' } }))).toBeNull();
+    expect(parseKdsFrame(JSON.stringify({ type: 'ticket.ack', data: { refs: [1], kdsStation: 'KDS-01' } }))).toBeNull();
+    expect(parseKdsFrame(JSON.stringify({ type: 'ticket.ack', data: { refs: ['a'], kdsStation: 'bad name' } }))).toBeNull();
+    expect(parseKdsFrame(JSON.stringify({ type: 'status.update', data: { ref: 'a', status: 'ready', kdsStation: 'KDS-01' } }))?.kind).toBe('status');
+    expect(parseKdsFrame('junk')).toBeNull();
+  });
+
+  it('snapshots everything but the completed', () => {
+    expect(snapshotOf([ticket('a', 'queued'), ticket('b', 'completed'), ticket('c', 'ready')]).map((t) => t.ref)).toEqual(['a', 'c']);
+  });
+
+  it('takes the cloud status only when it is further on', () => {
+    const ring = [ticket('a', 'ready'), ticket('b', 'queued')];
+    const changed = applyCloudStatuses(ring, [
+      { ref: 'a', status: 'preparing' }, // behind a LAN bump not yet replayed: kept
+      { ref: 'b', status: 'completed' },
+      { ref: 'zz', status: 'completed' }, // not ours
+    ]);
+    expect(changed).toEqual([{ ref: 'b', status: 'completed' }]);
+    expect(ring.map((t) => t.status)).toEqual(['ready', 'completed']);
+    expect(ring.every((t) => t.synced)).toBe(true);
+  });
+
+  it('validates the two new renderer messages', () => {
+    expect(validateLanAck(['a', 'a'])).toEqual(['a']);
+    expect(() => validateLanAck([])).toThrow();
+    expect(() => validateLanAck('a')).toThrow();
+    expect(validateLanCloudStatus([{ ref: 'a', status: 'ready' }])).toEqual([{ ref: 'a', status: 'ready' }]);
+    expect(() => validateLanCloudStatus([{ ref: 'a', status: 'burnt' }])).toThrow();
   });
 });
 

@@ -51,17 +51,20 @@ in `app/_layout.tsx` beside the screenshot guard) calls `staff_activity_ping` wi
 `app/(staff)/staff-activity.tsx` (Today's "Activity" tile): one card per person in name order, the
 operator and the phone as two labelled parts with the server's status, "last seen" counted from
 the board's server time, the last action in the desktop Audit log's words
-(`ws.manager.audit.actions.*`), and an on-break badge. Nothing ranks anyone.
+(`ws.manager.audit.actions.*`). No break badge: breaks left the product on 2026-11-01 (F-08). Nothing ranks anyone.
 
-Tournaments build switch and Ranks (Majed, 2026-10-22; migration 0364; Sait, 2026-10-25):
-`EXPO_PUBLIC_TOURNAMENTS` (`src/features/tournaments/shipped.ts`) is a build-time flag like
-`EXPO_PUBLIC_ONLINE_PAYMENTS`, "on" in every eas.json profile since 2026-10-25 (the Join tab is back
-in production). Off, the Play tab is `hidden` (iOS) / `href: null` (Android), so the bar is four
-tabs, `anyTournaments` answers false, the tournament read never runs, the suggestions drop Americano
-and Mexicano, and a tournament push opens My reservations. Open matches on the Join tab still follow
-`EXPO_PUBLIC_ONLINE_PAYMENTS` (`features/deposit/enabled.ts`), which is "on" in every eas.json profile since 2026-10-25. Tests that render
-tournaments call `tournamentsOn()` (vitest, `src/test/tournaments.ts`) or `tournamentsOnForFile()`
-(jest, `src/test/tournamentsEnv.ts`). Ranks (the players' leaderboard) is not a tab: it is the
+Tournaments, the Play tab and Ranks (Majed, 2026-10-22 and 2026-11-01; migration 0364; Sait,
+2026-10-25): the BRANCH settings decide, not the build (F-71). `EXPO_PUBLIC_TOURNAMENTS` is gone
+from eas.json and nothing reads it. The Play tab (tournaments and open matches) is in the bar while
+some open branch has `tournaments_enabled` or `matches_enabled` on (`playTabShown`,
+`src/features/tournaments/shipped.ts`, read from `useBranches()`), stays while the list is loading or
+unread, and otherwise is `hidden` (iOS) / `href: null` (Android); inside it the guest's branch decides.
+Online payment (deposits, lesson pay, the ticket wallet, /tickets and /pay/*) follows
+`EXPO_PUBLIC_ONLINE_PAYMENTS` (`features/deposit/enabled.ts`), "off" in every eas.json profile again
+since 2026-11-01 (Majed, F-02: no online payment in this build). Open matches no longer ride on it:
+a seat is paid at the desk (0370), so they follow `matches_enabled` alone and a payments-off build
+never asks for a ticket. `EXPO_PUBLIC_PHONE_OTP` is "on" in production since the same day (F-46).
+`src/lib/__tests__/buildFlags.test.ts` pins all three. Ranks (the players' leaderboard) is not a tab: it is the
 middle segment of Club, between the member card and the café menu
 (`src/features/ranks/RanksView.tsx`; Profile's Ranks row and the report screen's back open
 `/club?show=ranks`). The leaderboard's numbers are all the server's (`ranks_board`, public

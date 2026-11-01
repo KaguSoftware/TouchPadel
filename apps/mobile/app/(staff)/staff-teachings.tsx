@@ -422,7 +422,7 @@ function TeachingsScreen() {
 
 export default function StaffTeachingsRoute() {
   return (
-    <RequireStaff roles={TEACHING_ROLES}>
+    <RequireStaff page="staff-teachings" roles={TEACHING_ROLES}>
       <TeachingsScreen />
     </RequireStaff>
   );

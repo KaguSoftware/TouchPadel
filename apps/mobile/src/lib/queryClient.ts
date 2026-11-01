@@ -4,6 +4,7 @@ import NetInfo from '@react-native-community/netinfo';
 import { QueryCache, QueryClient, MutationCache, focusManager, onlineManager } from '@tanstack/react-query';
 import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister';
 import { isRetryableError } from '@touch/core';
+import { errorCode } from '@touch/i18n';
 import { errorMessageOf, isTransportError } from './network';
 import { addBreadcrumb, captureException, captureMessage } from './telemetry';
 
@@ -104,6 +105,18 @@ function reportFailure(error: unknown, context: Record<string, unknown>): void {
   captureException(error, context);
 }
 
+/**
+ * The server refused a staff call with AREA_BLOCKED (0384, F-16): the owner
+ * blocked that page for this person after the phone last read the staff row.
+ * Read the row again now rather than in up to a minute, so the screen's
+ * RequireStaff sends them back to Today at once. The refusal's own line
+ * (op.errors.AREA_BLOCKED through mapErrorToKey) says why.
+ */
+function rereadBlocksOn(error: unknown): void {
+  if (errorCode(errorMessageOf(error)) !== 'AREA_BLOCKED') return;
+  void queryClient.invalidateQueries({ queryKey: ['staff', 'status'] });
+}
+
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -130,11 +143,16 @@ export const queryClient = new QueryClient({
     },
   },
   queryCache: new QueryCache({
-    onError: (error, query) => reportFailure(error, { scope: 'query', queryKey: query.queryKey }),
+    onError: (error, query) => {
+      rereadBlocksOn(error);
+      reportFailure(error, { scope: 'query', queryKey: query.queryKey });
+    },
   }),
   mutationCache: new MutationCache({
-    onError: (error, _vars, _ctx, mutation) =>
-      reportFailure(error, { scope: 'mutation', mutationKey: mutation.options.mutationKey }),
+    onError: (error, _vars, _ctx, mutation) => {
+      rereadBlocksOn(error);
+      reportFailure(error, { scope: 'mutation', mutationKey: mutation.options.mutationKey });
+    },
   }),
 });
 

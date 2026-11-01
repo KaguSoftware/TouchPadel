@@ -4,12 +4,17 @@ import {
   addToBasket,
   basketCount,
   basketEstimate,
+  detailReceiptLines,
   findSizeByCode,
+  localReceiptBill,
   matchesSearch,
+  memberQueueCall,
   saleItems,
   saleLabel,
+  saleReceiptLines,
   setLineQty,
   shopCatalogue,
+  type ShopSize,
 } from './shopTillLogic';
 
 const cat = (id: string, kind: 'cafe' | 'shop' | undefined, sort: number, is_active = true) => ({
@@ -96,5 +101,65 @@ describe('the basket', () => {
   });
   it('labels a sale with the time it was rung up', () => {
     expect(saleLabel(new Date(2026, 8, 27, 9, 5, 7))).toBe('09:05:07');
+  });
+});
+
+describe('offline shop sale: member and receipt (F-56)', () => {
+  const size = (over: Partial<ShopSize>): ShopSize => ({
+    variantId: 'v1',
+    itemId: 'i1',
+    categoryId: 'c-shop',
+    nameEn: 'Grip',
+    nameAr: 'مقبض',
+    sizeEn: 'One size',
+    sizeAr: 'مقاس واحد',
+    hasSizes: false,
+    priceIqd: 7500,
+    barcode: null,
+    sku: null,
+    orderable: true,
+    ...over,
+  });
+
+  it('the member is queued as set_tab_customer against the sale’s tab.open key, which replay turns into p_tab_id', () => {
+    expect(memberQueueCall('cust-1', 'SHOP-01:tab.open:01J0000000000000000000000A')).toEqual({
+      fn: 'set_tab_customer',
+      args: { p_customer_id: 'cust-1' },
+      opts: { tabIdemKey: 'SHOP-01:tab.open:01J0000000000000000000000A' },
+    });
+  });
+
+  it('receipt lines carry the name, quantity, price and category of what was sold', () => {
+    const lines = saleReceiptLines([{ variantId: 'v1', qty: 2 }, { variantId: 'gone', qty: 1 }], [size({})], (s) => s.nameEn);
+    expect(lines).toEqual([
+      { name: 'Grip', qty: 2, priceIqd: 7500, categoryId: 'c-shop' },
+      { name: 'gone', qty: 1, priceIqd: 0, categoryId: null },
+    ]);
+  });
+
+  it('a local receipt prints the lines, the total charged and the payment', () => {
+    const bill = localReceiptBill({ lines: [{ name: 'Grip', qty: 2, priceIqd: 7500, categoryId: 'c' }], totalIqd: 15_000, method: 'cash' });
+    expect(bill.orders[0]!.order_items).toHaveLength(1);
+    expect(bill.orders[0]!.order_items[0]).toMatchObject({ qty: 2, line_total_iqd: 15_000, menu_item: { name_en: 'Grip' } });
+    expect(bill.totals).toMatchObject({ subtotal: 15_000, total: 15_000, discount: 0, tax: 0, due: 0 });
+    expect(bill.payments).toEqual([{ id: 'local-payment', method: 'cash', amount_iqd: 15_000 }]);
+  });
+
+  it('an unfinished sale taken up again prints its stamped line totals, voided lines left out', () => {
+    const lines = detailReceiptLines(
+      [
+        {
+          status: 'open',
+          order_items: [
+            { qty: 3, line_total_iqd: 10_000, voided: false, menu_item: { name_en: 'Balls', name_ar: 'كرات', category_id: 'c' }, variant: { name_en: 'Tube', name_ar: 'علبة' } },
+            { qty: 1, line_total_iqd: 5000, voided: true, menu_item: { name_en: 'Cap', name_ar: 'قبعة' } },
+          ],
+        },
+        { status: 'voided', order_items: [{ qty: 1, line_total_iqd: 999, voided: false, menu_item: null }] },
+      ],
+      'en',
+    );
+    expect(lines).toEqual([{ name: 'Balls · Tube', qty: 3, priceIqd: 3333, categoryId: 'c', lineTotalIqd: 10_000 }]);
+    expect(localReceiptBill({ lines, totalIqd: 10_000, method: 'card' }).orders[0]!.order_items[0]!.line_total_iqd).toBe(10_000);
   });
 });

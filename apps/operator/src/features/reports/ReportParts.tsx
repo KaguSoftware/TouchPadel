@@ -57,6 +57,7 @@ import { Icon } from '../../components/icons';
 import { useBranchScopeParts } from './ReportBranchScope';
 import { downloadTable, type CsvCell, type SheetColumn } from '../analytics/exportTables';
 import { reportFilename } from './reportFile';
+import { rangeTooLong } from '../analytics/search';
 import { readCompared, sortBy, type Compared, type FigureChange } from './reportPayloads';
 import type { ReportName } from './reportTypes';
 
@@ -179,6 +180,13 @@ export function ReportFrame({
   const { tr, locale } = useLocale();
   const family = useContext(PageFamilyContext);
   const branchScope = useBranchScopeParts();
+  // F-37: a period past the server's 400 days is refused here, with the limit named.
+  const [tooLong, setTooLong] = useState(false);
+  const pick = (p: Period) => {
+    if (rangeTooLong(p.from, p.to)) return setTooLong(true);
+    setTooLong(false);
+    onPeriod(p);
+  };
   return (
     <div>
       <PageHeader
@@ -205,11 +213,12 @@ export function ReportFrame({
             </Field>
           )}
           <Field label={tr('ws.reports.filters.period')} group style={{ marginBlockEnd: 0 }}>
-            <DateRangeControl period={period} onChange={onPeriod} disabled={busy} now={today} />
+            <DateRangeControl period={period} onChange={pick} disabled={busy} now={today} />
           </Field>
           {filters}
         </Toolbar>
       </div>
+      {tooLong && <MessagePresenter tone="refused" message={tr('ws.reports.frame.rangeTooLong')} />}
       {children}
     </div>
   );

@@ -945,7 +945,7 @@ function RecipeChangeScreen() {
 
 export default function StaffRecipeChangeRoute() {
   return (
-    <RequireStaff roles={RECIPE_CHANGE_ROLES}>
+    <RequireStaff page="staff-recipe-change" roles={RECIPE_CHANGE_ROLES}>
       <RecipeChangeScreen />
     </RequireStaff>
   );

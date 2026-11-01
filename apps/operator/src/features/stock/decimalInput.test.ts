@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { decimalKeystroke } from './decimalInput';
+import { decimalKeystroke, digitsProblem, hasNonEnglishDigits } from './decimalInput';
 
 describe('decimalKeystroke', () => {
   it('keeps digits and one decimal point, and drops everything else', () => {
@@ -22,5 +22,19 @@ describe('decimalKeystroke', () => {
     expect(decimalKeystroke('12345678901')).toBe('1234567890');
     expect(decimalKeystroke('123456789.012')).toBe('123456789.0');
     expect(decimalKeystroke('١٢٣٤٥٦٧٨٩٠١')).toBe('1234567890');
+  });
+});
+
+describe('English digits only (F-35)', () => {
+  it('finds Arabic-Indic and Persian digits and the Arabic decimal separator', () => {
+    expect(hasNonEnglishDigits('٢٥٠٠٠')).toBe(true);
+    expect(hasNonEnglishDigits('۱۲')).toBe(true);
+    expect(hasNonEnglishDigits('1٫5')).toBe(true);
+    expect(hasNonEnglishDigits('25000')).toBe(false);
+    expect(hasNonEnglishDigits('')).toBe(false);
+  });
+  it('names the problem so the box can say it', () => {
+    expect(digitsProblem('٣')).toBe('englishDigits');
+    expect(digitsProblem('3')).toBeNull();
   });
 });

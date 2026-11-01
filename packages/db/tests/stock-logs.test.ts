@@ -300,7 +300,7 @@ describe.skipIf(!docker)('stores: logs (rolled-back transactions)', () => {
     for (const who of ['hb', 'wtr', 'cashier', 'desk']) expect(refused(r, `deny_${who}`), who).toBe('FORBIDDEN');
   });
 
-  it('shop stock enters the shop store only: a log, Goods in and a driver receipt elsewhere refuse it and write nothing (I16)', () => {
+  it('shop stock enters the shop store only: a log elsewhere is refused; Goods in and a driver receipt book it into the shop store (I16, 0389)', () => {
     const r = run([
       MK('drv', 'driver'),
       ING('ball', 'retail', 'pc'),
@@ -309,28 +309,22 @@ describe.skipIf(!docker)('stores: logs (rolled-back transactions)', () => {
       KEEP('pline', `insert into purchase_lines (purchase_id, ingredient_id, qty, price_iqd)
                      values ({{purchase}}::uuid, {{ball}}::uuid, 3, 9000) returning id::text`),
       T('log', 'manager', log('bakery', ONE('ball', 3))),
+      Q('after_log', `select to_jsonb(count(*)) from stock_batches where ingredient_id = {{ball}}::uuid`),
+      // 0389 (F-36): bought with the café's goods, a shop product goes to the shop store.
       T('gi', 'manager', `select app.receive_delivery(${LINES([{ ingredient_id: '{{ball}}', qty_received: 3, unit_cost_iqd: 3000 }])},
                             null, null, null, null, null, 'bakery')`),
       T('driver', 'manager', `select app.receive_purchase({{purchase}}::uuid,
                                 jsonb_build_array(jsonb_build_object('purchase_line_id', {{pline}}, 'qty_received', 3)),
-                                null, null, null, 'bakery')`),
+                                null, null, null, 'cafe')`),
       Q('written', `select jsonb_build_array((select count(*) from delivery_lines where ingredient_id = {{ball}}::uuid),
-                                             (select count(*) from stock_batches where ingredient_id = {{ball}}::uuid),
+                                             (select jsonb_agg(distinct location) from stock_batches where ingredient_id = {{ball}}::uuid),
                                              (select status from purchases where id = {{purchase}}::uuid))`),
-      T('driver_cafe', 'manager', `select app.receive_purchase({{purchase}}::uuid,
-                                     jsonb_build_array(jsonb_build_object('purchase_line_id', {{pline}}, 'qty_received', 3)),
-                                     null, null, null, 'cafe')`),
-      T('driver_shop', 'manager', `select app.receive_purchase({{purchase}}::uuid,
-                                     jsonb_build_array(jsonb_build_object('purchase_line_id', {{pline}}, 'qty_received', 3)),
-                                     null, null, null, 'shop')`),
-      Q('received', `select jsonb_build_array((select location from stock_batches where ingredient_id = {{ball}}::uuid),
-                                              (select after->>'location' from audit_log where action = 'purchase.receive'
-                                                  and entity_id = {{purchase}}))`),
     ]);
-    for (const label of ['log', 'gi', 'driver', 'driver_cafe']) expect(refused(r, label), label).toBe('INVALID_ARGUMENT:kind');
-    expect(ok(r, 'written')).toEqual([0, 0, 'to_receive']);
-    ok(r, 'driver_shop');
-    expect(ok(r, 'received')).toEqual(['shop', 'shop']);
+    expect(refused(r, 'log')).toBe('INVALID_ARGUMENT:kind');
+    expect(ok(r, 'after_log')).toBe(0);
+    ok(r, 'gi');
+    ok(r, 'driver');
+    expect(ok(r, 'written')).toEqual([2, ['shop'], 'done']);
   });
 
   it('a log or a Goods in receipt into a store a manager is counting is refused (V19)', () => {

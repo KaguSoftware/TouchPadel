@@ -202,8 +202,15 @@ describe('ProductsAdmin as a manager', () => {
     // A section is picked as a card, the shop's first one to start with.
     expect(within(dialog).getByRole('button', { name: 'Rackets', pressed: true })).toBeTruthy();
     await newProductThrough(user, dialog);
-    await waitFor(() => expect(rpc.appRpc).toHaveBeenCalledWith('upsert_menu_item', expect.objectContaining({ p_name_en: 'Wilson', p_is_active: false })));
-    await waitFor(() => expect(rpc.appRpc).toHaveBeenCalledWith('upsert_retail_variant', expect.objectContaining({ p_item_id: 'new-item', p_price_iqd: 250_000 })));
+    // 0389 (F-36): the product and its first size in one call, under one key.
+    await waitFor(() =>
+      expect(rpc.appRpc).toHaveBeenCalledWith(
+        'create_shop_product',
+        expect.objectContaining({ p_name_en: 'Wilson', p_is_active: false, p_price_iqd: 250_000, p_idempotency_key: expect.stringMatching(/^shop\.product:/) }),
+      ),
+    );
+    expect(rpc.appRpc).not.toHaveBeenCalledWith('upsert_menu_item', expect.anything());
+    expect(rpc.appRpc).not.toHaveBeenCalledWith('upsert_retail_variant', expect.anything());
   });
 });
 
@@ -255,7 +262,7 @@ describe('ProductsAdmin as the owner', () => {
     const dialog = await screen.findByRole('dialog');
     expect(within(dialog).queryByText(/^Saved hidden/)).toBeNull();
     await newProductThrough(user, dialog);
-    await waitFor(() => expect(rpc.appRpc).toHaveBeenCalledWith('upsert_menu_item', expect.not.objectContaining({ p_is_active: false })));
+    await waitFor(() => expect(rpc.appRpc).toHaveBeenCalledWith('create_shop_product', expect.objectContaining({ p_is_active: true })));
   });
 });
 
@@ -277,7 +284,11 @@ const watchRow = (variant_id: string, part: Record<string, unknown> = {}) => ({
 describe('ProductsAdmin supplier price watch', () => {
   beforeEach(() => {
     rpc.appRpc.mockImplementation(async (fn: string) =>
-      fn === 'upsert_menu_item' ? 'new-item' : fn === 'upsert_retail_variant' ? { variant_id: 'new-size', ingredient_id: 'ing' } : { variant_id: 'x', url: null },
+      fn === 'create_shop_product'
+        ? { item_id: 'new-item', variant_id: 'new-size', ingredient_id: 'ing' }
+        : fn === 'upsert_retail_variant'
+          ? { variant_id: 'new-size', ingredient_id: 'ing' }
+          : { variant_id: 'x', url: null },
     );
   });
 

@@ -88,12 +88,27 @@ export interface KitchenTicket {
   }[];
   createdAt: string;
   status: 'queued' | 'preparing' | 'ready' | 'completed';
+  /** F-11: on the server already; absent from an older till's frame. */
+  synced?: boolean;
 }
+
+/** Why a LAN bump did not land (F-57): refused by the till, or never sent ('link-down'). */
+export type LanBumpRefusal = 'no-staff' | 'enqueue-failed' | 'malformed' | 'link-down';
 
 export type LanFrame =
   | { type: 'ticket.new'; data: KitchenTicket }
   | { type: 'ticket.snapshot'; data: KitchenTicket[] }
-  | { type: 'status.update'; data: { ref: string; status: KitchenTicket['status'] } };
+  | { type: 'status.update'; data: { ref: string; status: KitchenTicket['status'] } }
+  | { type: 'ticket.synced'; data: { ref: string; ticketId: string | null } }
+  | { type: 'ticket.dropped'; data: { ref: string } }
+  | { type: 'error'; data: { reason: LanBumpRefusal; ref?: string } }
+  | { type: 'link'; data: { up: boolean } };
+
+/** F-11: the till's view of its LAN kitchen screens (shell ipc-channels LanReach). */
+export interface LanReach {
+  acked: string[];
+  kdsConnected: number;
+}
 
 // Cached reference data keys (design-arch.md §2.3). Payload types tighten when
 // @touch/db types.gen.ts exists. 'day' joined on day 14 — the till's
@@ -145,7 +160,8 @@ export type Role =
   | 'marketing'
   | 'assistant_barista'
   | 'waiter'
-  | 'shop_staff';
+  | 'shop_staff'
+  | 'dev';
 
 export type StationMode = 'till' | 'desk' | 'kds' | 'shop';
 
@@ -247,11 +263,24 @@ export interface TouchBridge {
   onLanTicket(cb: (frame: LanFrame) => void): Unsub;
   /** KDS stations only: carry a bump to the till over the LAN when the cloud is down. */
   sendLanStatus(update: { ref: string; status: 'preparing' | 'ready' | 'completed' }): void;
+  /** F-11, KDS stations: refs of LAN tickets this screen has drawn. */
+  sendLanAck(refs: string[]): void;
+  /** F-57, KDS stations: the LAN link to the till; null = this station has none. */
+  getLanLink(): Promise<boolean | null>;
+  /** F-11, till stations: the cloud's statuses of tickets the LAN ring may hold. */
+  pushLanCloudStatus(updates: { ref: string; status: KitchenTicket['status'] }[]): void;
+  /** F-11, till stations: which LAN tickets a kitchen screen drew (null = no LAN server). */
+  onLanReach(cb: (reach: LanReach | null) => void): Unsub;
   getCachedRef(key: RefKey): Promise<CachedRef | undefined>;
   print(job: PrintJob): Promise<PrintResult>;
   /** OFFLINE pin check only (authorisation-token cache, 14-day TTL) — online
    *  verification lives inside the PIN-gated RPCs as always. */
   unlockPin(pin: string): Promise<{ staffId?: string; role: Role; grantToken: string } | null>;
+  /**
+   * OFFLINE only (F-07): is this the signed-in person's own PIN, on file in the
+   * station's cache? Main reads whose session it is itself. Browser mode: false.
+   */
+  unlockOwnPin(pin: string): Promise<boolean>;
   getStation(): StationInfo;
   /** Push the staff session (or null on sign-out) for the main-process sync worker. */
   pushAuthState(s: AuthState | null): void;
@@ -272,7 +301,7 @@ export interface TouchBridge {
    * a manager PIN that is not the signed-in person's, and offline that is the
    * only way main can tell.
    */
-  pinObserved(pin: string, staffId?: string): void;
+  pinObserved(pin: string, staffId?: string, tier?: 'manager' | 'self'): void;
   /**
    * The macOS red traffic light was pressed and main is HOLDING the close.
    * The page owes the operator the quit confirmation; nothing closes until
@@ -343,6 +372,15 @@ const mock: TouchBridge = {
   sendLanStatus() {
     // Browser mode has no LAN peer.
   },
+  sendLanAck() {},
+  async getLanLink() {
+    return null;
+  },
+  pushLanCloudStatus() {},
+  onLanReach(cb) {
+    cb(null);
+    return () => {};
+  },
   pushAuthState() {
     // Browser mode has no main process; writes go straight to the network.
   },
@@ -391,6 +429,9 @@ const mock: TouchBridge = {
   async unlockPin() {
     // PIN check is online server-side crypt() (plan override #6); mock always refuses.
     return null;
+  },
+  async unlockOwnPin() {
+    return false;
   },
   getStation() {
     // `configured: true` keeps the first-run screen out of browser mode and the

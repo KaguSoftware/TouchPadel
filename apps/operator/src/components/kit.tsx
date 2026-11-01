@@ -16,6 +16,7 @@ import { Button, ErrorText, Field, Modal, REASON_CODES, Select, Skeleton, Spinne
 import { Icon, type IconName } from './icons';
 import { BilingualFields } from './inputs';
 import { DateRangePicker } from './DateRangePicker';
+import { PIN_MAX, PIN_MIN } from '../lib/pinRules';
 
 // ---------------------------------------------------------------------------
 // Page structure
@@ -1873,7 +1874,7 @@ export function PinPromptOverlay({
           <Button onClick={onCancel} disabled={busy}>
             {tr('ws.kit.pin.cancel')}
           </Button>
-          <Button kind="primary" busy={busy} disabled={pin.length < 4} onClick={() => onSubmit(pin)} icon="lock">
+          <Button kind="primary" busy={busy} disabled={pin.length < PIN_MIN} onClick={() => onSubmit(pin)} icon="lock">
             {tr('ws.kit.pin.confirm')}
           </Button>
         </>
@@ -1889,10 +1890,10 @@ export function PinPromptOverlay({
           autoFocus
           dir="ltr"
           value={pin}
-          maxLength={6}
+          maxLength={PIN_MAX}
           disabled={busy}
           onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
-          onKeyDown={(e) => e.key === 'Enter' && pin.length >= 4 && !busy && onSubmit(pin)}
+          onKeyDown={(e) => e.key === 'Enter' && pin.length >= PIN_MIN && !busy && onSubmit(pin)}
         />
       </Field>
       <ErrorText error={error} />

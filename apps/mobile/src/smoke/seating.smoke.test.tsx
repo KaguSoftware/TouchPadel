@@ -13,7 +13,6 @@ import { fireEvent, within } from '@testing-library/react-native';
 import { isolateLtr, makeT, type Locale } from '@touch/i18n';
 import { renderRoute } from '../test/smoke';
 import { routerState } from '../test/routerState';
-import { tournamentsOnForFile } from '../test/tournamentsEnv';
 import {
   TEST_VENUE_ID,
   bookingFixture,
@@ -43,7 +42,6 @@ import TournamentDetailScreen from '../../app/(tournaments)/tournament/[id]';
 import BookingsScreen from '../../app/(tabs)/bookings';
 
 // Tournaments ship in this file's build (features/tournaments/shipped.ts); the store build leaves them out.
-tournamentsOnForFile();
 
 type Seeds = [readonly unknown[], unknown][];
 

@@ -8,10 +8,16 @@
  * Statuses line up with apps/operator/src/lib/edge.ts `statusToEdgeCode`:
  *   401 {error:'AUTH_REQUIRED'}  — no/invalid session JWT
  *   403 {error:'FORBIDDEN'}      — not active staff, or role not allowed
+ *   403 {error:'AREA_BLOCKED'}   — the owner blocked every page this work
+ *                                  belongs to (`opts.areas`, 0384, F-16)
+ *
+ * A second job counts like the main role (0345 staff.extra_roles; F-18): the
+ * rule is `judgeStaffAccess` in ./staffAccess.ts, tested under Node.
  */
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2';
 import { getCallerUserId } from './supabase.ts';
 import { json, logError } from './http.ts';
+import { judgeStaffAccess } from './staffAccess.ts';
 
 export type StaffRole =
   | 'cashier'
@@ -30,24 +36,38 @@ export type StaffRole =
   | 'assistant_barista'
   | 'waiter'
   // Touch Shop own desk (0243).
-  | 'shop_staff';
+  | 'shop_staff'
+  // 0392: the developer, who reads the Monitoring page (0393) and nothing else.
+  | 'dev';
 
 export interface StaffCaller {
   userId: string;
+  /** The main role. */
   role: StaffRole;
+  /** The main role, then each second job (0345); an owner is the owner alone. */
+  roles: StaffRole[];
+}
+
+export interface StaffRoleOptions {
+  /**
+   * The ACCESS_AREAS keys (packages/core/src/staff/access.ts) whose pages do
+   * this work. A person who has all of them blocked is refused AREA_BLOCKED.
+   */
+  areas?: readonly string[];
 }
 
 export async function requireStaffRole(
   req: Request,
   service: SupabaseClient,
   roles: readonly string[],
+  opts: StaffRoleOptions = {},
 ): Promise<StaffCaller | Response> {
   const userId = await getCallerUserId(req, service);
   if (!userId) return json({ error: 'AUTH_REQUIRED', message: 'staff session required' }, 401);
 
   const { data, error } = await service
     .from('staff')
-    .select('id, role, is_active')
+    .select('id, role, is_active, extra_roles, blocked_areas')
     .eq('id', userId)
     .maybeSingle();
   if (error) {
@@ -55,12 +75,18 @@ export async function requireStaffRole(
     logError('auth', error, 'staff lookup');
     return json({ error: 'INTERNAL' }, 500);
   }
-  if (!data || !data.is_active) {
-    return json({ error: 'FORBIDDEN', message: 'caller is not active staff' }, 403);
-  }
-  const role = String(data.role) as StaffRole;
-  if (!roles.includes(role)) {
-    return json({ error: 'FORBIDDEN', message: `role '${role}' not allowed` }, 403);
-  }
-  return { userId, role };
+  const verdict = judgeStaffAccess(
+    data
+      ? {
+          role: String(data.role),
+          is_active: Boolean(data.is_active),
+          extra_roles: (data.extra_roles as string[] | null) ?? [],
+          blocked_areas: (data.blocked_areas as string[] | null) ?? [],
+        }
+      : null,
+    roles,
+    opts.areas ?? [],
+  );
+  if (!verdict.ok) return json({ error: verdict.code, message: verdict.message }, 403);
+  return { userId, role: String(data!.role) as StaffRole, roles: verdict.roles as StaffRole[] };
 }

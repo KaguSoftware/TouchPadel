@@ -455,6 +455,36 @@ describe('Coach pay: the statement dialog', () => {
     expect(toast.ok).toHaveBeenCalledWith('Marked paid.');
   });
 
+  it('0387 (F-12): from a safe that holds too little it says so and blocks; paying refreshes the Safe page', async () => {
+    const approved = statement({ statement_id: 's2', status: 'approved', approved_at: '2026-10-02T09:00:00Z' });
+    listPayload = list([approved]);
+    details.s2 = detail(approved);
+    let balance = 50000;
+    writes.main_cash_overview = () => ({ balance_iqd: balance });
+    writes.coach_statement_mark_paid = { duplicate: false, statement_id: 's2', status: 'paid', paid_at: '2026-10-05T10:00:00Z', total_iqd: 96000 };
+    mount();
+    const { user, dialog } = await openStatement('Sara');
+    await user.click(within(dialog).getByTestId('statement.action.markPaid'));
+    const pay = await screen.findByRole('dialog', { name: 'Mark paid' });
+    const line = await within(pay).findByTestId('markPaid.safeBalance');
+    expect(plain(line.textContent)).toMatch(/Not enough money in the safe: it holds 50,000 IQD/);
+    expect((within(pay).getByTestId('markPaid.next') as HTMLButtonElement).disabled).toBe(true);
+    await user.click(within(pay).getByTestId('markPaid.from.bank'));
+    expect((within(pay).getByTestId('markPaid.next') as HTMLButtonElement).disabled).toBe(false);
+    await user.click(within(pay).getByTestId('markPaid.from.safe'));
+    balance = 200000;
+    await user.type(within(pay).getByRole('textbox', { name: /Payment reference/ }), 'Receipt 9');
+    // Still the cached figure until something refreshes it: blocked.
+    expect((within(pay).getByTestId('markPaid.next') as HTMLButtonElement).disabled).toBe(true);
+    await user.click(within(pay).getByTestId('markPaid.from.bank'));
+    await user.click(within(pay).getByTestId('markPaid.next'));
+    await user.type(await screen.findByLabelText(/^PIN/), '4821');
+    const reads = callsOf('main_cash_overview').length;
+    await user.click(screen.getByRole('button', { name: 'Authorise' }));
+    await waitFor(() => expect(callsOf('coach_statement_mark_paid')).toHaveLength(1));
+    await waitFor(() => expect(callsOf('main_cash_overview').length).toBeGreaterThan(reads));
+  });
+
   it('a statement below zero cannot be marked paid, and says why (R59)', async () => {
     const negative = statement({
       statement_id: 's3',

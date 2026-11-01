@@ -1,9 +1,9 @@
 /**
  * The live floor — the reads.
  *
- * Eight small table reads in parallel, all of them rows the working screens
+ * Seven small table reads in parallel, all of them rows the working screens
  * already fetch (courts and today's bookings for the desk, open tabs for the
- * till, staff, station assignments, heartbeats and breaks for the rail), so
+ * till, staff, station assignments and heartbeats for the rail), so
  * the plan cannot disagree with the boards about what is open. No RPC was
  * added for it: everything it shows is a row the owner can already read.
  *
@@ -20,7 +20,6 @@ import {
   type FloorRaw,
   type FloorSnapshot,
   type RawBooking,
-  type RawBreak,
   type RawCourt,
   type RawHeartbeat,
   type RawStaff,
@@ -40,7 +39,7 @@ function unwrap<T>(r: { data: T | null; error: { message: string } | null }): T 
 export async function fetchFloorRaw(nowMs = Date.now()): Promise<FloorRaw> {
   const nowIso = new Date(nowMs).toISOString();
   const laterIso = new Date(nowMs + LOOKAHEAD_MS).toISOString();
-  const [courts, bookings, tables, tabs, staff, stationStaff, heartbeats, breaks] = await Promise.all([
+  const [courts, bookings, tables, tabs, staff, stationStaff, heartbeats] = await Promise.all([
     supabase.from('courts').select('id, name_en, name_ar, sort_order').eq('is_active', true).order('sort_order').then(unwrap<RawCourt[]>),
     // Bookings and lessons (a lesson holds its court, coaching operator.md §5.8);
     // never holds or blocks. Written as a NOT so it stays valid on a server
@@ -64,13 +63,8 @@ export async function fetchFloorRaw(nowMs = Date.now()): Promise<FloorRaw> {
     supabase.from('staff').select('id, display_name, role').eq('is_active', true).then(unwrap<RawStaff[]>),
     supabase.from('station_staff').select('station_id, staff_id').then(unwrap<RawStationStaff[]>),
     supabase.from('device_heartbeats').select('device_id, last_seen_at, staff_id').then(unwrap<RawHeartbeat[]>),
-    supabase
-      .from('staff_breaks')
-      .select('staff_id, station_id, started_at, covered_by, cover_started_at')
-      .is('ended_at', null)
-      .then(unwrap<RawBreak[]>),
   ]);
-  return { courts, bookings, tables, tabs, staff, stationStaff, heartbeats, breaks };
+  return { courts, bookings, tables, tabs, staff, stationStaff, heartbeats };
 }
 
 export interface LiveFloorResult {

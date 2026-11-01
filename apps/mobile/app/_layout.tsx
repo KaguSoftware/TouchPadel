@@ -20,6 +20,8 @@ import { queryClient, persistOptions, startFocusLifecycle } from '../src/lib/que
 import { configError, startAuthRefreshLifecycle } from '../src/lib/supabase';
 import { loadBootPrefs, type BootPrefs } from '../src/lib/bootPrefs';
 import { addBreadcrumb, captureException } from '../src/lib/telemetry';
+import { installGlobalErrorReporting, installMonitoringReporter } from '../src/lib/monitoring';
+import { ReportCrashButton } from '../src/features/monitoring/ReportCrashButton';
 import { LocaleProvider, useLocale } from '../src/i18n/LocaleProvider';
 import { DirectionRoot } from '../src/i18n/direction';
 import { lastKnownLocale } from '../src/i18n/lastLocale';
@@ -49,7 +51,6 @@ import { onlinePaymentsShipped } from '../src/features/deposit/enabled';
 import { matchKeys } from '../src/features/matches/keys';
 import { coachingKeys } from '../src/features/coaching/keys';
 import { tournamentKeys } from '../src/features/tournaments/keys';
-import { tournamentsShipped } from '../src/features/tournaments/shipped';
 import { coachKeys } from '../src/features/coach/keys';
 import { lessonPushHref } from '../src/features/coaching/pushRoutes';
 import {
@@ -152,6 +153,10 @@ function CrashScreen({ error, retry }: ErrorBoundaryProps) {
         retryLabel={t('common.retry')}
         onRetry={() => void retry()}
       />
+      {/* F-15: the person sends the crash to the developers' Monitoring page themselves. */}
+      <View style={styles.report}>
+        <ReportCrashButton testID="app.crash.report" error={error} />
+      </View>
       {__DEV__ ? <Text style={[styles.devDetail, { color: colors.mut }]}>{String(error?.message ?? error)}</Text> : null}
     </View>
   );
@@ -440,6 +445,12 @@ function ThemedChrome() {
  * Boot gate: resolve the stored language + appearance BEFORE the first frame.
  * Nothing paints until this is known.
  */
+// Dev monitoring (F-15, 0393): every captured error, the Apple-revoke failure
+// on account deletion included, and every uncaught JS error reach the
+// developers' Monitoring page. Both calls never throw.
+installMonitoringReporter();
+installGlobalErrorReporting();
+
 export default function RootLayout() {
   const [prefs, setPrefs] = useState<BootPrefs | null>(null);
 
@@ -505,8 +516,7 @@ function AppRoot({ prefs }: { prefs: BootPrefs }) {
         staffStatus: settledStaffStatus,
         // Already reading it: the notice below refreshes it in place, no second copy.
         onOpenMatch: (id) => {
-          if (!onlinePaymentsShipped()) router.push('/(tabs)');
-          else if (!isOnScreen('match/[id]', id))
+          if (!isOnScreen('match/[id]', id))
             router.push({ pathname: '/match/[id]', params: { id } });
         },
         onOpenTickets: () => router.push(onlinePaymentsShipped() ? '/tickets' : '/(tabs)'),
@@ -524,9 +534,7 @@ function AppRoot({ prefs }: { prefs: BootPrefs }) {
           void queryClient.invalidateQueries({ queryKey: coachKeys.all });
         },
         onOpenTournament: (id) => {
-          // Tournaments not in this build (features/tournaments/shipped.ts): My reservations.
-          if (!tournamentsShipped()) router.push('/bookings');
-          else if (!isOnScreen('tournament/[id]', id))
+          if (!isOnScreen('tournament/[id]', id))
             router.push({ pathname: '/tournament/[id]', params: { id } });
         },
         onTournamentNotice: () =>
@@ -596,6 +604,7 @@ function AppRoot({ prefs }: { prefs: BootPrefs }) {
 
 const styles = StyleSheet.create({
   fill: { flex: 1 },
+  report: { paddingStart: 26, paddingEnd: 26, paddingBottom: 32 },
   devDetail: {
     fontSize: 11,
     paddingStart: 16,

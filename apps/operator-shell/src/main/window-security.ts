@@ -209,3 +209,99 @@ export function openingWindowSize(
     height: fit(workArea.height * share, floor.height, workArea.height),
   };
 }
+
+// ---------------------------------------------------------------------------
+// F-44: kiosk hardening — keeping Alt+Tab and the Windows key from leaving
+// a locked station, as far as an app can.
+// ---------------------------------------------------------------------------
+
+/**
+ * The key combinations a locked station tries to take for itself, as
+ * Electron accelerators. Best effort, by design:
+ *
+ *   - Electron's globalShortcut is RegisterHotKey on Windows. The OS keeps
+ *     some combinations for itself and the registration simply fails (it
+ *     returns false): Alt+Tab is usually refused, Ctrl+Alt+Del and Win+L
+ *     always are. Each one is tried and a refusal is ignored.
+ *   - The Windows key ALONE is not an accelerator at all (Electron needs a
+ *     key with the modifier), so it opens the Start menu whatever we do.
+ *
+ * What does hold the door on Windows is the window itself: kiosk, always on
+ * top at the 'screen-saver' level, and focus taken back the moment it is lost
+ * (shouldRefocusOnBlur). A FULL block of Alt+Tab and the Windows key needs the
+ * OS's own kiosk policy — Assigned Access (a kiosk account that runs only this
+ * app), or the NoWinKeys / DisableTaskMgr policies — which is part of the
+ * station setup runbook, not something the app can switch on.
+ *
+ * macOS needs none of this: kiosk mode there sets the presentation options
+ * that disable Cmd+Tab, Force Quit, Hide and the Dock (lockWindow), so the
+ * list is empty and the window is not pinned above the system's own prompts.
+ */
+const WINDOWS_KIOSK_SHORTCUTS: readonly string[] = [
+  'Alt+Tab',
+  'Alt+Shift+Tab',
+  'Alt+Esc',
+  'Alt+Shift+Esc',
+  'Ctrl+Esc',
+  'Super+Tab',
+  'Super+D',
+  'Super+E',
+  'Super+R',
+  'Super+M',
+  'Super+Shift+M',
+  'Super+S',
+  'Super+A',
+  'Super+I',
+  'Super+X',
+  'Super+B',
+  'Super+Up',
+  'Super+Down',
+  'Super+Left',
+  'Super+Right',
+  'Super+Shift+Left',
+  'Super+Shift+Right',
+  'Super+Ctrl+D',
+  'Super+Ctrl+Left',
+  'Super+Ctrl+Right',
+  'Super+Ctrl+F4',
+];
+
+export interface KioskHardening {
+  /** Pin the window above everything at the 'screen-saver' level. */
+  alwaysOnTop: boolean;
+  /** Take focus back when it is lost while locked. */
+  refocus: boolean;
+  /** globalShortcut accelerators to take (registration failures ignored). */
+  shortcuts: readonly string[];
+}
+
+/** What a locked window does on this platform (see the note above). */
+export function kioskHardening(platform: NodeJS.Platform): KioskHardening {
+  if (platform === 'darwin') return { alwaysOnTop: false, refocus: false, shortcuts: [] };
+  // Linux has no Windows key semantics, but the same window rules apply.
+  return {
+    alwaysOnTop: true,
+    refocus: true,
+    shortcuts: platform === 'win32' ? WINDOWS_KIOSK_SHORTCUTS : ['Alt+Tab', 'Alt+Shift+Tab', 'Super+Tab'],
+  };
+}
+
+/**
+ * Should a window that just lost focus take it back? Only a station that is
+ * locked right now (not released by a manager's PIN, not dev or first run),
+ * on a platform that refocuses, and whose window still exists. A modal OS
+ * dialog the app itself opened (the system print dialog) is owned by the
+ * window, and Windows hands focus to it when its owner is focused, so the
+ * refocus does not fight it.
+ */
+export function shouldRefocusOnBlur(s: {
+  platform: NodeJS.Platform;
+  locked: boolean;
+  released: boolean;
+  destroyed: boolean;
+}): boolean {
+  return kioskHardening(s.platform).refocus && s.locked && !s.released && !s.destroyed;
+}
+
+/** How long after a blur the window takes focus back (lets a click land first). */
+export const REFOCUS_DELAY_MS = 150;

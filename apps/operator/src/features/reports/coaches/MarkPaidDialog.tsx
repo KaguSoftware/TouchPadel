@@ -13,9 +13,14 @@
  * 0344: "Paid from" (Safe, preselected, or Bank transfer) goes as
  * `p_paid_from`; from the safe, the server takes the amount out of the main
  * cash. Same words as the Wages dialogs.
+ *
+ * 0387 (F-12): from the safe, a total above the safe's balance is refused
+ * (SAFE_NOT_ENOUGH); the dialog shows the balance and says so before the
+ * press. A payment refreshes the Safe page (['main-cash']).
  */
 import { useState } from 'react';
-import { isolate } from '@touch/i18n';
+import { useQueryClient } from '@tanstack/react-query';
+import { formatIQD, isolate } from '@touch/i18n';
 import { appRpc } from '../../../lib/appRpc';
 import { deviceId } from '../../../lib/idem';
 import { useLocale } from '../../../lib/i18n';
@@ -23,6 +28,8 @@ import { useStationReach } from '../../../lib/stationReach';
 import { Button, ErrorText, Field, Modal, inputStyle } from '../../../components/ui';
 import { PinPromptOverlay, SegmentedControl } from '../../../components/kit';
 import { readStatementPaid, type StatementRow } from '../../coaching/lessonPayloads';
+import { SK, useSafeBalance } from '../../safe/api';
+import { safeShort } from '../../wages/wagesLogic';
 import { coachingErrorText } from '../../coaching/lessonLogic';
 import {
   REFERENCE_MAX,
@@ -45,6 +52,8 @@ export function MarkPaidDialog({
 }) {
   const { tr, locale } = useLocale();
   const { reachable } = useStationReach();
+  const qc = useQueryClient();
+  const safeBalance = useSafeBalance((statement.total_iqd ?? 0) > 0);
   const [reference, setReference] = useState('');
   const [paidFrom, setPaidFrom] = useState<'safe' | 'bank'>('safe');
   const [touched, setTouched] = useState(false);
@@ -55,6 +64,10 @@ export function MarkPaidDialog({
 
   const amount = maybeNegativeMoneyText(statement.total_iqd, locale);
   const fieldError = referenceErrors(reference);
+  const short = safeShort(statement.total_iqd, paidFrom, safeBalance);
+  const shortText = short
+    ? tr('ws.wages.paidFrom.safeShort', { amount: isolate(formatIQD(Math.max(safeBalance ?? 0, 0), locale)) })
+    : null;
 
   function next() {
     setTouched(true);
@@ -79,6 +92,7 @@ export function MarkPaidDialog({
         }),
       );
       setPinOpen(false);
+      void qc.invalidateQueries({ queryKey: SK.all });
       onDone();
     } catch (e) {
       if (isPinRefusal(e)) {
@@ -86,6 +100,7 @@ export function MarkPaidDialog({
       } else {
         setPinOpen(false);
         setError(e);
+        void qc.invalidateQueries({ queryKey: SK.all });
       }
     } finally {
       setBusy(false);
@@ -109,8 +124,8 @@ export function MarkPaidDialog({
               kind="primary"
               icon="lock"
               busy={busy}
-              disabled={!reachable}
-              disabledReason={tr('ws.coaching.offline.needsConnection')}
+              disabled={!reachable || short}
+              disabledReason={!reachable ? tr('ws.coaching.offline.needsConnection') : (shortText ?? undefined)}
               onClick={next}
               data-testid="markPaid.next"
             >
@@ -157,6 +172,14 @@ export function MarkPaidDialog({
               { value: 'bank', label: tr('ws.coaching.coachPay.markPaid.paidFromBank'), disabled: busy, testId: 'markPaid.from.bank' },
             ]}
           />
+          {paidFrom === 'safe' && safeBalance !== null && (
+            <span
+              data-testid="markPaid.safeBalance"
+              style={{ fontSize: 'var(--tp-fs-xs)', color: short ? 'var(--tp-danger-fg)' : 'var(--tp-muted-fg)' }}
+            >
+              {shortText ?? tr('ws.wages.paidFrom.safeBalance', { amount: isolate(formatIQD(safeBalance, locale)) })}
+            </span>
+          )}
         </Field>
         <ErrorText
           error={error}

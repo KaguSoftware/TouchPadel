@@ -516,6 +516,10 @@ export const en = {
     notCancellable: 'This booking can no longer be cancelled.',
     noRate: 'This slot cannot be booked online.',
     priceChanged: 'The price of this slot changed while you were booking. Hold it again to see the new price.',
+    // F-21: Review warns before the guest confirms when the price moved since they picked the slot.
+    priceMovedNotice: 'The price of this slot changed after you picked it: it was {from}, it is now {to}. Reserving books it at {to}.',
+    priceMovedTitle: 'The price changed',
+    priceMovedBody: 'This slot now costs {price}. Pick it again to book it at the new price.',
     slotInPast: 'That time has already passed.',
     upcoming: 'Upcoming',
     past: 'Past',
@@ -1233,6 +1237,8 @@ export const en = {
     menuUnavailable: {
       title: 'The menu is taking a moment',
       body: 'We could not load the menu. Check your connection and try again.',
+      // Shown once a retry has not helped, or when this page cannot reach the menu at all (F-43).
+      stillDown: 'Still not loading? Ask the staff for a menu, or try again in a few minutes.',
     },
     tableChipBinding: 'Linking table…',
     footer: {
@@ -1498,6 +1504,16 @@ export const en = {
     invalidInput: 'Something was sent in the wrong format. Refresh and try again.',
     busy: 'The system is busy right now. Try again in a moment.',
   },
+  // "Report crash" on every crash and error screen (F-15, 0393): the app sends
+  // the report to the developers' Monitoring page itself; no mail app opens.
+  crashReport: {
+    button: 'Report crash',
+    sending: 'Sending…',
+    sent: 'Sent. Thank you.',
+    queued: 'Saved. It goes out when the connection is back.',
+    failed: 'Could not send it. Try again.',
+    hint: 'Sends what went wrong to our developers. Nothing you typed is included.',
+  },
   degraded: {
     // Contractual degraded-mode UX (SOW "Degraded mode" acceptance):
     // mobile shows the venue phone; web directs the guest to a member of staff.
@@ -1530,7 +1546,7 @@ export const en = {
       home: 'Go to my home screen',
       reload: 'Restart the app',
       details: 'Technical details',
-      again: 'Keeps happening? Tell the manager.',
+      again: 'Keeps happening? Report it below and tell the manager.',
       notFoundTitle: 'Screen not found',
       notFoundBody: 'There is no screen at this address. Your home screen has everything your role can open.',
     },
@@ -1631,6 +1647,8 @@ export const en = {
       waiter: 'Waiter',
       // Touch Shop own desk (0243).
       shop_staff: 'Shop assistant',
+      // 0392: the developer, who reads the Monitoring page.
+      dev: 'Developer',
     },
     days: {
       sun: 'Sun',
@@ -1752,7 +1770,7 @@ export const en = {
       byName: 'Name on the tab',
       forReservation: 'Reservation',
       openTabBtn: 'Open tab',
-      noOpenDay: 'No business day is open. A manager must open the day first (Admin → Day close).',
+      noOpenDay: 'No business day is open. A manager must open the day first (Cash → End of day count).',
       filterPlaceholder: 'Type to filter items… (1-9 selects a category)',
       basket: 'Basket',
       emptyBasket: 'Basket is empty — pick items from the grid.',
@@ -2294,6 +2312,27 @@ export const en = {
       nextDay: 'next day',
       splitNotice:
         'This day has more than one opening period, which this screen cannot edit. Change it in the database, or it will be flattened.',
+      // 0390 (F-51): a new closed day cannot be saved while bookings on it are unresolved.
+      bookingsTitle: 'Bookings on the new closed days',
+      bookingsLead: 'Each booking must be cancelled, marked no-show or paid before these days can be closed.',
+      bookingsChecking: 'Checking the bookings on the new closed days…',
+      bookingsError: 'Could not check the bookings on the new closed days.',
+      bookingsRetry: 'Try again',
+      bookingsBlocked: 'Resolve the bookings on the new closed days first ({count} left).',
+      bookingsOwed: 'Owed {amount}',
+      walkIn: 'Walk-in',
+      cancel: 'Cancel booking',
+      noShow: 'No-show',
+      pay: 'Take payment',
+      noShowNotYet: 'It has not started yet, so it cannot be a no-show.',
+      cancelTitle: 'Cancel this booking?',
+      cancelBody: '{who} · {court} · {when}. The booking is cancelled because the venue is closed that day.',
+      cancelReason: 'Venue closed that day',
+      cancelKeep: 'Keep it',
+      noShowTitle: 'Mark this booking no-show?',
+      noShowBody: '{who} · {court} · {when}.',
+      payTitle: 'Take payment',
+      queued: 'Saved on this computer. It is sent when the connection is back.',
     },
     dayClose: {
       title: 'Business day',
@@ -2332,6 +2371,8 @@ export const en = {
       PIN_OWN: 'That is your own PIN. Another manager has to enter theirs.',
       // Renderer-minted from PostgREST PGRST202 (lib/appRpc.ts, open matches §5.20).
       RPC_MISSING: "This needs a server update that isn't there yet.",
+      SAVED_OFFLINE: 'Saved on this station. It will be sent when the connection is back.',
+      RPC_NOT_QUEUEABLE: 'This change could not be sent from the offline queue. Make it again while connected.',
       PIN_GRANT_REQUIRED: 'Manager authorisation expired — enter the PIN again.',
       FORBIDDEN: 'You do not have permission for that.',
       AUTH_REQUIRED: 'You must be signed in.',

@@ -155,7 +155,7 @@ function RunsScreen() {
 
 export default function StaffRunsRoute() {
   return (
-    <RequireStaff>
+    <RequireStaff page="staff-runs">
       <RunsScreen />
     </RequireStaff>
   );

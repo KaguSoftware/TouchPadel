@@ -53,6 +53,16 @@ item 12) from `PHASE-2-PLAN.md` Part A5 plus the 09-20 code verification. Databa
   beside the control; one that arrives later reaches `onFailedResult` (`src/lib/queueResults.ts`),
   which `components/QueueFailureToasts.tsx` turns into a toast and a screen may turn back into
   its own per-row message (OpenTabs removals, TabDetailPanel voids).
+- Offline (0395, F-23): `appRpc` of a `QUEUEABLE_RPCS` name (`packages/core/src/schemas/mutations.ts`,
+  mirrored in `_shared/mutation-types.json` `queueableRpcs` and `app.queueable_rpcs()`) is queued as
+  one `rpc.queued` mutation (`src/lib/queuedRpc.ts`) instead of failing, and throws
+  `SavedOfflineError` (`isSavedOffline`, "Saved on this station…"); replay runs it once through
+  `app.queued_rpc`. A screen that wants the queue on purpose calls `queueRpc(fn, args)`. Adding a
+  name means all three lists; never a secret setter, a day/shift/branch boundary or cash.
+- Offline PINs (F-05, F-07): `mutate()` checks a payload's manager PIN against the shell's cache
+  while offline (`src/lib/offlinePin.ts`, `lib/connectivity.ts`) and refuses an unknown one at once;
+  the idle lock uses `verifyOwnPinOffline`. A non-authorising person's lock-screen PIN is observed
+  with tier `'self'` and never authorises anything.
 - Idempotency keys come from `src/lib/idem.ts` (`{station}:{mutation_type}:{ulid}`, real Crockford
   ULIDs); the queue validator and the replay function refuse anything else.
 - Payloads never carry a price (`mutations.ts:13-14`) and only carry a `pin` where the server

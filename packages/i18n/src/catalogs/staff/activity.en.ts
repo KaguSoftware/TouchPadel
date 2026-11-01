@@ -26,7 +26,6 @@ export const staffActivityEn = {
     offline: 'Offline',
     never: 'Never used',
   },
-  onBreak: 'On break',
   /** `{when}` is an `ago.*` phrase. */
   lastSeen: 'Last seen {when}',
   lastAction: 'Last action: {action}, {when}',

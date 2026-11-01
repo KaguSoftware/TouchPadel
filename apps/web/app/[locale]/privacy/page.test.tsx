@@ -5,6 +5,14 @@ import { resetServerData, serverData, VENUE_PHONE } from '@/test/fixtures';
 import { renderServerPage } from '@/test/renderPage';
 import PrivacyPage from './page';
 
+/** The words a reader meets: the page's text without its inline stylesheet. */
+function readable(root: Element): string {
+  const copy = root.cloneNode(true) as Element;
+  copy.querySelectorAll('style, script').forEach((n) => n.remove());
+  return copy.textContent ?? '';
+}
+
+
 /**
  * The privacy policy — the App Store Connect "Privacy Policy URL". Apple
  * fetches it, so every word has to be in the server-rendered HTML: these cases
@@ -104,7 +112,7 @@ describe.each(LOCALES)('privacy page (%s)', (locale: Locale) => {
     await renderServerPage(PrivacyPage, locale);
 
     const share = document.querySelector('section#share')?.textContent ?? '';
-    for (const name of ['Supabase', 'Qi Card', 'Telegram', 'OTPIQ', 'Groq', 'Vercel', 'PostHog', 'Kagu Software']) {
+    for (const name of ['Supabase', 'Telegram', 'OTPIQ', 'Groq', 'Vercel', 'PostHog', 'Kagu Software']) {
       expect(share).toContain(name);
     }
     for (const id of ['transfers', 'cookies', 'security']) {
@@ -127,10 +135,24 @@ describe.each(LOCALES)('privacy page (%s)', (locale: Locale) => {
     expect(text('collect')).toContain(t(locale, 'legal.privacy.collect.matches'));
     expect(text('use')).toContain(t(locale, 'legal.privacy.use.matches'));
     expect(text('share')).toContain(t(locale, 'legal.privacy.share.players'));
-    expect(text('share')).toContain(t(locale, 'legal.privacy.share.qi'));
     expect(text('retention')).toContain(t(locale, 'legal.privacy.retention.matches'));
-    // No page says there is no online payment any more.
-    expect(text('collect')).not.toContain(locale === 'en' ? 'There is no online payment' : 'لا يوجد دفع إلكتروني');
+  });
+
+  /**
+   * F-02/F-03 (2026-11-01): this build takes no online payment. Qi Card is no longer a processor,
+   * nothing mentions deposits or tickets, and the policy says every payment is made at the venue.
+   */
+  it('names no payment provider and says every payment is made at the venue', async () => {
+    const { container } = await renderServerPage(PrivacyPage, locale);
+    const all = readable(container);
+    expect(all).not.toContain('Qi Card');
+    expect(all).not.toMatch(locale === 'en' ? /deposit|ticket/i : /عربون|عرابين|تذكرة|تذاكر/);
+    expect(document.querySelector('section#collect')?.textContent).toContain(
+      t(locale, 'legal.privacy.collect.notCollected'),
+    );
+    expect(t(locale, 'legal.privacy.collect.notCollected')).toContain(
+      locale === 'en' ? 'all paid at the venue' : 'كلها في النادي',
+    );
   });
 
   it('offers the other language and the sibling legal page', async () => {

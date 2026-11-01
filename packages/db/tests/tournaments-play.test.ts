@@ -466,6 +466,8 @@ describe.skipIf(!docker)('the reads (§1.8)', () => {
       close: false,
       finish: false,
       settle: true,
+      // 0390 (F-40): confirming is the desk's, before the draw.
+      confirm: false,
     });
     expect(answer(r, 'detail_mgr')).toMatchObject({
       // 0310 (c25): no desk add while running; a manager may finish it early (c28).

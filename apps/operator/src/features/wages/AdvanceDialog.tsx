@@ -6,8 +6,12 @@
  * the server says is still owed this month, where the money came from (Safe,
  * preselected, takes it out of the main cash; Bank transfer moves nothing
  * there) and an optional note. Mark paid then hands over the rest; the page's
- * "Still owed" figure is the server's (owed_iqd), never added up here. One
- * idempotency key per dialog, so a retry after a lost answer never gives twice.
+ * "Still owed" figure is the server's (owed_iqd), never added up here. The
+ * idempotency key is bound to the values sent (keyForValues, F-13): a retry
+ * after a lost answer never gives twice, and a changed amount or source is a
+ * new write, never the first one replayed. Online only (F-13): offline the
+ * Give button is disabled with the reason. From the safe, an amount above its
+ * balance is refused (0387, F-12) and the dialog says so before the press.
  *
  * Take back (app.undo_wage_advance): a reason, while the month is still open;
  * an advance from the safe goes back into it.
@@ -17,6 +21,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { formatDateTime, formatIQD, isolate } from '@touch/i18n';
 import { appRpc } from '../../lib/appRpc';
 import { useLocale } from '../../lib/i18n';
+import { useStationReach } from '../../lib/stationReach';
 import { useToast } from '../../components/toast';
 import { Button, ErrorText, Field, Modal, inputStyle } from '../../components/ui';
 import { digitsOnly } from '../../components/inputs';
@@ -26,12 +31,15 @@ import { refusalCode, refusalHint } from '../protocols/errors';
 import { monthLabel } from '../deductions/venueDate';
 import { isObject, num } from '../roleExtras/roleExtrasLogic';
 import { WK } from './api';
+import { useSafeBalance } from '../safe/api';
 import {
   ADVANCE_MAX,
   ADVANCE_NOTE_MAX,
   UNDO_REASON_MAX,
   advanceMaxFromHint,
   isWageStale,
+  keyForValues,
+  safeShort,
   undoReasonIssue,
   validateAdvanceDraft,
   type AdvanceIssueCode,
@@ -62,7 +70,9 @@ export function GiveAdvanceDialog({ target, onClose, onDone }: { target: Advance
   const { tr, locale } = useLocale();
   const toast = useToast();
   const qc = useQueryClient();
-  const [key] = useState(() => `wage.advance:${crypto.randomUUID()}`);
+  const keys = useRef(new Map<string, string>());
+  const { reachable } = useStationReach();
+  const safeBalance = useSafeBalance();
   const [amount, setAmount] = useState<number | null>(null);
   const [paidFrom, setPaidFrom] = useState<PaidFrom>('safe');
   const [note, setNote] = useState('');
@@ -79,15 +89,21 @@ export function GiveAdvanceDialog({ target, onClose, onDone }: { target: Advance
   const noteIssue = issues.find((i) => i.field === 'note')?.code;
 
   const give = useMutation({
-    mutationFn: () =>
-      appRpc<unknown>('give_wage_advance', {
+    mutationFn: () => {
+      const sentNote = note.trim() === '' ? null : note.trim();
+      return appRpc<unknown>('give_wage_advance', {
         p_staff_id: target.staffId,
         p_amount_iqd: amount,
         p_paid_from: paidFrom,
         p_month: target.month,
-        p_note: note.trim() === '' ? null : note.trim(),
-        p_idempotency_key: key,
-      }),
+        p_note: sentNote,
+        p_idempotency_key: keyForValues(
+          keys.current,
+          [target.staffId, target.month, amount, paidFrom, sentNote],
+          () => `wage.advance:${crypto.randomUUID()}`,
+        ),
+      });
+    },
     onSuccess: (res) => {
       const owed = isObject(res) ? num(res.owed_iqd) : null;
       toast.ok(owed === null ? tr('ws.wages.give.confirmEmpty') : tr('ws.wages.give.done', { name: isolate(target.displayName), amount: money(Math.max(owed, 0)) }));
@@ -99,6 +115,7 @@ export function GiveAdvanceDialog({ target, onClose, onDone }: { target: Advance
     onError: (e) => {
       const code = refusalCode(e);
       if (isWageStale(code) || code === 'WAGE_ADVANCE_TOO_LARGE') void qc.invalidateQueries({ queryKey: WK.all });
+      if (code === 'SAFE_NOT_ENOUGH') void qc.invalidateQueries({ queryKey: MAIN_CASH_KEY });
     },
   });
 
@@ -108,6 +125,9 @@ export function GiveAdvanceDialog({ target, onClose, onDone }: { target: Advance
   const noteProblem = noteIssue ? tr('ws.wages.give.issue.tooLong', { limit: String(ADVANCE_NOTE_MAX) }) : null;
   const busy = give.isPending;
   const fromLabel = tr(paidFrom === 'safe' ? 'ws.wages.paidFrom.safe' : 'ws.wages.paidFrom.bank');
+  const short = safeShort(amount, paidFrom, safeBalance);
+  const shortText = short ? tr('ws.wages.paidFrom.safeShort', { amount: money(Math.max(safeBalance ?? 0, 0)) }) : null;
+  const submitBlocked = !reachable ? tr('ws.wages.paidFrom.offline') : shortText;
 
   const steps: WizardStep[] = [
     {
@@ -145,7 +165,7 @@ export function GiveAdvanceDialog({ target, onClose, onDone }: { target: Advance
       key: 'from',
       label: tr('ws.wages.paidFrom.label'),
       note: fromLabel,
-      problems: noteProblem ? [noteProblem] : [],
+      problems: [...(noteProblem ? [noteProblem] : []), ...(shortText ? [shortText] : [])],
       content: (
         <>
           {/* The step's heading names the choice; the hint under it says what it moves. */}
@@ -162,6 +182,11 @@ export function GiveAdvanceDialog({ target, onClose, onDone }: { target: Advance
             <span style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>
               {tr(paidFrom === 'safe' ? 'ws.wages.paidFrom.safeHint' : 'ws.wages.paidFrom.bankHint')}
             </span>
+            {paidFrom === 'safe' && safeBalance !== null && (
+              <span data-testid="wages.advance.safeBalance" style={{ fontSize: 'var(--tp-fs-xs)', color: short ? 'var(--tp-danger-fg)' : 'var(--tp-muted-fg)' }}>
+                {shortText ?? tr('ws.wages.paidFrom.safeBalance', { amount: money(safeBalance) })}
+              </span>
+            )}
           </div>
           <Field label={tr('ws.wages.give.note')} optional style={{ marginBlockEnd: 0 }}>
             <input
@@ -204,9 +229,10 @@ export function GiveAdvanceDialog({ target, onClose, onDone }: { target: Advance
       )}
       submitLabel={amount !== null && amount > 0 ? tr('ws.wages.give.confirm', { amount: money(amount) }) : tr('ws.wages.give.confirmEmpty')}
       onSubmit={() => {
-        if (issues.length === 0) give.mutate();
+        if (issues.length === 0 && submitBlocked === null) give.mutate();
       }}
       busy={busy}
+      submitBlocked={submitBlocked}
       notice={
         give.isError ? (
           <ErrorText

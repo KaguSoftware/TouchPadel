@@ -86,6 +86,13 @@ describe('dispatchResult (item 9)', () => {
     expect(qc.invalidateQueries).toHaveBeenCalledTimes(RESULT_INVALIDATIONS['tab.cancel']!.length);
   });
 
+  it('an rpc.queued result (0395) refreshes every mounted query: it can be any settings page', () => {
+    const qc = { invalidateQueries: vi.fn() };
+    dispatchResult(result({ state: 'acked', mutationType: 'rpc.queued' }), qc);
+    expect(qc.invalidateQueries).toHaveBeenCalledTimes(1);
+    expect(qc.invalidateQueries).toHaveBeenCalledWith();
+  });
+
   it('a refusal a waiter consumed is NOT re-announced — mutate() throws it to its caller', async () => {
     const qc = { invalidateQueries: vi.fn() };
     const seen: MutationResult[] = [];

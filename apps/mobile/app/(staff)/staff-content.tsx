@@ -1110,7 +1110,7 @@ function ContentScreen() {
 
 export default function StaffContentRoute() {
   return (
-    <RequireStaff roles={CONTENT_ROLES}>
+    <RequireStaff page="staff-content" roles={CONTENT_ROLES}>
       <ContentScreen />
     </RequireStaff>
   );

@@ -374,7 +374,7 @@ function LogScreen() {
 
 export default function StaffStockLogRoute() {
   return (
-    <RequireStaff roles={LOG_ROLES}>
+    <RequireStaff page="staff-stock-log" roles={LOG_ROLES}>
       <LogScreen />
     </RequireStaff>
   );

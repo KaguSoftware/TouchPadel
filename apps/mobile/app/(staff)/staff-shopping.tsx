@@ -632,7 +632,7 @@ function ShoppingScreen() {
 
 export default function StaffShoppingRoute() {
   return (
-    <RequireStaff roles={SHOPPING_ROLES}>
+    <RequireStaff page="staff-shopping" roles={SHOPPING_ROLES}>
       <ShoppingScreen />
     </RequireStaff>
   );

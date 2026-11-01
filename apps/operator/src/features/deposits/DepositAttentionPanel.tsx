@@ -14,6 +14,10 @@
  * and since when, and offers only the action the server will take for it
  * (depositAttentionLogic.attentionActions). A refusal stays on its row.
  *
+ * Offline (F-58) the three actions stay enabled and are queued (depositQueue):
+ * the row then says "Queued" and offers nothing more until the server answers;
+ * "Settled another way" checks its manager PIN on this station first (F-05).
+ *
  * Open matches (operator.md §5.17): "Settled another way" only on a failed
  * refund (R23), so a slow one says it is waiting on Qi and offers nothing; a
  * ticket purchase's refund (cash-out or account deletion) reads "Ticket
@@ -25,7 +29,7 @@
  * its reasons include the coach's cancel and too few students, and asking the
  * refund of a lesson still on gives its own line (PAYMENT_STATE `lesson_live`).
  */
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { countPhrase, formatDateTime, formatIQD, formatNumber, isolate, VENUE_TZ, type MessageKey } from '@touch/i18n';
@@ -38,14 +42,14 @@ import { Button, ErrorText, Field, Modal, Skeleton, inputStyle } from '../../com
 import { AsyncStateWrapper, EmptyState, Money, Panel, StatusBadge, ViewMore, useListCap, type Tone } from '../../components/kit';
 import { CardTitle } from '../ops/OpsVisuals';
 import { coachingErrorText } from '../coaching/lessonLogic';
+import { errorStringCode } from '../../lib/queueResults';
+import { errorCodeToMessageKey } from '../../lib/errors';
+import { clearDepositQueued, markStillCurrent, runDepositAction, useQueuedDepositAction } from './depositQueue';
 import {
   depositAttentionKey,
   depositSettingsKey,
   fetchDepositAttention,
   fetchDepositSettings,
-  requestDepositRefund,
-  retryDepositRefund,
-  settleDepositManually,
   type DepositAttentionRow,
 } from './depositApi';
 import {
@@ -62,6 +66,7 @@ import {
   sortAttention,
   type AttentionKind,
 } from './depositAttentionLogic';
+import { PIN_MAX, PIN_MIN } from '../../lib/pinRules';
 
 const K = 'ws.manager.onlineRefunds';
 
@@ -138,6 +143,13 @@ function AttentionRow({ row }: { row: DepositAttentionRow }) {
   const [error, setError] = useState<unknown>(null);
   const [settling, setSettling] = useState(false);
   const [confirmRefund, setConfirmRefund] = useState(false);
+  const queuedMark = useQueuedDepositAction(row.id);
+  // The server has moved the row on since the action was queued: the mark has done its job.
+  const queuedCurrent = markStillCurrent(queuedMark, row);
+  useEffect(() => {
+    if (queuedMark && !queuedCurrent) clearDepositQueued(row.id);
+  }, [queuedMark, queuedCurrent, row.id]);
+  const queued = queuedCurrent && !queuedMark?.refused;
 
   const kind = attentionKindOf(row);
   const actions = attentionActions(row);
@@ -168,9 +180,12 @@ function AttentionRow({ row }: { row: DepositAttentionRow }) {
     setBusy(which);
     setError(null);
     try {
-      if (which === 'retry') await retryDepositRefund(row.id);
-      else await requestDepositRefund(row.id);
+      const outcome = await runDepositAction(row, which);
       setConfirmRefund(false);
+      if (outcome === 'queued') {
+        toast.ok(tr(`${K}.queuedHint`));
+        return;
+      }
       toast.ok(tr(which === 'retry' ? `${K}.retried` : `${K}.refundAsked`));
       refreshed();
     } catch (e) {
@@ -227,19 +242,30 @@ function AttentionRow({ row }: { row: DepositAttentionRow }) {
       {facts.length > 0 && <p style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)', margin: 0 }}>{facts.join(' · ')}</p>}
 
       <ErrorText error={settling || confirmRefund ? null : error} message={errorMessage} style={{ marginBlock: 0 }} />
+      {queued && (
+        <span data-testid={`deposit-queued-${row.id}`} style={{ display: 'inline-flex', gap: 'var(--tp-sp-2)', alignItems: 'center', flexWrap: 'wrap' }}>
+          <StatusBadge tone="info" size="sm" label={tr(`${K}.queued`)} />
+          <span style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>{tr(`${K}.queuedHint`)}</span>
+        </span>
+      )}
+      {queuedCurrent && queuedMark?.refused && (
+        <p role="alert" style={{ margin: 0, fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-danger-fg)' }}>
+          {tr(`${K}.queuedRefused`, { reason: tr(errorCodeToMessageKey(errorStringCode(queuedMark.refused) ?? 'UNKNOWN')) })}
+        </p>
+      )}
 
       <div style={{ display: 'flex', gap: 'var(--tp-sp-2)', flexWrap: 'wrap' }}>
-        {actions.retry && (
+        {!queued && actions.retry && (
           <Button size="sm" icon="refresh" busy={busy === 'retry'} disabled={busy !== null} onClick={() => void run('retry')}>
             {tr(`${K}.retry`)}
           </Button>
         )}
-        {actions.refund && (
+        {!queued && actions.refund && (
           <Button size="sm" icon="undo" disabled={busy !== null} onClick={() => { setError(null); setConfirmRefund(true); }}>
             {tr(`${K}.refund`)}
           </Button>
         )}
-        {actions.settle && (
+        {!queued && actions.settle && (
           <Button size="sm" kind="ghost" icon="lock" disabled={busy !== null} onClick={() => { setError(null); setSettling(true); }}>
             {tr(`${K}.settle`)}
           </Button>
@@ -270,8 +296,12 @@ function AttentionRow({ row }: { row: DepositAttentionRow }) {
           guest={guest}
           amount={amount}
           onClose={() => setSettling(false)}
-          onDone={() => {
+          onDone={(outcome) => {
             setSettling(false);
+            if (outcome === 'queued') {
+              toast.ok(tr(`${K}.queuedHint`));
+              return;
+            }
             toast.ok(tr(`${K}.settled`));
             refreshed();
           }}
@@ -311,21 +341,20 @@ function OpenCustomer({ customerId }: { customerId: string }) {
  * is not used: its reason list (wrong item, spill, comp…) has nothing that
  * describes how a refund was settled, and this needs a sentence, not a code.
  */
-function SettleDialog({ row, guest, amount, onClose, onDone }: { row: DepositAttentionRow; guest: string; amount: number; onClose: () => void; onDone: () => void }) {
+function SettleDialog({ row, guest, amount, onClose, onDone }: { row: DepositAttentionRow; guest: string; amount: number; onClose: () => void; onDone: (outcome: 'done' | 'queued') => void }) {
   const { tr, locale } = useLocale();
   const [note, setNote] = useState('');
   const [pin, setPin] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
-  const ready = note.trim().length > 0 && pin.length >= 4;
+  const ready = note.trim().length > 0 && pin.length >= PIN_MIN;
 
   async function submit() {
     if (!ready || busy) return;
     setBusy(true);
     setError(null);
     try {
-      await settleDepositManually(row.id, pin, note.trim());
-      onDone();
+      onDone(await runDepositAction(row, 'settle', { pin, note: note.trim() }));
     } catch (e) {
       setError(e);
       setPin('');
@@ -370,7 +399,7 @@ function SettleDialog({ row, guest, amount, onClose, onDone }: { row: DepositAtt
           autoComplete="off"
           dir="ltr"
           value={pin}
-          maxLength={6}
+          maxLength={PIN_MAX}
           disabled={busy}
           onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
           onKeyDown={(e) => e.key === 'Enter' && void submit()}

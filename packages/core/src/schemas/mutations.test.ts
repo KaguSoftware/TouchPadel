@@ -8,6 +8,9 @@ import {
   makeClientRef,
   makeIdempotencyKey,
   mutationEnvelopeSchema,
+  PIN_GATED_RPCS,
+  QUEUEABLE_RPCS,
+  rpcQueuedPayloadSchema,
   orderAddItemsPayloadSchema,
   orderCreatePayloadSchema,
   orderItemVoidPayloadSchema,
@@ -435,16 +438,24 @@ describe('adjustment.apply payload', () => {
     );
   });
 
-  it('takes the server PIN rule, 6-12 digits (0078), on both shapes', () => {
+  it('takes the server PIN rule, 4-12 digits (F-50), on both shapes', () => {
     const override = { kind: 'price_override' as const, orderItemId: UUID_B, newUnitPriceIqd: 5000, reasonCode: 'x' };
-    for (const pin of ['1234', '12345', '1234567890123']) {
+    for (const pin of ['123', '12a4', '1234567890123']) {
       expect(adjustmentApplyPayloadSchema.safeParse({ ...discount(), pin }).success, pin).toBe(false);
       expect(adjustmentApplyPayloadSchema.safeParse({ ...override, pin }).success, pin).toBe(false);
     }
-    for (const pin of ['380517', '123456789012']) {
+    for (const pin of ['1234', '12345', '380517', '123456789012']) {
       expect(adjustmentApplyPayloadSchema.safeParse({ ...discount(), pin }).success, pin).toBe(true);
       expect(adjustmentApplyPayloadSchema.safeParse({ ...override, pin }).success, pin).toBe(true);
     }
+  });
+
+  it('a discount on a tab opened offline names its tab.open key instead (F-09), never both or neither', () => {
+    const { tabId: _omit, ...noTab } = discount();
+    const tabIdemKey = 'TILL-01:tab.open:01J0000000000000000000000A';
+    expect(adjustmentApplyPayloadSchema.safeParse({ ...noTab, tabIdemKey }).success).toBe(true);
+    expect(adjustmentApplyPayloadSchema.safeParse({ ...discount(), tabIdemKey }).success).toBe(false);
+    expect(adjustmentApplyPayloadSchema.safeParse(noTab).success).toBe(false);
   });
 
   it('a price override must not carry a tabId — the item names the tab', () => {
@@ -529,7 +540,7 @@ describe('item 9 / C3 payloads (0120)', () => {
     expect(tabSettleZeroPayloadSchema.safeParse({ tabId: 'not-a-uuid', reasonCode: 'x' }).success).toBe(false);
   });
 
-  it('payment.refund: a positive integer amount, a 6-12 digit pin, optional non-empty items, no prices', () => {
+  it('payment.refund: a positive integer amount, a 4-12 digit pin, optional non-empty items, no prices', () => {
     const base = { paymentId: UUID_A, amountIqd: 5000, pin: '380517', reasonCode: 'wrong_item' };
     expect(paymentRefundPayloadSchema.safeParse(base).success).toBe(true);
     expect(paymentRefundPayloadSchema.safeParse({ ...base, items: [{ orderItemId: UUID_B, qty: 1 }] }).success).toBe(true);
@@ -545,9 +556,10 @@ describe('item 9 / C3 payloads (0120)', () => {
     expect(orderItemVoidPayloadSchema.safeParse({ orderItemId: UUID_B, reasonCode: 'dropped' }).success).toBe(false);
   });
 
-  it('refund and void refuse a PIN shorter than the server allows (6-12 digits, 0078)', () => {
-    expect(paymentRefundPayloadSchema.safeParse({ paymentId: UUID_A, amountIqd: 1, pin: '1234', reasonCode: 'x' }).success).toBe(false);
-    expect(orderItemVoidPayloadSchema.safeParse({ orderItemId: UUID_B, pin: '12345', reasonCode: 'x' }).success).toBe(false);
+  it('refund and void refuse a PIN outside what the server allows (4-12 digits, F-50)', () => {
+    expect(paymentRefundPayloadSchema.safeParse({ paymentId: UUID_A, amountIqd: 1, pin: '123', reasonCode: 'x' }).success).toBe(false);
+    expect(paymentRefundPayloadSchema.safeParse({ paymentId: UUID_A, amountIqd: 1, pin: '1234', reasonCode: 'x' }).success).toBe(true);
+    expect(orderItemVoidPayloadSchema.safeParse({ orderItemId: UUID_B, pin: '12a45', reasonCode: 'x' }).success).toBe(false);
     expect(orderItemVoidPayloadSchema.safeParse({ orderItemId: UUID_B, pin: '1234567890123', reasonCode: 'x' }).success).toBe(false);
   });
 
@@ -646,5 +658,53 @@ describe('reservation.update and waiter_call.action payloads (what replay reads)
       };
       expect(mutationEnvelopeSchema.safeParse(env).success, type).toBe(true);
     }
+  });
+
+  describe('rpc.queued (0395)', () => {
+    it('takes an allowlisted RPC with p_* arguments and nothing else', () => {
+      expect(rpcQueuedPayloadSchema.safeParse({ fn: 'set_venue_details', args: { p_patch: { a: 1 } } }).success).toBe(true);
+      expect(rpcQueuedPayloadSchema.safeParse({ fn: 'set_staff_pin', args: { p_pin: '1234' } }).success).toBe(false);
+      expect(rpcQueuedPayloadSchema.safeParse({ fn: 'open_day', args: {} }).success).toBe(false);
+      expect(rpcQueuedPayloadSchema.safeParse({ fn: 'set_venue_details', args: { patch: {} } }).success).toBe(false);
+      expect(rpcQueuedPayloadSchema.safeParse({ fn: 'set_venue_details', args: {}, extra: 1 }).success).toBe(false);
+    });
+
+    it('carries a manager PIN only for a PIN-gated RPC, 4-12 digits', () => {
+      expect(rpcQueuedPayloadSchema.safeParse({ fn: 'deposit_refund_manual', args: { p_pin: '1234' } }).success).toBe(true);
+      expect(rpcQueuedPayloadSchema.safeParse({ fn: 'deposit_refund_manual', args: { p_pin: '12' } }).success).toBe(false);
+      expect(rpcQueuedPayloadSchema.safeParse({ fn: 'set_venue_details', args: { p_pin: '1234' } }).success).toBe(false);
+    });
+
+    it('caps the argument size', () => {
+      const big = 'x'.repeat(40 * 1024);
+      expect(rpcQueuedPayloadSchema.safeParse({ fn: 'set_venue_details', args: { p_patch: { big } } }).success).toBe(false);
+    });
+
+    it('names an offline tab by its tab.open key', () => {
+      const tabIdemKey = makeIdempotencyKey(STATION, 'tab.open');
+      expect(rpcQueuedPayloadSchema.safeParse({ fn: 'set_tab_customer', args: { p_customer_id: UUID_A }, tabIdemKey }).success).toBe(true);
+      expect(rpcQueuedPayloadSchema.safeParse({ fn: 'set_tab_customer', args: {}, tabIdemKey: 'nope' }).success).toBe(false);
+    });
+
+    it('never lists a secret-setting or day-boundary RPC', () => {
+      for (const fn of ['set_staff_pin', 'clear_staff_pin', 'open_day', 'close_day', 'open_till_shift', 'close_till_shift', 'merge_tabs', 'record_drawer_open', 'register_station', 'retire_station']) {
+        expect((QUEUEABLE_RPCS as readonly string[]).includes(fn), fn).toBe(false);
+      }
+      // A PIN-gated RPC in the list is proved at replay (0115); the rest carry no PIN.
+      expect(QUEUEABLE_RPCS.filter((f) => (PIN_GATED_RPCS as readonly string[]).includes(f))).toEqual(['deposit_refund_manual']);
+    });
+
+    it('an rpc.queued envelope is accepted with a matching key', () => {
+      const env = {
+        localId: makeClientRef(STATION),
+        idempotencyKey: makeIdempotencyKey(STATION, 'rpc.queued'),
+        mutationType: 'rpc.queued',
+        payload: { fn: 'recall_ticket', args: { p_ticket_id: UUID_A } },
+        createdAt: new Date().toISOString(),
+        staffId: UUID_STAFF,
+        deviceId: STATION,
+      };
+      expect(mutationEnvelopeSchema.safeParse(env).success).toBe(true);
+    });
   });
 });

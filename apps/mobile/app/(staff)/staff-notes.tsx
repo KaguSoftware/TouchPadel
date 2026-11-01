@@ -195,7 +195,7 @@ function NotesScreen() {
 
 export default function StaffNotesRoute() {
   return (
-    <RequireStaff>
+    <RequireStaff page="staff-notes">
       <NotesScreen />
     </RequireStaff>
   );

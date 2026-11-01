@@ -17,6 +17,7 @@ import { PK } from './keys';
 import { invalidateProtocols } from './api';
 import { fromLocalInput, mintKey, toLocalInput } from './formModel';
 import { isObj } from './protocolLogic';
+import { useConfirm } from '../../components/ConfirmDialog';
 
 export interface Candidate {
   id: string;
@@ -64,6 +65,8 @@ interface Draft {
 const EMPTY: Draft = { name: '', phone: '', brief: '', at: '' };
 
 export function CandidatesPanel({ runId, editable }: { runId: string; editable: boolean }) {
+  // F-61: removing a candidate asks first.
+  const confirm = useConfirm();
   const { tr, locale } = useLocale();
   const qc = useQueryClient();
   const q = useCandidates(runId, true);
@@ -145,7 +148,15 @@ export function CandidatesPanel({ runId, editable }: { runId: string; editable: 
                     kind="ghost"
                     icon="trash"
                     busy={busy === `del:${c.id}`}
-                    onClick={() => void run(`del:${c.id}`, () => appRpc('delete_hiring_candidate', { p_id: c.id }))}
+                    onClick={async () => {
+                      const ok = await confirm({
+                        title: tr('ws.protocols.run.removeCandidateTitle', { name: c.candidate_name }),
+                        body: tr('ws.protocols.run.removeCandidateBody'),
+                        confirmLabel: tr('ws.protocols.run.removeCandidateConfirm'),
+                        kind: 'danger',
+                      });
+                      if (ok) void run(`del:${c.id}`, () => appRpc('delete_hiring_candidate', { p_id: c.id }));
+                    }}
                   >
                     {tr('ws.protocols.candidates.remove')}
                   </Button>

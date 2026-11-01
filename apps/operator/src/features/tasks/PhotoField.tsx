@@ -18,7 +18,8 @@
 import { useRef, useState } from 'react';
 import { formatNumber } from '@touch/i18n';
 import type { PhotoFolder } from '@touch/core/protocols';
-import { appRpc } from '../../lib/appRpc';
+import { appRpc, type AppFunctionName } from '../../lib/appRpc';
+import { discardRemovedPhoto } from '../protocols/protocolLogic';
 import { compressToWebp } from '../../lib/image';
 import { supabase } from '../../lib/supabase';
 import { useLocale } from '../../lib/i18n';
@@ -174,7 +175,12 @@ export function PhotoField({
                   aria-label={tr('ws.team.tasks.photos.remove', { n: formatNumber(i + 1, locale) })}
                   title={tr('ws.team.tasks.photos.remove', { n: formatNumber(i + 1, locale) })}
                   disabled={disabled || busy}
-                  onClick={() => onChange(paths.filter((x) => x !== p))}
+                  onClick={() => {
+                    onChange(paths.filter((x) => x !== p));
+                    // F-61: the removed photo leaves storage too (0391).
+                    // types.gen.ts pending db:types (0391)
+                    void discardRemovedPhoto(p, (fn, args) => appRpc(fn as AppFunctionName, args));
+                  }}
                   style={{
                     position: 'absolute',
                     insetBlockStart: 'calc(var(--tp-sp-2) * -1)',

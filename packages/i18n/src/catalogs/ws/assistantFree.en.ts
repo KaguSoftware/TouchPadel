@@ -13,7 +13,7 @@ export const assistantFreeEn = {
   starters: {
     title: 'Try asking',
     tasks: 'Where do I see my tasks?',
-    break: 'How do I take a break?',
+    startShift: 'How do I start my shift?',
     incident: 'How do I report an incident?',
   },
   composer: {

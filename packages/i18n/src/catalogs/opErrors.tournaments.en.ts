@@ -21,6 +21,8 @@ export const opErrorsTournamentsEn = {
   TOURNAMENT_SEAT_TAKEN: 'That chair was just taken. Pick another open one.',
   TOURNAMENT_ROUNDS_INVALID: "These rounds can't be saved. Refresh and generate them again.",
   TOURNAMENT_SCORE_REFUSED: "This score can't be saved. Check it and try again.",
+  // 0390 (F-40): the draw waits for every registered player to be confirmed at the desk.
+  TOURNAMENT_UNCONFIRMED: 'Some players are not confirmed yet. Confirm each participant on the Entries tab, then start.',
   TOURNAMENT_UNDER_FILLED:
     'Fewer players than the minimum have registered. Add players or cancel the tournament.',
   TOURNAMENT_FINISH_REFUSED:

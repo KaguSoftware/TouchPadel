@@ -3,8 +3,8 @@ import { Redirect } from 'expo-router';
 import { onlinePaymentsShipped } from './enabled';
 
 /**
- * Store-build guard for the screens behind online payment and open matches
- * (see ./enabled.ts). A deep link or a push can still reach the route, so the
+ * Store-build guard for the screens behind online payment: the ticket wallet
+ * and /pay/* (see ./enabled.ts; open matches are not behind it since 2026-11-01). A deep link or a push can still reach the route, so the
  * route redirects to Home when the build does not ship the feature.
  *
  * The guard wraps the screen instead of sitting inside it: the screen's own

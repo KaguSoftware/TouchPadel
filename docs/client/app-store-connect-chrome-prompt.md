@@ -1,12 +1,13 @@
-# Claude-in-Chrome prompt — App Store Connect, Touch Padel iOS 1.0.0
+# Claude-in-Chrome prompt — App Store Connect, Touch Padel iOS 1.1.0
 
 Generated from `docs/store/app-store-listing.md` and `docs/store/app-store-submission.md` (character counts
 verified by `pnpm --filter @touch/mobile store:copy-check`). If those docs change, regenerate. Don't hand-edit the
 copy below.
 
-**Before pasting this, have ready:** the review account's phone and password (from
-`node scripts/create-review-account.mjs --sandbox`; the partner account and its sandbox match are set up as
-`docs/store/app-store-submission.md` §5 says), a processed build ≥ 9 (or accept that task 6.4 will be BLOCKED), and
+**Before pasting this, have ready:** the review account's phone number (from
+`node scripts/create-review-account.mjs --sandbox`) and the six-digit test code you set for it in Supabase (the app
+signs in with a code, not a password; the partner account and its match are set up as
+`docs/store/app-store-submission.md` §0 items 3–3b say; this build has no online payment and no tickets), a processed build ≥ 9 (or accept that task 6.4 will be BLOCKED), and
 the screenshot PNGs rendered in `apps/mobile/store/out/iphone-6.9/`.
 
 Copy everything below the line into Claude in Chrome.
@@ -145,28 +146,30 @@ Left sidebar: **App Privacy**.
    - Contact Info → **Name**, **Email Address**, **Phone Number**
    - Identifiers → **User ID**
    - Other Data → **Other Data Types**
-   - Purchases → **Purchase History** (court deposits and open-match tickets paid by Qi Card; no card data)
+   - Purchases → **Purchase History** (bookings, open-match seats, lessons and tournament entries, all paid at the
+     desk; member-card points; no card data, no payment in the app)
    - User Content → **Photos or Videos**, **Other User Content** (staff accounts only: work photos and the text
      staff type in the staff area)
    - Financial Info → **Other Financial Info** (staff accounts only: wage advances and pay deductions)
-4. For **each** of those nine, answer:
+   - Diagnostics → **Crash Data** (crash and error reports to the venue's own server, F-15)
+4. For **each** of those ten, answer:
    - Purposes: **App Functionality** only.
    - Linked to the user's identity: **Yes**.
    - Used for tracking: **No**.
 5. Every other data type stays unticked. In particular NOT: Location, Contacts, Health, Payment Info, Credit Info,
    Emails or Text Messages, Audio Data, Gameplay Content, Customer Support, Browsing/Search History, Sensitive
-   Info, Usage Data, Diagnostics, Device ID, Advertising Data.
+   Info, Usage Data, Performance Data, Other Diagnostic Data, Device ID, Advertising Data.
 6. Save, then **Publish** the privacy answers. Publishing privacy answers is allowed; it is not submitting the app.
 7. In the report, list the final label as App Store Connect shows it ("Data Linked to You: …", "Data Used to
    Track You: none").
 
-## Task 6 — The version page (1.0.0, "Prepare for Submission")
+## Task 6 — The version page (1.1.0, "Prepare for Submission")
 
 Open https://appstoreconnect.apple.com/apps/6809045183/distribution/ios/version/inflight
 
 ### 6.1 Version string
-If the version shown is not `1.0.0` (e.g. it says `1.0`), change it to `1.0.0` and save. The build's version is
-1.0.0 and must match.
+If the version shown is not `1.1.0` (e.g. it says `1.0.0` or `1.0`), change it to `1.1.0` and save. The build's
+version is 1.1.0 and must match.
 
 ### 6.2 English (U.S.) — select it in the language picker
 
@@ -192,18 +195,28 @@ Courts are live in the app. Pick a day, pick a time, and your slot is held while
 
 **Description:**
 ```
-Touch Padel is the booking app for Touch Padel, Iraq.
-
-See which courts are free, reserve the time you want, and turn up. That is the whole app.
+Touch Padel is the app for Touch Padel, Iraq: book a court, join an open match, book a lesson, enter a tournament and keep your club card in your pocket.
 
 BOOK IN SECONDS
 Open the app, pick a day, and every slot for that day is there with its price. Tap the one you want. Your slot is held while you check the details, so nobody takes it out from under you while you decide.
 
-PAY AT THE DESK
-There is no online payment in this app and no card details are ever asked for. You reserve the court here and settle at reception when you arrive.
+OPEN MATCHES
+Start a game at any free time, or join one. Four players book the court together, and each pays their share at the desk.
 
-YOUR RESERVATIONS, IN ONE PLACE
-Upcoming games, games you have played, and anything that was cancelled — each in its own list, with the booking reference the desk asks for.
+PAY AT THE CLUB
+There is no online payment in this app and no card details are ever asked for. Courts, match seats, lessons and tournament entries are all paid at the front desk when you arrive.
+
+LESSONS WITH OUR COACHES
+See the club's coaches, the lessons they teach and the sessions that still have places, and book yours.
+
+TOURNAMENTS
+See what is coming up, enter, join the waiting list or withdraw, and follow the schedule and the standings.
+
+YOUR CLUB CARD
+Show your member card at the till to collect points and use your rewards. See where you stand on the club's leaderboard, and look through the café menu before you come.
+
+YOUR BOOKINGS, IN ONE PLACE
+Upcoming games, open matches, lessons and tournament entries, games you have played, and anything that was cancelled, each in its own list, with the booking reference the desk asks for.
 
 FREE CANCELLATION
 Cancel in the app up to the venue's cancellation window. Inside that window the front desk can still help.
@@ -214,7 +227,7 @@ A confirmation when you book, a reminder before your slot, and a notice if anyth
 ARABIC AND ENGLISH
 The whole app is built in both, right-to-left included — not a translation layer bolted onto an English app. Switch language any time in Settings.
 
-Touch Padel is for booking padel courts at Touch Padel only. It is not a marketplace and does not list other venues.
+Touch Padel is for Touch Padel only. It is not a marketplace and does not list other venues.
 ```
 
 **Keywords** (exactly as written, no spaces after commas):
@@ -229,7 +242,7 @@ padel,court,booking,reserve,slot,club,racket,sport,tennis,baghdad,iraq,venue,gam
 ```
 First release.
 
-Book a padel court at Touch Padel: live availability, your slot held while you confirm, free cancellation inside the venue's window, and reminders before you play. Arabic and English throughout.
+Book a padel court at Touch Padel: live availability, your slot held while you confirm, free cancellation inside the venue's window, and reminders before you play. Start or join open matches, book lessons with the club's coaches, enter tournaments, and carry your member card for points and rewards. Everything is paid at the front desk. Arabic and English throughout.
 ```
 
 Save.
@@ -254,18 +267,28 @@ Same file-picker rule as above.
 
 **Description:**
 ```
-تطبيق تتش بادل لحجز ملاعب البادل في تتش بادل، العراق.
-
-اعرف أي الملاعب متاحة، احجز الوقت الذي يناسبك، واحضر. هذا كل ما يفعله التطبيق.
+تطبيق تتش بادل لنادي تتش بادل في العراق: احجز ملعبًا، وانضم إلى مباراة مفتوحة، واحجز حصة تدريبية، وشارك في بطولة، واحمل بطاقة النادي في جيبك.
 
 احجز خلال ثوانٍ
 افتح التطبيق واختر اليوم، وستجد كل مواعيد ذلك اليوم مع أسعارها. اضغط على الموعد الذي تريده، وسيبقى محجوزًا لك أثناء مراجعة التفاصيل، فلا يسبقك إليه أحد وأنت تقرّر.
 
-الدفع عند الاستقبال
-لا يوجد دفع إلكتروني في هذا التطبيق، ولا تُطلب منك بيانات أي بطاقة أبدًا. تحجز الملعب هنا وتدفع في الاستقبال عند وصولك.
+المباريات المفتوحة
+ابدأ مباراة في أي وقت متاح أو انضم إلى واحدة. يحجز أربعة لاعبين الملعب معًا، ويدفع كلٌّ حصته عند الاستقبال.
+
+الدفع في النادي
+لا يوجد دفع إلكتروني في هذا التطبيق، ولا تُطلب منك بيانات أي بطاقة أبدًا. تدفع ثمن الملاعب ومقاعد المباريات والحصص ورسوم البطولات كلها في الاستقبال عند وصولك.
+
+حصص مع مدربينا
+تعرّف على مدربي النادي والحصص التي يقدّمونها والمواعيد التي ما زالت فيها أماكن، واحجز مكانك.
+
+البطولات
+اطّلع على البطولات القادمة، وسجّل فيها أو انضم إلى قائمة الانتظار أو انسحب، وتابع الجدول والترتيب.
+
+بطاقة النادي
+اعرض بطاقة العضوية عند الصندوق لتجمع النقاط وتستخدم مكافآتك. واعرف موقعك في ترتيب لاعبي النادي، وتصفّح منيو الكافيه قبل أن تأتي.
 
 حجوزاتك في مكان واحد
-المباريات القادمة والمباريات التي لعبتها وما أُلغي من حجوزات: كل منها في قائمة مستقلة، مع رقم الحجز الذي يطلبه الاستقبال.
+المباريات القادمة والمباريات المفتوحة والحصص والبطولات التي سجّلت فيها، والمباريات التي لعبتها، وما أُلغي من حجوزات: كلٌّ منها في قائمة مستقلة، مع رقم الحجز الذي يطلبه الاستقبال.
 
 إلغاء مجاني
 ألغِ الحجز من التطبيق مجانًا خلال مهلة الإلغاء التي يحددها المكان. وبعد انتهائها يظل بإمكان الاستقبال مساعدتك.
@@ -276,7 +299,7 @@ Same file-picker rule as above.
 بالعربية والإنجليزية
 صُمّم التطبيق كله باللغتين، بما في ذلك الاتجاه من اليمين إلى اليسار، وليس ترجمة أُضيفت إلى تطبيق إنجليزي. غيّر اللغة متى شئت من الإعدادات.
 
-تتش بادل مخصص لحجز ملاعب البادل في تتش بادل فقط. وهو ليس منصة تجمع عدة أماكن، ولا يعرض أماكن أخرى.
+تتش بادل مخصص لنادي تتش بادل فقط. وهو ليس منصة تجمع عدة أماكن، ولا يعرض أماكن أخرى.
 ```
 
 **Keywords:**
@@ -291,14 +314,14 @@ Same file-picker rule as above.
 ```
 الإصدار الأول.
 
-احجز ملعب بادل في تتش بادل: عرض مباشر للأوقات المتاحة، وحجز مؤقت للموعد إلى أن تؤكّد، وإلغاء مجاني خلال مهلة الإلغاء التي يحددها المكان، وتذكيرات قبل موعدك. بالعربية والإنجليزية في كل شاشة.
+احجز ملعب بادل في تتش بادل: عرض مباشر للأوقات المتاحة، وحجز مؤقت للموعد إلى أن تؤكّد، وإلغاء مجاني خلال مهلة الإلغاء التي يحددها المكان، وتذكيرات قبل موعدك. ابدأ مباراة مفتوحة أو انضم إليها، واحجز حصصًا مع مدربي النادي، وشارك في البطولات، واحمل بطاقة العضوية لتجمع النقاط والمكافآت. الدفع كله في الاستقبال. بالعربية والإنجليزية في كل شاشة.
 ```
 
 Save.
 
 ### 6.4 Build
 In the **Build** section click **Add Build** (or the + next to it) and select the **newest** build whose version is
-**1.0.0**. Record its build number as `BUILD_NUMBER`.
+**1.1.0**. Record its build number as `BUILD_NUMBER`.
 - If no build is listed, or it says "Processing", mark this BLOCKED and continue with the rest. Don't wait more
   than a couple of minutes.
 - If it asks about encryption / export compliance: "None of the algorithms mentioned above", i.e. the app only
@@ -314,30 +337,42 @@ In the **Build** section click **Add Build** (or the + next to it) and select th
 
 ### 6.6 App Review Information
 - **Sign-in required:** ticked.
-- **User name** and **Password:** **ask me for both now.** I'll paste them from a script's output. Don't reuse
+- **User name** and **Password:** **ask me for both now.** I'll paste the number from a script's output and the
+  test code as the password. Don't reuse
   any value from elsewhere on the page.
 - **Contact Information** (first name, last name, phone, email): if already filled, keep it and report what it
   shows. If empty, ask me.
 - **Notes:**
   ```
-Touch Padel is the booking app for a single padel venue in Iraq. Guests check court availability and reserve a court, or play open matches with other players. Availability can be browsed without an account; reserving needs one.
+Touch Padel is the app of a single padel venue in Iraq. Guests reserve courts, start or join open matches, book lessons, enter tournaments and carry a member card for points at the venue's till. Browsing needs no account; reserving does. A staff area serves the venue's employees (STAFF AREA below).
 
 SIGN IN
-Use the account in Sign-in Information. On the sign-in screen choose country Iraq (+964), enter the phone number without the +964 prefix, then the password. No verification code is needed to sign in. Sign in with Apple and Google are also offered; Sign in with Apple is provided as required by guideline 4.8. New accounts confirm their phone number once with a WhatsApp code, which is why a ready account is provided.
+Use the account in Sign-in Information. On the sign-in screen keep "Phone", choose country Iraq (+964) and enter the phone number without the +964 prefix. The app asks for a six-digit code: enter the code given in the Password field. It is a fixed test code for this number, so no message needs to be received. Sign in with Apple and Google are also offered; Sign in with Apple is provided as required by guideline 4.8.
 
-The account already has an upcoming booking under My Reservations. You are welcome to reserve and cancel another slot: bookings from this account are marked as test bookings for the venue's front desk.
+The account has an upcoming booking under Bookings. You may reserve and cancel another slot: this account's bookings are marked as test bookings for the front desk.
 
 PAYMENTS
-Courts are paid at the venue's front desk. The only online payments, a court deposit when a booking asks for one and open-match tickets, are made on Qi Card's own page for a service used in person at the venue (3.1.3(e)). A ticket is only redeemable for a seat in a match at the venue, is refundable at the desk, and never buys digital content. No in-app purchases; the app never sees card details.
+There is no online payment in this version. Courts, open-match seats, lessons and tournament entries are all paid at the venue's front desk when the player arrives. No in-app purchases, no tickets, and the app never asks for card details.
 
 OPEN MATCHES
-Players start a match at a free time or join one; four players book the court together and each pays their share at the desk (Book > a free time > Start an open match; Book > Open matches). To try it: Profile > Tickets, buy two tickets with Qi's sandbox card, then join Review Partner's match under Book > Open matches (2/4). At 3/4 no court is booked. In the match, send a preset status (no free text), and report or block a player from their seat's menu. Leave, and the ticket returns to your wallet. The review account is a sandbox profile: it pays on Qi's sandbox (no real money) and sees only sandbox matches, which never book a real court.
+Players start a match at a free time or join one; four players book the court together and each pays their share at the desk (Book > a free time > Start an open match; Join > Open matches). To try it: under Join > Open matches, join Review Partner's match (2/4). At 3/4 no court is booked. In the match, send a preset status (no free text), and report or block a player from their seat's menu; Profile > Blocked players undoes a block. Then leave the match. The review account is a sandbox profile: it sees only sandbox matches, which never book a real court.
+
+LESSONS, TOURNAMENTS AND THE CLUB TAB
+Coaches: book a place in a session, paid at the desk. Join also lists tournaments: enter, wait-list or withdraw; the fee is paid at the desk. Club: the member card (a QR the till scans for points), the Ranks leaderboard, and the café menu, for looking only: nothing is ordered in the app.
 
 ACCOUNT DELETION
-Profile > Edit profile > Delete account, in the app. It deletes the login, the guest's name and phone number immediately and signs them out. For Sign in with Apple accounts the app re-authorises with Apple and the Apple token is revoked. Past bookings remain in the venue's records with no name attached; the deletion screen says so before the user confirms. Open matches are left and unused tickets refunded to the card.
+Profile > Edit profile > Delete account, in the app. It deletes the login, the guest's name and phone number immediately and signs them out. For Sign in with Apple accounts the app re-authorises with Apple and the Apple token is revoked. Past bookings remain in the venue's records with no name attached; the deletion screen says so before the user confirms. Open matches are left.
 
 PRIVACY
-Settings > About > Privacy policy (also linked on the sign-up screen) opens the same policy as the listing. The app contains no analytics, advertising or tracking.
+Settings > About > Privacy policy (also linked on the sign-up screen) opens the same policy as the listing. The app contains no analytics, advertising or tracking. Crash and error reports go only to the venue's own server.
+
+STAFF AREA
+Venue employees use the app for their work: workflow tasks (a new menu item, a checklist, the shopping list), menu notes and requests to the owner. The owner creates staff accounts; there is no staff sign-up, and staff sign in with email and password only. To see it, sign out, choose "Email" on the sign-in screen and sign in with:
+
+Email:    <the email create-staff-review-account.mjs printed>
+Password: <the password it printed>
+
+This driver account, the role with the least access, sees the venue's real shopping list; anything you record reaches the manager, so please type test text. The camera and photo library are used for a work photo (a receipt, say) and for a guest's profile photo in Edit profile. The app never uses the microphone or location.
 
 LANGUAGES
 English and Arabic with full right-to-left layout. Settings > Language switches immediately, no restart.

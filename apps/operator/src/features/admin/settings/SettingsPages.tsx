@@ -32,6 +32,7 @@ import { DayServiceTab } from './DayServiceTab';
 import { DevicesPanel } from './DevicesPanel';
 import { MatchSettingsPanel } from './MatchSettingsPanel';
 import { StationsPanel } from './StationsPanel';
+import { IdleLockPanel } from './IdleLockPanel';
 import { TournamentsSettingsPanel } from './TournamentsSettingsPanel';
 import { VENUE_ADMIN_KEY, fetchVenueAdmin, type VenueAdminRow } from './venueQueries';
 import { FixedAtSetupPanel, TaxGroupsPanel, VenuePartFacts, VenuePartForm, type VenuePart } from './venueParts';
@@ -178,11 +179,15 @@ export function DevicesScreen() {
   );
 }
 
-/** Devices › Stations (`/admin/settings/stations`): register this machine at the branch, retire a gone one. */
+/**
+ * Devices › Stations (`/admin/settings/stations`): register this machine at the branch, retire a gone one,
+ * and how long a station waits before it locks itself (F-48, owner).
+ */
 export function StationsScreen() {
   return (
     <SettingsPage title="ws.shell.nav.stations">
       <StationsPanel />
+      <IdleLockPanel />
     </SettingsPage>
   );
 }

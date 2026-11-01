@@ -23,6 +23,7 @@ export type CoachMutation =
   | 'add_student'
   | 'remove_student'
   | 'attendance'
+  | 'student_level'
   | 'cancel_lesson'
   | 'cancel_course'
   | 'reschedule';

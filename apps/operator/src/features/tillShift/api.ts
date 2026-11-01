@@ -9,6 +9,7 @@
  * usually but not always inside that window (the DayClose.tsx close_day
  * precedent).
  */
+import { assertManagerPinOffline } from '../../lib/offlinePin';
 import type { QueryClient, QueryKey } from '@tanstack/react-query';
 import { appRpc, AppRpcError } from '../../lib/appRpc';
 import { deviceId } from '../../lib/idem';
@@ -117,6 +118,10 @@ export async function closeOwnShift(args: { shiftId: string; countedIqd: number;
  * attempt row commits whatever happens next; it RETURNS null for a wrong PIN.
  */
 export async function closeShiftWithManager(args: { shiftId: string; countedIqd: number; managerPin: string; note: string | null; key: string }): Promise<CloseResult> {
+  // F-05: offline, a wrong manager PIN is refused here, from the station's own
+  // cache, instead of waiting on a call that cannot answer. (Closing stays
+  // online-only; a right PIN then meets "No connection".)
+  await assertManagerPinOffline(args.managerPin);
   await beatBeforeShiftWrite();
   const device = shiftDeviceId();
   const authorizer = await appRpc<string | null>('verify_manager_pin', { p_pin: args.managerPin, p_device_id: device });

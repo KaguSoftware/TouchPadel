@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { LocaleProvider } from '../../lib/i18n';
 import { mutate } from '../../lib/mutate';
 import { appRpc } from '../../lib/appRpc';
+import { queueRpc } from '../../lib/queuedRpc';
 import { KdsBoard } from './KdsBoard';
 import type { TicketRow } from './ticketView';
 import type { WorkspaceKey } from '../../lib/workspaces';
@@ -51,6 +52,10 @@ vi.mock('../../lib/mutate', () => ({
     return { queued: false, localId: '', idempotencyKey: '', result: null };
   }),
   isElectron: () => false,
+}));
+// F-57: Bring back rides the durable queue (lib/queuedRpc.ts).
+vi.mock('../../lib/queuedRpc', () => ({
+  queueRpc: vi.fn(async () => ({ queued: false, localId: 'l1', idempotencyKey: 'k1', result: { duplicate: false } })),
 }));
 // My tasks (D, build-contracts-2026-09-23 §5.1): the steps to do and a head's
 // ideas to review, both null unless a case sets them.
@@ -103,6 +108,7 @@ beforeEach(() => {
   navigate.mockClear();
   vi.mocked(mutate).mockClear();
   vi.mocked(appRpc).mockClear();
+  vi.mocked(queueRpc).mockClear();
   // The browser-mode bridge mock warns on every cache miss; expected here.
   vi.spyOn(console, 'warn').mockImplementation(() => {});
 });
@@ -194,5 +200,32 @@ describe('KdsBoard My tasks', () => {
     renderBoard();
     await screen.findByText('My tasks (1)');
     expect(appRpc).not.toHaveBeenCalledWith('release_ideas_to_review', expect.anything());
+  });
+});
+
+describe('KdsBoard Bring back (F-57) and kitchen acks (F-11)', () => {
+  const done: TicketRow = {
+    ...rows[0]!,
+    id: 't2',
+    status: 'completed',
+    completed_at: new Date(Date.now() - 60_000).toISOString(),
+    order: { ...rows[0]!.order!, id: 'o2', tab: { id: 'tab2', label: null, table: { table_number: '4' }, reservation: null } },
+  };
+
+  it('lists a just-completed ticket and brings it back through the queue', async () => {
+    serverRows = [...rows, done];
+    renderBoard();
+    const button = await screen.findByTestId('kds-recall-button');
+    expect(button.getAttribute('data-ticket-id')).toBe('t2');
+    expect(button.textContent).toContain('Table 4');
+    await userEvent.click(button);
+    expect(queueRpc).toHaveBeenCalledWith('recall_ticket', { p_ticket_id: 't2', p_device_id: expect.any(String) });
+  });
+
+  it('tells the server which tickets it drew, once', async () => {
+    serverRows = rows;
+    renderBoard();
+    await screen.findByText('Table 9');
+    await vi.waitFor(() => expect(appRpc).toHaveBeenCalledWith('kds_ack_tickets', { p_ticket_ids: ['t1'] }), { timeout: 3_000 });
   });
 });

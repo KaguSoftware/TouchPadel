@@ -6,7 +6,7 @@
  *   pending           coach_me is being read: a spinner
  *   coach             the screen
  *   retired           the statements screen (`allowRetired`), else sent there (C-25)
- *   guest, none       Profile; a staff session goes on to the hub through GuestTabsGate
+ *   guest, none       Profile for a guest; Today for a staff session (coachHomeHref, F-59)
  *   error             "Coach mode didn't open", with Try again
  *
  * A coach-mode screen is a READER (it keeps coach_me read while mounted) and
@@ -23,7 +23,8 @@ import { useLocale } from '../../i18n/LocaleProvider';
 import { space } from '../../theme';
 import { Loading, Screen } from '../../components/ui';
 import { ErrorState } from '../../components/states';
-import { coachGate } from './gate';
+import { coachGate, coachHomeHref } from './gate';
+import { useStaffStatus } from '../staff/StaffStatusProvider';
 import { useCoachStatus } from './CoachStatusProvider';
 
 /** How old a coach_me answer may be when a coach-mode screen mounts. */
@@ -39,6 +40,7 @@ export function RequireCoach({
 }) {
   const { t } = useLocale();
   const { status, retry, refreshIfOlder } = useCoachStatus({ read: true });
+  const staff = useStaffStatus().status;
 
   useEffect(() => {
     refreshIfOlder(COACH_SCREEN_REFRESH_MS);
@@ -50,7 +52,7 @@ export function RequireCoach({
     case 'redirect-statements':
       return <Redirect href="/coach-mode-statements" />;
     case 'redirect-home':
-      return <Redirect href="/profile" />;
+      return <Redirect href={coachHomeHref(staff.kind)} />;
     case 'error':
       return (
         <Screen edges={[]}>

@@ -76,6 +76,8 @@ export const MUTATION_TYPES = [
   'tab.settle_zero',
   'payment.refund',
   'order_item.void',
+  // 0395: one allowlisted RPC queued offline (admin saves, F-23).
+  'rpc.queued',
 ] as const;
 
 const MUTATION_TYPE_ALT = MUTATION_TYPES.map((t) => t.replace(/\./g, '\\.')).join('|');
@@ -281,6 +283,19 @@ export function validatePinOwner(value: unknown): string | undefined {
   if (value === undefined || value === null) return undefined;
   if (typeof value !== 'string' || !uuidRegex.test(value)) fail('pin owner must be a uuid');
   return value as string;
+}
+
+/**
+ * What an observed PIN may do offline (F-05, F-07): 'manager' authorises
+ * manager actions and the way out; 'self' only unlocks its owner's own idle
+ * lock, so a cashier's PIN can be cached for that without ever authorising
+ * anything.
+ */
+export type PinTier = 'manager' | 'self';
+export function validatePinTier(value: unknown): PinTier {
+  if (value === undefined || value === null) return 'manager';
+  if (value !== 'manager' && value !== 'self') fail("pin tier must be 'manager' or 'self'");
+  return value as PinTier;
 }
 
 export function validatePin(value: unknown): string {

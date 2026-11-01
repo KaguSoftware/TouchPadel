@@ -1,12 +1,15 @@
 import { createHash, timingSafeEqual } from 'node:crypto';
 import * as os from 'node:os';
 import { WebSocketServer, type WebSocket } from 'ws';
-import type { MutationEnvelope } from '../ipc-channels';
+import type { LanReach, MutationEnvelope, MutationResult } from '../ipc-channels';
 import { getAuthState } from './auth-state';
 import { enqueue } from './queue';
 import { ulid } from './ulid';
 import {
-  parseStatusUpdate,
+  applyCloudStatuses,
+  parseKdsFrame,
+  snapshotOf,
+  type LanRefusal,
   type LanServerFrame,
   type LanTicket,
   type LanTicketItem,
@@ -21,10 +24,22 @@ export const LAN_KDS_PORT = 47810;
 
 /** Today's kitchen-bound frames, capped — backs the snapshot a KDS gets on connect. */
 const RING_CAP = 500;
+/** Refs a kitchen screen has acknowledged, newest kept (F-11). */
+const ACK_CAP = 1000;
 
 export interface LanKdsServer {
   /** Called by the enqueue path for kitchen-bound mutations (order.create/add_items). */
   onEnqueued(envelope: MutationEnvelope): void;
+  /**
+   * F-11: a queued order reached a terminal state. Acked: the order is on the
+   * server, the KDS on the cloud board shows the cloud copy (ticket.synced).
+   * Refused: the server made no ticket, so it leaves every kitchen screen.
+   */
+  onResult(result: MutationResult): void;
+  /** F-11: the cloud's ticket statuses, from the till's renderer (ref = order key). */
+  applyCloud(updates: readonly { ref: string; status: LanTicket['status'] }[]): void;
+  /** F-11: what the till's renderer flags from — refs a kitchen screen drew, screens connected. */
+  reach(): LanReach;
   close(): void;
 }
 
@@ -77,12 +92,13 @@ function ticketFromEnvelope(m: MutationEnvelope): LanTicket | null {
     items,
     createdAt: m.createdAt,
     status: 'queued',
+    synced: false,
   };
 }
 
 export function startLanKdsServer(
   station: StationConfig,
-  opts?: { onQueueChanged?: () => void; port?: number },
+  opts?: { onQueueChanged?: () => void; onReach?: (reach: LanReach) => void; port?: number },
 ): LanKdsServer | null {
   if (station.mode !== 'till') {
     // Only the till owns the durable queue — and therefore the LAN server.
@@ -99,6 +115,17 @@ export function startLanKdsServer(
   const wss = new WebSocketServer({ host, port });
   const authed = new Set<WebSocket>();
   const ring: LanTicket[] = [];
+  const acked = new Set<string>();
+
+  function reach(): LanReach {
+    return { acked: [...acked], kdsConnected: authed.size };
+  }
+  function pushReach(): void {
+    opts?.onReach?.(reach());
+  }
+  function refuse(socket: WebSocket, reason: LanRefusal, ref?: string): void {
+    socket.send(JSON.stringify({ type: 'error', data: { reason, ...(ref ? { ref } : {}) } } satisfies LanServerFrame));
+  }
 
   function broadcast(frame: LanServerFrame): void {
     const raw = JSON.stringify(frame);
@@ -115,24 +142,43 @@ export function startLanKdsServer(
       return;
     }
     authed.add(socket);
-    socket.on('close', () => authed.delete(socket));
+    pushReach();
+    socket.on('close', () => {
+      authed.delete(socket);
+      pushReach();
+    });
 
-    // Resync is automatic: every successful auth gets the ring as a snapshot.
-    socket.send(JSON.stringify({ type: 'ticket.snapshot', data: ring } satisfies LanServerFrame));
+    // Resync is automatic: every successful auth gets the ring as a snapshot,
+    // minus what is already completed (F-11: those came back as new work).
+    socket.send(JSON.stringify({ type: 'ticket.snapshot', data: snapshotOf(ring) } satisfies LanServerFrame));
 
     socket.on('message', (raw) => {
-      const update = parseStatusUpdate(raw as Buffer);
-      if (!update) {
-        socket.send(JSON.stringify({ type: 'error', data: { reason: 'malformed frame' } }));
+      const frame = parseKdsFrame(raw as Buffer);
+      if (!frame) {
+        refuse(socket, 'malformed');
         return;
       }
+      if (frame.kind === 'ack') {
+        // F-11: a kitchen screen drew these. Only refs this till sent count.
+        let changed = false;
+        for (const ref of frame.ack.refs) {
+          if (acked.has(ref) || !ring.some((t) => t.ref === ref)) continue;
+          acked.add(ref);
+          changed = true;
+        }
+        while (acked.size > ACK_CAP) acked.delete(acked.values().next().value as string);
+        if (changed) pushReach();
+        return;
+      }
+      const update = frame.update;
       // Single writer (design-arch §2.4): the KDS's bump becomes a ticket.status
       // envelope on the TILL's queue — key minted with the till's own station id
       // (core mutations.ts:220 anticipates exactly this), attributed to the
       // till's signed-in staff, ordered strictly AFTER the order it bumps.
       const staffId = getAuthState()?.staffId;
       if (!staffId) {
-        socket.send(JSON.stringify({ type: 'error', data: { reason: 'till has no staff session' } }));
+        // F-57: the KDS shows this beside the ticket and puts it back.
+        refuse(socket, 'no-staff', update.ref);
         return;
       }
       try {
@@ -149,7 +195,7 @@ export function startLanKdsServer(
         // Duplicate bump (same ref+status re-sent) or storage trouble — the
         // RPC is transition-idempotent anyway; tell the KDS and move on.
         console.error('[lan-kds] enqueue failed:', error);
-        socket.send(JSON.stringify({ type: 'error', data: { reason: 'enqueue failed' } }));
+        refuse(socket, 'enqueue-failed', update.ref);
         return;
       }
       const entry = ring.find((t) => t.ref === update.ref);
@@ -171,6 +217,27 @@ export function startLanKdsServer(
       if (ring.length > RING_CAP) ring.splice(0, ring.length - RING_CAP);
       broadcast({ type: 'ticket.new', data: ticket });
     },
+    onResult(result) {
+      if (result.mutationType !== 'order.create' && result.mutationType !== 'order.add_items') return;
+      const i = ring.findIndex((t) => t.ref === result.idempotencyKey);
+      if (i < 0) return;
+      if (result.state === 'acked') {
+        const echo = result.serverResult as { ticket_id?: unknown } | null | undefined;
+        const ticketId = typeof echo?.ticket_id === 'string' ? echo.ticket_id : null;
+        ring[i]!.synced = true;
+        broadcast({ type: 'ticket.synced', data: { ref: result.idempotencyKey, ticketId } });
+      } else {
+        ring.splice(i, 1);
+        acked.delete(result.idempotencyKey);
+        broadcast({ type: 'ticket.dropped', data: { ref: result.idempotencyKey } });
+      }
+    },
+    applyCloud(updates) {
+      for (const u of applyCloudStatuses(ring, updates)) {
+        broadcast({ type: 'status.update', data: u });
+      }
+    },
+    reach,
     close() {
       for (const socket of authed) socket.close();
       wss.close();

@@ -255,7 +255,7 @@ function SuggestionsScreen() {
 
 export default function StaffSuggestionsRoute() {
   return (
-    <RequireStaff>
+    <RequireStaff page="staff-suggestions">
       <SuggestionsScreen />
     </RequireStaff>
   );

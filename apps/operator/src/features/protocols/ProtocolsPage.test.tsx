@@ -197,6 +197,8 @@ beforeEach(() => {
           })),
           defs,
         };
+      case 'stop_protocol':
+        return { run_status: 'stopped' };
       case 'decide_step':
         return { submission_id: SUB, decision: args?.p_decision, step_status: 'open', run_status: 'active', opened_step_ids: [] };
       case 'start_protocol':
@@ -282,6 +284,31 @@ describe('/protocols', () => {
       }),
     );
     expect(toastOk).toHaveBeenCalledWith('Sent back.');
+  });
+
+  it('F-61: Stop needs a reason from a manager; the owner may stop with none (0361, 0391)', async () => {
+    const user = userEvent.setup();
+    search.run = R1;
+    renderPage();
+    const sheet = await screen.findByTestId('run-sheet');
+    await user.click(within(sheet).getByRole('button', { name: 'Stop this protocol' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Stop this protocol?' });
+    await user.click(within(dialog).getAllByRole('button', { name: 'Stop this protocol' }).at(-1)!);
+    expect(within(dialog).getByText('A reason is required.')).toBeTruthy();
+    expect(rpc).not.toHaveBeenCalledWith('stop_protocol', expect.anything());
+  });
+
+  it('F-61: the owner stops with no reason, and the dialog says the reason is optional', async () => {
+    const user = userEvent.setup();
+    role = 'owner';
+    search.run = R1;
+    renderPage();
+    const sheet = await screen.findByTestId('run-sheet');
+    await user.click(within(sheet).getByRole('button', { name: 'Stop this protocol' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Stop this protocol?' });
+    expect(within(dialog).getByText(/A reason is optional/)).toBeTruthy();
+    await user.click(within(dialog).getAllByRole('button', { name: 'Stop this protocol' }).at(-1)!);
+    await waitFor(() => expect(rpc).toHaveBeenCalledWith('stop_protocol', { p_run_id: R1, p_note: null }));
   });
 
   it('approving a proposal asks for the cafe section its draft is filed in', async () => {

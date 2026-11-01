@@ -269,7 +269,7 @@ function MyRewardsScreen() {
 
 export default function StaffRewardsRoute() {
   return (
-    <RequireStaff>
+    <RequireStaff page="staff-rewards">
       <MyRewardsScreen />
     </RequireStaff>
   );

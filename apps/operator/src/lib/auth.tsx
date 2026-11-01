@@ -341,6 +341,9 @@ export const ROUTE_ROLES: Record<string, readonly StaffRole[]> = {
   // Files (0354): managers and the owner keep documents; an owner_only file
   // is the owner's alone (app.venue_files_list).
   '/files': ['manager', 'owner'],
+  // Dev monitoring (0392/0393): every app's crashes and errors, edge function
+  // and cron failures. The dev role's own page; the owner may open it too.
+  '/monitoring': ['dev', 'owner'],
 };
 
 /** Every known sub-route per layout prefix — drives the admin sub-nav. */
@@ -496,6 +499,10 @@ export const CAPABILITY_ROLES = {
   editVenueDetails: ['owner'],
   /** Open a new branch, its checklist, Open to guests and Close (app.create_branch / open_branch / close_branch). */
   manageBranches: ['owner'],
+  /** The idle-lock timeout (cafe setting till_idle_lock_seconds, F-48): how long every station waits before it locks. */
+  setIdleLock: ['owner'],
+  /** Register this machine as a station of the branch (app.register_station; F-49: again, after it was retired). */
+  registerStation: ['manager', 'owner'],
 
   // Protocols (build-contracts-2026-09-23 §5.1). Row-level buttons on a run or
   // a step follow the RPC's own `can` answer; these gate the screen-level ones.
@@ -745,6 +752,9 @@ export function homeRoute(role: StaffRole): string {
       return '/tasks';
     case 'shop_staff':
       return '/shop';
+    // The developer lands on Monitoring (0393), the one page the role has.
+    case 'dev':
+      return '/monitoring';
   }
 }
 

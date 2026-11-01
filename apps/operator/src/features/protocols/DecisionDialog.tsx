@@ -163,6 +163,7 @@ export function DecisionDialog({
         <Field
           label={tr(choice === 'approve' ? 'ws.protocols.decision.note' : 'ws.protocols.decision.reason')}
           hint={tr('ws.protocols.decision.readBySender')}
+          // 0361 (F-61, Majed): the owner never needs a reason; every other decider says why.
           required={choice !== 'approve' && !byOwner}
           optional={choice === 'approve' || byOwner}
           error={noteIssue ? tr(`op.errors.${noteIssue.code}` as MessageKey) : undefined}
@@ -189,6 +190,7 @@ export function ReasonDialog({
   body,
   confirm,
   danger,
+  optional = false,
   onSubmit,
   onClose,
 }: {
@@ -196,6 +198,8 @@ export function ReasonDialog({
   body: string;
   confirm: string;
   danger?: boolean;
+  /** F-61 (0391): the owner stops a protocol with no reason; anyone else says why. */
+  optional?: boolean;
   onSubmit: (reason: string) => Promise<void>;
   onClose: () => void;
 }) {
@@ -204,7 +208,7 @@ export function ReasonDialog({
   const [tried, setTried] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
-  const missing = reason.trim() === '';
+  const missing = !optional && reason.trim() === '';
   const tooLong = [...reason.trim()].length > 1000;
   return (
     <Modal
@@ -243,7 +247,8 @@ export function ReasonDialog({
       <Field
         label={tr('ws.protocols.decision.reason')}
         hint={tr('ws.protocols.decision.readBySender')}
-        required
+        required={!optional}
+        optional={optional}
         error={tried && missing ? tr('op.errors.REASON_REQUIRED') : tried && tooLong ? tr('op.errors.TEXT_TOO_LONG') : undefined}
       >
         <textarea value={reason} rows={3} dir="auto" disabled={busy} style={{ ...inputStyle, minBlockSize: '4.5rem', resize: 'vertical', fontFamily: 'inherit' }} onChange={(e) => setReason(e.target.value)} />

@@ -115,6 +115,7 @@ import {
   type TillShiftDay,
   type UnpaidPlayedBooking,
 } from './dayCloseLogic';
+import { PIN_MAX, PIN_MIN } from '../../lib/pinRules';
 
 interface OpenTabRow {
   id: string;
@@ -810,7 +811,7 @@ export function DayClose() {
           footer={
             <>
               <Button onClick={closeDismiss} disabled={dismissBusy}>{tr('common.cancel')}</Button>
-              <Button kind="danger" busy={dismissBusy} disabled={dismissPin.length < 4} onClick={() => void dismissRow()}>
+              <Button kind="danger" busy={dismissBusy} disabled={dismissPin.length < PIN_MIN} onClick={() => void dismissRow()}>
                 {tr('op.dayClose.dismissRow')}
               </Button>
             </>
@@ -829,6 +830,7 @@ export function DayClose() {
               dir="ltr"
               autoFocus
               value={dismissPin}
+              maxLength={PIN_MAX}
               onChange={(e) => setDismissPin(e.target.value.replace(/\D/g, ''))}
             />
           </Field>

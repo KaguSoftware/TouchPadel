@@ -727,7 +727,7 @@ function ReviewRow({
 
 export default function StaffIncidentReportRoute() {
   return (
-    <RequireStaff>
+    <RequireStaff page="staff-incident-report">
       <IncidentReportScreen />
     </RequireStaff>
   );

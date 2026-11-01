@@ -3,8 +3,11 @@
   "keep": {
     "addon_suggestions": "café tables and the menu",
     "allergens": "the branch and its settings",
+    "app.access_area_rpcs": "the Staff Access area map: which server calls belong to which page (setup, not user data)",
     "app.assistant_readable_columns": "the assistant's own setup and index of the code and docs",
+    "app.monitoring_cursor": "the branch and its settings",
     "app.secrets": "the branch and its settings",
+    "app.setup_expected": "the list of buckets, policies and scheduled jobs the deploy checks for (setup, not user data)",
     "assistant_cache_config": "the assistant's own setup and index of the code and docs",
     "assistant_chunks": "the assistant's own setup and index of the code and docs",
     "assistant_components": "the assistant's own setup and index of the code and docs",
@@ -202,7 +205,8 @@
     "username_holds": "guest accounts and what guests did",
     "wage_advances": "staff activity and staff-written content",
     "wage_payments": "staff activity and staff-written content",
-    "waiter_calls": "café orders, tabs and money"
+    "waiter_calls": "café orders, tabs and money",
+    "app.monitoring_events": "logs, alerts, outboxes and replays"
   },
   "profiles_kept": "staff ids, coaches.profile_id, and the logins named with --keep-email; their play survey answers (profiles.play_*, 0334) are emptied",
   "links_cleared": {

@@ -58,7 +58,6 @@ import {
 import { ErrorState, SkeletonList } from '../../src/components/states';
 import { useToast } from '../../src/components/overlays';
 import { GenderAsk, MatchNotice, MatchRulesCard } from '../../src/components/match';
-import { withOnlinePaymentsGate } from '../../src/features/deposit/OnlinePaymentsGate';
 
 /**
  * Start an open match (docs/design/open-matches/guest.md §4.13), from a free
@@ -534,4 +533,6 @@ function GuardedMatchNewScreen() {
   );
 }
 
-export default withOnlinePaymentsGate(GuardedMatchNewScreen);
+// Open matches ship in every build: since 0370 a seat is paid at the desk
+// without online payment (F-02 keeps only the tickets and /pay behind the gate).
+export default GuardedMatchNewScreen;

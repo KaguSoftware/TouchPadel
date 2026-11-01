@@ -470,6 +470,8 @@ export function validateDecision(
   input: DecisionInput,
 ): FieldIssue[] {
   const issues = new Issues();
+  // 0361: the owner sends back or stops with no reason; every other decider
+  // says why (Majed, F-61: the run sheet's Stop follows the same rule, 0391).
   if (input.decision !== 'approve' && !input.byOwner) {
     if (isBlank(input.note)) issues.add('note', 'REASON_REQUIRED');
   }

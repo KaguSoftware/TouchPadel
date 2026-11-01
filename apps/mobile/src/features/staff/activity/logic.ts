@@ -31,7 +31,8 @@ export interface ActivityRow {
   staffId: string;
   name: string;
   role: StaffRole;
-  onBreak: boolean;
+  // No `onBreak`: breaks left the product (Majed, 2026-11-01, F-08). A server
+  // that still sends the field is ignored; nothing on the phone reads it.
   /** null: this person has never used the operator (the desktop app). */
   operator: ActivityPart | null;
   /** null: this person has never used the staff phone. */

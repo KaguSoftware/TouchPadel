@@ -309,6 +309,8 @@ export const QUEUE_WRITE_KEY = {
   'tab.settle_zero': 'billClose',
   'payment.refund': 'refund',
   'order_item.void': 'voidLine',
+  // 0395: an allowlisted save queued offline (F-23)
+  'rpc.queued': 'savedOffline',
   // `satisfies Record<MutationType, string>`: a queued type without a word here
   // fails typecheck instead of reading as "Change" on the day-close list.
 } as const satisfies Record<MutationType, string>;

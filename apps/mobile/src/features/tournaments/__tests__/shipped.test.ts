@@ -1,43 +1,44 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import { parseTournamentsFlag, tournamentsShipped } from '../shipped';
+import { describe, expect, it } from 'vitest';
+import { playTabShown } from '../shipped';
 import { anyTournaments } from '../logic';
 import { suggest } from '../../playProfile/suggest';
 
 /**
- * The tournaments build switch (Majed, 2026-10-22: off in production for now, everything kept).
- * Off, no branch's switch can bring tournaments back on the phone, and nothing suggests them.
+ * Tournaments follow the BRANCH settings, not the build (Majed, 2026-11-01, F-71):
+ * EXPO_PUBLIC_TOURNAMENTS is gone, and the Play tab is in the bar while some branch has
+ * tournaments or open matches on.
  */
-afterEach(() => vi.unstubAllEnvs());
-
-describe('parseTournamentsFlag', () => {
-  it('on by default; only the literal "off" disables', () => {
-    expect(parseTournamentsFlag('off')).toBe(false);
-    expect(parseTournamentsFlag(' OFF ')).toBe(false);
-    for (const v of ['on', '', 'true', '1', undefined, null]) {
-      expect(parseTournamentsFlag(v)).toBe(true);
-    }
+describe('playTabShown', () => {
+  it('keeps Play while the branch list is unknown (loading or unread)', () => {
+    expect(playTabShown(undefined)).toBe(true);
+    expect(playTabShown(null)).toBe(true);
   });
 
-  it('reads the env at call time', () => {
-    vi.stubEnv('EXPO_PUBLIC_TOURNAMENTS', 'on');
-    expect(tournamentsShipped()).toBe(true);
-    vi.stubEnv('EXPO_PUBLIC_TOURNAMENTS', 'off');
-    expect(tournamentsShipped()).toBe(false);
+  it('shows Play when some branch has tournaments or open matches on', () => {
+    expect(playTabShown([{ tournaments_enabled: true, matches_enabled: false }])).toBe(true);
+    expect(playTabShown([{ tournaments_enabled: false, matches_enabled: true }])).toBe(true);
+    expect(playTabShown([{ tournaments_enabled: false }, { tournaments_enabled: true }])).toBe(true);
+  });
+
+  it('takes Play out of the bar when no branch has either on', () => {
+    expect(playTabShown([])).toBe(false);
+    expect(playTabShown([{ tournaments_enabled: false, matches_enabled: false }])).toBe(false);
   });
 });
 
-describe('a build without tournaments', () => {
-  it('reads every branch as off, whatever it says', () => {
-    vi.stubEnv('EXPO_PUBLIC_TOURNAMENTS', 'off');
-    expect(anyTournaments([{ tournaments_enabled: true }])).toBe(false);
-    vi.stubEnv('EXPO_PUBLIC_TOURNAMENTS', 'on');
+describe('the branch decides', () => {
+  it('reads tournaments from the branches alone', () => {
     expect(anyTournaments([{ tournaments_enabled: true }])).toBe(true);
+    expect(anyTournaments([{ tournaments_enabled: false }])).toBe(false);
   });
 
-  it('never offers Americano or Mexicano', () => {
-    vi.stubEnv('EXPO_PUBLIC_TOURNAMENTS', 'off');
-    const out = suggest({ level: 'advanced', years: 'three_plus', wants: ['tournaments'], gender: null } as never);
-    for (const s of out.filter((x) => x.kind === 'americano' || x.kind === 'mexicano')) {
+  it('offers Americano and Mexicano when the branches offer them, and not when they do not', () => {
+    const profile = { level: 'advanced', years: 'three_plus', wants: ['tournaments'], gender: null } as never;
+    for (const s of suggest(profile).filter((x) => x.kind === 'americano' || x.kind === 'mexicano')) {
+      expect(s.available).toBe(true);
+    }
+    const off = suggest(profile, { americano: false, mexicano: false } as never);
+    for (const s of off.filter((x) => x.kind === 'americano' || x.kind === 'mexicano')) {
       expect(s.available).toBe(false);
     }
   });

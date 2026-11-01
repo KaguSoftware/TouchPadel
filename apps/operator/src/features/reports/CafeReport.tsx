@@ -59,6 +59,7 @@ import {
 } from './ReportParts';
 import { CategoryFilter } from './ReportFilterBar';
 import { cafeIsEmpty, readCafe, type CafeCategoryRow, type CafeItemRow, type WasteReasonRow } from './reportPayloads';
+import { csvTypeForKey } from './exportCells';
 
 type View = 'items' | 'profit' | 'categories' | 'waste';
 const VIEWS: readonly View[] = ['items', 'profit', 'categories', 'waste'];
@@ -217,6 +218,8 @@ function cafeColumns(tr: Tr, locale: Locale) {
     render: (r) => <Fig value={r[key] as number | null} text={fmt(r[key] as number | null)} strong={strong} />,
     sort: (r) => r[key] as number | null,
     csv: (r) => r[key] as number | null,
+    // F-14: the margin is a percent in the file too.
+    csvType: csvTypeForKey(key),
   });
   const m = (v: number | null) => money(v, locale);
   const c = (v: number | null) => count(v, locale);

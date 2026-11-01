@@ -129,6 +129,13 @@ export interface TourEntry {
   net_paid_iqd: number;
   refund_due_iqd: number;
   substitute_for: string | null;
+  /**
+   * 0390 (F-40): the desk confirmed this person is in; only confirmed entries
+   * are drawn. A server from before 0390 sends no key: read as confirmed, as
+   * it then drew every registered entry.
+   */
+  confirmed: boolean;
+  confirmed_by_name: string | null;
 }
 
 export interface TourDetailCourt {
@@ -165,6 +172,8 @@ export interface TourCan {
   /** 0310: end a running tournament at its last complete round (managers). */
   finish: boolean;
   settle: boolean;
+  /** 0390 (F-40): confirm or un-confirm a registered entry (the desk; open or closed). */
+  confirm: boolean;
 }
 
 export interface TournamentDetail {
@@ -225,6 +234,8 @@ function readEntry(e: Raw): TourEntry | null {
     net_paid_iqd: int(e.net_paid_iqd) ?? 0,
     refund_due_iqd: int(e.refund_due_iqd) ?? 0,
     substitute_for: str(e.substitute_for),
+    confirmed: 'confirmed_at' in e ? str(e.confirmed_at) !== null : true,
+    confirmed_by_name: str(e.confirmed_by_name),
   };
 }
 
@@ -344,6 +355,7 @@ export function readTournamentDetail(payload: unknown): TournamentDetail | null 
       close: can.close === true,
       finish: can.finish === true,
       settle: can.settle === true,
+      confirm: can.confirm === true,
     },
   };
 }

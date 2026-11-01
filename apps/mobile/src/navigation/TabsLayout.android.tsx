@@ -13,7 +13,8 @@ import {
   TabClubIcon,
   TabPlayIcon,
 } from '../components/icons';
-import { tournamentsShipped } from '../features/tournaments/shipped';
+import { playTabShown } from '../features/tournaments/shipped';
+import { useBranches } from '../features/availability/hooks';
 
 /**
  * Bar height, measured from what it holds: the 21 pt icon, a 2 pt gap, the
@@ -188,8 +189,9 @@ export default function TabsLayoutAndroid() {
 function AndroidTabs() {
   const { t } = useLocale();
   const { colors, appearance } = useTheme();
-  // Play only while tournaments ship (TabsLayout.ios.tsx).
-  const shipped = tournamentsShipped();
+  // Play while some branch has tournaments or open matches on (F-71: the branch decides).
+  const branches = useBranches();
+  const shipped = playTabShown(branches.data);
 
   return (
     <Tabs

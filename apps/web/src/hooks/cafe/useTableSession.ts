@@ -1,33 +1,34 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { appRpc, isRpcError } from '@/lib/appRpc';
 import type { BrowserSupabase } from '@/lib/supabase/client';
+import {
+  parseBindResult,
+  tableSessionPath,
+  TABLE_SESSION_HEADER,
+  TABLE_SESSION_HEADER_VALUE,
+  type BindResult,
+  type TableSession,
+  type TableSessionState,
+} from '@/lib/cafe/tableSession';
 import { useSupabase } from './useSupabase';
 
 /**
- * QR table binding: anonymous sign-in + `app.open_table_session` (0014/0031),
- * run in the BACKGROUND while the server-rendered menu is already on screen.
+ * QR table binding: anonymous sign-in in the browser, then the server opens the
+ * table session (`app.open_table_session`, 0014/0031) from the HttpOnly
+ * `tp-table` cookie through `/{locale}/menu/table`, all in the BACKGROUND while
+ * the server-rendered menu is already on screen.
  *
- * States: none (no token — walk-in browsing) · binding · bound · invalid
+ * F-42 (2026-11-01): the hook no longer sees the token. The page passes only
+ * whether a table cookie came with the request (`hasTable`); the token stays
+ * on the server (src/lib/cafe/tableSession.ts says why). When the session runs
+ * out the hook asks the route to clear the cookie, so a later visit is a
+ * walk-in's.
+ *
+ * States: none (no table cookie — walk-in browsing) · binding · bound · invalid
  * (rotated/forged token) · expired (inactivity TTL — re-scan) · error.
  */
-export type TableSessionState = 'none' | 'binding' | 'bound' | 'invalid' | 'expired' | 'error';
-
-export interface TableSession {
-  sessionId: string;
-  tableId: string;
-  tableNumber: string;
-  expiresAt: string;
-  /** false ⇒ management switched this table's bell off (0031): hide the FAB. */
-  bellEnabled: boolean;
-  /**
-   * The table's branch, as `open_table_session` returns it (0225). The menu, the
-   * café settings and the degraded check follow it. Null on a stack that does
-   * not return it: the page keeps the branch it rendered.
-   */
-  venueId: string | null;
-}
+export type { TableSession, TableSessionState };
 
 export interface UseTableSession {
   state: TableSessionState;
@@ -40,79 +41,69 @@ export interface UseTableSession {
   touched(): void;
 }
 
-type BootResult =
-  { name: 'invalid' } | { name: 'error' } | { name: 'bound'; session: TableSession };
-
 /**
- * One shared boot per token (module scope). React StrictMode double-mounts the
+ * One shared boot per page (module scope). React StrictMode double-mounts the
  * effect in dev and two PARALLEL `signInAnonymously()` calls mint two anon
  * users racing for the auth cookie — sharing the in-flight promise makes any
  * concurrent mount reuse the first sign-in + table session. Only a successful
  * boot stays cached, so "Try again" really retries.
  */
-const bootCache = new Map<string, Promise<BootResult>>();
+const BOOT_KEY = 'table';
+const bootCache = new Map<string, Promise<BindResult>>();
 
-function bootSession(sb: BrowserSupabase, token: string): Promise<BootResult> {
-  const cached = bootCache.get(token);
+function tableRequest(locale: string, method: 'POST' | 'DELETE'): Promise<Response> {
+  return fetch(tableSessionPath(locale), {
+    method,
+    headers: { [TABLE_SESSION_HEADER]: TABLE_SESSION_HEADER_VALUE },
+    credentials: 'same-origin',
+    cache: 'no-store',
+  });
+}
+
+function bootSession(sb: BrowserSupabase, locale: string): Promise<BindResult> {
+  const cached = bootCache.get(BOOT_KEY);
   if (cached) return cached;
-  const p = (async (): Promise<BootResult> => {
+  const p = (async (): Promise<BindResult> => {
     const { data: sessionData } = await sb.auth.getSession();
     if (!sessionData.session) {
       const { error } = await sb.auth.signInAnonymously();
       if (error) return { name: 'error' };
     }
-    const { data, error } = await appRpc(sb, 'open_table_session', { p_token: token });
-    if (error) {
-      // 0225: a table at a branch that is not open to guests is TABLE_NOT_FOUND —
-      // for the guest that is the same dead QR as a forged one: scan again.
-      return isRpcError(error, 'TOKEN_INVALID') || isRpcError(error, 'TABLE_NOT_FOUND')
-        ? { name: 'invalid' }
-        : { name: 'error' };
-    }
-    const row = data as {
-      session_id: string;
-      table_id: string;
-      table_number: string;
-      expires_at: string;
-      bell_enabled?: boolean;
-      venue_id?: string | null;
-    };
-    return {
-      name: 'bound',
-      session: {
-        sessionId: row.session_id,
-        tableId: row.table_id,
-        tableNumber: row.table_number,
-        expiresAt: row.expires_at,
-        // 0031 added the key; a pre-0031 stack (staging) simply keeps the bell.
-        bellEnabled: row.bell_enabled !== false,
-        // 0225 returns the table's branch; a pre-0225 stack keeps the rendered one.
-        venueId: row.venue_id ?? null,
-      },
-    };
-  })().catch((): BootResult => ({ name: 'error' }));
-  bootCache.set(token, p);
+    const res = await tableRequest(locale, 'POST');
+    if (!res.ok) return { name: 'error' };
+    return parseBindResult(await res.json());
+  })().catch((): BindResult => ({ name: 'error' }));
+  bootCache.set(BOOT_KEY, p);
   void p.then((r) => {
-    if (r.name !== 'bound') bootCache.delete(token);
+    if (r.name !== 'bound') bootCache.delete(BOOT_KEY);
   });
   return p;
 }
 
 /** Drop a cached boot (used by `retry`, and by tests). */
-export function forgetTableBoot(token: string | null): void {
-  if (token) bootCache.delete(token);
+export function forgetTableBoot(): void {
+  bootCache.delete(BOOT_KEY);
 }
 
-export function useTableSession(token: string | null): UseTableSession {
+/** Clear the table cookie on the server. Best effort: it also ages out after 2 h. */
+function forgetTableCookie(locale: string): void {
+  try {
+    void tableRequest(locale, 'DELETE').catch(() => {});
+  } catch {
+    /* no fetch (tests, very old browsers): the cookie still ages out */
+  }
+}
+
+export function useTableSession(hasTable: boolean, locale: string): UseTableSession {
   const supabase = useSupabase();
-  const [state, setState] = useState<TableSessionState>(token ? 'binding' : 'none');
+  const [state, setState] = useState<TableSessionState>(hasTable ? 'binding' : 'none');
   const [session, setSession] = useState<TableSession | null>(null);
   const [attempt, setAttempt] = useState(0);
   const expiryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ------------------------------------------------------------------- boot
   useEffect(() => {
-    if (!token) {
+    if (!hasTable) {
       setState('none');
       setSession(null);
       return;
@@ -123,11 +114,15 @@ export function useTableSession(token: string | null): UseTableSession {
     }
     let cancelled = false;
     setState('binding');
-    void bootSession(supabase, token).then((result) => {
+    void bootSession(supabase, locale).then((result) => {
       if (cancelled) return;
       if (result.name === 'bound') {
         setSession(result.session);
         setState('bound');
+      } else if (result.name === 'none') {
+        // The cookie aged out between the page render and the bind: a walk-in now.
+        setSession(null);
+        setState('none');
       } else {
         setSession(null);
         setState(result.name);
@@ -136,19 +131,28 @@ export function useTableSession(token: string | null): UseTableSession {
     return () => {
       cancelled = true;
     };
-  }, [token, supabase, attempt]);
+  }, [hasTable, locale, supabase, attempt]);
+
+  // The session ran out (the local timer, or a write the server refused as
+  // expired): forget the table on the server too, so the next visit to the menu
+  // is a walk-in's instead of a silent re-bind to this table (F-42).
+  const expire = useCallback(() => {
+    forgetTableBoot();
+    forgetTableCookie(locale);
+    setState('expired');
+  }, [locale]);
 
   // --------------------------------------------------- inactivity expiry arm
   const armExpiry = useCallback((expiresAt: string) => {
     if (expiryTimer.current) clearTimeout(expiryTimer.current);
     const ms = new Date(expiresAt).getTime() - Date.now();
     if (!Number.isFinite(ms) || ms <= 0) {
-      setState('expired');
+      expire();
       return;
     }
     // setTimeout caps at ~24.8 days; a table TTL is minutes, but clamp anyway.
-    expiryTimer.current = setTimeout(() => setState('expired'), Math.min(ms, 2_147_483_647));
-  }, []);
+    expiryTimer.current = setTimeout(expire, Math.min(ms, 2_147_483_647));
+  }, [expire]);
 
   useEffect(() => {
     if (session) armExpiry(session.expiresAt);
@@ -158,14 +162,11 @@ export function useTableSession(token: string | null): UseTableSession {
   }, [session, armExpiry]);
 
   const retry = useCallback(() => {
-    forgetTableBoot(token);
+    forgetTableBoot();
     setAttempt((n) => n + 1);
-  }, [token]);
+  }, []);
 
-  const markExpired = useCallback(() => {
-    forgetTableBoot(token);
-    setState('expired');
-  }, [token]);
+  const markExpired = expire;
 
   /**
    * Every guest write calls app.touch_guest_session, which slides expires_at.

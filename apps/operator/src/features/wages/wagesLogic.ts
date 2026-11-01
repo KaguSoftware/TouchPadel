@@ -633,3 +633,31 @@ export const WAGE_STALE: ReadonlySet<string> = new Set(['WAGE_ALREADY_PAID', 'WA
 export function isWageStale(code: string | null): boolean {
   return code !== null && WAGE_STALE.has(code);
 }
+
+/**
+ * F-13: the idempotency key a pay write sends is bound to the values it sends.
+ * One key per dialog replayed the FIRST answer after a lost one, so a retry with
+ * a changed amount or "paid from" recorded the old values while the toast named
+ * the new ones. Now an unchanged retry keeps its key (never pays twice) and a
+ * changed draft gets its own; going back to values already sent reuses their key.
+ * `keys` is the dialog's own map (a ref), `mint` makes a fresh key.
+ */
+export function keyForValues(keys: Map<string, string>, values: readonly unknown[], mint: () => string): string {
+  const fingerprint = JSON.stringify(values);
+  const known = keys.get(fingerprint);
+  if (known !== undefined) return known;
+  const key = mint();
+  keys.set(fingerprint, key);
+  return key;
+}
+
+/**
+ * F-12 (0387): paid from the safe, an amount above what the safe holds is
+ * refused by the server (SAFE_NOT_ENOUGH); the dialog says so before the press.
+ * `balance` is the Safe page's figure, null when unknown (not read yet, or a
+ * caller who may not read it): then nothing is blocked on a guess and the
+ * server stays the wall. A bank transfer is never short.
+ */
+export function safeShort(amount: number | null, paidFrom: PaidFrom, balance: number | null): boolean {
+  return paidFrom === 'safe' && balance !== null && amount !== null && amount > 0 && amount > balance;
+}

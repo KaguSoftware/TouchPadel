@@ -180,7 +180,7 @@ function TablesScreen() {
 
 export default function StaffOrderRoute() {
   return (
-    <RequireStaff roles={FLOOR_ROLES}>
+    <RequireStaff page="staff-order" roles={FLOOR_ROLES}>
       <TablesScreen />
     </RequireStaff>
   );

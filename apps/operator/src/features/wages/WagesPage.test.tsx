@@ -110,6 +110,10 @@ let totalsOver: Record<string, unknown> = {};
 let giveAdvance: (args: Record<string, unknown>) => unknown = () => ({ id: 'v9', status: 'given', pay_month: '2026-10-01', owed_iqd: 620000 });
 let markPaid: (args: Record<string, unknown>) => unknown = () => ({ id: 'p1', status: 'paid', pay_month: '2026-10-01', net_iqd: 720000, paid_iqd: 720000 });
 const calls: { fn: string; args: Record<string, unknown> }[] = [];
+/** The safe's balance main_cash_overview answers (0387); null: the read fails, nothing is blocked. */
+let safeBalance: number | null = null;
+let reachable = true;
+vi.mock('../../lib/stationReach', () => ({ useStationReach: () => ({ reachable }) }));
 const waitingRow = {
   id: 'dw1',
   staff_id: 's-yusuf',
@@ -154,6 +158,9 @@ vi.mock('../../lib/appRpc', async (importOriginal) => ({
         return { deductions: [waitingRow], waiting_count: 1, total: 1 };
       case 'deduction_targets':
         return { staff: [{ id: 's-yusuf', display_name: 'Yusuf', role: 'barista' }] };
+      case 'main_cash_overview':
+        if (safeBalance === null) throw new AppRpcError('FORBIDDEN', 'FORBIDDEN');
+        return { balance_iqd: safeBalance };
       case 'mark_wage_paid':
         return markPaid(args);
       case 'give_wage_advance':
@@ -196,6 +203,8 @@ beforeEach(() => {
   giveAdvance = () => ({ id: 'v9', status: 'given', pay_month: '2026-10-01', owed_iqd: 620000 });
   markPaid = () => ({ id: 'p1', status: 'paid', pay_month: '2026-10-01', net_iqd: 720000, paid_iqd: 720000 });
   calls.length = 0;
+  safeBalance = null;
+  reachable = true;
   try {
     localStorage.clear();
   } catch {
@@ -253,7 +262,7 @@ describe('WagesPageScreen', () => {
     expect(String(sent?.p_idempotency_key)).toMatch(/^wage\.paid:/);
   });
 
-  it('keeps the message and refetches when the net moved under the dialog (WAGE_CHANGED), then pays the new net with the same key', async () => {
+  it('keeps the message and refetches when the net moved under the dialog (WAGE_CHANGED), then pays the new net with a key of its own (F-13)', async () => {
     const user = userEvent.setup();
     markPaid = () => {
       throw new AppRpcError('WAGE_CHANGED', 'WAGE_CHANGED');
@@ -270,7 +279,75 @@ describe('WagesPageScreen', () => {
     await user.click(within(dialog).getByTestId('wages.pay.confirm'));
     const sends = calls.filter((c) => c.fn === 'mark_wage_paid');
     expect(sends[1]?.args.p_expected_net_iqd).toBe(715000);
+    // The key is bound to what is sent: a new net is a new write, never the first one replayed.
+    expect(sends[1]?.args.p_idempotency_key).not.toBe(sends[0]?.args.p_idempotency_key);
+  });
+
+  it('F-13: a retry after a lost answer keeps its key; a changed "Paid from" sends its own and the toast follows it', async () => {
+    const user = userEvent.setup();
+    let lost = true;
+    markPaid = (args) => {
+      if (lost) {
+        lost = false;
+        throw new TypeError('Failed to fetch');
+      }
+      return { id: 'p1', status: 'paid', pay_month: '2026-10-01', net_iqd: 720000, paid_iqd: 720000, paid_from: args.p_paid_from };
+    };
+    renderPage();
+    await user.click(await screen.findByTestId('wages.row.pay.s-yusuf'));
+    const dialog = screen.getByRole('dialog', { name: /Mark .*Yusuf.* wage paid\?/ });
+    await user.click(within(dialog).getByTestId('wages.pay.confirm'));
+    await waitFor(() => expect(count('mark_wage_paid')).toBe(1));
+    lost = true;
+    await user.click(within(dialog).getByTestId('wages.pay.confirm'));
+    await waitFor(() => expect(count('mark_wage_paid')).toBe(2));
+    await user.click(within(dialog).getByTestId('wages.pay.from.bank'));
+    await user.click(within(dialog).getByTestId('wages.pay.confirm'));
+    await waitFor(() => expect(count('mark_wage_paid')).toBe(3));
+    const sends = calls.filter((c) => c.fn === 'mark_wage_paid');
     expect(sends[1]?.args.p_idempotency_key).toBe(sends[0]?.args.p_idempotency_key);
+    expect(sends[2]?.args.p_paid_from).toBe('bank');
+    expect(sends[2]?.args.p_idempotency_key).not.toBe(sends[0]?.args.p_idempotency_key);
+  });
+
+  it('F-13: Mark paid is disabled with the reason while the station is offline', async () => {
+    const user = userEvent.setup();
+    reachable = false;
+    renderPage();
+    await user.click(await screen.findByTestId('wages.row.pay.s-yusuf'));
+    const dialog = screen.getByRole('dialog', { name: /Mark .*Yusuf.* wage paid\?/ });
+    expect((within(dialog).getByTestId('wages.pay.confirm') as HTMLButtonElement).disabled).toBe(true);
+    expect(within(dialog).getAllByText('Needs a connection: wages and advances are paid online only').length).toBeGreaterThan(0);
+    expect(count('mark_wage_paid')).toBe(0);
+  });
+
+  it('F-12: from a safe that holds too little, Mark paid shows the balance and blocks; by bank it pays', async () => {
+    const user = userEvent.setup();
+    safeBalance = 500000;
+    renderPage();
+    await user.click(await screen.findByTestId('wages.row.pay.s-yusuf'));
+    const dialog = screen.getByRole('dialog', { name: /Mark .*Yusuf.* wage paid\?/ });
+    expect(await within(dialog).findByTestId('wages.pay.safeBalance')).toBeTruthy();
+    const short = /Not enough money in the safe: it holds .*500,000 IQD/;
+    expect(within(dialog).getAllByText(short).length).toBeGreaterThan(0);
+    expect((within(dialog).getByTestId('wages.pay.confirm') as HTMLButtonElement).disabled).toBe(true);
+    await user.click(within(dialog).getByTestId('wages.pay.from.bank'));
+    expect(within(dialog).queryAllByText(short)).toHaveLength(0);
+    await user.click(within(dialog).getByTestId('wages.pay.confirm'));
+    await waitFor(() => expect(count('mark_wage_paid')).toBe(1));
+    expect(calls.find((c) => c.fn === 'mark_wage_paid')?.args.p_paid_from).toBe('bank');
+  });
+
+  it('F-12: the server refusal (SAFE_NOT_ENOUGH) reads "Not enough money in the safe"', async () => {
+    const user = userEvent.setup();
+    markPaid = () => {
+      throw new AppRpcError('SAFE_NOT_ENOUGH', 'SAFE_NOT_ENOUGH', '0');
+    };
+    renderPage();
+    await user.click(await screen.findByTestId('wages.row.pay.s-yusuf'));
+    const dialog = screen.getByRole('dialog', { name: /Mark .*Yusuf.* wage paid\?/ });
+    await user.click(within(dialog).getByTestId('wages.pay.confirm'));
+    expect(await within(dialog).findByText(/^Not enough money in the safe\./)).toBeTruthy();
   });
 
   it('shows the bonuses a month carries beside deductions and lateness, and the server’s net', async () => {
@@ -423,6 +500,25 @@ describe('WagesPageScreen', () => {
     const sent = calls.find((c) => c.fn === 'give_wage_advance')?.args;
     expect(sent).toMatchObject({ p_staff_id: 's-yusuf', p_amount_iqd: 100000, p_paid_from: 'safe', p_month: '2026-10-01', p_note: 'Rent help' });
     expect(String(sent?.p_idempotency_key)).toMatch(/^wage\.advance:/);
+  });
+
+  it('F-12/F-13: an advance from a safe that holds too little, or offline, cannot be given', async () => {
+    const user = userEvent.setup();
+    people = [{ ...yusuf(), owed_iqd: 720000, to_pay_iqd: 720000 }, hasan(), ali()];
+    safeBalance = 50000;
+    renderPage();
+    await user.click(await screen.findByTestId('wages.row.advance.s-yusuf'));
+    const dialog = screen.getByRole('dialog', { name: 'Give an advance' });
+    await user.type(within(dialog).getByRole('textbox', { name: /^Amount/ }), '100000');
+    await user.click(within(dialog).getByTestId('wages.advance.step.from'));
+    expect(await within(dialog).findByTestId('wages.advance.safeBalance')).toBeTruthy();
+    expect(within(dialog).getAllByText(/Not enough money in the safe: it holds .*50,000 IQD/).length).toBeGreaterThan(0);
+    await user.click(within(dialog).getByTestId('wages.advance.from.bank'));
+    expect(within(dialog).queryAllByText(/Not enough money in the safe/)).toHaveLength(0);
+    reachable = false;
+    await user.click(within(dialog).getByTestId('wages.advance.from.safe'));
+    await user.click(within(dialog).getByTestId('wages.advance.from.bank'));
+    expect(count('give_wage_advance')).toBe(0);
   });
 
   it('gives an advance by bank transfer, and says the most it can give when the server refuses it as too large', async () => {

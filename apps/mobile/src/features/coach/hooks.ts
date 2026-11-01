@@ -33,6 +33,7 @@ import {
   coachCreateCourse,
   coachCreateGroup,
   coachMarkAttendance,
+  coachSetStudentLevel,
   coachRemoveStudent,
   coachRescheduleSession,
   fetchCoachHours,
@@ -44,6 +45,7 @@ import {
   setMyCoachHours,
 } from './api';
 import { isNotACoach, keepsIntentKey, refreshAfterRefusal } from './errors';
+import type { PlayLevel } from '../playProfile/logic';
 import { coachKeys } from './keys';
 import type { AttendanceMark, HoursWindow } from './logic';
 
@@ -357,6 +359,18 @@ export function useMarkAttendance() {
     mutationKey: coachKeys.mutation('attendance'),
     mutationFn: (args: { lessonId: string; enrolmentId: string; status: AttendanceMark }) =>
       coachMarkAttendance(supabase, args),
+    onSuccess: () => after.done(),
+    onError: after.failed,
+  });
+}
+
+/** 0401 (F-70): a linked student's level; the roster re-reads after it. */
+export function useSetStudentLevel() {
+  const after = useAfterWrite();
+  return useMutation({
+    mutationKey: coachKeys.mutation('student_level'),
+    mutationFn: (args: { enrolmentId: string; level: PlayLevel | null; note: string }) =>
+      coachSetStudentLevel(supabase, args),
     onSuccess: () => after.done(),
     onError: after.failed,
   });

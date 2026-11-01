@@ -16,7 +16,8 @@
  *
  * PURE (vitest).
  */
-import type { StaffRole } from '@touch/core';
+import type { StaffAccess, StaffRole } from '@touch/core';
+import { hrefBlocked } from './access';
 import type { MessageKey } from '@touch/i18n';
 import { IDEA_ROLES, START_ROLES } from './protocols/logic';
 import { PRODUCTION_ROLES } from './supplies/production';
@@ -270,6 +271,15 @@ export const STAFF_ROW_DEFS: readonly StaffRowDef[] = [
 export function staffRows(role: StaffRole, extraRoles: readonly StaffRole[] = []): StaffRowDef[] {
   const mine = [role, ...extraRoles];
   return STAFF_ROW_DEFS.filter((row) => !row.roles || mine.some((r) => row.roles!.includes(r)));
+}
+
+/**
+ * The rows left once the owner's blocked pages (0345, F-16) are taken out:
+ * Today and the group sheets never offer a page RequireStaff would send the
+ * person back from. A group whose rows are all blocked disappears with them.
+ */
+export function visibleTodayRows(rows: readonly StaffRowDef[], who: StaffAccess): StaffRowDef[] {
+  return rows.filter((row) => !hrefBlocked(row.href, who));
 }
 
 /**

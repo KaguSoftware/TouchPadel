@@ -25,6 +25,24 @@ const SETTINGS: DepositSettings = {
 let settings: DepositSettings = SETTINGS;
 let attention: DepositAttentionRow[] = [];
 
+// F-58: the station's connection and the durable queue, switched per test.
+const net = vi.hoisted(() => ({
+  offline: false,
+  pinOk: true,
+  queueRpc: vi.fn(async (..._args: unknown[]) => ({ queued: true, localId: 'L-1', idempotencyKey: 'K-1', result: null })),
+}));
+vi.mock('../../lib/mutate', () => ({ isElectron: () => net.offline }));
+vi.mock('../../lib/connectivity', () => ({ isStationOffline: () => net.offline, isTransportFailure: () => false }));
+vi.mock('../../lib/queuedRpc', () => ({ queueRpc: (...a: unknown[]) => net.queueRpc(...a) }));
+vi.mock('../../lib/offlinePin', () => ({
+  assertManagerPinOffline: async () => {
+    if (!net.pinOk) {
+      const { AppRpcError } = await import('../../lib/appRpc');
+      throw new AppRpcError('PIN_INVALID', 'PIN_INVALID');
+    }
+  },
+}));
+
 vi.mock('../../lib/appRpc', () => ({
   AppRpcError: class AppRpcError extends Error {
     constructor(
@@ -36,6 +54,7 @@ vi.mock('../../lib/appRpc', () => ({
       super(message ?? code);
     }
   },
+  isSavedOffline: (e: unknown) => (e as { savedOffline?: boolean } | null)?.savedOffline === true,
   appRpc: vi.fn(async (fn: string, args: Record<string, unknown>) => {
     if (fn === 'deposit_settings') return settings;
     if (fn === 'set_deposit_settings') return { ...settings, ...(args.p_patch as object) };
@@ -85,10 +104,14 @@ function row(over: Partial<DepositAttentionRow> = {}): DepositAttentionRow {
 
 const calls = (fn: string) => vi.mocked(appRpc).mock.calls.filter(([name]) => name === fn);
 
-beforeEach(() => {
+beforeEach(async () => {
   settings = SETTINGS;
   attention = [];
   vi.mocked(appRpc).mockClear();
+  net.offline = false;
+  net.pinOk = true;
+  net.queueRpc.mockClear();
+  (await import('./depositQueue')).resetDepositQueueForTests();
 });
 
 describe('DepositSettingsPanel', () => {
@@ -262,5 +285,64 @@ describe('DepositAttentionPanel', () => {
     await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Refund' }));
     await waitFor(() => expect(calls('deposit_refund_request')).toHaveLength(1));
     expect(calls('deposit_refund_request')[0]![1]).toEqual({ p_payment_id: 'pay-1' });
+  });
+
+  // F-58: offline the actions stay enabled and are queued, and the row says so.
+  it('offline, Try again is queued and the row shows Queued instead of the actions', async () => {
+    const user = userEvent.setup();
+    net.offline = true;
+    attention = [row()];
+    mount(<DepositAttentionPanel hideWhenEmpty />);
+    await user.click(await screen.findByRole('button', { name: 'Try again' }));
+    await waitFor(() => expect(net.queueRpc).toHaveBeenCalledWith('deposit_refund_retry', { p_payment_id: 'pay-1' }));
+    expect(calls('deposit_refund_retry')).toHaveLength(0);
+    expect(await screen.findByTestId('deposit-queued-pay-1')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Settled another way' })).toBeNull();
+  });
+
+  it('offline, Settled another way checks the PIN on the station: a wrong one is refused and nothing is queued', async () => {
+    const user = userEvent.setup();
+    net.offline = true;
+    net.pinOk = false;
+    attention = [row()];
+    mount(<DepositAttentionPanel hideWhenEmpty />);
+    await user.click(await screen.findByRole('button', { name: 'Settled another way' }));
+    const dialog = within(await screen.findByRole('dialog'));
+    await user.type(dialog.getByRole('textbox', { name: /How was it settled/ }), 'Cash at the desk');
+    await user.type(dialog.getByLabelText(/^PIN/), '4821');
+    await user.click(dialog.getByRole('button', { name: 'Mark as settled' }));
+    expect(await dialog.findByText('Incorrect PIN.')).toBeTruthy();
+    expect(net.queueRpc).not.toHaveBeenCalled();
+  });
+
+  it('offline, a right PIN queues the manual settle with the PIN for replay to prove', async () => {
+    const user = userEvent.setup();
+    net.offline = true;
+    attention = [row()];
+    mount(<DepositAttentionPanel hideWhenEmpty />);
+    await user.click(await screen.findByRole('button', { name: 'Settled another way' }));
+    const dialog = within(await screen.findByRole('dialog'));
+    await user.type(dialog.getByRole('textbox', { name: /How was it settled/ }), 'Cash at the desk');
+    await user.type(dialog.getByLabelText(/^PIN/), '4821');
+    await user.click(dialog.getByRole('button', { name: 'Mark as settled' }));
+    await waitFor(() =>
+      expect(net.queueRpc).toHaveBeenCalledWith('deposit_refund_manual', { p_payment_id: 'pay-1', p_pin: '4821', p_note: 'Cash at the desk', p_device_id: 'DESK-1' }),
+    );
+    expect(await screen.findByTestId('deposit-queued-pay-1')).toBeTruthy();
+  });
+
+  it('online, an appRpc that saved the call on the queue itself counts as queued', async () => {
+    const user = userEvent.setup();
+    attention = [row({ status: 'succeeded', refund_amount_iqd: null, refund_requested_at: null, refund_reason: null })];
+    vi.mocked(appRpc).mockImplementation(async (fn: string) => {
+      if (fn === 'deposit_attention') return attention;
+      if (fn === 'deposit_refund_request') throw Object.assign(new Error('SAVED_OFFLINE'), { savedOffline: true });
+      return {};
+    });
+    mount(<DepositAttentionPanel hideWhenEmpty />);
+    await user.click(await screen.findByRole('button', { name: 'Refund to guest' }));
+    await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Refund' }));
+    expect(await screen.findByTestId('deposit-queued-pay-1')).toBeTruthy();
   });
 });

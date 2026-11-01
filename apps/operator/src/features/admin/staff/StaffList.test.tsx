@@ -30,10 +30,6 @@ vi.mock('../../../lib/auth', async (importOriginal) => {
     usePermissions: () => actual.permissionsFor('owner'),
   };
 });
-vi.mock('../../../lib/settings', () => ({
-  useCafeSettings: () => ({ settings: { break_allowance_minutes: 30 }, isLoading: false }),
-  useSetCafeSetting: () => ({ mutate: vi.fn(), isPending: false, error: null }),
-}));
 vi.mock('../../../lib/edge', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
   callEdge: vi.fn(),
@@ -143,7 +139,7 @@ describe('StaffList: Add staff member, stepped', () => {
     await user.type(within(dialog).getByRole('textbox', { name: 'Name' }), 'Mustafa Ali');
     await user.type(within(dialog).getByRole('textbox', { name: /email/i }), 'mustafa@touch.local');
     await user.click(within(dialog).getByTestId('add-staff.step.role'));
-    expect(within(dialog).getAllByTestId(/^add-staff\.role\./)).toHaveLength(13);
+    expect(within(dialog).getAllByTestId(/^add-staff\.role\./)).toHaveLength(14); // 0392 added the developer
     await user.click(within(dialog).getByTestId('add-staff.role.waiter'));
     expect(within(dialog).getByTestId('add-staff.role.waiter').getAttribute('aria-pressed')).toBe('true');
     // A short password holds the last step.

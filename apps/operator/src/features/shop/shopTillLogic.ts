@@ -138,3 +138,140 @@ export function saleLabel(now: Date): string {
   const two = (n: number) => String(n).padStart(2, '0');
   return `${two(now.getHours())}:${two(now.getMinutes())}:${two(now.getSeconds())}`;
 }
+
+// ---------------------------------------------------------------------------
+// F-56: a sale recorded offline (or settled slowly) keeps its member and
+// prints its receipt.
+// ---------------------------------------------------------------------------
+
+/** A line as the receipt and the offline tab hold it: a name, how many, and what it comes to. */
+export interface ReceiptLine {
+  name: string;
+  qty: number;
+  /** Unit price at the cached menu's price. */
+  priceIqd: number;
+  categoryId: string | null;
+  /** The stamped line total, when the server already priced it (a sale taken up again). */
+  lineTotalIqd?: number;
+}
+
+/** The basket as receipt lines (and offline tab lines): what was sold, named for the guest. */
+export function saleReceiptLines(
+  basket: readonly ShopLine[],
+  sizes: readonly ShopSize[],
+  nameOf: (s: ShopSize) => string,
+): ReceiptLine[] {
+  const byId = new Map(sizes.map((s) => [s.variantId, s]));
+  return basket
+    .filter((l) => l.qty > 0)
+    .map((l) => {
+      const s = byId.get(l.variantId);
+      return { name: s ? nameOf(s) : l.variantId, qty: l.qty, priceIqd: s?.priceIqd ?? 0, categoryId: s?.categoryId ?? null };
+    });
+}
+
+/**
+ * The member on an offline sale (F-56): set_tab_customer queued against the
+ * sale's tab.open key, BEFORE its settle, so the replay attaches the member
+ * first and the points are earned when the payment lands. Used to be skipped
+ * offline ("the sale goes without"), and the guest simply earned nothing.
+ */
+export function memberQueueCall(customerId: string, tabIdemKey: string): {
+  fn: 'set_tab_customer';
+  args: { p_customer_id: string };
+  opts: { tabIdemKey: string };
+} {
+  return { fn: 'set_tab_customer', args: { p_customer_id: customerId }, opts: { tabIdemKey } };
+}
+
+/**
+ * What a local receipt prints (F-56): the lines as sold, the total the cashier
+ * charged and the payment, in the shapes BillView renders. Ids are local: the
+ * server has not answered yet, which the receipt says in words.
+ */
+export interface LocalReceipt {
+  lines: readonly ReceiptLine[];
+  totalIqd: number;
+  method: 'cash' | 'card';
+}
+
+export function localReceiptBill(r: LocalReceipt): {
+  orders: {
+    id: string;
+    status: string;
+    order_items: {
+      id: string;
+      qty: number;
+      line_total_iqd: number;
+      voided: boolean;
+      menu_item: { name_en: string; name_ar: string };
+      variant: null;
+      order_item_modifiers: [];
+    }[];
+  }[];
+  totals: { subtotal: number; discount: number; tax: number; court: number; total: number; paid: number; due: number };
+  payments: { id: string; method: string; amount_iqd: number }[];
+} {
+  const lineTotal = (l: ReceiptLine) => l.lineTotalIqd ?? l.priceIqd * l.qty;
+  const subtotal = r.lines.reduce((s, l) => s + lineTotal(l), 0);
+  return {
+    orders: [
+      {
+        id: 'local',
+        status: 'open',
+        order_items: r.lines.map((l, i) => ({
+          id: `local-${i}`,
+          qty: l.qty,
+          line_total_iqd: lineTotal(l),
+          voided: false,
+          menu_item: { name_en: l.name, name_ar: l.name },
+          variant: null,
+          order_item_modifiers: [],
+        })),
+      },
+    ],
+    // What was charged is the total; anything between it and the lines (tax,
+    // a discount) shows as the difference the server will confirm.
+    totals: {
+      subtotal,
+      discount: Math.max(subtotal - r.totalIqd, 0),
+      tax: Math.max(r.totalIqd - subtotal, 0),
+      court: 0,
+      total: r.totalIqd,
+      paid: r.totalIqd,
+      due: 0,
+    },
+    payments: [{ id: 'local-payment', method: r.method, amount_iqd: r.totalIqd }],
+  };
+}
+
+/** A server tab's live lines as receipt lines — for an unfinished sale taken up again. */
+export function detailReceiptLines(
+  orders: readonly {
+    status: string;
+    order_items?: readonly {
+      qty: number;
+      line_total_iqd: number;
+      voided: boolean;
+      menu_item: { name_en: string; name_ar: string; category_id?: string } | null;
+      variant?: { name_en: string; name_ar: string } | null;
+    }[];
+  }[],
+  locale: 'en' | 'ar',
+): ReceiptLine[] {
+  const pick = (n: { name_en: string; name_ar: string } | null | undefined) => (n ? (locale === 'ar' ? n.name_ar || n.name_en : n.name_en) : '');
+  return orders
+    .filter((o) => o.status !== 'voided')
+    .flatMap((o) => (o.order_items ?? []).filter((i) => !i.voided))
+    .map((i) => {
+      const name = [pick(i.menu_item), pick(i.variant)].filter(Boolean).join(' · ') || '—';
+      // Unit price from the stamped line total: what the guest was charged for it.
+      return {
+        name,
+        qty: i.qty,
+        priceIqd: i.qty > 0 ? Math.round(i.line_total_iqd / i.qty) : i.line_total_iqd,
+        categoryId: i.menu_item?.category_id ?? null,
+        lineTotalIqd: i.line_total_iqd,
+      };
+    });
+}

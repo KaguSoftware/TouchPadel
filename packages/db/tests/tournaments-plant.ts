@@ -136,8 +136,9 @@ begin
   for i in 1 .. n loop
     g := pg_temp.guest(p_prefix || i, jsonb_build_object('given', 'Player' || i, 'family', 'Fam' || i,
                                                          'gender', 'male'));
-    insert into tournament_entries (venue_id, tournament_id, guest_id, status, added_by_kind, entered_at)
-    values (t.venue_id, t.id, g, 'registered', 'guest', clock_timestamp())
+    -- 0390 (F-40): a planted field is already confirmed by the desk (the draw needs it).
+    insert into tournament_entries (venue_id, tournament_id, guest_id, status, added_by_kind, entered_at, confirmed_at)
+    values (t.venue_id, t.id, g, 'registered', 'guest', clock_timestamp(), now())
     returning id into e;
     insert into pg_temp.vars values (p_prefix || i || '_e', e::text) on conflict (name) do update set val = excluded.val;
   end loop;
@@ -148,6 +149,9 @@ declare v_t uuid := pg_temp.var(p_tour)::uuid;
 begin
   perform set_config('request.jwt.claims', '', true);
   update tournaments set status = 'closed', closed_at = now() where id = v_t;
+  -- 0390 (F-40): the desk confirms the field before the draw.
+  update tournament_entries set confirmed_at = now()
+   where tournament_id = v_t and status = 'registered' and confirmed_at is null;
   update tournament_entries e set seed_no = s.n
     from (select x.id, row_number() over (order by x.entered_at, x.id) as n
             from tournament_entries x where x.tournament_id = v_t and x.status = 'registered') s

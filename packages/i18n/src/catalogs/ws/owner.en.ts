@@ -103,7 +103,7 @@ export const ownerEn = {
   /**
    * The live floor (owner request, 2026-09-18): a three-dimensional plan of the
    * venue drawn from the same rows the boards read — bookings for the courts,
-   * open tabs for the tables, station heartbeats and breaks for the staff.
+   * open tabs for the tables, station heartbeats for the staff.
    * Every figure is what the server holds right now; nothing is estimated.
    * Where a count is not known (how many guests sit at a table) the copy does
    * not pretend to know it.
@@ -115,7 +115,6 @@ export const ownerEn = {
       courts: 'Courts in play',
       tables: 'Tables occupied',
       staff: 'Staff at a station',
-      onBreak: 'On break',
       of: '{n} of {total}',
     },
     notDrawnCourts: 'Courts not on this plan',
@@ -126,7 +125,6 @@ export const ownerEn = {
       booked: 'Booked, nobody there yet',
       free: 'Free',
       staffWorking: 'Staff at a station',
-      staffBreak: 'Staff on break',
       players: 'Customers',
       seated: 'Tab open',
       paying: 'Awaiting payment',
@@ -151,10 +149,7 @@ export const ownerEn = {
     },
     staff: {
       working: 'At a station',
-      break: 'On break',
       station: 'Station {station}',
-      covering: 'Covering for {name}',
-      since: 'Since {time}',
       nobody: 'Nobody here right now',
     },
     desserts: {
@@ -181,7 +176,7 @@ export const ownerEn = {
     exitFullScreen: 'Exit full screen',
     hintFull: 'Scroll to zoom, drag to look around. Click a court, a table or a room to move closer. Esc leaves full screen.',
     hint: 'Scroll to zoom, drag to look around. Click a court, a table or a room to move closer.',
-    noWebgl: 'This computer cannot draw the 3D plan. The counts above are still live.',
+    noWebgl: 'This computer cannot draw the 3D plan. The counts beside it are still live.',
     ariaLabel: 'Three-dimensional plan of the venue',
     openBookings: 'Bookings board',
     openTills: 'Open tabs board',
@@ -205,7 +200,7 @@ export const ownerEn = {
     kitchen: {
       title: 'Kitchen screens',
       lead: 'A new kitchen screen connects to this café cashier with a code. Show the code here, then type it on the kitchen screen.',
-      notTill: 'The pairing code is kept on the café cashier itself. Open Setup on the café cashier computer to pair a kitchen screen.',
+      notTill: 'The pairing code is kept on the café cashier itself. On the café cashier computer, open Settings › Computers & screens › Kitchen screens to pair a kitchen screen.',
     },
     cards: {
       staff: 'Who can sign in, what each person can open, and the manager PINs that approve discounts and voids.',
@@ -213,7 +208,7 @@ export const ownerEn = {
       courts: 'The courts guests and the desk can book: names, photos, booking lengths and calendar order.',
       tables: 'The cafe tables and the QR card on each one. Switch a waiter bell, print a card, or replace a lost one.',
       settings: 'Opening hours, closed days, when the business day starts, and the venue details fixed at setup.',
-      guestSite: 'What guests see at the top of the menu after scanning a table card. Table QR codes and Telegram are tabs on the same page.',
+      guestSite: 'What guests see at the top of the menu after scanning a table card. Table QR codes have their own page, and Telegram is under Marketing.',
       // Coaching (coaching operator.md §5.3.3).
       coaches: 'Coaches, the lessons they teach, prices and hours',
     },
@@ -469,6 +464,8 @@ export const ownerEn = {
       assistant_barista: 'The kitchen screen, and My tasks from its header: their checklists, the bar team’s teachings, recipe ingredients and their phone pages.',
       waiter: 'A task list (My tasks): their checklists, cleaning photos included, and their phone pages, where they move stock between the cafe and the bakery. No café cashier, desk or kitchen.',
       shop_staff: 'The Touch Shop desk on its own PC: the shop cashier, its own drawer, the shop store (goods in, counts), shop products, prices and suppliers. Nothing of the café, the courts or the reports.',
+      // 0392: the developer who looks after the system.
+      dev: 'The Monitoring page only: crashes and errors from the phones, the tills, the website, the server and the scheduled jobs. Nothing of the café, the courts, the money or the people.',
     },
     // Beside a role that still works but is no longer given (prep, 0155).
     retired: 'Retired',
@@ -496,16 +493,16 @@ export const ownerEn = {
     pin: {
       title: 'PIN',
       label: 'New PIN',
-      lead: 'Typed at the café cashier to go on break and unlock the station. A manager’s or owner’s PIN also approves a discount, a void or a price change.',
+      lead: 'Unlocks the station when it locks itself. A manager’s or owner’s PIN also approves a discount, a void or a price change.',
       hint: '{min} to {max} digits. Repeated digits (111111) and runs (123456) are refused.',
       length: 'Enter {min} to {max} digits.',
       setFor: 'Set a PIN for {name}',
       changeFor: 'Change the PIN for {name}',
-      hasPin: 'Set. They can approve discounts and voids at the café cashier, take breaks and unlock the station.',
-      noPin: 'Not set. They cannot approve discounts or voids, or take a break, until one is set.',
-      // Roles whose PIN approves nothing (0105): it is the break and unlock PIN.
-      hasPinBreakOnly: 'Set. It starts and ends their breaks and unlocks the station.',
-      noPinBreakOnly: 'Not set. They cannot take a break until one is set.',
+      hasPin: 'Set. They can approve discounts and voids at the café cashier and unlock the station.',
+      noPin: 'Not set. They cannot approve discounts or voids until one is set.',
+      // Roles whose PIN approves nothing (0105): it unlocks the station (breaks left the operator, F-08).
+      hasPinUnlockOnly: 'Set. It unlocks the station when it locks itself.',
+      noPinUnlockOnly: 'Not set. They unlock the station with their password until one is set.',
       removeConfirm: 'Remove the PIN for {name}?',
       removeBody: 'They will not be able to approve discounts, voids or price changes at the café cashier until a new PIN is set.',
       removed: 'PIN removed.',
@@ -513,20 +510,11 @@ export const ownerEn = {
     },
     refusals: {
       pinWeak: 'That PIN is too easy to guess. Avoid repeated digits and runs like 123456.',
-      pinFormat: 'A PIN is 6 to 12 digits.',
+      pinFormat: 'A PIN is 4 to 12 digits.',
       emailInUse: 'An account with this email already exists.',
       // staff-admin's ROLE_RETIRED (0155): a new account on prep.
       roleRetired: 'Kitchen is no longer given to anyone. Choose Barista or Chef assistant.',
       lastOwner: 'This is the only owner. Make someone else an owner first.',
-    },
-    // 0105: which stations offer this person as cover on their break screen.
-    stations: {
-      title: 'Stations',
-      lead: 'Offered as cover on these stations’ break screens.',
-      management: 'Managers and owners can cover any station.',
-      none: 'No station has reported in yet. A station appears here once its app has run.',
-      save: 'Save stations',
-      saved: 'Stations saved.',
     },
     // 0345: second jobs and blocked pages, per person (StaffAccountEditor's AccessField).
     access: {
@@ -566,15 +554,6 @@ export const ownerEn = {
       confirmBlock: 'Keeps them out of: {list}.',
       confirmUnblock: 'Opens again: {list}.',
       confirmWhen: 'Their screens update within a minute.',
-    },
-    // 0105: the daily allowance, set here because it is about people.
-    breaks: {
-      title: 'Breaks',
-      allowance: 'Break time per person per day',
-      minutes: 'minutes',
-      hint: 'Several breaks may add up to this. 0 switches breaks off. Starting or ending one takes the person’s own PIN.',
-      save: 'Save',
-      saved: 'Break allowance saved.',
     },
     editor: {
       close: 'Close',
@@ -947,7 +926,7 @@ export const ownerEn = {
     approveTitle: 'Approve this request?',
     declineTitle: 'Decline this request?',
     approveBody: '{name} asked for {kind}. Approving is recorded against your name and cannot be undone.',
-    declineBody: '{name} asked for {kind}. A declined request has to say why — the person will read this.',
+    declineBody: '{name} asked for {kind}. A reason is optional; if you give one, the person will read it.',
     noteLabel: 'Note',
     noteOptional: 'Note (optional)',
     reasonLabel: 'Reason for declining (optional)',
@@ -1321,7 +1300,7 @@ export const ownerEn = {
       courts: 'Courts and bookings',
       money: 'Money',
       stock: 'Stock',
-      staff: 'Staff and breaks',
+      staff: 'Staff',
       customers: 'Customers',
       audit: 'Audit log',
       marketing: 'Promotions and marketing',

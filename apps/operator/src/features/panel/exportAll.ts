@@ -2,7 +2,8 @@
  * The management panel's full export: everything the panel was given for the
  * period — not the thirteen totals alone.
  *
- * Three TABLES, and since they are three tables they are three files, zipped.
+ * Three TABLES, and since they are three tables they are three sheets of one
+ * workbook (buildPanelExport), one table each.
  * They used to be three blocks of one CSV separated by blank lines, which no
  * spreadsheet reads as three tables: it takes the first header row and fits
  * everything below into those columns, so the figures landed under the window

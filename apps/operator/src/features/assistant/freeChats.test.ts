@@ -29,7 +29,7 @@ describe('free chats (kept on this computer, apart from the paid ones)', () => {
   });
 
   it('titles a chat by its first question, cut short', () => {
-    expect(chatTitle('  How   do I take a break?  ')).toBe('How do I take a break?');
+    expect(chatTitle('  How   do I start my shift?  ')).toBe('How do I start my shift?');
     expect(chatTitle('x'.repeat(200))).toHaveLength(80);
   });
 

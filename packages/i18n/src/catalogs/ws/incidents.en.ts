@@ -44,6 +44,12 @@ export const incidentsEn = {
     title: 'My reports',
     lead: 'What you reported, and the manager’s note once it is reviewed.',
     emptyTitle: 'No reports yet',
+    // F-62: the reporter's own filters, in the reporter's words (not the reviewer's).
+    emptyFilter: {
+      open: 'None of your reports is waiting for a manager.',
+      reviewed: 'None of your reports has been reviewed yet.',
+      all: 'You have not reported anything yet.',
+    },
     waiting: 'Waiting for a manager',
     // A reviewed card; the time and the note are in the sheet.
     reviewedBy: 'Reviewed by {name}',

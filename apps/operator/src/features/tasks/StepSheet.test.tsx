@@ -68,6 +68,7 @@ vi.mock('../../lib/appRpc', async (importOriginal) => ({
       return { submission_id: 'sub2', auto: false, step_status: 'submitted', run_status: 'active', opened_step_ids: [] };
     }
     if (fn === 'tick_run_item') return {};
+    if (fn === 'withdraw_step') return { status: 'withdrawn' };
     if (fn === 'tournament_context') {
       return {
         name_en: 'Autumn Open',
@@ -157,7 +158,20 @@ describe('StepSheet', () => {
     expect(calls.filter((c) => c.fn === 'submit_step')[1]!.args.p_idempotency_key).not.toBe(first);
   });
 
-  it('ticks the step’s checklist through tick_run_item', async () => {
+  it('F-61: withdrawing what you sent asks first, and Keep sends nothing', async () => {
+    payload = detail({ can: { submit: false, withdraw_submission_id: 'sub1' } });
+    renderSheet();
+    const dialog = await screen.findByRole('dialog');
+    await userEvent.click(await within(dialog).findByTestId('step.withdraw'));
+    const ask = await screen.findByRole('dialog', { name: 'Withdraw what you sent?' });
+    await userEvent.click(within(ask).getByRole('button', { name: /cancel/i }));
+    expect(calls.some((c) => c.fn === 'withdraw_step')).toBe(false);
+    await userEvent.click(within(dialog).getByTestId('step.withdraw'));
+    await userEvent.click(within(await screen.findByRole('dialog', { name: 'Withdraw what you sent?' })).getByRole('button', { name: 'Withdraw it' }));
+    await waitFor(() => expect(calls.find((c) => c.fn === 'withdraw_step')?.args).toEqual({ p_submission_id: 'sub1' }));
+  });
+
+    it('ticks the step’s checklist through tick_run_item', async () => {
     renderSheet();
     await userEvent.click(await screen.findByTestId('item.it1'));
     expect(calls.find((c) => c.fn === 'tick_run_item')?.args).toEqual({ p_item_id: 'it1', p_done: true });

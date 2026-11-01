@@ -173,6 +173,7 @@ export const managerAr: DeepMessages<typeof managerEn> = {
       voidLine: 'سطر ملغى',
       tabRemoval: 'حذف فاتورة',
       billClose: 'إغلاق فاتورة بمبلغ صفر',
+      savedOffline: 'حُفظ دون اتصال',
       other: 'تغيير',
     },
     openingFloat: 'الرصيد الافتتاحي',
@@ -466,7 +467,8 @@ export const managerAr: DeepMessages<typeof managerEn> = {
   },
 
   promotions: {
-    title: 'العروض',
+    // F-65: the rail's name for this page.
+    title: 'الخصومات والعروض',
     lead: 'تحصل الفاتورة على عرض واحد على الأكثر: العرض صاحب الخصم الأكبر. لإيقاف عرض، أوقف تشغيله. لا يُحذف شيء، ويبقى سجله محفوظًا.',
     create: 'عرض جديد',
     name: 'الاسم',
@@ -978,6 +980,8 @@ export const managerAr: DeepMessages<typeof managerEn> = {
   },
 
   stock: {
+    // F-35: the number boxes take English digits (0-9) only, and say so.
+    englishDigits: 'استخدم الأرقام الإنجليزية (0-9). لا تُقبل الأرقام العربية هنا.',
     products: {
       lead: 'كل ما يبيعه المتجر، في سطر لكل حجم: رمز المنتج والباركود والسعر والكمية على الرف.',
       add: 'منتج جديد',
@@ -1005,7 +1009,7 @@ export const managerAr: DeepMessages<typeof managerEn> = {
       hidden: 'مخفي',
       notTracked: 'غير متتبَّع',
       notTrackedHint: 'أُنشئ هذا الحجم في محرر المنيو وليس له مخزون خاص به بعد. حفظه هنا يبدأ تتبّعه.',
-      needSection: 'أنشئ قسمًا للمتجر في المنيو أولًا.',
+      needSection: 'أنشئ قسمًا للمتجر أولًا من «قسم جديد».',
       noSections: 'لا أقسام للمتجر بعد',
       noSectionsBody: 'في المنيو، أنشئ قسمًا واختر نوعه «متجر». تُباع منتجاته عند الكاونتر ولا تظهر في منيو الطاولة.',
       openSections: 'فتح أقسام المنيو',
@@ -1013,6 +1017,7 @@ export const managerAr: DeepMessages<typeof managerEn> = {
       emptyBody: 'أضف أول منتج. لكل حجم باركود ومخزون خاص به.',
       problem: {
         names: 'اكتب الحجم باللغتين.',
+        englishDigits: 'استخدم الأرقام الإنجليزية (0-9) في السعر والتكلفة وحد التنبيه.',
         price: 'السعر رقم صحيح بالدينار.',
         sku: 'حروف وأرقام والرموز . _ / - فقط، دون مسافات.',
         barcode: 'من 4 إلى 64 رقمًا أو حرفًا.',
@@ -1537,6 +1542,9 @@ export const managerAr: DeepMessages<typeof managerEn> = {
     noteHint: 'مثلًا: أُعيد المبلغ نقدًا في مكتب الملاعب يوم السبت.',
     pinHint: 'يحتاج هذا إلى الرقم السري للمدير.',
     settleNeeds: 'اكتب كيف تمت التسوية وأدخل الرقم السري',
+    queued: 'في الانتظار',
+    queuedHint: 'حُفظ على هذه المحطة، ويُرسل عند عودة الاتصال.',
+    queuedRefused: 'رُفض الإجراء المحفوظ عند إرساله. {reason}',
     settleConfirm: 'تسجيل التسوية',
     settled: 'سُجّلت تسوية الاسترداد.',
   },

@@ -37,6 +37,7 @@ import { ReviewList, StepWizard, WizardChoice, WizardChoices, WizardToggle, type
 import { useStockFormat } from './stockUi';
 import { parseQty } from './stockLogic';
 import { SK, type IngredientRow, type OnHandRow } from './stockKeys';
+import { hasNonEnglishDigits } from './decimalInput';
 
 function numOrNull(v: string): number | null {
   return parseQty(v);
@@ -124,7 +125,13 @@ export function IngredientForm({
   const yieldOut = parseQty(yieldPct) !== null && (parseQty(yieldPct)! <= 0 || parseQty(yieldPct)! > 100);
   const lowAbovePar = parseQty(par) !== null && parseQty(lowStock) !== null && parseQty(lowStock)! > parseQty(par)!;
   const u = fmt.unit(unit);
-  const numErr = (v: string) => (badNumber(v) ? tr('ws.manager.stock.ingredients.form.notNumber') : undefined);
+  // F-35: English digits only; a box holding Arabic digits says so.
+  const numErr = (v: string) =>
+    hasNonEnglishDigits(v)
+      ? tr('ws.manager.stock.englishDigits')
+      : badNumber(v)
+        ? tr('ws.manager.stock.ingredients.form.notNumber')
+        : undefined;
 
   /**
    * Modal `canClose`: asked before the dialog starts to leave. Called from

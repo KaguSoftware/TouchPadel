@@ -18,7 +18,6 @@ import { useBack } from '../../src/navigation/back';
 import { radius, space, useTheme } from '../../src/theme';
 import { Button, ErrorText, FormScreen, MicroLabel, Screen } from '../../src/components/ui';
 import { useToast } from '../../src/components/overlays';
-import { withOnlinePaymentsGate } from '../../src/features/deposit/OnlinePaymentsGate';
 
 const REASON_KEY: Record<ReportReason, MessageKey> = {
   offensive_name: 'matches.report.offensiveName',
@@ -228,4 +227,6 @@ function GuardedMatchReportScreen() {
   );
 }
 
-export default withOnlinePaymentsGate(GuardedMatchReportScreen);
+// Open matches ship in every build: since 0370 a seat is paid at the desk
+// without online payment (F-02 keeps only the tickets and /pay behind the gate).
+export default GuardedMatchReportScreen;

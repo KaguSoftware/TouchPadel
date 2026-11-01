@@ -89,9 +89,7 @@ function sections(locale: Locale): LegalSection[] {
       blocks: [
         { kind: 'p', key: 'legal.deleteAccount.what.deleted' },
         { kind: 'p', key: 'legal.deleteAccount.what.kept' },
-        { kind: 'p', key: 'legal.deleteAccount.what.tickets' },
-        // Coaching (docs/design/coaching/guest.md §4.16, R50, R63): lessons cancelled and
-        // refunded; a coach's profile retired, photo and bio removed, statements kept.
+        // Coaching (docs/design/coaching/guest.md §4.16, R50, R63): lessons cancelled; a coach's profile retired, photo and bio removed, statements kept.
         { kind: 'p', key: 'legal.deleteAccount.what.lessons' },
         { kind: 'p', key: 'legal.deleteAccount.what.coaching' },
         { kind: 'link', to: 'privacy', hash: 'retention', label: 'legal.deleteAccount.what.more' },

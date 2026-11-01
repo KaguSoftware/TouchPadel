@@ -688,7 +688,7 @@ function IncidentsScreen() {
 
 export default function StaffIncidentsRoute() {
   return (
-    <RequireStaff>
+    <RequireStaff page="staff-incidents">
       <IncidentsScreen />
     </RequireStaff>
   );

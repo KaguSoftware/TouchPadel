@@ -13,7 +13,13 @@
  * legitimately carries any of these past the RPC boundary, so dropping them
  * can never remove information a reviewer needs to understand a conflict.
  */
-const SECRET_KEYS = new Set(['pin', 'password', 'secret', 'token', 'accesstoken', 'otp']);
+const SECRET_KEYS = new Set([
+  'pin', 'password', 'secret', 'token', 'accesstoken', 'otp',
+  // 0395: an 'rpc.queued' payload carries the RPC's own argument names, so a
+  // PIN-gated call's manager PIN rides as `p_pin` (and nothing queueable may
+  // carry the others, but a name is cheaper to list than to forget).
+  'p_pin', 'p_new_pin', 'p_password', 'p_secret', 'p_token', 'p_otp',
+]);
 
 export const REDACTED = '[redacted]';
 

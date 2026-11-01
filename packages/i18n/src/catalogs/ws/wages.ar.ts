@@ -151,6 +151,10 @@ export const wagesAr: DeepMessages<typeof wagesEn> = {
     byBank: 'بتحويل بنكي',
     safeHint: 'يُسحب المبلغ من القاصة.',
     bankHint: 'لا يُسحب شيء من القاصة.',
+    // 0387 (F-12): the safe never pays more than it holds; F-13: online only.
+    safeBalance: 'في القاصة الآن: {amount}',
+    safeShort: 'لا يوجد في القاصة مبلغ كافٍ، ففيها {amount} فقط. أضِف نقدًا إلى القاصة أولًا، أو ادفع بتحويل بنكي.',
+    offline: 'يحتاج إلى اتصال: لا تُدفع الرواتب والسلف إلا عبر الإنترنت',
   },
   status: {
     unset: 'بلا راتب',

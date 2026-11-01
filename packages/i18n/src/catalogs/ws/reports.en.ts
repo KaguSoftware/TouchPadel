@@ -28,6 +28,8 @@ export const reportsEn = {
     month: 'Month',
   },
   frame: {
+    // F-37: the server reads at most 400 days at a time.
+    rangeTooLong: 'A period can be at most 400 days. Pick a shorter one.',
     comparedWith: '{period}, compared with {previous}',
     period: '{from} – {to}',
     show: 'Show',

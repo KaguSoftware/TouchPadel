@@ -43,6 +43,7 @@ import { AsyncStateWrapper, MessagePresenter, StatusBadge, asyncStatus, type Ton
 import { PhotoViewer, StaffPhotoThumb } from '../checklists/StaffPhoto';
 import { StepContextPanel, useStepContexts } from '../protocols/StepContext';
 import { stepStatusTone } from '../protocols/protocolLogic';
+import { protocolErrorKey } from '../protocols/errors';
 import { bilingual, isObject, list, num, str } from '../roleExtras/roleExtrasLogic';
 import { TK } from './keys';
 import { StepFormFields } from './StepFormFields';
@@ -356,7 +357,10 @@ function StepBody({ view, onClose }: { view: StepView; onClose: () => void }) {
             disabled={busy}
           />
           {issues.length > 0 && <MessagePresenter tone="refused" message={tr('ws.team.tasks.form.issuesSummary')} />}
-          {submit.error && !(submit.error instanceof AppRpcError && submit.error.code === 'RECORD_INVALID' && issues.length > 0) && <ErrorText error={submit.error} />}
+          {submit.error && !(submit.error instanceof AppRpcError && submit.error.code === 'RECORD_INVALID' && issues.length > 0) && (
+            // F-62: the protocols' own line for a price target that moved (PRICE_TARGET_CHANGED), as on /protocols.
+            <ErrorText error={submit.error} message={tr(protocolErrorKey(submit.error))} />
+          )}
           <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
             <Button kind="primary" icon="check" busy={submit.isPending} disabled={busy} onClick={() => submit.mutate()} data-testid="step.submit">
               {tr(last ? 'ws.team.tasks.step.sendAgain' : 'ws.team.tasks.step.send')}
@@ -372,7 +376,22 @@ function StepBody({ view, onClose }: { view: StepView; onClose: () => void }) {
       {(view.can.withdrawSubmissionId || view.can.withdrawRun) && (
         <div style={{ display: 'flex', gap: 'var(--tp-sp-2)', flexWrap: 'wrap', borderBlockStart: '1px solid var(--tp-border)', paddingBlockStart: 'var(--tp-sp-3)' }}>
           {view.can.withdrawSubmissionId && (
-            <Button busy={withdraw.isPending} disabled={busy} icon="undo" onClick={() => withdraw.mutate(view.can.withdrawSubmissionId!)} data-testid="step.withdraw">
+            <Button
+              busy={withdraw.isPending}
+              disabled={busy}
+              icon="undo"
+              onClick={async () => {
+                // F-61: withdrawing what you sent asks first.
+                const ok = await confirm({
+                  title: tr('ws.protocols.run.withdrawStepTitle'),
+                  body: tr('ws.protocols.run.withdrawStepBody'),
+                  confirmLabel: tr('ws.protocols.run.withdrawStepConfirm'),
+                  kind: 'danger',
+                });
+                if (ok) withdraw.mutate(view.can.withdrawSubmissionId!);
+              }}
+              data-testid="step.withdraw"
+            >
               {tr('ws.team.tasks.step.withdraw')}
             </Button>
           )}
@@ -395,7 +414,7 @@ function StepBody({ view, onClose }: { view: StepView; onClose: () => void }) {
               {tr('ws.team.tasks.step.withdrawRun')}
             </Button>
           )}
-          <ErrorText error={withdraw.error ?? withdrawRun.error} />
+          <ErrorText error={withdraw.error ?? withdrawRun.error} message={withdraw.error ?? withdrawRun.error ? tr(protocolErrorKey(withdraw.error ?? withdrawRun.error)) : null} />
         </div>
       )}
       {viewing && <PhotoViewer title={tr('ws.team.tasks.photos.label')} paths={viewing} onClose={() => setViewing(null)} />}

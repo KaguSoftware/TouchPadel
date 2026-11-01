@@ -8,6 +8,7 @@ import { siteTokensBridgeCss } from '@/styles/site/tokens-bridge.css';
 import { sitePayReturnCss } from '@/styles/site/payReturn.css';
 import { BrandLockup } from '@/components/site/brand/BrandLockup';
 import { OpenAppOnLoad } from '@/components/site/OpenAppOnLoad';
+import { onlinePaymentsOnWeb } from '@/lib/site/payments';
 
 /**
  * `/{locale}/pay/return?ref=<request_id>`: where Qi's hosted payment page sends the
@@ -35,6 +36,13 @@ import { OpenAppOnLoad } from '@/components/site/OpenAppOnLoad';
  * mode sees light. Without the site sheet, on purpose (payReturn.css.ts); the frame is a
  * `.tp-site` subtree so the tokens bridge paints the canvas in the same mode.
  *
+ * NO ONLINE PAYMENT IN THIS BUILD (F-02/F-03, 2026-11-01). While `NEXT_PUBLIC_ONLINE_PAYMENTS`
+ * is not "on" (src/lib/site/payments.ts), nothing can send a guest here, so any visit is a
+ * stray one (an old link, a bookmark, a guessed address). It then says plainly that online
+ * payment is not available and that bookings, lessons and tournament entries are settled at
+ * the front desk, with the way home and to support: no app link, no automatic jump, and the
+ * ref is neither read nor forwarded.
+ *
  * Not in sitemap.ts, which lists public pages by hand. Not disallowed in robots.ts either:
  * a crawler has to fetch the page to read its `noindex`.
  */
@@ -57,7 +65,7 @@ export async function generateMetadata({
   const locale = requireLocale((await params).locale);
   return {
     // "Back to the app · Touch Padel" (the layout's title template).
-    title: makeT(locale)('site.payReturn.metaTitle'),
+    title: makeT(locale)(onlinePaymentsOnWeb() ? 'site.payReturn.metaTitle' : 'site.payReturn.off.metaTitle'),
     robots: { index: false, follow: false },
     // The address carries a payment reference; nothing on this page needs to pass it on.
     referrer: 'no-referrer',
@@ -67,7 +75,8 @@ export async function generateMetadata({
 export default async function PayReturnPage({ params, searchParams }: Props) {
   const locale = requireLocale((await params).locale);
   const [query, mode, nonce] = await Promise.all([searchParams, getSiteMode(), getRequestNonce()]);
-  const ref = parsePaymentRef(query.ref);
+  const payments = onlinePaymentsOnWeb();
+  const ref = payments ? parsePaymentRef(query.ref) : null;
   const appHref = appReturnHref(ref);
   const tr = makeT(locale);
   const other = otherLocale(locale);
@@ -89,16 +98,26 @@ export default async function PayReturnPage({ params, searchParams }: Props) {
           <span className="tp-payret__sr"> ({tr('site.nav.languageLabel')})</span>
         </a>
       </header>
-      <main className="tp-payret__main">
-        <h1 className="tp-payret__title">{tr('site.payReturn.title')}</h1>
-        <p className="tp-payret__body">{tr('site.payReturn.body')}</p>
-        <a className="tp-payret__open" href={appHref}>
-          {tr('site.payReturn.open')}
-        </a>
-        <a className="tp-payret__get" href={`/${locale}#app`}>
-          {tr('site.payReturn.noApp')}
-        </a>
-      </main>
+      {payments ? (
+        <main className="tp-payret__main">
+          <h1 className="tp-payret__title">{tr('site.payReturn.title')}</h1>
+          <p className="tp-payret__body">{tr('site.payReturn.body')}</p>
+          <a className="tp-payret__open" href={appHref}>
+            {tr('site.payReturn.open')}
+          </a>
+          <a className="tp-payret__get" href={`/${locale}#app`}>
+            {tr('site.payReturn.noApp')}
+          </a>
+        </main>
+      ) : (
+        <main className="tp-payret__main" data-state="off">
+          <h1 className="tp-payret__title">{tr('site.payReturn.off.title')}</h1>
+          <p className="tp-payret__body">{tr('site.payReturn.off.body')}</p>
+          <a className="tp-payret__open" href={`/${locale}`}>
+            {tr('site.error.home')}
+          </a>
+        </main>
+      )}
       <footer className="tp-payret__foot">
         <a href={`/${locale}/support`}>{tr('site.footer.support')}</a>
       </footer>

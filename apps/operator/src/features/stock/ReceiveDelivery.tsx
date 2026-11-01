@@ -31,10 +31,11 @@
  *
  * Wave 5 (wave5-addendum-2026-09-25 §2.8.2 D4, §5.2): every delivery names
  * its store, "Put it in: Cafe store / Bakery store", the cafe store by
- * default. The picker sits at the top of the form because it decides which
- * lines are allowed: shop stock lives in the cafe store only (V14), so the
- * bakery store is off while a shop line is on the form, and with the bakery
- * store picked the shop's products leave the ingredient list. A store with a
+ * default. The picker sits at the top of the form. Shop goods go into the
+ * shop store (0245; since 0389 a shop product on a café or bakery delivery is
+ * booked into the shop store, never refused), so the bakery store stays off
+ * while a shop line is on the form and, with the bakery store picked, the
+ * shop's products leave the ingredient list, to keep each delivery readable. A store with a
  * manager's count open takes no delivery (STORE_BEING_COUNTED, M5), and the
  * form says so before the whole delivery is typed. What staff added on the
  * phone waits above the form for its cost (StaffLogs.tsx).

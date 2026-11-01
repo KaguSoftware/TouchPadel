@@ -16,7 +16,7 @@ export const assistantFreeAr: DeepMessages<typeof assistantFreeEn> = {
   starters: {
     title: 'جرّب أن تسأل',
     tasks: 'أين أجد مهامي؟',
-    break: 'كيف آخذ استراحة؟',
+    startShift: 'كيف أبدأ ورديتي؟',
     incident: 'كيف أبلّغ عن حادثة؟',
   },
   composer: {

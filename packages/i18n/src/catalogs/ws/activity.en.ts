@@ -30,7 +30,6 @@ export const activityEn = {
     signedOut: 'Signed out',
     never: 'Never used',
   },
-  onBreak: 'On break',
   lastSeen: 'Last seen {time}',
   lastAction: '{action}, {time}',
   noAction: 'No actions yet',

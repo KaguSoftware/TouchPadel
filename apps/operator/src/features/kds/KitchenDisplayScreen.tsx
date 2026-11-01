@@ -7,7 +7,7 @@
  * generalised to the S/R/C lifecycle the board already had).
  */
 import { useCallback, useMemo, type CSSProperties, type ReactNode } from 'react';
-import { formatNumber, formatTime } from '@touch/i18n';
+import { formatNumber, formatTime, type MessageKey } from '@touch/i18n';
 import { useLocale } from '../../lib/i18n';
 import { errorToMessageKey } from '../../lib/errors';
 import { useAudioArming } from '../../lib/audio';
@@ -19,6 +19,7 @@ import { BrandLockup } from '../../components/brand';
 import { TicketList, KdsKbd, kdsCard, kdsGrid, KDS_BAND_BLOCK } from './TicketList';
 import { useKdsKeyboard } from './useKdsKeyboard';
 import { openCount, type TicketAction, type TicketView } from './ticketView';
+import { RecallStrip, type RecallStripProps } from './RecallStrip';
 
 export interface KitchenDisplayScreenProps {
   status: AsyncStatus;
@@ -30,6 +31,16 @@ export interface KitchenDisplayScreenProps {
   nowMs: number;
   /** Cloud query down; tickets are the LAN queue from the till. */
   degraded: boolean;
+  /**
+   * F-57: degraded AND the LAN link to the till is down too. The "tickets
+   * arriving over the local network" notice would be false: it says the link
+   * is down instead.
+   */
+  lanLinkDown?: boolean;
+  /** F-57: the last bump the till refused or this screen could not send. */
+  lanRefusal?: MessageKey | null;
+  /** F-57: the "Just completed" strip with its Bring back buttons; absent on the LAN. */
+  recall?: RecallStripProps;
   /** Query error for the error state. */
   error?: unknown;
   /** Last refused lifecycle write, shown inline (spec: never only as a toast). */
@@ -66,6 +77,9 @@ export function KitchenDisplayScreen({
   staleCount,
   nowMs,
   degraded,
+  lanLinkDown = false,
+  lanRefusal = null,
+  recall,
   error,
   actionError,
   busyTicketId = null,
@@ -211,9 +225,10 @@ export function KitchenDisplayScreen({
         }}
       >
         <KdsStartShiftBanner />
-        {degraded && (
+        {degraded && !lanLinkDown && (
           <p
             role="status"
+            data-testid="kds-lan-mode"
             style={{
               ...notice,
               background: 'var(--tp-kds-card-2)',
@@ -223,6 +238,26 @@ export function KitchenDisplayScreen({
           >
             <Icon name="wifiOff" size={24} />
             {tr('op.kds.lanMode')}
+          </p>
+        )}
+        {degraded && lanLinkDown && (
+          <p
+            role="alert"
+            data-testid="kds-lan-down"
+            style={{ ...notice, background: 'var(--tp-kds-late)', color: 'var(--tp-kds-on-fill)', fontWeight: 700 }}
+          >
+            <Icon name="wifiOff" size={24} />
+            {tr('ws.prep.lan.linkDown')}
+          </p>
+        )}
+        {lanRefusal && (
+          <p
+            role="alert"
+            data-testid="kds-lan-refused"
+            style={{ ...notice, background: 'var(--tp-kds-late)', color: 'var(--tp-kds-on-fill)', fontWeight: 700 }}
+          >
+            <Icon name="alert" size={24} />
+            {tr(lanRefusal)}
           </p>
         )}
         {staleCount > 0 && (
@@ -281,6 +316,8 @@ export function KitchenDisplayScreen({
           />
         )}
       </div>
+
+      {recall && <RecallStrip {...recall} />}
 
       <KeyLegend dir={dir} onGuide={onGuide} />
     </section>

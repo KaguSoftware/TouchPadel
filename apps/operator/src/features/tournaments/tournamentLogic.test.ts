@@ -13,6 +13,8 @@ import {
   substitutes,
   tournamentErrorKey,
   tournamentsByReservation,
+  owingEntries,
+  unconfirmedEntries,
 } from './tournamentLogic';
 import type { TourEntry } from './tournamentPayloads';
 
@@ -33,6 +35,8 @@ const entry = (over: Partial<TourEntry>): TourEntry => ({
   net_paid_iqd: 0,
   refund_due_iqd: 0,
   substitute_for: null,
+  confirmed: true,
+  confirmed_by_name: null,
   ...over,
 });
 
@@ -148,6 +152,7 @@ describe('entries', () => {
       close: false,
       finish: false,
       settle: true,
+      confirm: true,
     };
     const caps = { run: true, pay: true };
     const owing = entry({ owed_iqd: 10 });
@@ -170,5 +175,28 @@ describe('entries', () => {
         caps,
       ),
     ).toMatchObject({ promote: true, noShow: false });
+  });
+
+  it('0390 (F-40): confirm a registered entry, undo it, never a waitlisted one; payment stays separate', () => {
+    const can = { add: true, set_rounds: true, score: true, cancel: true, close: false, finish: false, settle: true, confirm: true };
+    const caps = { run: true, pay: true };
+    const fresh = entry({ confirmed: false, owed_iqd: 10 });
+    expect(entryActions(fresh, { status: 'open', can, entry_fee_iqd: 10 }, caps)).toMatchObject({ confirm: true, unconfirm: false, pay: true });
+    const done = entry({ confirmed: true, owed_iqd: 10 });
+    expect(entryActions(done, { status: 'closed', can, entry_fee_iqd: 10 }, caps)).toMatchObject({ confirm: false, unconfirm: true, pay: true });
+    expect(entryActions(entry({ status: 'waitlisted', confirmed: false }), { status: 'open', can, entry_fee_iqd: 0 }, caps)).toMatchObject({ confirm: false, unconfirm: false });
+    expect(entryActions(fresh, { status: 'open', can: { ...can, confirm: false }, entry_fee_iqd: 10 }, caps).confirm).toBe(false);
+    expect(entryActions(fresh, { status: 'open', can, entry_fee_iqd: 10 }, { run: false, pay: true }).confirm).toBe(false);
+  });
+
+  it('0390 (F-40): the unconfirmed list and the Pay list', () => {
+    const entries = [
+      entry({ entry_id: 'a', confirmed: false, owed_iqd: 10, seed_no: 1 }),
+      entry({ entry_id: 'b', confirmed: true, owed_iqd: 10, seed_no: 2 }),
+      entry({ entry_id: 'c', confirmed: true, owed_iqd: 0, seed_no: 3 }),
+      entry({ entry_id: 'd', status: 'waitlisted', confirmed: false, owed_iqd: 10 }),
+    ];
+    expect(unconfirmedEntries({ entries }).map((e) => e.entry_id)).toEqual(['a']);
+    expect(owingEntries({ entries }).map((e) => e.entry_id)).toEqual(['b', 'a']);
   });
 });

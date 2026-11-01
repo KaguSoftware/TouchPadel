@@ -29,7 +29,7 @@ export interface ActivityRow {
   staffId: string;
   name: string;
   role: StaffRole | string;
-  onBreak: boolean;
+  // The server's `onBreak` (0341) is not read: breaks left the operator (F-08).
   /** null: never used the operator. */
   operator: ActivityPart | null;
   /** null: never used the phone app. */

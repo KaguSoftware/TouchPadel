@@ -37,6 +37,7 @@ export function Basket({
   onService,
   sending,
   error,
+  notice = null,
   canSend,
   blockedReason,
   onBump,
@@ -57,6 +58,13 @@ export function Basket({
   onService: (service: OrderService) => void;
   sending: boolean;
   error: unknown;
+  /**
+   * F-32: a send that is not simply landing, said where the basket is — "No
+   * connection. Saving the order on this till…" while an offline send is on
+   * its way to the queue (mutate() answers only after its 8 s wait). Once it
+   * is queued, KitchenSendStatus says so (F-11).
+   */
+  notice?: string | null;
   canSend: boolean;
   /** Why Send cannot be pressed right now — rulebook 4.3. Presentation only. */
   blockedReason?: string;
@@ -307,6 +315,10 @@ export function Basket({
       <div style={{ ...reservedStatusLine, marginBlockEnd: 'var(--tp-sp-1-5)' }}>
         {error != null ? (
           <ErrorText error={error} style={{ marginBlock: 0 }} />
+        ) : notice ? (
+          <span role="status" data-testid="basket-send-notice" style={{ ...muted, display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-1)' }}>
+            <Icon name={sending ? 'refresh' : 'clock'} size={13} /> {notice}
+          </span>
         ) : sending ? (
           <span role="status" style={{ ...muted, display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-1)' }}>
             <Icon name="refresh" size={13} /> {tr('ws.cashier.till.basket.sending')}

@@ -7,6 +7,7 @@
  */
 import type { IngredientRow, OnHandRow, ShopCatalogue, ShopVariantRow, SupplierRow } from '../stockKeys';
 import { checkSupplierUrl } from '../../shop/priceWatch/priceWatchLogic';
+import { hasNonEnglishDigits } from '../decimalInput';
 
 export interface ProductLine {
   productId: string;
@@ -122,7 +123,7 @@ export interface SizeDraft {
   low: string;
 }
 
-export type SizeProblem = 'names' | 'price' | 'sku' | 'barcode' | 'cost' | 'low';
+export type SizeProblem = 'names' | 'englishDigits' | 'price' | 'sku' | 'barcode' | 'cost' | 'low';
 
 const wholeIqd = (v: string) => /^\d{1,12}$/.test(v.trim());
 const nonNegative = (v: string) => /^\d+(\.\d+)?$/.test(v.trim());
@@ -130,6 +131,8 @@ const nonNegative = (v: string) => /^\d+(\.\d+)?$/.test(v.trim());
 /** The first thing wrong with a size, or null. Blank optional fields are fine. */
 export function sizeProblem(d: SizeDraft): SizeProblem | null {
   if (!d.nameEn.trim() || !d.nameAr.trim()) return 'names';
+  // F-35: English digits only, and the form says so.
+  if ([d.price, d.cost, d.low].some(hasNonEnglishDigits)) return 'englishDigits';
   if (!wholeIqd(d.price)) return 'price';
   if (d.sku.trim() && !SKU_RE.test(d.sku.trim())) return 'sku';
   if (d.barcode.trim() && !BARCODE_RE.test(d.barcode.trim())) return 'barcode';
@@ -161,4 +164,38 @@ export function supplierLinkToSave(draft: string, stored: string | null): { url:
   const check = checkSupplierUrl(draft);
   if (!check.ok || check.url === stored) return null;
   return { url: check.url };
+}
+
+/**
+ * app.create_shop_product (0389, F-36): a new product and its first size in
+ * one call, so a failed second save can no longer leave a product without a
+ * size, and a retry under the same key never makes a second one. With
+ * `purchaseLineId` it approves a new product a driver bought (manager or owner).
+ */
+export function createProductArgs(input: {
+  sectionId: string;
+  productName: { en: string; ar: string };
+  draft: SizeDraft;
+  supplierId: string;
+  active: boolean;
+  key: string;
+  purchaseLineId?: string | null;
+}): Record<string, unknown> {
+  const size = sizeArgs(input.draft, input.supplierId);
+  return {
+    p_category_id: input.sectionId,
+    p_name_en: input.productName.en.trim(),
+    p_name_ar: input.productName.ar.trim(),
+    p_size_name_en: size.p_name_en,
+    p_size_name_ar: size.p_name_ar,
+    p_price_iqd: size.p_price_iqd,
+    p_sku: size.p_sku,
+    p_barcode: size.p_barcode,
+    p_supplier_id: size.p_supplier_id,
+    p_pack_cost_iqd: size.p_pack_cost_iqd,
+    p_low_stock_threshold: size.p_low_stock_threshold,
+    p_is_active: input.active,
+    p_purchase_line_id: input.purchaseLineId ?? null,
+    p_idempotency_key: input.key,
+  };
 }

@@ -140,7 +140,7 @@ export const guideAr: DeepMessages<typeof guideEn> = {
       },
     },
     more: {
-      title: 'المهام والاستراحة',
+      title: 'المهام والبلاغات',
       tasks: {
         title: 'مهامي',
         body: 'خطواتك في البطولات والأصناف الجديدة وتغييرات الأسعار موجودة في «مهامي».',
@@ -148,10 +148,6 @@ export const guideAr: DeepMessages<typeof guideEn> = {
       incident: {
         title: 'بلِّغ عن حادث',
         body: 'بلِّغ عن حادث أو إصابة أو شجار أو ضرر، مع الصور. يراجع المدير كل بلاغ.',
-      },
-      break: {
-        title: 'خذ استراحة',
-        body: 'اضغط «{goOnBreak}» وأدخل رقمك السري. يستطيع زميلك تغطية المحطة برقمه السري، ورقمك السري يُنهي الاستراحة.',
       },
     },
     end: {
@@ -285,7 +281,7 @@ export const guideAr: DeepMessages<typeof guideEn> = {
       },
     },
     more: {
-      title: 'المهام والاستراحة',
+      title: 'المهام والبلاغات',
       tasks: {
         title: 'مهامي',
         body: 'خطواتك في الأصناف الجديدة والبطولات وتغييرات الأسعار موجودة في «مهامي».',
@@ -293,10 +289,6 @@ export const guideAr: DeepMessages<typeof guideEn> = {
       incident: {
         title: 'بلِّغ عن حادث',
         body: 'بلِّغ عن حادث أو إصابة أو شجار أو ضرر، مع الصور. يراجع المدير كل بلاغ.',
-      },
-      break: {
-        title: 'خذ استراحة',
-        body: 'اضغط «{goOnBreak}» وأدخل رقمك السري. يستطيع زميلك تغطية كاشير الكافيه برقمه السري، ورقمك السري يُنهي الاستراحة.',
       },
     },
     end: {
@@ -478,10 +470,6 @@ export const guideAr: DeepMessages<typeof guideEn> = {
       drawer: {
         title: 'فتح الدرج يدويًا',
         body: 'في «{cashDrawer}» اضغط «{openDrawer}» واكتب السبب.',
-      },
-      break: {
-        title: 'خذ استراحة',
-        body: 'اضغط «{goOnBreak}» وأدخل رقمك السري. ورقمك السري يُنهي الاستراحة.',
       },
       unpaid: {
         title: 'لا مبيعات غير مدفوعة',

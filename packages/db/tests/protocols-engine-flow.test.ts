@@ -966,6 +966,11 @@ describe.skipIf(!docker)('protocols engine flows (rolled-back transactions)', ()
       T('stop_noreason', 'manager', `select app.stop_protocol({{run}}, '')`),
       T('stop', 'manager', `select app.stop_protocol({{run}}, 'Rained off')`),
       T('stop_again', 'manager', `select app.stop_protocol({{run}}, 'again')`),
+      // 0391 (F-61, Majed): the owner stops a run with no reason, as decide_step since 0361.
+      T('start3', 'manager', `select app.start_protocol('tournament', 'type2', 'Saturday social', null, '{}', '{}')`),
+      RES('run3', 'start3', 'run_id'),
+      T('owner_stop_noreason', 'owner', `select app.stop_protocol({{run3}}, null)`),
+      Q('stopped3', `select jsonb_build_object('status', status, 'reason', stop_reason) from protocol_runs where id = {{run3}}`),
       T('submit_closed', 'owner', `select app.submit_step({{s5}}, '{}')`),
       Q('stopped', `select jsonb_build_object('status', status, 'reason', stop_reason, 'finished', finished_at is not null)
                       from protocol_runs where id = {{run}}`),
@@ -979,7 +984,7 @@ describe.skipIf(!docker)('protocols engine flows (rolled-back transactions)', ()
       T('courts2', 'desk', `select app.submit_step({{t3}}, '{}')`),
       RES('sub_t3', 'courts2', 'submission_id'),
       T('stop_nonote', 'manager', `select app.decide_step({{sub_t3}}, 'stop')`),
-      // 0361: the owner stops it with no reason; the manager could not.
+      // 0361 (F-61, Majed): the owner stops it with no reason; the manager could not.
       T('stop_decision', 'owner', `select app.decide_step({{sub_t3}}, 'stop')`),
       Q('stopped2', `select jsonb_build_object('run', status, 'reason', stop_reason) from protocol_runs where id = {{run2}}`),
       OUTBOX_Q('pushes2', 'run2'),
@@ -1028,6 +1033,8 @@ describe.skipIf(!docker)('protocols engine flows (rolled-back transactions)', ()
     expect(refused(r, 'stop_noreason')).toBe('REASON_REQUIRED');
     expect(ok<{ run_status: string }>(r, 'stop').run_status).toBe('stopped');
     expect(refused(r, 'stop_again')).toBe('PROTOCOL_CLOSED');
+    expect(ok(r, 'owner_stop_noreason')).toMatchObject({ run_status: 'stopped' });
+    expect(ok(r, 'stopped3')).toEqual({ status: 'stopped', reason: null });
     expect(refused(r, 'submit_closed')).toBe('PROTOCOL_CLOSED');
     expect(ok<Record<string, unknown>>(r, 'stopped')).toEqual({ status: 'stopped', reason: 'Rained off', finished: true });
     const pushes = ok<Push[]>(r, 'pushes');
@@ -1047,7 +1054,7 @@ describe.skipIf(!docker)('protocols engine flows (rolled-back transactions)', ()
     expect(ok<Moved>(r, 'stop_decision')).toMatchObject({ step_status: 'stopped', run_status: 'stopped' });
     expect(ok<Record<string, unknown>>(r, 'stopped2')).toEqual({ run: 'stopped', reason: null });
     expect(ok<Push[]>(r, 'pushes2').some((p) => p.payload.title_key === 'step_stopped' && p.to === SEED_STAFF_IDS.court_desk)).toBe(true);
-    expect(ok<Array<{ hook: string }>>(r, 'hooks').filter((h) => h.hook === 'stop_tournament')).toHaveLength(2);
+    expect(ok<Array<{ hook: string }>>(r, 'hooks').filter((h) => h.hook === 'stop_tournament')).toHaveLength(3); // 0391: + the owner's reasonless stop of run3
   });
 
   it('How it works: dependencies, the fixed steps and OK, and a snapshot that takes the fixed OK from the def', () => {

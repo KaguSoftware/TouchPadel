@@ -28,6 +28,7 @@ export const ROLES = [
   'assistant_barista',
   'waiter',
   'shop_staff',
+  'dev',
   'manager',
   'owner',
 ] as const;

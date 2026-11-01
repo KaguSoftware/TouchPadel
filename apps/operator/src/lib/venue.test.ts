@@ -35,7 +35,8 @@ describe('branchTopic', () => {
     expect(branchTopic('courts', A)).toBe(`courts:${A}`);
     expect(branchTopic('checklists', A)).toBe(`checklists:${A}`);
     expect(branchTopic('menu', A)).toBe('menu');
-    expect(branchTopic('kds', null)).toBe('kds');
+    // 0382: no bare per-branch topic; nothing to join until the branch is known.
+    expect(branchTopic('kds', null)).toBeNull();
   });
 });
 

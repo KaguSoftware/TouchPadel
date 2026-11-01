@@ -8,7 +8,8 @@
  * at the till and an unlogged discount.
  *
  * 0078 raised it from 4 digits to 6 and refused the three shapes a person
- * actually picks when told "six digits".
+ * actually picks when told "six digits". 0381 (F-50) set the floor back to 4
+ * digits on the owner's word; the shapes are still refused at every length.
  */
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -56,16 +57,32 @@ describe.skipIf(!up)('0078 staff PIN strength (SEC-13)', () => {
   const set = (pin: string) =>
     appRpc(owner, 'set_staff_pin', { p_staff_id: staffId, p_pin: pin }).then(outcome);
 
-  it('refuses anything shorter than six digits — the old 4-digit floor is gone', async () => {
-    for (const pin of ['4321', '12345', '1', '']) {
+  // 0381 (F-50): the floor is 4 digits again; the ceiling stays 12.
+  it('refuses anything shorter than four digits or longer than twelve', async () => {
+    for (const pin of ['123', '91', '1', '', '9047163852713']) {
       const res = await set(pin);
       expect(res.ok, `${pin} should be refused`).toBe(false);
       expect(res.errorMessage).toMatch(/PIN_FORMAT/);
     }
   });
 
+  it('accepts a real four- and five-digit PIN (0381, F-50)', async () => {
+    for (const pin of ['7192', '3805', '48291', '904716385271']) {
+      const res = await set(pin);
+      expect(res.ok, `${pin} should be accepted: ${res.errorMessage}`).toBe(true);
+    }
+  });
+
+  it('still refuses a weak four-digit PIN', async () => {
+    for (const pin of ['1111', '0000', '1234', '4321', '7890']) {
+      const res = await set(pin);
+      expect(res.ok, `${pin} should be refused`).toBe(false);
+      expect(res.errorMessage).toMatch(/PIN_WEAK/);
+    }
+  });
+
   it('refuses non-digits', async () => {
-    for (const pin of ['12345a', 'abcdef', '123 456', '12-3456']) {
+    for (const pin of ['12345a', 'abcdef', '123 456', '12-3456', '12a4']) {
       const res = await set(pin);
       expect(res.ok, `${pin} should be refused`).toBe(false);
       expect(res.errorMessage).toMatch(/PIN_FORMAT/);

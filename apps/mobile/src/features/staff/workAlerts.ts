@@ -22,6 +22,8 @@ import { useChecklistsLive } from './checklists/live';
 import { fetchMyWork } from './protocols/api';
 import { staffKeys } from './keys';
 import { waitingCount } from './workCount';
+import { useStaffStatus } from './StaffStatusProvider';
+import { pageBlocked } from './access';
 
 /**
  * How much on the work alerts page waits on the person at `venueId`: the same
@@ -31,18 +33,23 @@ import { waitingCount } from './workCount';
  */
 export function useWaitingCount(venueId: string | null): number {
   useChecklistsLive(venueId);
+  // A part the owner blocked for this person (0345, F-16) counts nothing:
+  // the work alerts page leaves it out, so its badge does too.
+  const { status } = useStaffStatus();
+  const showLists = status.kind !== 'staff' || !pageBlocked('staff-checklist', status.staff);
+  const showWork = status.kind !== 'staff' || !pageBlocked('staff-step', status.staff);
   const lists = useQuery({
     queryKey: staffKeys.checklists(venueId ?? ''),
     queryFn: () => fetchChecklistsToday(venueId!),
-    enabled: !!venueId,
+    enabled: !!venueId && showLists,
   });
   const work = useQuery({
     queryKey: staffKeys.work(venueId ?? ''),
     queryFn: () => fetchMyWork(venueId!),
-    enabled: !!venueId,
+    enabled: !!venueId && showWork,
   });
   if (!venueId) return 0;
-  return waitingCount(lists.data, work.data);
+  return waitingCount(showLists ? lists.data : null, showWork ? work.data : null);
 }
 
 export function useWorkAlerts() {

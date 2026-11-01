@@ -134,6 +134,8 @@ export const branchesEn = {
     title: 'Stations',
     intro: 'Every café cashier, desk and kitchen screen belongs to one branch.',
     register: 'Register this station',
+    // F-65: the toast says what happened, not the button.
+    registered: 'This station is registered.',
     name: 'Station name',
     nameHint: 'Capital letters, digits and dashes, for example TILL-2.',
     mode: 'What it is',

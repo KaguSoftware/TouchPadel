@@ -594,4 +594,16 @@ export const courtDeskAr: DeepMessages<typeof courtDeskEn> = {
       searchAria: 'ابحث في الفواتير',
     },
   },
+  receipt: {
+    print: 'طباعة الإيصال',
+    heading: 'إيصال الملعب',
+    court: 'الملعب',
+    time: 'الوقت',
+    guest: 'الضيف',
+    paidCash: 'مدفوع نقدًا',
+    paidCard: 'مدفوع ببطاقة',
+    change: 'الباقي المُعاد',
+    refunded: 'المبلغ المُستردّ',
+    thanks: 'شكرًا للعبكم معنا.',
+  },
 };

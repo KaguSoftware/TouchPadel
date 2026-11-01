@@ -47,6 +47,7 @@ describe('STAFF_ROLES', () => {
       'assistant_barista',
       'waiter',
       'shop_staff',
+      'dev',
     ]);
   });
 
@@ -54,9 +55,10 @@ describe('STAFF_ROLES', () => {
     expect(RETIRED_ROLES).toEqual(['prep']);
   });
 
-  it('hires every role but prep and owner (§2.1 HIREABLE)', () => {
+  it('hires every role but prep, owner and dev (§2.1 HIREABLE)', () => {
+    // The developer (0392) is never hired through a protocol: the owner makes the account.
     expect([...HIREABLE_ROLES].sort()).toEqual(
-      STAFF_ROLES.filter((r) => r !== 'prep' && r !== 'owner').sort(),
+      STAFF_ROLES.filter((r) => r !== 'prep' && r !== 'owner' && r !== 'dev').sort(),
     );
   });
 
@@ -197,6 +199,7 @@ describe('teams, the twins of app.staff_team and app.staff_team_head (0170)', ()
       assistant_barista: 'bar',
       shop_staff: null,
       waiter: null,
+      dev: null,
     });
   });
 

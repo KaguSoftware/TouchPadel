@@ -715,6 +715,8 @@ export interface DrillTransaction {
   reference: string | null;
   /** The facts behind `label`, when the server sends them (0102). */
   detail: Record<string, unknown> | null;
+  /** 0388 (F-14): the row's business date (the branch's day start), when the server sends it. */
+  day?: string | null;
 }
 
 export function readDrill(payload: unknown): DrillTransaction[] {
@@ -729,7 +731,45 @@ export function readDrill(payload: unknown): DrillTransaction[] {
     staffId: str(t.staffId),
     reference: str(t.reference),
     detail: obj(t.detail),
+    ...(typeof t.day === 'string' ? { day: t.day } : {}),
   }));
+}
+
+/** 0388 (F-14): the figure's totals over EVERY matching transaction, not the 500 listed. */
+export interface DrillTotals {
+  count: number;
+  amountIqd: number;
+  kinds: { key: string; count: number; sum: number }[];
+  days: Record<string, { count: number; sum: number }>;
+}
+
+export interface DrillAnswer {
+  rows: DrillTransaction[];
+  /** Null from a server before 0388: the window then sums what it lists. */
+  totals: DrillTotals | null;
+  capped: boolean;
+}
+
+export function readDrillAnswer(payload: unknown): DrillAnswer {
+  const p = obj(payload) ?? {};
+  const t = obj(p.totals);
+  const days: Record<string, { count: number; sum: number }> = {};
+  for (const [k, v] of Object.entries(obj(t?.days) ?? {})) {
+    const d = obj(v);
+    if (d) days[k] = { count: num(d.count) ?? 0, sum: num(d.sum) ?? 0 };
+  }
+  return {
+    rows: readDrill(payload),
+    totals: t
+      ? {
+          count: num(t.count) ?? 0,
+          amountIqd: num(t.amountIqd) ?? 0,
+          kinds: list(t.kinds).flatMap((k) => (typeof k.key === 'string' ? [{ key: k.key, count: num(k.count) ?? 0, sum: num(k.sum) ?? 0 }] : [])),
+          days,
+        }
+      : null,
+    capped: p.capped === true,
+  };
 }
 
 // ---------------------------------------------------------------------------

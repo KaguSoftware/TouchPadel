@@ -197,9 +197,7 @@ export function useMyMatches(scope: MatchScope) {
   return useQuery({
     queryKey: matchKeys.mine(scope),
     queryFn: () => fetchMyMatches(supabase, scope),
-    enabled: !!session && onlinePaymentsShipped(),
-    // Store build: nothing cached can show a match either.
-    select: (rows) => (onlinePaymentsShipped() ? rows : rows.slice(0, 0)),
+    enabled: !!session,
     staleTime: 30_000,
   });
 }
@@ -210,7 +208,8 @@ export function useMyTickets(enabled = true) {
   return useQuery({
     queryKey: matchKeys.tickets,
     queryFn: () => fetchMyTickets(supabase),
-    enabled: enabled && !!session,
+    // A build without online payment sells no tickets and shows no wallet.
+    enabled: enabled && !!session && onlinePaymentsShipped(),
     staleTime: 10_000,
   });
 }
@@ -222,13 +221,18 @@ export function useMyTickets(enabled = true) {
  */
 export function useMatchPayAtDesk(): boolean {
   const { session } = useAuth();
+  // A build without online payment (F-02) never offers tickets: every seat is
+  // paid at the desk. The server agrees while online payments are paused
+  // (0340/0370 keep match_payment_mode 'desk'); a refusal that still asks for
+  // tickets lands on Home through the /tickets gate.
+  const shipped = onlinePaymentsShipped();
   const q = useQuery({
     queryKey: matchKeys.payAtDesk,
     queryFn: () => fetchMatchPayAtDesk(supabase),
-    enabled: !!session,
+    enabled: !!session && shipped,
     staleTime: 60_000,
   });
-  return q.data === true;
+  return !shipped || q.data === true;
 }
 
 /** The players the guest blocked (§4.17). */

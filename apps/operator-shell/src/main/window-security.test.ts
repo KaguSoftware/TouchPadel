@@ -8,6 +8,8 @@ import {
   LAYOUT_MIN_HEIGHT,
   LAYOUT_MIN_WIDTH,
   openingWindowSize,
+  kioskHardening,
+  shouldRefocusOnBlur,
   type NavigationPolicy,
 } from './window-security';
 
@@ -233,5 +235,38 @@ describe('openingWindowSize', () => {
     const open = openingWindowSize(floor, { width: 1333, height: 777 });
     expect(Number.isInteger(open.width)).toBe(true);
     expect(Number.isInteger(open.height)).toBe(true);
+  });
+});
+
+// F-44: a locked station keeps Alt+Tab and the Windows key as far as Electron
+// allows; the full block is the OS kiosk policy (station setup runbook).
+describe('kioskHardening', () => {
+  it('takes Alt+Tab, Alt+Esc, Ctrl+Esc and the Windows-key combos on Windows', () => {
+    const w = kioskHardening('win32');
+    expect(w.alwaysOnTop).toBe(true);
+    expect(w.refocus).toBe(true);
+    for (const combo of ['Alt+Tab', 'Alt+Shift+Tab', 'Alt+Esc', 'Ctrl+Esc', 'Super+D', 'Super+Tab', 'Super+R']) {
+      expect(w.shortcuts).toContain(combo);
+    }
+    // Every entry is a key WITH a modifier: Electron has no bare-modifier accelerator.
+    for (const combo of w.shortcuts) expect(combo).toMatch(/^(Alt|Ctrl|Super)(\+(Shift|Ctrl|Alt))*\+[A-Za-z0-9]+$/);
+    expect(new Set(w.shortcuts).size).toBe(w.shortcuts.length);
+  });
+
+  it('leaves macOS to the kiosk presentation options', () => {
+    expect(kioskHardening('darwin')).toEqual({ alwaysOnTop: false, refocus: false, shortcuts: [] });
+  });
+});
+
+describe('shouldRefocusOnBlur', () => {
+  const base = { platform: 'win32' as NodeJS.Platform, locked: true, released: false, destroyed: false };
+  it('takes focus back on a locked Windows station', () => {
+    expect(shouldRefocusOnBlur(base)).toBe(true);
+  });
+  it('never on a released, unlocked or destroyed window, or on macOS', () => {
+    expect(shouldRefocusOnBlur({ ...base, released: true })).toBe(false);
+    expect(shouldRefocusOnBlur({ ...base, locked: false })).toBe(false);
+    expect(shouldRefocusOnBlur({ ...base, destroyed: true })).toBe(false);
+    expect(shouldRefocusOnBlur({ ...base, platform: 'darwin' })).toBe(false);
   });
 });

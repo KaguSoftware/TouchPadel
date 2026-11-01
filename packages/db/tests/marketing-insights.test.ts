@@ -20,6 +20,7 @@
 import { execFileSync } from 'node:child_process';
 import { describe, it, expect } from 'vitest';
 import { stackAvailable, SEED_STAFF_IDS } from './helpers';
+import { parseInsights, shownShares } from '../../../apps/operator/src/features/insights/insightsLogic';
 
 const up = await stackAvailable();
 const CONTAINER = process.env.SUPABASE_DB_CONTAINER ?? 'supabase_db_touchpadel';
@@ -102,6 +103,33 @@ describe.skipIf(!docker)('0360 marketing_insights', () => {
       if (path.endsWith('.value')) expect(n === 0 || n >= 10, path).toBe(true);
     }
     expect(JSON.stringify(payload)).not.toMatch(/iqd/i);
+  });
+
+  // F-38 (Majed 2026-11-01): the page's percentages never disagree with the
+  // server's. The operator's own reader and its share helper run on the real
+  // payload: every share the server sent comes out unchanged.
+  it("the operator page shows exactly the server's shares (F-38)", () => {
+    const at = (o: unknown, ...keys: string[]): unknown =>
+      keys.reduce<unknown>((v, k) => (v !== null && typeof v === 'object' ? (v as Record<string, unknown>)[k] : undefined), o);
+    const payload: unknown = JSON.parse(as(MARKETING, CALL));
+    const parsed: unknown = parseInsights(payload);
+    const pairs: [string, unknown, unknown][] = [
+      ['channels.appShare', at(payload, 'channels', 'appShare'), at(parsed, 'channels', 'appShare')],
+      ['channels.deskShare', at(payload, 'channels', 'deskShare'), at(parsed, 'channels', 'deskShare')],
+      ['mix.courts', at(payload, 'mix', 'courts'), at(parsed, 'mix', 'courts')],
+      ['mix.cafe', at(payload, 'mix', 'cafe'), at(parsed, 'mix', 'cafe')],
+      ['mix.shop', at(payload, 'mix', 'shop'), at(parsed, 'mix', 'shop')],
+      ['guests.newShare', at(payload, 'guests', 'newShare'), at(parsed, 'players', 'newShare')],
+      ['guests.returningShare', at(payload, 'guests', 'returningShare'), at(parsed, 'players', 'returningShare')],
+      ['cafe.crossoverShare', at(payload, 'cafe', 'crossoverShare'), at(parsed, 'cafe', 'crossoverShare')],
+    ];
+    for (const [path, server, shown] of pairs) expect(shown, path).toBe(server === undefined ? null : server);
+    type Bucket = { bucket: string; share: number | null };
+    for (const list of ['genders', 'ages', 'levels', 'interests'] as const) {
+      const server = (at(payload, 'people', list) ?? []) as Bucket[];
+      const shown = shownShares(((at(parsed, 'people', list) ?? []) as Bucket[]).map((b) => ({ key: b.bucket, label: b.bucket, share: b.share })));
+      expect(shown.map((x) => [x.key, x.share]), list).toEqual(server.map((b) => [b.bucket, b.share]));
+    }
   });
 
   it('refuses a backwards range', () => {

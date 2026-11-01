@@ -353,7 +353,8 @@ export function inventoryCron(migrations = readMigrations()) {
   const jobs = new Map();
   for (const { number, sql } of migrations) {
     // The command is a plain literal or a dollar-quoted block ($tag$ … $tag$).
-    for (const m of sql.matchAll(/cron\.schedule\(\s*'([a-z_][a-z0-9_]*)'\s*,\s*'([^']+)'\s*,\s*(?:'((?:[^']|'')*)'|\$([a-z_0-9]*)\$([\s\S]*?)\$\4\$)/g)) {
+    // Since 0385 (F-55) a migration schedules through app.ensure_cron, same arguments.
+    for (const m of sql.matchAll(/(?:cron\.schedule|app\.ensure_cron)\(\s*'([a-z_][a-z0-9_]*)'\s*,\s*'([^']+)'\s*,\s*(?:'((?:[^']|'')*)'|\$([a-z_0-9]*)\$([\s\S]*?)\$\4\$)/g)) {
       if (!jobs.has(m[1])) jobs.set(m[1], { name: m[1], schedules: [] });
       const command = m[3] !== undefined ? m[3].replace(/''/g, "'") : squash(m[5]);
       jobs.get(m[1]).schedules.push({ schedule: m[2], command, migration: number });

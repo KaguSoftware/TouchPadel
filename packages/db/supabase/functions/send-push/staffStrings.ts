@@ -341,5 +341,7 @@ export function staffMessage(
   const data: Record<string, string> = { kind };
   if (typeof payload.route === 'string' && routes.has(payload.route)) data.route = payload.route;
   if (typeof payload.id === 'string' && payload.id) data.id = payload.id;
+  // The phone routes a push whose route is only 'staff' to its own page by this key.
+  data.title_key = key;
   return { ok: true, title: copy.title, body, data };
 }

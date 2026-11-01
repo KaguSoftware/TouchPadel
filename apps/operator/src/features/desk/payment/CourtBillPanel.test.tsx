@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { LocaleProvider } from '../../../lib/i18n';
@@ -7,6 +7,7 @@ import { mutate } from '../../../lib/mutate';
 import { appRpc } from '../../../lib/appRpc';
 import { CourtBillView } from './CourtBillPanel';
 import type { BookingBill, BookingBillMatch, LiveTab } from './deskPaymentLogic';
+import { setCloudFetcherForTests } from '../../till/kitchenReachStore';
 
 // The bill panel over a real query client. Writes are mocked at mutate() and
 // appRpc(); the signed-in role at useAuth, so permissionsFor and canAccess run
@@ -104,6 +105,15 @@ beforeEach(() => {
 });
 
 describe('CourtBillView', () => {
+  it("F-11: a café order on the booking's bill that no kitchen screen drew is flagged at the desk", async () => {
+    setCloudFetcherForTests(async () => [
+      { id: 'k1', status: 'queued', createdAtMs: Date.now() - 60_000, seenAtMs: null, tabId: 't1', key: null },
+    ]);
+    view(bill({ live_tab: tab() }));
+    expect((await screen.findByTestId('kitchen-not-received')).textContent).toContain('Not received by the kitchen yet');
+    setCloudFetcherForTests(async () => []);
+  });
+
   it('not charged: says what is owed and opens the booking bill when the clerk takes cash', async () => {
     const user = userEvent.setup();
     const { onRefetch } = view(bill());
@@ -344,5 +354,15 @@ describe('CourtBillView — an open match booking', () => {
     viewMatch(bill(), true);
     expect(screen.queryByRole('button', { name: 'Add a cafe bill' })).toBeNull();
     expect(screen.getByRole('button', { name: 'Cash' })).toBeTruthy();
+  });
+});
+
+describe('CourtBillView — printed receipt (F-30)', () => {
+  it('offers Print receipt once there is a bill, and not before', () => {
+    view(bill());
+    expect(screen.queryByTestId('court-receipt-print')).toBeNull();
+    cleanup();
+    view(bill({ live_tab: tab() }));
+    expect(screen.getByTestId('court-receipt-print').textContent).toContain('Print receipt');
   });
 });

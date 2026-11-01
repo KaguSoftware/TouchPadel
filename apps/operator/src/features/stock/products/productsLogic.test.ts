@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { flattenCatalogue, matchesProductLine, productLaunched, productLock, sizeArgs, sizeProblem, supplierLinkToSave, type SizeDraft } from './productsLogic';
+import { createProductArgs, flattenCatalogue, matchesProductLine, productLaunched, productLock, sizeArgs, sizeProblem, supplierLinkToSave, type SizeDraft } from './productsLogic';
 import type { IngredientRow, OnHandRow, ShopCatalogue, SupplierRow } from '../stockKeys';
 
 const catalogue: ShopCatalogue = {
@@ -140,5 +140,35 @@ describe('supplierLinkToSave (0322)', () => {
     expect(supplierLinkToSave(stored, null)).toEqual({ url: stored });
     expect(supplierLinkToSave('https://supplier.example.iq/p/vertex-2', stored)).toEqual({ url: 'https://supplier.example.iq/p/vertex-2' });
     expect(supplierLinkToSave('  ', stored)).toEqual({ url: null });
+  });
+});
+
+describe('0389 / F-35 / F-36', () => {
+  const draft: SizeDraft = { nameEn: 'One size', nameAr: 'مقاس واحد', price: '250000', sku: '', barcode: '', cost: '', low: '' };
+  it('refuses Arabic digits in the price, cost and low level with their own problem', () => {
+    expect(sizeProblem({ ...draft, price: '٢٥٠٠٠٠' })).toBe('englishDigits');
+    expect(sizeProblem({ ...draft, cost: '١٠' })).toBe('englishDigits');
+    expect(sizeProblem({ ...draft, low: '٣' })).toBe('englishDigits');
+    expect(sizeProblem(draft)).toBeNull();
+  });
+  it('sends the product and its first size in one call, with the purchase line when approving', () => {
+    const args = createProductArgs({ sectionId: 's1', productName: { en: ' Vertex ', ar: ' فيرتكس ' }, draft, supplierId: '', active: false, key: 'k1', purchaseLineId: 'l1' });
+    expect(args).toEqual({
+      p_category_id: 's1',
+      p_name_en: 'Vertex',
+      p_name_ar: 'فيرتكس',
+      p_size_name_en: 'One size',
+      p_size_name_ar: 'مقاس واحد',
+      p_price_iqd: 250000,
+      p_sku: null,
+      p_barcode: null,
+      p_supplier_id: null,
+      p_pack_cost_iqd: null,
+      p_low_stock_threshold: null,
+      p_is_active: false,
+      p_purchase_line_id: 'l1',
+      p_idempotency_key: 'k1',
+    });
+    expect(createProductArgs({ sectionId: 's1', productName: { en: 'A', ar: 'ب' }, draft, supplierId: 'sup', active: true, key: 'k2' }).p_purchase_line_id).toBeNull();
   });
 });

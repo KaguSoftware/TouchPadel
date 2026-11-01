@@ -47,10 +47,12 @@ vi.mock('../../lib/appRpc', async (importOriginal) => ({
 
 const uploadFile = vi.fn();
 const deleteFile = vi.fn();
+const fetchFileBlob = vi.fn();
 vi.mock('./api', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
   uploadFile: (...a: unknown[]) => uploadFile(...a),
   deleteFile: (...a: unknown[]) => deleteFile(...a),
+  fetchFileBlob: (...a: unknown[]) => fetchFileBlob(...a),
 }));
 
 import { FilesPageScreen } from './FilesPage';
@@ -82,6 +84,20 @@ beforeEach(() => {
 });
 
 describe('FilesPageScreen', () => {
+  it('F-64: a PDF opens in the app\'s own viewer; another type offers no View', async () => {
+    const user = userEvent.setup();
+    fetchFileBlob.mockRejectedValue(new Error('gone'));
+    files = () => [file(), file({ id: 'f2', name: 'Licence.webp', mime: 'image/jpeg', encoding: 'webp' })];
+    renderPage();
+    await screen.findByRole('table', { name: 'Saved files' });
+    expect(screen.queryByTestId('files.view.f2')).toBeNull();
+    await user.click(screen.getByTestId(`files.view.${file().id}`));
+    const viewer = await screen.findByRole('dialog', { name: 'Water contract.pdf' });
+    // The blob could not be read: the viewer says so instead of hanging.
+    expect(await within(viewer).findByText('This file could not be opened here. Download it instead.')).toBeTruthy();
+    expect(fetchFileBlob).toHaveBeenCalledWith(file().blob_path, 'gzip', 'application/pdf');
+  });
+
   it('teaches the first file when there are none', async () => {
     renderPage();
     expect(await screen.findByRole('heading', { level: 1, name: 'Files' })).toBeTruthy();

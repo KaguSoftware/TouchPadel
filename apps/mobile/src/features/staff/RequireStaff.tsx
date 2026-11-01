@@ -6,6 +6,7 @@
  *                way to try again or sign out, never an endless wheel
  *   guest, none  the guest app
  *   wrong role   Today
+ *   blocked page Today: the owner unticked it for this person (0345, F-16)
  *   revoked      "This staff account is switched off", full screen, Sign out
  *   unsupported  "Update the app", full screen, Sign out
  *
@@ -27,6 +28,7 @@ import { ErrorState } from '../../components/states';
 import { signOut } from '../auth/api';
 import { mapErrorToKey } from '../booking/errors';
 import { staffGate } from './gate';
+import type { StaffPage } from './access';
 import { useStaffStatus } from './StaffStatusProvider';
 import { pingSignedOut } from './activity/api';
 
@@ -145,14 +147,22 @@ export function StaffBlocked({ kind }: { kind: 'revoked' | 'unsupported' }) {
 }
 
 export function RequireStaff({
+  page,
   roles,
   children,
 }: {
+  /**
+   * The screen this gate stands before, by file name (`staff-stock`): what
+   * the owner's blocked pages are checked against (access.ts). Required, so
+   * no staff screen can leave the check out; access.test.ts checks each
+   * screen names its own file.
+   */
+  page: StaffPage;
   roles?: readonly StaffRole[];
   children: ReactNode;
 }) {
   const { status } = useStaffStatus();
-  switch (staffGate(status, roles)) {
+  switch (staffGate(status, roles, page)) {
     case 'loading':
       return <StaffPending />;
     case 'redirect-guest':

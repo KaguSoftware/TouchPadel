@@ -18,11 +18,17 @@ export function ShareBars({
   segments,
   format,
   pct,
+  asGiven = false,
 }: {
   segments: readonly ShareSegment[];
   format: (n: number) => string;
   /** Percent formatter (already localised). */
   pct: (n: number) => string;
+  /**
+   * F-38: each value IS its share, a whole percent the server rounded (Insights):
+   * drawn and said as given, never rescaled to add up to 100.
+   */
+  asGiven?: boolean;
 }) {
   const { HEAT_RAMP } = useChartColors();
   // Six ramp steps for up to six segments; the sixth repeats so a seventh segment stays legible.
@@ -30,7 +36,7 @@ export function ShareBars({
   const total = segments.reduce((s, seg) => s + Math.max(0, seg.value), 0);
   const shares = segments.map((seg, i) => ({
     ...seg,
-    share: total > 0 ? (Math.max(0, seg.value) / total) * 100 : 0,
+    share: asGiven ? Math.max(0, seg.value) : total > 0 ? (Math.max(0, seg.value) / total) * 100 : 0,
     fill: STEPS[Math.min(i, STEPS.length - 1)]!,
     ink: i >= 3 ? 'var(--tp-brand-white)' : 'var(--tp-fg)',
   }));

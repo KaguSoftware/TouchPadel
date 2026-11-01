@@ -49,6 +49,7 @@ import { RecordView, type NameBook } from './RecordView';
 import { StepContextPanel, useStepContexts, type StepContexts } from './StepContext';
 import { RecordForm, type FormEnv, type SizeRow } from './StepForm';
 import type { Targets } from './priceTargets';
+import { useConfirm } from '../../components/ConfirmDialog';
 
 const muted = { color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' } as const;
 
@@ -83,6 +84,7 @@ function StepBody({ d, runDetail, ctx, mgmt }: { d: StepDetail; runDetail: RunDe
   const { tr, locale } = useLocale();
   const qc = useQueryClient();
   const toast = useToast();
+  const confirm = useConfirm();
   const { run, step, can } = d;
   const [deciding, setDeciding] = useState(false);
   const [skipping, setSkipping] = useState(false);
@@ -118,6 +120,14 @@ function StepBody({ d, runDetail, ctx, mgmt }: { d: StepDetail; runDetail: RunDe
 
   async function withdraw() {
     if (!can.withdraw_submission_id) return;
+    // F-61: withdrawing what you sent asks first.
+    const ok = await confirm({
+      title: tr('ws.protocols.run.withdrawStepTitle'),
+      body: tr('ws.protocols.run.withdrawStepBody'),
+      confirmLabel: tr('ws.protocols.run.withdrawStepConfirm'),
+      kind: 'danger',
+    });
+    if (!ok) return;
     setWithdrawing(true);
     setError(null);
     try {

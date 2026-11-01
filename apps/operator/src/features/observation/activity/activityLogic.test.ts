@@ -31,7 +31,6 @@ const row = (over: Partial<ActivityRow> = {}): ActivityRow => ({
   staffId: 's1',
   name: 'Hasan',
   role: 'waiter',
-  onBreak: false,
   operator: null,
   mobile: null,
   ...over,

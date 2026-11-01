@@ -17,7 +17,6 @@ import { Button, Screen } from '../../src/components/ui';
 import { ErrorState } from '../../src/components/states';
 import { useReturnTo } from '../../src/navigation/back';
 import { CategoryPill, MatchRestrictedCard } from '../../src/components/match';
-import { withOnlinePaymentsGate } from '../../src/features/deposit/OnlinePaymentsGate';
 
 /**
  * The invite link's landing (docs/design/open-matches/guest.md §4.18,
@@ -249,4 +248,6 @@ function SignedOut({ token }: { token: string }) {
   );
 }
 
-export default withOnlinePaymentsGate(MatchLinkScreen);
+// Open matches ship in every build: since 0370 a seat is paid at the desk
+// without online payment (F-02 keeps only the tickets and /pay behind the gate).
+export default MatchLinkScreen;

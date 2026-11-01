@@ -236,7 +236,7 @@ function ReviewScreen() {
 
 export default function StaffOrderReviewRoute() {
   return (
-    <RequireStaff roles={FLOOR_ROLES}>
+    <RequireStaff page="staff-order-review" roles={FLOOR_ROLES}>
       <ReviewScreen />
     </RequireStaff>
   );

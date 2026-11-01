@@ -99,6 +99,18 @@ export const opErrorsCodesAr: DeepMessages<typeof opErrorsCodesEn> = {
   FILE_TOO_LARGE: 'حجم هذا الملف أكبر من 50 ميغابايت. قسّمه أو احفظ نسخة أصغر.',
   FILES_QUOTA_FULL: 'امتلأت مساحة الملفات في هذا الفرع. احذف الملفات التي لم تعد تحتاجها.',
   WAGE_ADVANCE_TOO_LARGE: 'هذا المبلغ أكبر مما بقي له من راتب هذا الشهر.',
+  // 0387: a wage, advance or coach statement paid from the safe needs the money in it.
+  SAFE_NOT_ENOUGH: 'لا يوجد في القاصة مبلغ كافٍ. أضِف نقدًا إلى القاصة أولًا، أو ادفع بتحويل مصرفي.',
+  // 0390: a closed day with bookings on it.
+  CLOSED_DAY_HAS_BOOKINGS: 'ما زالت هناك حجوزات في ذلك اليوم. ألغِ كل حجز أو سجّله كعدم حضور أو استلم دفعته، ثم أغلق اليوم.',
+  // 0401 (F-70): a coach sets the level only of a linked student.
+  LEVEL_NOT_LINKED: 'لم يُربَط حساب هذا الطالب بعد. أكّد الربط أولًا، ثم حدّد مستواه.',
+  // 0384 (F-16): a page the owner blocked for this person, on the server too.
+  AREA_BLOCKED: 'حجب المالك هذه الصفحة عنك. اطلب منه إتاحتها إن كنت تحتاج إليها.',
+  // 0386 (F-55): a setup step failed on the server.
+  SETUP_FAILED: 'تعذّرت خطوة إعداد على الخادم. أبلِغ المطوّر، فالخطأ مسجَّل في صفحة المراقبة.',
   // Gender hours (0353).
   SLOT_GENDER_RESTRICTED: 'هذا الملعب مخصص للنساء فقط أو للرجال فقط في هذا الوقت. اختر وقتًا أو ملعبًا آخر.',
+  // 0396 (F-57): a completed kitchen ticket comes back only within ten minutes.
+  TICKET_RECALL_EXPIRED: 'أُنجزت هذه التذكرة قبل أكثر من عشر دقائق، فلم يعد ممكنًا إرجاعها. اطلب من الكاشير إرسال الطلب مرة أخرى.',
 };

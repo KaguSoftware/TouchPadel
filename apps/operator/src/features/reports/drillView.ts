@@ -4,7 +4,9 @@
  * the figure card's totals (Sait, 2026-10-19).
  */
 import { VENUE_TZ } from '@touch/i18n';
+import { BUSINESS_DAY_START_DEFAULT, businessDayOf } from '@touch/core';
 import type { DrillSub } from './drillWords';
+import type { DrillTotals } from './reportPayloads';
 
 /** The card colours a kind is drawn in; each has a --tp-breakdown-* and a --tp-split-* family. */
 export type DrillTone = 'green' | 'violet' | 'rose' | 'sky' | 'teal' | 'gold';
@@ -39,13 +41,47 @@ export function drillKindKey(sub: DrillSub | null, kind: string | null): string 
   return sub ?? kind ?? 'other';
 }
 
-const DAY = new Intl.DateTimeFormat('en-CA', { timeZone: VENUE_TZ, year: 'numeric', month: '2-digit', day: '2-digit' });
-
-/** YYYY-MM-DD at the venue, so a booking at 00:30 sits under its own night's date in Baghdad wherever the till is. */
-export function venueDay(iso: string | null): string | null {
+/**
+ * The BUSINESS day at the venue (F-14, F-37): Baghdad's clock wherever the till
+ * is, shifted by the day start (04:00 unless the settings say otherwise), so a
+ * sale at 01:30 sits under the night it belongs to, as every report counts it.
+ * The server sends each row's own `day` since 0388; this is the fallback.
+ */
+export function venueDay(iso: string | null, startHour: number = BUSINESS_DAY_START_DEFAULT): string | null {
   if (!iso) return null;
   const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? null : DAY.format(d);
+  return Number.isNaN(d.getTime()) ? null : businessDayOf(d, startHour, VENUE_TZ);
+}
+
+/**
+ * The figure card's totals (F-14). The window lists the newest 500 rows; past
+ * that the server's totals (0388) are the figure, so the card never sums a
+ * capped page. A kind tab reads that kind's server total; a place or a search
+ * narrows to what is listed, so it sums the rows shown.
+ */
+export function drillCardSummary(
+  local: DrillSummary,
+  answer: { totals: DrillTotals | null; capped: boolean },
+  filter: { kind: string | null; narrowed: boolean },
+): DrillSummary {
+  const t = answer.totals;
+  if (!answer.capped || !t || filter.narrowed) return local;
+  if (filter.kind) {
+    const k = t.kinds.find((x) => x.key === filter.kind);
+    return k ? { total: k.sum, count: k.count, kinds: [k], soleStaff: null } : local;
+  }
+  return { total: t.amountIqd, count: t.count, kinds: t.kinds, soleStaff: null };
+}
+
+/** A day's total in the table (F-14): the server's when the list is capped and unfiltered, else the rows'. */
+export function drillDayTotal(
+  day: string | null,
+  rows: readonly { amount: number | null }[],
+  answer: { totals: DrillTotals | null; capped: boolean },
+  filtered: boolean,
+): number {
+  const server = day && answer.capped && !filtered ? answer.totals?.days[day] : undefined;
+  return server ? server.sum : rows.reduce((a, r) => a + (r.amount ?? 0), 0);
 }
 
 export interface DrillSummary {

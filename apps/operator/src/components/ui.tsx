@@ -25,6 +25,7 @@ import { errorToMessageKey } from '../lib/errors';
 import { Icon, type IconName } from './icons';
 import { BrandBall } from './brand';
 import { SelectMenu } from './SelectMenu';
+import { PIN_MAX, PIN_MIN } from '../lib/pinRules';
 
 export const card: CSSProperties = {
   background: 'var(--tp-surface)',
@@ -965,7 +966,7 @@ export function PinReasonModal({
           <Button onClick={close} disabled={busy}>
             {tr('common.cancel')}
           </Button>
-          <Button kind="primary" busy={busy} disabled={pin.length < 4} onClick={() => onSubmit(pin, reason)}>
+          <Button kind="primary" busy={busy} disabled={pin.length < PIN_MIN} onClick={() => onSubmit(pin, reason)}>
             {tr('common.confirm')}
           </Button>
         </>
@@ -986,7 +987,7 @@ export function PinReasonModal({
           inputMode="numeric"
           autoComplete="off"
           value={pin}
-          maxLength={6}
+          maxLength={PIN_MAX}
           onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
         />
       </Field>

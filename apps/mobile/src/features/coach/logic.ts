@@ -23,6 +23,7 @@ import {
   wallTimeToUtc,
   weeklyLessonStarts,
 } from '@touch/core';
+import { parseStudentLevel, type StudentLevel } from './level';
 
 // ── Small readers ───────────────────────────────────────────────────────────
 
@@ -841,6 +842,11 @@ export interface RosterEntry {
   paymentMode: 'desk' | 'online';
   status: RosterStatus;
   attendance: Attendance | null;
+  /**
+   * 0401 (F-70): the student's claimed and confirmed level, ONLY for a place whose account link
+   * is confirmed; null for every other place. The coach may set it (features/coach/level.ts).
+   */
+  level: StudentLevel | null;
 }
 
 export interface CoachLessonCan {
@@ -924,6 +930,7 @@ function parseRosterEntry(raw: unknown): RosterEntry | null {
     attendance: (ATTENDANCE as readonly unknown[]).includes(raw.attendance)
       ? (raw.attendance as Attendance)
       : null,
+    level: parseStudentLevel(raw.level),
   };
 }
 

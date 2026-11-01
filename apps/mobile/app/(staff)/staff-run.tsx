@@ -390,7 +390,7 @@ function RunScreen() {
 
 export default function StaffRunRoute() {
   return (
-    <RequireStaff>
+    <RequireStaff page="staff-run">
       <RunScreen />
     </RequireStaff>
   );

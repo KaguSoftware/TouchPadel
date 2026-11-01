@@ -7,6 +7,7 @@ import {
   validateConnState,
   validateMutationEnvelope,
   validatePin,
+  validatePinTier,
   validatePrintJob,
   validateRefKey,
   IpcValidationError,
@@ -261,6 +262,17 @@ describe('validateConnState', () => {
     expect(validateConnState(false)).toBe(false);
     expect(() => validateConnState('up')).toThrow(IpcValidationError);
     expect(() => validateConnState(1)).toThrow(IpcValidationError);
+  });
+});
+
+describe('validatePinTier', () => {
+  it("defaults to 'manager' and takes 'self'; anything else is refused", () => {
+    expect(validatePinTier(undefined)).toBe('manager');
+    expect(validatePinTier(null)).toBe('manager');
+    expect(validatePinTier('manager')).toBe('manager');
+    expect(validatePinTier('self')).toBe('self');
+    expect(() => validatePinTier('owner')).toThrow(IpcValidationError);
+    expect(() => validatePinTier(1)).toThrow(IpcValidationError);
   });
 });
 

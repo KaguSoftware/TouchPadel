@@ -290,8 +290,8 @@ function WorthChecking({
   }
   if (staffQ.data) {
     const active = staffQ.data.filter((s) => s.is_active);
-    // Approvals only: a cashier without a PIN cannot take a break, but that is
-    // their editor's note, not a setup gap.
+    // Approvals only: a cashier without a PIN unlocks the station with their
+    // password, which is their editor's note, not a setup gap.
     const noPin = active.filter((s) => approvesWithPin(s.role) && !s.has_pin).length;
     if (noPin > 0) {
       rows.push({

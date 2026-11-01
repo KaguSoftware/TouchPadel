@@ -98,12 +98,19 @@ describe.skipIf(!up)('0064 idle lock', () => {
     }
   });
 
-  it('till_idle_lock_seconds is a registered, range-validated manager setting', async () => {
+  it('till_idle_lock_seconds is a registered, range-validated owner setting (0398, F-48)', async () => {
     // cafe_setting_specs itself is internal (not granted); the registration is
-    // proven through the write surface it powers.
-    const set = await appRpc(manager, 'set_cafe_setting', {
+    // proven through the write surface it powers. Since 0398 only the owner
+    // writes it; a manager is refused (tests/retired-station-wall.test.ts too).
+    const refused = outcome(
+      await appRpc(manager, 'set_cafe_setting', { p_key: 'till_idle_lock_seconds', p_value: 120 }),
+    );
+    expect(refused.errorMessage).toBe('FORBIDDEN');
+
+    const set = await appRpc(owner, 'set_cafe_setting', {
       p_key: 'till_idle_lock_seconds',
       p_value: 120,
+      p_venue_id: VENUE_A_ID,
     });
     expect(set.error).toBeNull();
     const { data } = await svc
@@ -115,9 +122,9 @@ describe.skipIf(!up)('0064 idle lock', () => {
     expect((data as { value: number }).value).toBe(120);
 
     const bad = outcome(
-      await appRpc(manager, 'set_cafe_setting', { p_key: 'till_idle_lock_seconds', p_value: 9999 }),
+      await appRpc(owner, 'set_cafe_setting', { p_key: 'till_idle_lock_seconds', p_value: 9999, p_venue_id: VENUE_A_ID }),
     );
     expect(bad.errorMessage).toContain('INVALID_SETTING_VALUE');
-    await appRpc(manager, 'set_cafe_setting', { p_key: 'till_idle_lock_seconds', p_value: 300 });
+    await appRpc(owner, 'set_cafe_setting', { p_key: 'till_idle_lock_seconds', p_value: 300, p_venue_id: VENUE_A_ID });
   });
 });

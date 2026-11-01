@@ -14,7 +14,6 @@ import { radius, space, useTheme } from '../src/theme';
 import { Button, Screen } from '../src/components/ui';
 import { EmptyState, ErrorState, SkeletonList } from '../src/components/states';
 import { ConfirmAlert, useToast } from '../src/components/overlays';
-import { withOnlinePaymentsGate } from '../src/features/deposit/OnlinePaymentsGate';
 
 /**
  * The players the guest blocked (docs/design/open-matches/guest.md §4.17),
@@ -157,4 +156,6 @@ function GuardedBlockedPlayersScreen() {
   );
 }
 
-export default withOnlinePaymentsGate(GuardedBlockedPlayersScreen);
+// Open matches ship in every build: since 0370 a seat is paid at the desk
+// without online payment (F-02 keeps only the tickets and /pay behind the gate).
+export default GuardedBlockedPlayersScreen;

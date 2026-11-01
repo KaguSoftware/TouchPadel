@@ -22,6 +22,8 @@ export const opErrorsTournamentsAr: DeepMessages<typeof opErrorsTournamentsEn> =
   TOURNAMENT_SEAT_TAKEN: 'حُجز هذا المقعد للتو. يمكن اختيار مقعد متاح آخر.',
   TOURNAMENT_ROUNDS_INVALID: 'تعذّر حفظ هذه الجولات. حدّث الصفحة ثم أنشئها من جديد.',
   TOURNAMENT_SCORE_REFUSED: 'تعذّر حفظ هذه النتيجة. راجِعها وحاول مجددًا.',
+  // 0390 (F-40): the draw waits for every registered player to be confirmed at the desk.
+  TOURNAMENT_UNCONFIRMED: 'بعض اللاعبين لم يُؤكَّدوا بعد. أكِّد كل مشارك من تبويب المشاركين، ثم ابدأ.',
   TOURNAMENT_UNDER_FILLED: 'عدد المسجّلين أقل من الحد الأدنى. أضِف لاعبين أو ألغِ البطولة.',
   TOURNAMENT_FINISH_REFUSED:
     'لا يمكن إنهاء هذه البطولة بعد. سجّل نتائج الجولة الجارية أولًا. إن لم تُلعب أي جولة، فألغِ البطولة.',

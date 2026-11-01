@@ -392,7 +392,7 @@ function RewardsAdminScreen() {
 
 export default function StaffRewardsAdminRoute() {
   return (
-    <RequireStaff roles={['owner']}>
+    <RequireStaff page="staff-rewards-admin" roles={['owner']}>
       <RewardsAdminScreen />
     </RequireStaff>
   );

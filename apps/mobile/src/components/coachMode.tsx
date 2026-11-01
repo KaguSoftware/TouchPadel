@@ -10,7 +10,9 @@
  * and "3/8" through `isolateLtr`; times through `formatTime`; money through
  * `formatIQD`. Colours come from the theme tokens only.
  */
-import { Image, Pressable, Switch, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Image, Modal, Platform, Pressable, ScrollView, Switch, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   countPhrase,
   formatDate,
@@ -28,6 +30,14 @@ import { brand, radius, space, useTheme } from '../theme';
 import { Button, Field, LinkText, SegmentedControl } from './ui';
 import { ChevronIcon, PhoneIcon, TrashIcon } from './icons';
 import { DateTimeField } from './DateTimeField';
+import {
+  LEVEL_NOTE_MAX,
+  levelIssue,
+  levelRole,
+  startingLevel,
+  type StudentLevel,
+} from '../features/coach/level';
+import { PLAY_LEVELS, type PlayLevel } from '../features/playProfile/logic';
 import {
   belowMinimum,
   branchesOff,
@@ -446,6 +456,7 @@ export function RosterRow({
   onCall,
   onMark,
   onMenu,
+  onLevel,
 }: {
   testID: string;
   entry: RosterEntry;
@@ -455,6 +466,8 @@ export function RosterRow({
   onCall: (phone: string) => void;
   onMark: (value: Attendance | 'clear') => void;
   onMenu: () => void;
+  /** 0401 (F-70): open the level sheet; the row offers it only for a linked student (`entry.level`). */
+  onLevel?: () => void;
 }) {
   const { t, locale } = useLocale();
   const { colors, fonts } = useTheme();
@@ -619,6 +632,9 @@ export function RosterRow({
             </View>
           ))
         : null}
+      {entry.level ? (
+        <StudentLevelLine testID={`${testID}.level`} level={entry.level} onSet={onLevel} />
+      ) : null}
       {markMode === 'edit' && entry.status === 'booked' ? (
         <View style={{ opacity: marking ? 0.6 : 1 }}>
           <SegmentedControl<MarkValue>
@@ -1123,5 +1139,229 @@ export function StatementCard({
         </View>
       ) : null}
     </View>
+  );
+}
+
+
+// ── A linked student's level (0401, F-70) ───────────────────────────────────
+
+const levelKey = (level: PlayLevel): MessageKey => `playProfile.survey.level.${level}.title` as MessageKey;
+
+/**
+ * Under a linked student's row: the club's confirmed level (and who confirmed it), what the
+ * player said, and "Set level". Only a place whose account link is confirmed carries a level.
+ */
+export function StudentLevelLine({
+  testID,
+  level,
+  onSet,
+}: {
+  testID: string;
+  level: StudentLevel;
+  onSet?: () => void;
+}) {
+  const { t } = useLocale();
+  const { colors, fonts } = useTheme();
+  const role = levelRole(level.confirmedRole);
+  const confirmed = level.confirmed
+    ? role
+      ? t('coaching.coach.level.confirmedBy', {
+          level: t(levelKey(level.confirmed)),
+          by: t(`coaching.coach.level.by.${role}` as MessageKey),
+        })
+      : t('coaching.coach.level.confirmed', { level: t(levelKey(level.confirmed)) })
+    : t('coaching.coach.level.notConfirmed');
+  const claimed = level.claimed
+    ? t('coaching.coach.level.claimed', { level: t(levelKey(level.claimed)) })
+    : t('coaching.coach.level.claimedNone');
+  return (
+    <View testID={testID} style={{ flexDirection: 'row', alignItems: 'center', gap: space.s }}>
+      <View style={{ flex: 1, gap: 1 }}>
+        <Text
+          testID={`${testID}.confirmed`}
+          style={{ fontFamily: fonts.body700, fontSize: 12.5, color: level.confirmed ? colors.ink : colors.mut }}
+        >
+          {confirmed}
+        </Text>
+        <Text testID={`${testID}.claimed`} style={{ fontFamily: fonts.body400, fontSize: 12, color: colors.mut2 }}>
+          {claimed}
+        </Text>
+        {level.note ? (
+          <Text numberOfLines={2} style={{ fontFamily: fonts.body400, fontSize: 12, color: colors.mut2 }}>
+            {isolate(level.note)}
+          </Text>
+        ) : null}
+      </View>
+      {onSet ? (
+        <Pressable
+          testID={`${testID}.set`}
+          accessibilityRole="button"
+          onPress={onSet}
+          style={({ pressed }) => ({
+            paddingStart: 12,
+            paddingEnd: 12,
+            paddingTop: 7,
+            paddingBottom: 7,
+            borderRadius: radius.pill,
+            backgroundColor: pressed ? colors.sub : colors.bg,
+            borderWidth: 1,
+            borderColor: colors.line,
+          })}
+        >
+          <Text style={{ fontFamily: fonts.body700, fontSize: 12, color: colors.blue }}>
+            {t('coaching.coach.level.set')}
+          </Text>
+        </Pressable>
+      ) : null}
+    </View>
+  );
+}
+
+/**
+ * The level sheet: the four levels, an optional one-line note (at most 120 characters), Save,
+ * and Clear while a level is confirmed. The write is the screen's (coach_set_student_level).
+ */
+export function StudentLevelSheet({
+  testID,
+  name,
+  level,
+  busy,
+  error,
+  onSave,
+  onClear,
+  onClose,
+}: {
+  testID: string;
+  /** The student's name as the roster shows it; null closes the sheet. */
+  name: string | null;
+  level: StudentLevel | null;
+  busy: boolean;
+  error: string | null;
+  onSave: (level: PlayLevel, note: string) => void;
+  onClear: () => void;
+  onClose: () => void;
+}) {
+  const { t, dir } = useLocale();
+  const { colors, fonts } = useTheme();
+  const insets = useSafeAreaInsets();
+  const visible = name !== null && level !== null;
+  const [picked, setPicked] = useState<PlayLevel | null>(null);
+  const [note, setNote] = useState('');
+  const [issue, setIssue] = useState<string | null>(null);
+  // Each opening starts from the student's current level and note.
+  useEffect(() => {
+    if (!visible || !level) return;
+    setPicked(startingLevel(level));
+    setNote(level.note ?? '');
+    setIssue(null);
+  }, [visible, level]);
+
+  const save = () => {
+    const problem = levelIssue(picked, note);
+    if (problem === 'NO_LEVEL') return setIssue(t('coaching.coach.level.pickFirst'));
+    if (problem === 'NOTE_TOO_LONG') return setIssue(t('coaching.coach.level.noteTooLong'));
+    setIssue(null);
+    onSave(picked!, note);
+  };
+
+  return (
+    <Modal
+      visible={visible}
+      animationType="slide"
+      presentationStyle={Platform.OS === 'ios' ? 'formSheet' : undefined}
+      onRequestClose={onClose}
+    >
+      <View testID={testID} style={{ flex: 1, direction: dir, backgroundColor: colors.bg }}>
+        <ScrollView
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={{
+            paddingStart: space.xl,
+            paddingEnd: space.xl,
+            paddingTop: space.xxl,
+            paddingBottom: 40 + insets.bottom,
+            gap: space.m,
+          }}
+        >
+          <Text style={{ fontFamily: fonts.display800, fontSize: 20, color: colors.ink }}>
+            {t('coaching.coach.level.sheetTitle', { name: isolate(name ?? '') })}
+          </Text>
+          <Text style={{ fontFamily: fonts.body400, fontSize: 13, lineHeight: 20, color: colors.mut }}>
+            {t('coaching.coach.level.sheetBody')}
+          </Text>
+          {level ? <StudentLevelLine testID={`${testID}.current`} level={level} /> : null}
+          <Text style={{ fontFamily: fonts.body700, fontSize: 13, color: colors.ink }}>
+            {t('coaching.coach.level.pick')}
+          </Text>
+          <View style={{ gap: space.s }}>
+            {PLAY_LEVELS.map((value) => {
+              const on = picked === value;
+              return (
+                <Pressable
+                  key={value}
+                  testID={`${testID}.option.${value}`}
+                  accessibilityRole="radio"
+                  accessibilityState={{ checked: on }}
+                  onPress={() => {
+                    setPicked(value);
+                    setIssue(null);
+                  }}
+                  style={{
+                    paddingStart: space.m,
+                    paddingEnd: space.m,
+                    paddingTop: 12,
+                    paddingBottom: 12,
+                    borderRadius: radius.button,
+                    borderWidth: on ? 2 : 1,
+                    borderColor: on ? colors.blue : colors.line,
+                    backgroundColor: colors.card,
+                  }}
+                >
+                  <Text style={{ fontFamily: on ? fonts.body800 : fonts.body600, fontSize: 14, color: colors.ink }}>
+                    {t(levelKey(value))}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+          <Field
+            testID={`${testID}.note`}
+            label={t('coaching.coach.level.note')}
+            placeholder={t('coaching.coach.level.notePlaceholder')}
+            value={note}
+            onChangeText={(v) => {
+              setNote(v);
+              setIssue(null);
+            }}
+            maxLength={LEVEL_NOTE_MAX}
+          />
+          {issue || error ? (
+            <Text style={{ fontFamily: fonts.body600, fontSize: 13, color: colors.redtext }}>{issue ?? error}</Text>
+          ) : null}
+          <Button
+            testID={`${testID}.save`}
+            label={t('coaching.coach.level.save')}
+            variant="cta"
+            busy={busy}
+            onPress={save}
+          />
+          {level?.confirmed ? (
+            <Button
+              testID={`${testID}.clear`}
+              label={t('coaching.coach.level.clear')}
+              variant="ghost"
+              disabled={busy}
+              onPress={onClear}
+            />
+          ) : null}
+          <Button
+            testID={`${testID}.cancel`}
+            label={t('common.cancel')}
+            variant="secondary"
+            disabled={busy}
+            onPress={onClose}
+          />
+        </ScrollView>
+      </View>
+    </Modal>
   );
 }

@@ -132,6 +132,6 @@ describe('NotFoundPanel', () => {
 describe('CrashPanel guidance', () => {
   it('says what to do if the fault keeps coming back', () => {
     withLocale(<CrashPanel error={new Error('x')} />);
-    expect(screen.getByText('Keeps happening? Tell the manager.')).toBeTruthy();
+    expect(screen.getByText('Keeps happening? Report it below and tell the manager.')).toBeTruthy();
   });
 });

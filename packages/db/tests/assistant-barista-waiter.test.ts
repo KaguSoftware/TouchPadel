@@ -679,7 +679,8 @@ describe.skipIf(!docker)('wave 5 roles (rolled-back transactions)', () => {
 
   it.skipIf(!realtime)('the waiter hears the floor topic and not the kitchen’s; driver and marketing hear neither', () => {
     // The way Realtime authorises a private channel: a message on the topic,
-    // read back as the member with realtime.topic set (0022's policies).
+    // read back as the member with realtime.topic set (0022's policies). Since
+    // 0382 (F-27) the topics are the branch's own: floor:<venue>, kds:<venue>.
     const hears = (topic: string, who: string) =>
       T(`${topic}_${who}`, who, `select to_jsonb(count(*)) from realtime.messages where id = {{rt_${topic}}}::uuid`);
     const r = scenario([
@@ -687,10 +688,10 @@ describe.skipIf(!docker)('wave 5 roles (rolled-back transactions)', () => {
       MK('drv', 'driver'), MK('mkt', 'marketing'),
       ...(['floor', 'kds'] as const).map((topic) =>
         KEEP(`rt_${topic}`, `insert into realtime.messages (topic, extension, event, payload, private)
-                             values ('${topic}', 'broadcast', 'abw_probe', '{}'::jsonb, true) returning id::text`)),
-      `select set_config('realtime.topic', 'floor', true);`,
+                             values ('${topic}:${VENUE_A_ID}', 'broadcast', 'abw_probe', '{}'::jsonb, true) returning id::text`)),
+      `select set_config('realtime.topic', 'floor:${VENUE_A_ID}', true);`,
       ...(['wtr', 'abar', 'cashier', 'drv', 'mkt'] as const).map((who) => hears('floor', who)),
-      `select set_config('realtime.topic', 'kds', true);`,
+      `select set_config('realtime.topic', 'kds:${VENUE_A_ID}', true);`,
       ...(['wtr', 'abar', 'drv', 'mkt'] as const).map((who) => hears('kds', who)),
     ]);
     for (const who of ['wtr', 'abar', 'cashier']) expect(ok<number>(r, `floor_${who}`), `floor ${who}`).toBe(1);

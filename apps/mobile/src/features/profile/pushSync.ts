@@ -107,6 +107,8 @@ export interface PushTapData {
    */
   route?: unknown;
   id?: unknown;
+  /** A staff push's copy key (send-push); picks the page when the route is only `staff` (F-59). */
+  title_key?: unknown;
 }
 
 export type TapDestination =
@@ -198,7 +200,7 @@ export function tapDestination(
     const route = data?.route;
     if (status !== 'staff' || !isStaffPushRoute(route)) return null;
     const target = typeof data?.id === 'string' && data.id ? data.id : null;
-    return { kind: 'staff', href: staffPushHref(route, target) };
+    return { kind: 'staff', href: staffPushHref(route, target, data?.title_key) };
   }
   return reservationId ? { kind: 'reservation', id: reservationId } : null;
 }

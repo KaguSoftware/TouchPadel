@@ -127,9 +127,10 @@ const COURTS = [1, 2, 3, 4].flatMap((i) => [
 const ENTRIES = (tour: string, s: number, n: number, prefix: string) =>
   Array.from({ length: n }, (_, j) => j + 1).flatMap((i) => [
     GUEST(`${prefix}${i}`, `{"given": "P${i}", "family": "F${i}", "gender": "male"}`),
-    X(`insert into tournament_entries (id, venue_id, tournament_id, guest_id, status, added_by_kind, entered_at)
+    // 0390 (F-40): confirmed by the desk, so the draw takes them.
+    X(`insert into tournament_entries (id, venue_id, tournament_id, guest_id, status, added_by_kind, entered_at, confirmed_at)
        values ('${entryId(s, i)}', {{v}}::uuid, {{${tour}}}::uuid, {{${prefix}${i}}}::uuid, 'registered', 'guest',
-               now() + make_interval(secs => ${i}))`),
+               now() + make_interval(secs => ${i}), now())`),
   ]);
 
 /** Score one match (by round and court) through the RPC, as the desk, from a postgres helper. */

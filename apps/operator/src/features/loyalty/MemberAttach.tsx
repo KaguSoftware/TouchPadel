@@ -62,6 +62,7 @@ import {
   useTabLoyalty,
   type StaffLoyaltyTerms,
 } from './useLoyalty';
+import { PIN_MAX, PIN_MIN } from '../../lib/pinRules';
 
 const K = 'ws.loyalty';
 
@@ -87,7 +88,7 @@ function useRedeemProof(customerId: string) {
   const needPin = token === null;
   return {
     token,
-    ready: !needPin || pin.length >= 4,
+    ready: !needPin || pin.length >= PIN_MIN,
     /** Before the call: the PIN grant, when that is the proof. */
     async prove(): Promise<string | null> {
       if (needPin) await grantManagerPin(pin);
@@ -107,7 +108,7 @@ function useRedeemProof(customerId: string) {
           type="password"
           inputMode="numeric"
           autoComplete="off"
-          maxLength={6}
+          maxLength={PIN_MAX}
           value={pin}
           data-testid="redeem-pin"
           onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
@@ -635,7 +636,7 @@ function StaffPinDialog({
   const [pin, setPin] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
-  const ready = pin.length >= 4;
+  const ready = pin.length >= PIN_MIN;
 
   async function confirm() {
     if (!ready || busy) return;
@@ -686,7 +687,7 @@ function StaffPinDialog({
           inputMode="numeric"
           autoComplete="off"
           autoFocus
-          maxLength={6}
+          maxLength={PIN_MAX}
           value={pin}
           disabled={busy}
           data-testid="staff-attach-pin"

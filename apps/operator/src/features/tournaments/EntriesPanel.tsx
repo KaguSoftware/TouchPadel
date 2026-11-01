@@ -14,6 +14,10 @@
  *   (app.tournament_mark_no_show); Remove while open or closed
  *   (app.tournament_remove_entry, a reason).
  *
+ * - Confirm participant / Undo confirm (0390, F-40; app.tournament_confirm_entry):
+ *   a registered entry is in the tournament only once the desk confirms it, and
+ *   the draw waits for every one. Payment is separate (a confirmed player may owe).
+ *
  * Every write is a direct appRpc with its literal name, online only.
  */
 import { useEffect, useRef, useState } from 'react';
@@ -43,6 +47,7 @@ import {
   sortEntries,
   substitutes,
   tournamentErrorText,
+  unconfirmedEntries,
 } from './tournamentLogic';
 import {
   readAddEntryAnswer,
@@ -140,6 +145,24 @@ export function EntriesPanel({
     void add(addCustomer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [addCustomer]);
+
+  async function setConfirmed(e: TourEntry, confirmed: boolean) {
+    setBusy(true);
+    setError(null);
+    try {
+      await appRpc('tournament_confirm_entry', { p_entry_id: e.entry_id, p_confirmed: confirmed });
+      toast.ok(
+        tr(confirmed ? 'ws.tournaments.entries.confirmedDone' : 'ws.tournaments.entries.unconfirmedDone', {
+          name: isolate(nameOf(e)),
+        }),
+      );
+      invalidateTournament(qc);
+    } catch (err) {
+      setError(err);
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function remove(code: string, note: string) {
     if (!removing) return;
@@ -239,6 +262,14 @@ export function EntriesPanel({
             tone={ENTRY_STATUS_TONE[e.status]}
             label={tr(`tournaments.common.entryStatus.${e.status}`)}
           />
+          {e.status === 'registered' && (
+            <StatusBadge
+              size="sm"
+              tone={e.confirmed ? 'success' : 'warn'}
+              label={tr(e.confirmed ? 'ws.tournaments.entries.confirmed' : 'ws.tournaments.entries.notConfirmed')}
+              title={e.confirmed && e.confirmed_by_name ? tr('ws.tournaments.entries.confirmedBy', { name: isolate(e.confirmed_by_name) }) : undefined}
+            />
+          )}
           {e.status === 'waitlisted' && e.waitlist_position !== null && (
             <span style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>
               {tr('ws.tournaments.entries.waitlistPosition', {
@@ -295,6 +326,30 @@ export function EntriesPanel({
               justifyContent: 'flex-end',
             }}
           >
+            {a.confirm && (
+              <Button
+                size="sm"
+                kind="primary"
+                icon="check"
+                busy={busy}
+                disabled={!reachable}
+                data-testid={`entry.confirm.${e.entry_id}`}
+                onClick={() => void setConfirmed(e, true)}
+              >
+                {tr('ws.tournaments.entries.confirm')}
+              </Button>
+            )}
+            {a.unconfirm && (
+              <Button
+                size="sm"
+                kind="ghost"
+                disabled={!reachable || busy}
+                data-testid={`entry.unconfirm.${e.entry_id}`}
+                onClick={() => void setConfirmed(e, false)}
+              >
+                {tr('ws.tournaments.entries.unconfirm')}
+              </Button>
+            )}
             {a.pay && (
               <Button
                 size="sm"
@@ -361,6 +416,12 @@ export function EntriesPanel({
           >
             {tr('ws.tournaments.entries.add')}
           </Button>
+          {unconfirmedEntries(detail).length > 0 && (
+            <StatusBadge
+              tone="warn"
+              label={tr('ws.tournaments.entries.toConfirm', { count: formatNumber(unconfirmedEntries(detail).length, locale) })}
+            />
+          )}
           <span style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>
             {tr('ws.tournaments.list.entries', {
               registered: formatNumber(

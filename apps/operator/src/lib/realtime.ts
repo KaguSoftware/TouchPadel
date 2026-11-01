@@ -166,7 +166,8 @@ export interface BroadcastResult {
 export function useBroadcast(options: BroadcastOptions): BroadcastResult {
   const queryClient = useQueryClient();
   // 0224 (MV7): 'kds', 'floor' and 'courts' are per branch; the branch in scope
-  // picks the topic (the literal one until the branch is known).
+  // picks the topic. Until the branch is known there is no topic (0382 refuses
+  // the bare one), so nothing is joined and the status stays 'connecting'.
   const { branchId } = useVenue();
   const {
     topic: requestedTopic,
@@ -190,7 +191,7 @@ export function useBroadcast(options: BroadcastOptions): BroadcastResult {
   onStatusRef.current = onStatus;
 
   useEffect(() => {
-    if (!enabled) return;
+    if (!enabled || topic === null) return;
     let mounted = true;
     const invalidate = () => {
       for (const key of JSON.parse(keysKey) as QueryKey[]) void queryClient.invalidateQueries({ queryKey: key });

@@ -11,7 +11,8 @@
  */
 import { useRef, useState } from 'react';
 import { formatNumber } from '@touch/i18n';
-import { appRpc } from '../../lib/appRpc';
+import { appRpc, type AppFunctionName } from '../../lib/appRpc';
+import { discardRemovedPhoto } from './protocolLogic';
 import { compressToWebp, isImageFile } from '../../lib/image';
 import { supabase } from '../../lib/supabase';
 import { useLocale } from '../../lib/i18n';
@@ -101,7 +102,12 @@ export function PhotoField({
                   icon="x"
                   aria-label={tr('ws.protocols.photos.remove', { n: formatNumber(i + 1, locale) })}
                   title={tr('ws.protocols.photos.remove', { n: formatNumber(i + 1, locale) })}
-                  onClick={() => onChange(paths.filter((x) => x !== p))}
+                  onClick={() => {
+                    onChange(paths.filter((x) => x !== p));
+                    // F-61: the removed photo leaves storage too (0391).
+                    // types.gen.ts pending db:types (0391)
+                    void discardRemovedPhoto(p, (fn, args) => appRpc(fn as AppFunctionName, args));
+                  }}
                 />
               )}
             </li>

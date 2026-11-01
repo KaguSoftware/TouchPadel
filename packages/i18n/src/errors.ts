@@ -53,6 +53,11 @@ export const ERROR_CODE_KEYS = {
   // Renderer-minted: PostgREST PGRST202, an RPC this build calls that the
   // server does not have yet (appRpc.ts toAppRpcError; open matches §5.5).
   RPC_MISSING: 'op.errors.RPC_MISSING',
+  // 0395 (F-23): an allowlisted save made offline, durably queued on the station
+  // (renderer-minted, like RPC_MISSING); and the queued call naming an RPC this
+  // server cannot run through app.queued_rpc.
+  SAVED_OFFLINE: 'op.errors.SAVED_OFFLINE',
+  RPC_NOT_QUEUEABLE: 'op.errors.RPC_NOT_QUEUEABLE',
   // 0115: a money RPC reached without a fresh verify_manager_pin grant. appRpc
   // verifies first, so a user sees this only after a very slow round trip.
   PIN_GRANT_REQUIRED: 'op.errors.PIN_GRANT_REQUIRED',
@@ -481,6 +486,8 @@ export const ERROR_CODE_KEYS = {
   // score (detail status | invalid | changed | locked | closed (0311)).
   TOURNAMENT_ROUNDS_INVALID: 'op.errors.TOURNAMENT_ROUNDS_INVALID',
   TOURNAMENT_SCORE_REFUSED: 'op.errors.TOURNAMENT_SCORE_REFUSED',
+  // 0390 (F-40): rounds drawn while a registered entry is unconfirmed (detail the count).
+  TOURNAMENT_UNCONFIRMED: 'op.errors.TOURNAMENT_UNCONFIRMED',
   // 0310 tournaments_money_lifecycle: the desk closes registration below min_entries (detail
   // <registered>/<min>), and an early finish with no complete round (detail not_played) or a
   // begun round after it (detail partial_round).
@@ -638,6 +645,8 @@ export const ERROR_CODE_KEYS = {
   DUPLICATE_LIVE_BOOKING_TABS: 'op.errors.DUPLICATE_LIVE_BOOKING_TABS',
   // The kitchen.
   TICKET_CLOSED: 'op.errors.TICKET_CLOSED',
+  // 0396 (F-57): Complete is undone only within ten minutes.
+  TICKET_RECALL_EXPIRED: 'op.errors.TICKET_RECALL_EXPIRED',
   // The desk. RESERVATION_MOVED is raised with errcode 40001 (retry).
   RESERVATION_MOVED: 'op.errors.RESERVATION_MOVED',
   RESERVATION_NOT_STARTED: 'op.errors.RESERVATION_NOT_STARTED',
@@ -752,6 +761,16 @@ export const ERROR_CODE_KEYS = {
   FILE_TOO_LARGE: 'op.errors.FILE_TOO_LARGE',
   FILES_QUOTA_FULL: 'op.errors.FILES_QUOTA_FULL',
   WAGE_ADVANCE_TOO_LARGE: 'op.errors.WAGE_ADVANCE_TOO_LARGE',
+  // 0387: paying a wage, advance or coach statement from a safe that holds too little.
+  SAFE_NOT_ENOUGH: 'op.errors.SAFE_NOT_ENOUGH',
+  // 0384 (F-16): an RPC behind pages the owner blocked for this person (app.pre_request).
+  AREA_BLOCKED: 'op.errors.AREA_BLOCKED',
+  // 0401 (F-70): a coach sets the level only of a student whose account link is confirmed.
+  LEVEL_NOT_LINKED: 'op.errors.LEVEL_NOT_LINKED',
+  // 0382/0384/0386 (F-55): a setup step (bucket, policy, cron job, API hook) failed.
+  SETUP_FAILED: 'op.errors.SETUP_FAILED',
+  // 0390: a closed day cannot be saved while bookings on it are unresolved.
+  CLOSED_DAY_HAS_BOOKINGS: 'op.errors.CLOSED_DAY_HAS_BOOKINGS',
 
   // ── Edge functions' own body codes (never raised by SQL) ──────────────────
   // _shared/http.ts mapPgError: a unique violation, a retryable database error

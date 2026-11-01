@@ -131,7 +131,7 @@ describe('needsData', () => {
   });
 
   it('stays quiet on an ordinary how-to answer', () => {
-    expect(needsData('Open Breaks and press Go on break, then type your PIN.')).toBe(false);
+    expect(needsData('Open the rail and press Start my shift, then type your PIN.')).toBe(false);
     expect(needsData('You can see your tasks on the Tasks page.')).toBe(false);
   });
 });

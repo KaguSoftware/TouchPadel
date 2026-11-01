@@ -42,6 +42,7 @@ import { WaiterButton } from './WaiterButton/WaiterButton';
 import { CafeOverlays } from './CafeOverlays';
 import { hasSeenBellTutorial } from './BellTutorial/BellTutorial';
 import { useCafeActions } from './useCafeActions';
+import { reportEvent } from '@/lib/monitoring';
 
 /** How often order status is re-read while the session channel is down (it is live otherwise). */
 const ORDERS_FALLBACK_POLL_MS = 30_000;
@@ -55,8 +56,12 @@ const ORDERS_FALLBACK_POLL_MS = 30_000;
  */
 export interface CafeAppProps {
   locale: Locale;
-  /** null = browsing without a table (a walk-in on `/{locale}/menu`, no `tp-table` cookie) */
-  token: string | null;
+  /**
+   * Whether the request carried a `tp-table` cookie for this branch: true = bind the table
+   * in the background, false = browsing without a table (a walk-in on `/{locale}/menu`).
+   * Never the token itself: it stays on the server (F-42, src/lib/cafe/tableSession.ts).
+   */
+  hasTable: boolean;
   initialMenu: MenuCategory[];
   menuStatus: MenuStatus;
   settings: CafeSettings;
@@ -76,7 +81,7 @@ const SCROLL_TOP_FAB_AT = 320;
 
 export function CafeApp({
   locale,
-  token,
+  hasTable,
   initialMenu,
   menuStatus,
   settings: initialSettings,
@@ -88,7 +93,7 @@ export function CafeApp({
   const online = useOnline();
   const toasts = useToasts();
 
-  const table = useTableSession(token);
+  const table = useTableSession(hasTable, locale);
   // Multi-venue slice 4: the menu, the café settings and the degraded check
   // follow the bound table's branch; until then (and for a walk-in) the branch
   // the server rendered.
@@ -126,6 +131,19 @@ export function CafeApp({
     const id = setInterval(() => void reloadOrders(), ORDERS_FALLBACK_POLL_MS);
     return () => clearInterval(id);
   }, [sessionLive, sessionBound, ordersInFlight, reloadOrders]);
+
+  // A failed menu read reaches dev monitoring (F-43), once per failure, not per render. An
+  // empty menu is not an error and is not reported.
+  const menuFailed = menu.status === 'error';
+  useEffect(() => {
+    if (!menuFailed) return;
+    void reportEvent({
+      level: 'error',
+      kind: 'web_error',
+      message: 'Café menu could not be loaded',
+      detail: { where: 'menu', venueId: branchId, client: supabase ? 'ok' : 'missing' },
+    });
+  }, [menuFailed, branchId, supabase]);
 
   // ------------------------------------------------------------ overlay state
   const [sheetItem, setSheetItem] = useState<MenuItem | null>(null);
@@ -171,6 +189,21 @@ export function CafeApp({
     setSending,
     setTutorialOpen,
   });
+
+  // Retry that really retries (F-43): a client read when there is a Supabase client, else a
+  // reload, so the server reads the menu again (its cache never keeps a failed read).
+  const refreshAndReconcile = actions.refreshAndReconcile;
+  const retryMenu = useCallback(() => {
+    if (supabase) {
+      void refreshAndReconcile();
+      return;
+    }
+    try {
+      window.location.reload();
+    } catch {
+      /* nothing left to try: the hint under the button says what to do */
+    }
+  }, [supabase, refreshAndReconcile]);
 
   // Coach mark: bound table + live bell + operator switch on, once per browser
   // session, and never over a sheet (web-slice §2).
@@ -219,7 +252,6 @@ export function CafeApp({
 
       <TopBar
         locale={locale}
-        token={token}
         sessionState={table.state}
         session={table.session}
         basketCount={basket.count}
@@ -234,7 +266,7 @@ export function CafeApp({
             sat outside every landmark when main started at the menu stage (a11y review
             2026-09-24, axe "region"). The footer stays outside it. */}
         <main>
-          {!token && branches.length > 1 && branch ? (
+          {!hasTable && branches.length > 1 && branch ? (
             <BranchBar locale={locale} branch={branch} />
           ) : null}
           <Hero
@@ -271,8 +303,10 @@ export function CafeApp({
           ) : (
             <MenuUnavailable
               locale={locale}
+              status={menu.status === 'empty' ? 'empty' : 'error'}
               retrying={menu.refreshing}
-              onRetry={() => void actions.refreshAndReconcile()}
+              canRefresh={supabase !== null}
+              onRetry={retryMenu}
             />
           )}
         </main>

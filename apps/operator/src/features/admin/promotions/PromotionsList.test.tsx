@@ -84,7 +84,8 @@ describe('PromotionsListScreen', () => {
   it('loading: header and a skeleton, no table yet', () => {
     api.fetchPromotions.mockReturnValue(new Promise(() => {}));
     renderScreen();
-    expect(screen.getByRole('heading', { name: 'Promotions' })).toBeTruthy();
+    // F-65: the page is called what the rail calls it.
+    expect(screen.getByRole('heading', { name: 'Discounts & offers' })).toBeTruthy();
     expect(screen.queryByRole('table')).toBeNull();
   });
 

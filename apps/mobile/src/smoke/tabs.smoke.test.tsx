@@ -27,7 +27,7 @@
  *    GL branch — where the CTA is anchored to the measured net — is never
  *    rendered by this suite.
  */
-import { afterAll, beforeAll, describe, expect, it } from '@jest/globals';
+import { describe, expect, it } from '@jest/globals';
 import { fireEvent, within } from '@testing-library/react-native';
 import { makeT, type Locale } from '@touch/i18n';
 import { runSmokeCases, type SmokeCase } from '../test/smokeCase';
@@ -187,8 +187,9 @@ describe.each(LOCALES)('book branch picker in %s', (locale) => {
  * The tabs on both bars, in this order, each with its own id and the locale's label. Profile left
  * the bar on 2026-10-17 for the avatar on each title row; Club (the member card, Ranks and the
  * café menu) took the centre on 2026-10-19, and Book took it back on 2026-10-22, swapping places
- * with Club. Play is second only when the build ships tournaments (features/tournaments/shipped.ts);
- * Ranks is a segment of Club, never a tab (2026-10-25).
+ * with Club. Play is second while some branch has tournaments or open matches on: the branch
+ * decides, not the build (F-71, features/tournaments/shipped.ts); Ranks is a segment of Club,
+ * never a tab (2026-10-25).
  */
 const tabOrder = (withPlay: boolean) =>
   [
@@ -202,25 +203,19 @@ const tabOrder = (withPlay: boolean) =>
 describe.each(LOCALES)('the tabs in %s', (locale) => {
   const t = makeT(locale);
 
-  describe.each<[boolean, string | undefined]>([
-    [false, 'off'],
-    [true, 'on'],
-  ])('with Play %s (EXPO_PUBLIC_TOURNAMENTS=%s)', (withPlay, flag) => {
-    const before = process.env.EXPO_PUBLIC_TOURNAMENTS;
-    beforeAll(() => {
-      if (flag === undefined) delete process.env.EXPO_PUBLIC_TOURNAMENTS;
-      else process.env.EXPO_PUBLIC_TOURNAMENTS = flag;
-    });
-    afterAll(() => {
-      if (before === undefined) delete process.env.EXPO_PUBLIC_TOURNAMENTS;
-      else process.env.EXPO_PUBLIC_TOURNAMENTS = before;
-    });
-
+  describe.each<[boolean, string, Record<string, boolean>]>([
+    [false, 'no branch has tournaments or open matches', { tournaments_enabled: false, matches_enabled: false }],
+    [true, 'a branch has tournaments', { tournaments_enabled: true, matches_enabled: false }],
+    [true, 'a branch has open matches', { tournaments_enabled: false, matches_enabled: true }],
+  ])('with Play %s when %s', (withPlay, _when, switches) => {
     it.each<[string, typeof TabsLayout]>([
       ['iOS', TabsLayout],
       ['Android', TabsLayoutAndroid],
     ])('the %s bar declares its tabs, no Profile tab and no Ranks tab', (_name, Layout) => {
-      const screen = renderRoute(Layout, { locale });
+      const screen = renderRoute(Layout, {
+        locale,
+        queryData: [[availabilityKeys.branches, [branchFixture(switches)]]],
+      });
       try {
         const ids = tabOrder(withPlay).map((name) => {
           const tab = screen.getByTestId(`tabs.${name}`);

@@ -10,6 +10,12 @@ export const IPC = {
   getCachedRef: 'touch:get-cached-ref',
   print: 'touch:print',
   unlockPin: 'touch:unlock-pin',
+  /**
+   * Invoke (F-07): does this PIN unlock the SIGNED-IN person's own idle lock
+   * offline? Main compares against the cache entries tagged with the staff id
+   * of the session it holds (auth state), never an id the renderer names.
+   */
+  unlockOwnPin: 'touch:unlock-own-pin',
   getStation: 'touch:get-station',
   /** Renderer → main (send): the staff session the sync worker replays with. */
   authState: 'touch:auth-state',
@@ -82,7 +88,39 @@ export const IPC = {
    * address; any other station mode answers `not_shop_station`.
    */
   fetchSupplierPage: 'touch:fetch-supplier-page',
+  /**
+   * F-11. Renderer → main (send, KDS stations): refs of LAN tickets this
+   * kitchen screen has drawn; carried to the till as a ticket.ack frame.
+   */
+  lanAck: 'touch:lan-ack',
+  /**
+   * F-11. Main → renderer (push) and invoke (till stations): which of this
+   * till's LAN tickets a kitchen screen has drawn, and how many kitchen
+   * screens are connected over the LAN.
+   */
+  lanReach: 'touch:lan-reach',
+  /**
+   * F-11. Renderer → main (send, till stations): the cloud's status of tickets
+   * the till also holds on the LAN (ref = the order's idempotency key), so a
+   * KDS that falls back to the LAN never gets a ticket finished on the cloud
+   * board as new work.
+   */
+  lanCloudStatus: 'touch:lan-cloud-status',
+  /**
+   * F-57. Invoke (KDS stations): is the LAN link to the till up? true / false,
+   * or null where this station has no LAN link at all. Changes arrive as
+   * `link` frames on lanTicket.
+   */
+  lanLink: 'touch:lan-link',
 } as const;
+
+/** F-11: the till's view of its LAN kitchen screens (IPC.lanReach). */
+export interface LanReach {
+  /** Order keys (LAN refs) a kitchen screen has drawn, recent first-in order. */
+  acked: string[];
+  /** Kitchen screens connected to this till over the LAN right now. */
+  kdsConnected: number;
+}
 
 /**
  * Pushed by the renderer on every auth change (sign-in, TOKEN_REFRESHED,
@@ -194,12 +232,21 @@ export interface KitchenTicket {
   }[];
   createdAt: string;
   status: 'queued' | 'preparing' | 'ready' | 'completed';
+  /** F-11: on the server already (absent from an older till's frame). */
+  synced?: boolean;
 }
 
 export type LanFrameForRenderer =
   | { type: 'ticket.new'; data: KitchenTicket }
   | { type: 'ticket.snapshot'; data: KitchenTicket[] }
-  | { type: 'status.update'; data: { ref: string; status: KitchenTicket['status'] } };
+  | { type: 'status.update'; data: { ref: string; status: KitchenTicket['status'] } }
+  // F-11 / F-57 (lan-frames.ts): the order reached the server, or was refused.
+  | { type: 'ticket.synced'; data: { ref: string; ticketId: string | null } }
+  | { type: 'ticket.dropped'; data: { ref: string } }
+  // A bump the till refused, or ('link-down') one this station could not send.
+  | { type: 'error'; data: { reason: 'no-staff' | 'enqueue-failed' | 'malformed' | 'link-down'; ref?: string } }
+  // Added by this station's main process: the socket to the till opened or closed.
+  | { type: 'link'; data: { up: boolean } };
 
 export interface PrintJob {
   kind: 'receipt' | 'kitchen' | 'reprint';
@@ -228,7 +275,8 @@ export type Role =
   | 'marketing'
   | 'assistant_barista'
   | 'waiter'
-  | 'shop_staff';
+  | 'shop_staff'
+  | 'dev';
 
 export type StationMode = 'till' | 'desk' | 'kds' | 'shop';
 

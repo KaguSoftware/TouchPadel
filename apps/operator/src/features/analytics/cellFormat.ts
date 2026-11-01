@@ -24,6 +24,9 @@
  *    labelled as ids, so the columns a person reads come first.
  */
 
+import { localParts } from '@touch/core';
+import { VENUE_TZ } from '@touch/i18n';
+
 /** Longest a text cell may be before it is cut. Wide enough for a sentence, narrow enough to read. */
 export const MAX_CELL = 160;
 
@@ -40,16 +43,21 @@ export function cellText(value: string | null | undefined, max = MAX_CELL): stri
   return text.length <= max ? text : `${text.slice(0, max - 1).trimEnd()}…`;
 }
 
-/** The station's calendar day for an instant: `2026-09-23`. */
+/**
+ * The VENUE's calendar day for an instant: `2026-09-23` (F-37: Baghdad's clock
+ * in every export, whatever the PC's clock or time zone says).
+ */
 export function dayCell(iso: string | null | undefined): string | null {
   const d = parse(iso);
-  return d ? `${d.getFullYear()}-${two(d.getMonth() + 1)}-${two(d.getDate())}` : null;
+  return d ? localParts(d, VENUE_TZ).date : null;
 }
 
-/** The station's clock for an instant, 24-hour: `14:05`. */
+/** The venue's clock for an instant, 24-hour: `14:05` (Baghdad, not the PC's zone). */
 export function timeCell(iso: string | null | undefined): string | null {
   const d = parse(iso);
-  return d ? `${two(d.getHours())}:${two(d.getMinutes())}` : null;
+  if (!d) return null;
+  const m = localParts(d, VENUE_TZ).minutesOfDay;
+  return `${two(Math.floor(m / 60))}:${two(m % 60)}`;
 }
 
 /** A moment as the two cells it should be written as. */

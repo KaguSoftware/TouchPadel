@@ -521,7 +521,7 @@ function StepScreen() {
 
 export default function StaffStepRoute() {
   return (
-    <RequireStaff>
+    <RequireStaff page="staff-step">
       <StepScreen />
     </RequireStaff>
   );

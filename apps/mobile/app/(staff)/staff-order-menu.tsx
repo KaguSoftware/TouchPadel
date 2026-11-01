@@ -477,7 +477,7 @@ function MenuScreen() {
 
 export default function StaffOrderMenuRoute() {
   return (
-    <RequireStaff roles={FLOOR_ROLES}>
+    <RequireStaff page="staff-order-menu" roles={FLOOR_ROLES}>
       <MenuScreen />
     </RequireStaff>
   );

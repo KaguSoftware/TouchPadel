@@ -20,7 +20,6 @@ export const staffActivityAr: DeepMessages<typeof staffActivityEn> = {
     offline: 'غير متصل',
     never: 'لم يُستخدم قط',
   },
-  onBreak: 'في استراحة',
   lastSeen: 'آخر ظهور {when}',
   lastAction: 'آخر إجراء: {action}، {when}',
   noAction: 'لا يوجد إجراء مسجّل',

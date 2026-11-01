@@ -80,18 +80,19 @@ describe.skipIf(!up)('0052 venue settings write through PostgREST', () => {
       expect((await readSettings()).opening_hours).toEqual(hours);
     });
 
+    // Far-off dates (0390): a closed day with a booking on it is refused until the booking is resolved.
     it('saves closed dates from a staff session', async () => {
       const res = await appRpc(manager, 'set_opening_hours', {
-        p_closed_dates: ['2026-12-25', '2027-01-01'],
+        p_closed_dates: ['2099-12-25', '2100-01-01'],
       });
       expect(res.error).toBeNull();
-      expect((await readSettings()).closed_dates).toEqual(['2026-12-25', '2027-01-01']);
+      expect((await readSettings()).closed_dates).toEqual(['2099-12-25', '2100-01-01']);
     });
 
     it('can clear the closed-date list, which is how a venue reopens', async () => {
       // Distinct from null: the RPC coalesces null to "leave unchanged", so
       // clearing has to send an empty array and get an empty array back.
-      await appRpc(manager, 'set_opening_hours', { p_closed_dates: ['2026-12-25'] });
+      await appRpc(manager, 'set_opening_hours', { p_closed_dates: ['2099-12-25'] });
       const res = await appRpc(manager, 'set_opening_hours', { p_closed_dates: [] });
       expect(res.error).toBeNull();
       expect((await readSettings()).closed_dates).toEqual([]);
@@ -100,12 +101,12 @@ describe.skipIf(!up)('0052 venue settings write through PostgREST', () => {
     it('leaves the other column alone when only one is given', async () => {
       await appRpc(manager, 'set_opening_hours', {
         p_opening_hours: { tue: [['10:00', '20:00']] },
-        p_closed_dates: ['2026-06-01'],
+        p_closed_dates: ['2099-06-01'],
       });
       await appRpc(manager, 'set_opening_hours', { p_opening_hours: { wed: [['11:00', '21:00']] } });
       const after = await readSettings();
       expect(after.opening_hours).toEqual({ wed: [['11:00', '21:00']] });
-      expect(after.closed_dates).toEqual(['2026-06-01']);
+      expect(after.closed_dates).toEqual(['2099-06-01']);
     });
 
     it('refuses a non-object hours payload', async () => {
@@ -128,7 +129,7 @@ describe.skipIf(!up)('0052 venue settings write through PostgREST', () => {
         .from('audit_log')
         .select('id', { count: 'exact', head: true })
         .eq('action', 'settings.opening_hours');
-      await appRpc(manager, 'set_opening_hours', { p_closed_dates: ['2026-03-03'] });
+      await appRpc(manager, 'set_opening_hours', { p_closed_dates: ['2099-03-03'] });
       const { count: after } = await svc
         .from('audit_log')
         .select('id', { count: 'exact', head: true })

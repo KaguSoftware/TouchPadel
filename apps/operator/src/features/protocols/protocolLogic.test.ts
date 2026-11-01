@@ -29,6 +29,8 @@ import {
   titlesInBoth,
   waitsFor,
   type StepDef,
+  discardRemovedPhoto,
+  readFollowEveryStep,
 } from './protocolLogic';
 
 const sub = (over: Partial<SubmissionRow>): SubmissionRow => ({
@@ -326,5 +328,30 @@ describe('the server’s rules the forms mirror', () => {
     expect(firstStepNeedsOk(undefined, 'rel', 'propose')).toBeNull();
     expect(firstStepNeedsOk(detail, 't1', 'propose')).toBeNull();
     expect(firstStepNeedsOk(detail, 'rel', 'plan')).toBeNull();
+  });
+});
+
+describe('discardRemovedPhoto (F-61, 0391)', () => {
+  it('asks the server to drop the removed photo, and never throws', async () => {
+    const calls: [string, Record<string, unknown>][] = [];
+    await discardRemovedPhoto('v/steps/p.jpg', async (fn, args) => {
+      calls.push([fn, args]);
+      return 1;
+    });
+    expect(calls).toEqual([['discard_staff_media', { p_paths: ['v/steps/p.jpg'] }]]);
+    await expect(
+      discardRemovedPhoto('v/steps/q.jpg', async () => {
+        throw new Error('offline');
+      }),
+    ).resolves.toBeUndefined();
+  });
+});
+
+describe('readFollowEveryStep (0363 on the operator)', () => {
+  it('is on unless the server says false', () => {
+    expect(readFollowEveryStep({ protocol_updates: false })).toBe(false);
+    expect(readFollowEveryStep({ protocol_updates: true })).toBe(true);
+    expect(readFollowEveryStep({})).toBe(true);
+    expect(readFollowEveryStep(null)).toBe(true);
   });
 });

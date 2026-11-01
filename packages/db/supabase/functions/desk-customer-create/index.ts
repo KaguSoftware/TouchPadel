@@ -116,7 +116,8 @@ Deno.serve(handle('desk-customer-create', async (req) => {
   if (req.method !== 'POST') return json({ error: 'METHOD_NOT_ALLOWED' }, 405);
 
   const service = createServiceClient();
-  const caller = await requireStaffRole(req, service, ['court_desk', 'manager', 'owner']);
+  // The Customers page's work (ACCESS_AREAS 'customers'): blocked there = AREA_BLOCKED (0384, F-16).
+  const caller = await requireStaffRole(req, service, ['court_desk', 'manager', 'owner'], { areas: ['customers'] });
   if (caller instanceof Response) return caller;
 
   const read = await readJsonBody<CreateBody>(req, { maxBytes: MAX_BODY, badJson: () => badRequest('body must be JSON') });

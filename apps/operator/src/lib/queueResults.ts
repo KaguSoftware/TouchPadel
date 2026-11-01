@@ -49,7 +49,14 @@ export const RESULT_INVALIDATIONS: Record<string, readonly QueryKey[]> = {
   // the lesson screen, the refunds-due lists and the record re-read through the coaching root.
   'payment.refund': [QK.tab.all, QK.tabs, QK.day, QK.bookingBill.all, QK.bookingBillStates.all, QK.deskMatches.all, QK.coaching.all],
   'order_item.void': [QK.tab.all, QK.tabs, QK.day, QK.bookingBill.all, QK.bookingBillStates.all, QK.tickets],
+  // 0395: an allowlisted RPC queued offline can be any settings page, a tab's
+  // member, a kitchen recall or a deposit; its result refreshes every mounted
+  // query (dispatchResult, INVALIDATE_ALL), so nothing is named here.
+  'rpc.queued': [],
 };
+
+/** Types whose terminal result refreshes every mounted query rather than a named list. */
+export const INVALIDATE_ALL: ReadonlySet<string> = new Set(['rpc.queued']);
 
 const waiters = new Map<string, (r: MutationResult) => void>();
 const terminalListeners = new Set<(r: MutationResult) => void>();
@@ -65,6 +72,7 @@ const resultListeners = new Set<(r: MutationResult) => void>();
  * write that was queued offline and refused minutes afterwards.
  */
 export function dispatchResult(r: MutationResult, queryClient: Pick<QueryClient, 'invalidateQueries'>): void {
+  if (INVALIDATE_ALL.has(r.mutationType)) void queryClient.invalidateQueries();
   for (const key of RESULT_INVALIDATIONS[r.mutationType] ?? []) {
     void queryClient.invalidateQueries({ queryKey: [...key] });
   }

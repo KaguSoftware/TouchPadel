@@ -73,14 +73,13 @@ export type GuestHref =
  * (features/coaching/pushRoutes.ts).
  */
 export function guestPushHref(route: MatchPushRoute, id: string | null | undefined): GuestHref {
-  // Store build: open matches and tickets are not shipped; a push lands on Home.
-  if (!onlinePaymentsShipped()) return { pathname: '/(tabs)' };
   switch (route) {
     case 'match':
       return id
         ? { pathname: '/match/[id]', params: { id } }
         : { pathname: '/play', params: { show: 'matches' } };
     case 'tickets':
-      return { pathname: '/tickets' };
+      // A build without online payment has no wallet: the push lands on Home.
+      return onlinePaymentsShipped() ? { pathname: '/tickets' } : { pathname: '/(tabs)' };
   }
 }

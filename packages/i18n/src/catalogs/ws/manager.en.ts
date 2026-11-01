@@ -183,6 +183,8 @@ export const managerEn = {
       voidLine: 'Voided line',
       tabRemoval: 'Tab removal',
       billClose: 'Bill closed at zero',
+      // 0395: a settings save made offline (rpc.queued)
+      savedOffline: 'Saved offline',
       other: 'Change',
     },
     openingFloat: 'Opening float',
@@ -484,7 +486,8 @@ export const managerEn = {
   },
 
   promotions: {
-    title: 'Promotions',
+    // F-65: the rail's name for this page.
+    title: 'Discounts & offers',
     lead: 'A bill gets one promotion at most: the one that takes the most off. To stop a promotion, switch it off. Nothing is deleted, so its history stays.',
     create: 'New promotion',
     name: 'Name',
@@ -1002,6 +1005,8 @@ export const managerEn = {
   },
 
   stock: {
+    // F-35: the number boxes take English digits (0-9) only, and say so.
+    englishDigits: 'Use English digits (0-9). Arabic digits are not accepted here.',
     products: {
       lead: 'Everything the shop sells, one row per size: its SKU, barcode, price and what is on the shelf.',
       add: 'New product',
@@ -1029,7 +1034,7 @@ export const managerEn = {
       hidden: 'Hidden',
       notTracked: 'Not tracked',
       notTrackedHint: 'This size was made in the menu editor and has no stock of its own yet. Saving it here starts tracking it.',
-      needSection: 'Make a shop section in the menu first.',
+      needSection: 'Make a shop section first with New section.',
       noSections: 'No shop section yet',
       noSectionsBody: 'In the menu, make a section and set its type to Shop. Its products are sold at the counter and never appear on the table menu.',
       openSections: 'Open menu sections',
@@ -1037,6 +1042,7 @@ export const managerEn = {
       emptyBody: 'Add the first product; each size gets its own barcode and its own stock.',
       problem: {
         names: 'Enter the size in both languages.',
+        englishDigits: 'Use English digits (0-9) for the price, cost and low level.',
         price: 'The price is a whole number of IQD.',
         sku: 'Letters, digits and . _ / - only, no spaces.',
         barcode: '4 to 64 digits or letters.',
@@ -1570,6 +1576,10 @@ export const managerEn = {
     noteHint: 'For example: paid back in cash at the desk on Saturday.',
     pinHint: 'A manager PIN authorises this.',
     settleNeeds: 'Say how it was settled and enter a PIN',
+    // F-58: an action saved on this station while it is offline.
+    queued: 'Queued',
+    queuedHint: 'Saved on this station. It is sent when the connection is back.',
+    queuedRefused: 'The queued action was refused when it was sent. {reason}',
     settleConfirm: 'Mark as settled',
     settled: 'Refund marked as settled.',
   },

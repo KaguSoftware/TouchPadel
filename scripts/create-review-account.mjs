@@ -2,35 +2,42 @@
  * App Store / Play review: provision the reviewer's GUEST account on the hosted
  * project the store build points at (eas.json production → lczijabnorujcgmbuqlw).
  *
- * The reviewer cannot receive a WhatsApp code, but sign-in is phone + password
- * with no code (the code is spent once, at sign-up). So an account created here
- * with `phone_confirm: true` signs in like any guest who finished sign-up:
+ * The reviewer cannot receive a WhatsApp code, and the app signs a phone
+ * account in with a ONE-TIME CODE, not a password (apps/mobile/app/sign-in.tsx,
+ * owner 2026-10-11). So the owner adds a fixed test code for the printed number
+ * in Supabase (hosted) → Authentication → Sign In / Providers → Phone → Test
+ * phone numbers and OTPs, and the reviewer types that code: no message is sent
+ * (docs/store/app-store-submission.md §0 item 3a). This script creates:
  *
  *   1. auth.users row   Auth admin API, phone confirmed, user_metadata the same
  *                       shape signUpWithPhone sends (app.handle_new_user reads it)
  *   2. a future booking signed in AS the reviewer, through the app's own RPCs
  *                       (hold_slot → confirm_booking), ~60 days out so it is
- *                       still upcoming through a re-review — My Reservations is
+ *                       still upcoming through a re-review — My Bookings is
  *                       not empty and the cancel flow is reachable
  *
- * The number and password are generated at run time and printed ONCE. They are
- * never committed: the store-review pair in supabase/config.toml is public, and
- * the security audit (M8) refuses it on hosted.
+ * The account also gets a random password, used ONLY by this script to sign in
+ * as the reviewer and book through the RPCs. It is never given to Apple and the
+ * app has no phone + password sign-in. The number is generated at run time and
+ * printed ONCE; it is never committed: the store-review pair in
+ * supabase/config.toml is public, and the security audit (M8) refuses it on
+ * hosted.
  *
  * Tagged `user_metadata.app_review = true`, which is how re-runs find it.
- * Idempotent: a re-run reuses the account, sets a NEW password (print it again)
- * and only books if there is no upcoming booking.
+ * Idempotent: a re-run reuses the account and only books if there is no
+ * upcoming booking.
  *
- * Open matches (docs/design/open-matches/guest.md §4.26, DF-19):
- *   --sandbox  sets `profiles.payment_sandbox = true` on the account (until now
- *              set by hand), so its deposits and open-match tickets are paid on
- *              Qi's sandbox with the sandbox card, and it only ever sees and
- *              joins sandbox matches, which never book a real court. The 0259
- *              guard refuses the flip while the account holds live tickets.
+ * Open matches (docs/design/open-matches/guest.md §4.26, DF-19). Version 1.1.0
+ * has no online payment and no tickets: open-match seats are paid at the desk
+ * (0370/0371), so nothing below involves Qi.
+ *   --sandbox  sets `profiles.payment_sandbox = true` on the account, so it only
+ *              ever sees and joins sandbox matches, which never book a real
+ *              court. (The name is from when it also meant Qi's sandbox.) The
+ *              0259 guard refuses the flip while the account holds live tickets.
  *   --partner  works on a SECOND account, "Review Partner" (tagged
  *              `user_metadata.app_review_partner = true`), instead of the
- *              reviewer's. The owner signs in as it on a test phone, buys two
- *              sandbox tickets and starts the public, open-join sandbox match
+ *              reviewer's. The owner signs in as it on a test phone (its own
+ *              test code) and starts the public, open-join sandbox match
  *              "Me + 1" the reviewer joins. Its login never goes to Apple.
  * So the owner runs this twice before submitting: once as below with
  * `--sandbox`, once with `--partner --sandbox --no-booking`.
@@ -41,7 +48,7 @@
  *   node scripts/create-review-account.mjs                 # create / refresh
  *   node scripts/create-review-account.mjs --phone +9647...  # choose the number (first run only)
  *   node scripts/create-review-account.mjs --no-booking    # account only
- *   node scripts/create-review-account.mjs --sandbox       # and pay on Qi's sandbox (open matches)
+ *   node scripts/create-review-account.mjs --sandbox       # sandbox matches only (open matches)
  *   node scripts/create-review-account.mjs --partner ...   # the same, for the partner account
  *   node scripts/create-review-account.mjs --delete        # after approval: cancel + delete
  *
@@ -272,11 +279,11 @@ if (user) {
 }
 
 const token = await signInAs(phone, password);
-console.log('Signed in with phone + password: OK');
+console.log('Signed in (script only) and ready: OK');
 
 if (flag('--sandbox')) {
   await setPaymentSandbox(user.id);
-  console.log("Payments on Qi's sandbox (profiles.payment_sandbox): ON");
+  console.log('Sandbox profile (profiles.payment_sandbox): ON');
 }
 
 let booking = null;
@@ -292,14 +299,15 @@ if (!flag('--no-booking')) {
 
 const national = phone.replace(/^\+964/, '');
 const where = PARTNER
-  ? 'Sign in as it on a test phone to buy two sandbox tickets and start the partner match (never give it to Apple):'
+  ? 'Sign in as it on a test phone and start the partner match (never give it to Apple):'
   : 'Paste into App Store Connect → App Review Information → Sign-in required:';
 console.log(`
 ${ACCOUNT.label} ready. ${where}
 
   User name: ${phone}
-  Password:  ${password}
+  Password:  <the six-digit test code you set for ${phone.replace(/^\+/, '')} in Supabase>
 
-In the app: country Iraq (+964), phone ${national}, then the password.
-This password is not stored anywhere. Re-running this script sets a new one.
+Set that code first: Supabase → Authentication → Sign In / Providers → Phone →
+Test phone numbers and OTPs (digits without '+'). The app signs in with a code,
+not a password: country Iraq (+964), phone ${national}, then the code.
 ${booking ? `\nTell the desk: "${ACCOUNT.name}" has a test booking on ${booking.court}, ${booking.startAt.toISOString()}.` : ''}`);

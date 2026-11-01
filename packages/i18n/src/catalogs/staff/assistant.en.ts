@@ -21,7 +21,7 @@ export const staffAssistantEn = {
     yesterday: 'How did we do yesterday?',
     stock: 'What is running low or about to expire?',
     courts: 'Which courts are empty this week?',
-    staff: 'Who is on break right now?',
+    staff: 'Who is working right now?',
   },
   composer: {
     placeholder: 'Ask a question',

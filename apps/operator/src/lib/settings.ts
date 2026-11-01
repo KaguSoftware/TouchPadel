@@ -38,12 +38,15 @@ export interface CafeSettings {
   /**
    * 0064: seconds of till inactivity before the lock overlay (0 = disabled).
    * The default here is 900 (15 min), longer than the registry's 300: the
-   * lock is client-only, nothing in SQL reads the registry default, and no
-   * screen writes the key, so this is the value every station runs on.
+   * lock is client-only and nothing in SQL reads the registry default. The
+   * owner sets it on Settings › Cashier computers (F-48), and every role gets
+   * that value on the heartbeat (0397), not from this read, which is for
+   * managers and owners only.
+   *
+   * (0105's break_allowance_minutes is no longer read: breaks left the
+   * operator, F-08. The server key stays.)
    */
   till_idle_lock_seconds: number;
-  /** 0105: minutes of break per person per business day, across all their breaks (0 = no breaks). */
-  break_allowance_minutes: number;
   /** 0270: minutes late plus minutes left early a work day may reach before it costs attendance_penalty_iqd (manager or owner). */
   attendance_grace_minutes: number;
   /** 0270: what a work day over attendance_grace_minutes costs, in IQD, taken off that person's wage (0 = off; manager or owner). */
@@ -77,7 +80,6 @@ export const CAFE_SETTING_DEFAULTS: Readonly<CafeSettings> = {
   analytics_excluded_item_ids: [],
   analytics_engagement_floor: null,
   till_idle_lock_seconds: 900,
-  break_allowance_minutes: 60,
   attendance_grace_minutes: 0,
   attendance_penalty_iqd: 0,
   wage_reminder_days: 3,

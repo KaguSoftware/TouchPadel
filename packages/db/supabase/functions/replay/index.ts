@@ -87,7 +87,17 @@ function publicMapped(mapped: MappedError, err: PgError): MappedError {
 // arg makes PostgREST fail the whole call with PGRST202 "no matching function").
 // ---------------------------------------------------------------------------
 type Ctx = { idempotencyKey: string; stationId: string; staffId: string };
-type Route = { rpc: string; entity: string; args: (p: any, c: Ctx) => Record<string, unknown> };
+type Route = {
+  rpc: string;
+  entity: string;
+  args: (p: any, c: Ctx) => Record<string, unknown>;
+  /**
+   * The RPC whose PIN gate applies, and where the PIN rides, when that is not
+   * `rpc` / `payload.pin` — an 'rpc.queued' envelope dispatches app.queued_rpc
+   * but carries the inner RPC's name and its `p_pin` (0395).
+   */
+  pin?: { rpc: string; value: unknown };
+};
 
 const common = (c: Ctx) => ({ p_idempotency_key: c.idempotencyKey, p_device_id: c.stationId });
 
@@ -319,6 +329,28 @@ const MUTATION_RPCS: Record<string, (p: any, c: Ctx) => Route> = {
       p_device_id: c.stationId,
     }),
   }),
+
+  // --- 0395 (F-23, F-56, F-57, F-58): one allowlisted RPC, exactly once -----------
+  // app.queued_rpc(p_fn, p_args, p_idempotency_key) claims the envelope's key
+  // (app.claim_replay) in the same transaction as the write and calls app.<p_fn>
+  // with the queued arguments as the staff session (security invoker), so every
+  // role guard and audit row is the RPC's own. Only names in queueableRpcs; a
+  // tab opened offline is named by tabIdemKey and resolved to p_tab_id above.
+  'rpc.queued': (p, c) => {
+    const fn = p?.fn;
+    if (typeof fn !== 'string' || !mutationTypes.queueableRpcs.includes(fn)) {
+      throw new BadRequest(`rpc.queued: '${String(fn)}' is not queueable`);
+    }
+    const args = p?.args && typeof p.args === 'object' && !Array.isArray(p.args) ? p.args : null;
+    if (!args) throw new BadRequest('rpc.queued: args must be an object');
+    const tabArgs = typeof p?.tabId === 'string' ? { p_tab_id: p.tabId } : {};
+    return {
+      rpc: 'queued_rpc',
+      entity: 'rpc',
+      args: () => ({ p_fn: fn, p_args: { ...args, ...tabArgs }, p_idempotency_key: c.idempotencyKey }),
+      pin: { rpc: fn, value: (args as { p_pin?: unknown }).p_pin },
+    };
+  },
 };
 
 /**
@@ -507,8 +539,20 @@ Deno.serve(handle('replay', async (req) => {
   // other RPC refusal; a transient error is retried like any other.
   let rpcResult: unknown = null;
   let rpcError: PgError | null = null;
-  const queuedPin = (effectivePayload as { pin?: unknown } | null)?.pin;
-  if (mutationTypes.pinGatedRpcs.includes(route.rpc) && typeof queuedPin === 'string') {
+  // 0398 (F-49): a retired station loses everything, its queued writes too.
+  // app.pre_request refuses them as well; this check holds while that hook is
+  // missing. A deterministic refusal: recorded below and shown at Day close.
+  const retired = await service
+    .from('stations')
+    .select('id')
+    .eq('id', station_id)
+    .not('retired_at', 'is', null)
+    .maybeSingle();
+  if (retired.error) return readFailed('stations', retired.error);
+  if (retired.data) rpcError = { code: 'P0001', message: 'STATION_RETIRED', details: station_id };
+  const queuedPin = route.pin ? route.pin.value : (effectivePayload as { pin?: unknown } | null)?.pin;
+  const gatedRpc = route.pin ? route.pin.rpc : route.rpc;
+  if (!rpcError && mutationTypes.pinGatedRpcs.includes(gatedRpc) && typeof queuedPin === 'string') {
     const verified = await asStaff
       .schema('app')
       .rpc('verify_manager_pin', { p_pin: queuedPin, p_device_id: station_id });

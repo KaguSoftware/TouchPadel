@@ -15,19 +15,27 @@
  * handed over now (the server's to_pay_iqd, sent back as
  * p_expected_paid_iqd), and "Paid from" (Safe, preselected, or Bank transfer)
  * says where that money came from: from the safe it leaves the main cash.
+ *
+ * F-13: the idempotency key is bound to the values sent (keyForValues), so a
+ * retry after a lost answer with a different "Paid from" is its own write and
+ * the toast names what was recorded; the dialog is online only (disabled with
+ * the reason offline). F-12 (0387): from the safe, an amount above its
+ * balance is refused, shown before the press.
  */
-import { useState, type ReactNode } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { countPhrase, formatIQD, isolate } from '@touch/i18n';
 import { appRpc } from '../../lib/appRpc';
 import { useLocale } from '../../lib/i18n';
+import { useStationReach } from '../../lib/stationReach';
 import { useToast } from '../../components/toast';
 import { Button, ErrorText, Modal } from '../../components/ui';
 import { MessagePresenter, Money } from '../../components/kit';
 import { refusalCode } from '../protocols/errors';
 import { dayLabel, monthLabel } from '../deductions/venueDate';
 import { WK } from './api';
-import { isWageStale, type PaidFrom, type WageLine } from './wagesLogic';
+import { useSafeBalance } from '../safe/api';
+import { isWageStale, keyForValues, safeShort, type PaidFrom, type WageLine } from './wagesLogic';
 import { BonusList } from './BonusList';
 import { PaidFromField } from './PaidFromField';
 
@@ -42,28 +50,44 @@ export function MarkPaidDialog({ line, onClose, onDone }: { line: PayTarget; onC
   const { tr, locale } = useLocale();
   const toast = useToast();
   const qc = useQueryClient();
-  const [key] = useState(() => `wage.paid:${crypto.randomUUID()}`);
+  const keys = useRef(new Map<string, string>());
   const [paidFrom, setPaidFrom] = useState<PaidFrom>('safe');
+  const { reachable } = useStationReach();
+  const safeBalance = useSafeBalance(line.toPayIqd > 0);
 
   const pay = useMutation({
-    mutationFn: () =>
-      appRpc('mark_wage_paid', {
+    // The values sent ride with the call, so the toast names exactly what was recorded.
+    mutationFn: async (from: PaidFrom) => {
+      await appRpc('mark_wage_paid', {
         p_staff_id: line.staffId,
         p_month: line.month,
         p_expected_net_iqd: line.netIqd,
         p_expected_paid_iqd: line.toPayIqd,
-        p_paid_from: paidFrom,
-        p_idempotency_key: key,
-      }),
-    onSuccess: () => {
+        p_paid_from: from,
+        p_idempotency_key: keyForValues(
+          keys.current,
+          [line.staffId, line.month, line.netIqd, line.toPayIqd, from],
+          () => `wage.paid:${crypto.randomUUID()}`,
+        ),
+      });
+      return from;
+    },
+    onSuccess: (from) => {
       const amount = isolate(formatIQD(line.toPayIqd, locale));
-      toast.ok(line.toPayIqd > 0 ? tr(paidFrom === 'safe' ? 'ws.wages.pay.doneSafe' : 'ws.wages.pay.doneBank', { amount }) : tr('ws.wages.pay.done'));
+      toast.ok(line.toPayIqd > 0 ? tr(from === 'safe' ? 'ws.wages.pay.doneSafe' : 'ws.wages.pay.doneBank', { amount }) : tr('ws.wages.pay.done'));
       void qc.invalidateQueries({ queryKey: ['main-cash'] });
       onDone();
     },
     // The month moved under the dialog: the message stays, and the figures catch up behind it.
-    onError: (e) => isWageStale(refusalCode(e)) && void qc.invalidateQueries({ queryKey: WK.all }),
+    onError: (e) => {
+      const code = refusalCode(e);
+      if (isWageStale(code)) void qc.invalidateQueries({ queryKey: WK.all });
+      if (code === 'SAFE_NOT_ENOUGH') void qc.invalidateQueries({ queryKey: ['main-cash'] });
+    },
   });
+
+  const short = line.toPayIqd > 0 && safeShort(line.toPayIqd, paidFrom, safeBalance);
+  const blocked = !reachable ? tr('ws.wages.paidFrom.offline') : short ? tr('ws.wages.paidFrom.safeShort', { amount: isolate(formatIQD(Math.max(safeBalance ?? 0, 0), locale)) }) : null;
 
   const negative = line.netIqd < 0;
   const advanced = line.advancesIqd > 0;
@@ -84,7 +108,15 @@ export function MarkPaidDialog({ line, onClose, onDone }: { line: PayTarget; onC
           <Button onClick={close} disabled={pay.isPending}>
             {tr('common.cancel')}
           </Button>
-          <Button kind="primary" icon="check" busy={pay.isPending} disabled={paidAlready} data-testid="wages.pay.confirm" onClick={() => pay.mutate()}>
+          <Button
+            kind="primary"
+            icon="check"
+            busy={pay.isPending}
+            disabled={paidAlready || blocked !== null}
+            disabledReason={blocked ?? undefined}
+            data-testid="wages.pay.confirm"
+            onClick={() => pay.mutate(paidFrom)}
+          >
             {tr('ws.wages.pay.confirm')}
           </Button>
         </>
@@ -135,8 +167,14 @@ export function MarkPaidDialog({ line, onClose, onDone }: { line: PayTarget; onC
       {line.toPayIqd > 0 && (
         <div style={{ marginBlockStart: 'var(--tp-sp-4)' }}>
           <PaidFromField value={paidFrom} onChange={setPaidFrom} disabled={pay.isPending} testId="wages.pay.from" />
+          {paidFrom === 'safe' && safeBalance !== null && (
+            <p data-testid="wages.pay.safeBalance" style={{ margin: 0, marginBlockStart: 'var(--tp-sp-1)', fontSize: 'var(--tp-fs-xs)', color: short ? 'var(--tp-danger-fg)' : 'var(--tp-muted-fg)' }}>
+              {tr('ws.wages.paidFrom.safeBalance', { amount: isolate(formatIQD(safeBalance, locale)) })}
+            </p>
+          )}
         </div>
       )}
+      {blocked !== null && <MessagePresenter tone="refused" message={blocked} />}
       <ErrorText error={pay.error} />
     </Modal>
   );

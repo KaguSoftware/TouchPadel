@@ -237,6 +237,8 @@ describe('capability matrix', () => {
     startProtocolPriceChange: ['marketing', 'manager', 'owner'],
     // Owner and marketing leave a locked station without a PIN (owner-exit.ts).
     leaveStationWithoutPin: ['owner', 'marketing'],
+    // app.register_station's guard (0222): a manager or the owner registers a machine (F-49).
+    registerStation: ['manager', 'owner'],
     startProtocolTournament: ['court_desk', 'manager', 'owner'],
     reviewIdeas: ['head_barista', 'head_chef', 'manager', 'owner'],
     writeTeachings: ['head_barista', 'head_chef', 'manager', 'owner'],
@@ -332,6 +334,9 @@ describe('capability matrix', () => {
         'launchDirectly',
         'leaveStationWithoutPin',
         'manageBranches',
+        // The idle-lock timeout (F-48) and registering a station again (F-49).
+        'setIdleLock',
+        'registerStation',
         'marketingWork',
         'readProduction',
         'readPurchases',
@@ -678,7 +683,9 @@ describe('per-person access (0345)', () => {
     expect(new Set(owned).size).toBe(owned.length);
     for (const [key, roles] of Object.entries(ROUTE_ROLES)) {
       if (key === '/workspaces') continue;
-      if (roles.every((r) => r === 'owner' || r === 'manager')) continue;
+      // The dev role (0392) is no front-line job: never a second job, and its
+      // one page (/monitoring) is not the owner's to block.
+      if (roles.every((r) => r === 'owner' || r === 'manager' || r === 'dev')) continue;
       expect(areaOfRouteKey(key), key).not.toBeNull();
     }
     for (const key of owned) expect(Object.keys(ROUTE_ROLES), key).toContain(key);

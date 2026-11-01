@@ -17,8 +17,13 @@
  * day, move this and `legal.lastUpdated` to that day. Open matches then take
  * the same value as `platform_settings.match_terms_version`, by a migration,
  * only once a build carrying it is on phones.
+ *
+ * 2026-11-01 (F-02/F-03, Majed): no online payment in this build. The Qi Card, deposit and
+ * open-match ticket wording is gone; court bookings, lessons, open-match seats, tournament
+ * entries and café orders are all paid at the venue, and error reports to our own server are
+ * disclosed. Every guest on 2026-09-29 (or older) meets the consent screen once more.
  */
-export const CURRENT_TERMS_VERSION = '2026-09-29';
+export const CURRENT_TERMS_VERSION = '2026-11-01';
 
 /** The pattern 0153 accepts — `YYYY-MM-DD`, optionally `.N`. */
 export const TERMS_VERSION_PATTERN = /^[0-9]{4}-[0-9]{2}-[0-9]{2}(\.[0-9]{1,3})?$/;

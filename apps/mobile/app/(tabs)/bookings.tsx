@@ -453,7 +453,8 @@ export default function BookingsScreen() {
         count={openMatches.length}
         style={{ marginTop: 6 }}
       />
-      {wallet.data ? (
+      {/* No wallet in a build without online payment (F-02), even from a cached read. */}
+      {onlinePaymentsShipped() && wallet.data ? (
         <Pressable
           testID="bookings.tickets"
           accessibilityRole="link"

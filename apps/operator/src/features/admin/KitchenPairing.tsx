@@ -20,6 +20,9 @@ import { touch } from '../../ipc/bridge';
 import { Button, ErrorText, Field, Modal, inputStyle } from '../../components/ui';
 import { Panel } from '../../components/kit';
 import { CardTitle } from '../ops/OpsVisuals';
+import { PIN_MAX, PIN_MIN, pinDigits } from '../../lib/pinRules';
+import { isTransportFailure } from '../../lib/connectivity';
+import { readPairingAnswer, type PairingRefusal } from './kitchenPairingLogic';
 
 export function KitchenPairingPanel() {
   const { tr } = useLocale();
@@ -28,7 +31,7 @@ export function KitchenPairingPanel() {
   const [error, setError] = useState<unknown>(null);
   const [busy, setBusy] = useState(false);
   const [info, setInfo] = useState<{ host: string | null; port: number; code: string } | null>(null);
-  const [refusal, setRefusal] = useState<'not-a-till' | 'no-psk' | 'custom-psk' | null>(null);
+  const [refusal, setRefusal] = useState<PairingRefusal | null>(null);
   const onTill = isElectron() && touch.getStation().mode === 'till';
 
   function close() {
@@ -57,16 +60,18 @@ export function KitchenPairingPanel() {
       } catch (e) {
         // Offline: fall through to the cache check in main. A server REFUSAL
         // (PIN_INVALID / PIN_LOCKED) still surfaces.
-        if (e instanceof AppRpcError && e.code !== 'UNKNOWN') throw e;
+        if (e instanceof AppRpcError && e.code !== 'UNKNOWN' && !isTransportFailure(e)) throw e;
       }
-      const res = await touch.getPairingInfo(pin);
-      if (!('ok' in res)) throw new Error(res.error);
-      if (!res.ok) {
-        if (res.error === 'pin not recognised') throw new Error(res.error);
-        setRefusal(res.error);
+      // F-31: main's "pin not recognised" (offline, a PIN the cache does not
+      // hold) is "Incorrect PIN.", and an unreachable server "No connection"
+      // (ErrorText → errorToMessageKey), never "Something went wrong".
+      const out = readPairingAnswer(await touch.getPairingInfo(pin));
+      if (out.kind === 'error') throw out.error;
+      if (out.kind === 'refusal') {
+        setRefusal(out.refusal);
         return;
       }
-      setInfo({ host: res.host, port: res.port, code: res.code });
+      setInfo({ host: out.host, port: out.port, code: out.code });
     } catch (e) {
       setError(e);
     } finally {
@@ -103,7 +108,7 @@ export function KitchenPairingPanel() {
                 <Button onClick={close}>{tr('common.back')}</Button>
                 {/* Says what it does. It used to repeat the dialog's title,
                     "Pair a kitchen screen", which pairs nothing: it shows a code. */}
-                <Button kind="primary" icon="eye" busy={busy} disabled={pin.length < 4} onClick={() => void reveal()}>
+                <Button kind="primary" icon="eye" busy={busy} disabled={pin.length < PIN_MIN} onClick={() => void reveal()}>
                   {tr('ws.shell.pair.reveal')}
                 </Button>
               </>
@@ -161,8 +166,9 @@ export function KitchenPairingPanel() {
                   autoFocus
                   value={pin}
                   readOnly={busy}
-                  onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
-                  onKeyDown={(e) => e.key === 'Enter' && pin.length >= 4 && !busy && void reveal()}
+                  maxLength={PIN_MAX}
+                  onChange={(e) => setPin(pinDigits(e.target.value))}
+                  onKeyDown={(e) => e.key === 'Enter' && pin.length >= PIN_MIN && !busy && void reveal()}
                 />
               </Field>
               <ErrorText error={error} />

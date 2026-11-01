@@ -31,3 +31,23 @@ export function decimalKeystroke(raw: string, maxDigits: number = MAX_DECIMAL_DI
   }
   return out;
 }
+
+/**
+ * F-35 (Majed 2026-11-01: "keep English digits only; make sure the refusal
+ * message says so clearly"). The admin number boxes that take 0-9 only (the
+ * rewards target, a count, recipe amounts, ingredient numbers, a shop product's
+ * price, cost and low level) refuse Arabic-Indic (٠-٩) and Persian (۰-۹)
+ * digits as before, and now say why: 'englishDigits' (ws.manager.stock.englishDigits)
+ * instead of a bare "not a number". Goods in and the driver's purchase keep
+ * converting them (decimalKeystroke above), as they always did.
+ */
+const NON_ENGLISH_DIGIT = /[٠-٩۰-۹٫]/;
+
+export function hasNonEnglishDigits(value: string): boolean {
+  return NON_ENGLISH_DIGIT.test(value);
+}
+
+/** 'englishDigits' when a box holds a digit that is not 0-9, else null. */
+export function digitsProblem(value: string): 'englishDigits' | null {
+  return hasNonEnglishDigits(value) ? 'englishDigits' : null;
+}

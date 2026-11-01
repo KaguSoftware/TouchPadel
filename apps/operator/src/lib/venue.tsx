@@ -217,7 +217,14 @@ export function useVenue(): VenueContextValue {
 /** Staff broadcast topics that exist per branch since 0224 ('kds', 'floor', 'courts'), and 'checklists' since 0375 (per branch only). */
 const PER_BRANCH_TOPICS = new Set(['kds', 'floor', 'courts', 'checklists']);
 
-/** Pure: the realtime topic for a branch; the literal topic while no branch is known. */
-export function branchTopic(topic: string, branchId: string | null): string {
-  return branchId && PER_BRANCH_TOPICS.has(topic) ? `${topic}:${branchId}` : topic;
+/**
+ * Pure: the realtime topic for a branch. A per-branch topic has NO topic while
+ * the branch is unknown (null: do not subscribe): since 0382 the server's
+ * realtime policies refuse the bare 'kds' / 'floor' / 'courts' / 'checklists'
+ * topics and admit only '<topic>:<venue>', so joining the literal one would
+ * just be refused (and was the building-wide leak F-27 closed).
+ */
+export function branchTopic(topic: string, branchId: string | null): string | null {
+  if (!PER_BRANCH_TOPICS.has(topic)) return topic;
+  return branchId ? `${topic}:${branchId}` : null;
 }

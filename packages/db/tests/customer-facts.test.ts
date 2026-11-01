@@ -103,7 +103,7 @@ describe.skipIf(!docker)('0368 the age band', () => {
 });
 
 describe.skipIf(!docker)('0368 the confirmed level', () => {
-  it('is written by the desk, a manager, the owner and a coach, and by nobody else', () => {
+  it('is written by the desk, a manager and the owner, and by nobody else (0401: not a coach here)', () => {
     const r = scenario('cf-level-who', [
       ...BASE,
       CG('dia', 'beginner'),
@@ -132,11 +132,16 @@ describe.skipIf(!docker)('0368 the confirmed level', () => {
       note: 'Rallies well',
       effective: 'intermediate',
     });
-    // A coach re-judging replaces the whole block, note included.
+    // 0401 (F-70): a coach no longer judges by profile id (any customer); they
+    // use app.coach_set_student_level for their own linked students
+    // (coach-student-level.test.ts). The desk's judgment stands.
+    expect(code(r, 'coach')).toBe('FORBIDDEN');
     expect(out<Record<string, unknown>>(r, 'after_coach')).toEqual({
-      role: 'coach', level: 'advanced', note: null, by_coach: true,
+      role: 'court_desk', level: 'intermediate', note: 'Rallies well', by_coach: false,
     });
-    expect(out<{ duplicate: boolean }>(r, 'owner').duplicate).toBe(true);
+    // The owner re-judging replaces the whole block, note included.
+    expect(out<{ duplicate: boolean; level_confirmed_role: string; level_note: string | null }>(r, 'owner'))
+      .toMatchObject({ duplicate: false, level_confirmed_role: 'owner', level_note: null });
     // Clearing puts the claimed level back in charge and leaves no judgment behind.
     expect(out<Facts>(r, 'after_clear')).toMatchObject({
       claimed: 'beginner', confirmed: null, confirmed_at: false, role: null, note: null,

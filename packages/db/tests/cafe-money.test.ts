@@ -35,7 +35,7 @@ import {
 const up = await stackAvailable();
 
 const TAX_STANDARD_0 = 'b0000000-0000-4000-8000-000000000001'; // active, 0%
-const TAX_RESTAURANT_10 = 'b0000000-0000-4000-8000-000000000002'; // INACTIVE, 1000 bp
+const TAX_RESTAURANT_10 = 'b0000000-0000-4000-8000-000000000002'; // INACTIVE, 0 bp since 0380; the tests set 1000
 
 interface Bill {
   subtotal: number;
@@ -118,7 +118,8 @@ describe.skipIf(!up)('tab totals + adjustment guards (0036/0037/0038)', () => {
   // 0036 #1 — tax base
   // -------------------------------------------------------------------------
   it('taxes the POST-discount base, not the gross subtotal', async () => {
-    await svc.from('tax_groups').update({ is_active: true }).eq('id', TAX_RESTAURANT_10);
+    // 0380 set every rate to 0 (F-06); the arithmetic is proved at 10%.
+    await svc.from('tax_groups').update({ is_active: true, rate_bp: 1000 }).eq('id', TAX_RESTAURANT_10);
     await svc.from('menu_categories').update({ tax_group_id: TAX_RESTAURANT_10 }).eq('id', coffee.categoryId);
     try {
       // Control: no discount, 10% on 20,000.
@@ -150,7 +151,7 @@ describe.skipIf(!up)('tab totals + adjustment guards (0036/0037/0038)', () => {
       });
     } finally {
       await svc.from('menu_categories').update({ tax_group_id: TAX_STANDARD_0 }).eq('id', coffee.categoryId);
-      await svc.from('tax_groups').update({ is_active: false }).eq('id', TAX_RESTAURANT_10);
+      await svc.from('tax_groups').update({ is_active: false, rate_bp: 0 }).eq('id', TAX_RESTAURANT_10);
     }
   });
 
@@ -161,12 +162,16 @@ describe.skipIf(!up)('tab totals + adjustment guards (0036/0037/0038)', () => {
     // seed.sql ships 'Restaurant 10%' inactive on purpose; before 0036 nothing
     // in the codebase read is_active, so pointing a category at it silently
     // taxed every tab 10% anyway.
+    // 0380 set every rate to 0 (F-06): give the inactive group a rate again,
+    // so "inactive bills nothing" is still what this proves.
+    await svc.from('tax_groups').update({ rate_bp: 1000 }).eq('id', TAX_RESTAURANT_10);
     await svc.from('menu_categories').update({ tax_group_id: TAX_RESTAURANT_10 }).eq('id', cake.categoryId);
     try {
       const { tabId } = await freshTab([{ variant_id: cake.variantId, qty: 1 }]);
       expect(await settleAndRead(tabId)).toMatchObject({ subtotal: 10_000, tax: 0, total: 10_000 });
     } finally {
       await svc.from('menu_categories').update({ tax_group_id: TAX_STANDARD_0 }).eq('id', cake.categoryId);
+      await svc.from('tax_groups').update({ rate_bp: 0 }).eq('id', TAX_RESTAURANT_10);
     }
   });
 
@@ -355,7 +360,8 @@ describe.skipIf(!up)('tab totals + adjustment guards (0036/0037/0038)', () => {
     // declined to add it: the total was right, the tax line was overstated.
     // On 20,000 at 10% inclusive: 20000 * 1000/11000 = 1818.18 -> 1818.
     // The pre-0045 answer was 2,000, and the total stays 20,000 either way.
-    await svc.from('tax_groups').update({ is_active: true }).eq('id', TAX_RESTAURANT_10);
+    // 0380 set every rate to 0 (F-06); the arithmetic is proved at 10%.
+    await svc.from('tax_groups').update({ is_active: true, rate_bp: 1000 }).eq('id', TAX_RESTAURANT_10);
     await svc
       .from('menu_categories')
       .update({ tax_group_id: TAX_RESTAURANT_10 })
@@ -374,7 +380,7 @@ describe.skipIf(!up)('tab totals + adjustment guards (0036/0037/0038)', () => {
         .from('menu_categories')
         .update({ tax_group_id: TAX_STANDARD_0 })
         .eq('id', coffee.categoryId);
-      await svc.from('tax_groups').update({ is_active: false }).eq('id', TAX_RESTAURANT_10);
+      await svc.from('tax_groups').update({ is_active: false, rate_bp: 0 }).eq('id', TAX_RESTAURANT_10);
     }
   });
 });

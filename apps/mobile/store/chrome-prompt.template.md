@@ -1,11 +1,13 @@
-# Claude-in-Chrome prompt — App Store Connect, Touch Padel iOS 1.0.0
+# Claude-in-Chrome prompt — App Store Connect, Touch Padel iOS 1.1.0
 
 Generated from `docs/store/app-store-listing.md` and `docs/store/app-store-submission.md` (character counts
 verified by `pnpm --filter @touch/mobile store:copy-check`). If those docs change, regenerate. Don't hand-edit the
 copy below.
 
-**Before pasting this, have ready:** the review account's phone and password (from
-`node scripts/create-review-account.mjs`), a processed build ≥ 9 (or accept that task 6.4 will be BLOCKED), and
+**Before pasting this, have ready:** the review account's phone number (from
+`node scripts/create-review-account.mjs --sandbox`) and the six-digit test code you set for it in Supabase (the app
+signs in with a code, not a password; the partner account and its match are set up as
+`docs/store/app-store-submission.md` §0 items 3–3b say; this build has no online payment and no tickets), a processed build ≥ 9 (or accept that task 6.4 will be BLOCKED), and
 the screenshot PNGs rendered in `apps/mobile/store/out/iphone-6.9/`.
 
 Copy everything below the line into Claude in Chrome.
@@ -141,24 +143,30 @@ Left sidebar: **App Privacy**.
    - Contact Info → **Name**, **Email Address**, **Phone Number**
    - Identifiers → **User ID**
    - Other Data → **Other Data Types**
-4. For **each** of those five, answer:
+   - Purchases → **Purchase History** (bookings, open-match seats, lessons and tournament entries, all paid at the
+     desk; member-card points; no card data, no payment in the app)
+   - User Content → **Photos or Videos**, **Other User Content** (staff accounts only: work photos and the text
+     staff type in the staff area)
+   - Financial Info → **Other Financial Info** (staff accounts only: wage advances and pay deductions)
+   - Diagnostics → **Crash Data** (crash and error reports to the venue's own server, F-15)
+4. For **each** of those ten, answer:
    - Purposes: **App Functionality** only.
    - Linked to the user's identity: **Yes**.
    - Used for tracking: **No**.
-5. Every other data type stays unticked. In particular NOT: Location, Contacts, Photos, Health, Financial Info,
-   Payment Info, Purchases, Browsing/Search History, Sensitive Info, Usage Data, Diagnostics, Device ID,
-   Advertising Data.
+5. Every other data type stays unticked. In particular NOT: Location, Contacts, Health, Payment Info, Credit Info,
+   Emails or Text Messages, Audio Data, Gameplay Content, Customer Support, Browsing/Search History, Sensitive
+   Info, Usage Data, Performance Data, Other Diagnostic Data, Device ID, Advertising Data.
 6. Save, then **Publish** the privacy answers. Publishing privacy answers is allowed; it is not submitting the app.
 7. In the report, list the final label as App Store Connect shows it ("Data Linked to You: …", "Data Used to
    Track You: none").
 
-## Task 6 — The version page (1.0.0, "Prepare for Submission")
+## Task 6 — The version page (1.1.0, "Prepare for Submission")
 
 Open https://appstoreconnect.apple.com/apps/6809045183/distribution/ios/version/inflight
 
 ### 6.1 Version string
-If the version shown is not `1.0.0` (e.g. it says `1.0`), change it to `1.0.0` and save. The build's version is
-1.0.0 and must match.
+If the version shown is not `1.1.0` (e.g. it says `1.0.0` or `1.0`), change it to `1.1.0` and save. The build's
+version is 1.1.0 and must match.
 
 ### 6.2 English (U.S.) — select it in the language picker
 
@@ -232,7 +240,7 @@ Save.
 
 ### 6.4 Build
 In the **Build** section click **Add Build** (or the + next to it) and select the **newest** build whose version is
-**1.0.0**. Record its build number as `BUILD_NUMBER`.
+**1.1.0**. Record its build number as `BUILD_NUMBER`.
 - If no build is listed, or it says "Processing", mark this BLOCKED and continue with the rest. Don't wait more
   than a couple of minutes.
 - If it asks about encryption / export compliance: "None of the algorithms mentioned above", i.e. the app only
@@ -248,7 +256,8 @@ In the **Build** section click **Add Build** (or the + next to it) and select th
 
 ### 6.6 App Review Information
 - **Sign-in required:** ticked.
-- **User name** and **Password:** **ask me for both now.** I'll paste them from a script's output. Don't reuse
+- **User name** and **Password:** **ask me for both now.** I'll paste the number from a script's output and the
+  test code as the password. Don't reuse
   any value from elsewhere on the page.
 - **Contact Information** (first name, last name, phone, email): if already filled, keep it and report what it
   shows. If empty, ask me.

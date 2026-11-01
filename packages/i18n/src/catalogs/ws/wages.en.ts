@@ -168,6 +168,10 @@ export const wagesEn = {
     byBank: 'By bank transfer',
     safeHint: 'The money comes out of the safe.',
     bankHint: 'Nothing comes out of the safe.',
+    // 0387 (F-12): the safe never pays more than it holds; F-13: online only.
+    safeBalance: 'In the safe now: {amount}',
+    safeShort: 'Not enough money in the safe: it holds {amount}. Put cash into the safe first, or pay by bank transfer.',
+    offline: 'Needs a connection: wages and advances are paid online only',
   },
   status: {
     unset: 'No salary',

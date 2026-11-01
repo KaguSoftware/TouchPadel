@@ -166,7 +166,7 @@ export interface FreeStarter {
 export const FREE_TOPICS: readonly { key: 'till' | 'courts' | 'shift' | 'problems' | 'stock' | 'settings'; tone: 'green' | 'violet' | 'teal' | 'rose' | 'sky' | 'gold'; questions: readonly FreeStarter[] }[] = [
   { key: 'till', tone: 'green', questions: [{ id: 'splitBill', key: 'topics.till.splitBill' }, { id: 'voidItem', key: 'topics.till.voidItem' }] },
   { key: 'courts', tone: 'violet', questions: [{ id: 'moveBooking', key: 'topics.courts.moveBooking' }, { id: 'deposit', key: 'topics.courts.deposit' }] },
-  { key: 'shift', tone: 'teal', questions: [{ id: 'break', key: 'starters.break' }, { id: 'tasks', key: 'starters.tasks' }] },
+  { key: 'shift', tone: 'teal', questions: [{ id: 'startShift', key: 'starters.startShift' }, { id: 'tasks', key: 'starters.tasks' }] },
   { key: 'problems', tone: 'rose', questions: [{ id: 'incident', key: 'starters.incident' }, { id: 'printer', key: 'topics.problems.printer' }] },
   { key: 'stock', tone: 'sky', questions: [{ id: 'waste', key: 'topics.stock.waste' }, { id: 'count', key: 'topics.stock.count' }] },
   { key: 'settings', tone: 'gold', questions: [{ id: 'hours', key: 'topics.settings.hours' }, { id: 'addStaff', key: 'topics.settings.addStaff' }] },

@@ -79,8 +79,8 @@ export function lineKind(l: Pick<PurchaseLine, 'ingredient_id' | 'ingredient_act
 
 /**
  * Whether a stock line still to receive is shop (retail) stock. Shop stock
- * lives in the cafe store only (wave5-addendum-2026-09-25 V14): receive_purchase
- * refuses such a line into the bakery store, so the picker turns the bakery
+ * lives in the shop store (0245); since 0389 receive_purchase books such a
+ * line there whatever store is picked, and the picker still turns the bakery
  * store off while one is on the purchase. `kindOf` is the ingredient list's
  * kinds; a line whose ingredient it does not know is not assumed to be shop.
  */

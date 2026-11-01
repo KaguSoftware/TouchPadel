@@ -2,8 +2,8 @@ name: DB ops (staging)
 
 # Owner-run, one-click operations against the hosted project that would
 # otherwise need a Supabase CLI login on a developer machine. Manual trigger
-# only; every job sits behind the `staging` environment's required reviewers,
-# exactly like a migration push.
+# only; every job runs in the `staging` environment, exactly like a migration
+# push, which carries no required reviewers (the owner's never-gate decision).
 #
 # clear-stale-till — the degraded-mode trap (HANDOFF "RUNNING THE OPERATOR
 # AGAINST HOSTED PUTS PRODUCTION INTO DEGRADED MODE"). `app.is_degraded()` is
@@ -116,5 +116,5 @@ jobs:
             echo
             echo 'A row with a Local version and no Remote version is a migration the hosted'
             echo 'project has not applied. If it sorts BEFORE a remote version, a plain push is'
-            echo 'refused: dispatch DB Migrate with `include_all = true`.'
+            echo 'refused: dispatch Deploy (hosted) with `include_all = true`.'
           } >> "$GITHUB_STEP_SUMMARY"

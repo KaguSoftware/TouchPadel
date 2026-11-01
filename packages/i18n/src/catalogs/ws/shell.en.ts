@@ -43,7 +43,10 @@ export const shellEn = {
   // says, and the Day close screen is where unsynced writes are listed.
   status: {
     ok: 'Connected.',
-    offline: 'Not connected — changes are saved here and will sync once the connection is back.',
+    // F-23 (2026-11-01): true again. Orders, payments and the allowlisted
+    // settings saves (0395) queue on the station; the rest says "No connection"
+    // where it is pressed, so the strip promises no more than that.
+    offline: 'Not connected. Orders, payments and settings are kept here until the connection is back. Some actions need a connection.',
   },
   // Named so RequireRole can hand the shared PermissionRefusedNotice a subject
   // instead of forking its own sentence. Reads as "{action} needs the {role}
@@ -68,41 +71,40 @@ export const shellEn = {
     pinFirst: 'Type your PIN first.',
     passwordFirst: 'Type your password first.',
   },
-  // Staff breaks (0105). The rail row, the break screen that covers the
-  // station while somebody is away, and the cover hand-over.
-  break: {
-    goOnBreak: 'Go on break',
-    // Under the rail button: how much of today's allowance is left.
-    remainingToday: '{minutes} min left today',
-    noneLeft: 'No break time left today',
-    startTitle: 'Go on break',
-    startLead: 'Your PIN starts the break. While you are away the station shows who can cover.',
-    startAction: 'Start break',
-    started: 'Break started.',
-    // The break screen.
-    onBreak: 'On break',
-    away: 'Away for {time}',
-    over: '{minutes} min over today’s allowance',
-    back: 'I’m back',
-    backNamed: '{name} is back',
-    coverTitle: 'Cover this station',
-    coverLead: 'Tap your name and enter your PIN to take the café cashier over.',
-    coverNone: 'Nobody can cover this station yet. The owner assigns cover staff under Staff.',
-    pinFor: '{name}’s PIN',
-    confirm: 'Confirm',
-    chooseAgain: 'Back',
-    // The rail while somebody else is at the till.
-    covering: 'Covering',
-    coveringFor: 'Covering for {name}',
-    coverStarted: '{name} has the station.',
-    endTitle: 'End the break',
-    endLead: 'Your PIN ends the break and takes the station back.',
-    endAction: 'End break',
-    ended: 'Break ended. {minutes} min left today.',
-    endedOver: 'Break ended, {minutes} min over today’s allowance.',
-    // Idle lock while a cover is at the till.
-    lockCovering: '{name} is covering this station. Enter their PIN to continue.',
-    lockOwnerBack: 'Not {cover}? {name} is back',
+  // F-48 (2026-11-01): the owner's idle-lock timeout, on Settings › Cashier computers.
+  lockTimeout: {
+    title: 'Idle lock',
+    lead: 'A station nobody touches locks itself after this long. The person signed in unlocks it with their own PIN or password.',
+    label: 'Lock after',
+    never: 'Never',
+    minutes: '{n} min',
+    seconds: '{n} s',
+    saved: 'Idle lock saved. Every station of this branch uses it within a minute.',
+    ownerOnly: 'Only the owner changes how long a station waits before it locks.',
+  },
+  // F-49 (2026-11-01): the machine itself, once it learns it was retired.
+  retired: {
+    title: 'This station was retired',
+    body: 'Station {station} was retired in Settings › Cashier computers. Nothing can be sold, ordered or paid on it until a manager or the owner registers it again.',
+    register: 'Register this station again',
+    registered: 'Station registered again.',
+    askManager: 'Ask a manager or the owner to sign in here and register it again.',
+    signOut: 'Sign out',
+  },
+  // F-29 (2026-11-01): the shop till and the kitchen board on a machine set up
+  // as something else. {mode} is one of `modes` below.
+  stationKind: {
+    shopTitle: 'The shop till is not on this station',
+    shopBody: 'This station is a {mode}. Shop sales are taken on the shop station, so their cash goes into the shop’s own drawer and shift.',
+    kdsTitle: 'The kitchen board is not on this station',
+    kdsBody: 'This station is a {mode}. Open the kitchen board on a kitchen screen or on the café till.',
+    modes: {
+      till: 'café till',
+      desk: 'court desk',
+      kds: 'kitchen screen',
+      shop: 'shop station',
+    },
+    home: 'Go to my home page',
   },
   workspace: {
     courtDesk: 'Court desk',
@@ -210,6 +212,8 @@ export const shellEn = {
     assistant: 'Assistant',
     // The Files page (0354), on Management's own list beside the assistant.
     files: 'Files',
+    // Dev monitoring (0393): the dev role's page, the owner's under Settings.
+    monitoring: 'Monitoring',
     // The team workspace's one row (driver, marketing), and the till's and
     // the desk's last row.
     myTasks: 'My tasks',
@@ -249,7 +253,8 @@ export const shellEn = {
     menuItems: 'Menu items',
     categories: 'Menu groups',
     addons: 'Extras',
-    suggested: 'Café cashier suggestions',
+    // F-65: the page's own name (they show on the guest menu, not at the cashier).
+    suggested: 'Suggested items',
     whoIsOn: 'Working now',
     whatTheyDid: 'What they did',
     campaigns: 'Posts & campaigns',

@@ -86,6 +86,9 @@ const DETAIL = {
       refund_due_iqd: 0,
       substitute_for: null,
       payments: [],
+      // 0390 (F-40)
+      confirmed_at: '2026-10-05T09:00:00Z',
+      confirmed_by_name: 'Sait',
     },
   ],
   courts: [
@@ -159,6 +162,7 @@ const DETAIL = {
     close: false,
     finish: false,
     settle: true,
+    confirm: true,
   },
 };
 
@@ -173,6 +177,16 @@ describe('the fixtures carry the frozen shapes', () => {
     ).toEqual([]);
     const clean = { ...DETAIL, rounds: [DETAIL.rounds[0]] };
     expect(tourMissingKeys(clean, TOURNAMENT_SHAPES.desk_tournament_detail)).toEqual([]);
+  });
+
+  it('0390 (F-40): reads confirmed_at as confirmed, and a server without the key as confirmed', () => {
+    const d = readTournamentDetail(DETAIL)!;
+    expect(d.entries[0]).toMatchObject({ confirmed: true, confirmed_by_name: 'Sait' });
+    expect(d.can.confirm).toBe(true);
+    const unconfirmed = readTournamentDetail({ ...DETAIL, entries: [{ ...DETAIL.entries[0], confirmed_at: null }] })!;
+    expect(unconfirmed.entries[0]!.confirmed).toBe(false);
+    const { confirmed_at: _gone, ...older } = DETAIL.entries[0]!;
+    expect(readTournamentDetail({ ...DETAIL, entries: [older] })!.entries[0]!.confirmed).toBe(true);
   });
 });
 

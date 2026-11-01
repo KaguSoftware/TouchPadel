@@ -76,7 +76,7 @@ describe('WorkspaceGuideDialog', () => {
   it('leaves out a step whose page the viewer cannot open', () => {
     // /tasks is not the manager's, so a manager in the till sees no My tasks step.
     renderGuide({ role: 'manager' });
-    expect(screen.queryByRole('tab', { name: /Tasks and breaks/ })).toBeTruthy();
+    expect(screen.queryByRole('tab', { name: /Tasks and incidents/ })).toBeTruthy();
     expect(document.querySelector('[data-step-id="cashier.more.tasks"]')).toBeNull();
   });
 

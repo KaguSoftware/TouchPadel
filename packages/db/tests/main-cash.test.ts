@@ -397,3 +397,41 @@ describe.skipIf(!docker)('wage advances (rolled-back transactions)', () => {
     expect(refused(r, 'coach_bad_from')).toBe('INVALID_ARGUMENT');
   });
 });
+
+describe.skipIf(!docker)('0387: wages and advances from a safe that holds too little (rolled-back transactions)', () => {
+  const MONTH = KEEP('month', `select date_trunc('month', app.venue_business_date({{venue}}::uuid))::date::text`);
+
+  it('SAFE_NOT_ENOUGH (hint the balance) and nothing written; the bank always pays; the exact balance is enough', () => {
+    const r = scenario([
+      MONTH,
+      MK('w1', 'waiter'),
+      T('wage', 'owner', `select app.set_staff_wage({{w1}}::uuid, 500000, 28, {{month}}::date)`),
+      move('fund', 'owner', 'owner_in', 150000),
+      T('adv_short', 'owner', `select app.give_wage_advance({{w1}}::uuid, 200000, 'safe', {{month}}::date, null, null, 'mc387:adv:1')`),
+      Q('adv_rows', `select to_jsonb(count(*)) from wage_advances where staff_id = {{w1}}::uuid`),
+      Q('replay_free', `select to_jsonb(count(*)) from app.rpc_replays where idempotency_key = 'mc387:adv:1'`),
+      T('adv_bank', 'owner', `select app.give_wage_advance({{w1}}::uuid, 200000, 'bank', {{month}}::date)`),
+      T('adv_exact', 'owner', `select app.give_wage_advance({{w1}}::uuid, 150000, 'safe', {{month}}::date)`),
+      overview('ov_empty', 'owner'),
+      // 500,000 - 350,000 in advances = 150,000 to pay, and the safe is now empty.
+      T('pay_short', 'owner', `select app.mark_wage_paid({{w1}}::uuid, {{month}}::date, 500000, null, null, 'safe', 150000)`),
+      Q('paid_rows', `select to_jsonb(count(*)) from wage_payments where staff_id = {{w1}}::uuid and status = 'paid'`),
+      move('top_up', 'owner', 'owner_in', 100000),
+      T('pay_short_still', 'owner', `select app.mark_wage_paid({{w1}}::uuid, {{month}}::date, 500000, null, null, 'safe', 150000)`),
+      T('pay_bank', 'owner', `select app.mark_wage_paid({{w1}}::uuid, {{month}}::date, 500000, null, null, 'bank', 150000)`),
+      overview('ov_end', 'owner'),
+    ]);
+
+    expect(refused(r, 'adv_short')).toBe('SAFE_NOT_ENOUGH:150000');
+    expect(ok<number>(r, 'adv_rows')).toBe(0);
+    expect(ok<number>(r, 'replay_free')).toBe(0);
+    expect(ok<{ owed_iqd: number }>(r, 'adv_bank').owed_iqd).toBe(300000);
+    expect(ok<{ owed_iqd: number }>(r, 'adv_exact').owed_iqd).toBe(150000);
+    expect(ok<Overview>(r, 'ov_empty').balance_iqd).toBe(0);
+    expect(refused(r, 'pay_short')).toBe('SAFE_NOT_ENOUGH:0');
+    expect(ok<number>(r, 'paid_rows')).toBe(0);
+    expect(refused(r, 'pay_short_still')).toBe('SAFE_NOT_ENOUGH:100000');
+    expect(ok<{ paid_iqd: number; paid_from: string }>(r, 'pay_bank')).toMatchObject({ paid_iqd: 150000, paid_from: 'bank' });
+    expect(ok<Overview>(r, 'ov_end').balance_iqd).toBe(100000);
+  });
+});

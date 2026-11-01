@@ -17,7 +17,6 @@ import { describe, expect, it } from '@jest/globals';
 import { fireEvent, within } from '@testing-library/react-native';
 import { formatIQD, isolate, isolateLtr, makeT, type Locale } from '@touch/i18n';
 import { runSmokeCases, type SmokeCase } from '../test/smokeCase';
-import { tournamentsOnForFile } from '../test/tournamentsEnv';
 import { renderRoute } from '../test/smoke';
 import { routerState } from '../test/routerState';
 import {
@@ -41,7 +40,6 @@ import TournamentDetailScreen from '../../app/(tournaments)/tournament/[id]';
 import ProfileScreen from '../../app/profile';
 
 // Tournaments ship in this file's build (features/tournaments/shipped.ts); the store build leaves them out.
-tournamentsOnForFile();
 
 type Seeds = [readonly unknown[], unknown][];
 

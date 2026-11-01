@@ -12,7 +12,7 @@ import { defineConfig } from 'vitest/config';
 // maths, proxy headers) keep their speed; jsdom is paid for only by the files
 // that actually render (`*.test.tsx`).
 //
-// `app/**/*.test.tsx` is in `include` on purpose: the pages live outside `src/`,
+// `app/**/*.test.{ts,tsx}` is in `include` on purpose: the pages (and route handlers) live outside `src/`,
 // and a page test sits next to its page.
 //
 // No `@vitejs/plugin-react`: adding it pulls in Vite's dependency optimizer,
@@ -32,7 +32,7 @@ export default defineConfig({
     },
   },
   test: {
-    include: ['src/**/*.test.{ts,tsx}', 'app/**/*.test.tsx'],
+    include: ['src/**/*.test.{ts,tsx}', 'app/**/*.test.{ts,tsx}'],
     environment: 'node',
     environmentMatchGlobs: [['**/*.test.tsx', 'jsdom']],
     setupFiles: ['./vitest.setup.ts'],

@@ -115,12 +115,15 @@ describe('StaffAccountEditor', () => {
 
   it('a cashier holds a PIN since 0105, and the panel says what it is for', () => {
     // Before 0105 the panel said only managers and owners have a PIN. A
-    // cashier's PIN now starts and ends their breaks and unlocks the station,
-    // and approves nothing — the note must say the first, not imply the second.
+    // cashier's PIN unlocks the station (breaks left the operator, F-08) and
+    // approves nothing — the note must say the first, not imply the second.
     renderPanel(cashier);
     expect(screen.getByRole('button', { name: 'Set PIN' })).toBeTruthy();
-    expect(screen.getByText(/cannot take a break until one is set/)).toBeTruthy();
+    expect(screen.getByText(/unlock the station with their password until one is set/)).toBeTruthy();
     expect(screen.queryByText(/approve/)).toBeNull();
+    expect(screen.queryByText(/break/i)).toBeNull();
+    // The break-cover station picker is gone with breaks.
+    expect(screen.queryByText('Stations')).toBeNull();
   });
 
   it('Access: a second job adds its pages, an unticked page is blocked, and both save together after a yes', async () => {

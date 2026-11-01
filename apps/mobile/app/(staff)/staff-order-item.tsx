@@ -219,7 +219,7 @@ function ItemRoute() {
 
 export default function StaffOrderItemRoute() {
   return (
-    <RequireStaff roles={FLOOR_ROLES}>
+    <RequireStaff page="staff-order-item" roles={FLOOR_ROLES}>
       <ItemRoute />
     </RequireStaff>
   );

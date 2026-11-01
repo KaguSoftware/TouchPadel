@@ -9,7 +9,7 @@ import { SLIP_ROLES } from '../../src/features/staff/scan/logic';
  */
 export default function StaffOrderSlipRoute() {
   return (
-    <RequireStaff roles={SLIP_ROLES}>
+    <RequireStaff page="staff-order-slip" roles={SLIP_ROLES}>
       <ScanPage kind="order_slip" />
     </RequireStaff>
   );

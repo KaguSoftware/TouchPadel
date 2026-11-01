@@ -375,3 +375,28 @@ export function demandAdvice(d: Insights['demand']): 'fillQuiet' | 'protectFull'
   if (full) return 'protectFull';
   return 'none';
 }
+
+/**
+ * F-38 (Majed 2026-11-01: "client percentages must never disagree with the
+ * server"). What a share bar draws and says for each row is the server's whole
+ * percent, as given: never rescaled to add up to 100 (a list the server left a
+ * bucket out of, or rounded, reads exactly as the server wrote it), never a
+ * decimal. A row the server did not send (null) draws nothing and reads as
+ * unknown.
+ *
+ * `overlapping` lists (interests: one person has several) are each a share of
+ * the PEOPLE, so they add up past 100: they are drawn as one meter per row,
+ * never as one bar split among them.
+ */
+export interface ShownShare {
+  key: string;
+  label: string;
+  /** The server's whole percent, or null. */
+  share: number | null;
+  /** The bar's width, percent of its track: the share itself. */
+  width: number;
+}
+
+export function shownShares(rows: readonly { key: string; label: string; share: number | null }[]): ShownShare[] {
+  return rows.map((r) => ({ key: r.key, label: r.label, share: r.share, width: r.share ?? 0 }));
+}

@@ -263,7 +263,7 @@ function StockScreen() {
 
 export default function StaffStockRoute() {
   return (
-    <RequireStaff roles={STOCK_ROLES}>
+    <RequireStaff page="staff-stock" roles={STOCK_ROLES}>
       <StockScreen />
     </RequireStaff>
   );

@@ -46,7 +46,7 @@ import {
   scoreTyping,
   shortName,
 } from './roundsLogic';
-import { pickName, roundsErrorKey, tournamentErrorText, codeOf } from './tournamentLogic';
+import { pickName, roundsErrorKey, tournamentErrorText, codeOf, unconfirmedEntries } from './tournamentLogic';
 import { currentRoundNo, roundState, scoredCount, type RoundState } from './layoutLogic';
 import { RankMedal } from './TournamentParts';
 import {
@@ -86,6 +86,8 @@ export function RoundsBoard({
   const [error, setError] = useState<unknown>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const action = boardAction(detail);
+  // 0390 (F-40): the draw waits until the desk has confirmed every registered player.
+  const toConfirm = unconfirmedEntries(detail).length;
   const byId = entriesById(detail);
   const nameOf = (id: string) => {
     const e = byId.get(id);
@@ -171,8 +173,15 @@ export function RoundsBoard({
       <Button
         kind="primary"
         icon="play"
-        disabled={!mayDraw}
-        disabledReason={!reachable ? tr('ws.tournaments.detail.offline') : undefined}
+        disabled={!mayDraw || toConfirm > 0}
+        disabledReason={
+          !reachable
+            ? tr('ws.tournaments.detail.offline')
+            : toConfirm > 0
+              ? tr('ws.tournaments.rounds.unconfirmed', { count: formatNumber(toConfirm, locale) })
+              : undefined
+        }
+        data-testid="rounds.start"
         onClick={() => setStarting(true)}
       >
         {tr('ws.tournaments.rounds.start')}

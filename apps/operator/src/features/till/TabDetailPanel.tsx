@@ -65,8 +65,11 @@ import { MergeTabsDialog, OverridePriceDialog, RefundDialog } from './ManagerAct
 import { SplitBillDialog } from './SplitBillDialog';
 import { ChargeToBookingDialog } from './ChargeToBookingDialog';
 import { PaymentPane, type PaymentMethod, type SettleResult } from './PaymentPane';
+import { UnsentLinesGuard } from './UnsentLinesGuard';
+import { chargeToBookingShown, payPressTarget } from './payGuards';
 import { canReadBookings, orderDelivery, tabDetailQuery, tabAnchorLabel, tabHasWebOrder, type OrderDelivery, type TabLineRow } from './tillData';
 import { DeliveryDialog } from './DeliveryDialog';
+import { KitchenReachFlag } from './KitchenReachFlag';
 import { actionButton, kvRow, muted, numeric, sectionTitle } from './tillStyles';
 import { DRAWER_REASONS } from './drawerReasons';
 import { useTillShiftOptional } from '../tillShift/shiftContext';
@@ -88,6 +91,8 @@ interface TillBookingBill {
 type Overlay =
   | { kind: 'none' }
   | { kind: 'pay'; method: PaymentMethod }
+  /** F-32: Cash, Card or Split pressed with basket lines not sent to this tab — asked first. */
+  | { kind: 'unsent'; then: { kind: 'pay'; method: PaymentMethod } | { kind: 'split' } }
   | { kind: 'split' }
   | { kind: 'discount' }
   | { kind: 'customerDiscount' }
@@ -101,11 +106,13 @@ type Overlay =
 
 export function TabDetailPanel({
   tabId,
+  unsentCount = 0,
   onClosedTab,
   onSwitchTab,
 }: {
   tabId: string;
-  /** Lines in the till's basket not yet sent to this tab — they are not on its bill. */
+  /** Lines in the till's basket not yet sent to this tab — they are not on its bill (F-32). */
+  unsentCount?: number;
   onClosedTab: () => void;
   /** The tab was merged into / replaced by another one — select that instead. */
   onSwitchTab: (id: string) => void;
@@ -230,13 +237,15 @@ export function TabDetailPanel({
   const hotkeyGate = useRef({ settled: true, due: 0, held: true });
   // Held while the court fee is loading or a payment is still on the queue.
   hotkeyGate.current = { settled: Boolean(settled), due, held: courtPending || pendingSettles.pending.size > 0 };
+  const unsentRef = useRef(unsentCount);
+  unsentRef.current = unsentCount;
   useEffect(() => {
     function onHotkey(e: Event) {
       if (hotkeyGate.current.settled || hotkeyGate.current.held || hotkeyGate.current.due <= 0) return;
       const method = (e as CustomEvent<PaymentMethod>).detail;
       setLastChange(null);
       setActionError(null);
-      setOverlay({ kind: 'pay', method });
+      setOverlay(payPressTarget({ kind: 'pay', method }, unsentRef.current));
     }
     window.addEventListener('till-settle-hotkey', onHotkey);
     return () => window.removeEventListener('till-settle-hotkey', onHotkey);
@@ -525,6 +534,8 @@ export function TabDetailPanel({
 
       {/* ---- zone 2: everything that grows ---- */}
       <div style={{ flex: 1, minBlockSize: 0, overflowY: 'auto', display: 'grid', gap: 'var(--tp-sp-3)', alignContent: 'start', paddingBlock: 'var(--tp-sp-3)' }}>
+        {/* F-11: an order on this tab that no kitchen screen has shown yet. */}
+        <KitchenReachFlag tabId={tabId} />
         {/* ---- lines (sent = not editable, void = waste) ---- */}
         <div style={{ display: 'grid', gap: 'var(--tp-sp-1)' }}>
           <h3 style={sectionTitle}>{tr('ws.cashier.detail.linesTitle')}</h3>
@@ -704,7 +715,11 @@ export function TabDetailPanel({
                   disabledReason={courtReason}
                   // Split takes payments too, so it meets the shift gate first
                   // (wave5-addendum §5.1); Cash and Card meet it in the pane.
-                  onClick={() => (tillShift ? tillShift.withShift(() => setOverlay({ kind: 'split' })) : setOverlay({ kind: 'split' }))}
+                  onClick={() => {
+                    const open = () => setOverlay(payPressTarget({ kind: 'split' as const }, unsentCount));
+                    if (tillShift) tillShift.withShift(open);
+                    else open();
+                  }}
                 >
                   {tr('ws.cashier.detail.split')}
                 </Button>
@@ -745,7 +760,8 @@ export function TabDetailPanel({
                 </Button>
               </>
             )}
-            {!tab.reservation_id && bookingsVisible && (
+            {/* F-32: only an unsettled tab with no booking of its own can be charged to one. */}
+            {chargeToBookingShown({ settled: Boolean(settled), hasBooking: Boolean(tab.reservation_id), bookingsVisible }) && (
               /* Spans the last two columns: it is the widest label of the set
                  and the one action that reaches outside this tab, so it gets
                  the room rather than being squeezed into a third. */
@@ -839,7 +855,7 @@ export function TabDetailPanel({
                 onClick={() => {
                   setLastChange(null);
                   setActionError(null);
-                  setOverlay({ kind: 'pay', method: 'cash' });
+                  setOverlay(payPressTarget({ kind: 'pay', method: 'cash' }, unsentCount));
                 }}
               >
                 {tr('op.till.payCash')} <Kbd>F4</Kbd>
@@ -848,13 +864,15 @@ export function TabDetailPanel({
                 size="xl"
                 icon="card"
                 disabled={payHeld || busy}
+                // F-32: Card says why it is held, as Cash does.
+                disabledReason={payBlockedReason}
                 title="F5"
                 aria-label={tr('op.till.payCard')}
                 style={{ inlineSize: '100%' }}
                 onClick={() => {
                   setLastChange(null);
                   setActionError(null);
-                  setOverlay({ kind: 'pay', method: 'card' });
+                  setOverlay(payPressTarget({ kind: 'pay', method: 'card' }, unsentCount));
                 }}
               >
                 {tr('op.till.payCard')} <Kbd>F5</Kbd>
@@ -869,6 +887,7 @@ export function TabDetailPanel({
       </div>
 
       {/* ---- overlays ---- */}
+      {overlay.kind === 'unsent' && <UnsentLinesGuard count={unsentCount} onCancel={close} onProceed={() => setOverlay(overlay.then)} />}
       {overlay.kind === 'pay' && (
         <PaymentPane mode={overlay.method} due={due} busy={busy} error={actionError} onCancel={close} onSettle={(m, a, t) => void settle(m, a, t).then((r) => r !== 'failed' && close())} />
       )}
@@ -879,8 +898,8 @@ export function TabDetailPanel({
           due={due}
           busy={busy}
           settleError={actionError}
-          onSettleShare={async (amount, method) => {
-            const r = await settle(method, amount, method === 'cash' ? amount : null);
+          onSettleShare={async (amount, method, tendered) => {
+            const r = await settle(method, amount, method === 'cash' ? (tendered ?? amount) : null);
             if (r === 'settled' || r === 'queued') close();
             return r !== 'failed';
           }}

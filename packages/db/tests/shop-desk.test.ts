@@ -203,14 +203,16 @@ describe.skipIf(!up)('0243–0246 Touch Shop own desk', () => {
     expect(await onHandAt(p.ingredientId)).toEqual({ shop: 4 });
     const toCafe = await receiveAsShop(p.ingredientId, 1, 'cafe');
     expect(toCafe.errorMessage).toContain('FORBIDDEN');
-    // A manager may not put shop stock in the café or the bakery either.
+    // 0389 (F-36): a manager's Goods in for the café or the bakery that holds
+    // a shop product books it into the shop store, never anywhere else.
     for (const location of ['cafe', 'bakery']) {
       const res = await appRpc(manager, 'receive_delivery', {
         p_lines: [{ ingredient_id: p.ingredientId, qty_received: 1, unit_cost_iqd: 1 }],
         p_location: location,
       }).then(outcome);
-      expect(res.errorMessage, location).toContain('INVALID_ARGUMENT');
+      expect(res.ok, `${location}: ${res.errorMessage}`).toBe(true);
     }
+    expect(await onHandAt(p.ingredientId)).toEqual({ shop: 6 });
     // Nothing moves in or out of the shop store.
     const moved = await appRpc(manager, 'transfer_stock', {
       p_from: 'shop',
@@ -228,7 +230,7 @@ describe.skipIf(!up)('0243–0246 Touch Shop own desk', () => {
       p_device_id: STATION,
     }).then(outcome);
     expect(sold.ok, sold.errorMessage).toBe(true);
-    expect(await onHandAt(p.ingredientId)).toEqual({ shop: 3 });
+    expect(await onHandAt(p.ingredientId)).toEqual({ shop: 5 });
     const { data: moves } = await svc
       .from('stock_movements')
       .select('location')
@@ -258,7 +260,7 @@ describe.skipIf(!up)('0243–0246 Touch Shop own desk', () => {
       p_idempotency_key: testIdemKey('payment.refund'),
     }).then(outcome);
     expect(back.ok, back.errorMessage).toBe(true);
-    expect(await onHandAt(p.ingredientId)).toEqual({ shop: 4 });
+    expect(await onHandAt(p.ingredientId)).toEqual({ shop: 6 });
   });
 
   it('shows the shop assistant the shop and nothing of the café', async () => {

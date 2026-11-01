@@ -34,7 +34,6 @@ const row = (name: string, operator: ActivityPart | null, mobile: ActivityPart |
   staffId: name,
   name,
   role: 'waiter',
-  onBreak: false,
   operator,
   mobile,
 });

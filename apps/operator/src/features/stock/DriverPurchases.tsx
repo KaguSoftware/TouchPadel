@@ -34,10 +34,12 @@
  *
  * Wave 5 (wave5-addendum-2026-09-25 §2.8.2 D4, §5.2): the manager says which
  * store the purchase goes into, the cafe store by default, with the same
- * picker as Goods in. Shop stock lives in the cafe store only (V14), so the
- * bakery store is off while a shop line is on the purchase, and a store with a
- * manager's count open takes nothing until that count is finished
- * (STORE_BEING_COUNTED).
+ * picker as Goods in. Shop goods go into the shop store (0245, 0389: a shop
+ * product on the purchase is booked there whatever store is picked); the
+ * bakery store stays off while a shop line is on the purchase, and a store
+ * with a manager's count open takes nothing until that count is finished
+ * (STORE_BEING_COUNTED). A line with a name and no product can be approved
+ * as a new shop product (NewProductFromPurchase, 0389, F-36).
  *
  * Still online-only, like the rest of Goods in: no queued mutation type. The
  * pure half (the payload reader, line kinds, draft checks, unit cost) is in
@@ -64,6 +66,7 @@ import { SK, fetchIngredients, fetchSuppliers, fetchUnfinishedCounts } from './s
 import { beingCounted, type StockLocation } from './storeLogic';
 import { decimalKeystroke } from './decimalInput';
 import { SupplierField } from './SupplierField';
+import { NewProductFromPurchase } from './products/NewProductFromPurchase';
 import {
   deliveredWhen,
   lineDraftProblem,
@@ -227,6 +230,8 @@ export function DriverPurchaseReceive({ purchaseId, onBack }: { purchaseId: stri
   const [idemKey, setIdemKey] = useState(() => `purchase.receive:${crypto.randomUUID()}`);
   const [busy, setBusy] = useState(false);
   const [ackBusy, setAckBusy] = useState<string | null>(null);
+  // 0389 (F-36): a new shop product the driver bought, being approved into the products list.
+  const [newProduct, setNewProduct] = useState<PurchaseLine | null>(null);
   /** The receive's refusal, shown beside Receive into stock. */
   const [error, setError] = useState<unknown>(null);
   /** A Mark checked that failed, shown under that line rather than beside a button it did not come from. */
@@ -398,6 +403,11 @@ export function DriverPurchaseReceive({ purchaseId, onBack }: { purchaseId: stri
         </span>
         {lineKind(l) === 'switchedOff' && <span style={{ fontSize: 'var(--tp-fs-sm)', color: MARK_FG.warn }}>{tr('ws.supplies.purchase.switchedOff')}</span>}
       </span>
+      {lineKind(l) === 'notStock' && (
+        <Button size="sm" kind="primary" icon="plus" disabled={busy || ackBusy !== null} data-testid={`purchase.newProduct.${l.id}`} onClick={() => setNewProduct(l)}>
+          {tr('ws.supplies.purchase.newProduct')}
+        </Button>
+      )}
       <Button size="sm" icon="check" busy={ackBusy === l.id} disabled={busy || (ackBusy !== null && ackBusy !== l.id)} onClick={() => void acknowledge(l)}>
         {tr('ws.supplies.purchase.acknowledge')}
       </Button>
@@ -567,6 +577,19 @@ export function DriverPurchaseReceive({ purchaseId, onBack }: { purchaseId: stri
             ))}
           </ul>
         </Panel>
+      )}
+
+      {newProduct && (
+        <NewProductFromPurchase
+          line={newProduct}
+          onClose={() => setNewProduct(null)}
+          onDone={() => {
+            setNewProduct(null);
+            void queryClient.invalidateQueries({ queryKey: SK.products });
+            refresh();
+            if (pending.length === 1) onBack();
+          }}
+        />
       )}
 
       {showReceipt && purchase.receipt_path && (

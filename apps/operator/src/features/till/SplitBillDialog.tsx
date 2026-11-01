@@ -7,12 +7,19 @@
  * or by card: a group splitting a bill rarely pays it all the same way, and
  * cash was the only choice.
  *
+ * A share taken in cash opens the till's cash pane for that share (F-32), so
+ * the cashier types what the guest handed over and sees the change to give
+ * before confirming; it used to record the share as tendered exactly, with no
+ * change figure anywhere.
+ *
  * The even split asks the server again whenever the number of people changes,
  * so there is no "Compute shares" press between choosing four people and
  * seeing four amounts.
  */
 import { useEffect, useState } from 'react';
 import { formatIQD } from '@touch/i18n';
+import { MessagePresenter } from '../../components/kit';
+import { PaymentPane } from './PaymentPane';
 import { appRpc } from '../../lib/appRpc';
 import { useLocale } from '../../lib/i18n';
 import { Button, ErrorText, Modal } from '../../components/ui';
@@ -39,12 +46,26 @@ export function SplitBillDialog({
   busy: boolean;
   /** The last payment's refusal. The tab panel's own error line is under this dialog. */
   settleError: unknown;
-  /** Resolves true once the share is taken (or saved on the queue); false when refused. */
-  onSettleShare(amountIqd: number, method: PaymentMethod): Promise<boolean>;
+  /**
+   * Resolves true once the share is taken (or saved on the queue); false when
+   * refused. `tenderedIqd` is what a cash guest handed over (null for card).
+   */
+  onSettleShare(amountIqd: number, method: PaymentMethod, tenderedIqd?: number | null): Promise<boolean>;
   onClose(): void;
 }) {
-  const { tr } = useLocale();
+  const { tr, locale } = useLocale();
   const [mode, setMode] = useState<SplitMode>('even');
+  /** A cash share waiting on its tender, and the panel's promise to answer. */
+  const [cashShare, setCashShare] = useState<{ amount: number; resolve: (ok: boolean) => void } | null>(null);
+  const [lastChange, setLastChange] = useState<number | null>(null);
+
+  // Card is recorded straight away, as before; cash asks what was handed over first.
+  const settleShare = (amount: number, method: PaymentMethod): Promise<boolean> => {
+    setLastChange(null);
+    if (method === 'card') return onSettleShare(amount, 'card', null);
+    return new Promise<boolean>((resolve) => setCashShare({ amount, resolve }));
+  };
+
   return (
     <Modal title={tr('ws.cashier.split.title')} onClose={onClose} size="lg" footer={(close) => (<Button onClick={close}>{tr('common.close')}</Button>)}>
       <div style={{ marginBlockEnd: 'var(--tp-sp-3)' }}>
@@ -58,11 +79,36 @@ export function SplitBillDialog({
           ]}
         />
       </div>
-      <ErrorText error={settleError} />
+      {cashShare === null && <ErrorText error={settleError} />}
+      {lastChange != null && lastChange > 0 && (
+        <MessagePresenter tone="success" icon="banknote" message={tr('ws.cashier.offlinePay.shareChange', { amount: formatIQD(lastChange, locale) })} style={{ marginBlockEnd: 'var(--tp-sp-2)' }} />
+      )}
       {mode === 'even' ? (
-        <SplitEvenlyPanel tabId={tabId} due={due} busy={busy} onSettleShare={onSettleShare} />
+        <SplitEvenlyPanel tabId={tabId} due={due} busy={busy} onSettleShare={settleShare} />
       ) : (
-        <SplitByItemPanel tabId={tabId} lines={lines} due={due} busy={busy} onSettleShare={onSettleShare} />
+        <SplitByItemPanel tabId={tabId} lines={lines} due={due} busy={busy} onSettleShare={settleShare} />
+      )}
+      {cashShare && (
+        <PaymentPane
+          mode="cash"
+          due={cashShare.amount}
+          busy={busy}
+          error={settleError}
+          allowPartial={false}
+          onCancel={() => {
+            cashShare.resolve(false);
+            setCashShare(null);
+          }}
+          onSettle={(_m, _amount, tendered) => {
+            const share = cashShare;
+            void onSettleShare(share.amount, 'cash', tendered).then((ok) => {
+              if (!ok) return;
+              setLastChange(tendered != null ? tendered - share.amount : null);
+              share.resolve(true);
+              setCashShare(null);
+            });
+          }}
+        />
       )}
     </Modal>
   );

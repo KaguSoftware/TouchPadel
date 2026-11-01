@@ -37,6 +37,12 @@ export const incidentsAr: DeepMessages<typeof incidentsEn> = {
     title: 'بلاغاتي',
     lead: 'ما أبلغت عنه، مع ملاحظة المدير بعد مراجعته.',
     emptyTitle: 'لا بلاغات بعد',
+    // F-62: the reporter's own filters, in the reporter's words (not the reviewer's).
+    emptyFilter: {
+      open: 'لا يوجد من بلاغاتك ما ينتظر مراجعة مدير.',
+      reviewed: 'لم يُراجَع أي من بلاغاتك بعد.',
+      all: 'لم تبلِّغ عن أي شيء بعد.',
+    },
     waiting: 'بانتظار مراجعة مدير',
     reviewedBy: 'راجعه {name}',
     details: 'اضغط لمزيد من التفاصيل',

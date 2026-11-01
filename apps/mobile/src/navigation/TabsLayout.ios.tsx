@@ -1,7 +1,8 @@
 import { NativeTabs } from 'expo-router/unstable-native-tabs';
 import { useLocale } from '../i18n/LocaleProvider';
 import { brand, useTheme } from '../theme';
-import { tournamentsShipped } from '../features/tournaments/shipped';
+import { playTabShown } from '../features/tournaments/shipped';
+import { useBranches } from '../features/availability/hooks';
 
 // SDK 57 expo-router: `Icon` / `Label` are no longer top-level exports; they hang
 // off the trigger.
@@ -49,8 +50,9 @@ export default function TabsLayoutIOS() {
   const { t } = useLocale();
   const { appearance, colors, fonts } = useTheme();
   const selected = appearance === 'dark' ? brand.green : brand.blue;
-  // Play only while tournaments ship.
-  const shipped = tournamentsShipped();
+  // Play while some branch has tournaments or open matches on (F-71: the branch decides).
+  const branches = useBranches();
+  const shipped = playTabShown(branches.data);
 
   return (
     <NativeTabs

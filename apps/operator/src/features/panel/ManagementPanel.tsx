@@ -46,7 +46,8 @@ import { createPortal } from 'react-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { businessTodayISO, normalizeBusinessDayStart, resolveRange } from '@touch/core';
-import { VENUE_TZ, formatDate, formatIQD, formatNumber, type Locale } from '@touch/i18n';
+import { VENUE_TZ, formatDate, formatNumber, type Locale } from '@touch/i18n';
+import { formatFigureIqd } from './money';
 import { appRpc } from '../../lib/appRpc';
 import { useLocale } from '../../lib/i18n';
 import { useCafeSettings } from '../../lib/settings';
@@ -109,7 +110,8 @@ export function ManagementPanelScreen() {
   const status = asyncStatus(headlineQ, panelIsEmpty);
 
   const label = (key: FigureKey) => tr(`ws.owner.panel.figures.${key}`);
-  const money = (n: number) => (Number.isInteger(n) ? formatIQD(n, locale) : formatNumber(n, locale));
+  // F-58: IQD always, whole dinars (money.ts) — a fractional figure used to lose its currency.
+  const money = (n: number) => formatFigureIqd(n, locale);
   const count = (n: number) => formatNumber(n, locale);
   const valueOf = (meta: FigureMeta, f: HeadlineFigureRow | undefined) =>
     f?.value == null ? '—' : meta.kind === 'money' ? money(f.value) : count(f.value);

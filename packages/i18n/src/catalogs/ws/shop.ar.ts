@@ -34,6 +34,7 @@ export const shopAr = {
     next: 'بيع جديد',
     queued: 'حُفظ على هذا الحاسوب، ويُرسل عند عودة الاتصال.',
     receiptHeading: 'متجر تتش · {label}',
+    offlineReceipt: 'إيصال دون اتصال. يُؤكَّد المجموع عند عودة الاتصال.',
   },
   dayClose: {
     title: 'متجر تتش',

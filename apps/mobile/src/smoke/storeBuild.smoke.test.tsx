@@ -1,10 +1,12 @@
 /**
  * The STORE BUILD: EXPO_PUBLIC_ONLINE_PAYMENTS unset or "off", as every eas.json
- * profile ships it (features/deposit/enabled.ts). Online payment and open
- * matches are hidden whatever the server's settings say; the code stays for a
- * later reviewed release. Every case seeds the server's answer that would
- * SHOW the feature (an optional deposit, matches_enabled true, an
- * online_optional lesson branch) and asserts the screen ignores it.
+ * profile ships it (features/deposit/enabled.ts; F-02, 2026-11-01). Online
+ * payment is hidden whatever the server's settings say; the code stays for a
+ * later reviewed release. Every payment case seeds the server's answer that
+ * would SHOW it (an optional deposit, an online_optional lesson branch, a
+ * ticket wallet) and asserts the screen ignores it. Open matches are NOT
+ * hidden: since 0370 a seat is paid at the desk, so they ship, and in this
+ * build they never ask for a ticket.
  *
  * The suites that test those features set the flag ON per file
  * (src/test/onlinePaymentsEnv.ts). This one never does, except for the single
@@ -28,6 +30,7 @@ import {
   depositStatusFixture,
   myMatchRowFixture,
   myMatchesFixture,
+  matchDetailFixture,
   myTicketsFixture,
   openMatchesFixture,
   profileFixture,
@@ -57,11 +60,7 @@ import BookingsScreen from '../../app/(tabs)/bookings';
 import TicketsScreen from '../../app/tickets';
 import PayStatusScreen from '../../app/pay/status';
 import PayReturnScreen from '../../app/pay/return';
-import MatchLinkScreen from '../../app/m/[token]';
 import MatchDetailScreen from '../../app/(matches)/match/[id]';
-import MatchNewScreen from '../../app/(matches)/match-new';
-import MatchReportScreen from '../../app/(matches)/match-report';
-import BlockedPlayersScreen from '../../app/blocked-players';
 
 type Seeds = [readonly unknown[], unknown][];
 
@@ -178,7 +177,7 @@ describe.each(LOCALES)('the store build in %s', (locale) => {
     }
   });
 
-  it('Play hides open matches although the branch has them on', () => {
+  it('Play shows open matches when the branch has them on (paid at the desk)', () => {
     const { from, to } = guestWindow(new Date(), TZ);
     const screen = renderRoute(PlayScreen, {
       locale,
@@ -186,13 +185,13 @@ describe.each(LOCALES)('the store build in %s', (locale) => {
       queryData: [...VENUE, [matchKeys.open(TEST_VENUE_ID, from, to), openMatchesFixture()]],
     });
     try {
-      expect(screen.queryByTestId(`play.match.${TEST_MATCH_ID}`)).toBeNull();
+      expect(screen.getByTestId(`play.match.${TEST_MATCH_ID}`)).toBeTruthy();
     } finally {
       screen.unmount();
     }
   });
 
-  it('Profile has no tickets and no blocked-players row', () => {
+  it('Profile has no tickets row, and keeps the blocked players of open matches', () => {
     const screen = renderRoute(ProfileScreen, {
       locale,
       session: 'in',
@@ -205,13 +204,13 @@ describe.each(LOCALES)('the store build in %s', (locale) => {
     try {
       expect(screen.getByTestId('profile.settings')).toBeTruthy();
       expect(screen.queryByTestId('profile.tickets')).toBeNull();
-      expect(screen.queryByTestId('profile.blocked-players')).toBeNull();
+      expect(screen.getByTestId('profile.blocked-players')).toBeTruthy();
     } finally {
       screen.unmount();
     }
   });
 
-  it('My Reservations has no tickets pill and no match row', () => {
+  it('My Reservations has no tickets pill, and still lists the guest\'s match', () => {
     const screen = renderRoute(BookingsScreen, {
       locale,
       session: 'in',
@@ -224,7 +223,7 @@ describe.each(LOCALES)('the store build in %s', (locale) => {
     });
     try {
       expect(screen.queryByTestId('bookings.tickets')).toBeNull();
-      expect(screen.queryByTestId(`bookings.match.${TEST_MATCH_ID}`)).toBeNull();
+      expect(screen.getByTestId(`bookings.match.${TEST_MATCH_ID}`)).toBeTruthy();
     } finally {
       screen.unmount();
     }
@@ -254,32 +253,28 @@ describe.each(LOCALES)('the store build in %s', (locale) => {
       params: { ref: REF },
       screenId: 'pay-return',
     },
-    {
-      name: '/m/x',
-      Component: MatchLinkScreen,
-      params: { token: 'x'.repeat(22) },
-      screenId: 'match-link',
-    },
-    {
-      name: 'match detail',
-      Component: MatchDetailScreen,
-      params: { id: TEST_MATCH_ID },
-      screenId: 'match-detail',
-    },
-    { name: 'match-new', Component: MatchNewScreen, params: {}, screenId: 'match-new' },
-    {
-      name: 'match-report',
-      Component: MatchReportScreen,
-      params: { id: TEST_MATCH_ID },
-      screenId: 'match-report',
-    },
-    {
-      name: 'blocked players',
-      Component: BlockedPlayersScreen,
-      params: {},
-      screenId: 'blocked-players',
-    },
   ];
+
+  it('a match asks for no ticket: an empty wallet still joins, paid at the desk', () => {
+    const screen = renderRoute(MatchDetailScreen, {
+      locale,
+      session: 'in',
+      params: { id: TEST_MATCH_ID },
+      queryData: [
+        ...VENUE,
+        [
+          matchKeys.one(TEST_MATCH_ID, ''),
+          matchDetailFixture({ me: { ...matchDetailFixture().me, ticketsAvailable: 0, ticketsNeeded: 1 } }),
+        ],
+      ],
+    });
+    try {
+      expect(screen.getByTestId(primaryOf('match-detail'))).toBeTruthy();
+      expect(screen.queryByTestId('match-detail.buy')).toBeNull();
+    } finally {
+      screen.unmount();
+    }
+  });
 
   it.each(GATED)(
     '$name redirects to Home instead of rendering',

@@ -448,6 +448,8 @@ export function useAvailabilityBooking(
               // '' = no deadline (duplicate replay of a hold we already have).
               expiresAt: result.holdExpiresAt ?? '',
               priceIqd: String(result.priceIqd ?? cell.priceIqd ?? ''),
+              // What the grid showed: Review warns when the hold's price differs (F-21).
+              shownPriceIqd: cell.priceIqd == null ? '' : String(cell.priceIqd),
               // Both names: Review / Success pick at render, so a language
               // switch mid-checkout renames the court with the rest of the screen.
               courtNameEn: court?.name_en ?? '',

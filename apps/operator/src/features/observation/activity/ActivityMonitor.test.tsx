@@ -71,6 +71,7 @@ beforeEach(() => {
       staffId: 's-hasan',
       name: 'Hasan',
       role: 'waiter',
+      // The server still sends it (0341); the monitor no longer shows it (F-08).
       onBreak: true,
       operator: part(),
       mobile: part({ status: 'away', state: 'background', screen: '/staff-order', lastAction: 'mystery.thing', lastActionAt: '2026-10-16T09:00:00Z' }),
@@ -106,12 +107,11 @@ describe('ActivityMonitorScreen', () => {
     expect(within(op).getByText('No actions yet')).toBeTruthy();
   });
 
-  it('marks a person on break', async () => {
+  it('never marks anyone on break: breaks left the operator (F-08)', async () => {
     renderPage();
     const hasan = await screen.findByTestId('activity.row.s-hasan');
-    expect(within(hasan).getByText('On break')).toBeTruthy();
     expect(within(hasan).getByText('Waiter')).toBeTruthy();
-    expect(within(screen.getByTestId('activity.row.s-rusul')).queryByText('On break')).toBeNull();
+    expect(within(hasan).queryByText('On break')).toBeNull();
   });
 
   it("words a known action as the Audit log does, and falls back to the code for an unknown one", async () => {

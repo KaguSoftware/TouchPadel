@@ -99,21 +99,39 @@ function deleteMeta(key: string): void {
  * verify_manager_pin returned, or the signed-in person's own on the lock
  * screen. A later observation without one (a queued write's PIN) keeps the
  * owner already on file rather than forgetting it.
+ *
+ * `tier` (F-05, F-07, 2026-11-01): 'manager' (the default, and every caller
+ * before this) authorises manager actions offline and the way out; 'self' is
+ * a PIN the lock screen proved for a person who authorises nothing (a
+ * cashier), cached ONLY so that person can unlock their own idle lock while
+ * the station is offline. A 'self' observation never downgrades a manager
+ * entry for the same hash, and a 'self' row is never accepted as a manager
+ * PIN (unlockPinOffline, mayLeave, the pairing card, the queue-row resolve).
  */
-export function observePin(pin: string, role: Role = 'manager', staffId?: string): void {
+export function observePin(pin: string, role: Role | 'self' = 'manager', staffId?: string): void {
   const hash = hashPin(pin);
   // Fail closed: no encryption, no cached credential material.
   if (!hash) return;
   openQueue()
     .prepare(
       `INSERT INTO pin_cache (pin_hash, role, updated_at, staff_id) VALUES (@hash, @role, @at, @staffId)
-       ON CONFLICT(pin_hash) DO UPDATE SET role = excluded.role, updated_at = excluded.updated_at,
+       ON CONFLICT(pin_hash) DO UPDATE SET
+         role = CASE WHEN excluded.role = 'self' AND pin_cache.role <> 'self' THEN pin_cache.role ELSE excluded.role END,
+         updated_at = excluded.updated_at,
          staff_id = coalesce(excluded.staff_id, pin_cache.staff_id)`,
     )
     .run({ hash: hash.toString('hex'), role, at: new Date().toISOString(), staffId: staffId ?? null });
 }
 
-export function unlockPinOffline(pin: string): PinUnlockResult | null {
+interface CachedRow {
+  pin_hash: string;
+  role: string;
+  updated_at: string;
+  staff_id: string | null;
+}
+
+/** The fresh cache row this PIN hashes to, or null (no salt, no match, or stale). */
+function matchRow(pin: string): CachedRow | null {
   const candidate = hashPin(pin);
   // No salt means no trustworthy comparison. Refusing sends the manager to the
   // online path, which is the correct degraded behaviour.
@@ -121,20 +139,38 @@ export function unlockPinOffline(pin: string): PinUnlockResult | null {
   const cutoff = Date.now() - MAX_AGE_MS;
   const rows = openQueue()
     .prepare('SELECT pin_hash, role, updated_at, staff_id FROM pin_cache')
-    .all() as { pin_hash: string; role: string; updated_at: string; staff_id: string | null }[];
+    .all() as CachedRow[];
+  let hit: CachedRow | null = null;
   for (const row of rows) {
     const stored = Buffer.from(row.pin_hash, 'hex');
     // Equal-length scrypt outputs — constant-time compare, no early exit.
-    if (stored.length === candidate.length && timingSafeEqual(stored, candidate)) {
-      if (new Date(row.updated_at).getTime() < cutoff) return null; // stale — re-verify online
-      return {
-        ...(row.staff_id ? { staffId: row.staff_id } : {}),
-        role: row.role as Role,
-        grantToken: randomBytes(16).toString('hex'),
-      };
-    }
+    if (stored.length === candidate.length && timingSafeEqual(stored, candidate) && !hit) hit = row;
   }
-  return null;
+  if (!hit) return null;
+  if (new Date(hit.updated_at).getTime() < cutoff) return null; // stale — re-verify online
+  return hit;
+}
+
+/** A MANAGER PIN offline: a 'self' entry authorises nothing. */
+export function unlockPinOffline(pin: string): PinUnlockResult | null {
+  const row = matchRow(pin);
+  if (!row || row.role === 'self') return null;
+  return {
+    ...(row.staff_id ? { staffId: row.staff_id } : {}),
+    role: row.role as Role,
+    grantToken: randomBytes(16).toString('hex'),
+  };
+}
+
+/**
+ * F-07: does this PIN belong to `staffId` (the signed-in person main holds)?
+ * Any tier: a manager's own PIN unlocks their own lock as well. An entry with
+ * no owner on file is refused — it cannot be shown to be theirs.
+ */
+export function unlockOwnPinOffline(pin: string, staffId: string | null): boolean {
+  if (!staffId) return false;
+  const row = matchRow(pin);
+  return !!row && row.staff_id === staffId;
 }
 
 export type LeaveVerdict = 'ok' | 'pin not recognised' | 'own pin';

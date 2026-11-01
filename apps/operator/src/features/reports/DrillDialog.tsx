@@ -22,9 +22,9 @@ import {
   asyncStatus,
   type Column,
 } from '../../components/kit';
-import { readDrill } from './reportPayloads';
+import { readDrillAnswer } from './reportPayloads';
 import { drillColumns } from './drillWords';
-import { drillKindKey, drillTone, splitShares, summarizeDrill, venueDay } from './drillView';
+import { drillCardSummary, drillDayTotal, drillKindKey, drillTone, splitShares, summarizeDrill, venueDay } from './drillView';
 
 function day(iso: string, locale: Locale): string {
   return formatDate(new Date(`${iso}T12:00:00Z`), locale, 'UTC');
@@ -58,8 +58,10 @@ export function DrillDialog({ request, onClose }: { request: DrillRequest; onClo
     ? { p_figure: figure.key, p_key: request.scope, p_from: request.from, p_to: request.to }
     : { p_figure: request.scope, p_key: null, p_from: request.from, p_to: request.to };
   const q = useQuery({
-    queryKey: ['reports', 'drill', args],
-    queryFn: async () => readDrill(await appRpc<unknown>('report_drill', args)),
+    // 0388 (F-14): the rows and the server's totals. Its own key: the panel's
+    // export caches the rows alone under ['reports', 'drill', args].
+    queryKey: ['reports', 'drill', 'answer', args],
+    queryFn: async () => readDrillAnswer(await appRpc<unknown>('report_drill', args)),
   });
   const range = request.from === request.to ? day(request.from, locale) : tr('ws.reports.frame.period', { from: day(request.from, locale), to: day(request.to, locale) });
 
@@ -67,11 +69,11 @@ export function DrillDialog({ request, onClose }: { request: DrillRequest; onClo
   // the kind tabs, a place clicked in a row, and the search (Sait, 2026-10-19).
   const view = useMemo(
     () =>
-      (q.data ?? []).map((t) => {
+      (q.data?.rows ?? []).map((t) => {
         const c = drillColumns(t, tr, locale);
         const key = drillKindKey(c.sub, t.kind);
         const label = c.kind ?? (t.kind && (DRILL_KINDS as readonly string[]).includes(t.kind) ? tr(`ws.reports.drill.kinds.${t.kind as (typeof DRILL_KINDS)[number]}`) : (t.kind ?? '—'));
-        return { t, c, key, label, day: venueDay(t.at) };
+        return { t, c, key, label, day: t.day ?? venueDay(t.at) };
       }),
     [q.data, tr, locale],
   );
@@ -85,7 +87,9 @@ export function DrillDialog({ request, onClose }: { request: DrillRequest; onClo
       (!place || v.c.location === place) &&
       (!needle || [v.label, v.c.detail, v.c.location, v.c.customer, v.t.staffName].some((x) => x?.toLocaleLowerCase().includes(needle))),
   );
-  const summary = summarizeDrill(shown.map((v) => ({ kind: v.key, amount: v.t.amountIqd, staff: v.t.staffName })));
+  const answer = { totals: q.data?.totals ?? null, capped: q.data?.capped ?? false };
+  const narrowed = place !== null || needle !== '';
+  const summary = drillCardSummary(summarizeDrill(shown.map((v) => ({ kind: v.key, amount: v.t.amountIqd, staff: v.t.staffName }))), answer, { kind, narrowed });
   const kindLabel = (key: string) => view.find((v) => v.key === key)?.label ?? key;
   const allKinds = summarizeDrill(view.map((v) => ({ kind: v.key, amount: v.t.amountIqd, staff: null }))).kinds;
   type Row = (typeof view)[number];
@@ -146,7 +150,7 @@ export function DrillDialog({ request, onClose }: { request: DrillRequest; onClo
       render: (v) => (v.t.amountIqd ? <Money amount={v.t.amountIqd} unit={false} strong /> : <span style={{ color: 'var(--tp-muted-fg)' }}>{v.t.amountIqd === null ? '—' : '0'}</span>),
     },
   ];
-  const rows = q.data ?? [];
+  const rows = q.data?.rows ?? [];
   // One Modal per request. The screens render a single <DrillDialog> slot and
   // swap its request, so React reused the Modal still fading out from the last
   // drill: open another figure inside that fade and the old exit timer fired
@@ -180,12 +184,12 @@ export function DrillDialog({ request, onClose }: { request: DrillRequest; onClo
         )}
         {request.note && <p style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>{request.note}</p>}
         <AsyncStateWrapper
-          status={asyncStatus(q, (d) => d.length === 0)}
+          status={asyncStatus(q, (d) => d.rows.length === 0)}
           error={q.error}
           onRetry={() => void q.refetch()}
           emptyContent={<EmptyState compact icon="receipt" title={tr('ws.kit.drill.empty')} />}
         >
-          {rows.length >= DRILL_CAP && <p style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>{tr('ws.reports.drill.capped')}</p>}
+          {(answer.capped || rows.length >= DRILL_CAP) && <p style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>{tr('ws.reports.drill.capped')}</p>}
           <div style={{ display: 'grid', gap: 'var(--tp-sp-3)' }}>
             <TotalCard summary={summary} label={kindLabel} />
             <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 'var(--tp-sp-2)' }}>
@@ -217,7 +221,9 @@ export function DrillDialog({ request, onClose }: { request: DrillRequest; onClo
               groupColumn={{
                 header: tr('ws.reports.drill.day'),
                 width: '5.5rem',
-                render: (_key, dayRows) => <DayCell at={dayRows[0]!.t.at} total={dayRows.reduce((a, v) => a + (v.t.amountIqd ?? 0), 0)} />,
+                render: (key, dayRows) => (
+                  <DayCell day={key} at={dayRows[0]!.t.at} total={drillDayTotal(key, dayRows.map((v) => ({ amount: v.t.amountIqd })), answer, narrowed || kind !== null)} />
+                ),
               }}
               footer={
                 <tr>
@@ -271,10 +277,11 @@ function Counted({ label, n }: { label: string; n: number }) {
 }
 
 /** The Day column's cell: weekday, the date large, month, and the day's total. */
-function DayCell({ at, total }: { at: string | null; total: number }) {
+function DayCell({ day, at, total }: { day?: string | null; at: string | null; total: number }) {
   const { locale } = useLocale();
-  if (!at) return <span>—</span>;
-  const d = new Date(at);
+  if (!day && !at) return <span>—</span>;
+  // F-14: the business day the group is (noon UTC is that date in Baghdad), not the first row's clock.
+  const d = day ? new Date(`${day}T12:00:00Z`) : new Date(at!);
   return (
     <>
       <span style={{ fontSize: 'var(--tp-fs-xs)', fontWeight: 600, textTransform: 'uppercase' }}>{formatWeekdayShort(d, locale)}</span>

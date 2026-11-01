@@ -47,7 +47,8 @@ import type { TourStandingRow } from '@touch/core/tournaments';
 import { EntriesPanel } from './EntriesPanel';
 import { RoundsBoard } from './RoundsBoard';
 import { shortName } from './roundsLogic';
-import { pickName, refundsDue, tournamentErrorText } from './tournamentLogic';
+import { owingEntries, pickName, refundsDue, tournamentErrorText } from './tournamentLogic';
+import { PayPanel } from './PayPanel';
 import { readCancelAnswer, type TournamentDetail } from './tournamentPayloads';
 import { entryMoney, playProgress, scoredCount } from './layoutLogic';
 import { DateTile, FillBar } from './TournamentParts';
@@ -58,7 +59,7 @@ import {
   useTournamentsLive,
 } from './useTournaments';
 
-type TabId = 'entries' | 'rounds' | 'standings';
+type TabId = 'entries' | 'rounds' | 'standings' | 'pay';
 
 /** The reasons a desk cancel offers (op.reasons). */
 const CANCEL_REASONS = ['court_needed', 'customer_request', 'staff_error', 'other'] as const;
@@ -440,6 +441,10 @@ function TournamentBody({
           { id: 'entries', label: tr('ws.tournaments.detail.tabs.entries'), count: registered },
           { id: 'rounds', label: tr('ws.tournaments.detail.tabs.rounds'), count: d.rounds.length },
           { id: 'standings', label: tr('ws.tournaments.detail.tabs.standings') },
+          // 0390 (F-40): the entry fees still to take.
+          ...(d.entry_fee_iqd > 0 && d.status !== 'cancelled'
+            ? [{ id: 'pay' as const, label: tr('ws.tournaments.detail.tabs.pay'), count: owingEntries(d).length }]
+            : []),
         ]}
       />
       {tab === 'entries' && (
@@ -460,6 +465,7 @@ function TournamentBody({
         />
       )}
       {tab === 'standings' && <StandingsTable detail={d} />}
+      {tab === 'pay' && <PayPanel detail={d} caps={caps} onRefetch={onRefetch} />}
 
       {finishing && (
         <ReasonCodePrompt

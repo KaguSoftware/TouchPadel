@@ -19,6 +19,7 @@
  * both tables and the CSV say which (report_stock's `location`), and whoever
  * throws it out knows which shelf to go to.
  */
+import { assertManagerPinOffline } from '../../lib/offlinePin';
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { formatDate } from '@touch/i18n';
@@ -60,6 +61,8 @@ export function Expiry() {
     setBusy(true);
     setError(null);
     try {
+      // F-05: offline, a wrong manager PIN is refused on the spot from the station's cache.
+      await assertManagerPinOffline(pin);
       await appRpc('write_off_expired', { p_batch_id: writeOff.batchId, p_pin: pin, p_reason_code: reasonCode });
       toast.ok(tr('ws.manager.stock.expiry.written', { name: nameOf(writeOff) }));
       setWriteOff(null);

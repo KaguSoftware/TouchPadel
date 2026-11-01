@@ -43,6 +43,15 @@ describe('businessDayOf', () => {
   it('crosses month boundaries and tolerates a bad start hour', () => {
     // 01:00 Baghdad on 1 Oct = 22:00Z 30 Sep
     expect(businessDayOf(new Date('2026-09-30T22:00:00Z'), 6, TZ)).toBe('2026-09-30');
-    expect(businessDayOf(new Date('2026-09-30T22:00:00Z'), 99, TZ)).toBe('2026-10-01');
+    // A bad start hour falls back to the default, 04:00 (F-37): still the night of the 30th.
+    expect(businessDayOf(new Date('2026-09-30T22:00:00Z'), 99, TZ)).toBe('2026-09-30');
+  });
+});
+
+describe('the default matches the server (F-37)', () => {
+  it('is 04:00, app.venue_business_date\'s fallback', () => {
+    expect(BUSINESS_DAY_START_DEFAULT).toBe(4);
+    // 01:30 Baghdad on the 19th belongs to the night of the 18th.
+    expect(businessDayOf(new Date('2026-10-18T22:30:00Z'), normalizeBusinessDayStart(undefined), 'Asia/Baghdad')).toBe('2026-10-18');
   });
 });

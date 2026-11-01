@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { openQueue, getMeta, setMeta } from './queue';
-import { mayLeave, observePin, unlockPinOffline, resetPinCache } from './pin-cache';
+import { mayLeave, observePin, unlockOwnPinOffline, unlockPinOffline, resetPinCache } from './pin-cache';
 import { __setEncryptionAvailable } from '../../test/electron-stub';
 
 /**
@@ -132,5 +132,43 @@ describe('mayLeave', () => {
     observePin('4821', 'manager');
     expect(unlockPinOffline('4821')?.staffId).toBe(MANAGER_A);
     expect(mayLeave('4821', MANAGER_A)).toBe('own pin');
+  });
+});
+
+describe('own-PIN tier (F-05, F-07)', () => {
+  const CASHIER = '11111111-1111-4111-8111-111111111111';
+  const MANAGER = '22222222-2222-4222-8222-222222222222';
+  beforeEach(() => {
+    openQueue().exec("DELETE FROM pin_cache; DELETE FROM meta WHERE key LIKE 'pin_salt%';");
+    __setEncryptionAvailable(true);
+  });
+
+  it("a cashier's own PIN unlocks their own idle lock offline and nobody else's", () => {
+    observePin('5150', 'self', CASHIER);
+    expect(unlockOwnPinOffline('5150', CASHIER)).toBe(true);
+    expect(unlockOwnPinOffline('5150', MANAGER)).toBe(false);
+    expect(unlockOwnPinOffline('9999', CASHIER)).toBe(false);
+    expect(unlockOwnPinOffline('5150', null)).toBe(false);
+  });
+
+  it("a 'self' PIN never authorises a manager action, the pairing card or the way out", () => {
+    observePin('5150', 'self', CASHIER);
+    expect(unlockPinOffline('5150')).toBeNull();
+    expect(mayLeave('5150', null)).toBe('pin not recognised');
+    expect(mayLeave('5150', MANAGER)).toBe('pin not recognised');
+  });
+
+  it("a 'self' observation never downgrades a manager entry for the same PIN", () => {
+    observePin('7070', 'manager', MANAGER);
+    observePin('7070', 'self', MANAGER);
+    expect(unlockPinOffline('7070')?.role).toBe('manager');
+    expect(unlockOwnPinOffline('7070', MANAGER)).toBe(true);
+  });
+
+  it("a manager's own PIN unlocks their own lock too; an entry with no owner unlocks nobody's", () => {
+    observePin('8080', 'manager', MANAGER);
+    expect(unlockOwnPinOffline('8080', MANAGER)).toBe(true);
+    observePin('6060', 'manager');
+    expect(unlockOwnPinOffline('6060', MANAGER)).toBe(false);
   });
 });

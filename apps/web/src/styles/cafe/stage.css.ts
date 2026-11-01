@@ -72,4 +72,5 @@ export const stageCss = `
 .tp-menu-unavailable { text-align: center; padding-block: var(--tp-space-6); padding-inline: var(--tp-space-5); display: flex; flex-direction: column; align-items: center; gap: var(--tp-space-3); }
 .tp-menu-unavailable h2 { font-family: var(--tp-font-arabic); font-weight: 800; font-size: var(--tp-fs-lg); }
 .tp-menu-unavailable p { color: var(--tp-muted-fg); max-inline-size: 26rem; }
+.tp-menu-unavailable__hint { font-size: var(--tp-fs-sm); }
 `;

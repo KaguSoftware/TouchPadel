@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { validateSearch } from './search';
+import { clampRange, rangeTooLong, validateSearch } from './search';
 
 describe('validateSearch', () => {
   it('defaults to 30d and drops unknown values', () => {
@@ -37,15 +37,20 @@ describe('validateSearch', () => {
   it('ignores non-string params', () => {
     expect(validateSearch({ range: 7, from: 1, cmp: ['prev'] })).toEqual({ range: '30d' });
   });
-  it('refuses a custom range that is inverted or longer than the server cap', () => {
+  it('refuses an inverted custom range; a longer one keeps its end and its last 400 days, never a silent 30 days (F-37)', () => {
     expect(validateSearch({ range: 'custom', from: '2026-08-10', to: '2026-08-01' })).toEqual({ range: '30d' });
-    expect(validateSearch({ range: 'custom', from: '2025-01-01', to: '2026-03-01' })).toEqual({ range: '30d' });
+    expect(validateSearch({ range: 'custom', from: '2025-01-01', to: '2026-03-01' })).toEqual({ range: 'custom', from: '2025-01-25', to: '2026-03-01' });
     // Exactly 400 days apart is still allowed.
     expect(validateSearch({ range: 'custom', from: '2025-01-01', to: '2026-02-05' })).toEqual({
       range: 'custom',
       from: '2025-01-01',
       to: '2026-02-05',
     });
+  });
+  it('names a period past the server cap (F-37)', () => {
+    expect(rangeTooLong('2025-01-01', '2026-02-05')).toBe(false);
+    expect(rangeTooLong('2025-01-01', '2026-02-06')).toBe(true);
+    expect(clampRange('2025-01-01', '2026-03-01')).toEqual({ from: '2025-01-25', to: '2026-03-01' });
   });
   it('keeps a court filter only when it is a uuid', () => {
     const id = '7B3D8E2A-1C4F-4A6B-9D0E-2F5A7C9B1D3E';

@@ -28,6 +28,8 @@ const STAFF_BUCKET = 'staff-media';
 /** Per kind: who may ask, and the RPCs behind the ports. */
 const KINDS: Record<ScanKind, {
   roles: string[];
+  /** The pages (ACCESS_AREAS) whose work this is: all blocked = AREA_BLOCKED (0384, F-16). */
+  areas: string[];
   detail: string;
   begin: string;
   store: string;
@@ -37,6 +39,7 @@ const KINDS: Record<ScanKind, {
 }> = {
   receipt: {
     roles: ['driver', 'manager', 'owner'],
+    areas: ['stock', 'shop'],
     detail: 'receipt_detail',
     begin: 'receipt_begin_reading',
     store: 'receipt_store_reading',
@@ -46,6 +49,7 @@ const KINDS: Record<ScanKind, {
   },
   order_slip: {
     roles: ['waiter', 'cashier', 'manager', 'owner'],
+    areas: ['till'],
     detail: 'slip_detail',
     begin: 'slip_begin_reading',
     store: 'slip_store_reading',
@@ -124,7 +128,7 @@ Deno.serve(handle('receipt-scan', async (req) => {
   const k = KINDS[kind];
 
   const service = createServiceClient();
-  const auth = await requireStaffRole(req, service, k.roles);
+  const auth = await requireStaffRole(req, service, k.roles, { areas: k.areas });
   if (auth instanceof Response) return auth;
 
   // The caller's own view decides: the uploader, or the right roles at the paper's branch.

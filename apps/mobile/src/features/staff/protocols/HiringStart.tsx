@@ -88,6 +88,8 @@ const ROLE_ICON: Record<StaffRole, ComponentType<IconProps>> = {
   marketing: GlobeIcon,
   owner: PersonIcon,
   prep: ChefHatIcon,
+  // 0392: never hired through a protocol; listed so the map stays total.
+  dev: PersonIcon,
 };
 
 /** The Field's own top margin, taken back so the page's gaps decide the spacing. */

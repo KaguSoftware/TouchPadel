@@ -80,9 +80,10 @@ export interface RenderRouteOptions {
   queryData?: [readonly unknown[], unknown][];
   /**
    * A staff session: signed in, StaffStatusProvider mounted, the own row seeded
-   * with this role at these venues (one venue, venue A's id, when left out).
+   * with this role at these venues (one venue, venue A's id, when left out),
+   * and, when given, its second jobs and blocked pages (0345).
    */
-  staff?: { role: StaffRole; venues?: string[] };
+  staff?: { role: StaffRole; venues?: string[]; extraRoles?: StaffRole[]; blockedAreas?: string[] };
   /**
    * An account that coaches (docs/design/coaching/guest.md §4.17): signed in,
    * CoachStatusProvider mounted inside StaffStatusProvider (as the app mounts
@@ -103,7 +104,19 @@ export function staffSeeds(staff: NonNullable<RenderRouteOptions['staff']>): [re
   return [
     [
       staffKeys.status(uid),
-      { row: { id: uid, display_name: 'Test Staff', role: staff.role, is_active: true }, venueIds: venues },
+      {
+        row: {
+          id: uid,
+          display_name: 'Test Staff',
+          role: staff.role,
+          is_active: true,
+          // 0345: only when the case gives them, so every other case reads the row as before.
+          ...(staff.extraRoles || staff.blockedAreas
+            ? { extra_roles: staff.extraRoles ?? [], blocked_areas: staff.blockedAreas ?? [] }
+            : {}),
+        },
+        venueIds: venues,
+      },
     ],
     [staffKeys.venues(uid), venues.map((id, i) => ({ id, name_en: `Venue ${i + 1}`, name_ar: `المكان ${i + 1}` }))],
   ];

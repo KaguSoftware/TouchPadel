@@ -1,12 +1,14 @@
 /**
  * RLS role-matrix runner — executes the declarative matrix in rls-matrix.ts
- * against 8 real principals through PostgREST/GoTrue (module 1 acceptance:
+ * against every principal (PRINCIPALS: the 8 seeded ones, and since F-67 every
+ * other hireable role plus a manager of another branch, created here) through
+ * PostgREST/GoTrue (module 1 acceptance:
  * "confirmed by a written role test").
  *
  * Extending: later drops append rules to rls-matrix.ts; this runner needs no
  * changes unless a new table requires a bespoke probe row or update filter.
  */
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import {
   stackAvailable,
@@ -23,6 +25,7 @@ import {
   ensureTillFresh,
   ensureStationProbe,
   appRpc,
+  createStaffOfRole,
   probeId,
   SEED_STAFF,
   DEV_PINS,
@@ -72,9 +75,22 @@ const WRITE_FILTERS: Record<string, [string, unknown]> = {
   loyalty_accounts: ['profile_id', '00000000-0000-4000-8000-000000000000'],
 };
 
+/** F-67: the principals the seed has no account for, created per run (role = principal). */
+const CREATED_ROLES = [
+  'waiter', 'head_barista', 'barista', 'assistant_barista', 'head_chef', 'chef', 'shop_staff', 'marketing', 'dev',
+] as const satisfies readonly Principal[];
+
 describe.skipIf(!up)('RLS role matrix (drops 1-8: the whole granted RPC surface bar three)', () => {
   const clients = {} as Record<Principal, SupabaseClient>;
   let svc: SupabaseClient;
+  const createdStaff: string[] = [];
+  let branchB: string | null = null;
+
+  afterAll(async () => {
+    if (createdStaff.length) await svc.from('staff').update({ is_active: false }).in('id', createdStaff);
+    // A second branch must not outlive the run: other suites assume one branch is not closed.
+    if (branchB) await svc.from('venues').update({ is_active: false, status: 'closed' }).eq('id', branchB);
+  });
 
   beforeAll(async () => {
     svc = serviceClient();
@@ -150,13 +166,36 @@ describe.skipIf(!up)('RLS role matrix (drops 1-8: the whole granted RPC surface 
     clients.manager = await signedInClient(SEED_STAFF.manager);
     clients.owner = await signedInClient(SEED_STAFF.owner);
 
+    // F-67: every other hireable role at venue A (the 0123 trigger files them there)…
+    for (const role of CREATED_ROLES) {
+      const made = await createStaffOfRole(svc, role, 'rls');
+      createdStaff.push(made.id);
+      clients[role] = made.client;
+    }
+    // …and a manager of a second, PREPARING branch only: staff see it, guests do
+    // not (it is not active), so venue A stays the only active branch.
+    const stale = await svc.from('venues').update({ is_active: false, status: 'closed' })
+      .like('slug', 'rls-b-%').neq('status', 'closed');
+    if (stale.error) throw new Error(`closing stale probe branches failed: ${stale.error.message}`);
+    const b = await svc.from('venues')
+      .insert({ slug: `rls-b-${Date.now().toString(36)}`, name_en: 'RLS Branch B', name_ar: 'فرع ب للفحص', status: 'preparing', is_active: false })
+      .select('id').single();
+    if (b.error) throw new Error(`probe branch B failed: ${b.error.message}`);
+    branchB = (b.data as { id: string }).id;
+    const bm = await createStaffOfRole(svc, 'manager', 'rls-b');
+    createdStaff.push(bm.id);
+    await svc.from('staff_venues').delete().eq('staff_id', bm.id);
+    const filed = await svc.from('staff_venues').insert({ staff_id: bm.id, venue_id: branchB, role: 'manager' });
+    if (filed.error) throw new Error(`filing the branch B manager failed: ${filed.error.message}`);
+    clients.branch_b_manager = bm.client;
+
     // The PIN-gated rows prove the manager PIN as each staff principal first
     // (appRpc), and the limiter counts failures per CALLER for 5 minutes.
     // hardening.test.ts drives `prep` to lockout and idle-lock.test.ts `owner`;
     // when either ran under 5 minutes before this file, every PIN-gated row
     // read PIN_LOCKED instead of the guard (CI 38132159251, prep, 9 rows).
     // pin_attempts is throwaway telemetry: start this file with a clean window.
-    for (const p of ['cashier', 'prep', 'court_desk', 'manager', 'owner'] as const) {
+    for (const p of ['cashier', 'prep', 'court_desk', 'manager', 'owner'] as const satisfies readonly Principal[]) {
       const uid = (await clients[p].auth.getUser()).data.user!.id;
       const { error: pinErr } = await svc.schema('app').from('pin_attempts').delete().like('device_id', `${uid}:%`);
       if (pinErr) throw new Error(`clearing ${p} pin_attempts failed: ${pinErr.message}`);
@@ -214,7 +253,7 @@ describe.skipIf(!up)('RLS role matrix (drops 1-8: the whole granted RPC surface 
           ? `select ${rule.name}${(rule as SelectRule).columns ? ` [${(rule as SelectRule).columns}]` : ''}`
           : `${(rule as WriteRule).op} ${rule.name}`;
 
-    it(`${label} — all 8 principals match the matrix`, async () => {
+    it(`${label} — all ${PRINCIPALS.length} principals match the matrix`, async () => {
       const failures: string[] = [];
       for (const p of PRINCIPALS) {
         const failure =
@@ -344,7 +383,7 @@ describe.skipIf(!up)('RLS role matrix (drops 1-8: the whole granted RPC surface 
     expect(staffCancel.error).toBeNull();
   });
 
-  it('app.profile_merges (0303): manager and owner read the merge log, every other principal sees nothing', async () => {
+  it('app.profile_merges (0303, 0400): the owner reads the merge log, every other principal sees nothing', async () => {
     // Schema app, so the declarative runner (public tables) cannot address it. A probe row
     // keeps the guest account's own profile, so a policy that let a guest read their own
     // merges would show up as rows here.
@@ -357,7 +396,11 @@ describe.skipIf(!up)('RLS role matrix (drops 1-8: the whole granted RPC surface 
     expect(seedErr).toBeNull();
     const want: Record<Principal, 'rows' | 'silence' | 'denied'> = {
       anon: 'denied', guest_account: 'silence', guest_anon_session: 'silence', cashier: 'silence',
-      prep: 'silence', court_desk: 'silence', manager: 'rows', owner: 'rows',
+      // 0400 (F-27): the merge log has no branch column, so it is the owner's alone.
+      prep: 'silence', court_desk: 'silence', manager: 'silence', owner: 'rows',
+      waiter: 'silence', head_barista: 'silence', barista: 'silence', assistant_barista: 'silence',
+      head_chef: 'silence', chef: 'silence', shop_staff: 'silence', marketing: 'silence', dev: 'silence',
+      branch_b_manager: 'silence',
     };
     const failures: string[] = [];
     for (const p of PRINCIPALS) {

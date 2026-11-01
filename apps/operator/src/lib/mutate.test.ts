@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest';
 // Relative on purpose: the replay function (Deno) cannot import @touch/core, so this
 // JSON under functions/_shared is the one artefact all three copies are checked against.
 import shared from '../../../../packages/db/supabase/functions/_shared/mutation-types.json';
-import { MUTATION_TYPES, PIN_GATED_RPCS } from '@touch/core/schemas/mutations';
-import { DIRECT_RPC } from './mutate';
+import { MUTATION_TYPES, PIN_GATED_RPCS, QUEUEABLE_RPCS } from '@touch/core/schemas/mutations';
+import { DIRECT_RPC, queuedPin } from './mutate';
 
 /**
  * DIRECT_RPC mirrors the replay function's arg mappers
@@ -33,6 +33,25 @@ describe('DIRECT_RPC', () => {
 
   it('matches the shared pinGatedRpcs list the replay function verifies against (0115)', () => {
     expect([...shared.pinGatedRpcs].sort()).toEqual([...PIN_GATED_RPCS].sort());
+  });
+
+  it('matches the shared queueableRpcs list app.queued_rpc runs (0395)', () => {
+    expect([...shared.queueableRpcs]).toEqual([...QUEUEABLE_RPCS]);
+  });
+
+  it('rpc.queued calls the RPC itself in browser mode, with its own arguments (0395)', () => {
+    const call = DIRECT_RPC['rpc.queued']({ fn: 'set_venue_details', args: { p_patch: { a: 1 } } }, KEY, DEV);
+    expect(call).toEqual({ fn: 'set_venue_details', args: { p_patch: { a: 1 } } });
+    // A resolved offline tab (replay fills tabId) becomes p_tab_id.
+    const tab = DIRECT_RPC['rpc.queued']({ fn: 'set_tab_customer', args: { p_customer_id: UUID_A }, tabId: UUID_B }, KEY, DEV);
+    expect(tab.args).toEqual({ p_customer_id: UUID_A, p_tab_id: UUID_B });
+  });
+
+  it('queuedPin finds the manager PIN a payload carries, plain or as an RPC argument (F-05)', () => {
+    expect(queuedPin({ pin: '1234' })).toBe('1234');
+    expect(queuedPin({ fn: 'deposit_refund_manual', args: { p_pin: '5678' } })).toBe('5678');
+    expect(queuedPin({ tabId: UUID_A })).toBeNull();
+    expect(queuedPin(null)).toBeNull();
   });
 
   it('order.add_items maps to till_add_items with snake_case items', () => {

@@ -26,18 +26,27 @@
  * terms-version bump covers the deposit wording and open matches. The Arabic was written in
  * the same change and is for the client's lawyer (DRAFT-AR); the Arabic version governs.
  *
+ * 1 November 2026 (findings F-02/F-03, Majed): no online payment in this build. Everything that
+ * described Qi Card, court deposits, open-match tickets or a payment in the app as a current
+ * feature is gone or reworded: court bookings, lessons, open-match seats, tournament entries and
+ * café orders are all paid at the venue. Open matches stay. Error reports to our own server are
+ * disclosed. Removed keys: `privacy.share.qi`, `terms.openMatches.ticketsLead`/`tickets`/
+ * `refundLead`/`refund`, `deleteAccount.what.tickets`. CURRENT_TERMS_VERSION moves to 2026-11-01,
+ * so every guest accepts this text again. When online payment ships, the 29 September wording
+ * (git history) is the starting point, with another terms bump.
+ *
  * 1 October 2026 (docs/design/coaching/guest.md §4.16, R50, R63): what deleting an account does to
  * lessons and to a coach's profile (`deleteAccount.what.lessons`, `.coaching`, and the same two
  * sentences in `privacy.retention.deleted`). The rest of the coaching text (privacy for students
  * and coaches, the terms' lessons section) lands with its terms bump (G7, C-26).
  */
 export const legalEn = {
-  lastUpdated: 'Last updated: 4 October 2026',
+  lastUpdated: 'Last updated: 1 November 2026',
   version: 'Version {version}',
   entity: {
     tradingName: 'Touch Padel',
     email: 'info@touch-padel.com',
-    minPlayAge: '[FILL: age]',
+    minPlayAge: '4',
   },
   nav: {
     label: 'Related pages',
@@ -76,7 +85,7 @@ export const legalEn = {
         'The court, date, time, duration and price, the booking reference, its status (upcoming, played, cancelled or no-show), who made or cancelled it, and any note you or the front desk add to it.',
       matchesLead: 'Open matches.',
       matches:
-        'The matches you start, join or ask to join; your seats and whether you came; the open-match tickets you buy, use, lose or get refunded; the preset messages you send; the reports you make and the players you block; and, once, whether you are a woman or a man, which decides whether women-only or men-only matches are offered to you. The front desk can correct it.',
+        'The matches you start, join or ask to join; your seats and whether you came; the preset messages you send; the reports you make and the players you block; and, once, whether you are a woman or a man, which decides whether women-only or men-only matches are offered to you. The front desk can correct it.',
       cafeLead: 'Café orders from your table.',
       cafe:
         'When you scan a table’s QR code, your browser gets an anonymous session with no name or phone number. We record the table, what you order, any note you add to an item, and when. If you are signed in to an account, your orders can be linked to it.',
@@ -94,7 +103,7 @@ export const legalEn = {
       technical:
         'Our systems record sign-ins, errors and every change staff make to bookings, orders and payments, with the time and the account or device that made it.',
       notCollected:
-        'The app does not collect your location or contacts. In Edit profile you may add a profile photo and a date of birth; both are optional. Your profile photo is seen by you and the venue’s staff, your date of birth only by you, and both are deleted with your account. Venue staff accounts can also attach work photos, in the app’s staff area. The app has no advertising, no tracking and no third-party analytics or crash reporting. Online payments (court deposits and open-match tickets) are made on Qi Card’s own payment page; we never see or store your card details.',
+        'The app does not collect your location or contacts. In Edit profile you may add a profile photo and a date of birth; both are optional. Your profile photo is seen by you and the venue’s staff, your date of birth only by you, and both are deleted with your account. Venue staff accounts can also attach work photos, in the app’s staff area. The app has no advertising, no tracking and no third-party analytics or crash reporting. When the app or this website runs into an error, it sends a report of what failed (the screen, the app version and, if you are signed in, your account) to our own server so that we can fix it; it never includes your password, phone number or card details. The app and this website take no payment: court bookings, lessons, open-match seats, tournament entries and café orders are all paid at the venue, so we never see or store your card details.',
       website:
         'This website: the café menu pages can use privacy-friendly analytics (PostHog, hosted in the EU) to count page views. It sets no cookies, keeps only an anonymous identifier in your browser’s storage, never identifies you and does not record your screen. The legal pages do not load it, and the app does not use it.',
     },
@@ -106,7 +115,7 @@ export const legalEn = {
       bookings:
         'taking, showing, changing and cancelling your bookings and café orders, and letting the front desk know who booked and contact you about it — to perform our agreement with you;',
       matches:
-        'running open matches: showing a match to the players who can join it, seating players, holding and returning tickets, and telling players about their match — to perform our agreement with you;',
+        'running open matches: showing a match to the players who can join it, seating players and telling players about their match — to perform our agreement with you;',
       notify:
         'sending booking confirmations, reminders and changes as notifications — with your consent, which you can withdraw at any time in your device settings;',
       rules:
@@ -127,7 +136,6 @@ export const legalEn = {
       supabase: 'Supabase — database, sign-in and server hosting (Frankfurt, Germany);',
       push: 'Expo, Apple Push Notification service and Firebase Cloud Messaging — delivering notifications to your device;',
       signIn: 'Apple and Google — only if you choose to sign in with them;',
-      qi: 'Qi Card — taking online payments and refunds for court deposits and open-match tickets;',
       whatsapp:
         'OTPIQ and Meta (WhatsApp), with Twilio as a possible backup — delivering verification codes by WhatsApp or SMS;',
       telegram:
@@ -149,11 +157,11 @@ export const legalEn = {
       title: 'How long we keep it',
       active: 'We keep your account information for as long as you have an account.',
       deleted:
-        'When you delete your account, your login, your first name, surname, gender, date of birth and profile photo, your phone number, email address and linked Apple or Google sign-in are removed immediately, and you are signed out on every device. Your notification token, staff notes about you, the list of players you blocked and any notifications waiting to be sent are deleted too. Your booked lessons are cancelled, and anything you paid online for them is refunded to the card you paid with. If you coach at Touch, your coach profile leaves the app and the website, your photo and bio are deleted, and your upcoming lessons are cancelled and refunded; your monthly statements are kept with your coach name, as the venue’s pay records.',
+        'When you delete your account, your login, your first name, surname, gender, date of birth and profile photo, your phone number, email address and linked Apple or Google sign-in are removed immediately, and you are signed out on every device. Your notification token, staff notes about you, the list of players you blocked and any notifications waiting to be sent are deleted too. Your booked lessons are cancelled. If you coach at Touch, your coach profile leaves the app and the website, your photo and bio are deleted, and your upcoming lessons are cancelled and refunded; your monthly statements are kept with your coach name, as the venue’s pay records.',
       bookings:
         'Bookings and café orders you have already made stay in the venue’s records with no name, phone number or notes attached, because the venue has to keep its own accounts. They can no longer be linked to you. The record that you accepted our terms stays with them, without your name.',
       matches:
-        'Open matches you took part in stay in the venue’s records without your name, as bookings do. Tickets, their purchases and refunds stay in the venue’s accounts without your name; tickets you had not used are refunded to the card you paid with. Reports between players are kept for 12 months and then deleted.',
+        'Open matches you took part in stay in the venue’s records without your name, as bookings do. Reports between players are kept for 12 months and then deleted.',
       cafe: 'Anonymous café table sessions end when they expire; the orders stay in the venue’s sales records without a name.',
       logs: 'Café order messages in the staff Telegram group are deleted after 30 days, and records of staff actions in Telegram after 90 days. Audit and security records, and records of verification messages, are kept for as long as they are needed for security, dispute resolution and accounting.',
       apple:
@@ -196,7 +204,7 @@ export const legalEn = {
   terms: {
     title: 'Terms of Service',
     metaDescription:
-      'The agreement for using the Touch Padel app and website, booking courts, playing open matches and ordering at the venue: bookings, open matches and tickets, cancellations, venue rules, safety and liability.',
+      'The agreement for using the Touch Padel app and website, booking courts, playing open matches and ordering at the venue: bookings, open matches, payment at the venue, cancellations, venue rules, safety and liability.',
     intro:
       'These terms are the agreement between you and {tradingName} for using the Touch Padel app and this website, booking courts, playing open matches, and ordering at the venue. By creating an account, or by booking, joining a match or ordering, you agree to them. Please read them.',
     who: {
@@ -217,7 +225,7 @@ export const legalEn = {
       confirm:
         'A booking is made when the app or the front desk shows it as confirmed. A time you hold but do not confirm in time is released for others.',
       price:
-        'Prices are shown in Iraqi dinars (IQD) before you confirm. Unless the app says otherwise, you pay at the venue. Some bookings ask for a deposit paid online by Qi Card, and open-match tickets are bought online by Qi Card.',
+        'Prices are shown in Iraqi dinars (IQD) before you confirm. You pay at the venue, by the methods it accepts: court bookings, lessons, open-match seats, tournament entries and café orders alike. Nothing is paid in the app or on this website.',
       cancel:
         'You can cancel for free in the app until {cancelHours} before your slot. Less than {cancelHours} before, only the front desk can change or cancel it.',
       noShow:
@@ -231,25 +239,19 @@ export const legalEn = {
       startLead: 'Starting and joining.',
       start:
         'You can start an open match at a free time, or join one. The court is booked for the match when the fourth player is in. Until then no court is held for it, and if a group books the last free court at that time, the match is cancelled.',
-      ticketsLead: 'Tickets.',
-      tickets:
-        'Every seat in a match needs an open-match ticket, bought online by Qi Card. Seats you take for friends use your tickets. A ticket can be used again and never expires. It is held while you are in a match or waiting for an organiser’s answer, and comes back after you play or when a match is cancelled. It is lost if you do not come, or if you leave a booked match and nobody takes your seat before it starts.',
-      refundLead: 'Money back.',
-      refund:
-        'Only tickets you have not used can be refunded, on request at the front desk. A manager refunds them to the card you paid with, once none of that purchase’s tickets is in a match, as one refund per purchase.',
       shareLead: 'Your share.',
       share:
-        'Every player who comes pays their share of the court at the front desk. A ticket is not a share of the court.',
+        'Nothing is paid in the app to take a seat. Every player who comes pays their share of the court at the front desk, and that includes the seats you take for friends.',
       venueLead: 'The venue.',
-      venue: 'We may cancel or move a match. When we cancel one, its tickets come back.',
+      venue: 'We may cancel or move a match, and we tell its players when we do.',
       genderLead: 'Women-only and men-only matches.',
       gender:
         'Tell us honestly whether you are a woman or a man, and declare the friends you bring honestly. The front desk may check.',
       conductLead: 'Conduct.',
       conduct:
-        'The organiser may remove a player before the court is booked. The venue may remove a player from a match, or stop an account from using open matches. If the venue removes you from a match after the court is booked, for example for conduct or because you asked, your ticket is lost unless another player takes your seat before it starts. If we removed you by mistake, your ticket comes back.',
+        'The organiser may remove a player before the court is booked. The venue may remove a player from a match, or stop an account from using open matches.',
       deleteLead: 'Deleting your account.',
-      delete: 'If you delete your account, you leave your matches, and your unused tickets are refunded to the card you paid with.',
+      delete: 'If you delete your account, you leave your matches.',
     },
     cafe: {
       title: 'Café orders',
@@ -320,7 +322,7 @@ export const legalEn = {
       title: 'Booking and paying',
       choose: 'On the Book tab, choose a court, a date and a free time, then confirm.',
       find: 'Your booking appears under My Reservations with its booking reference.',
-      pay: 'You pay at the front desk when you arrive. Only a court deposit, when a booking asks for one, and open-match tickets are paid online, by Qi Card.',
+      pay: 'You pay at the front desk when you arrive. There is no online payment.',
       notify: 'If you allow notifications, you get a confirmation when you book and a reminder before your slot.',
     },
     cancel: {
@@ -372,10 +374,8 @@ export const legalEn = {
       deleted:
         'Deleted immediately: your login, your first name, surname, gender, date of birth and profile photo, phone number, email address, linked Apple or Google sign-in, notification token, the players you blocked, the staff notes about you and any notifications waiting to be sent. You are signed out on every device.',
       kept: 'Kept, without your name: bookings and café orders you have already made, open matches you played in, and reports between players (for 12 months), because the venue has to keep its own accounts. They can no longer be linked to you.',
-      tickets: 'Open-match tickets you have not used are refunded to the card you paid with.',
       // Coaching (docs/design/coaching/guest.md §4.16, R50, R63; app.delete_my_account, 0289).
-      lessons:
-        'Your booked lessons are cancelled, and anything you paid online for them is refunded to the card you paid with.',
+      lessons: 'Your booked lessons are cancelled.',
       coaching:
         'If you coach at Touch, your coach profile leaves the app and the website, your photo and bio are deleted, and your upcoming lessons are cancelled and refunded. Your monthly statements are kept with your coach name, as the venue’s pay records.',
       more: 'Read the full retention details in the Privacy Policy',

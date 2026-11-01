@@ -548,7 +548,7 @@ function PurchaseScreen() {
 
 export default function StaffPurchaseRoute() {
   return (
-    <RequireStaff roles={PURCHASE_ROLES}>
+    <RequireStaff page="staff-purchase" roles={PURCHASE_ROLES}>
       <PurchaseScreen />
     </RequireStaff>
   );

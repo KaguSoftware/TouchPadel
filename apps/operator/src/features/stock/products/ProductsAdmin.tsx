@@ -34,10 +34,11 @@
  * the same upsert_retail_variant). The link is saved with
  * app.set_shop_price_watch after the size, and only when it changed.
  */
-import { useMemo, useState, type ReactNode } from 'react';
+import { useMemo, useRef, useState, type ReactNode } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { formatIQD, formatNumber } from '@touch/i18n';
 import { AppRpcError, appRpc } from '../../../lib/appRpc';
+import { keyForValues } from '../../wages/wagesLogic';
 import { useLocale, pickName } from '../../../lib/i18n';
 import { can, useAuth } from '../../../lib/auth';
 import { useToast } from '../../../components/toast';
@@ -78,6 +79,7 @@ import {
   type SupplierRow,
 } from '../stockKeys';
 import {
+  createProductArgs,
   flattenCatalogue,
   matchesProductLine,
   productLock,
@@ -386,6 +388,8 @@ function SizeForm({
   const suggestedPrice = editing.mode === 'editSize' && !priceLocked ? editing.suggestedPrice : undefined;
 
   const [sectionId, setSectionId] = useState(sections[0]?.id ?? '');
+  // 0389 (F-36): one key per set of values sent, so a retry never makes the product twice.
+  const createKeys = useRef(new Map<string, string>());
   const [productName, setProductName] = useState({ en: '', ar: '' });
   const [draft, setDraft] = useState<SizeDraft>({
     nameEn: editSize?.variant.name_en ?? (editing.mode === 'newProduct' ? tr('ws.manager.stock.products.oneSizeEn') : ''),
@@ -459,23 +463,24 @@ function SizeForm({
     setError(null);
     try {
       let itemId = line?.productId ?? null;
+      let saved: { variant_id: string } | null = null;
       if (editing.mode === 'newProduct') {
-        itemId = await appRpc<string>('upsert_menu_item', {
-          p_category_id: sectionId,
-          p_name_en: productName.en.trim(),
-          p_name_ar: productName.ar.trim(),
-          ...(newHidden ? { p_is_active: false } : {}),
-        });
-      }
-      const saved = !sizeDirty
-        ? null
-        : await appRpc<{ variant_id: string } | null>('upsert_retail_variant', {
+        // 0389 (F-36): the product and its first size in one transaction.
+        const base = createProductArgs({ sectionId, productName, draft, supplierId, active: !newHidden, key: '' });
+        const made = await appRpc<{ item_id: string; variant_id: string }>(
+          'create_shop_product',
+          { ...base, p_idempotency_key: keyForValues(createKeys.current, [base], () => `shop.product:${crypto.randomUUID()}`) },
+        );
+        itemId = made.item_id;
+        saved = { variant_id: made.variant_id };
+      } else if (sizeDirty) {
+        saved = await appRpc<{ variant_id: string } | null>('upsert_retail_variant', {
             p_item_id: itemId,
             ...sizeArgs(draft, supplierId),
             ...(editSize ? { p_id: editSize.variant.id, p_is_default: editSize.variant.is_default, p_sort_order: editSize.variant.sort_order } : {}),
-            ...(editing.mode === 'newProduct' ? { p_is_default: true } : {}),
             ...(editing.mode === 'addSize' ? { p_sort_order: editing.line.variant.sort_order + 1 } : {}),
           });
+      }
       const variantId = editSize?.variant.id ?? saved?.variant_id;
       if (linkChange && variantId) {
         try {

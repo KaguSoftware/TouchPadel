@@ -561,14 +561,13 @@ export default function ProfileScreen() {
                 onPress={() => router.push({ pathname: '/phone-sign-in', params: { mode: 'link' } })}
               />
             ) : null}
-            {onlinePaymentsShipped() ? (
-              <MenuRow
-                testID="profile.blocked-players"
-                icon={<CloseIcon size={15} color={colors.gstrong} />}
-                label={t('profile.blockedPlayers')}
-                onPress={() => router.push('/blocked-players')}
-              />
-            ) : null}
+            {/* Open matches ship in every build (paid at the desk without online payment). */}
+            <MenuRow
+              testID="profile.blocked-players"
+              icon={<CloseIcon size={15} color={colors.gstrong} />}
+              label={t('profile.blockedPlayers')}
+              onPress={() => router.push('/blocked-players')}
+            />
             <MenuRow
               testID="profile.settings"
               icon={<SlidersIcon size={15} color={colors.gstrong} />}

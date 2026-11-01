@@ -22,7 +22,13 @@ import { ChevronIcon, TableIcon } from '../../src/components/icons';
 import { PhoneField } from '../../src/components/phone';
 import { DateTimeField } from '../../src/components/DateTimeField';
 import { nativeChoice } from '../../src/components/nativeChoice';
-import { CoachBanners, ReasonCard, RosterRow, kindLine } from '../../src/components/coachMode';
+import {
+  CoachBanners,
+  ReasonCard,
+  RosterRow,
+  StudentLevelSheet,
+  kindLine,
+} from '../../src/components/coachMode';
 import { RequireCoach } from '../../src/features/coach/RequireCoach';
 import { useCoachStatus } from '../../src/features/coach/CoachStatusProvider';
 import {
@@ -34,6 +40,7 @@ import {
   useRefetchOnFocus,
   useRemoveStudent,
   useReschedule,
+  useSetStudentLevel,
 } from '../../src/features/coach/hooks';
 import { coachErrorCode, coachErrorText } from '../../src/features/coach/errors';
 import {
@@ -59,6 +66,7 @@ import {
   type RosterEntry,
 } from '../../src/features/coach/logic';
 import { DEFAULT_ISO, composePhone, validatePhone } from '../../src/features/profile/phone';
+import type { PlayLevel } from '../../src/features/playProfile/logic';
 import { callPhone } from '../../src/lib/phone';
 import { usePullRefresh } from '../../src/lib/usePullRefresh';
 import { otherPersonName } from '../../src/components/fieldKeyboard';
@@ -151,6 +159,7 @@ function LessonDetail({
   const cancelCourse = useCancelCourse();
   const reschedule = useReschedule();
   const add = useAddStudent();
+  const setLevel = useSetStudentLevel();
 
   const l = detail.lesson;
   const tz = tzOf(coach, l.venueId);
@@ -266,6 +275,30 @@ function LessonDetail({
     });
     if (choice === 'clear') onMark(entry, 'clear');
     if (choice === 'remove') openReason({ kind: 'remove', entry });
+  };
+
+  // ── A linked student's level (0401, F-70) ─────────────────────────────────
+  const [levelFor, setLevelFor] = useState<string | null>(null);
+  const [levelError, setLevelError] = useState<string | null>(null);
+  // The roster's own row, so the sheet follows a refetch.
+  const levelEntry = detail.roster.find((r) => r.enrolmentId === levelFor && r.level) ?? null;
+  const openLevel = (entry: RosterEntry) => {
+    setLevelError(null);
+    setLevelFor(entry.enrolmentId);
+  };
+  const writeLevel = (level: PlayLevel | null, note: string) => {
+    if (!levelEntry) return;
+    setLevelError(null);
+    setLevel.mutate(
+      { enrolmentId: levelEntry.enrolmentId, level, note },
+      {
+        onSuccess: () => {
+          setLevelFor(null);
+          toast(t(level === null ? 'coaching.coach.level.cleared' : 'coaching.coach.level.saved'), 'success');
+        },
+        onError: (err) => setLevelError(errText(err)),
+      },
+    );
   };
 
   // ── Add a student (C-8; the same answer whether the phone matched) ───────
@@ -643,6 +676,7 @@ function LessonDetail({
             onCall={(phone) => void callPhone(phone)}
             onMark={(value) => onMark(item, value)}
             onMenu={() => void onMenu(item)}
+            onLevel={item.level ? () => openLevel(item) : undefined}
           />
         )}
         ListHeaderComponent={header}
@@ -662,6 +696,16 @@ function LessonDetail({
             tintColor={colors.blue}
           />
         }
+      />
+      <StudentLevelSheet
+        testID="coach-mode-lesson.level-sheet"
+        name={levelEntry ? levelEntry.name : null}
+        level={levelEntry?.level ?? null}
+        busy={setLevel.isPending}
+        error={levelError}
+        onSave={(level, note) => writeLevel(level, note)}
+        onClear={() => writeLevel(null, '')}
+        onClose={() => setLevelFor(null)}
       />
       <ConfirmAlert
         visible={confirming !== null}

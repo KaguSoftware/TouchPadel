@@ -366,7 +366,7 @@ export type RailShift =
   | { kind: 'start'; blocked: null | 'noDay' | { elsewhere: string } };
 
 /**
- * What the row under the break row says. Null draws nothing: a station with no
+ * What the rail's shift row says. Null draws nothing: a station with no
  * drawer, a role that holds none, a status not yet known (drawing a guess would
  * lie), or a manager with no shift here (never asked to hold one).
  */

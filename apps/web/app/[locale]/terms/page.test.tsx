@@ -7,6 +7,14 @@ import { renderServerPage } from '@/test/renderPage';
 import { hoursPhrase } from '@/lib/site/plural';
 import TermsPage from './page';
 
+/** The words a reader meets: the page's text without its inline stylesheet. */
+function readable(root: Element): string {
+  const copy = root.cloneNode(true) as Element;
+  copy.querySelectorAll('style, script').forEach((n) => n.remove());
+  return copy.textContent ?? '';
+}
+
+
 /**
  * The Terms of Service the app's consent checkbox points at. The two things a
  * guest's acceptance depends on are asserted here: the VERSION they accepted
@@ -72,7 +80,7 @@ describe.each(LOCALES)('terms page (%s)', (locale: Locale) => {
     expect(document.querySelector('section#bookings')).not.toBeNull();
   });
 
-  it('sets out open matches: tickets, money back, conduct and deleting an account', async () => {
+  it('sets out open matches: starting and joining, your share at the desk, conduct and deleting an account', async () => {
     await renderServerPage(TermsPage, locale);
 
     const section = document.querySelector('section#open-matches');
@@ -80,9 +88,8 @@ describe.each(LOCALES)('terms page (%s)', (locale: Locale) => {
     const text = section?.textContent ?? '';
     for (const key of [
       'legal.terms.openMatches.start',
-      'legal.terms.openMatches.tickets',
-      'legal.terms.openMatches.refund',
       'legal.terms.openMatches.share',
+      'legal.terms.openMatches.venue',
       'legal.terms.openMatches.gender',
       'legal.terms.openMatches.conduct',
       'legal.terms.openMatches.delete',
@@ -94,32 +101,20 @@ describe.each(LOCALES)('terms page (%s)', (locale: Locale) => {
   });
 
   /**
-   * Every way a paid ticket is lost is in the terms (db.md §4.7.6): not coming, a late leave
-   * nobody refills, and a removal by the venue after the court is booked, which 0262's
-   * desk_remove_seat turns into a late leave the start forfeits. A removal the desk made by
-   * mistake (staff_error, duplicate) releases the ticket, so the terms say that too.
+   * F-02/F-03 (2026-11-01): no online payment in this build. The terms say every payment is made
+   * at the venue, a seat included, and never mention Qi Card, deposits or tickets.
    */
-  it('says a ticket is lost to a no-show, a late leave, or a venue removal after booking', async () => {
-    await renderServerPage(TermsPage, locale);
-
-    const LOST = {
-      en: {
-        tickets: ['do not come', 'leave a booked match'],
-        conduct: ['removes you from a match after the court is booked', 'removed you by mistake'],
-      },
-      ar: {
-        tickets: ['عدم الحضور', 'مغادرة مباراة محجوزة'],
-        conduct: ['أخرجك النادي من مباراة بعد حجز الملعب', 'إخراجك خطأً منّا'],
-      },
-    }[locale];
-    const section = document.querySelector('section#open-matches')?.textContent ?? '';
-    for (const phrase of LOST.tickets) {
-      expect(t(locale, 'legal.terms.openMatches.tickets')).toContain(phrase);
-    }
-    for (const phrase of LOST.conduct) {
-      expect(t(locale, 'legal.terms.openMatches.conduct')).toContain(phrase);
-    }
-    expect(section).toContain(t(locale, 'legal.terms.openMatches.conduct'));
+  it('says everything is paid at the venue, and names no deposit, ticket or Qi Card', async () => {
+    const { container } = await renderServerPage(TermsPage, locale);
+    const all = readable(container);
+    expect(all).not.toContain('Qi Card');
+    expect(all).not.toMatch(locale === 'en' ? /deposit|ticket/i : /عربون|عرابين|تذكرة|تذاكر/);
+    expect(t(locale, 'legal.terms.bookings.price')).toContain(
+      locale === 'en' ? 'Nothing is paid in the app' : 'ولا يُدفع شيء عبر التطبيق',
+    );
+    expect(document.querySelector('section#open-matches')?.textContent).toContain(
+      t(locale, 'legal.terms.openMatches.share'),
+    );
   });
 
   it('quotes the venue’s live cancellation window, not a typed number', async () => {

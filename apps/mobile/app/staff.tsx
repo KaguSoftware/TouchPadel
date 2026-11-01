@@ -833,7 +833,7 @@ function TodayScreen() {
 
 export default function StaffTodayRoute() {
   return (
-    <RequireStaff>
+    <RequireStaff page="staff">
       {/* Bigger text on the staff pages (Sait, 2026-10-17). */}
       <MinFontSize value={STAFF_MIN_FONT}>
         <TodayScreen />

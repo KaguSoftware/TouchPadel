@@ -220,3 +220,41 @@ describe('Basket — pick up or bring it (0351)', () => {
     expect(screen.getByTestId('basket-service-deliver').textContent).toContain('Bring it to them');
   });
 });
+
+describe('Basket — an offline send says so at once (F-32)', () => {
+  function withNotice(sending: boolean, notice: string | null, error: unknown = null) {
+    return render(
+      <LocaleProvider>
+        <Basket
+          lines={[line({ key: 'a' })]}
+          forLabel="Table T8"
+          service="deliver"
+          serviceSpot="Table T8"
+          onService={vi.fn()}
+          sending={sending}
+          error={error}
+          notice={notice}
+          canSend
+          expanded
+          onToggleExpanded={vi.fn()}
+          onBump={vi.fn()}
+          onNote={vi.fn()}
+          onRemove={vi.fn()}
+          onClear={vi.fn()}
+          onSend={vi.fn()}
+        />
+      </LocaleProvider>,
+    );
+  }
+
+  it('shows the notice in place of the bare "Sending…" spinner', () => {
+    withNotice(true, 'No connection. Saving the order on this till…');
+    expect(screen.getByTestId('basket-send-notice').textContent).toContain('Saving the order on this till');
+    expect(screen.queryByText('Sending…')).toBeNull();
+  });
+
+  it('an error still wins the one status line', () => {
+    withNotice(false, 'No connection. Saving the order on this till…', new Error('boom'));
+    expect(screen.queryByTestId('basket-send-notice')).toBeNull();
+  });
+});

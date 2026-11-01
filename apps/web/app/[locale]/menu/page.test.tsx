@@ -18,9 +18,11 @@ import CafeMenuPage, { generateMetadata } from './page';
  * table session was `/{locale}/t`). One page, two guests, told apart only by
  * the HttpOnly `tp-table` cookie proxy.ts sets on the QR exchange:
  *
- *   no cookie  a walk-in: the whole app with `token: null`, so "send" and
+ *   no cookie  a walk-in: the whole app with `hasTable: false`, so "send" and
  *              "call waiter" ask for the table QR;
- *   cookie     a scanned guest: token → `<CafeApp token=…>` → a table chip.
+ *   cookie     a scanned guest: `<CafeApp hasTable>` → a table chip. The token
+ *              itself never leaves the server (F-42): the browser asks
+ *              `/{locale}/menu/table` to bind (menu/table/route.test.ts).
  *
  * This is a SMOKE render: it proves the page composes and picks the reading
  * language, not that the design is right (that is `e2e/tests/cafe-*.spec.ts`).
@@ -67,6 +69,15 @@ vi.mock('next/headers', async () => {
   };
 });
 
+/** What the page sent to dev monitoring (F-43). */
+const reports = vi.hoisted(() => [] as { level: string; kind: string; message: string }[]);
+vi.mock('@/lib/monitoring', () => ({
+  reportEvent: (input: { level: string; kind: string; message: string }) => {
+    reports.push(input);
+    return Promise.resolve('sent');
+  },
+}));
+
 vi.mock('@/hooks/cafe/useSupabase', () => ({
   useSupabase: () => null,
   __resetSupabaseForTests: () => {},
@@ -93,6 +104,7 @@ beforeEach(() => {
   reads.settings = [];
   reads.tokens = [];
   reads.tableBranch = null;
+  reports.length = 0;
 });
 
 describe('café menu page', () => {
@@ -100,7 +112,7 @@ describe('café menu page', () => {
     await renderServerPage(CafeMenuPage, 'en');
 
     expect(screen.getByAltText(t('en', 'common.cafeName'))).toBeTruthy();
-    // token === null ⇒ TableChip renders nothing, so no "scan again" affordance.
+    // hasTable === false ⇒ TableChip renders nothing, so no "scan again" affordance.
     expect(screen.queryByRole('button', { name: t('en', 'cafe.scanAgain') })).toBeNull();
     expect(document.querySelector('.tp-cafe__table')).toBeNull();
   });
@@ -109,7 +121,7 @@ describe('café menu page', () => {
     cookieJar.table = 'tp-fixture-token';
     await renderServerPage(CafeMenuPage, 'en');
 
-    // The token reached CafeApp, so TableChip is mounted; with no Supabase
+    // CafeApp was told a table is there, so TableChip is mounted; with no Supabase
     // client the binding fails and the chip is the tappable re-scan notice.
     expect(document.querySelector('.tp-cafe__table')?.getAttribute('data-state')).toBe('error');
     expect(screen.getByRole('button', { name: t('en', 'cafe.scanAgain') })).toBeTruthy();
@@ -143,6 +155,35 @@ describe('café menu page', () => {
     expect(bandWords()).toEqual([]);
   });
 
+  /**
+   * F-43: an empty menu (the read worked, the branch has nothing up yet) is not a failed
+   * load. It says so as a fact, offers no retry and reports nothing; a failed load keeps the
+   * retry, explains what to do when the page cannot reach the menu at all (no Supabase
+   * client here), and reaches dev monitoring once.
+   */
+  it.each(['en', 'ar'] as const)('tells an empty menu apart from a failed load (%s)', async (locale) => {
+    serverData.menu = { status: 'empty', categories: [] };
+    const { unmount } = await renderServerPage(CafeMenuPage, locale);
+    let status = screen.getByRole('status');
+    expect(status.getAttribute('data-state')).toBe('empty');
+    expect(status.textContent).toContain(t(locale, 'cafe.menuEmpty.title'));
+    expect(status.textContent).toContain(t(locale, 'cafe.menuEmpty.body'));
+    expect(status.textContent).not.toContain(t(locale, 'cafe.menuUnavailable.title'));
+    expect(screen.queryByRole('button', { name: t(locale, 'common.retry') })).toBeNull();
+    expect(reports).toEqual([]);
+    unmount();
+
+    serverData.menu = MENU_ERROR;
+    await renderServerPage(CafeMenuPage, locale);
+    status = screen.getByRole('status');
+    expect(status.getAttribute('data-state')).toBe('error');
+    expect(status.textContent).toContain(t(locale, 'cafe.menuUnavailable.title'));
+    expect(status.textContent).toContain(t(locale, 'cafe.menuUnavailable.stillDown'));
+    expect(screen.getByRole('button', { name: t(locale, 'common.retry') })).toBeTruthy();
+    expect(reports).toHaveLength(1);
+    expect(reports[0]).toMatchObject({ level: 'error', kind: 'web_error' });
+  });
+
   it('server-renders the locale switch onto the other language’s menu, never the token', async () => {
     cookieJar.table = 'tp-fixture-token';
     // renderToString runs no effects, so this is exactly the HTML a guest can
@@ -152,6 +193,22 @@ describe('café menu page', () => {
     expect(switchTag).toContain('href="/ar/menu"');
     // The old default was `/{other}/t/{token}`: the credential in the markup.
     expect(switchTag).not.toContain('tp-fixture-token');
+  });
+
+  /**
+   * F-42: the token was serialised into the RSC payload as `<CafeApp token=…>`. The page's
+   * element tree is what Next serialises for the client, so no prop anywhere in it may carry
+   * the token, in either language, and the server-rendered HTML may not either.
+   */
+  it.each(['en', 'ar'] as const)('never hands the table token to the client (%s)', async (locale) => {
+    cookieJar.table = 'tp-fixture-token';
+    const element = await CafeMenuPage(pageProps(locale));
+    expect(JSON.stringify(element)).not.toContain('tp-fixture-token');
+    expect(renderToString(element)).not.toContain('tp-fixture-token');
+
+    await renderServerPage(CafeMenuPage, locale);
+    // ...and the table is still bound in the background (the chip is up).
+    expect(document.querySelector('.tp-cafe__table')).not.toBeNull();
   });
 
   it('closes on a quiet row out to Touch Padel, support, privacy and terms', async () => {
@@ -264,7 +321,7 @@ describe('café menu page', () => {
     });
 
     it('lets a ?b= slug beat an old table cookie (the table only browses there)', async () => {
-      // Multi-venue audit: the 12 h cookie used to override the branch the guest asked for.
+      // Multi-venue audit: the table cookie used to override the branch the guest asked for.
       cookieJar.table = 'tp-fixture-token';
       reads.tableBranch = SECOND_BRANCH.id;
       await renderServerPage(CafeMenuPage, 'en', { b: 'fixture-a' });

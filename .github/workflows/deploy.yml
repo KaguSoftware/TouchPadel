@@ -29,13 +29,14 @@ name: Deploy (hosted)
 # commit that changes neither ends in the plan job and asks nobody to approve
 # anything.
 #
-# THE APPROVAL GATE. The `staging` environment should carry required
-# reviewers. An approval nobody gives holds this concurrency group and makes
-# later runs wait (they never deploy older code: each run plans from the
-# hosted state). The nightly db-drift job fails when a run here has been
-# waiting for more than 12 hours, so a jam is red the next morning instead of
-# silent for weeks (the 2026-08-27 → 09-14 stall). To clear one: cancel the
-# stale waiting run; the newest run then plans from the current tree.
+# NO APPROVAL GATE. The `staging` environment carries no required reviewers,
+# by the owner's decision (2026-09-25: never gate a migration push); hosted is
+# protected by holding and sequencing what is pushed to main instead. If a run
+# ever does wait (a protection rule added by mistake), it holds this
+# concurrency group and later runs queue behind it; the nightly db-drift job
+# fails when a run here has waited more than 12 hours, so a jam is red the
+# next morning (the 2026-08-27 → 09-14 stall). To clear one: remove the rule,
+# cancel the stale run; the newest run then plans from the current tree.
 
 on:
   workflow_run:

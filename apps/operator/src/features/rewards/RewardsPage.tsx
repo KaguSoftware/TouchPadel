@@ -24,6 +24,7 @@ import { Button, ErrorText, Field, inputStyle } from '../../components/ui';
 import { MoneyInput } from '../../components/inputs';
 import { AsyncStateWrapper, DataTable, EmptyState, MessagePresenter, Money, PageHeader, Panel, StatusBadge, TableSkeleton, ViewMore, useListCap, type Column } from '../../components/kit';
 import { CardTitle } from '../ops/OpsVisuals';
+import { hasNonEnglishDigits } from '../stock/decimalInput';
 import { refusalCode, refusalHint } from '../protocols/errors';
 import { monthLabel } from '../deductions/venueDate';
 import { RK, endStaffReward, fetchRewardsBoard, setStaffReward } from './api';
@@ -248,6 +249,7 @@ function AddRewardForm({ person, onClose, onSaved, onStale }: { person: BoardPer
   const toast = useToast();
   const [draft, setDraft] = useState<RewardDraft>(EMPTY_DRAFT);
   const [tried, setTried] = useState(false);
+  const [targetDigits, setTargetDigits] = useState(false);
   const issues = validateRewardDraft(draft);
 
   const save = useMutation({
@@ -288,7 +290,7 @@ function AddRewardForm({ person, onClose, onSaved, onStale }: { person: BoardPer
         }}
       >
         <div style={{ display: 'flex', gap: 'var(--tp-sp-4)', flexWrap: 'wrap' }}>
-          <Field label={tr('ws.rewards.form.target')} required hint={tr('ws.rewards.form.targetHint')} error={issueOf('target')} style={{ flex: '1 1 10rem' }}>
+          <Field label={tr('ws.rewards.form.target')} required hint={tr('ws.rewards.form.targetHint')} error={targetDigits ? tr('ws.manager.stock.englishDigits') : issueOf('target')} style={{ flex: '1 1 10rem' }}>
             <input
               style={{ ...inputStyle, inlineSize: '9rem', fontVariantNumeric: 'tabular-nums' }}
               dir="ltr"
@@ -296,7 +298,11 @@ function AddRewardForm({ person, onClose, onSaved, onStale }: { person: BoardPer
               autoComplete="off"
               value={draft.target}
               disabled={save.isPending}
-              onChange={(e) => set({ target: e.target.value.replace(/\D/g, '').slice(0, String(100_000).length) })}
+              onChange={(e) => {
+                // F-35: English digits only; an Arabic digit is refused and the field says why.
+                setTargetDigits(hasNonEnglishDigits(e.target.value));
+                set({ target: e.target.value.replace(/\D/g, '').slice(0, String(100_000).length) });
+              }}
               data-testid="rewards.form.target"
             />
           </Field>

@@ -78,10 +78,9 @@ function section(ws: GuideWorkspace, id: string, icon: IconName, steps: readonly
 
 const k = (key: MessageKey) => key;
 
-// Shared by the desk, the till and the shop: the rail's shift and break rows.
+// Shared by the desk, the till and the shop: the rail's shift rows.
 const START_SHIFT = k('ws.tillShift.rail.start');
 const END_SHIFT = k('ws.tillShift.rail.end');
-const GO_ON_BREAK = k('ws.shell.break.goOnBreak');
 
 const COURT_DESK: readonly GuideSection[] = [
   section('courtDesk', 'start', 'play', [
@@ -167,7 +166,6 @@ const COURT_DESK: readonly GuideSection[] = [
   section('courtDesk', 'more', 'checkCircle', [
     ['tasks', { icon: 'checkCircle', link: '/tasks', when: { route: '/tasks' } }],
     ['incident', { icon: 'alert', link: '/incidents', when: { route: '/incidents' } }],
-    ['break', { icon: 'clock', params: { goOnBreak: GO_ON_BREAK }, badges: ['ownPin'] }],
   ]),
   section('courtDesk', 'end', 'logOut', [
     ['shift', { icon: 'banknote', params: { endShift: END_SHIFT }, badges: ['ownPin', 'online'] }],
@@ -237,7 +235,6 @@ const TILL: readonly GuideSection[] = [
   section('cashier', 'more', 'checkCircle', [
     ['tasks', { icon: 'checkCircle', link: '/tasks', when: { route: '/tasks' } }],
     ['incident', { icon: 'alert', link: '/incidents', when: { route: '/incidents' } }],
-    ['break', { icon: 'clock', params: { goOnBreak: GO_ON_BREAK }, badges: ['ownPin'] }],
   ]),
   section('cashier', 'end', 'logOut', [
     ['openTabs', { icon: 'receipt', link: '/till/tabs', params: { openTabs: k('ws.shell.nav.openTabs') } }],
@@ -341,7 +338,6 @@ const SHOP: readonly GuideSection[] = [
         badges: ['online'],
       },
     ],
-    ['break', { icon: 'clock', params: { goOnBreak: GO_ON_BREAK }, badges: ['ownPin'] }],
     ['unpaid', { icon: 'alert', link: '/shop', params: { unfinished: k('ws.shop.till.unfinished') } }],
     ['shift', { icon: 'banknote', params: { endShift: END_SHIFT }, badges: ['ownPin', 'online'] }],
     ['signOut', { icon: 'logOut' }],

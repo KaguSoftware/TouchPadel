@@ -89,7 +89,9 @@ export type NavLabelKey =
   | 'courtSettings' | 'courtSales' | 'cafeSales' | 'billsSuppliers' | 'tournamentRules'
   | 'analyticsSettings' | 'computersScreens'
   | 'venueDetails' | 'openingHours' | 'businessDay' | 'genderHours'
-  | 'guestApp' | 'devices' | 'stations' | 'kitchenScreens' | 'offlineMode';
+  | 'guestApp' | 'devices' | 'stations' | 'kitchenScreens' | 'offlineMode'
+  // Dev monitoring (0393): the dev role's page, the owner's under Settings.
+  | 'monitoring';
 
 /**
  * A live count beside a row's or a tab's name: what waits on the signed-in
@@ -416,6 +418,12 @@ const TABLES: NavItem = { to: '/admin/qr', labelKey: 'tables', icon: 'qr' };
 const SHOP_ROW: NavItem = { to: '/shop', labelKey: 'shop', icon: 'tag' };
 /** Protocols, with what waits on the signed-in person (build-contracts-2026-09-23 §5.1). */
 const PROTOCOLS: NavItem = { to: '/protocols', labelKey: 'protocols', icon: 'checkCircle', badge: 'protocolsWaiting' };
+/**
+ * Dev monitoring (0392/0393): the dev role's only page, on the team rail it
+ * shares with driver and marketing (who cannot open it, so it never prints for
+ * them), and the owner's under Settings. ROUTE_ROLES holds it to those two.
+ */
+const MONITORING: NavItem = { to: '/monitoring', labelKey: 'monitoring', icon: 'alert' };
 
 // ---------------------------------------------------------------------------
 // Management: the owner and the manager
@@ -527,6 +535,10 @@ const SETTINGS: readonly NavItem[] = [
   { to: '/admin/branches', labelKey: 'branches', icon: 'pin', tabs: BRANCH_TABS, alsoActive: ['/admin/settings'] },
   { to: '/admin/settings/devices', labelKey: 'computersScreens', icon: 'keyboard', tabs: DEVICES_TABS },
   { to: '/admin/audit', labelKey: 'audit', icon: 'fileText' },
+  // Dev monitoring (0393): crashes and errors from every app, edge function
+  // and cron failures. ROUTE_ROLES keeps it to the dev role and the owner, so
+  // a manager's Settings rail never prints it.
+  MONITORING,
   // The old Setup overview still opens from links; it keeps this rail.
   { to: '/setup', labelKey: 'overview', icon: 'grid', exact: true, hidden: true },
 ];
@@ -552,8 +564,8 @@ const SHOP: readonly NavItem[] = [
  * TEAM — driver and marketing (0155), and the waiter (wave 5 §2.1). One row:
  * My tasks, their protocol steps and the read-only copy of their phone
  * pages. It is a rail and not a navless board like the kitchen's because a
- * staff member who holds nothing but this still needs Options, Go on break
- * and Sign out.
+ * staff member who holds nothing but this still needs Options and Sign
+ * out.
  */
 const INSIGHTS: NavItem = { to: '/insights', labelKey: 'insights', icon: 'layers' };
 
@@ -570,6 +582,7 @@ const TEAM: readonly NavItem[] = [
   POSTS,
   MY_TASKS,
   INSIGHTS,
+  MONITORING,
 ];
 
 /**
@@ -595,7 +608,8 @@ export const WORKSPACES: Record<WorkspaceKey, Workspace> = {
   prep: { key: 'prep', home: '/kds', icon: 'flame', groups: [] },
   management: { key: 'management', home: '/panel', icon: 'shield', groups: [{ labelKey: null, items: MANAGEMENT_PRIMARY }], sections: MANAGEMENT_SECTIONS, altHomes: ['/ops'] },
   // Marketing opens on its plan; the driver and the waiter, who cannot, on My tasks.
-  team: { key: 'team', home: '/plan', icon: 'checkCircle', groups: [{ labelKey: null, items: TEAM }], altHomes: ['/tasks'] },
+  // The dev role (0392) holds this workspace for its one page, Monitoring.
+  team: { key: 'team', home: '/plan', icon: 'checkCircle', groups: [{ labelKey: null, items: TEAM }], altHomes: ['/tasks', '/monitoring'] },
   shop: { key: 'shop', home: '/shop', icon: 'tag', groups: [{ labelKey: null, items: SHOP }] },
 };
 
@@ -618,6 +632,8 @@ export function workspacesForRole(role: StaffRole): readonly WorkspaceKey[] {
     case 'driver':
     case 'marketing':
     case 'waiter':
+    // 0392: the developer's one page, Monitoring, sits on the team rail.
+    case 'dev':
       return ['team'];
     case 'shop_staff':
       return ['shop'];

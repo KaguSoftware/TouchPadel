@@ -100,7 +100,11 @@ computed: no percentage, total or rate that the report does not write itself.
    two empty the avatars and staff-media buckets). Do it while the club is closed: it locks every
    wiped table for its length.
 3. Load these reports: `SUPABASE_URL=… SUPABASE_SERVICE_ROLE_KEY=… pnpm db:legacy-reports load --hosted`.
-4. After: stock on hand starts at zero (count it); the store-review guest account is gone
+4. Switch on the owner assistant's stored-days cache and fill it from the loaded reports (Majed,
+   2026-11-01: "cache init" is a go-live step):
+   `SUPABASE_URL=… SUPABASE_SERVICE_ROLE_KEY=… node scripts/assistant-cache.mjs init`, then
+   `… status` to confirm it is on and the days are stored.
+5. After: stock on hand starts at zero (count it); the store-review guest account is gone
    (`scripts/create-review-account.mjs` makes a new one, or keep it with `--keep-email=` in step 2).
 
 ## Swap procedure

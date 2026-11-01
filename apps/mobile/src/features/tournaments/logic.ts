@@ -15,7 +15,6 @@
  */
 import type { Locale } from '@touch/i18n';
 import type { MatchCategory } from '../matches/logic';
-import { tournamentsShipped } from './shipped';
 
 // ── Server vocabulary (build contracts §1.3) ────────────────────────────────
 
@@ -450,14 +449,10 @@ export function tournamentsEnabled(
   return settings?.tournaments_enabled === true;
 }
 
-/**
- * Some open branch has tournaments on: Profile shows "My tournaments". Never in a build that
- * leaves tournaments out (shipped.ts), whatever a branch says.
- */
+/** Some open branch has tournaments on: Profile shows "My tournaments" (the branch decides, F-71). */
 export function anyTournaments(
   branches: readonly { tournaments_enabled?: boolean | null }[] | null | undefined,
 ): boolean {
-  if (!tournamentsShipped()) return false;
   return (branches ?? []).some((b) => b.tournaments_enabled === true);
 }
 

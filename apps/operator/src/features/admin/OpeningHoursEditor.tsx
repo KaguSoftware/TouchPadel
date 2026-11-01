@@ -20,6 +20,10 @@
  * Closed dates: the column has existed since 0006, `assert_bookable` refuses
  * bookings on those days and the desk calendar greys them out; this is the one
  * place that writes the list.
+ *
+ * 0390 (F-51): a day added to the list that still has bookings on it cannot be
+ * saved until each is cancelled, marked no-show or paid (ClosedDayBookings
+ * lists them with those three actions; the server refuses the same).
  */
 import { useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -30,7 +34,9 @@ import { QK, fetchVenueSettings } from '../../lib/queries';
 import { useLocale } from '../../lib/i18n';
 import { Button, ErrorText, Skeleton, inputStyle } from '../../components/ui';
 import { AsyncStateWrapper, MessagePresenter, Panel, StatusBadge, asyncStatus } from '../../components/kit';
-import { addClosedDate, isIsoDate, removeClosedDate, sameClosedDates, splitClosedDates } from './closedDates';
+import { addClosedDate, addedClosedDates, closedDayBlock, isIsoDate, removeClosedDate, sameClosedDates, splitClosedDates } from './closedDates';
+import { ClosedDayBookings, useClosedDayBookings } from './ClosedDayBookings';
+import { refusalCode } from '../protocols/errors';
 
 const DAY_KEYS: readonly DayKey[] = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
 
@@ -77,6 +83,9 @@ export function OpeningHoursEditor() {
   // Shared fetcher: a narrower select under the same key once left the desk
   // calendar without `timezone`, rendering the whole grid in the fallback zone.
   const settingsQ = useQuery({ queryKey: QK.venueSettings, queryFn: fetchVenueSettings });
+  const added = addedClosedDates(closed ?? [], settingsQ.data?.closed_dates ?? []);
+  const bookingsQ = useClosedDayBookings(added);
+  const block = closedDayBlock(added, { loading: bookingsQ.isLoading, error: bookingsQ.isError, count: bookingsQ.data?.length ?? 0 });
 
   useEffect(() => {
     if (!settingsQ.data || draft) return;
@@ -121,6 +130,8 @@ export function OpeningHoursEditor() {
       void queryClient.invalidateQueries({ queryKey: QK.venueSettings });
     } catch (e) {
       setError(e);
+      // A booking landed on a new closed day meanwhile: the list catches up.
+      if (refusalCode(e) === 'CLOSED_DAY_HAS_BOOKINGS') void queryClient.invalidateQueries({ queryKey: ['closed-day-bookings'] });
     } finally {
       setBusy(false);
     }
@@ -271,6 +282,8 @@ export function OpeningHoursEditor() {
         )}
       </Panel>
 
+      <ClosedDayBookings dates={added} tz={settingsQ.data?.timezone ?? undefined} />
+
       <ErrorText error={error} style={{ marginBlock: 0 }} />
       {saved && !dirty && <MessagePresenter tone="success" message={tr('op.hours.saved')} />}
       <div style={{ display: 'flex', gap: 'var(--tp-sp-2)', alignItems: 'center', flexWrap: 'wrap' }}>
@@ -278,8 +291,19 @@ export function OpeningHoursEditor() {
           kind="primary"
           icon="check"
           busy={busy}
-          disabled={!dirty}
-          disabledReason={!dirty ? tr('ws.manager.disabled.noChanges') : undefined}
+          disabled={!dirty || block !== null}
+          disabledReason={
+            !dirty
+              ? tr('ws.manager.disabled.noChanges')
+              : block === 'bookings'
+                ? tr('op.hours.bookingsBlocked', { count: String(bookingsQ.data?.length ?? 0) })
+                : block === 'checking'
+                  ? tr('op.hours.bookingsChecking')
+                  : block === 'error'
+                    ? tr('op.hours.bookingsError')
+                    : undefined
+          }
+          data-testid="hours.save"
           onClick={() => void save()}
         >
           {tr('common.save')}
