@@ -32,6 +32,7 @@ import {
   tournamentPath,
   tournamentPrize,
   tournamentWhen,
+  compactHours,
   tournamentsStatus,
   upcomingTournaments,
   type PublicTournament,
@@ -321,8 +322,21 @@ describe('words', () => {
     // 15:00 UTC is 18:00 in Baghdad; four hours later, 22:00.
     const when = plain(tournamentWhen(card(), 'Asia/Baghdad', 'en') ?? '');
     // ICU may join the time and its PM with a narrow no-break space.
-    expect(when.replace(/\s/g, ' ')).toBe('Fri Oct 9, 2026 · 6:00 PM – 10:00 PM');
+    expect(when.replace(/\s/g, ' ')).toBe('Fri Oct 9, 2026 · 6 – 10 PM');
     expect(tournamentWhen({ starts_at: 'x', ends_at: 'y' }, 'Asia/Baghdad', 'en')).toBeNull();
+  });
+
+  it('says the hours short: minutes only when not :00, the period only where the ends differ', () => {
+    const at = (h: number, m = 0) =>
+      `2026-10-09T${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:00+03:00`;
+    const hours = (a: string, b: string | null) =>
+      (compactHours(a, b, 'Asia/Baghdad', 'en') ?? '').replace(/[\s⁦-⁩]/g, ' ').trim();
+    expect(hours(at(18), at(22))).toBe('6 – 10 PM');
+    expect(hours(at(18, 30), at(21))).toBe('6:30 – 9 PM');
+    expect(hours(at(9), at(13, 15))).toBe('9 AM – 1:15 PM');
+    expect(hours(at(23), at(2))).toBe('11 PM – 2 AM');
+    expect(hours(at(23), null)).toBe('11 PM');
+    expect(compactHours('x', 'y', 'Asia/Baghdad', 'en')).toBeNull();
   });
 
   it.each(['en', 'ar'] as const)(

@@ -290,6 +290,7 @@ export const siteHeaderCss = `
   --tp-accent-contrast: var(--tp-site-page);
   --tp-site-green-text: var(--tp-site-block);
   --tp-site-ring: var(--tp-site-block);
+  --tp-site-tint: color-mix(in srgb, var(--tp-site-block) 10%, transparent);
   --tp-site-lockup-ink: var(--tp-site-block);
   --tp-site-lockup-swoosh-end: var(--tp-site-block);
   --tp-site-header-bg: var(--tp-site-page);

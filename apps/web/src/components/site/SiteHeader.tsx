@@ -54,7 +54,7 @@ export function SiteHeader({
   const tr = makeT(locale);
   const other = otherLocale(locale);
   const onHome = path === '';
-  const solid = path !== null && SOLID_HEADER_PATHS.includes(path);
+  const solid = path !== null && (SOLID_HEADER_PATHS.includes(path) || path.startsWith('/events/'));
   // What the bar sits over at the top: the home photo, or a coach link's photo tile on a phone.
   const hero = onHome ? 'true' : path?.startsWith('/c/') ? 'tile' : undefined;
   const links = [

@@ -86,28 +86,65 @@ afterEach(() => {
 describe.each(LOCALES)('tournament page (%s)', (locale: Locale) => {
   const name = locale === 'ar' ? 'ليلة النادي' : 'Club Night';
 
-  it('shows what, when and where, and the facts', async () => {
+  it('shows what, when and where on the ticket, with the fee and the players', async () => {
     const { container } = await renderPage(locale);
     const frame = container.querySelector('.tp-tpage');
     expect(frame?.getAttribute('data-state')).toBe('ok');
     expect(frame?.getAttribute('data-status')).toBe('running');
     expect(heading()).toBe(name);
-    expect(container.querySelector('.tp-tpage__eyebrow')?.textContent).toBe(
-      `${t(locale, 'tournaments.common.format.americano')} · ${t(locale, 'matches.common.categoryOpen')}`,
+    // Title first, then the two pills side by side: who may play, then the state.
+    const ticket = container.querySelector('.tp-tpage__ticket')!;
+    expect(ticket.firstElementChild?.querySelector('h1')?.textContent).toBe(name);
+    const pills = [...container.querySelectorAll('.tp-tpage__pill')].map((p) => p.textContent);
+    expect(pills).toEqual([
+      t(locale, 'matches.common.categoryOpen'),
+      t(locale, 'tournaments.common.status.running'),
+    ]);
+    expect(plain(container.querySelector('.tp-tpage__sub')?.textContent)).toBe(
+      plain(
+        `${t(locale, 'tournaments.common.format.americano')} · ${t(locale, 'tournaments.common.pointsTarget', { points: '24' })}`,
+      ),
     );
-    expect(container.querySelector('.tp-tpage__at')?.textContent).toBe(
+    const cells = new Map(
+      [...container.querySelectorAll('.tp-tpage__cell')].map((c) => [
+        c.querySelector('dt')?.textContent,
+        plain(c.querySelector('dd')?.textContent),
+      ]),
+    );
+    expect([...cells.keys()]).toEqual([
+      t(locale, 'tournaments.web.page.date'),
+      t(locale, 'tournaments.web.page.time'),
+      t(locale, 'tournaments.web.page.branch'),
+      t(locale, 'tournaments.common.prize'),
+    ]);
+    expect(cells.get(t(locale, 'tournaments.web.page.branch'))).toBe(
       locale === 'ar' ? 'بادل التجربة' : 'Fixture Padel',
     );
-    expect(container.querySelector('.tp-tpage__when')?.textContent).toBeTruthy();
-    const facts = [...container.querySelectorAll('.tp-tpage__fact dd')].map((d) =>
-      plain(d.textContent),
-    );
-    expect(facts).toEqual([
-      plain(t(locale, 'tournaments.web.fee', { amount: formatIQD(FEE_IQD, locale) })),
-      plain(t(locale, 'tournaments.common.pointsTarget', { points: '24' })),
-      t(locale, 'tournaments.common.status.running'),
+    expect(cells.get(t(locale, 'tournaments.common.prize'))).toBe(
       locale === 'ar' ? 'مضرب للفائزين' : 'A racket for the winners',
+    );
+    expect(cells.get(t(locale, 'tournaments.web.page.date'))).toBeTruthy();
+    const perf = [...container.querySelectorAll('.tp-tpage__perf > div')].map((d) => [
+      d.querySelector('dt')?.textContent,
+      plain(d.querySelector('dd')?.textContent),
     ]);
+    expect(perf).toEqual([
+      [t(locale, 'tournaments.common.entryFee'), plain(formatIQD(FEE_IQD, locale))],
+      [t(locale, 'tournaments.web.page.players'), '8/8'],
+    ]);
+    // The cut-off line is only for an open tournament; this one is in play.
+    expect(container.querySelector('.tp-tpage__fill-note')).toBeNull();
+  });
+
+  it('puts standings and schedule behind one segmented switch, the standings first', async () => {
+    const { container } = await renderPage(locale);
+    const tabs = screen.getAllByRole('tab');
+    expect(tabs.map((x) => x.textContent)).toEqual([
+      t(locale, 'tournaments.web.page.standings'),
+      t(locale, 'tournaments.web.page.schedule'),
+    ]);
+    expect(tabs[0]!.getAttribute('aria-selected')).toBe('true');
+    expect(container.querySelectorAll('[role="tabpanel"][hidden]')).toHaveLength(1);
   });
 
   it('shows the schedule round by round, courts by number, scores and the unplayed', async () => {
@@ -159,11 +196,10 @@ describe.each(LOCALES)('tournament page (%s)', (locale: Locale) => {
         .getByRole('link', { name: t(locale, 'tournaments.web.page.noApp') })
         .getAttribute('href'),
     ).toBe(`/${locale}#app`);
+    // No "All tournaments" link on the page any more.
     expect(
-      screen
-        .getByRole('link', { name: t(locale, 'tournaments.web.page.allEvents') })
-        .getAttribute('href'),
-    ).toBe(`/${locale}#tournaments`);
+      screen.queryByRole('link', { name: t(locale, 'tournaments.web.page.allEvents') }),
+    ).toBeNull();
     expect(container.querySelector('.tp-tpage__live')?.textContent).toBe(
       t(locale, 'tournaments.web.page.live'),
     );
@@ -183,10 +219,14 @@ describe.each(LOCALES)('tournament page (%s)', (locale: Locale) => {
         .getByRole('link', { name: t(locale, 'tournaments.web.page.registerInApp') })
         .getAttribute('href'),
     ).toBe(`touchpadel://tournament/${TOUR_RUNNING}`);
-    expect(container.querySelector('.tp-tpage__empty')?.textContent).toBe(
+    expect([...container.querySelectorAll('.tp-tpage__empty')].map((e) => e.textContent)).toContain(
       t(locale, 'tournaments.web.page.noSchedule'),
     );
     expect(container.querySelector('.tp-tpage__table')).toBeNull();
+    // Standings are a segment too, saying they come with play; the schedule opens first.
+    const empties = [...container.querySelectorAll('.tp-tpage__empty')].map((e) => e.textContent);
+    expect(empties).toContain(t(locale, 'tournaments.web.page.noStandings'));
+    expect(screen.getAllByRole('tab')).toHaveLength(2);
     expect(container.querySelector('.tp-tpage__live')).toBeNull();
   });
 
@@ -217,7 +257,13 @@ describe.each(LOCALES)('tournament page (%s)', (locale: Locale) => {
       t(locale, 'tournaments.web.page.cancelled'),
     );
     expect(container.querySelector('.tp-tpage__open')).toBeNull();
-    expect(container.querySelector('.tp-tpage__rounds, .tp-tpage__empty')).toBeNull();
+    expect(container.querySelector('.tp-tpage__rounds')).toBeNull();
+    // Both segments stay, each saying it is not available.
+    expect(screen.getAllByRole('tab')).toHaveLength(2);
+    expect([...container.querySelectorAll('.tp-tpage__empty')].map((e) => e.textContent)).toEqual([
+      t(locale, 'tournaments.web.page.notAvailable'),
+      t(locale, 'tournaments.web.page.notAvailable'),
+    ]);
     expect(container.querySelector('.tp-tpage__live')).toBeNull();
   });
 
@@ -273,10 +319,11 @@ describe.each(LOCALES)('tournament page (%s)', (locale: Locale) => {
 
   it('paints in the visitor’s mode, in the padel theme, with its sheet under the nonce', async () => {
     const { container } = await renderPage(locale);
-    const frame = container.querySelector('.tp-tpage');
+    const frame = container.querySelector('.tp-site');
     expect(frame?.getAttribute('data-theme')).toBe('padel');
     expect(frame?.getAttribute('data-mode')).toBe('night');
-    expect(container.querySelector('style')?.getAttribute('nonce')).toBe('test-nonce-0123456789');
+    for (const style of container.querySelectorAll('style'))
+      expect(style.getAttribute('nonce')).toBe('test-nonce-0123456789');
   });
 });
 
@@ -286,12 +333,12 @@ describe('tournament page, the id', () => {
     ['too short', TOUR_RUNNING.slice(1)],
     ['markup', '"><script>alert(1)</script>'],
   ])(
-    'never reads for an id that is %s: not available, the other language’s events',
+    'never reads for an id that is %s: not available, the other language’s home',
     async (_, id) => {
       await renderPage('en', id);
       expect(tournamentsServer.calls).toBe(0);
       expect(heading()).toBe(t('en', 'tournaments.web.page.missing'));
-      expect(document.querySelector('a[hreflang="ar"]')?.getAttribute('href')).toBe('/ar#tournaments');
+      expect(document.querySelector('a[hreflang="ar"]')?.getAttribute('href')).toBe('/ar');
     },
   );
 

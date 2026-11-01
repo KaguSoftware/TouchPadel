@@ -9,7 +9,6 @@ import type { tournamentsWebEn } from './tournaments.web.en';
 export const tournamentsWebAr: DeepMessages<typeof tournamentsWebEn> = {
   web: {
     fee: 'رسوم المشاركة {amount}',
-    when: '{weekday} {date} · من {from} إلى {to}',
     eventsCards: {
       title: 'البطولات القادمة',
       placesLeft: 'الأماكن المتبقية: {count}',
@@ -31,8 +30,15 @@ export const tournamentsWebAr: DeepMessages<typeof tournamentsWebEn> = {
       vs: 'ضد',
       notPlayed: 'لم تُلعب بعد',
       scoring: 'احتساب النقاط',
+      date: 'التاريخ',
+      time: 'الوقت',
+      branch: 'الفرع',
+      players: 'اللاعبون',
+      closes: 'يُغلق التسجيل {time}',
       places: 'الأماكن',
       sitOut: 'خارج هذه الجولة: {players}',
+      noStandings: 'يظهر الترتيب هنا عند بدء اللعب.',
+      notAvailable: 'غير متاح: أُلغيت هذه البطولة.',
       noSchedule: 'يظهر الجدول هنا عند بدء اللعب.',
       entries: 'اللاعبون المسجّلون: {count}',
       live: 'تُحدَّث كل 30 ثانية أثناء اللعب.',
@@ -47,6 +53,12 @@ export const tournamentsWebAr: DeepMessages<typeof tournamentsWebEn> = {
         points: 'النقاط',
         diff: 'الفارق',
         played: 'المباريات',
+      },
+      colShort: {
+        rank: 'م',
+        points: 'نقاط',
+        diff: 'فارق',
+        played: 'لعب',
       },
     },
   },

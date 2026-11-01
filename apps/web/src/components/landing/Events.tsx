@@ -212,8 +212,8 @@ function EventsCards({ locale, list }: { locale: Locale; list: PublicTournaments
           const what = formatLine(card, locale);
           return (
             <li key={card.id} className="tp-tour-card" data-tournament={card.id}>
-              {when ? <p className="tp-tour-card__when tp-num">{when}</p> : null}
               <h3 className="tp-tour-card__name">{tournamentName(card, locale)}</h3>
+              {when ? <p className="tp-tour-card__when tp-num">{when}</p> : null}
               <p className="tp-tour-card__what">
                 {manyBranches && branch
                   ? `${what} · ${localText(locale, branch.name_en, branch.name_ar)}`

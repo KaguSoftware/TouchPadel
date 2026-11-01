@@ -11,8 +11,6 @@ export const tournamentsWebEn = {
   web: {
     // "Entry 25,000 IQD" (formatIQD; the free case is tournaments.common.free).
     fee: 'Entry {amount}',
-    // In the branch's timezone: "Thu 2 Oct 2026 · 6:00 PM – 10:00 PM" (date and times isolated).
-    when: '{weekday} {date} · {from} – {to}',
     eventsCards: {
       title: 'Upcoming tournaments',
       // {count}: LTR-isolated Latin digits.
@@ -37,8 +35,16 @@ export const tournamentsWebEn = {
       vs: 'vs',
       notPlayed: 'To play',
       scoring: 'Scoring',
+      date: 'Date',
+      time: 'Time',
+      branch: 'Branch',
+      players: 'Players',
+      // {time}: the cut-off in the branch's timezone.
+      closes: 'Registration closes {time}',
       places: 'Places',
       sitOut: 'Sitting out: {players}',
+      noStandings: 'Standings appear here once play starts.',
+      notAvailable: 'Not available: this tournament was cancelled.',
       noSchedule: 'The schedule appears here once play starts.',
       entries: 'Players entered: {count}',
       live: 'Updates every 30 seconds while play is on.',
@@ -54,6 +60,13 @@ export const tournamentsWebEn = {
         points: 'Points',
         diff: 'Difference',
         played: 'Played',
+      },
+      // The table's short heads; the full words above stay for screen readers.
+      colShort: {
+        rank: '#',
+        points: 'Pts',
+        diff: 'Diff',
+        played: 'P',
       },
     },
   },

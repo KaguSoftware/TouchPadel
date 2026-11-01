@@ -1,5 +1,13 @@
-import { formatIQD, isolate, isolateLtr, makeT, type Locale, type MessageKey } from '@touch/i18n';
-import { inviteWhen } from './site/matchInvite';
+import {
+  formatIQD,
+  formatTime,
+  isolate,
+  isolateLtr,
+  makeT,
+  type Locale,
+  type MessageKey,
+} from '@touch/i18n';
+import { inviteWhen, knownTimeZone } from './site/matchInvite';
 
 /**
  * The pure half of the website's tournament surfaces (T-8; docs/design/tournaments/
@@ -480,7 +488,7 @@ export function placesLine(
 }
 
 /**
- * When, in the branch's own timezone: "Thu 2 Oct 2026 · 6:00 PM – 10:00 PM". Null for a date
+ * When, in the branch's own timezone: "Thu 2 Oct 2026 · 6 – 10 PM" (hours as `compactHours` says them). Null for a date
  * it cannot read.
  */
 export function tournamentWhen(
@@ -489,14 +497,71 @@ export function tournamentWhen(
   locale: Locale,
 ): string | null {
   const start = inviteWhen(t.starts_at, timezone, locale);
-  if (!start) return null;
-  const end = inviteWhen(t.ends_at, timezone, locale);
-  return makeT(locale)('tournaments.web.when', {
-    weekday: start.weekday,
-    date: start.date,
-    from: start.time,
-    to: end?.time ?? start.time,
-  });
+  const hours = compactHours(t.starts_at, t.ends_at, timezone, locale);
+  return start && hours ? `${start.weekday} ${start.date} · ${hours}` : null;
+}
+
+/** "6:00 PM" → hour "6", minutes "00", period "PM" (the shared formatter's output, taken apart). */
+function clockParts(at: Date, timezone: string, locale: Locale) {
+  const m = /^(\d+):(\d{2})\s(.+)$/.exec(formatTime(at, locale, timezone));
+  return m ? { hour: m[1]!, minutes: m[2]!, period: m[3]! } : null;
+}
+
+const clockLabel = (c: { hour: string; minutes: string }) =>
+  c.minutes === '00' ? c.hour : `${c.hour}:${c.minutes}`;
+
+/**
+ * The hours the way a person says them: minutes only when they are not ":00", and the period
+ * (PM / AM) only where it differs between the two ends: "6 – 10 PM", "6:30 – 9 PM",
+ * "11 PM – 1 AM". One time when `endAt` is omitted: "11 PM". Null for a date it cannot read.
+ */
+export function compactHours(
+  startAt: string,
+  endAt: string | null,
+  timezone: string,
+  locale: Locale,
+): string | null {
+  const a = new Date(startAt);
+  const b = endAt === null ? null : new Date(endAt);
+  if (Number.isNaN(a.getTime()) || (b && Number.isNaN(b.getTime()))) return null;
+  const zone = knownTimeZone(timezone);
+  const from = clockParts(a, zone, locale);
+  const to = b ? clockParts(b, zone, locale) : null;
+  if (!from) return null;
+  if (!to) return isolate(`${clockLabel(from)} ${from.period}`);
+  return isolate(
+    from.period === to.period
+      ? `${clockLabel(from)} – ${clockLabel(to)} ${to.period}`
+      : `${clockLabel(from)} ${from.period} – ${clockLabel(to)} ${to.period}`,
+  );
+}
+
+/** The date and the hours of the ticket's two cells: "Thu 2 Oct 2026" and "6 – 10 PM". */
+export function tournamentSlot(
+  t: { starts_at: string; ends_at: string },
+  timezone: string,
+  locale: Locale,
+): { date: string; time: string } | null {
+  const start = inviteWhen(t.starts_at, timezone, locale);
+  const time = compactHours(t.starts_at, t.ends_at, timezone, locale);
+  if (!start || !time) return null;
+  return { date: `${start.weekday} ${start.date}`, time };
+}
+
+/** When registration closes: "Thu 5 Nov 2026 · 11 PM" (null for a date it cannot read). */
+export function tournamentClosing(
+  closesAt: string,
+  timezone: string,
+  locale: Locale,
+): string | null {
+  const day = inviteWhen(closesAt, timezone, locale);
+  const time = compactHours(closesAt, null, timezone, locale);
+  return day && time ? `${day.weekday} ${day.date} · ${time}` : null;
+}
+
+/** "Open to all", "Women only", "Men only". */
+export function categoryLine(t: { category: TourCategory }, locale: Locale): string {
+  return makeT(locale)(CATEGORY_KEYS[t.category]);
 }
 
 /** A player as the page names them: "Sara A.", "Former player" or "Player 7". */

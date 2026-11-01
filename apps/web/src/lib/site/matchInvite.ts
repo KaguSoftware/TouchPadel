@@ -1,4 +1,11 @@
-import { formatDate, formatTime, formatWeekdayShort, isolate, VENUE_TZ, type Locale } from '@touch/i18n';
+import {
+  formatDate,
+  formatTime,
+  formatWeekdayShort,
+  isolate,
+  VENUE_TZ,
+  type Locale,
+} from '@touch/i18n';
 
 /**
  * The pure half of the open-match invite page (app/[locale]/m/[token]/page.tsx,
@@ -72,9 +79,7 @@ export interface MatchInviteCard {
  * `error` is a read that failed or came back in a shape this page does not know.
  */
 export type MatchInvite =
-  | { status: 'open' | 'full'; card: MatchInviteCard }
-  | { status: 'closed' }
-  | { status: 'error' };
+  { status: 'open' | 'full'; card: MatchInviteCard } | { status: 'closed' } | { status: 'error' };
 
 const CATEGORIES: readonly string[] = ['open', 'women', 'men'];
 
@@ -119,7 +124,7 @@ export function parseMatchInvite(raw: unknown): MatchInvite {
 }
 
 /** The timezone when this runtime knows it, else the venue default (never a thrown render). */
-function knownTimeZone(timeZone: string): string {
+export function knownTimeZone(timeZone: string): string {
   try {
     new Intl.DateTimeFormat('en', { timeZone });
     return timeZone;

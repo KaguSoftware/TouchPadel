@@ -1,23 +1,20 @@
 import type { Metadata, Viewport } from 'next';
-import { isolateLtr, makeT, type Locale } from '@touch/i18n';
-import { otherLocale, requireLocale } from '@/lib/locales';
+import { formatIQD, isolateLtr, makeT, type Locale, type MessageKey } from '@touch/i18n';
+import { requireLocale } from '@/lib/locales';
 import { getCachedTournament } from '@/lib/tournaments.server';
 import {
-  allTournamentsPath,
   appTournamentHref,
-  feeLine,
-  formatLine,
+  categoryLine,
   localText,
   parseTournamentId,
-  placesLine,
   playerLabel,
   registrationOpen,
   signedDiff,
   teamLabel,
   tournamentName,
-  tournamentPath,
   tournamentPrize,
-  tournamentWhen,
+  tournamentClosing,
+  tournamentSlot,
   type PublicTournament,
   type TournamentPageRead,
   type TourPublicRound,
@@ -27,12 +24,10 @@ import { getCachedVenue } from '@/lib/menu.server';
 import { getRequestNonce, getSiteMode } from '@/lib/site/mode.server';
 import { SITE_THEME_COLOR } from '@/lib/site/themeColor';
 import { siteOgImage } from '@/lib/site/ogImage';
-import { siteTokensBridgeCss } from '@/styles/site/tokens-bridge.css';
 import { siteTournamentPageCss } from '@/styles/site/tournamentPage.css';
-import { siteFooterKitCss } from '@/styles/site/footerKit.css';
-import { BrandLockup } from '@/components/site/brand/BrandLockup';
-import { SiteFooter } from '@/components/site/SiteFooter';
+import { SiteShell } from '@/components/site/SiteShell';
 import { RefreshWhileRunning } from '@/components/tournaments/RefreshWhileRunning';
+import { TournamentTabs } from '@/components/tournaments/TournamentTabs';
 
 /**
  * `/{locale}/events/<tournamentId>`: a tournament's public page (T-8; build contracts §1.6,
@@ -43,8 +38,8 @@ import { RefreshWhileRunning } from '@/components/tournaments/RefreshWhileRunnin
  * the home page's app band. No automatic jump to the app (an unprompted scheme jump strands Safari
  * on an error page when the app is absent).
  *
- * Built like the coach link (`c/[id]/page.tsx`): the lockup bar, a plain language link (no cookie
- * is set here), its own small sheet. The read is `app.tournament_public`, cached per id for 30 s
+ * Framed by `SiteShell` like the site's other pages (the header with its nav, the footer and the
+ * theme), with the page's own small sheet beside the site's. The read is `app.tournament_public`, cached per id for 30 s
  * (`tournaments.server.ts`); while the tournament is in play the page refreshes itself every 30 s
  * (`RefreshWhileRunning`), so a score shows within a minute. Players are "First I." only, a
  * deleted account "Former player", a desk-added profile without accepted terms "Player <no>";
@@ -115,15 +110,23 @@ function namesLine(names: string[], locale: Locale): string {
   return names.join(locale === 'ar' ? '، ' : ', ');
 }
 
-function Schedule({ locale, rounds }: { locale: Locale; rounds: TourPublicRound[] }) {
+/** The rounds, a card each; a line saying why when there are none. */
+function Schedule({
+  locale,
+  rounds,
+  cancelled,
+}: {
+  locale: Locale;
+  rounds: TourPublicRound[];
+  cancelled: boolean;
+}) {
   const tr = makeT(locale);
   return (
-    <section className="tp-tpage__section" aria-labelledby="tpage-schedule">
-      <h2 id="tpage-schedule" className="tp-tpage__h2">
-        {tr('tournaments.web.page.schedule')}
-      </h2>
+    <section className="tp-tpage__section" aria-label={tr('tournaments.web.page.schedule')}>
       {rounds.length === 0 ? (
-        <p className="tp-tpage__empty">{tr('tournaments.web.page.noSchedule')}</p>
+        <p className="tp-tpage__empty">
+          {tr(cancelled ? 'tournaments.web.page.notAvailable' : 'tournaments.web.page.noSchedule')}
+        </p>
       ) : (
         <ol className="tp-tpage__rounds">
           {rounds.map((round) => (
@@ -175,34 +178,81 @@ function Schedule({ locale, rounds }: { locale: Locale; rounds: TourPublicRound[
   );
 }
 
-function Standings({ locale, standings }: { locale: Locale; standings: TourPublicStanding[] }) {
+/** A column head: the short word on screen, the full word for a screen reader. */
+function Head({ locale, short, full }: { locale: Locale; short: MessageKey; full: MessageKey }) {
   const tr = makeT(locale);
   return (
-    <section className="tp-tpage__section" aria-labelledby="tpage-standings">
-      <h2 id="tpage-standings" className="tp-tpage__h2">
-        {tr('tournaments.web.page.standings')}
-      </h2>
+    <>
+      <span aria-hidden="true">{tr(short)}</span>
+      <span className="tp-tpage__sr">{tr(full)}</span>
+    </>
+  );
+}
+
+function Standings({
+  locale,
+  standings,
+  cancelled,
+}: {
+  locale: Locale;
+  standings: TourPublicStanding[];
+  cancelled: boolean;
+}) {
+  const tr = makeT(locale);
+  if (standings.length === 0) {
+    return (
+      <section className="tp-tpage__section" aria-label={tr('tournaments.web.page.standings')}>
+        <p className="tp-tpage__empty">
+          {tr(cancelled ? 'tournaments.web.page.notAvailable' : 'tournaments.web.page.noStandings')}
+        </p>
+      </section>
+    );
+  }
+  return (
+    <section className="tp-tpage__section" aria-label={tr('tournaments.web.page.standings')}>
       <div className="tp-tpage__table-box">
-        <table className="tp-tpage__table" aria-labelledby="tpage-standings">
+        <table className="tp-tpage__table" aria-label={tr('tournaments.web.page.standings')}>
           <thead>
             <tr>
-              <th scope="col">{tr('tournaments.web.page.col.rank')}</th>
+              <th scope="col">
+                <Head
+                  locale={locale}
+                  short="tournaments.web.page.colShort.rank"
+                  full="tournaments.web.page.col.rank"
+                />
+              </th>
               <th scope="col">{tr('tournaments.web.page.col.player')}</th>
               <th scope="col" className="tp-tpage__num">
-                {tr('tournaments.web.page.col.points')}
+                <Head
+                  locale={locale}
+                  short="tournaments.web.page.colShort.points"
+                  full="tournaments.web.page.col.points"
+                />
               </th>
               <th scope="col" className="tp-tpage__num">
-                {tr('tournaments.web.page.col.diff')}
+                <Head
+                  locale={locale}
+                  short="tournaments.web.page.colShort.diff"
+                  full="tournaments.web.page.col.diff"
+                />
               </th>
               <th scope="col" className="tp-tpage__num">
-                {tr('tournaments.web.page.col.played')}
+                <Head
+                  locale={locale}
+                  short="tournaments.web.page.colShort.played"
+                  full="tournaments.web.page.col.played"
+                />
               </th>
             </tr>
           </thead>
           <tbody>
             {standings.map((row, i) => (
               <tr key={`${row.rank}-${i}`} className="tp-tpage__standing">
-                <td className="tp-tpage__rank tp-num">{isolateLtr(String(row.rank))}</td>
+                <td className="tp-tpage__rank tp-num">
+                  <span className="tp-tpage__badge" data-first={String(row.rank === 1)}>
+                    {isolateLtr(String(row.rank))}
+                  </span>
+                </td>
                 <td>
                   {row.withdrawn
                     ? tr('tournaments.web.page.withdrawn', {
@@ -222,73 +272,148 @@ function Standings({ locale, standings }: { locale: Locale; standings: TourPubli
   );
 }
 
-/** The tournament: what, when, where, the facts, the app, the schedule and the standings. */
+/** One cell of the ticket: a small label over its value. */
+function Cell({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="tp-tpage__cell">
+      <dt>{label}</dt>
+      <dd className="tp-num">{value}</dd>
+    </div>
+  );
+}
+
+/**
+ * The tournament, laid out as the app's ticket (owner pick "D", 2026-11-01): on a wide screen the
+ * ticket and the app buttons stay in a left column while standings and schedule sit in a
+ * segmented switch on the right; on a phone it is one column, the ticket first, the switch next
+ * and the buttons last. The buttons are written once, after the body, and the CSS grid moves
+ * them under the ticket on a wide screen.
+ */
 function TournamentView({ locale, t: tour }: { locale: Locale; t: PublicTournament }) {
   const tr = makeT(locale);
   const cancelled = tour.status === 'cancelled';
-  const when = tournamentWhen(tour, tour.branch?.timezone ?? '', locale);
+  const open = tour.status === 'open';
+  const slot = tournamentSlot(tour, tour.branch?.timezone ?? '', locale);
   const prize = tournamentPrize(tour, locale);
-  const facts: [string, string][] = [
-    [tr('tournaments.common.entryFee'), feeLine(tour.entry_fee_iqd, locale)],
+  const branchName = tour.branch ? localText(locale, tour.branch.name_en, tour.branch.name_ar) : '';
+  const subtitle = [
+    tr(`tournaments.common.format.${tour.format}`),
+    tour.points_target
+      ? tr('tournaments.common.pointsTarget', { points: isolateLtr(String(tour.points_target)) })
+      : null,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+  const closes =
+    open && tour.registration_closes_at
+      ? tournamentClosing(tour.registration_closes_at, tour.branch?.timezone ?? '', locale)
+      : null;
+  const fillPct =
+    tour.max_entries > 0
+      ? Math.min(100, Math.round((tour.entries_count / tour.max_entries) * 100))
+      : 0;
+  // Both segments are always there; one with nothing to show says why (not started, cancelled).
+  const tabs = [
+    {
+      id: 'standings',
+      label: tr('tournaments.web.page.standings'),
+      content: <Standings locale={locale} standings={tour.standings} cancelled={cancelled} />,
+    },
+    {
+      id: 'schedule',
+      label: tr('tournaments.web.page.schedule'),
+      content: <Schedule locale={locale} rounds={tour.rounds} cancelled={cancelled} />,
+    },
   ];
-  if (tour.points_target) {
-    facts.push([
-      tr('tournaments.web.page.scoring'),
-      tr('tournaments.common.pointsTarget', { points: isolateLtr(String(tour.points_target)) }),
-    ]);
-  }
-  if (!cancelled) facts.push([tr('tournaments.web.page.places'), placesLine(tour, locale)]);
-  if (prize) facts.push([tr('tournaments.common.prize'), prize]);
+  const initial = tour.standings.length === 0 && tour.rounds.length > 0 ? 'schedule' : 'standings';
   return (
     <>
-      <div className="tp-tpage__head">
-        <p className="tp-tpage__eyebrow">{formatLine(tour, locale)}</p>
-        <h1 className="tp-tpage__title">{tournamentName(tour, locale)}</h1>
-        {tour.branch ? (
-          <p className="tp-tpage__at">
-            {localText(locale, tour.branch.name_en, tour.branch.name_ar)}
-          </p>
-        ) : null}
-        {when ? <p className="tp-tpage__when tp-num">{when}</p> : null}
-      </div>
       {cancelled ? (
         <p className="tp-tpage__notice" role="status">
           {tr('tournaments.web.page.cancelled')}
         </p>
       ) : null}
-      <dl className="tp-tpage__facts">
-        {facts.map(([label, value]) => (
-          <div key={label} className="tp-tpage__fact">
-            <dt>{label}</dt>
-            <dd className="tp-num">{value}</dd>
+      <div className="tp-tpage__split">
+        <div className="tp-tpage__side">
+          <div className="tp-tpage__ticket">
+            <div className="tp-tpage__ticket-head">
+              <h1 className="tp-tpage__title">{tournamentName(tour, locale)}</h1>
+              <p className="tp-tpage__sub">{subtitle}</p>
+            </div>
+            <div className="tp-tpage__ticket-top">
+              <span className="tp-tpage__pill tp-tpage__pill--ghost">
+                {categoryLine(tour, locale)}
+              </span>
+              <span className="tp-tpage__pill" data-status={tour.status}>
+                {tr(`tournaments.common.status.${tour.status}`)}
+              </span>
+            </div>
+            <dl className="tp-tpage__cells">
+              {slot ? (
+                <>
+                  <Cell label={tr('tournaments.web.page.date')} value={slot.date} />
+                  <Cell label={tr('tournaments.web.page.time')} value={slot.time} />
+                </>
+              ) : null}
+              {branchName ? (
+                <Cell label={tr('tournaments.web.page.branch')} value={branchName} />
+              ) : null}
+              {prize ? <Cell label={tr('tournaments.common.prize')} value={prize} /> : null}
+            </dl>
+            <dl className="tp-tpage__perf">
+              <div>
+                <dt>{tr('tournaments.common.entryFee')}</dt>
+                <dd className="tp-num">
+                  {tour.entry_fee_iqd > 0
+                    ? formatIQD(tour.entry_fee_iqd, locale)
+                    : tr('tournaments.common.free')}
+                </dd>
+              </div>
+              {cancelled ? null : (
+                <div className="tp-tpage__perf-end">
+                  <dt>{tr('tournaments.web.page.players')}</dt>
+                  <dd className="tp-num">
+                    {isolateLtr(`${tour.entries_count}/${tour.max_entries}`)}
+                  </dd>
+                </div>
+              )}
+            </dl>
+            {cancelled || tour.max_entries <= 0 ? null : (
+              <div className="tp-tpage__fill">
+                <div className="tp-tpage__meter" aria-hidden="true">
+                  <i style={{ inlineSize: `${fillPct}%` }} />
+                </div>
+                {closes ? (
+                  <p className="tp-tpage__fill-note tp-num">
+                    {tr('tournaments.web.page.closes', { time: closes })}
+                  </p>
+                ) : null}
+              </div>
+            )}
           </div>
-        ))}
-      </dl>
-      {tour.entries_count > 0 && !cancelled ? (
-        <p className="tp-tpage__entries tp-num">
-          {tr('tournaments.web.page.entries', { count: isolateLtr(String(tour.entries_count)) })}
-        </p>
-      ) : null}
-      {cancelled ? null : (
-        <div className="tp-tpage__ctas">
-          <a className="tp-tpage__open" href={appTournamentHref(tour.id)}>
-            {registrationOpen(tour, tour.server_now)
-              ? tr('tournaments.web.page.registerInApp')
-              : tr('tournaments.web.page.openInApp')}
-          </a>
-          <a className="tp-tpage__get" href={`/${locale}#app`}>
-            {tr('tournaments.web.page.noApp')}
-          </a>
         </div>
-      )}
-      {tour.status === 'running' ? (
-        <>
-          <p className="tp-tpage__live">{tr('tournaments.web.page.live')}</p>
-          <RefreshWhileRunning />
-        </>
-      ) : null}
-      {cancelled ? null : <Schedule locale={locale} rounds={tour.rounds} />}
-      {tour.standings.length > 0 ? <Standings locale={locale} standings={tour.standings} /> : null}
+        <div className="tp-tpage__body">
+          <TournamentTabs tabs={tabs} initial={initial} label={tr('tournaments.web.page.title')} />
+          {tour.status === 'running' ? (
+            <>
+              <p className="tp-tpage__live">{tr('tournaments.web.page.live')}</p>
+              <RefreshWhileRunning />
+            </>
+          ) : null}
+        </div>
+        {cancelled ? null : (
+          <div className="tp-tpage__ctas">
+            <a className="tp-tpage__open" href={appTournamentHref(tour.id)}>
+              {registrationOpen(tour, tour.server_now)
+                ? tr('tournaments.web.page.registerInApp')
+                : tr('tournaments.web.page.openInApp')}
+            </a>
+            <a className="tp-tpage__get" href={`/${locale}#app`}>
+              {tr('tournaments.web.page.noApp')}
+            </a>
+          </div>
+        )}
+      </div>
     </>
   );
 }
@@ -304,58 +429,34 @@ export default async function TournamentPage({ params }: { params: Params }) {
     getRequestNonce(),
   ]);
   const tr = makeT(locale);
-  const other = otherLocale(locale);
   const tour = read.status === 'ok' ? read.tournament : null;
 
+  // The site's own frame (header, footer, theme), as on every other page.
   return (
-    <div
-      className="tp-site tp-tpage"
-      data-theme="padel"
-      data-mode={mode}
-      data-state={read.status}
-      data-status={tour?.status}
+    <SiteShell
+      locale={locale}
+      mode={mode}
+      nonce={nonce}
+      venue={venue}
+      path={id ? `/events/${id}` : null}
     >
-      <style
-        nonce={nonce}
-        dangerouslySetInnerHTML={{
-          __html: `${siteTokensBridgeCss}\n${siteTournamentPageCss}\n${siteFooterKitCss}`,
-        }}
-      />
-      <header className="tp-tpage__bar">
-        <a className="tp-tpage__home" href={`/${locale}`} aria-label={tr('site.brandHome')}>
-          <BrandLockup />
-        </a>
-        {/* A plain link, not the site's LanguageLink: that one remembers the choice in a
-            cookie, and this page sets none. Same accessible name, visible word first. */}
-        <a
-          className="tp-tpage__lang"
-          href={id ? tournamentPath(other, id) : allTournamentsPath(other)}
-          hrefLang={other}
-        >
-          <span lang={other}>{tr('site.nav.language')}</span>
-          <span className="tp-tpage__sr"> ({tr('site.nav.languageLabel')})</span>
-        </a>
-      </header>
-      <main className="tp-tpage__main">
-        {tour ? (
-          <TournamentView locale={locale} t={tour} />
-        ) : (
-          <div className="tp-tpage__head">
-            <p className="tp-tpage__eyebrow">{tr('tournaments.web.page.title')}</p>
-            <h1 className="tp-tpage__title">
-              {read.status === 'error'
-                ? tr('tournaments.web.page.error')
-                : tr('tournaments.web.page.missing')}
-            </h1>
-          </div>
-        )}
-        <a className="tp-tpage__all" href={allTournamentsPath(locale)}>
-          {tr('tournaments.web.page.allEvents')}
-        </a>
-      </main>
-      {/* The site's own footer (address, hours, the desk, the links), as on every site page;
-          its sheet rides along in siteFooterKitCss, not the whole site sheet. */}
-      <SiteFooter locale={locale} venue={venue} path={id ? `/events/${id}` : null} />
-    </div>
+      <style nonce={nonce} dangerouslySetInnerHTML={{ __html: siteTournamentPageCss }} />
+      <div className="tp-tpage" data-state={read.status} data-status={tour?.status}>
+        <div className="tp-tpage__main">
+          {tour ? (
+            <TournamentView locale={locale} t={tour} />
+          ) : (
+            <div className="tp-tpage__head">
+              <p className="tp-tpage__eyebrow">{tr('tournaments.web.page.title')}</p>
+              <h1 className="tp-tpage__title">
+                {read.status === 'error'
+                  ? tr('tournaments.web.page.error')
+                  : tr('tournaments.web.page.missing')}
+              </h1>
+            </div>
+          )}
+        </div>
+      </div>
+    </SiteShell>
   );
 }
