@@ -21,7 +21,7 @@
  *  6. Money: a desk-paid sign-up cancelled → Lesson refunds due on Ops, refunded
  *     with the manager PIN, then on the day close; a statement drafted,
  *     approved without a PIN, a card number refused as the reference, then
- *     marked paid with the PIN.
+ *     marked paid by bank transfer with the PIN (the safe is empty; 0387).
  *  7. Price approval (R58, R80): a manager proposes a lesson price and puts a
  *     draft type on sale; the owner decides one in the operator and the other
  *     the way the staff phone sends it; the types show the result.
@@ -576,6 +576,9 @@ test.describe('operator coaching', () => {
     }
     await statement.getByRole('button', { name: P.actions.markPaid }).click();
     const markPaid = manager.getByRole('dialog', { name: P.markPaid.title }).last();
+    // By bank transfer: from the safe (preselected), 0387 (F-12) holds Next while the statement is
+    // more than the safe holds, and the fixture branch's safe holds nothing.
+    await markPaid.getByTestId('markPaid.from.bank').click();
     await markPaid.getByLabel(P.markPaid.reference).fill('4111 1111 1111');
     // The field speaks once Next is pressed, and the PIN never opens on a card number.
     await markPaid.getByRole('button', { name: P.markPaid.next }).click();

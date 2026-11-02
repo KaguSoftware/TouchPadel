@@ -7,7 +7,8 @@
  *  (b) the manager sets the rule on /attendance (X = 15 minutes, Y = 5,000
  *      IQD a day) and records a 20-minute late day for the barista today;
  *  (c) the owner sees the 5,000 IQD penalty and the net on /wages, then marks
- *      the month paid, and the row says Paid.
+ *      the month paid by bank transfer (the safe is empty, and 0387 refuses a
+ *      wage from the safe beyond its balance), and the row says Paid.
  *
  * The barista has no seeded login, so each run makes its own (the staff
  * trigger gives it the default branch) and removes it afterwards with every
@@ -182,6 +183,9 @@ test.describe('operator wages and attendance', () => {
     await owner.getByTestId(`wages.row.pay.${barista.id}`).click();
     const payDialog = owner.getByRole('dialog');
     await expect.poll(async () => bare(await payDialog.getByTestId('wages.pay.breakdown').innerText())).toMatch(copy.net);
+    // Paid by bank transfer: from the safe (preselected), 0387 (F-12) refuses more than the safe
+    // holds, and the fixture branch's safe holds nothing. A transfer is never refused.
+    await payDialog.getByTestId('wages.pay.from.bank').click();
     await payDialog.getByTestId('wages.pay.confirm').click();
     await expect(payDialog).toHaveCount(0);
     await expect(row).toContainText(copy.paid);

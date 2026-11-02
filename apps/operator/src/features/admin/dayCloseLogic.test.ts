@@ -105,7 +105,7 @@ describe('dayCloseCsv', () => {
 
   const adjustment: DayAdjustmentRow = {
     adjustment_id: 'a1', tab_id: '9f8e7d6c-1111-4222-8333-444455556666', kind: 'discount', value: 10, amount_iqd: 5000,
-    reason_code: 'comp', created_at: '2026-09-03T18:42:00', applied_by_name: 'Sara', authorized_by_name: 'Dev Manager',
+    reason_code: 'comp', created_at: '2026-09-03T18:42:00+03:00', applied_by_name: 'Sara', authorized_by_name: 'Dev Manager',
   };
 
   it('is two tables, not one: the figures, then the adjustments, each its own sheet', () => {

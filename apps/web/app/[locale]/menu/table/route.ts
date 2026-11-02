@@ -77,7 +77,7 @@ export async function POST(req: NextRequest, ctx: Ctx): Promise<NextResponse> {
         level: 'warn',
         kind: 'web_error',
         message: 'Café table binding failed',
-        detail: { where: 'menu/table', code: error.message?.slice(0, 80) ?? null },
+        detail: { where: 'menu/table', code: error.message?.slice(0, 80) ?? null }, // QUIET-ERROR-OK: to the tracker only; the guest gets answer({ name: 'error' })
       });
       return answer({ name: 'error' });
     }

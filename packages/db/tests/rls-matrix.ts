@@ -1984,8 +1984,14 @@ export const matrix: MatrixRule[] = [
       anon: 'denied',
       guest_account: 'silence',
       guest_anon_session: 'silence',
+      // 0212 (MV2) promotions_staff_read: staff read their own branches'
+      // promotions and chain-wide ones (venue_id NULL). Every promotion in the
+      // probe data runs at venue A, so another branch's manager sees none.
+      // multi-venue-slices makes a promotion chain-wide and puts it back at
+      // venue A when it ends, so no chain-wide row outlives that file.
+      branch_b_manager: 'silence',
     }),
-    note: 'every staff role reads promotions (the till needs names); guests never do in phase 1',
+    note: 'every staff role reads its branch\'s promotions and chain-wide ones (the till needs names); guests never do in phase 1',
     drop: 5,
   },
   {

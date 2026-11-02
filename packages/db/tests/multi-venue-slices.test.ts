@@ -58,7 +58,10 @@ describe.skipIf(!up)('multi-venue slices 2-3: the day, the guards, promotions, m
       await svc.from('day_sessions').update({ status: 'closed', closed_at: new Date().toISOString() }).eq('id', bDay);
     }
     if (promoIds.length > 0) {
-      await svc.from('promotions').update({ enabled: false }).in('id', promoIds);
+      // Back at venue A too: a chain-wide leftover is visible to every branch's
+      // staff, which would turn the RLS matrix's branch-B promotions read into
+      // rows whenever this file ran before it (rls-matrix.ts, promotions).
+      await svc.from('promotions').update({ enabled: false, venue_id: VENUE_A_ID }).in('id', promoIds);
     }
     await deactivateVenueBProbeData(svc);
     await ensureTillFresh(svc);
