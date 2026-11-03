@@ -107,8 +107,8 @@ describe('buildPanelExport', () => {
       {
         figure: 'refunds',
         rows: [
-          tx('r1', new Date(2026, 8, 1, 10, 30).toISOString()),
-          tx('r2', new Date(2026, 8, 2, 16, 5).toISOString(), {
+          tx('r1', new Date('2026-09-01T10:30:00+03:00').toISOString()),
+          tx('r2', new Date('2026-09-02T16:05:00+03:00').toISOString(), {
             kind: 'waste',
             label: 'Milk · spill · 500 ml',
             staffName: null,
@@ -120,7 +120,7 @@ describe('buildPanelExport', () => {
         cappedDays: ['2026-09-02'],
       },
     ],
-    exportedAt: new Date(2026, 8, 20, 12, 0),
+    exportedAt: new Date('2026-09-20T12:00:00+03:00'),
     tr,
     locale: 'en',
   });
@@ -234,7 +234,7 @@ describe('buildPanelExport', () => {
       comparison: null,
       figures: mapFigures({ figures: [{ key: 'lessonRevenue', value: 90000 }, { key: 'owedToCoaches', value: 54000 }] }),
       transactions: [],
-      exportedAt: new Date(2026, 8, 30, 12, 0),
+      exportedAt: new Date('2026-09-30T12:00:00+03:00'),
       tr: (key, params) => t(locale, key, params),
       locale,
     });

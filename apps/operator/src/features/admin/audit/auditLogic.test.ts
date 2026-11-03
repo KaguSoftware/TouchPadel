@@ -262,7 +262,7 @@ describe('auditCsv', () => {
   });
 
   it('writes the date and the time in their own columns, not an ISO instant', () => {
-    const at = new Date(2026, 7, 28, 9, 5).toISOString();
+    const at = '2026-08-28T09:05:00+03:00'; // Baghdad's clock (F-37), whatever the zone the test runs in
     const { rows } = auditCsv(labels, [row({ at })], words);
     expect(rows[0]!.slice(0, 2)).toEqual(['2026-08-28', '09:05']);
   });

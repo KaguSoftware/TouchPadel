@@ -10,7 +10,8 @@
  *     sheet → the tournament screen. Nine guests register the phone's way
  *     (eight places, one waitlisted); the cut-off passes and the sweep closes
  *     it. One player did not show and the waitlisted one substitutes; one
- *     entry fee is taken in cash; the Americano starts on both courts; round 1
+ *     entry fee is taken in cash; the desk confirms every participant (0390,
+ *     F-40); the Americano starts on both courts; round 1
  *     is scored, one score corrected with a reason; the standings lead with
  *     the corrected winners.
  *  2. @ar: the tournament screen in Arabic, right to left.
@@ -309,6 +310,15 @@ test.describe('operator tournaments', () => {
     await cash.getByRole('button', { name: 'Record payment' }).click();
     await expect(cash).toBeHidden({ timeout: 30_000 });
     await expect(payer).toContainText(T.entries.paid, { timeout: 30_000 });
+
+    // 4b. The desk confirms every registered player (0390, F-40): the draw waits for all of them.
+    //     The substitute seated at the no-show came in confirmed, so seven are left.
+    const confirm = entries.getByRole('button', { name: T.entries.confirm, exact: true });
+    await expect(confirm).toHaveCount(7, { timeout: 30_000 });
+    for (let left = 7; left > 0; left--) {
+      await confirm.first().click();
+      await expect(confirm).toHaveCount(left - 1, { timeout: 30_000 });
+    }
 
     // 5. Start the Americano on both courts.
     await page.getByRole('tab', { name: new RegExp(T.detail.tabs.rounds) }).click();

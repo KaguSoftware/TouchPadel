@@ -4,9 +4,10 @@
  *
  *  1. The landing lists the tournament as a card under the Events ticket, its Details link on
  *     `/en/events/<id>` (the `tournaments_public` read, cached 60 s).
- *  2. The tournament's page: its name, never indexed or followed, no referrer, the schedule with
- *     round 1's scores and round 2 still to play, and the standings in the server's order, every
- *     player "First I." (no family name, no phone). Nothing scrolls sideways at 360 px.
+ *  2. The tournament's page: its name, never indexed or followed, no referrer, the standings in
+ *     the server's order on the segment it opens on, then the Schedule segment with round 1's
+ *     scores and round 2 still to play, every player "First I." (no family name, no phone).
+ *     Nothing scrolls sideways at 360 px.
  *  3. An id that names no tournament reads "not available".
  *  4. @ar: the same page right to left, the Arabic name and words.
  *
@@ -14,7 +15,8 @@
  * cached: a page rendered before the seed would be served for the window, fc1c3e8f): the fixture
  * branch's `tournaments_enabled` switch on, a `done` tournament protocol run, and a running
  * Americano published from it with the eight `e2e-match-<a..h>` players (helpers'
- * seedMatchPlayers: terms accepted, so their names show), round 1 scored (15-9, 12-12) and round 2
+ * seedMatchPlayers: terms accepted, so their names show), every entry confirmed by the desk (0390:
+ * no round is drawn while one is not), round 1 scored (15-9, 12-12) and round 2
  * drawn but unplayed. The publish, desk and phone journeys are their own specs; this one checks
  * only what the public site shows. Fixed ids, so a rerun replaces the same rows. afterAll removes
  * them and switches tournaments back off, so the other suites see the landing as before.
@@ -166,6 +168,9 @@ async function seedTournament(svc: SupabaseClient): Promise<void> {
         status: 'registered',
         seed_no: i + 1,
         added_by_kind: 'guest',
+        // 0390 (F-40): no round is drawn while a registered entry is unconfirmed.
+        confirmed_at: hours(-2),
+        confirmed_by: ownerId,
       })),
     ),
   );
@@ -266,15 +271,11 @@ test.describe('site tournaments', () => {
     await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', /nofollow/);
     await expect(page.locator('meta[name="referrer"]')).toHaveAttribute('content', 'no-referrer');
 
-    const rounds = page.locator('.tp-tpage__round');
-    await expect(rounds).toHaveCount(2);
-    const first = rounds.nth(0).locator('.tp-tpage__match').nth(0);
-    await expect(first.locator('.tp-tpage__team--a')).toHaveText(/Aya S\..*Basma K\./);
-    await expect(first.locator('.tp-tpage__score')).toHaveText(/15–9/);
-    await expect(rounds.nth(1).locator('.tp-tpage__score').first()).toHaveText(
-      en.tournaments.web.page.notPlayed,
-    );
-
+    // Standings is the segment it opens on once a round is scored.
+    const tabs = page.getByRole('tablist');
+    await expect(
+      tabs.getByRole('tab', { name: en.tournaments.web.page.standings }),
+    ).toHaveAttribute('aria-selected', 'true');
     // Server order: the two 15-point winners share rank 1 (seed order), the 9s last.
     const firstRow = page.locator('.tp-tpage__standing').nth(0).locator('td');
     await expect(firstRow.nth(0)).toContainText('1');
@@ -283,6 +284,18 @@ test.describe('site tournaments', () => {
     await expect(firstRow.nth(3)).toContainText('+6');
     await expect(page.locator('.tp-tpage__standing').nth(7).locator('td').nth(0)).toContainText(
       '7',
+    );
+
+    // The Schedule segment: both rounds, round 1 scored, round 2 not played yet.
+    await tabs.getByRole('tab', { name: en.tournaments.web.page.schedule }).click();
+    const rounds = page.locator('.tp-tpage__round');
+    await expect(rounds).toHaveCount(2);
+    await expect(rounds.first()).toBeVisible();
+    const first = rounds.nth(0).locator('.tp-tpage__match').nth(0);
+    await expect(first.locator('.tp-tpage__team--a')).toHaveText(/Aya S\..*Basma K\./);
+    await expect(first.locator('.tp-tpage__score')).toHaveText(/15–9/);
+    await expect(rounds.nth(1).locator('.tp-tpage__score').first()).toHaveText(
+      en.tournaments.web.page.notPlayed,
     );
 
     // No family name, no phone: "First I." is all the page says about a player.
@@ -314,9 +327,13 @@ test.describe('site tournaments @ar', () => {
     });
     await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
     await expect(page.getByRole('heading', { level: 1, name: NAME.ar })).toBeVisible();
-    await expect(page.locator('#tpage-standings')).toHaveText(ar.tournaments.web.page.standings);
-    await expect(page.locator('#tpage-schedule')).toHaveText(ar.tournaments.web.page.schedule);
-    await expect(page.locator('.tp-tpage__eyebrow')).toContainText(
+    // The two segments, in Arabic.
+    const tabs = page.getByRole('tablist');
+    await expect(tabs.getByRole('tab')).toHaveText([
+      ar.tournaments.web.page.standings,
+      ar.tournaments.web.page.schedule,
+    ]);
+    await expect(page.locator('.tp-tpage__sub')).toContainText(
       ar.tournaments.common.format.americano,
     );
     await page.setViewportSize(SMALL);

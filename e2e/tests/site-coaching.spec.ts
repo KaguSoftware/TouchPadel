@@ -2,11 +2,12 @@
  * Coaching on the website (docs/design/coaching/guest.md §4.14, §4.17; R58, U7), against the
  * local stack once the coaching migrations (0273-0289) are in it:
  *
- *  1. `/en/coaching` lists a public coach with the lesson type they teach and NO price while the
- *     branch's `lesson_prices_public` switch is off, though `coaching_public` sends it (C-11).
+ *  1. `/en/coaching` lists a public coach (a card that is itself the link to their page) and the
+ *     lesson type they teach, with NO price while the branch's `lesson_prices_public` switch is
+ *     off, though `coaching_public` sends it (C-11).
  *  2. The owner switches prices on: the page shows them, formatted (within the 60 s cache).
- *  3. A coach card's "Book in the app" opens the coach's `/en/c/<id>` page: their name, "Open in
- *     the app" on `touchpadel://c/<id>`, never indexed, and no automatic jump to the app.
+ *  3. A coach card opens the coach's `/en/c/<id>` page: their name, "Open in the app" on
+ *     `touchpadel://c/<id>`, never indexed, and no automatic jump to the app.
  *  4. The footer's Coaching link leads from the home page to `/en/coaching`; nothing scrolls
  *     sideways at 360 px.
  *  5. @ar: the same page right to left, the Arabic words, and the Arabic coach link page.
@@ -186,11 +187,11 @@ test.describe('site coaching', () => {
       });
     });
     await expect(page).toHaveTitle(`${en.coaching.web.metaTitle} · Touch Padel`);
+    // The card is the app's coach card: photo, name (and the price once public); the whole card
+    // is the link to the coach's page. What they teach is listed under the lesson types.
     await expect(card.getByRole('heading', { name: COACH_NAME.en })).toBeVisible();
-    await expect(card.locator('.tp-coach-card__types')).toContainText(LESSON_TYPE.en);
-    await expect(
-      card.getByRole('link', { name: new RegExp(en.coaching.web.bookInApp) }),
-    ).toHaveAttribute('href', `/en/c/${coachSlug}`);
+    await expect(card).toHaveAttribute('href', `/en/c/${coachSlug}`);
+    await expect(page.locator('.tp-coach-type', { hasText: LESSON_TYPE.en })).toBeVisible();
     // C-11: the answer carries the price; the page does not print it.
     await expect(page.locator('main')).not.toContainText(PRICE_EN);
     await expect(page.locator('.tp-coach-card__price, .tp-coach-type__price')).toHaveCount(0);
@@ -226,7 +227,7 @@ test.describe('site coaching', () => {
     await pollPage(page, '/en/coaching', async () => {
       await expect(card).toBeVisible({ timeout: 2_000 });
     });
-    await card.getByRole('link', { name: new RegExp(en.coaching.web.bookInApp) }).click();
+    await card.click();
     await expect(page).toHaveURL(new RegExp(`/en/c/${coachSlug}$`));
     await expect(page.getByRole('heading', { level: 1, name: COACH_NAME.en })).toBeVisible();
     await expect(page.getByRole('link', { name: en.coaching.web.link.open })).toHaveAttribute(
@@ -291,7 +292,7 @@ test.describe('site coaching @ar', () => {
     await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
     await expect(page.getByRole('heading', { level: 1 })).toContainText(ar.coaching.web.titleOne);
     await expect(card.getByRole('heading', { name: COACH_NAME.ar })).toBeVisible();
-    await expect(card.locator('.tp-coach-card__types')).toContainText(LESSON_TYPE.ar);
+    await expect(page.locator('.tp-coach-type', { hasText: LESSON_TYPE.ar })).toBeVisible();
     // Arabic has no case, and letter-spacing breaks its joined letters.
     const type = await page
       .getByRole('heading', { level: 1 })
@@ -300,7 +301,7 @@ test.describe('site coaching @ar', () => {
     expect(['normal', '0px']).toContain(type[1]);
     await expect(page.locator('main')).not.toContainText(/د\.ع/);
 
-    await card.getByRole('link', { name: new RegExp(ar.coaching.web.bookInApp) }).click();
+    await card.click();
     await expect(page).toHaveURL(new RegExp(`/ar/c/${coachSlug}$`));
     await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
     await expect(page.getByRole('heading', { level: 1, name: COACH_NAME.ar })).toBeVisible();

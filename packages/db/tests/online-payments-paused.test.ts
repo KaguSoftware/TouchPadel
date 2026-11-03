@@ -49,7 +49,9 @@ describe.skipIf(!up)('0340 online payments paused', () => {
     if (!owner) return;
     await setOnlinePaymentsLive(true);
     await deposit({ deposit_mode: 'off' });
-    await coaching({ lesson_payment_mode: 'desk' });
+    // Put back the field this suite changes, or a later suite reading the branch's coaching
+    // settings (coaching-schema) sees 7 instead of the default 10.
+    await coaching({ lesson_payment_mode: 'desk', coach_max_open_private: 10 });
     await match({ matches_enabled: false });
     await match({ match_payment_mode: 'tickets' });
     await setOnlinePaymentsLive(wasLive);

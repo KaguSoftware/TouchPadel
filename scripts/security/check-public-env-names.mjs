@@ -49,6 +49,9 @@ const files = execFileSync('git', ['ls-files', '-z'], { encoding: 'utf8', maxBuf
   .filter(Boolean)
   // Lockfiles and this script itself both legitimately contain the strings.
   .filter((f) => !/pnpm-lock\.yaml$|package-lock\.json$/.test(f))
+  // The launch checklist names a made-up EXPO_PUBLIC_TEST_TOKEN as the step that
+  // proves this gate fails; it is a doc, never bundled.
+  .filter((f) => !/^qa\/final-checklist\.(md|json)$/.test(f))
   .filter((f) => f !== 'scripts/security/check-public-env-names.mjs');
 
 const violations = [];

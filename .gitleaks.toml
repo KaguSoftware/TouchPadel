@@ -108,4 +108,12 @@ regexes = [
   # 0308). Hand-typed: the letters A..H and the digits 1..6 in order. The RPC is mocked there, no
   # card secret produces it, and the test checks only that the scanned string is passed through.
   '''TP-ABCDEFGH-123456''',
+  # The monitoring scrubber test (packages/core/src/monitoring.test.ts; commit 3fc8cb0f). A
+  # hand-made JWT shape: header {"alg":"HS256"}, payload {"sub":"1234567890"}, and the signature
+  # is the literal letters a..l. Nothing signed it; the test checks only that scrubText blanks it.
+  '''eyJhbGciOiJIUzI1NiJ9\.eyJzdWIiOiIxMjM0NTY3ODkwIn0\.abcdefghijkl''',
+  # A check id in the launch checklist (qa/final-checklist.md; commit 3fc8cb0f). generic-api-key
+  # reads "<token> `WEB.MATCH_INVITE.15`" as a token assignment; the value is the id of check 15
+  # in the WEB.MATCH_INVITE group, not a key.
+  '''WEB\.MATCH_INVITE\.15''',
 ]
