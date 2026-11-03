@@ -20,6 +20,16 @@ export const staffShellEn = {
       people: 'Team',
       team: 'My requests',
     },
+    // One short line under each group tile's title (Sait, 2026-11-02).
+    groupInfo: {
+      floor: 'Guest calls and orders',
+      protocols: 'Protocols, ideas, notes',
+      supplies: 'Buy, make and count',
+      recipes: 'Recipes and lessons',
+      daily: 'Your everyday tasks',
+      people: 'Pay deductions',
+      team: 'Ask and suggest',
+    },
     sections: {
       create: 'Add new',
       open: 'Open',

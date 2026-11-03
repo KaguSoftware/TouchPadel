@@ -8,7 +8,7 @@ import { Screen, SegmentedControl, TAB_TITLE_TOP, Title } from '../../src/compon
 import { EmptyState, SkeletonList } from '../../src/components/states';
 import { space } from '../../src/theme';
 import { useAuth } from '../../src/features/auth/context';
-import { useMyLoyalty } from '../../src/features/loyalty/hooks';
+import { useMemberCard, useMyLoyalty } from '../../src/features/loyalty/hooks';
 import { loyaltyOn } from '../../src/features/loyalty/logic';
 import { MemberCardPanel } from '../../src/features/loyalty/MemberCardPanel';
 import { PointsCard } from '../../src/features/loyalty/PointsCard';
@@ -44,6 +44,7 @@ export default function ClubScreen() {
   const profile = useOwnProfile(member);
   const name = nameFieldsOf(profile.data, session?.user.email ?? null);
   const holder = `${name.first} ${name.last}`.trim();
+  const memberCard = useMemberCard(member ? session.user.id : null).card;
   // Signed out, the card view is still offered (it is how a guest learns there is one); signed
   // in, only while the owner has loyalty on.
   const offersCard = !member || loyalty.isPending || loyaltyOn(loyalty.data);
@@ -87,6 +88,7 @@ export default function ClubScreen() {
             testID="club.loyalty"
             loyalty={loyalty.data}
             holder={holder}
+            memberCode={memberCard?.member_code}
             onPress={() => router.push({ pathname: '/loyalty', params: { from: 'club' } })}
           />
         ) : null}

@@ -1,6 +1,5 @@
 import { View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text, MinFontSize, STAFF_MIN_FONT } from '../src/i18n/text';
 import { useLocale } from '../src/i18n/LocaleProvider';
 import { space, useTheme } from '../src/theme';
@@ -21,7 +20,6 @@ function GroupSheet() {
   const { t } = useLocale();
   const { colors, fonts } = useTheme();
   const router = useRouter();
-  const insets = useSafeAreaInsets();
   // Opened from Today; a sheet reached with nothing under it lands there.
   const back = useBack('/staff');
   const { group: key } = useLocalSearchParams<{ group?: string }>();
@@ -32,12 +30,15 @@ function GroupSheet() {
     <View
       style={{
         backgroundColor: colors.bg,
-        // clear the native grabber; keep the last row off the home indicator
+        // clear the native grabber. No home-indicator inset here: the formSheet
+        // adds its own below the content, and ours on top of it left a band of
+        // bare page under the last row (Sait, 2026-11-02)
         paddingTop: space.xxl,
         paddingStart: space.l,
         paddingEnd: space.l,
-        paddingBottom: space.xl + insets.bottom,
-        gap: space.m,
+        paddingBottom: space.s,
+        // More room between the title and the first row (Sait, 2026-11-02).
+        gap: space.xl + 10,
       }}
     >
       {group ? (

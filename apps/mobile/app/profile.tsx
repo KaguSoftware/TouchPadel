@@ -536,7 +536,7 @@ export default function ProfileScreen() {
                 icon={<CalendarIcon size={15} color={colors.gstrong} />}
                 label={t('tournaments.guest.entry.mine')}
                 // My reservations lists the guest's tournaments now (play-coaches §1).
-                onPress={() => router.navigate('/bookings')}
+                onPress={() => downToTab('/bookings')}
               />
             ) : null}
             {/* Open matches (docs/design/open-matches/guest.md §4.16): the

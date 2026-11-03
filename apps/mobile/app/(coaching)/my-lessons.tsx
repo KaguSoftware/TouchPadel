@@ -18,6 +18,7 @@ import {
   type MyLessonRow,
 } from '../../src/features/coaching/logic';
 import type { LessonScope } from '../../src/features/coaching/keys';
+import { useDownToTab } from '../../src/navigation/back';
 import { usePullRefresh } from '../../src/lib/usePullRefresh';
 import { space, useTheme } from '../../src/theme';
 import { Screen, SegmentedControl } from '../../src/components/ui';
@@ -37,6 +38,7 @@ function MyLessonsScreen() {
   const { t, locale } = useLocale();
   const { colors } = useTheme();
   const router = useRouter();
+  const downToTab = useDownToTab();
   const toast = useToast();
   const insets = useSafeAreaInsets();
   const [scope, setScope] = useState<LessonScope>('upcoming');
@@ -181,7 +183,7 @@ function MyLessonsScreen() {
               title={t('coaching.guest.mine.emptyTitle')}
               message={emptyLine}
               actionLabel={t('coaching.guest.mine.find')}
-              onAction={() => router.push('/coaches')}
+              onAction={() => downToTab('/coaches')}
             />
           )
         }

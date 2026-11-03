@@ -21,7 +21,7 @@
  * with useHideAssistantFab while the form is open.
  */
 import { createContext, useContext, useEffect, useState, type ReactElement } from 'react';
-import { Pressable, View, type ViewStyle } from 'react-native';
+import { Platform, Pressable, View, type ViewStyle } from 'react-native';
 import { router, usePathname } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocale } from '../../i18n/LocaleProvider';
@@ -30,6 +30,7 @@ import { brand, radius, space, useTheme } from '../../theme';
 import { SparkIcon } from '../../components/icons';
 import { useStaffStatus } from '../staff/StaffStatusProvider';
 import { loadFreeMode } from './freeMode';
+import { GlassAssistantButton } from './GlassAssistantButton';
 
 const SIZE = 56;
 const EDGE = 16;
@@ -125,12 +126,15 @@ export function AssistantButton({
   testID,
   size = SIZE,
   labelled = false,
+  glass = false,
   from,
   style,
 }: {
   testID: string;
   size?: number;
   labelled?: boolean;
+  /** Today's glass header: the native round button on iOS, translucent green elsewhere. */
+  glass?: boolean;
   from?: string;
   style?: ViewStyle;
 }) {
@@ -146,6 +150,18 @@ export function AssistantButton({
   const hint = owner ? t('staff.assistant.entry.hint') : t('staff.assistant.free.entryHint');
   const open = () =>
     router.push(from ? { pathname: '/staff-assistant', params: { from } } : '/staff-assistant');
+  if (glass) {
+    return (
+      <GlassAssistantButton
+        testID={testID}
+        size={size}
+        label={t('staff.assistant.entry.title')}
+        hint={hint}
+        onPress={open}
+        prominent
+      />
+    );
+  }
   if (labelled) {
     return (
       <Pressable
@@ -172,6 +188,22 @@ export function AssistantButton({
           {t('staff.assistant.title')}
         </Text>
       </Pressable>
+    );
+  }
+  // The floating button on iOS is the system's own: a native round SwiftUI
+  // button, placed where the pressable would have been (Sait, 2026-11-02).
+  if (Platform.OS === 'ios') {
+    return (
+      <View style={style}>
+        <GlassAssistantButton
+          testID={testID}
+          size={size}
+          label={t('staff.assistant.entry.title')}
+          hint={hint}
+          onPress={open}
+          prominent
+        />
+      </View>
     );
   }
   return (

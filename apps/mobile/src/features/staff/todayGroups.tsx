@@ -26,6 +26,7 @@ import {
   ImageIcon,
   LockIcon,
   PencilIcon,
+  PeopleIcon,
   PhoneIcon,
   PlusSquareIcon,
   ReceiptIcon,
@@ -37,6 +38,8 @@ import {
   SwapIcon,
   TableIcon,
   TagIcon,
+  ToqueIcon,
+  TruckIcon,
   WarningIcon,
   type IconProps,
 } from '../../components/icons';
@@ -101,18 +104,26 @@ export const ROW_GROUPS = [
   // Wave 5, lane R (§2.1.8): a waiter's guest calls come first: the
   // `waiter_call_new` push lands on Today. Placing an order (0251) is floor
   // work too.
-  { key: 'floor', titleKey: 'staff.calls.group', icon: TableIcon, ids: ['calls', 'order'] },
+  {
+    key: 'floor',
+    titleKey: 'staff.calls.group',
+    infoKey: 'staff.shell.today.groupInfo.floor',
+    icon: TableIcon,
+    ids: ['calls', 'order'],
+  },
   {
     key: 'protocols',
     titleKey: 'staff.shell.today.groups.protocols',
-    icon: ClockIcon,
+    infoKey: 'staff.shell.today.groupInfo.protocols',
+    icon: ClipboardIcon,
     ids: ['protocols', 'start', 'ideas', 'notes'],
   },
   // Buying, making and counting the stock: the long tail of a head's day.
   {
     key: 'supplies',
     titleKey: 'staff.shell.today.groups.supplies',
-    icon: RoofIcon,
+    infoKey: 'staff.shell.today.groupInfo.supplies',
+    icon: TruckIcon,
     ids: [
       'production',
       'shopping',
@@ -128,28 +139,38 @@ export const ROW_GROUPS = [
   {
     key: 'recipes',
     titleKey: 'staff.shell.today.groups.recipes',
-    icon: SearchIcon,
+    infoKey: 'staff.shell.today.groupInfo.recipes',
+    icon: ToqueIcon,
     ids: ['recipes', 'recipe-changes', 'teachings'],
   },
-  { key: 'daily', titleKey: 'staff.shell.today.groups.daily', icon: CalendarIcon, ids: null },
+  {
+    key: 'daily',
+    titleKey: 'staff.shell.today.groups.daily',
+    infoKey: 'staff.shell.today.groupInfo.daily',
+    icon: CalendarIcon,
+    ids: null,
+  },
   // Heads and management: a deduction is proposed about someone (§5.3), so it
   // sits with the team, not with the person's own requests (Sait, 2026-10-17).
   {
     key: 'people',
     titleKey: 'staff.shell.today.groups.people',
-    icon: DeductionIcon,
+    infoKey: 'staff.shell.today.groupInfo.people',
+    icon: PeopleIcon,
     ids: ['deductions'],
   },
   // The person's own asks. Ask marketing is daily work now (Sait, 2026-10-17).
   {
     key: 'team',
     titleKey: 'staff.shell.today.groups.team',
+    infoKey: 'staff.shell.today.groupInfo.team',
     icon: EnvelopeIcon,
     ids: ['requests', 'suggestions'],
   },
 ] as const satisfies readonly {
   key: string;
   titleKey: MessageKey;
+  infoKey: MessageKey;
   icon: ComponentType<IconProps>;
   ids: readonly string[] | null;
 }[];
@@ -159,6 +180,7 @@ export type GroupKey = (typeof ROW_GROUPS)[number]['key'];
 export interface TodayGroup {
   key: GroupKey;
   titleKey: MessageKey;
+  infoKey: MessageKey;
   icon: ComponentType<IconProps>;
   rows: StaffRowDef[];
 }
@@ -184,6 +206,7 @@ export function groupRows(rows: readonly StaffRowDef[]): TodayGroup[] {
     return {
       key: g.key,
       titleKey: g.titleKey,
+      infoKey: g.infoKey,
       icon: g.icon,
       rows: [...mine.filter(isCreateRow), ...mine.filter((r) => !isCreateRow(r))],
     };

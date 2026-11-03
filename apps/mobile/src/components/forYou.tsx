@@ -23,6 +23,7 @@ import { useAuth } from '../features/auth/context';
 import { usePlayProfile, useSuggestionAvailability } from '../features/playProfile/hooks';
 import { hasAnswers } from '../features/playProfile/logic';
 import { topSuggestions, type Suggestion, type SuggestionKind } from '../features/playProfile/suggest';
+import { useDownToTab } from '../navigation/back';
 import { suggestionTarget } from '../features/playProfile/links';
 import { dismissAsk, useAskDismissed } from '../features/playProfile/askDismissed';
 import { Rise, TiltPress } from './motion';
@@ -54,10 +55,11 @@ function KindIcon({ kind, color }: { kind: SuggestionKind; color: string }) {
 /** Opens a suggestion: a tab (with the Play tab's chip) or the group sessions list. */
 export function useOpenSuggestion() {
   const router = useRouter();
+  const downToTab = useDownToTab();
   return (kind: SuggestionKind) => {
     const target = suggestionTarget(kind);
     if (target.kind === 'push') router.push(target.href);
-    else router.navigate(target.href);
+    else downToTab(target.href);
   };
 }
 

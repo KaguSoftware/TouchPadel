@@ -17,7 +17,7 @@ import { mapErrorToKey } from '../booking/errors';
 import { useMemberCard, useRotateMemberCard } from './hooks';
 import { msToNextTick, stepFraction } from './logic';
 import { brand, palettes, radius, space, useTheme } from '../../theme';
-import { Button, Hint, MicroLabel } from '../../components/ui';
+import { Button, Hint } from '../../components/ui';
 import { useReduceMotion } from '../../lib/useReduceMotion';
 import { ErrorState, SkeletonList } from '../../components/states';
 import { useToast } from '../../components/overlays';
@@ -160,7 +160,7 @@ export function MemberCardPanel({
   children?: ReactNode;
 }) {
   const { t } = useLocale();
-  const { colors, fonts, tracking } = useTheme();
+  const { colors, fonts } = useTheme();
   const { width } = useWindowDimensions();
   const { session } = useAuth();
   const userId = session?.user.id ?? null;
@@ -345,19 +345,6 @@ export function MemberCardPanel({
         </View>
 
         <View style={{ alignItems: 'center' }}>
-          <MicroLabel>{t('loyalty.guest.card.memberCode')}</MicroLabel>
-          <Text
-            style={{
-              marginTop: 2,
-              fontFamily: fonts.body700,
-              fontSize: 15,
-              letterSpacing: tracking(2),
-              color: colors.mut,
-              writingDirection: 'ltr',
-            }}
-          >
-            {isolateLtr(card.member_code)}
-          </Text>
           {cached ? (
             <Hint style={{ textAlign: 'center' }}>{t('loyalty.guest.card.offline')}</Hint>
           ) : null}
