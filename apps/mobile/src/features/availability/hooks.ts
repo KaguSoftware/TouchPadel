@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { AppState, type AppStateStatus } from 'react-native';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient, type QueryClient, type QueryKey } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase';
 import { createCourtsChannels } from './courtsChannel';
 import { addBreadcrumb, captureMessage } from '../../lib/telemetry';
@@ -28,6 +28,15 @@ import {
 import { courtsTopic, pickGuestVenueId, showsBranchPicker, type Branch } from './branch';
 import { useStoredGuestVenue, writeGuestVenue } from './guestVenue';
 import { availabilityKeys } from './keys';
+import {
+  OPEN_FRESH_MS,
+  parseSlotChange,
+  patchWindow,
+  pickPlaceholderRows,
+  refreshDelayMs,
+  windowPollMs,
+  type SlotChange,
+} from './live';
 import { matchKeys } from '../matches/keys';
 import type { CourtSlots, RealtimeClientLike } from '@touch/core';
 
@@ -160,6 +169,18 @@ export interface DayGrid {
   /** First failing query's error — screens map it, never assume "network". */
   error: unknown;
   isRefetching: boolean;
+  /**
+   * The grid stands on rows that are not this window's own read yet: another
+   * window's from cache, or none at all. Shown at once so the sheet is never a
+   * skeleton it need not be, but taken for a sketch: no cell takes a tap.
+   */
+  provisional: boolean;
+  /**
+   * The busy ranges are being checked against the server: the provisional
+   * read, or the re-read an opened sheet asks for when its rows are older
+   * than OPEN_FRESH_MS (live.ts). The sheet says so in one quiet line.
+   */
+  checking: boolean;
   refetch: () => void;
 }
 
@@ -260,7 +281,13 @@ function useAvailabilityWindow(
   to: string,
   tz: string,
   enabled: boolean,
+  open: boolean,
+  withPlaceholder: boolean,
 ) {
+  const queryClient = useQueryClient();
+  // Both observers of this key (useDayGrid, useWarmDayGrids) must ask for the
+  // same poll: each runs its own timer, and the shorter one would win.
+  const live = useCourtsLive(venueId);
   return useQuery({
     queryKey: availabilityKeys.window(venueId ?? '', from, to),
     queryFn: () =>
@@ -273,9 +300,27 @@ function useAvailabilityWindow(
       ),
     enabled: enabled && !!venueId && courts !== undefined,
     staleTime: 15_000,
-    refetchInterval: 60_000, // holds expire server-side; keep the grid honest
+    // Holds expire server-side; the broadcast keeps a closed sheet current, so
+    // the poll runs only while the sheet is open or the channel is down (live.ts).
+    refetchInterval: windowPollMs({ open, live }),
+    // Never a skeleton the cache can spare: the branch's newest other window,
+    // else no busy rows at all, shown provisional until this one lands.
+    placeholderData: withPlaceholder
+      ? () => {
+          const cached = queryClient
+            .getQueryCache()
+            .findAll({ queryKey: availabilityKeys.windows(venueId ?? '') })
+            .map((q) => ({
+              rows: q.state.data as AvailabilityRow[] | undefined,
+              updatedAt: q.state.dataUpdatedAt,
+            }));
+          return (pickPlaceholderRows(cached) as AvailabilityRow[] | undefined) ?? NO_ROWS;
+        }
+      : undefined,
   });
 }
+
+const NO_ROWS: AvailabilityRow[] = [];
 
 /**
  * Assembled, priced grid for one venue-local trading night.
@@ -285,7 +330,7 @@ function useAvailabilityWindow(
  * between day chips is an assembly and never a round trip. Only `date` decides
  * which night is built.
  */
-export function useDayGrid(date: string, strip: readonly string[]): DayGrid {
+export function useDayGrid(date: string, strip: readonly string[], open = false): DayGrid {
   const guest = useGuestVenue();
   const venueId = guest.venueId;
   const settings = useVenueSettings(venueId);
@@ -305,7 +350,34 @@ export function useDayGrid(date: string, strip: readonly string[]): DayGrid {
     to,
     tz,
     settings.isSuccess,
+    open,
+    true,
   );
+
+  // OPENING SHOWS FIRST AND CHECKS AFTER. A closed sheet no longer polls, so
+  // the rows it opens on can be minutes old (patched by every broadcast since,
+  // but a hold that lapsed by its TTL fired nothing). They are drawn at once,
+  // and if they are older than OPEN_FRESH_MS they are re-read behind them; the
+  // sheet says "checking" until the answer lands and the cells settle in place.
+  const windowRef = useRef(availability);
+  useEffect(() => {
+    windowRef.current = availability;
+  });
+  const [verifying, setVerifying] = useState(false);
+  useEffect(() => {
+    if (!open) return;
+    const q = windowRef.current;
+    if (!q.isSuccess || q.isPlaceholderData || Date.now() - q.dataUpdatedAt < OPEN_FRESH_MS) return;
+    let current = true;
+    setVerifying(true);
+    void q.refetch().finally(() => {
+      if (current) setVerifying(false);
+    });
+    return () => {
+      current = false;
+      setVerifying(false);
+    };
+  }, [open]);
 
   const grid = useMemo<CourtSlots[]>(
     () =>
@@ -351,6 +423,8 @@ export function useDayGrid(date: string, strip: readonly string[]): DayGrid {
     isError: queries.some((q) => q.isError),
     error: queries.find((q) => q.isError)?.error ?? null,
     isRefetching: queries.some((q) => q.isRefetching),
+    provisional: availability.isPlaceholderData,
+    checking: availability.isPlaceholderData || (verifying && availability.isFetching),
     refetch,
   };
 }
@@ -387,7 +461,7 @@ export function useDayGrid(date: string, strip: readonly string[]): DayGrid {
  * spacing keeps seven of them from landing in one tick — this shares a JS
  * thread with the court's rally loop, and a tick is a frame.
  */
-export function useWarmDayGrids(dates: readonly string[], date: string): void {
+export function useWarmDayGrids(dates: readonly string[], date: string, open = false): void {
   const { venueId } = useGuestVenue();
   const settings = useVenueSettings(venueId);
   const courts = useCourts(venueId);
@@ -412,6 +486,8 @@ export function useWarmDayGrids(dates: readonly string[], date: string): void {
     to,
     tz,
     settings.isSuccess,
+    open,
+    false,
   );
 
   const settingsData = settings.data ?? undefined;
@@ -466,13 +542,77 @@ const courtsChannels = createCourtsChannels({
   },
 });
 
+/** The branch's 'courts:<venue>' channel is joined and live on this phone. */
+export function useCourtsLive(venueId: string | null): boolean {
+  const getSnapshot = useCallback(
+    () => (venueId ? courtsChannels.status(courtsTopic(venueId)) === 'live' : false),
+    [venueId],
+  );
+  return useSyncExternalStore(courtsChannels.watch, getSnapshot, getSnapshot);
+}
+
+/**
+ * Apply one slot change to every cached window of the branch, in place. The
+ * window keeps the time it was last READ (`updatedAt`), so a patch never makes
+ * old rows look freshly checked: an opened sheet still re-reads them.
+ */
+function patchCachedWindows(queryClient: QueryClient, venueId: string, change: SlotChange): void {
+  for (const query of queryClient.getQueryCache().findAll({ queryKey: availabilityKeys.windows(venueId) })) {
+    const rows = query.state.data as AvailabilityRow[] | undefined;
+    if (!rows) continue;
+    const next = patchWindow(rows, change);
+    if (next === rows) continue;
+    queryClient.setQueryData(query.queryKey, next as AvailabilityRow[], {
+      updatedAt: query.state.dataUpdatedAt,
+    });
+  }
+}
+
+/**
+ * The re-reads a broadcast still causes, spread over 0–3 s (live.ts) and
+ * folded into one: every phone of the club hears the same event in the same
+ * instant, and a hold followed by its confirm, or several mounted listeners,
+ * would otherwise each ask again.
+ */
+let pendingRefresh: { timer: ReturnType<typeof setTimeout>; keys: Map<string, QueryKey> } | null = null;
+function scheduleRefresh(queryClient: QueryClient, keys: readonly QueryKey[]): void {
+  if (!pendingRefresh) {
+    const batch = new Map<string, QueryKey>();
+    pendingRefresh = {
+      keys: batch,
+      timer: setTimeout(() => {
+        pendingRefresh = null;
+        for (const key of batch.values()) void queryClient.invalidateQueries({ queryKey: key });
+      }, refreshDelayMs()),
+    };
+  }
+  for (const key of keys) pendingRefresh.keys.set(JSON.stringify(key), key);
+}
+
+/** What a slot change makes stale besides the grid. */
+const SLOT_FOLLOWERS: readonly QueryKey[] = [
+  ['my-bookings'],
+  ['reservation'],
+  // Open matches ride the same topic (guest.md §4.11 rule 8): a bump or a
+  // fourth seat booking the court is a reservation write, so a stale chip
+  // goes within a few seconds; seat joins alone ride the chips' 60 s poll.
+  matchKeys.all,
+];
+
 /**
  * Live grid refresh: the branch's 'courts:<venue_id>' broadcast-from-database
  * topic (0224; the building-wide 'courts' topic of 0022 is being retired).
  * Private channel — realtime auth is set on sign-in (AuthProvider) and kept
- * current here. Payload is slot-taken/freed only; we just invalidate. Joins
- * when there is a session and a branch (`venueId` null subscribes to nothing),
- * and moves when the branch does.
+ * current here. Joins when there is a session and a branch (`venueId` null
+ * subscribes to nothing), and moves when the branch does.
+ *
+ * A `slot_changed` carries the slot (0382), so the branch's cached windows are
+ * PATCHED and nothing is fetched for the grid (load test 2026-11-03, weak point
+ * 4: every phone used to re-read the whole window at the same instant, twice a
+ * booking). A payload this build cannot read falls back to a re-read, which,
+ * like the bookings and match reads that follow every change, is jittered and
+ * folded (scheduleRefresh). A recovery re-reads everything at once: it is this
+ * phone's own, and the channel's rejoin is already jittered.
  *
  * Shared, reference counted and self-recovering (courtsChannel.ts): a channel
  * that drops comes back and re-reads; returning to the app re-reads; and a
@@ -485,14 +625,9 @@ export function useCourtsBroadcast(venueId: string | null): void {
   const token = session?.access_token ?? null;
   const tokenRef = useRef(token);
   const signedIn = token !== null;
-  const invalidate = useRef(() => {
+  const recover = useRef(() => {
     void queryClient.invalidateQueries({ queryKey: ['availability'] });
-    void queryClient.invalidateQueries({ queryKey: ['my-bookings'] });
-    void queryClient.invalidateQueries({ queryKey: ['reservation'] });
-    // Open matches ride the same topic (guest.md §4.11 rule 8): a bump or a
-    // fourth seat booking the court is a reservation write, so a stale chip
-    // goes within a second; seat joins alone ride the chips' 60 s poll.
-    void queryClient.invalidateQueries({ queryKey: matchKeys.all });
+    for (const key of SLOT_FOLLOWERS) void queryClient.invalidateQueries({ queryKey: key });
   });
 
   // A rotated token reaches the joined channel in place: no teardown. (Runs
@@ -506,10 +641,14 @@ export function useCourtsBroadcast(venueId: string | null): void {
     const current = tokenRef.current;
     if (!signedIn || !current || !venueId) return;
     return courtsChannels.join(courtsTopic(venueId), current, {
-      onSlot: () => invalidate.current(),
-      onRecover: () => invalidate.current(),
+      onSlot: (payload) => {
+        const change = parseSlotChange(payload);
+        if (change) patchCachedWindows(queryClient, venueId, change);
+        scheduleRefresh(queryClient, change ? SLOT_FOLLOWERS : [['availability'], ...SLOT_FOLLOWERS]);
+      },
+      onRecover: () => recover.current(),
     });
-  }, [signedIn, venueId]);
+  }, [signedIn, venueId, queryClient]);
 }
 
 /**

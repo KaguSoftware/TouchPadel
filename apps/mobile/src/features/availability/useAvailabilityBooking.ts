@@ -271,11 +271,13 @@ export function useAvailabilityBooking(
    */
   // The strip goes in whole: its busy ranges come down in ONE request, so
   // moving between chips is never a round trip.
-  const day = useDayGrid(date, tzDates);
+  // `open`: a closed sheet polls nothing (the broadcast patches its rows), and
+  // opening it shows them at once and re-reads them behind (hooks.ts).
+  const day = useDayGrid(date, tzDates, open);
   // And every OTHER chip's grid is assembled while the guest is reading this
   // one, so the tap that follows is neither a fetch nor a build.
-  useWarmDayGrids(tzDates, date);
-  useCourtsBroadcast(venueId); // live slot_changed -> availability invalidation
+  useWarmDayGrids(tzDates, date, open);
+  useCourtsBroadcast(venueId); // live slot_changed -> the cached rows, patched in place
 
   const [notice, setNotice] = useState<AvailabilityNotice>(null);
   const [error, setError] = useState<string | null>(null);
@@ -287,6 +289,8 @@ export function useAvailabilityBooking(
   const holdPending = hold.isPending;
   const holdMutate = hold.mutate;
   const refetchDay = day.refetch;
+  // Placeholder rows are a sketch of the night, not its answer: no cell holds on them.
+  const provisional = day.provisional;
 
   // Transient state belongs to the branch, day and duration it happened on (a
   // refusal naming one branch's phone must not follow the guest to another).
@@ -586,6 +590,7 @@ export function useAvailabilityBooking(
   const onTapCell = useCallback(
     (cell: MergedCell) => {
       if (holdPending) return; // one hold at a time — no double-tap races
+      if (provisional) return;
       setError(null);
       if (cell.state === 'blocked') return setNotice('blocked');
       if (cell.state === 'horizon') return setNotice('horizon');
@@ -617,7 +622,7 @@ export function useAvailabilityBooking(
         else if (pick) matchCell(pick, cell);
       });
     },
-    [holdPending, matchesOn, bookCell, matchCell, t, locale, tz],
+    [holdPending, provisional, matchesOn, bookCell, matchCell, t, locale, tz],
   );
 
   const subFor = useCallback((cell: MergedCell): string => {
