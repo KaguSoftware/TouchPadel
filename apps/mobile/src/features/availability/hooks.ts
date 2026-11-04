@@ -354,9 +354,9 @@ export function useDayGrid(date: string, strip: readonly string[], open = false)
     true,
   );
 
-  // OPENING SHOWS FIRST AND CHECKS AFTER. A closed sheet no longer polls, so
-  // the rows it opens on can be minutes old (patched by every broadcast since,
-  // but a hold that lapsed by its TTL fired nothing). They are drawn at once,
+  // OPENING SHOWS FIRST AND CHECKS AFTER. A closed sheet neither polls nor
+  // holds the channel, so the rows it opens on can be minutes old (and coming
+  // back to it from Review or another tab is an opening too). They are drawn at once,
   // and if they are older than OPEN_FRESH_MS they are re-read behind them; the
   // sheet says "checking" until the answer lands and the cells settle in place.
   const windowRef = useRef(availability);
@@ -600,11 +600,30 @@ const SLOT_FOLLOWERS: readonly QueryKey[] = [
 ];
 
 /**
+ * Back on the channel after time away from it: what it may have missed, read
+ * again unless it was read a moment ago. The grid is left out, as the sheet
+ * re-reads its own rows when it opens (useDayGrid) and a second read would
+ * cancel the first.
+ */
+function refreshAfterGap(queryClient: QueryClient): void {
+  const old = (q: { state: { dataUpdatedAt: number } }) =>
+    Date.now() - q.state.dataUpdatedAt > OPEN_FRESH_MS;
+  for (const key of SLOT_FOLLOWERS) void queryClient.invalidateQueries({ queryKey: key, predicate: old });
+}
+
+/**
  * Live grid refresh: the branch's 'courts:<venue_id>' broadcast-from-database
  * topic (0224; the building-wide 'courts' topic of 0022 is being retired).
  * Private channel — realtime auth is set on sign-in (AuthProvider) and kept
- * current here. Joins when there is a session and a branch (`venueId` null
- * subscribes to nothing), and moves when the branch does.
+ * current here. Joins when there is a session, a branch (`venueId` null
+ * subscribes to nothing) and `active`, and moves when the branch does.
+ *
+ * `active` is the caller's "someone is looking": the open sheet on the tab in
+ * front, a focused Bookings, booking or match screen. A connection is one of
+ * the Free plan's 200 (load test 2026-11-03, weak point 3), and the prewarmed
+ * sheet used to hold one for as long as the app ran. Leaving lets go of it
+ * (the last one out closes the shared channel); coming back rejoins and
+ * re-reads what it may have missed (refreshAfterGap).
  *
  * A `slot_changed` carries the slot (0382), so the branch's cached windows are
  * PATCHED and nothing is fetched for the grid (load test 2026-11-03, weak point
@@ -619,7 +638,7 @@ const SLOT_FOLLOWERS: readonly QueryKey[] = [
  * token refresh updates the token in place instead of rebuilding the channel,
  * which used to lose any slot event sent in the gap.
  */
-export function useCourtsBroadcast(venueId: string | null): void {
+export function useCourtsBroadcast(venueId: string | null, active = true): void {
   const queryClient = useQueryClient();
   const { session } = useAuth();
   const token = session?.access_token ?? null;
@@ -637,9 +656,12 @@ export function useCourtsBroadcast(venueId: string | null): void {
     if (token) courtsChannels.setToken(token);
   }, [token]);
 
+  const joinedBefore = useRef(false);
   useEffect(() => {
     const current = tokenRef.current;
-    if (!signedIn || !current || !venueId) return;
+    if (!signedIn || !current || !venueId || !active) return;
+    if (joinedBefore.current) refreshAfterGap(queryClient);
+    joinedBefore.current = true;
     return courtsChannels.join(courtsTopic(venueId), current, {
       onSlot: (payload) => {
         const change = parseSlotChange(payload);
@@ -648,7 +670,7 @@ export function useCourtsBroadcast(venueId: string | null): void {
       },
       onRecover: () => recover.current(),
     });
-  }, [signedIn, venueId, queryClient]);
+  }, [signedIn, venueId, active, queryClient]);
 }
 
 /**
@@ -661,16 +683,33 @@ export function useCourtsBroadcast(venueId: string | null): void {
  * NOTE: it reports the BRANCH's till connectivity, never this phone's. A stale
  * dev till heartbeat on the hosted project kept this true for every guest
  * until migration 0057 — the banner was faithfully reporting it.
+ *
+ * `active` is "the notice is on screen". The Book sheet is built before it is
+ * asked for and never unmounts, so it used to probe once a minute for as long
+ * as the app ran, sheet closed or not. It now probes only while the sheet is
+ * open on the tab in front, and opening it re-reads an answer older than the
+ * stale time. Every other caller is a screen of its own and keeps the default.
  */
-export function useIsDegraded(venueId: string | null): boolean {
+export function useIsDegraded(venueId: string | null, active = true): boolean {
   const query = useQuery({
     queryKey: availabilityKeys.degraded(venueId ?? ''),
     queryFn: () => fetchIsDegraded(supabase, venueId!),
     enabled: !!venueId,
-    staleTime: 30_000,
-    refetchInterval: 60_000,
+    staleTime: DEGRADED_STALE_MS,
+    refetchInterval: active ? 60_000 : false,
     // A failed probe must never take the booking UI down with it.
     retry: 1,
   });
+  const queryRef = useRef(query);
+  useEffect(() => {
+    queryRef.current = query;
+  });
+  useEffect(() => {
+    if (!active) return;
+    const q = queryRef.current;
+    if (q.isSuccess && !q.isFetching && Date.now() - q.dataUpdatedAt > DEGRADED_STALE_MS) void q.refetch();
+  }, [active]);
   return query.data === true;
 }
+
+const DEGRADED_STALE_MS = 30_000;

@@ -14,6 +14,7 @@ import {
 } from '@touch/i18n';
 import { pickLocale } from '@touch/core';
 import { useLocale } from '../../src/i18n/LocaleProvider';
+import { useScreenFocused } from '../../src/lib/useScreenFocused';
 import { useMyBookings, useReleaseHold } from '../../src/features/booking/hooks';
 import { usePullRefresh } from '../../src/lib/usePullRefresh';
 import {
@@ -245,8 +246,10 @@ export default function BookingsScreen() {
   const cleared = useHistoryClearedAt();
   const toast = useToast();
   // Desk moves/cancels reflect live, on the guest's branch's topic; a booking
-  // at another branch still refreshes on the list's own refetch.
-  useCourtsBroadcast(useGuestVenue().venueId);
+  // at another branch still refreshes on the list's own refetch. Only while the
+  // tab is in front: a tab stays mounted behind the others, and the connection
+  // is one of the Free plan's 200 (coming back re-reads what was missed).
+  useCourtsBroadcast(useGuestVenue().venueId, useScreenFocused());
 
   // The upcoming/past boundary follows the clock, not the last data change —
   // a booking that ended while the screen was open used to stay "Upcoming".

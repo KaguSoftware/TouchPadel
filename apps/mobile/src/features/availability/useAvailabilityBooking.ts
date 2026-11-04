@@ -33,6 +33,7 @@ import {
   isolate,
 } from '@touch/i18n';
 import { useLocale } from '../../i18n/LocaleProvider';
+import { useScreenFocused } from '../../lib/useScreenFocused';
 import {
   useCourts,
   useCourtsBroadcast,
@@ -175,9 +176,15 @@ export function useAvailabilityBooking(
   // settings, its degraded flag and its phone. hold_slot needs no branch — the
   // server takes it from the court.
   const { venueId } = useGuestVenue();
+  // Someone is looking at the sheet: it is open AND its tab is in front (not
+  // behind Review, another tab or a pushed screen). The channel, the polls and
+  // the re-read on opening all follow this, not mere mounting: the sheet is
+  // prewarmed and never unmounts (load test 2026-11-03, weak points 3 and 5).
+  const focused = useScreenFocused();
+  const active = open && focused;
   const courts = useCourts(venueId);
   const venueSettings = useVenueSettings(venueId);
-  const degraded = useIsDegraded(venueId);
+  const degraded = useIsDegraded(venueId, active);
   // Gender hours (0353, genderKeep.ts): the branch's kept windows, read like
   // the rate rules; a failed read paints no tags.
   const genderRules = useGenderRules(venueId);
@@ -271,13 +278,14 @@ export function useAvailabilityBooking(
    */
   // The strip goes in whole: its busy ranges come down in ONE request, so
   // moving between chips is never a round trip.
-  // `open`: a closed sheet polls nothing (the broadcast patches its rows), and
-  // opening it shows them at once and re-reads them behind (hooks.ts).
-  const day = useDayGrid(date, tzDates, open);
+  // A closed sheet polls nothing, and opening it shows its rows at once and
+  // re-reads them behind (hooks.ts).
+  const day = useDayGrid(date, tzDates, active);
   // And every OTHER chip's grid is assembled while the guest is reading this
   // one, so the tap that follows is neither a fetch nor a build.
-  useWarmDayGrids(tzDates, date, open);
-  useCourtsBroadcast(venueId); // live slot_changed -> the cached rows, patched in place
+  useWarmDayGrids(tzDates, date, active);
+  // Live slot_changed -> the cached rows, patched in place; joined only while active.
+  useCourtsBroadcast(venueId, active);
 
   const [notice, setNotice] = useState<AvailabilityNotice>(null);
   const [error, setError] = useState<string | null>(null);

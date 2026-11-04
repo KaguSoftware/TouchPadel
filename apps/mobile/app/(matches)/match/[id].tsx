@@ -14,6 +14,7 @@ import {
 import { needsTermsAcceptance, pickLocale } from '@touch/core';
 import { Text } from '../../../src/i18n/text';
 import { useLocale } from '../../../src/i18n/LocaleProvider';
+import { useScreenFocused } from '../../../src/lib/useScreenFocused';
 import { RequireSession } from '../../../src/features/auth/RequireSession';
 import { useAuth } from '../../../src/features/auth/context';
 import { bookingGateState } from '../../../src/features/auth/social';
@@ -159,7 +160,8 @@ function MatchDetailScreen() {
   const detail: MatchDetail | null = view && !view.restricted ? view : null;
   const venueId = detail?.venueId ?? null;
   // Never the stored branch (DF-1): the match's own branch, or nothing yet.
-  useCourtsBroadcast(venueId);
+  // Only while in front; coming back re-reads what was missed.
+  useCourtsBroadcast(venueId, useScreenFocused());
   const settings = useVenueSettings(venueId);
   const branches = useBranches();
   const courts = useAllCourts();

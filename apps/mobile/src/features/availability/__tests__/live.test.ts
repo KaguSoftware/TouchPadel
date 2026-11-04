@@ -99,16 +99,16 @@ describe('patchWindow', () => {
 });
 
 describe('windowPollMs', () => {
-  it('a closed sheet with a live channel polls nothing', () => {
+  it('a closed sheet polls nothing, channel or not', () => {
     expect(windowPollMs({ open: false, live: true })).toBe(false);
+    expect(windowPollMs({ open: false, live: false })).toBe(false);
   });
   it('an open sheet with a live channel re-reads every five minutes', () => {
     expect(windowPollMs({ open: true, live: true })).toBe(WINDOW_POLL_LIVE_MS);
     expect(WINDOW_POLL_LIVE_MS).toBe(300_000);
   });
-  it('without the channel the poll is every minute, open or not', () => {
+  it('an open sheet without the channel re-reads every minute', () => {
     expect(windowPollMs({ open: true, live: false })).toBe(WINDOW_POLL_DOWN_MS);
-    expect(windowPollMs({ open: false, live: false })).toBe(WINDOW_POLL_DOWN_MS);
     expect(WINDOW_POLL_DOWN_MS).toBe(60_000);
   });
 });

@@ -597,13 +597,14 @@ export default function BookHomeScreen() {
    * would be a slow first open with no signal, so it is time-boxed rather than
    * conditional on GL working at all.
    *
-   * The cost is that a closed sheet keeps its queries: the degraded probe
-   * once a minute while this tab is open (the sheet is where that is shown
-   * now). Its `court_availability` rows no longer poll while it is closed and
-   * the realtime channel is live: each `slot_changed` patches them in place,
-   * and opening the sheet shows them at once and re-reads them behind
-   * (availability/live.ts, load test 2026-11-03). In exchange the grid is warm
-   * when it appears — real times rather than a skeleton.
+   * A closed sheet keeps its queries but runs none of them: no
+   * `court_availability` poll, no degraded probe and no realtime channel
+   * (one of the Free plan's 200). All three start when the sheet opens on
+   * this tab in front and stop when it closes or another screen covers it;
+   * opening shows the cached times at once and re-reads them behind, while
+   * an open sheet's `slot_changed` events patch them in place
+   * (availability/live.ts, load test 2026-11-03). In exchange the grid is
+   * warm when it appears — real times rather than a skeleton.
    */
   const [sheetPrewarmed, setSheetPrewarmed] = useState(false);
   const [courtPainted, setCourtPainted] = useState(false);

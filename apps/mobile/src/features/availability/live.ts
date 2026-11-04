@@ -10,9 +10,11 @@
  * and nothing is fetched.
  *
  * The poll that used to run every 60 s whether the sheet was open or not now
- * runs only where it earns its keep: while the sheet is open (every 5 minutes
- * while the channel is live, a hold that lapses by its TTL fires no event; every
- * minute while it is down) and while the channel is down with the sheet closed.
+ * runs only while the sheet is open and its tab in front: every 5 minutes while
+ * the channel is live (a hold that lapses by its TTL fires no event), every
+ * minute while it is down. A closed sheet holds no channel either (one of the
+ * Free plan's 200, weak point 3) and reads nothing; opening it shows the rows
+ * it has and re-reads them behind (hooks.ts useDayGrid).
  *
  * PURE (vitest).
  */
@@ -102,19 +104,20 @@ export const WINDOW_POLL_LIVE_MS = 5 * 60_000;
 export const WINDOW_POLL_DOWN_MS = 60_000;
 
 /**
- * The busy ranges' poll. Closed sheet with a live channel: none, the
- * broadcast patches the cache. Otherwise every minute without the channel and
- * every five with it.
+ * The busy ranges' poll. A closed sheet (or one behind another tab or screen):
+ * none, opening it re-reads. An open one: every five minutes with the channel,
+ * every minute without it.
  */
 export function windowPollMs({ open, live }: { open: boolean; live: boolean }): number | false {
-  if (!live) return WINDOW_POLL_DOWN_MS;
-  return open ? WINDOW_POLL_LIVE_MS : false;
+  if (!open) return false;
+  return live ? WINDOW_POLL_LIVE_MS : WINDOW_POLL_DOWN_MS;
 }
 
 /**
  * The window a just-opened sheet trusts without re-reading. Younger than this
  * the rows were read (or patched) a moment ago; older, the sheet shows them at
- * once and checks them behind the scenes.
+ * once and checks them behind the scenes. The same age decides what a screen
+ * coming back to the front re-reads (hooks.ts useCourtsBroadcast).
  */
 export const OPEN_FRESH_MS = 15_000;
 
