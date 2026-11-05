@@ -38,6 +38,8 @@ export const availabilityKeys = {
    */
   window: (venueId: string, from: string, to: string) =>
     ['availability', 'window', venueId, from, to] as const,
+  /** Every cached window of one branch: what a `slot_changed` on its topic patches (live.ts). */
+  windows: (venueId: string) => ['availability', 'window', venueId] as const,
   /** The branch's degraded flag (app.is_degraded(p_venue)). */
   degraded: (venueId: string) => ['is-degraded', venueId] as const,
 };

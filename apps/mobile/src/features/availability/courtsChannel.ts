@@ -33,8 +33,11 @@ import {
 } from '@touch/core';
 
 export interface CourtsListener {
-  /** A slot was taken or freed. */
-  onSlot(): void;
+  /**
+   * A slot was taken or freed. `payload` is the broadcast's own (0382: court,
+   * start, end, kind, busy), so a listener can patch instead of re-reading.
+   */
+  onSlot(payload?: unknown): void;
   /** The channel came back, or the app returned to the foreground: re-read. */
   onRecover(): void;
 }
@@ -65,6 +68,10 @@ export interface CourtsChannels {
   join(topic: string, token: string, listener: CourtsListener): () => void;
   /** A rotated access token: updated in place, no channel is rebuilt. */
   setToken(token: string): void;
+  /** The topic's channel status, or null while nobody has it joined. */
+  status(topic: string): ChannelStatus | null;
+  /** Called on every status change of any topic; returns the unsubscribe (useSyncExternalStore). */
+  watch(cb: () => void): () => void;
   /** How many topics have a live channel (tests). */
   size(): number;
 }
@@ -74,6 +81,11 @@ export function createCourtsChannels(deps: CourtsChannelDeps): CourtsChannels {
   /** Topics whose last channel is still leaving. */
   const leaving = new Map<string, Promise<unknown>>();
   let token: string | null = null;
+  const statuses = new Map<string, ChannelStatus>();
+  const watchers = new Set<() => void>();
+  const notify = () => {
+    for (const w of [...watchers]) w();
+  };
 
   const setToken = (next: string) => {
     if (next === token) return;
@@ -86,22 +98,32 @@ export function createCourtsChannels(deps: CourtsChannelDeps): CourtsChannels {
     let entry = shared.get(topic);
     if (!entry) {
       const listeners = new Set<CourtsListener>();
+      const box: { channel: ResilientChannel | null } = { channel: null };
       const channel = createResilientChannel(deps.client, {
         topic,
         isPrivate: true,
         events: [...(deps.events ?? ['slot_changed'])],
-        onMessage: () => {
-          for (const l of [...listeners]) l.onSlot();
+        onMessage: (_event, payload) => {
+          for (const l of [...listeners]) l.onSlot(payload);
         },
         onRecover: () => {
           for (const l of [...listeners]) l.onRecover();
         },
-        onStatus: (s) => deps.onStatus?.(topic, s),
+        onStatus: (s) => {
+          // Only the topic's current channel speaks for it: one still leaving
+          // does not. (Read through the box: this can run before `channel` is assigned.)
+          if (box.channel && shared.get(topic)?.channel === box.channel) {
+            statuses.set(topic, s);
+            notify();
+          }
+          deps.onStatus?.(topic, s);
+        },
         // Every (re)join carries the newest token, not the one this channel was born with.
         beforeSubscribe: () => (token ? deps.setAuth(token) : undefined),
         waitFor: leaving.get(topic),
         random: deps.random,
       });
+      box.channel = channel;
       const stopForeground = deps.onForeground(() => channel.resume());
       entry = { channel, listeners, stopForeground };
       shared.set(topic, entry);
@@ -111,7 +133,10 @@ export function createCourtsChannels(deps: CourtsChannelDeps): CourtsChannels {
     return () => {
       if (!mine.listeners.delete(listener) || mine.listeners.size > 0) return;
       mine.stopForeground();
-      if (shared.get(topic) === mine) shared.delete(topic);
+      if (shared.get(topic) === mine) {
+        shared.delete(topic);
+        if (statuses.delete(topic)) notify();
+      }
       const done = mine.channel.close();
       leaving.set(topic, done);
       void done.then(() => {
@@ -120,5 +145,16 @@ export function createCourtsChannels(deps: CourtsChannelDeps): CourtsChannels {
     };
   }
 
-  return { join, setToken, size: () => shared.size };
+  return {
+    join,
+    setToken,
+    status: (topic) => statuses.get(topic) ?? null,
+    watch: (cb) => {
+      watchers.add(cb);
+      return () => {
+        watchers.delete(cb);
+      };
+    },
+    size: () => shared.size,
+  };
 }

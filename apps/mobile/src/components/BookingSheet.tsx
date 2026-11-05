@@ -87,6 +87,8 @@ const CARD_RADIUS = 22;
  */
 const GRID_H = 240;
 const PAD = 10;
+/** The lanes while their times are being checked: still readable, plainly not settled. */
+const CHECKING_OPACITY = 0.55;
 interface Entrance {
   opacity: Animated.AnimatedInterpolation<number>;
   translateY: Animated.AnimatedInterpolation<number>;
@@ -357,12 +359,23 @@ export function BookingSheet({
       //
       // The foot's air is part of the measured content, so the block grows by
       // it and the last card never sits on the sheet's edge.
+      //
+      // Drawn at once from whatever rows the phone has, then checked (hooks.ts
+      // useDayGrid): while the check runs the lanes sit back a little and tell
+      // screen readers they are busy, and they come forward when the answer
+      // lands. On placeholder rows (`provisional`) no cell takes a tap.
       <View
         onLayout={(e) => {
           const h = e.nativeEvent.layout.height;
           setGridContentH((prev) => (prev === h ? prev : h));
         }}
-        style={{ paddingStart: PAD, paddingEnd: PAD, paddingBottom: PAD }}
+        accessibilityState={{ busy: a.day.checking }}
+        style={{
+          paddingStart: PAD,
+          paddingEnd: PAD,
+          paddingBottom: PAD,
+          opacity: a.day.checking ? CHECKING_OPACITY : 1,
+        }}
       >
         {/* One lane per court, name above, its times running sideways under it (owner, 2026-09-26).
             Keyed by POSITION, as the rows were: a day change reuses the lane

@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { formatDate, formatDateTime, formatIQD, formatTimeRange, isolate } from '@touch/i18n';
 import { pickLocale } from '@touch/core';
 import { useLocale } from '../../src/i18n/LocaleProvider';
+import { useScreenFocused } from '../../src/lib/useScreenFocused';
 import { useCancelReservation, useReservation } from '../../src/features/booking/hooks';
 import { canCancel, dayPart, displayRef, endedNotice, isCourtFeePaid } from '../../src/features/booking/logic';
 import { mapErrorToKey } from '../../src/features/booking/errors';
@@ -75,8 +76,10 @@ function BookingDetailScreen() {
   // detail screen did not, so the one screen showing a SINGLE booking was the
   // one that kept showing it after the venue closed it, until a 15 s staleTime
   // happened to lapse against a refocus. Reference-counted and shared, so this
-  // adds no second subscription when it is opened from Bookings.
-  useCourtsBroadcast(bookingVenue ?? guestVenueId);
+  // adds no second subscription when it is opened from Bookings. Only while in
+  // front: a screen pushed over it lets the connection go, and coming back
+  // re-reads what was missed.
+  useCourtsBroadcast(bookingVenue ?? guestVenueId, useScreenFocused());
   const [dialogOpen, setDialogOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
 

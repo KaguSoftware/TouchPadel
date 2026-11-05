@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { AppState, type AppStateStatus } from 'react-native';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient, type QueryClient, type QueryKey } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase';
 import { createCourtsChannels } from './courtsChannel';
 import { addBreadcrumb, captureMessage } from '../../lib/telemetry';
@@ -28,6 +28,15 @@ import {
 import { courtsTopic, pickGuestVenueId, showsBranchPicker, type Branch } from './branch';
 import { useStoredGuestVenue, writeGuestVenue } from './guestVenue';
 import { availabilityKeys } from './keys';
+import {
+  OPEN_FRESH_MS,
+  parseSlotChange,
+  patchWindow,
+  pickPlaceholderRows,
+  refreshDelayMs,
+  windowPollMs,
+  type SlotChange,
+} from './live';
 import { matchKeys } from '../matches/keys';
 import type { CourtSlots, RealtimeClientLike } from '@touch/core';
 
@@ -160,6 +169,18 @@ export interface DayGrid {
   /** First failing query's error — screens map it, never assume "network". */
   error: unknown;
   isRefetching: boolean;
+  /**
+   * The grid stands on rows that are not this window's own read yet: another
+   * window's from cache, or none at all. Shown at once so the sheet is never a
+   * skeleton it need not be, but taken for a sketch: no cell takes a tap.
+   */
+  provisional: boolean;
+  /**
+   * The busy ranges are being checked against the server: the provisional
+   * read, or the re-read an opened sheet asks for when its rows are older
+   * than OPEN_FRESH_MS (live.ts). The sheet says so in one quiet line.
+   */
+  checking: boolean;
   refetch: () => void;
 }
 
@@ -260,7 +281,13 @@ function useAvailabilityWindow(
   to: string,
   tz: string,
   enabled: boolean,
+  open: boolean,
+  withPlaceholder: boolean,
 ) {
+  const queryClient = useQueryClient();
+  // Both observers of this key (useDayGrid, useWarmDayGrids) must ask for the
+  // same poll: each runs its own timer, and the shorter one would win.
+  const live = useCourtsLive(venueId);
   return useQuery({
     queryKey: availabilityKeys.window(venueId ?? '', from, to),
     queryFn: () =>
@@ -273,9 +300,27 @@ function useAvailabilityWindow(
       ),
     enabled: enabled && !!venueId && courts !== undefined,
     staleTime: 15_000,
-    refetchInterval: 60_000, // holds expire server-side; keep the grid honest
+    // Holds expire server-side; the broadcast keeps a closed sheet current, so
+    // the poll runs only while the sheet is open or the channel is down (live.ts).
+    refetchInterval: windowPollMs({ open, live }),
+    // Never a skeleton the cache can spare: the branch's newest other window,
+    // else no busy rows at all, shown provisional until this one lands.
+    placeholderData: withPlaceholder
+      ? () => {
+          const cached = queryClient
+            .getQueryCache()
+            .findAll({ queryKey: availabilityKeys.windows(venueId ?? '') })
+            .map((q) => ({
+              rows: q.state.data as AvailabilityRow[] | undefined,
+              updatedAt: q.state.dataUpdatedAt,
+            }));
+          return (pickPlaceholderRows(cached) as AvailabilityRow[] | undefined) ?? NO_ROWS;
+        }
+      : undefined,
   });
 }
+
+const NO_ROWS: AvailabilityRow[] = [];
 
 /**
  * Assembled, priced grid for one venue-local trading night.
@@ -285,7 +330,7 @@ function useAvailabilityWindow(
  * between day chips is an assembly and never a round trip. Only `date` decides
  * which night is built.
  */
-export function useDayGrid(date: string, strip: readonly string[]): DayGrid {
+export function useDayGrid(date: string, strip: readonly string[], open = false): DayGrid {
   const guest = useGuestVenue();
   const venueId = guest.venueId;
   const settings = useVenueSettings(venueId);
@@ -305,7 +350,34 @@ export function useDayGrid(date: string, strip: readonly string[]): DayGrid {
     to,
     tz,
     settings.isSuccess,
+    open,
+    true,
   );
+
+  // OPENING SHOWS FIRST AND CHECKS AFTER. A closed sheet neither polls nor
+  // holds the channel, so the rows it opens on can be minutes old (and coming
+  // back to it from Review or another tab is an opening too). They are drawn at once,
+  // and if they are older than OPEN_FRESH_MS they are re-read behind them; the
+  // sheet says "checking" until the answer lands and the cells settle in place.
+  const windowRef = useRef(availability);
+  useEffect(() => {
+    windowRef.current = availability;
+  });
+  const [verifying, setVerifying] = useState(false);
+  useEffect(() => {
+    if (!open) return;
+    const q = windowRef.current;
+    if (!q.isSuccess || q.isPlaceholderData || Date.now() - q.dataUpdatedAt < OPEN_FRESH_MS) return;
+    let current = true;
+    setVerifying(true);
+    void q.refetch().finally(() => {
+      if (current) setVerifying(false);
+    });
+    return () => {
+      current = false;
+      setVerifying(false);
+    };
+  }, [open]);
 
   const grid = useMemo<CourtSlots[]>(
     () =>
@@ -351,6 +423,8 @@ export function useDayGrid(date: string, strip: readonly string[]): DayGrid {
     isError: queries.some((q) => q.isError),
     error: queries.find((q) => q.isError)?.error ?? null,
     isRefetching: queries.some((q) => q.isRefetching),
+    provisional: availability.isPlaceholderData,
+    checking: availability.isPlaceholderData || (verifying && availability.isFetching),
     refetch,
   };
 }
@@ -387,7 +461,7 @@ export function useDayGrid(date: string, strip: readonly string[]): DayGrid {
  * spacing keeps seven of them from landing in one tick — this shares a JS
  * thread with the court's rally loop, and a tick is a frame.
  */
-export function useWarmDayGrids(dates: readonly string[], date: string): void {
+export function useWarmDayGrids(dates: readonly string[], date: string, open = false): void {
   const { venueId } = useGuestVenue();
   const settings = useVenueSettings(venueId);
   const courts = useCourts(venueId);
@@ -412,6 +486,8 @@ export function useWarmDayGrids(dates: readonly string[], date: string): void {
     to,
     tz,
     settings.isSuccess,
+    open,
+    false,
   );
 
   const settingsData = settings.data ?? undefined;
@@ -466,33 +542,111 @@ const courtsChannels = createCourtsChannels({
   },
 });
 
+/** The branch's 'courts:<venue>' channel is joined and live on this phone. */
+export function useCourtsLive(venueId: string | null): boolean {
+  const getSnapshot = useCallback(
+    () => (venueId ? courtsChannels.status(courtsTopic(venueId)) === 'live' : false),
+    [venueId],
+  );
+  return useSyncExternalStore(courtsChannels.watch, getSnapshot, getSnapshot);
+}
+
+/**
+ * Apply one slot change to every cached window of the branch, in place. The
+ * window keeps the time it was last READ (`updatedAt`), so a patch never makes
+ * old rows look freshly checked: an opened sheet still re-reads them.
+ */
+function patchCachedWindows(queryClient: QueryClient, venueId: string, change: SlotChange): void {
+  for (const query of queryClient.getQueryCache().findAll({ queryKey: availabilityKeys.windows(venueId) })) {
+    const rows = query.state.data as AvailabilityRow[] | undefined;
+    if (!rows) continue;
+    const next = patchWindow(rows, change);
+    if (next === rows) continue;
+    queryClient.setQueryData(query.queryKey, next as AvailabilityRow[], {
+      updatedAt: query.state.dataUpdatedAt,
+    });
+  }
+}
+
+/**
+ * The re-reads a broadcast still causes, spread over 0–3 s (live.ts) and
+ * folded into one: every phone of the club hears the same event in the same
+ * instant, and a hold followed by its confirm, or several mounted listeners,
+ * would otherwise each ask again.
+ */
+let pendingRefresh: { timer: ReturnType<typeof setTimeout>; keys: Map<string, QueryKey> } | null = null;
+function scheduleRefresh(queryClient: QueryClient, keys: readonly QueryKey[]): void {
+  if (!pendingRefresh) {
+    const batch = new Map<string, QueryKey>();
+    pendingRefresh = {
+      keys: batch,
+      timer: setTimeout(() => {
+        pendingRefresh = null;
+        for (const key of batch.values()) void queryClient.invalidateQueries({ queryKey: key });
+      }, refreshDelayMs()),
+    };
+  }
+  for (const key of keys) pendingRefresh.keys.set(JSON.stringify(key), key);
+}
+
+/** What a slot change makes stale besides the grid. */
+const SLOT_FOLLOWERS: readonly QueryKey[] = [
+  ['my-bookings'],
+  ['reservation'],
+  // Open matches ride the same topic (guest.md §4.11 rule 8): a bump or a
+  // fourth seat booking the court is a reservation write, so a stale chip
+  // goes within a few seconds; seat joins alone ride the chips' 60 s poll.
+  matchKeys.all,
+];
+
+/**
+ * Back on the channel after time away from it: what it may have missed, read
+ * again unless it was read a moment ago. The grid is left out, as the sheet
+ * re-reads its own rows when it opens (useDayGrid) and a second read would
+ * cancel the first.
+ */
+function refreshAfterGap(queryClient: QueryClient): void {
+  const old = (q: { state: { dataUpdatedAt: number } }) =>
+    Date.now() - q.state.dataUpdatedAt > OPEN_FRESH_MS;
+  for (const key of SLOT_FOLLOWERS) void queryClient.invalidateQueries({ queryKey: key, predicate: old });
+}
+
 /**
  * Live grid refresh: the branch's 'courts:<venue_id>' broadcast-from-database
  * topic (0224; the building-wide 'courts' topic of 0022 is being retired).
  * Private channel — realtime auth is set on sign-in (AuthProvider) and kept
- * current here. Payload is slot-taken/freed only; we just invalidate. Joins
- * when there is a session and a branch (`venueId` null subscribes to nothing),
- * and moves when the branch does.
+ * current here. Joins when there is a session, a branch (`venueId` null
+ * subscribes to nothing) and `active`, and moves when the branch does.
+ *
+ * `active` is the caller's "someone is looking": the open sheet on the tab in
+ * front, a focused Bookings, booking or match screen. A connection is one of
+ * the Free plan's 200 (load test 2026-11-03, weak point 3), and the prewarmed
+ * sheet used to hold one for as long as the app ran. Leaving lets go of it
+ * (the last one out closes the shared channel); coming back rejoins and
+ * re-reads what it may have missed (refreshAfterGap).
+ *
+ * A `slot_changed` carries the slot (0382), so the branch's cached windows are
+ * PATCHED and nothing is fetched for the grid (load test 2026-11-03, weak point
+ * 4: every phone used to re-read the whole window at the same instant, twice a
+ * booking). A payload this build cannot read falls back to a re-read, which,
+ * like the bookings and match reads that follow every change, is jittered and
+ * folded (scheduleRefresh). A recovery re-reads everything at once: it is this
+ * phone's own, and the channel's rejoin is already jittered.
  *
  * Shared, reference counted and self-recovering (courtsChannel.ts): a channel
  * that drops comes back and re-reads; returning to the app re-reads; and a
  * token refresh updates the token in place instead of rebuilding the channel,
  * which used to lose any slot event sent in the gap.
  */
-export function useCourtsBroadcast(venueId: string | null): void {
+export function useCourtsBroadcast(venueId: string | null, active = true): void {
   const queryClient = useQueryClient();
   const { session } = useAuth();
   const token = session?.access_token ?? null;
   const tokenRef = useRef(token);
   const signedIn = token !== null;
-  const invalidate = useRef(() => {
+  const recover = useRef(() => {
     void queryClient.invalidateQueries({ queryKey: ['availability'] });
-    void queryClient.invalidateQueries({ queryKey: ['my-bookings'] });
-    void queryClient.invalidateQueries({ queryKey: ['reservation'] });
-    // Open matches ride the same topic (guest.md §4.11 rule 8): a bump or a
-    // fourth seat booking the court is a reservation write, so a stale chip
-    // goes within a second; seat joins alone ride the chips' 60 s poll.
-    void queryClient.invalidateQueries({ queryKey: matchKeys.all });
+    for (const key of SLOT_FOLLOWERS) void queryClient.invalidateQueries({ queryKey: key });
   });
 
   // A rotated token reaches the joined channel in place: no teardown. (Runs
@@ -502,14 +656,21 @@ export function useCourtsBroadcast(venueId: string | null): void {
     if (token) courtsChannels.setToken(token);
   }, [token]);
 
+  const joinedBefore = useRef(false);
   useEffect(() => {
     const current = tokenRef.current;
-    if (!signedIn || !current || !venueId) return;
+    if (!signedIn || !current || !venueId || !active) return;
+    if (joinedBefore.current) refreshAfterGap(queryClient);
+    joinedBefore.current = true;
     return courtsChannels.join(courtsTopic(venueId), current, {
-      onSlot: () => invalidate.current(),
-      onRecover: () => invalidate.current(),
+      onSlot: (payload) => {
+        const change = parseSlotChange(payload);
+        if (change) patchCachedWindows(queryClient, venueId, change);
+        scheduleRefresh(queryClient, change ? SLOT_FOLLOWERS : [['availability'], ...SLOT_FOLLOWERS]);
+      },
+      onRecover: () => recover.current(),
     });
-  }, [signedIn, venueId]);
+  }, [signedIn, venueId, active, queryClient]);
 }
 
 /**
@@ -522,16 +683,33 @@ export function useCourtsBroadcast(venueId: string | null): void {
  * NOTE: it reports the BRANCH's till connectivity, never this phone's. A stale
  * dev till heartbeat on the hosted project kept this true for every guest
  * until migration 0057 — the banner was faithfully reporting it.
+ *
+ * `active` is "the notice is on screen". The Book sheet is built before it is
+ * asked for and never unmounts, so it used to probe once a minute for as long
+ * as the app ran, sheet closed or not. It now probes only while the sheet is
+ * open on the tab in front, and opening it re-reads an answer older than the
+ * stale time. Every other caller is a screen of its own and keeps the default.
  */
-export function useIsDegraded(venueId: string | null): boolean {
+export function useIsDegraded(venueId: string | null, active = true): boolean {
   const query = useQuery({
     queryKey: availabilityKeys.degraded(venueId ?? ''),
     queryFn: () => fetchIsDegraded(supabase, venueId!),
     enabled: !!venueId,
-    staleTime: 30_000,
-    refetchInterval: 60_000,
+    staleTime: DEGRADED_STALE_MS,
+    refetchInterval: active ? 60_000 : false,
     // A failed probe must never take the booking UI down with it.
     retry: 1,
   });
+  const queryRef = useRef(query);
+  useEffect(() => {
+    queryRef.current = query;
+  });
+  useEffect(() => {
+    if (!active) return;
+    const q = queryRef.current;
+    if (q.isSuccess && !q.isFetching && Date.now() - q.dataUpdatedAt > DEGRADED_STALE_MS) void q.refetch();
+  }, [active]);
   return query.data === true;
 }
+
+const DEGRADED_STALE_MS = 30_000;

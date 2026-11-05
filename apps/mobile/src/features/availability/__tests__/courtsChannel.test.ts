@@ -67,8 +67,31 @@ describe('createCourtsChannels', () => {
     expect(channels).toHaveLength(1);
     expect(channels[0]!.removed).toBe(false);
 
-    channels[0]!.handlers.get('slot_changed')!({ event: 'slot_changed', payload: {} });
+    channels[0]!.handlers.get('slot_changed')!({ event: 'slot_changed', payload: { court_id: 'c1' } });
     expect(l.onSlot).toHaveBeenCalledTimes(1);
+    expect(l.onSlot).toHaveBeenCalledWith({ court_id: 'c1' }); // handed on, so the grid can patch
+  });
+
+  it("reports each topic's status to watchers, and forgets it when the last consumer leaves", async () => {
+    const { courts, channels } = setup();
+    const watcher = vi.fn();
+    const unwatch = courts.watch(watcher);
+    expect(courts.status('courts:v1')).toBeNull();
+    const leave = courts.join('courts:v1', 'jwt-1', listener());
+    await flush();
+    channels[0]!.status!('SUBSCRIBED');
+    expect(courts.status('courts:v1')).toBe('live');
+    channels[0]!.status!('CHANNEL_ERROR');
+    expect(courts.status('courts:v1')).toBe('disconnected');
+    const calls = watcher.mock.calls.length;
+    expect(calls).toBeGreaterThan(0);
+    leave();
+    expect(courts.status('courts:v1')).toBeNull();
+    expect(watcher.mock.calls.length).toBe(calls + 1);
+    unwatch();
+    courts.join('courts:v1', 'jwt-1', listener());
+    await vi.advanceTimersByTimeAsync(CHANNEL_RECONNECT_MIN_MS);
+    expect(watcher.mock.calls.length).toBe(calls + 1);
   });
 
   it('a dropped channel comes back with the newest token, and every consumer re-reads', async () => {
