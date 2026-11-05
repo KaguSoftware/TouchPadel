@@ -18,6 +18,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { formatNumber } from '@touch/i18n';
 import { Text, MinFontSize, STAFF_MIN_FONT } from '../src/i18n/text';
 import { useLocale } from '../src/i18n/LocaleProvider';
+import { mirror } from '../src/i18n/direction';
 import Svg, { Path } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BrandPattern } from '../src/components/BrandPattern';
@@ -199,7 +200,7 @@ function GroupTile({
             backgroundColor: colors.tint,
             alignItems: 'center',
             justifyContent: 'center',
-            transform: [{ scaleX: dir === 'rtl' ? -1 : 1 }],
+            ...mirror(dir),
           }}
         >
           <Svg width={12} height={12} viewBox="0 0 24 24" fill="none">

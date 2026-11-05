@@ -454,7 +454,7 @@ function AssistantScreen() {
       <Screen edges={[]} padded={false}>
         <Stack.Screen
           options={{
-            title: t('staff.assistant.free.title'),
+            title: owner ? t('staff.assistant.free.title') : t('staff.assistant.touch.title'),
             headerRight: () => (
               <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: space.m }}>
                 {newChatButton}

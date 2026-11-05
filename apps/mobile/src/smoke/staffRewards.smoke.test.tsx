@@ -8,6 +8,7 @@ import { describe, expect, it } from '@jest/globals';
 import { fireEvent, within } from '@testing-library/react-native';
 import { countPhrase, formatIQD, formatMonthLong, makeT, type Locale } from '@touch/i18n';
 import { runSmokeCases } from '../test/smokeCase';
+import { expectAlerted } from '../test/alertState';
 import { TEST_VENUE_ID, renderRoute } from '../test/smoke';
 import { routerState } from '../test/routerState';
 import { staffKeys } from '../features/staff/keys';
@@ -203,7 +204,7 @@ describe.each(LOCALES)('staff rewards in %s', (locale) => {
     }
   });
 
-  it("opens the owner's form in place and refuses a reward with nothing in it", () => {
+  it("opens the owner's form in place and refuses a reward with nothing in it", async () => {
     const screen = renderRoute(StaffRewardsAdmin, {
       locale,
       staff: { role: 'owner' },
@@ -220,7 +221,7 @@ describe.each(LOCALES)('staff rewards in %s', (locale) => {
       fireEvent.press(screen.getByTestId(`${id}.add`));
       fireEvent.changeText(screen.getByTestId(`${id}.target`), '300');
       fireEvent.press(screen.getByTestId(`${id}.save`));
-      expect(screen.getByText(t('staff.rewards.admin.rewardMissing'))).toBeTruthy();
+      await expectAlerted(t('staff.rewards.admin.rewardMissing'));
     } finally {
       screen.unmount();
     }

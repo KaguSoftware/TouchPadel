@@ -15,6 +15,7 @@ import { describe, expect, it } from '@jest/globals';
 import { act, fireEvent, within } from '@testing-library/react-native';
 import { formatNumber, makeT, type Locale } from '@touch/i18n';
 import { runSmokeCases } from '../test/smokeCase';
+import { expectAlerted } from '../test/alertState';
 import { TEST_VENUE_ID, renderRoute } from '../test/smoke';
 import { routerState } from '../test/routerState';
 import { staffKeys } from '../features/staff/keys';
@@ -253,7 +254,7 @@ describe.each<Locale>(['en', 'ar'])('place an order in %s', (locale) => {
     }
   });
 
-  it('reviews the order on its tab, and a count taken to 0 removes the line', () => {
+  it('reviews the order on its tab, and a count taken to 0 removes the line', async () => {
     updateDraft(T1, (d) => addLine(d, { itemId: ID(21), variantId: ID(22), qty: 1, modifierIds: [], note: '' }, 'k1'), {
       kind: 'tab',
       tabId: TAB_A,
@@ -268,7 +269,7 @@ describe.each<Locale>(['en', 'ar'])('place an order in %s', (locale) => {
       act(() => fireEvent.press(screen.getByTestId('staff-order-review.qty.k1.less')));
       expect(getDraft(T1)?.lines).toEqual([]);
       fireEvent.press(screen.getByTestId('staff-order-review.send'));
-      expect(screen.getByText(t('staff.floor.review.issues.empty'))).toBeTruthy();
+      await expectAlerted(t('staff.floor.review.issues.empty'));
     } finally {
       screen.unmount();
       clearDraft(T1);

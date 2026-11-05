@@ -137,6 +137,24 @@ export const staffAssistantEn = {
       generic: 'The free AI couldn’t answer. Try again.',
     },
   },
+  /**
+   * What every role but the owner sees in place of `free.*`: the same assistant under the name
+   * "Touch AI", with no word of free or paid (owner call 2026-11-05: only the owner is to know
+   * there is a paid one). Shared pieces (starters, thinking, errors.minute) stay in `free.*`.
+   */
+  touch: {
+    title: 'Touch AI',
+    intro:
+      'Touch AI: finds pages and explains how things work in the app. It can’t see sales, bookings or any other data.',
+    badge: 'Touch AI · can’t see any data',
+    errors: {
+      day: 'Today’s questions are used up; they come back tomorrow.',
+      busy: 'Touch AI is busy right now; try again in a minute.',
+      notConfigured: 'Touch AI isn’t set up yet.',
+      forbidden: 'This account can’t use Touch AI.',
+      generic: 'Touch AI couldn’t answer. Try again.',
+    },
+  },
   chats: {
     title: 'Chats',
     open: 'Chats',

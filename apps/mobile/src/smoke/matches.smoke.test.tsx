@@ -25,6 +25,7 @@ import { StyleSheet } from 'react-native';
 import { act, fireEvent, waitFor, within } from '@testing-library/react-native';
 import { countPhrase, isolate, isolateLtr, makeT, type Locale } from '@touch/i18n';
 import { runSmokeCases, type SmokeCase } from '../test/smokeCase';
+import { expectAlerted } from '../test/alertState';
 import { renderRoute } from '../test/smoke';
 import { routerState } from '../test/routerState';
 import {
@@ -598,7 +599,7 @@ describe.each(LOCALES)('open-match states in %s', (locale) => {
       await waitFor(() =>
         expect(rpc).toHaveBeenCalledWith('match_join', { p_match_id: TEST_MATCH_ID, p_friends: [] }),
       );
-      expect(await screen.findByText(t('matches.errors.full'))).toBeTruthy();
+      await expectAlerted(t('matches.errors.full'));
     } finally {
       screen.unmount();
       delete (supabase as { schema?: unknown }).schema;

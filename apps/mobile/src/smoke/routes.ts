@@ -131,7 +131,27 @@ export const SMOKE_ROUTES: readonly SmokeRoute[] = [
     primary: 'staff-production.record',
   },
   { file: '(staff)/staff-shopping.tsx', route: 'staff-shopping', primary: 'staff-shopping.add' },
-  { file: '(staff)/staff-purchase.tsx', route: 'staff-purchase', primary: 'staff-purchase.save' },
+  { file: '(staff)/staff-purchase.tsx', route: 'staff-purchase', primary: 'staff-purchase.empty' },
+  {
+    file: '(staff)/staff-purchase-new.tsx',
+    route: 'staff-purchase-new',
+    primary: 'staff-purchase-new.next',
+  },
+  {
+    file: '(staff)/staff-purchase-items.tsx',
+    route: 'staff-purchase-items',
+    primary: 'staff-purchase-items.next',
+  },
+  {
+    file: '(staff)/staff-purchase-review.tsx',
+    route: 'staff-purchase-review',
+    primary: 'staff-purchase-review.save',
+  },
+  {
+    file: '(staff)/staff-purchase-detail.tsx',
+    route: 'staff-purchase-detail',
+    primary: 'staff-purchase-detail.summary',
+  },
   // Phase 2 Milestone 4b: the camera pages.
   {
     file: '(staff)/staff-order-slip.tsx',

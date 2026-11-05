@@ -173,7 +173,10 @@ describe.each(LOCALES)('the owner assistant in %s', (locale) => {
       queryData: [[assistantKeys.models, MODELS]],
     });
     try {
-      expect(within(screen.getByTestId('staff-assistant.free.intro')).getByText(t('staff.assistant.free.intro'))).toBeTruthy();
+      expect(within(screen.getByTestId('staff-assistant.free.intro')).getByText(t('staff.assistant.touch.intro'))).toBeTruthy();
+      // Only the owner is told there is a free or a paid assistant.
+      expect(screen.queryByText(/free|paid|مجاني|مدفوع/i)).toBeNull();
+      expect(screen.queryByTestId('staff-assistant.free.use-paid')).toBeNull();
       expect(
         within(screen.getByTestId('staff-assistant.free.starter.dayOff')).getByText(
           t('staff.assistant.free.starters.dayOff'),

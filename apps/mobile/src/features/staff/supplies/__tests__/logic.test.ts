@@ -1,9 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { STAFF_ROLES } from '@touch/core';
 import { makeT } from '@touch/i18n';
-import type { IngredientOption, ShoppingItem } from '../api';
+import type { IngredientOption, PurchaseRow, ShoppingItem } from '../api';
 import {
   CAPS,
+  filterPurchases,
+  isDelivered,
+  matchShops,
+  recentShops,
   PURCHASE_ROLES,
   SHOPPING_ROLES,
   boughtUnit,
@@ -23,6 +27,7 @@ import {
   pruneTicks,
   purchaseArgs,
   purchaseTotal,
+  lineTotal,
   shoppingArgs,
   shoppingStatusesFor,
   shoppingView,
@@ -281,14 +286,16 @@ describe('the purchase form', () => {
       ],
       shop: ' Al-Rasheed ',
     };
-    expect(purchaseTotal(draft.lines)).toBe(63000);
-    expect(purchaseArgs(draft, VENUE, 'v/receipts/x.jpg')).toEqual({
+    // The flour is paid for in grams, as one amount; the ice is a price each, so 2 × 3,000.
+    const unitOf = (line: (typeof draft.lines)[number]) => (line.kind === 'list' ? ('g' as const) : null);
+    expect(purchaseTotal(draft.lines, unitOf)).toBe(66000);
+    expect(purchaseArgs(draft, VENUE, 'v/receipts/x.jpg', unitOf)).toEqual({
       p_venue_id: VENUE,
       p_lines: [
         { shopping_item_id: ID(20), qty: 2000, price_iqd: 60000 },
-        { label: 'Ice', qty: 2, price_iqd: 3000 },
+        { label: 'Ice', qty: 2, price_iqd: 6000 },
       ],
-      p_total_iqd: 63000,
+      p_total_iqd: 66000,
       p_shop: 'Al-Rasheed',
       p_receipt_path: 'v/receipts/x.jpg',
     });
@@ -302,6 +309,15 @@ describe('the purchase form', () => {
         { kind: 'list', itemId: ID(2), qty: '1', price: 'abc' },
       ]),
     ).toBe(1000);
+  });
+
+  it('works a line out as quantity × price each, but not for grams or millilitres', () => {
+    const line = { kind: 'free' as const, label: 'Milk', qty: '6', price: '2,000' };
+    expect(lineTotal(line)).toBe(12000);
+    expect(lineTotal({ ...line, qty: '0.5', price: '2001' })).toBe(1001);
+    expect(lineTotal(line, 'g')).toBe(2000);
+    expect(lineTotal({ ...line, price: 'abc' })).toBeNull();
+    expect(lineTotal({ ...line, qty: '' })).toBeNull();
   });
 
   it('names the ticked lines no longer open', () => {
@@ -327,5 +343,62 @@ describe('showing a line', () => {
     expect(lineName(stock, 'ar')).toBe('طحين');
     expect(lineName({ name_en: 'Flour', name_ar: null, label: null }, 'ar')).toBe('Flour');
     expect(lineName({ name_en: null, name_ar: null, label: 'Dish soap' }, 'ar')).toBe('Dish soap');
+  });
+});
+
+describe('the purchases filter', () => {
+  const row = (id: string, status: PurchaseRow['status'], delivered_at: string | null): PurchaseRow => ({
+    id,
+    bought_at: '2026-11-05T09:00:00Z',
+    shop_name: null,
+    total_iqd: 1000,
+    status,
+    receipt_path: null,
+    delivered_at,
+    lines: [],
+  });
+  const waiting = row('a', 'to_receive', null);
+  const delivered = row('b', 'to_receive', '2026-11-05T10:00:00Z');
+  const stocked = row('c', 'done', null);
+
+  it('counts a delivery time or a stocked purchase as delivered', () => {
+    expect(isDelivered(waiting)).toBe(false);
+    expect(isDelivered(delivered)).toBe(true);
+    expect(isDelivered(stocked)).toBe(true);
+  });
+
+  it('shows all, the ones still to receive, or the delivered ones, in order', () => {
+    const all = [waiting, delivered, stocked];
+    expect(filterPurchases(all, 'all').map((p) => p.id)).toEqual(['a', 'b', 'c']);
+    expect(filterPurchases(all, 'to_receive').map((p) => p.id)).toEqual(['a']);
+    expect(filterPurchases(all, 'delivered').map((p) => p.id)).toEqual(['b', 'c']);
+  });
+});
+
+describe('the purchase form: shop suggestions and the quantity cap', () => {
+  it('lists earlier shops newest first, once each', () => {
+    const rows = [
+      { shop_name: 'Mazin Wholesale', bought_at: '2026-11-01T10:00:00Z' },
+      { shop_name: 'Al-Noor Market', bought_at: '2026-11-05T09:00:00Z' },
+      { shop_name: 'al-noor market', bought_at: '2026-11-03T09:00:00Z' },
+      { shop_name: null, bought_at: '2026-11-04T09:00:00Z' },
+    ];
+    expect(recentShops(rows)).toEqual(['Al-Noor Market', 'Mazin Wholesale']);
+  });
+
+  it('suggests shops holding what is typed, and none when nothing matches', () => {
+    const shops = ['Al-Noor Market', 'Mazin Wholesale'];
+    expect(matchShops(shops, '')).toEqual(shops);
+    expect(matchShops(shops, 'al-n')).toEqual(['Al-Noor Market']);
+    expect(matchShops(shops, 'zam')).toEqual([]);
+    expect(matchShops(shops, 'سوق')).toEqual([]);
+    expect(matchShops(shops, 'al-noor market')).toEqual([]);
+  });
+
+  it('caps a quantity below 1000 in every unit', () => {
+    const line = (qty: string) => ({ lines: [{ kind: 'free' as const, label: 'Rice', qty, price: '100' }], shop: '' });
+    expect(validatePurchase(line('999'))).toEqual([]);
+    expect(validatePurchase(line('1000'))).toEqual([{ field: 'qty', code: 'tooLong', line: 0 }]);
+    expect(validatePurchase(line('5000'), () => 'g')).toEqual([{ field: 'qty', code: 'tooLong', line: 0 }]);
   });
 });

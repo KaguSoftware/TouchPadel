@@ -16,6 +16,7 @@
  * `no-restricted-syntax` rule in `@touch/config/eslint` (`testIdRules`) fails
  * `lint` on any call site that leaves one off.
  */
+import { ErrorAlert } from './overlays';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type Ref } from 'react';
 import {
   ActivityIndicator,
@@ -362,17 +363,13 @@ export function Hint({ children, style }: { children: ReactNode; style?: StylePr
 }
 
 export function ErrorText({ children }: { children: ReactNode }) {
-  const { colors, fonts } = useTheme();
-  if (!children) return null;
-  return (
-    <Text
-      accessibilityLiveRegion="polite"
-      style={{ fontFamily: fonts.body700, fontSize: 12.5, color: colors.redtext, marginTop: space.s }}
-    >
-      {children}
-    </Text>
-  );
+  // The platform's own alert, never a line of red text; every ErrorText on
+  // screen shares one alert (see `ErrorAlert` in overlays.tsx).
+  const message = typeof children === 'string' || typeof children === 'number' ? String(children) : null;
+  return <ErrorAlert message={message || null} onDismiss={noop} />;
 }
+
+const noop = () => {};
 
 /**
  * Inline text link with a real touch target. The auth footers used bare

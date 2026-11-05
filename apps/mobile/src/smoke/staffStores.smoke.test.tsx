@@ -15,6 +15,7 @@ import { ActionSheetIOS } from 'react-native';
 import { fireEvent, within } from '@testing-library/react-native';
 import { makeT, type Locale } from '@touch/i18n';
 import { runSmokeCases } from '../test/smokeCase';
+import { expectAlerted } from '../test/alertState';
 import { TEST_VENUE_ID, renderRoute } from '../test/smoke';
 import { staffKeys } from '../features/staff/keys';
 import type { PickItem, PickList, StockToday } from '../features/staff/stores/logic';
@@ -215,7 +216,7 @@ describe.each(LOCALES)('who sees what on the store pages in %s', (locale) => {
     }
   });
 
-  it('names the driver’s purchases still waiting, shows the day’s additions, and asks for an amount', () => {
+  it('names the driver’s purchases still waiting, shows the day’s additions, and asks for an amount', async () => {
     const screen = renderRoute(StaffStockLog, {
       locale,
       staff: { role: 'head_barista' },
@@ -230,7 +231,7 @@ describe.each(LOCALES)('who sees what on the store pages in %s', (locale) => {
       expect(screen.getByTestId('staff-stock-log.today.dl-1')).toBeTruthy();
       // Nothing picked yet: Save says to pick something.
       fireEvent.press(screen.getByTestId('staff-stock-log.save'));
-      expect(screen.getByText(t('staff.stores.errors.lines'))).toBeTruthy();
+      await expectAlerted(t('staff.stores.errors.lines'));
       // A short list is offered whole; pressing an item adds its line.
       fireEvent.press(screen.getByTestId('staff-stock-log.item.flour'));
       expect(screen.getByTestId('staff-stock-log.qty.flour')).toBeTruthy();
@@ -238,7 +239,7 @@ describe.each(LOCALES)('who sees what on the store pages in %s', (locale) => {
       expect(screen.getByTestId('staff-stock-log.unit.flour')).toBeTruthy();
       expect(screen.queryByTestId('staff-stock-log.item.flour')).toBeNull();
       fireEvent.press(screen.getByTestId('staff-stock-log.save'));
-      expect(screen.getByText(t('staff.stores.errors.qty'))).toBeTruthy();
+      await expectAlerted(t('staff.stores.errors.qty'));
       // The use-by date waits behind a link.
       expect(screen.queryByTestId('staff-stock-log.expiry.flour')).toBeNull();
       fireEvent.press(screen.getByTestId('staff-stock-log.expiry-add.flour'));
@@ -248,7 +249,7 @@ describe.each(LOCALES)('who sees what on the store pages in %s', (locale) => {
     }
   });
 
-  it('refuses a shop line outside the shop store before it is sent (0245)', () => {
+  it('refuses a shop line outside the shop store before it is sent (0245)', async () => {
     const screen = renderRoute(StaffStockLog, {
       locale,
       staff: { role: 'manager' },
@@ -262,15 +263,14 @@ describe.each(LOCALES)('who sees what on the store pages in %s', (locale) => {
     try {
       fireEvent.press(screen.getByTestId('staff-stock-log.store.shop'));
       fireEvent.press(screen.getByTestId('staff-stock-log.item.grip'));
-      expect(screen.queryByText(t('staff.stores.errors.cafeOnly'))).toBeNull();
       fireEvent.press(screen.getByTestId('staff-stock-log.store.bakery'));
-      expect(screen.getByText(t('staff.stores.errors.cafeOnly'))).toBeTruthy();
+      await expectAlerted(t('staff.stores.errors.cafeOnly'));
     } finally {
       screen.unmount();
     }
   });
 
-  it('shows what the source holds and refuses a move larger than that, then swaps the stores', () => {
+  it('shows what the source holds and refuses a move larger than that, then swaps the stores', async () => {
     const screen = renderRoute(StaffStockMove, {
       locale,
       staff: { role: 'waiter' },
@@ -285,16 +285,14 @@ describe.each(LOCALES)('who sees what on the store pages in %s', (locale) => {
       fireEvent.press(screen.getByTestId('staff-stock-move.item.buns'));
       fireEvent.changeText(screen.getByTestId('staff-stock-move.qty.buns'), '50');
       fireEvent.press(screen.getByTestId('staff-stock-move.move'));
-      expect(
-        screen.getByText(
-          t('staff.stores.errors.short.cafe', {
-            qty: t('staff.supplies.qtyUnit', {
-              qty: '40',
-              unit: t('staff.supplies.units.many.pc'),
-            }),
+      await expectAlerted(
+        t('staff.stores.errors.short.cafe', {
+          qty: t('staff.supplies.qtyUnit', {
+            qty: '40',
+            unit: t('staff.supplies.units.many.pc'),
           }),
-        ),
-      ).toBeTruthy();
+        }),
+      );
       fireEvent.press(screen.getByTestId('staff-stock-move.swap'));
       expect(screen.getByText(t('staff.stores.move.save.cafe'))).toBeTruthy();
     } finally {
@@ -302,7 +300,7 @@ describe.each(LOCALES)('who sees what on the store pages in %s', (locale) => {
     }
   });
 
-  it('counts blind: names and units only, and counts what was typed', () => {
+  it('counts blind: names and units only, and counts what was typed', async () => {
     const screen = renderRoute(StaffStockCount, {
       locale,
       staff: { role: 'head_chef' },
@@ -323,7 +321,7 @@ describe.each(LOCALES)('who sees what on the store pages in %s', (locale) => {
         screen.getByText(t('staff.stores.count.counted', { count: 0, total: 2 })),
       ).toBeTruthy();
       fireEvent.press(screen.getByTestId('staff-stock-count.submit'));
-      expect(screen.getByText(t('staff.stores.errors.countNone'))).toBeTruthy();
+      await expectAlerted(t('staff.stores.errors.countNone'));
       fireEvent.changeText(screen.getByTestId('staff-stock-count.item.buns'), '0');
       expect(
         screen.getByText(t('staff.stores.count.counted', { count: 1, total: 2 })),

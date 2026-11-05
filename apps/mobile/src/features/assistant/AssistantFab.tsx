@@ -34,6 +34,8 @@ import { GlassAssistantButton } from './GlassAssistantButton';
 
 const SIZE = 56;
 const EDGE = 16;
+/** How far it rides up on a page that ends in a bottom action bar (Save, Request). */
+const LIFT = 72;
 
 /** The "new" forms the header + opens (src/navigation/headerAdd.tsx). */
 const ADD_ROUTES = new Set([
@@ -69,14 +71,32 @@ export function useHideAssistantFab(hidden: boolean) {
   }, [hidden, setHidden]);
 }
 
+const LiftFab = createContext<(lifted: boolean) => void>(() => {});
+
+/**
+ * Raises the page's floating button while `lifted`: the page ends in a bottom
+ * action bar (ScreenWithBar), which the button would sit over. Pages without
+ * one keep it in the corner.
+ */
+export function useLiftAssistantFab(lifted: boolean) {
+  const setLifted = useContext(LiftFab);
+  useEffect(() => {
+    setLifted(lifted);
+    return () => setLifted(false);
+  }, [lifted, setLifted]);
+}
+
 function FabPage({ path, children }: { path: string; children: ReactElement }) {
   const [hidden, setHidden] = useState(false);
+  const [lifted, setLifted] = useState(false);
   return (
     <HideFab.Provider value={setHidden}>
-      <View style={{ flex: 1 }}>
-        {children}
-        {hidden ? null : <AssistantFab path={path} />}
-      </View>
+      <LiftFab.Provider value={setLifted}>
+        <View style={{ flex: 1 }}>
+          {children}
+          {hidden ? null : <AssistantFab path={path} lifted={lifted} />}
+        </View>
+      </LiftFab.Provider>
     </HideFab.Provider>
   );
 }
@@ -102,7 +122,7 @@ export function withAssistantFab({
 }
 
 /** `path` is the screen it is drawn in; without one, the current pathname. */
-export function AssistantFab({ path }: { path?: string }) {
+export function AssistantFab({ path, lifted = false }: { path?: string; lifted?: boolean }) {
   const pathname = usePathname();
   const insets = useSafeAreaInsets();
   if (fabHidden(path ?? pathname)) return null;
@@ -110,7 +130,7 @@ export function AssistantFab({ path }: { path?: string }) {
     <AssistantButton
       testID="staff.assistant.fab"
       from={path ?? pathname}
-      style={{ position: 'absolute', end: EDGE, bottom: EDGE + insets.bottom }}
+      style={{ position: 'absolute', end: EDGE, bottom: EDGE + (lifted ? LIFT : 0) + insets.bottom }}
     />
   );
 }

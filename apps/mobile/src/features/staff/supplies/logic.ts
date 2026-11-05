@@ -13,6 +13,7 @@ import type {
   AddShoppingArgs,
   IngredientOption,
   PurchaseLineArg,
+  PurchaseRow,
   RecordPurchaseArgs,
   ShoppingItem,
 } from './api';
@@ -42,6 +43,8 @@ export const CAPS = {
   shop: 80,
   declineReason: 300,
   purchaseLines: 40,
+  /** A bought quantity stays below this, in every unit. */
+  purchaseQtyBelow: 1000,
   /** numeric(12,3): refused at or above this. */
   qtyBelow: 1_000_000_000,
   /** The `iqd` domain's ceiling on a line price (0166 record_purchase). */
@@ -358,7 +361,15 @@ export interface PurchaseIssue {
   line?: number;
 }
 
-export function validatePurchase(draft: PurchaseDraft): PurchaseIssue[] {
+/**
+ * `unitOf` names the unit a line is typed in (a list line's, from the shopping
+ * list), which decides how its price is read (`lineTotal`). A quantity stays
+ * below `CAPS.purchaseQtyBelow` in every unit.
+ */
+export function validatePurchase(
+  draft: PurchaseDraft,
+  unitOf?: (line: PurchaseLineDraft) => ShoppingUnit | null,
+): PurchaseIssue[] {
   const issues: PurchaseIssue[] = [];
   if (draft.lines.length === 0) issues.push({ field: 'lines', code: 'required' });
   if (draft.lines.length > CAPS.purchaseLines) issues.push({ field: 'lines', code: 'tooLong' });
@@ -369,31 +380,61 @@ export function validatePurchase(draft: PurchaseDraft): PurchaseIssue[] {
       else if (label.length > CAPS.label) issues.push({ field: 'label', code: 'tooLong', line: i });
     }
     if (!line.qty.trim()) issues.push({ field: 'qty', code: 'required', line: i });
-    else if (parseTypedQty(line.qty) === null) issues.push({ field: 'qty', code: 'invalid', line: i });
+    else {
+      const qty = parseTypedQty(line.qty);
+      if (qty === null) issues.push({ field: 'qty', code: 'invalid', line: i });
+      else if (qty >= CAPS.purchaseQtyBelow) issues.push({ field: 'qty', code: 'tooLong', line: i });
+    }
     if (!line.price.trim()) issues.push({ field: 'price', code: 'required', line: i });
-    else if (parseTypedIqd(line.price) === null) issues.push({ field: 'price', code: 'invalid', line: i });
+    else if (lineTotal(line, unitOf?.(line) ?? null) === null) issues.push({ field: 'price', code: 'invalid', line: i });
   });
   if (draft.shop.trim().length > CAPS.shop) issues.push({ field: 'shop', code: 'tooLong' });
   return issues;
 }
 
-/** What the lines add up to, counting only prices typed properly (the total shown while typing). */
-export function purchaseTotal(lines: readonly PurchaseLineDraft[]): number {
-  return lines.reduce((sum, line) => sum + (parseTypedIqd(line.price) ?? 0), 0);
+/** What a line's unit decides: grams and millilitres are paid for as one amount, anything else is a price each. */
+export type UnitOf = (line: PurchaseLineDraft) => ShoppingUnit | null;
+
+/** Whether the price typed on a line is the price of ONE unit (so the line costs quantity × price). */
+export function isPricedEach(unit: ShoppingUnit | null): boolean {
+  return unit !== 'g' && unit !== 'ml';
 }
 
 /**
- * `record_purchase`'s arguments for a draft that validated. The total paid is
- * the lines' sum: the receipt photo is the record of what the shop charged.
+ * What a line cost, in whole IQD, or null while it is not typed properly. A line
+ * in pieces, packs or no unit is typed as a price each and costs quantity ×
+ * price; one in grams or millilitres is typed as the amount paid (nobody prices
+ * a single gram).
+ */
+export function lineTotal(line: PurchaseLineDraft, unit: ShoppingUnit | null = null): number | null {
+  const price = parseTypedIqd(line.price);
+  if (price === null) return null;
+  if (!isPricedEach(unit)) return price;
+  const qty = parseTypedQty(line.qty);
+  if (qty === null) return null;
+  const total = Math.round(qty * price);
+  return Number.isSafeInteger(total) && total <= CAPS.priceMax ? total : null;
+}
+
+/** What the lines add up to, counting only lines typed properly (the total shown while typing). */
+export function purchaseTotal(lines: readonly PurchaseLineDraft[], unitOf?: UnitOf): number {
+  return lines.reduce((sum, line) => sum + (lineTotal(line, unitOf?.(line) ?? null) ?? 0), 0);
+}
+
+/**
+ * `record_purchase`'s arguments for a draft that validated. Each line carries
+ * what it cost in total, and the total paid is the lines' sum: the receipt
+ * photo is the record of what the shop charged.
  */
 export function purchaseArgs(
   draft: PurchaseDraft,
   venueId: string,
   receiptPath: string | null,
+  unitOf?: UnitOf,
 ): RecordPurchaseArgs {
   const lines: PurchaseLineArg[] = draft.lines.map((line) => {
     const qty = parseTypedQty(line.qty) ?? 0;
-    const price_iqd = parseTypedIqd(line.price) ?? 0;
+    const price_iqd = lineTotal(line, unitOf?.(line) ?? null) ?? 0;
     return line.kind === 'list'
       ? { shopping_item_id: line.itemId, qty, price_iqd }
       : { label: line.label.trim(), qty, price_iqd };
@@ -401,7 +442,7 @@ export function purchaseArgs(
   return {
     p_venue_id: venueId,
     p_lines: lines,
-    p_total_iqd: purchaseTotal(draft.lines),
+    p_total_iqd: purchaseTotal(draft.lines, unitOf),
     p_shop: draft.shop.trim() || null,
     p_receipt_path: receiptPath,
   };
@@ -411,4 +452,49 @@ export function purchaseArgs(
 export function missingItemIds(ids: readonly string[], open: readonly ShoppingItem[]): string[] {
   const openIds = new Set(open.map((i) => i.id));
   return ids.filter((id) => !openIds.has(id));
+}
+
+// ── The purchases list's filter ─────────────────────────────────────────────
+
+export type PurchaseFilter = 'all' | 'to_receive' | 'delivered';
+export const PURCHASE_FILTERS: readonly PurchaseFilter[] = ['all', 'to_receive', 'delivered'];
+
+/** A purchase counts as delivered once it has a delivery time or Goods in has taken it into stock. */
+export function isDelivered(p: Pick<PurchaseRow, 'status' | 'delivered_at'>): boolean {
+  return p.status === 'done' || p.delivered_at !== null;
+}
+
+/** The purchases a filter shows, in the order given. */
+export function filterPurchases(rows: readonly PurchaseRow[], filter: PurchaseFilter): PurchaseRow[] {
+  if (filter === 'all') return [...rows];
+  return rows.filter((p) => isDelivered(p) === (filter === 'delivered'));
+}
+
+// ── The purchase form's shop suggestions ────────────────────────────────────
+
+/** The shops of earlier purchases, newest first, each once (ignoring case), at most `limit`. */
+export function recentShops(rows: readonly Pick<PurchaseRow, 'shop_name' | 'bought_at'>[], limit = 8): string[] {
+  const sorted = [...rows].sort((a, b) => b.bought_at.localeCompare(a.bought_at));
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const r of sorted) {
+    const name = r.shop_name?.trim();
+    if (!name || seen.has(name.toLowerCase())) continue;
+    seen.add(name.toLowerCase());
+    out.push(name);
+    if (out.length === limit) break;
+  }
+  return out;
+}
+
+/**
+ * The shops to suggest for what is typed: those holding the text (any case, any
+ * alphabet), none when the text matches nothing, and none once the only match
+ * is exactly what was typed. An empty field suggests the recent shops.
+ */
+export function matchShops(shops: readonly string[], typed: string): string[] {
+  const q = typed.trim().toLowerCase();
+  if (!q) return [...shops];
+  const found = shops.filter((s) => s.toLowerCase().includes(q));
+  return found.length === 1 && found[0]?.toLowerCase() === q ? [] : found;
 }

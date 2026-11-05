@@ -27,6 +27,7 @@ import {
   Alert,
   Image,
   Linking,
+  Modal,
   Platform,
   Pressable,
   View,
@@ -44,8 +45,8 @@ import {
   type PickedPhoto,
   type PhotoSource,
 } from '../features/staff/photo';
-import { radius, space, useTheme } from '../theme';
-import { CloseIcon } from './icons';
+import { brand, radius, space, useTheme } from '../theme';
+import { CameraIcon, CloseIcon } from './icons';
 import { ErrorText, LinkText } from './ui';
 
 export interface AttachedPhoto {
@@ -70,6 +71,12 @@ export interface PhotoButtonProps {
    * instead. Unset, the tile asks which, as before.
    */
   source?: PhotoSource;
+  /**
+   * The empty add tile as one big dashed card (a round camera button, a title
+   * and a line under it) for a page whose photo is the point of the step, the
+   * purchase's receipt. Once the photo is in, the usual thumbnail takes over.
+   */
+  hero?: { title: string; hint: string };
 }
 
 const TILE = 72;
@@ -121,10 +128,13 @@ export function PhotoButton({
   max = 6,
   disabled,
   source: firstSource,
+  hero,
 }: PhotoButtonProps) {
   const { t } = useLocale();
   const { colors, fonts } = useTheme();
   const [busy, setBusy] = useState(false);
+  /** A photo opened full screen (hero mode). */
+  const [viewing, setViewing] = useState(false);
   const running = useRef(false);
   const [problem, setProblem] = useState<Problem>(null);
   /** A photo taken whose upload failed: offered again, so it is not taken twice. */
@@ -179,6 +189,95 @@ export function PhotoButton({
 
   const full = photos.length >= max;
 
+  // Hero mode shows the picked photo big, tap to open it full screen, with a
+  // button to take it off and choose another.
+  const picked = hero ? photos[0] : undefined;
+  if (picked) {
+    return (
+      <View
+        style={{
+          padding: space.s,
+          borderRadius: radius.sheet,
+          borderWidth: 1,
+          borderColor: colors.line,
+          backgroundColor: colors.card,
+        }}
+      >
+        <Pressable
+          testID={`${testID}.view`}
+          accessibilityRole="imagebutton"
+          accessibilityLabel={t('staff.media.photo', { n: 1 })}
+          onPress={() => setViewing(true)}
+        >
+          <Image
+            source={{ uri: picked.uri }}
+            resizeMode="cover"
+            style={{
+              width: '100%',
+              height: 240,
+              borderRadius: radius.cell + 2,
+              backgroundColor: colors.sub,
+            }}
+          />
+        </Pressable>
+        <Pressable
+          testID={`${testID}.0.remove`}
+          accessibilityRole="button"
+          accessibilityLabel={t('staff.media.remove', { n: 1 })}
+          disabled={disabled || busy}
+          onPress={() => remove(0)}
+          hitSlop={8}
+          style={({ pressed }) => ({
+            position: 'absolute',
+            top: space.m + 2,
+            end: space.m + 2,
+            width: 36,
+            height: 36,
+            borderRadius: radius.pill,
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: colors.card,
+            borderWidth: 1,
+            borderColor: colors.line,
+            opacity: pressed ? 0.7 : 1,
+          })}
+        >
+          <CloseIcon size={16} color={colors.ink} strokeWidth={2.4} />
+        </Pressable>
+        <Modal visible={viewing} transparent animationType="fade" onRequestClose={() => setViewing(false)}>
+          <View style={{ flex: 1, backgroundColor: '#000000F2', justifyContent: 'center' }}>
+            <Image
+              source={{ uri: picked.uri }}
+              accessibilityLabel={t('staff.media.photo', { n: 1 })}
+              resizeMode="contain"
+              style={{ width: '100%', height: '80%' }}
+            />
+            <Pressable
+              testID={`${testID}.close`}
+              accessibilityRole="button"
+              accessibilityLabel={t('common.cancel')}
+              onPress={() => setViewing(false)}
+              hitSlop={10}
+              style={{
+                position: 'absolute',
+                top: 56,
+                end: space.l,
+                width: 44,
+                height: 44,
+                borderRadius: radius.pill,
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: '#FFFFFF2E',
+              }}
+            >
+              <CloseIcon size={20} color={brand.white} strokeWidth={2.4} />
+            </Pressable>
+          </View>
+        </Modal>
+      </View>
+    );
+  }
+
   return (
     <View>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space.s }}>
@@ -229,12 +328,17 @@ export function PhotoButton({
             disabled={disabled || busy}
             onPress={() => void add()}
             style={({ pressed }) => ({
-              width: TILE,
-              height: TILE,
-              borderRadius: radius.cell,
-              borderWidth: 1.5,
+              width: hero ? '100%' : TILE,
+              height: hero ? undefined : TILE,
+              paddingTop: hero ? 22 : 0,
+              paddingBottom: hero ? 22 : 0,
+              paddingStart: hero ? 16 : 0,
+              paddingEnd: hero ? 16 : 0,
+              gap: hero ? 8 : 0,
+              borderRadius: hero ? radius.sheet : radius.cell,
+              borderWidth: hero ? 2 : 1.5,
               borderStyle: 'dashed',
-              borderColor: colors.line,
+              borderColor: hero ? colors.blue : colors.line,
               backgroundColor: colors.card,
               alignItems: 'center',
               justifyContent: 'center',
@@ -243,6 +347,25 @@ export function PhotoButton({
           >
             {busy ? (
               <ActivityIndicator color={colors.blue} />
+            ) : hero ? (
+              <>
+                <View
+                  style={{
+                    width: 56,
+                    height: 56,
+                    borderRadius: 28,
+                    backgroundColor: brand.blue,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <CameraIcon size={26} color={brand.white} strokeWidth={2} />
+                </View>
+                <Text style={{ fontFamily: fonts.display800, fontSize: 16, color: colors.blue }}>{hero.title}</Text>
+                <Text style={{ fontFamily: fonts.body600, fontSize: 12.5, color: colors.mut, textAlign: 'center' }}>
+                  {hero.hint}
+                </Text>
+              </>
             ) : (
               <Svg width={22} height={22} viewBox="0 0 24 24" fill="none" accessible={false}>
                 <Path

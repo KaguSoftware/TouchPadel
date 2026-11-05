@@ -18,6 +18,7 @@ import { afterEach, describe, expect, it, jest } from '@jest/globals';
 import { act, fireEvent, waitFor, within } from '@testing-library/react-native';
 import { wallTimeToUtc, type GenderRuleLike } from '@touch/core';
 import { makeT, type Locale } from '@touch/i18n';
+import { expectAlerted } from '../test/alertState';
 import { renderRoute } from '../test/smoke';
 import { supabase } from '../lib/supabase';
 import {
@@ -52,7 +53,7 @@ const checked = (node: { props: { accessibilityState?: { checked?: boolean } } }
 describe.each<Locale>(['en', 'ar'])('a gender for every account in %s', (locale) => {
   const t = makeT(locale);
 
-  it('complete-profile asks it with nothing picked, and Save refuses until one is', () => {
+  it('complete-profile asks it with nothing picked, and Save refuses until one is', async () => {
     const screen = renderRoute(CompleteProfileScreen, {
       locale,
       session: 'in',
@@ -68,11 +69,10 @@ describe.each<Locale>(['en', 'ar'])('a gender for every account in %s', (locale)
       expect(within(screen.getByTestId('complete-profile.gender.female')).getByText(t('matches.gender.female'))).toBeTruthy();
 
       fireEvent.press(screen.getByTestId('complete-profile.submit'));
-      expect(screen.getByText(t('guestGender.required'))).toBeTruthy();
+      await expectAlerted(t('guestGender.required'));
 
       fireEvent.press(screen.getByTestId('complete-profile.gender.male'));
       expect(checked(screen.getByTestId('complete-profile.gender.male'))).toBe(true);
-      expect(screen.queryByText(t('guestGender.required'))).toBeNull();
     } finally {
       screen.unmount();
     }
@@ -129,7 +129,7 @@ describe.each<Locale>(['en', 'ar'])('a gender for every account in %s', (locale)
     }
   });
 
-  it('sign up asks it under the name and refuses without it', () => {
+  it('sign up asks it under the name and refuses without it', async () => {
     const screen = renderRoute(SignUpScreen, { locale });
     try {
       const picker = screen.getByTestId('sign-up.gender');
@@ -137,9 +137,8 @@ describe.each<Locale>(['en', 'ar'])('a gender for every account in %s', (locale)
       fireEvent.changeText(screen.getByTestId('sign-up.first-name'), 'Sara');
       fireEvent.changeText(screen.getByTestId('sign-up.last-name'), 'Ali');
       fireEvent.press(screen.getByTestId('sign-up.submit'));
-      expect(screen.getByText(t('guestGender.required'))).toBeTruthy();
+      await expectAlerted(t('guestGender.required'));
       fireEvent.press(screen.getByTestId('sign-up.gender.female'));
-      expect(screen.queryByText(t('guestGender.required'))).toBeNull();
     } finally {
       screen.unmount();
     }

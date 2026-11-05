@@ -258,7 +258,7 @@ function ShoppingScreen() {
 
   const onRecord = () => {
     router.push({
-      pathname: '/staff-purchase',
+      pathname: '/staff-purchase-new',
       params: { itemIds: tickedInOrder(openItems, liveTicks).join(',') },
     });
   };

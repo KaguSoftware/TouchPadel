@@ -1,468 +1,107 @@
-import { useMemo, useState } from 'react';
-import { Alert, RefreshControl, View } from 'react-native';
-import { Stack, useLocalSearchParams } from 'expo-router';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
+import { RefreshControl, View } from 'react-native';
+import { Stack, useRouter } from 'expo-router';
+import { useQuery } from '@tanstack/react-query';
 import { formatDateTime, formatIQD, isolate } from '@touch/i18n';
 import { Text } from '../../src/i18n/text';
 import { useLocale } from '../../src/i18n/LocaleProvider';
-import { space, useTheme } from '../../src/theme';
-import { Button, Card, Field, Hint, LinkText, MicroLabel, Screen } from '../../src/components/ui';
+import { brand, space, useTheme } from '../../src/theme';
+import { Button, Hint, Screen, SegmentedControl } from '../../src/components/ui';
 import { ScreenWithBar } from '../../src/components/BottomBar';
-import { useFieldChain } from '../../src/components/fieldChain';
 import { EmptyState, ErrorState, SkeletonList } from '../../src/components/states';
-import { useToast } from '../../src/components/overlays';
-import { PhotoButton, type AttachedPhoto } from '../../src/components/PhotoButton';
 import { RequireStaff } from '../../src/features/staff/RequireStaff';
 import { useStaffStatus } from '../../src/features/staff/StaffStatusProvider';
 import { mapStaffError } from '../../src/features/staff/edge';
 import { staffKeys } from '../../src/features/staff/keys';
-import { clearStaffIntentKey, staffIntentKey } from '../../src/lib/idempotency';
-import { StoredPhotos } from '../../src/features/staff/supplies/StoredPhotos';
-import { GroupLabel, Tag } from '../../src/features/staff/checklists/parts';
+import { PurchaseCard, usePurchaseDelivery } from '../../src/features/staff/supplies/PurchaseParts';
 import { usePullRefresh } from '../../src/lib/usePullRefresh';
+import { useHeaderAddOptions } from '../../src/navigation/headerAdd';
+import { fetchMyPurchases, type PurchaseRow } from '../../src/features/staff/supplies/api';
 import {
-  SHOPPING_LIST_STATUSES,
-  confirmPurchaseDelivery,
-  fetchIngredientOptions,
-  fetchMyPurchases,
-  fetchShoppingList,
-  recordPurchase,
-  type IngredientOption,
-  type PurchaseRow,
-  type ShoppingItem,
-} from '../../src/features/staff/supplies/api';
-import {
+  PURCHASE_FILTERS,
   PURCHASE_ROLES,
-  boughtUnit,
-  emptyFreeLine,
-  formatQty,
-  intentFor,
-  lineName,
-  listLineFor,
-  missingItemIds,
-  parseItemIds,
-  purchaseArgs,
-  purchaseTotal,
-  validatePurchase,
-  type PurchaseField,
-  type PurchaseIssue,
-  type PurchaseLineDraft,
+  filterPurchases,
+  type PurchaseFilter,
 } from '../../src/features/staff/supplies/logic';
 
 /**
  * Purchases (build-contracts-2026-09-23 §6.1, §2.24.10; plan #70).
  *
- * The driver records one purchase per shop: the lines ticked on the shopping
- * list (`?itemIds=`, prefilled with what the list asked for, a pack line
- * turned into the base unit stock is counted in), anything bought that was
- * not on the list, what was paid and the receipt photo. Then each purchase
- * gets "Delivered" once the goods are at the venue. The manager receives it
- * into stock in Goods in on the operator (plan #30), which never waits for
- * Delivered.
- *
- * Managers and the owner read the venue's purchases here with their receipts
+ * The venue's purchases, each a card headed by its status band (amber while
+ * the goods are still to receive, green once delivered) with the shop, when it
+ * was bought and what was paid. "Details" opens the purchase's own page
+ * (`staff-purchase-detail`: items, info and the receipt) and "Delivered"
+ * confirms the goods are at the venue. The driver records a new purchase on its
+ * own page (`staff-purchase-new`), opened from the + in the native bar like
+ * every other "new" in the app. Managers and the owner read the list
  * (my_purchases answers them every purchase) and may confirm a delivery; they
- * record nothing on the phone. Nothing here touches the till, the drawer or
- * day close.
+ * record nothing on the phone. Nothing here touches the till, the drawer or day
+ * close.
  */
-
-type LineErrors = Partial<Record<PurchaseField, string>>;
-
-function PurchaseScreen() {
+function PurchasesScreen() {
   const { t, locale } = useLocale();
-  const { colors, fonts } = useTheme();
-  const toast = useToast();
-  const queryClient = useQueryClient();
+  const { colors, fonts, appearance } = useTheme();
+  const dark = appearance === 'dark';
+  const router = useRouter();
   const { status, venueId } = useStaffStatus();
-  const params = useLocalSearchParams<{ itemIds?: string }>();
 
   const role = status.kind === 'staff' ? status.staff.role : null;
   const buyer = role === 'driver';
   const venue = venueId ?? '';
-  const itemIds = useMemo(() => parseItemIds(params.itemIds), [params.itemIds]);
 
-  const open = useQuery({
-    queryKey: staffKeys.shopping(venue, 'open'),
-    queryFn: () => fetchShoppingList(venue, 'open'),
-    enabled: venue !== '' && buyer,
-  });
-  const ingredients = useQuery({
-    queryKey: staffKeys.ingredients(venue),
-    queryFn: () => fetchIngredientOptions(venue),
-    enabled: venue !== '' && buyer,
-  });
+  const addOptions = useHeaderAddOptions(
+    buyer && venue !== ''
+      ? {
+          testID: 'staff-purchase.add',
+          label: t('staff.supplies.purchase.form.title'),
+          onPress: () => router.push('/staff-purchase-new'),
+        }
+      : null,
+  );
+
   const purchases = useQuery({
     queryKey: staffKeys.purchases(venue),
     queryFn: () => fetchMyPurchases(venue),
     enabled: venue !== '',
   });
-
-  // A pull reads the purchases (a delivery another phone confirmed, a receipt
-  // the manager took in) and, for the driver, the list the form is filled from.
-  const pull = usePullRefresh(() =>
-    Promise.all([purchases.refetch(), buyer ? open.refetch() : null, buyer ? ingredients.refetch() : null]),
-  );
-
-  const ingredientById = useMemo(() => {
-    const map = new Map<string, IngredientOption>();
-    for (const o of ingredients.data?.ingredients ?? []) map.set(o.id, o);
-    return map;
-  }, [ingredients.data]);
-  const itemById = useMemo(() => {
-    const map = new Map<string, ShoppingItem>();
-    for (const i of open.data?.items ?? []) map.set(i.id, i);
-    return map;
-  }, [open.data]);
-
-  // ── The form ───────────────────────────────────────────────────────────────
-  // The ticked lines fill the form once the list and the pack sizes are in.
-  // Until the driver changes something the form follows the list (a line
-  // bought meanwhile drops out and counts as gone); after that it is the
-  // driver's own, and a refresh never puts back a line they removed.
-  const ready = open.data !== undefined && (ingredients.data !== undefined || ingredients.isError);
-  const seeded = itemIds.length === 0 || ready;
-  const openItems = useMemo(() => open.data?.items ?? [], [open.data]);
-  const initial = useMemo<PurchaseLineDraft[]>(
-    () =>
-      ready
-        ? itemIds
-            .map((id) => itemById.get(id))
-            .filter((i): i is ShoppingItem => i !== undefined)
-            .map((i) => listLineFor(i, i.ingredient_id ? ingredientById.get(i.ingredient_id) : undefined))
-        : [],
-    [ready, itemIds, itemById, ingredientById],
-  );
-  const [edited, setEdited] = useState<PurchaseLineDraft[] | null>(null);
-  const lines = edited ?? initial;
-  const setLines = (next: (all: PurchaseLineDraft[]) => PurchaseLineDraft[]) => setEdited(next(lines));
-  const [saved, setSaved] = useState(false);
-  const gone = ready && !saved ? missingItemIds(itemIds, openItems).length : 0;
-
-  // The shop is the one the driver named last time until they type another
-  // (Sait, 2026-10-17: fill in what the app already knows).
-  const [shopTyped, setShopTyped] = useState<string | null>(null);
-  const lastShop = purchases.data?.purchases.find((p) => p.shop_name)?.shop_name ?? '';
-  const shop = shopTyped ?? lastShop;
-  const [receipt, setReceipt] = useState<AttachedPhoto[]>([]);
-  const [issues, setIssues] = useState<PurchaseIssue[]>([]);
-  const [error, setError] = useState<string | null>(null);
-
-  const editLine = (index: number, patch: Partial<PurchaseLineDraft>) => {
-    setLines((all) => all.map((l, i) => (i === index ? ({ ...l, ...patch } as PurchaseLineDraft) : l)));
-    setIssues((all) => all.filter((x) => !(x.line === index && x.field in patch)));
-  };
-  const removeLine = (index: number) => {
-    setLines((all) => all.filter((_, i) => i !== index));
-    setIssues([]);
-  };
-
-  const refresh = () => {
-    for (const s of SHOPPING_LIST_STATUSES) {
-      void queryClient.invalidateQueries({ queryKey: staffKeys.shopping(venue, s) });
-    }
-    void queryClient.invalidateQueries({ queryKey: staffKeys.purchases(venue) });
-    void queryClient.invalidateQueries({ queryKey: staffKeys.work(venue) });
-  };
-
-  const save = useMutation({
-    mutationKey: staffKeys.mutation('purchase'),
-    mutationFn: ({ args, intent }: { args: ReturnType<typeof purchaseArgs>; intent: string }) =>
-      recordPurchase(args, staffIntentKey(intent, 'purchase')),
-    onSuccess: (_data, { intent }) => {
-      clearStaffIntentKey(intent);
-      toast(t('staff.supplies.purchase.form.saved'), 'success');
-      setEdited([]);
-      setSaved(true);
-      setShopTyped(null);
-      setReceipt([]);
-      setIssues([]);
-      refresh();
-    },
-    onError: (err) => {
-      setError(t(mapStaffError(err)));
-      // A line bought meanwhile (SHOPPING_ITEM_NOT_OPEN) shows as gone on refresh.
-      refresh();
-    },
-  });
-
-  const send = () => {
-    const args = purchaseArgs({ lines, shop }, venue, receipt[0]?.path ?? null);
-    save.mutate({ args, intent: intentFor('purchase', args) });
-  };
-
-  const onSave = () => {
-    setError(null);
-    const found = validatePurchase({ lines, shop });
-    setIssues(found);
-    if (found.length > 0 || !venue) return;
-    if (receipt.length === 0) {
-      Alert.alert(
-        t('staff.supplies.purchase.form.noReceiptTitle'),
-        t('staff.supplies.purchase.form.noReceiptBody'),
-        [
-          { text: t('common.cancel'), style: 'cancel' },
-          { text: t('staff.supplies.purchase.form.saveAnyway'), onPress: send },
-        ],
-      );
-      return;
-    }
-    send();
-  };
-
-  const lineErrors = (index: number): LineErrors => {
-    const out: LineErrors = {};
-    for (const issue of issues.filter((i) => i.line === index)) {
-      if (issue.field === 'label') {
-        out.label = t(issue.code === 'tooLong' ? 'staff.supplies.purchase.form.errors.labelTooLong' : 'staff.supplies.purchase.form.errors.label');
-      } else if (issue.field === 'qty') {
-        out.qty = t('staff.supplies.purchase.form.errors.qty');
-      } else if (issue.field === 'price') {
-        out.price = t('staff.supplies.purchase.form.errors.price');
-      }
-    }
-    return out;
-  };
-  const formError = (): string | null => {
-    const issue = issues.find((i) => i.line === undefined);
-    if (!issue) return null;
-    if (issue.field === 'shop') return null;
-    return t(issue.code === 'tooLong' ? 'staff.supplies.purchase.form.errors.tooMany' : 'staff.supplies.purchase.form.errors.lines');
-  };
-
-  // ── Delivered ──────────────────────────────────────────────────────────────
-  const deliver = useMutation({
-    mutationKey: staffKeys.mutation('purchase.deliver'),
-    mutationFn: (id: string) => confirmPurchaseDelivery(id),
-    onSuccess: () => {
-      toast(t('staff.supplies.purchase.list.deliveredDone'), 'success');
-      void queryClient.invalidateQueries({ queryKey: staffKeys.purchases(venue) });
-    },
-    onError: (err) => toast(t(mapStaffError(err)), 'error'),
-  });
-
-  const confirmDelivered = (id: string) => {
-    Alert.alert(
-      t('staff.supplies.purchase.list.deliveredConfirmTitle'),
-      t('staff.supplies.purchase.list.deliveredConfirmBody'),
-      [
-        { text: t('common.cancel'), style: 'cancel' },
-        { text: t('staff.supplies.purchase.list.markDelivered'), onPress: () => deliver.mutate(id) },
-      ],
-    );
-  };
-
-  const [shownReceipt, setShownReceipt] = useState<string | null>(null);
-
-  // Next walks every line's amounts (and an extra line's name), then the shop:
-  // three slots a line, the shop after them.
-  const chain = useFieldChain(lines.length * 3 + 1);
-  const shopError = issues.some((i) => i.field === 'shop')
-    ? t('staff.supplies.purchase.form.errors.shopTooLong')
-    : null;
+  const pull = usePullRefresh(() => Promise.all([purchases.refetch()]));
+  const delivery = usePurchaseDelivery(venue);
+  const [filter, setFilter] = useState<PurchaseFilter>('all');
 
   if (status.kind !== 'staff') return null;
 
-  const body = { fontFamily: fonts.body400, fontSize: 12.5, lineHeight: 19, color: colors.mut2 };
-  const rows: PurchaseRow[] = purchases.data?.purchases ?? [];
-
-  const lineCard = (line: PurchaseLineDraft, index: number) => {
-    const errors = lineErrors(index);
-    const remove = (
-      <LinkText
-        testID={`staff-purchase.line.${index}.remove`}
-        label={t('staff.supplies.purchase.form.remove')}
-        color={colors.redtext}
-        onPress={() => removeLine(index)}
-      />
-    );
-    if (line.kind === 'free') {
-      return (
-        <View key={`free-${index}`} testID={`staff-purchase.line.${index}`} style={{ gap: space.s }}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Text style={{ fontFamily: fonts.body700, fontSize: 12, color: colors.mut }}>
-              {t('staff.supplies.purchase.form.extra')}
-            </Text>
-            {remove}
-          </View>
-          <Field
-            {...chain.field(index * 3)}
-            testID={`staff-purchase.line.${index}.label`}
-            label={t('staff.supplies.purchase.form.label')}
-            value={line.label}
-            onChangeText={(label) => editLine(index, { label })}
-            error={errors.label}
-          />
-          <View style={{ flexDirection: 'row', gap: space.s }}>
-            <View style={{ flex: 1 }}>
-              <Field
-                {...chain.field(index * 3 + 1, 'numeric')}
-                testID={`staff-purchase.line.${index}.qty`}
-                label={t('staff.supplies.purchase.form.boughtNoUnit')}
-                value={line.qty}
-                onChangeText={(qty) => editLine(index, { qty })}
-                keyboardType="decimal-pad"
-                latin
-                error={errors.qty}
-              />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Field
-                {...chain.field(index * 3 + 2, 'numeric')}
-                testID={`staff-purchase.line.${index}.price`}
-                label={t('staff.supplies.purchase.form.paid')}
-                value={line.price}
-                onChangeText={(price) => editLine(index, { price })}
-                keyboardType="number-pad"
-                latin
-                error={errors.price}
-              />
-            </View>
-          </View>
-        </View>
-      );
-    }
-    const item = itemById.get(line.itemId);
-    const ingredient = item?.ingredient_id ? ingredientById.get(item.ingredient_id) : undefined;
-    const bought = item ? boughtUnit(item, ingredient) : { unit: null, qty: null };
-    const unitWord = bought.unit ? t(`staff.supplies.units.many.${bought.unit}`) : null;
-    return (
-      <View key={line.itemId} testID={`staff-purchase.line.${index}`} style={{ gap: space.s }}>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: space.s }}>
-          <Text style={{ flexShrink: 1, fontFamily: fonts.body700, fontSize: 13.5, color: colors.ink }}>
-            {item ? lineName(item, locale) : ''}
-          </Text>
-          {remove}
-        </View>
-        {item ? (
-          <Text style={body}>
-            {t('staff.supplies.purchase.form.listAsked', { qty: formatQty(t, locale, item.qty, item.unit) })}
-          </Text>
-        ) : null}
-        {item?.unit === 'pack' && item.ingredient_id && unitWord ? (
-          <Hint style={{ marginTop: 0 }}>{t('staff.supplies.purchase.form.packHint', { unit: unitWord })}</Hint>
-        ) : null}
-        <View style={{ flexDirection: 'row', gap: space.s }}>
-          <View style={{ flex: 1 }}>
-            <Field
-              {...chain.field(index * 3 + 1, 'numeric')}
-              testID={`staff-purchase.line.${index}.qty`}
-              label={
-                unitWord
-                  ? t('staff.supplies.purchase.form.bought', { unit: unitWord })
-                  : t('staff.supplies.purchase.form.boughtNoUnit')
-              }
-              value={line.qty}
-              onChangeText={(qty) => editLine(index, { qty })}
-              keyboardType="decimal-pad"
-              latin
-              error={errors.qty}
-            />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Field
-              {...chain.field(index * 3 + 2, 'numeric')}
-              testID={`staff-purchase.line.${index}.price`}
-              label={t('staff.supplies.purchase.form.paid')}
-              value={line.price}
-              onChangeText={(price) => editLine(index, { price })}
-              keyboardType="number-pad"
-              latin
-              error={errors.price}
-            />
-          </View>
-        </View>
-      </View>
-    );
-  };
+  // The filter is the scroll content's child after the hints that are showing (nulls do not count).
+  const stickyIndex = (venue === '' ? 1 : 0) + (buyer ? 0 : 1);
+  const all: PurchaseRow[] = purchases.data?.purchases ?? [];
+  const rows = filterPurchases(all, filter);
+  const filterLabel = (f: PurchaseFilter) =>
+    f === 'all'
+      ? t('staff.supplies.purchase.list.filterAll')
+      : f === 'to_receive'
+        ? t('work.purchase.status.to_receive')
+        : t('staff.supplies.purchase.list.deliveredPill');
 
   return (
     <Screen edges={[]}>
-      <Stack.Screen options={{ title: t('staff.supplies.purchase.title') }} />
+      <Stack.Screen options={{ title: t('staff.supplies.purchase.title'), ...addOptions }} />
       <ScreenWithBar
         contentContainerStyle={{ paddingTop: space.m, gap: space.sm }}
+        stickyHeaderIndices={[stickyIndex]}
         refreshControl={<RefreshControl refreshing={pull.refreshing} onRefresh={pull.onRefresh} />}
-        error={formError() ?? error}
-        bar={
-          buyer ? (
-            <>
-              {/* The total rides with Save, so the driver sees it while filling the lines. */}
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                <Text style={{ fontFamily: fonts.body700, fontSize: 13, color: colors.ink }}>
-                  {t('staff.supplies.purchase.form.total')}
-                </Text>
-                <Text style={{ fontFamily: fonts.display800, fontSize: 17, color: colors.ink }}>
-                  {formatIQD(purchaseTotal(lines), locale)}
-                </Text>
-              </View>
-              <Button
-                testID="staff-purchase.save"
-                label={t('staff.supplies.purchase.form.save')}
-                variant="primary"
-                busy={save.isPending}
-                onPress={onSave}
-              />
-            </>
-          ) : null
-        }
+        bar={null}
       >
         {venue === '' ? <Hint>{t('staff.shell.venue.none')}</Hint> : null}
+        {!buyer ? <Hint>{t('staff.supplies.purchase.list.mgmtNote')}</Hint> : null}
+        {/* Sticks to the top while the cards scroll under it; opaque so they do not show through. */}
+        <View style={{ backgroundColor: colors.bg, paddingTop: space.xs, paddingBottom: space.s }}>
+          <SegmentedControl<PurchaseFilter>
+            testID="staff-purchase.filter"
+            options={PURCHASE_FILTERS.map((f) => ({ value: f, label: filterLabel(f) }))}
+            value={filter}
+            onChange={setFilter}
+          />
+        </View>
 
-        {buyer ? (
-          <Card style={{ padding: space.m, gap: space.sm }}>
-            <MicroLabel>{t('staff.supplies.purchase.form.title')}</MicroLabel>
-            <Text style={body}>{t('staff.supplies.purchase.form.lead')}</Text>
-            {gone > 0 ? (
-              <Text style={{ ...body, color: colors.ambtext }}>
-                {t('staff.supplies.purchase.form.gone', { count: gone })}
-              </Text>
-            ) : null}
-            {itemIds.length > 0 && !seeded ? <SkeletonList rows={2} height={96} /> : null}
-            {seeded && lines.length === 0 ? <Hint style={{ marginTop: 0 }}>{t('staff.supplies.purchase.form.noLines')}</Hint> : null}
-            {lines.map((line, i) => (
-              <View
-                key={line.kind === 'list' ? line.itemId : `free-${i}`}
-                style={{ paddingTop: i === 0 ? 0 : space.sm, borderTopWidth: i === 0 ? 0 : 1, borderTopColor: colors.sub }}
-              >
-                {lineCard(line, i)}
-              </View>
-            ))}
-            <LinkText
-              testID="staff-purchase.line.add"
-              label={t('staff.supplies.purchase.form.addLine')}
-              onPress={() => setLines((all) => [...all, emptyFreeLine()])}
-            />
-            <Field
-              {...chain.field(lines.length * 3)}
-              testID="staff-purchase.shop"
-              label={t('staff.supplies.purchase.form.shop')}
-              value={shop}
-              onChangeText={(value) => {
-                setShopTyped(value);
-                setIssues((all) => all.filter((x) => x.field !== 'shop'));
-              }}
-              error={shopError}
-            />
-            <View style={{ gap: space.xs }}>
-              <GroupLabel>{t('staff.supplies.purchase.form.receipt')}</GroupLabel>
-              <PhotoButton
-                testID="staff-purchase.receipt"
-                venueId={venue}
-                folder="receipts"
-                photos={receipt}
-                onChange={setReceipt}
-                max={1}
-                disabled={save.isPending}
-              />
-              <Hint style={{ marginTop: 0 }}>{t('staff.supplies.purchase.form.receiptHint')}</Hint>
-            </View>
-          </Card>
-        ) : (
-          <Hint>{t('staff.supplies.purchase.list.mgmtNote')}</Hint>
-        )}
-
-        <MicroLabel style={{ paddingStart: 4, marginTop: space.s }}>
-          {t(buyer ? 'staff.supplies.purchase.list.mine' : 'staff.supplies.purchase.list.all')}
-        </MicroLabel>
         {purchases.isPending && venue !== '' ? (
           <SkeletonList rows={2} height={96} />
         ) : purchases.isError ? (
@@ -474,73 +113,62 @@ function PurchaseScreen() {
             onRetry={() => void purchases.refetch()}
           />
         ) : rows.length === 0 ? (
-          <EmptyState centered testID="staff-purchase.empty" title={t('staff.supplies.purchase.list.empty')} />
+          <EmptyState
+            centered
+            testID="staff-purchase.empty"
+            title={t(all.length === 0 ? 'staff.supplies.purchase.list.empty' : 'staff.supplies.purchase.list.emptyFilter')}
+          />
         ) : (
           rows.map((p) => (
-            <Card key={p.id} style={{ padding: space.m, gap: 6 }}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: space.s }}>
-                <View style={{ flexShrink: 1 }}>
-                  <Text style={{ fontFamily: fonts.body700, fontSize: 13.5, color: colors.ink }}>
-                    {p.shop_name ? isolate(p.shop_name) : t('staff.supplies.purchase.list.noShop')}
-                  </Text>
-                  <Text style={{ fontFamily: fonts.body400, fontSize: 12, color: colors.mut }}>
+            <PurchaseCard key={p.id} testID={`staff-purchase.card.${p.id}`} row={p}>
+              <View style={{ padding: 16, gap: 9 }}>
+                <Text numberOfLines={2} style={{ fontFamily: fonts.display800, fontSize: 21, color: colors.ink, marginBottom: 6 }}>
+                  {p.shop_name ? isolate(p.shop_name) : t('staff.supplies.purchase.list.noShop')}
+                </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <Text style={{ flexShrink: 1, fontFamily: fonts.body600, fontSize: 14, color: colors.mut }}>
                     {formatDateTime(new Date(p.bought_at), locale)}
                   </Text>
-                </View>
-                <View style={{ alignItems: 'flex-end', gap: 4 }}>
-                  <Text style={{ fontFamily: fonts.body700, fontSize: 13.5, color: colors.ink }}>
+                  <View style={{ flex: 1 }} />
+                  <Text style={{ fontFamily: fonts.body800, fontSize: 15, color: colors.gtext }}>
                     {formatIQD(p.total_iqd, locale)}
                   </Text>
-                  <Tag tone={p.status === 'done' ? 'good' : 'warn'} label={t(`work.purchase.status.${p.status}`)} />
+                </View>
+                {p.delivered_at ? (
+                  <Text style={{ fontFamily: fonts.body700, fontSize: 12.5, color: colors.gtext }}>
+                    {t('staff.supplies.purchase.list.deliveredAt', {
+                      when: formatDateTime(new Date(p.delivered_at), locale),
+                    })}
+                  </Text>
+                ) : null}
+                <View style={{ flexDirection: 'row', gap: space.s, marginTop: 6 }}>
+                  <Button
+                    testID={`staff-purchase.details.${p.id}`}
+                    label={t('staff.supplies.purchase.list.details')}
+                    variant="secondary"
+                    size="compact"
+                    onPress={() => router.push({ pathname: '/staff-purchase-detail', params: { id: p.id } })}
+                    // In dark mode a gray-white button with blue text, so it stands out from the blue page.
+                    style={dark ? { flex: 1, backgroundColor: '#E3E6EB', borderColor: '#E3E6EB' } : { flex: 1 }}
+                    labelColor={dark ? brand.blue : undefined}
+                    pressedBg={dark ? '#CDD2DA' : undefined}
+                  />
+                  {p.delivered_at ? null : (
+                    <Button
+                      testID={`staff-purchase.delivered.${p.id}`}
+                      label={t('staff.supplies.purchase.list.markDelivered')}
+                      variant="primary"
+                      size="compact"
+                      busy={delivery.busyId === p.id}
+                      onPress={() => delivery.confirm(p.id)}
+                      style={{ flex: 1 }}
+                    />
+                  )}
                 </View>
               </View>
-              {p.lines.map((l, i) => (
-                <View key={`${p.id}-${i}`} style={{ flexDirection: 'row', justifyContent: 'space-between', gap: space.s }}>
-                  <Text style={{ ...body, flexShrink: 1 }}>
-                    {`${lineName(l, locale)} · ${formatQty(t, locale, l.qty, l.unit)}`}
-                  </Text>
-                  <Text style={body}>{formatIQD(l.price_iqd, locale)}</Text>
-                </View>
-              ))}
-              {p.receipt_path ? (
-                <>
-                  <LinkText
-                    testID={`staff-purchase.receipt.${p.id}`}
-                    label={t(
-                      shownReceipt === p.id
-                        ? 'staff.supplies.purchase.list.hideReceipt'
-                        : 'staff.supplies.purchase.list.showReceipt',
-                    )}
-                    onPress={() => setShownReceipt((id) => (id === p.id ? null : p.id))}
-                  />
-                  {shownReceipt === p.id ? <StoredPhotos paths={[p.receipt_path]} size={220} /> : null}
-                </>
-              ) : (
-                <Text style={{ fontFamily: fonts.body400, fontSize: 12, color: colors.mut }}>
-                  {t('staff.supplies.purchase.list.noReceipt')}
-                </Text>
-              )}
-              {p.delivered_at ? (
-                <Text style={{ fontFamily: fonts.body700, fontSize: 12.5, color: colors.gtext }}>
-                  {t('staff.supplies.purchase.list.deliveredAt', {
-                    when: formatDateTime(new Date(p.delivered_at), locale),
-                  })}
-                </Text>
-              ) : (
-                <Button
-                  testID={`staff-purchase.delivered.${p.id}`}
-                  label={t('staff.supplies.purchase.list.markDelivered')}
-                  variant="secondary"
-                  size="compact"
-                  busy={deliver.isPending && deliver.variables === p.id}
-                  onPress={() => confirmDelivered(p.id)}
-                  style={{ marginTop: 4 }}
-                />
-              )}
-            </Card>
+            </PurchaseCard>
           ))
         )}
-        {chain.bar}
       </ScreenWithBar>
     </Screen>
   );
@@ -549,7 +177,7 @@ function PurchaseScreen() {
 export default function StaffPurchaseRoute() {
   return (
     <RequireStaff page="staff-purchase" roles={PURCHASE_ROLES}>
-      <PurchaseScreen />
+      <PurchasesScreen />
     </RequireStaff>
   );
 }
