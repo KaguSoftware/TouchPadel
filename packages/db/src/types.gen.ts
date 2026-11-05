@@ -1618,6 +1618,12 @@ export type Database = {
         Args: { p_exclude_tab_id?: string; p_reservation_id: string }
         Returns: number
       }
+      court_hour_value: { Args: { p_reservation_id: string }; Returns: number }
+      court_reward_closed: {
+        Args: { p_reservation_id: string }
+        Returns: boolean
+      }
+      court_reward_iqd: { Args: { p_reservation_id: string }; Returns: number }
       cover_station: {
         Args: { p_device_id: string; p_pin: string; p_staff_id: string }
         Returns: Json
@@ -2883,6 +2889,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      loyalty_court_reward: { Args: { p_tab_id: string }; Returns: Json }
       loyalty_customer: { Args: { p_profile_id: string }; Returns: Json }
       loyalty_display_name: { Args: { p_profile: string }; Returns: string }
       loyalty_history: {
@@ -10529,6 +10536,7 @@ export type Database = {
           iqd_per_point: number
           min_redeem_points: number
           point_value_iqd: number
+          points_off_enabled: boolean
           totp_step_seconds: number
           updated_at: string
           updated_by: string | null
@@ -10546,6 +10554,7 @@ export type Database = {
           iqd_per_point?: number
           min_redeem_points?: number
           point_value_iqd?: number
+          points_off_enabled?: boolean
           totp_step_seconds?: number
           updated_at?: string
           updated_by?: string | null
@@ -10563,6 +10572,7 @@ export type Database = {
           iqd_per_point?: number
           min_redeem_points?: number
           point_value_iqd?: number
+          points_off_enabled?: boolean
           totp_step_seconds?: number
           updated_at?: string
           updated_by?: string | null
@@ -15039,6 +15049,91 @@ export type Database = {
             columns: ["reservation_id"]
             isOneToOne: true
             referencedRelation: "reservations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reservation_loyalty_rewards: {
+        Row: {
+          amount_iqd: number
+          applied_by: string
+          authorized_by: string
+          created_at: string
+          id: string
+          points: number
+          profile_id: string
+          proof: string
+          reservation_id: string
+          reward_id: string
+          tab_id: string
+        }
+        Insert: {
+          amount_iqd: number
+          applied_by: string
+          authorized_by: string
+          created_at?: string
+          id?: string
+          points: number
+          profile_id: string
+          proof: string
+          reservation_id: string
+          reward_id: string
+          tab_id: string
+        }
+        Update: {
+          amount_iqd?: number
+          applied_by?: string
+          authorized_by?: string
+          created_at?: string
+          id?: string
+          points?: number
+          profile_id?: string
+          proof?: string
+          reservation_id?: string
+          reward_id?: string
+          tab_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reservation_loyalty_rewards_applied_by_fkey"
+            columns: ["applied_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reservation_loyalty_rewards_authorized_by_fkey"
+            columns: ["authorized_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reservation_loyalty_rewards_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reservation_loyalty_rewards_reservation_id_fkey"
+            columns: ["reservation_id"]
+            isOneToOne: true
+            referencedRelation: "reservations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reservation_loyalty_rewards_reward_id_fkey"
+            columns: ["reward_id"]
+            isOneToOne: false
+            referencedRelation: "loyalty_rewards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reservation_loyalty_rewards_tab_id_fkey"
+            columns: ["tab_id"]
+            isOneToOne: false
+            referencedRelation: "tabs"
             referencedColumns: ["id"]
           },
         ]
