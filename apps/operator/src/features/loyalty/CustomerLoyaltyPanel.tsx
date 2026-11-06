@@ -20,7 +20,7 @@ import { useStationReach } from '../../lib/stationReach';
 import { useToast } from '../../components/toast';
 import { Button, ErrorText, Field, Modal, Skeleton, inputStyle } from '../../components/ui';
 import { DataTable, Panel, PinPromptOverlay, StatusBadge, type Column } from '../../components/kit';
-import { adjustErrors, isPinRefusal, ledgerKind, monthlyEarned, parseSigned } from './loyaltyLogic';
+import { adjustErrors, isPinRefusal, ledgerKind, monthlyEarned, parseSigned, pointsOffOn } from './loyaltyLogic';
 import { LOYALTY_KEYS, adjustPoints, useLoyaltyCustomer, useLoyaltyTerms } from './useLoyalty';
 import type { LedgerRow } from '@touch/core/loyalty';
 import { CardPill } from '../desk/customers/RecordCards';
@@ -63,8 +63,8 @@ export function CustomerLoyaltyPanel({ customerId, tz, withTop = true }: { custo
           withTop={withTop}
           tz={tz}
           tier={tier}
-          pointValueIqd={termsQ.data?.pointValueIqd ?? null}
-          minRedeemPoints={termsQ.data?.minRedeemPoints ?? null}
+          pointValueIqd={pointsOffOn(termsQ.data) ? (termsQ.data?.pointValueIqd ?? null) : null}
+          minRedeemPoints={pointsOffOn(termsQ.data) ? (termsQ.data?.minRedeemPoints ?? null) : null}
           adjust={
             canAdjust ? (
               <Button
@@ -206,7 +206,9 @@ export function CustomerLoyaltyTop({ customerId }: { customerId: string }) {
   const d = q.data;
   if (!allowed || !d) return null;
   const tier = d.tier ? (locale === 'ar' ? d.tier.name_ar : d.tier.name_en) : null;
-  return <LoyaltyTop data={d} tier={tier} tierKey={tierColour(d.tier?.name_en)} pointValueIqd={termsQ.data?.pointValueIqd ?? null} minRedeemPoints={termsQ.data?.minRedeemPoints ?? null} />;
+  // 0403: the "≈ IQD off" and "ready to use" badges only while points can be spent as money off.
+  const off = pointsOffOn(termsQ.data);
+  return <LoyaltyTop data={d} tier={tier} tierKey={tierColour(d.tier?.name_en)} pointValueIqd={off ? (termsQ.data?.pointValueIqd ?? null) : null} minRedeemPoints={off ? (termsQ.data?.minRedeemPoints ?? null) : null} />;
 }
 
 function LoyaltyBody({

@@ -29,6 +29,17 @@ They amend §1 where they differ; the migration headers carry the detail.
 | L-12 | **`promotions.limits.tierMin` is a `loyalty_tiers` id** (0309), no longer a tier sort; eligibility is `app.promotion_tier_ok` (the customer's tier `min_points_12m` at least the named tier's). A customer change re-checks the tab's promotion and drops it when it no longer qualifies.                                                  |
 | L-13 | The nightly expires nothing while loyalty is off and measures inactivity from `greatest(last_activity_at, enabled_at)`; it runs per account and commits per batch (`app.loyalty_nightly_run`).                                                                                                                                             |
 
+### 0.2 Later changes
+
+- **2026-10-31 (0376):** L-11's last sentence no longer holds: points given by hand count toward
+  lifetime and the 12-month tier points again.
+- **2026-11-05 (0403, Majed: "points, not a wallet"):** points buy things the guest takes (a free
+  coffee, a free court hour). "Use points" as money off is the owner's switch
+  `loyalty_settings.points_off_enabled`, off by default (`POINTS_OFF`); the till hides it while off.
+  A new reward kind `court_hour` frees one hour of the court fee of the booking the tab belongs to,
+  once per booking (`reservation_loyalty_rewards`, read through `loyalty_court_reward`, undone with
+  `loyalty_unredeem`). `iqd_off` rewards stay in the schema; the owner simply need not offer any.
+
 ## 1. Migrations (staged in `packages/db/.loyalty-staging/`, numbered at landing)
 
 Saeed's `0302_profile_avatar_birth_date` lands first. The loyalty files are:

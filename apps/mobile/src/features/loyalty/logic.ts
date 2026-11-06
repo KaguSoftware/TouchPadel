@@ -75,7 +75,7 @@ function parseReward(raw: unknown): LoyaltyReward | null {
     name_en: str(raw.name_en),
     name_ar: str(raw.name_ar),
     cost_points: num(raw.cost_points),
-    kind: raw.kind === 'item' ? 'item' : 'iqd_off',
+    kind: raw.kind === 'item' || raw.kind === 'court_hour' ? raw.kind : 'iqd_off',
     iqd_off: raw.iqd_off === null || raw.iqd_off === undefined ? null : num(raw.iqd_off),
   };
 }
@@ -96,6 +96,8 @@ export function parseMyLoyalty(raw: unknown): MyLoyalty {
     next_tier: next ? { ...next, min_points_12m: next.min_points_12m ?? 0 } : null,
     point_value_iqd: num(o.point_value_iqd),
     min_redeem_points: num(o.min_redeem_points),
+    // 0403: points as money off only when the owner turned it on; absent reads as off.
+    points_off_enabled: o.points_off_enabled === true,
     history: list(o.history, parseLedgerRow),
     rewards: list(o.rewards, parseReward),
   };

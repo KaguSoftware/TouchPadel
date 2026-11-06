@@ -60,6 +60,7 @@ import { PaymentPane } from '../../till/PaymentPane';
 import { AddCafeBillDialog } from './AddCafeBillDialog';
 import { CourtReceiptPrint } from './CourtReceiptPrint';
 import { MemberAttach } from '../../loyalty/MemberAttach';
+import { useCourtReward } from '../../loyalty/useLoyalty';
 import {
   canAddCafeBill,
   canTakePayment,
@@ -167,6 +168,10 @@ export function CourtBillView({
 
   const state = panelStateOf(bill);
   const tab = bill.live_tab;
+  // 0403: the free court hour from points on this booking (read through any of its tabs, the open
+  // one first), for the bill's note and the sentence once the bill has settled.
+  const rewardTabId = tab?.id ?? bill.settled_tabs.at(-1)?.tab_id ?? null;
+  const freeHour = useCourtReward(rewardTabId, !match && !isMatchBill(bill)).data?.reward ?? null;
   const closePending = tab ? pendingCloses.pending.has(tab.id) : false;
   const amount = (n: number) => formatIQD(n, locale);
 
@@ -278,7 +283,10 @@ export function CourtBillView({
       case 'paid':
         return tr('ws.courtDesk.payment.paid');
       case 'noFee':
-        return tr('ws.courtDesk.payment.noFee');
+        // 0403: a fee a free hour from points covered whole is not "no court fee".
+        return freeHour
+          ? tr('ws.loyalty.redeem.courtCovered', { amount: amount(freeHour.amount_iqd) })
+          : tr('ws.courtDesk.payment.noFee');
       case 'ended':
         return tr('ws.courtDesk.payment.ended', { status: tr(`ws.kit.bookingStatus.${bill.reservation.status as 'cancelled'}`) });
     }
@@ -377,7 +385,10 @@ export function CourtBillView({
         <ErrorText error={paying || confirmClose ? null : error} />
         {/* F-11 (0399): a café order on this booking's bill no kitchen screen has drawn. */}
         {tab && <KitchenReachFlag tabId={tab.id} />}
-        {tab && state === 'billOpen' && !matchBooking && <MemberAttach tabId={tab.id} remainingIqd={Math.min(tab.due_iqd, tab.subtotal_iqd)} />}
+        {/* 0403: also while it owes nothing, so a free hour that covered the fee keeps its Undo. */}
+        {tab && (state === 'billOpen' || state === 'closeBill') && !matchBooking && (
+          <MemberAttach tabId={tab.id} remainingIqd={Math.min(tab.due_iqd, tab.subtotal_iqd)} />
+        )}
 
         {onlinePaid > 0 && (
           <dl style={{ margin: 0 }} data-testid="paid-online">
@@ -403,6 +414,14 @@ export function CourtBillView({
               <div data-testid="court-discount-note">
                 <dt className="tp-sr-only">{tr('ws.discounts.bill.row')}</dt>
                 <dd style={{ margin: 0, fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>{courtNote}</dd>
+              </div>
+            )}
+            {freeHour && (
+              <div data-testid="court-free-hour-note">
+                <dt className="tp-sr-only">{tr('ws.loyalty.rewards.title')}</dt>
+                <dd style={{ margin: 0, fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>
+                  {tr('ws.loyalty.redeem.courtRow', { amount: amount(freeHour.amount_iqd) })}
+                </dd>
               </div>
             )}
             {tab.item_count > 0 && <BillRow label={tr('ws.courtDesk.payment.cafeItems', { count: formatNumber(tab.item_count, locale) })} amount={tab.subtotal_iqd} />}

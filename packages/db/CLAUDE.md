@@ -75,6 +75,24 @@ is a line in that file.
   text[])` (own unclaimed slots only); F-64: service-role `venue_files_gc()`, cron
   `tp_venue_files_gc` every 10 minutes, deletes ready rows whose blob is gone and uploads stuck a
   day; `tests/protocol-photos-files-gc.test.ts`).
+- **0403 (2026-11-05, loyalty_rewards_only; Majed: points buy things you take, a free coffee or a
+  free court hour, not money off like a wallet):** `loyalty_settings.points_off_enabled` (default
+  false; the hosted row turns false): `loyalty_redeem(p_points)` is `POINTS_OFF` while it is off,
+  rewards are not; a new reward kind `court_hour` (no amount, no item) frees one hour of the court
+  fee of the plain booking the tab belongs to, `app.court_hour_value` (price after the customer
+  court discount × 60 / minutes, the whole fee for an hour or less), used whole
+  (`REWARD_EXCEEDS_BILL` over `court_fee_remaining`), once per booking (`REWARD_ALREADY_ON_BOOKING`),
+  `REWARD_NEEDS_BOOKING` with no booking, `COURT_DISCOUNT_NOT_ALLOWED` for a match, lesson, event or
+  unpriced booking; table `reservation_loyalty_rewards` (one row per booking, no client grant,
+  `zz_branch_guard`, wiped as booking money), ledger `(reward, reservation_reward, id)`; undo by its
+  id through `loyalty_unredeem` until a bill of the booking settles (`COURT_BILL_CLOSED`), and the
+  deferred trigger `reservations_loyalty_court_reward` gives the points back once when the booking is
+  cancelled or a no-show first; the desk reads `loyalty_court_reward(p_tab_id)`. **0403 holds
+  `loyalty_redeem`, `loyalty_unredeem`** (0350 and 0305 no longer), **`court_fee_remaining`,
+  `apply_customer_court_discount`, `bill_customer_discount`** (0342 no longer), **`set_loyalty_settings`**
+  (0309 no longer), **`loyalty_till_terms`** (0305 no longer), **`my_loyalty`** (0376 no longer) and
+  **`profile_merge_columns`** (0368 no longer); lock order adds `court_advisory → reservations` before
+  `loyalty_accounts`; `tests/loyalty.test.ts` "loyalty rewards only (0403)".
 - **0402 (2026-11-01, sweeps_report; owner: every failure reaches the dev monitoring panel):**
   every `exception when others` handler of the six background bodies 0394 left over now also calls
   `app.monitor('cron', 'error', '<function>_failed', <the warning's text>, <ids + sqlstate>)`

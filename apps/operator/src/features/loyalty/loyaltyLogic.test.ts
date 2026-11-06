@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
   adjustErrors,
+  courtRewardFits,
   monthlyEarned,
+  pointsOffOn,
+  rewardsForTab,
   defaultRedeemPoints,
   identifyCode,
   isBaseTier,
@@ -28,7 +31,12 @@ import {
   type RewardDraft,
 } from './loyaltyLogic';
 import { BarcodeWedge } from '../till/barcodeWedge';
-import type { IdentifiedMember, LoyaltyAdminTier, LoyaltySettings } from '@touch/core/loyalty';
+import type {
+  CourtRewardState,
+  IdentifiedMember,
+  LoyaltyAdminTier,
+  LoyaltySettings,
+} from '@touch/core/loyalty';
 
 const TOKEN = 'TP-8F3K2QXM-482913';
 
@@ -210,12 +218,29 @@ describe('Setup › Loyalty drafts', () => {
     earn_tournament: true,
     inactivity_expiry_months: null,
     totp_step_seconds: 30,
+    points_off_enabled: false,
   };
 
   it('round-trips the settings', () => {
     const d = settingsDraft(settings);
     expect(settingsErrors(d)).toEqual({});
     expect(settingsPatch(d)).toEqual(settings);
+    const on = { ...settings, points_off_enabled: true };
+    expect(settingsPatch(settingsDraft(on))).toEqual(on);
+  });
+
+  it('reads "Use points" as off when an older answer leaves it out (0403)', () => {
+    const { points_off_enabled: _gone, ...older } = settings;
+    expect(settingsDraft(older as LoyaltySettings).points_off_enabled).toBe(false);
+  });
+
+  it('keeps the expiry between 1 and 120 months, as the table does', () => {
+    const at = (m: string) =>
+      settingsErrors({ ...settingsDraft(settings), inactivity_expiry_months: m });
+    expect(at('120')).toEqual({});
+    expect(at('1')).toEqual({});
+    expect(at('121')).toEqual({ inactivity_expiry_months: 'months' });
+    expect(at('')).toEqual({});
   });
 
   it('refuses a zero point value, a QR step out of range and a zero expiry', () => {
@@ -228,7 +253,7 @@ describe('Setup › Loyalty drafts', () => {
     expect(settingsErrors(d)).toEqual({
       point_value_iqd: 'positive',
       totp_step_seconds: 'step',
-      inactivity_expiry_months: 'positive',
+      inactivity_expiry_months: 'months',
     });
   });
 
@@ -309,6 +334,27 @@ describe('Setup › Loyalty drafts', () => {
     expect(rewardErrors({ ...base, kind: 'iqd_off', iqd_off: '' })).toEqual({ iqdOff: true });
   });
 
+  it('asks a free court hour for nothing but a name and a cost, and sends no amount or item (0403)', () => {
+    const court: RewardDraft = {
+      id: null,
+      name_en: 'Free court hour',
+      name_ar: 'ساعة ملعب مجانية',
+      cost_points: '800',
+      kind: 'court_hour',
+      iqd_off: '5000',
+      menu_variant_id: 'v1',
+      active: true,
+      venue_id: null,
+    };
+    expect(rewardErrors(court)).toEqual({});
+    expect(rewardPayload(court)).toMatchObject({
+      kind: 'court_hour',
+      iqd_off: null,
+      menu_variant_id: null,
+      cost_points: 800,
+    });
+  });
+
   it('offers the active rewards for every branch and this one', () => {
     const rows = [
       { id: 'a', active: true, venue_id: null },
@@ -347,5 +393,46 @@ describe('monthlyEarned', () => {
     // 22:30 UTC on 30 Sep is 01:30 on 1 Oct in Baghdad.
     const out = monthlyEarned([row('2026-09-30T22:30:00Z', 50)], now, 'Asia/Baghdad');
     expect(out.at(-1)).toEqual({ key: '2026-10', total: 50 });
+  });
+});
+
+describe('rewards only (0403)', () => {
+  const state = (over: Partial<CourtRewardState> = {}): CourtRewardState => ({
+    tab_id: 't1',
+    reservation_id: 'res1',
+    plain_booking: true,
+    value_iqd: 20_000,
+    refused: null,
+    reward: null,
+    ...over,
+  });
+  const rows = [
+    { id: 'tea', kind: 'item' as const },
+    { id: 'off', kind: 'iqd_off' as const },
+    { id: 'court', kind: 'court_hour' as const },
+  ];
+
+  it('offers "Use points" only when the owner turned it on', () => {
+    expect(pointsOffOn({ pointsOffEnabled: true })).toBe(true);
+    expect(pointsOffOn({ pointsOffEnabled: false })).toBe(false);
+    expect(pointsOffOn({})).toBe(false);
+    expect(pointsOffOn(null)).toBe(false);
+  });
+
+  it('lists a free court hour only where one fits the tab', () => {
+    expect(rewardsForTab(rows, state()).map((r) => r.id)).toEqual(['tea', 'off', 'court']);
+    expect(rewardsForTab(rows, null).map((r) => r.id)).toEqual(['tea', 'off']);
+    for (const refused of [
+      'REWARD_NEEDS_BOOKING',
+      'COURT_DISCOUNT_NOT_ALLOWED',
+      'REWARD_ALREADY_ON_BOOKING',
+      'COURT_BILL_CLOSED',
+      'NOTHING_OWED',
+      'REWARD_EXCEEDS_BILL',
+    ] as const) {
+      expect(rewardsForTab(rows, state({ refused })).map((r) => r.id)).toEqual(['tea', 'off']);
+    }
+    expect(courtRewardFits(state({ plain_booking: false }))).toBe(false);
+    expect(courtRewardFits(state({ value_iqd: 0 }))).toBe(false);
   });
 });

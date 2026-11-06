@@ -57,6 +57,7 @@ const loyaltyFixture = (over: Record<string, unknown> = {}) =>
     },
     point_value_iqd: 50,
     min_redeem_points: 100,
+    points_off_enabled: true,
     history: [
       {
         id: 'l-1',
@@ -138,6 +139,20 @@ describe.each(LOCALES)('loyalty states in %s', (locale) => {
       expect(screen.getByTestId('member-card.progress')).toBeTruthy();
       const again = screen.getByTestId('member-card.new-code');
       expect(within(again).getByText(t('loyalty.guest.card.newCode'))).toBeTruthy();
+    } finally {
+      screen.unmount();
+    }
+  });
+
+  it('with rewards only (0403, the default) the card shows no "smallest use" bar', () => {
+    const screen = renderRoute(LoyaltyScreen, {
+      locale,
+      session: 'in',
+      queryData: homeSeeds({ points_off_enabled: false }),
+    });
+    try {
+      expect(screen.queryByTestId('loyalty.use-progress')).toBeNull();
+      expect(screen.getByTestId('loyalty.reward.r-1')).toBeTruthy();
     } finally {
       screen.unmount();
     }

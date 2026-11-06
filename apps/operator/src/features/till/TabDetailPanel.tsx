@@ -74,6 +74,7 @@ import { actionButton, kvRow, muted, numeric, sectionTitle } from './tillStyles'
 import { DRAWER_REASONS } from './drawerReasons';
 import { useTillShiftOptional } from '../tillShift/shiftContext';
 import { MemberAttach } from '../loyalty/MemberAttach';
+import { useCourtReward } from '../loyalty/useLoyalty';
 import { loyaltyDiscountIqd } from '../loyalty/loyaltyLogic';
 import { LOCAL_TAB_PREFIX } from '../../lib/offlineTabs';
 import { BillDiscountDialog } from '../discounts/BillDiscountDialog';
@@ -191,6 +192,9 @@ export function TabDetailPanel({
     queryFn: () => appRpc<TillBookingBill>('booking_bill', { p_reservation_id: reservationId }),
   });
   const bill = billQ.data;
+  // 0403: a free court hour from points on this booking: the fee above already has it off, so the
+  // bill says why (a fee it covered whole prints no court row at all otherwise).
+  const freeHour = useCourtReward(reservationId ? tabId : null).data?.reward ?? null;
   // A change to the tab (a line sent, a discount) changes the bill's totals
   // too; re-read it so the expected total sent with a payment is current.
   const lastTabUpdate = useRef(0);
@@ -658,6 +662,11 @@ export function TabDetailPanel({
               <span>{tr('ws.cashier.detail.courtPaidEarlier')}</span>
             </div>
           ) : null}
+          {freeHour && !courtPending && (
+            <span style={{ ...muted, fontSize: 'var(--tp-fs-xs)' }} data-testid="court-free-hour-note">
+              {tr('ws.loyalty.redeem.courtRow', { amount: formatIQD(freeHour.amount_iqd, locale) })}
+            </span>
+          )}
           {/* No total while the court fee is unknown: a figure short by the court is the defect this replaces. */}
           <Row label={tr('common.total')} amount={courtPending ? null : totals.total} strong />
           {totals.paid > 0 && <Row label={tr('ws.cashier.detail.paid')} amount={-totals.paid} />}

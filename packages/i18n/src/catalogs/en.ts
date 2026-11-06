@@ -1346,6 +1346,8 @@ export const en = {
         showCard: 'Show my member card',
         historyTitle: 'History',
         useAtCashier: 'Use points at the cashier',
+        // 0403: rewards only (points are never money off).
+        rewardsAtCashier: 'Take a reward at the cashier',
         earnTitle: 'How you earn',
         earn1: 'Pay at the cashier',
         earn2: 'Show your member card',

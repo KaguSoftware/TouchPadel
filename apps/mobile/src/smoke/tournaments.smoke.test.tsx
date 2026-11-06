@@ -271,7 +271,8 @@ describe.each(LOCALES)('tournament states in %s', (locale) => {
       expect(within(row).getByText(t('tournaments.guest.entry.mine'))).toBeTruthy();
       fireEvent.press(row);
       // My reservations lists the tournaments now (play-coaches contracts §1).
-      expect(routerState.calls).toContainEqual({ method: 'navigate', arg: '/bookings' });
+      // A tab, so down to it (useDownToTab): replace with no stack under it.
+      expect(routerState.calls).toContainEqual({ method: 'replace', arg: '/bookings' });
     } finally {
       on.unmount();
     }

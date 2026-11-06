@@ -53,6 +53,9 @@ export const loyaltyEn = {
     usedTitle: 'Points used on this bill',
     usedRow: '{points} points · {amount} off',
     rewardRow: 'Reward · {amount} off',
+    // 0403: the free court hour sits on the booking, beside the points used on the bill.
+    courtRow: 'Free court hour · {amount} off the court fee',
+    courtCovered: 'A free court hour from points covered the court fee ({amount}).',
     undo: 'Undo',
     undone: 'Points given back to the member.',
     billRow: 'Loyalty points',
@@ -65,7 +68,7 @@ export const loyaltyEn = {
     title: 'Rewards',
     lead: '{name} has {points} points.',
     empty: 'No rewards are on offer.',
-    unavailable: 'Rewards are listed for managers. Use points instead, or ask a manager.',
+    unavailable: 'Rewards are listed for managers. Ask a manager.',
     cost: '{points} points',
     iqdOff: '{amount} off',
     item: 'Free on the bill, added if it isn’t there yet',
@@ -74,6 +77,8 @@ export const loyaltyEn = {
     done: 'Reward used: {amount} off the bill.',
     doneItem: 'Reward used: {name} is free on the bill.',
     doneItemAdded: 'Reward used: {name} added to the bill, free.',
+    court: 'One free hour of court on this booking ({amount})',
+    doneCourt: 'Reward used: one free hour of court, {amount} off the court fee.',
   },
   panel: {
     title: 'Loyalty',
@@ -149,6 +154,9 @@ export const loyaltyEn = {
       inactivityHint: 'Months with no points earned or used. Leave empty to keep points for ever.',
       totpStep: 'Member QR changes every',
       totpStepHint: 'Between 15 and 120 seconds.',
+      pointsOff: 'Guests can also spend points as money off the bill',
+      pointsOffHint:
+        'Off: points are spent on rewards only, such as a free coffee or a free court hour. On: a guest can also take points off the bill, each worth the value of one point.',
       unitIqd: 'IQD',
       unitPoints: 'points',
       unitMonths: 'months',
@@ -158,6 +166,7 @@ export const loyaltyEn = {
         positive: 'Type a whole number above 0.',
         notNegative: 'Type a whole number, 0 or more.',
         step: 'Between 15 and 120.',
+        months: 'Between 1 and 120 months.',
       },
     },
     tiers: {
@@ -225,6 +234,8 @@ export const loyaltyEn = {
       kind: 'Gives',
       kindIqdOff: 'An amount off the bill',
       kindItem: 'A free menu item (one, that size)',
+      kindCourt: 'A free hour of court',
+      courtHour: 'One free hour of court',
       iqdOff: 'Amount off',
       variant: 'Menu item',
       variantPlaceholder: 'Choose an item',
@@ -237,6 +248,8 @@ export const loyaltyEn = {
       kindIqdOffBody: 'Taken off at the till.',
       kindItemTitle: 'A free menu item',
       kindItemBody: 'One, that size.',
+      kindCourtTitle: 'A free hour of court',
+      kindCourtBody: 'One hour of the booking, on a court booking’s bill.',
       activeOnHint: 'Guests can redeem it now.',
       activeOffHint: 'Hidden from guests until you turn it on.',
       review: {

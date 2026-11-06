@@ -13,8 +13,10 @@ import {
   redeemAmount,
   tierColor,
   type TierColor,
+  type CourtRewardState,
   type IdentifiedMember,
   type LedgerKind,
+  type LoyaltyRewardKind,
   type LoyaltyAdminReward,
   type LoyaltyAdminTier,
   type LoyaltyCustomer,
@@ -118,6 +120,33 @@ export function loyaltyDiscountIqd(rows: readonly AdjustmentLike[]): number {
 export interface RedeemTerms {
   pointValueIqd: number | null;
   minRedeemPoints: number | null;
+}
+
+/**
+ * 0403 (Majed 2026-11-05: rewards are things you take, not a wallet): "Use points" is offered
+ * only when the owner turned points-as-money-off on. Unknown (terms not read yet, an older
+ * server) is off: loyalty_redeem would answer POINTS_OFF anyway.
+ */
+export function pointsOffOn(terms: { pointsOffEnabled?: boolean | null } | null | undefined): boolean {
+  return terms?.pointsOffEnabled === true;
+}
+
+/** True when a free court hour can be redeemed on this tab now (loyalty_court_reward). */
+export function courtRewardFits(state: CourtRewardState | null | undefined): boolean {
+  return Boolean(state && state.plain_booking && state.refused === null && (state.value_iqd ?? 0) > 0);
+}
+
+/**
+ * The rewards the till lists on this tab: court_hour rewards only where loyalty_court_reward
+ * says a free hour fits (a plain booking's tab, none on it yet, something of the fee left);
+ * every other kind as before.
+ */
+export function rewardsForTab<T extends { kind: LoyaltyRewardKind }>(
+  rows: readonly T[],
+  court: CourtRewardState | null | undefined,
+): T[] {
+  const fits = courtRewardFits(court);
+  return rows.filter((r) => r.kind !== 'court_hour' || fits);
 }
 
 /**
@@ -271,7 +300,12 @@ export interface SettingsDraft {
   earn_tournament: boolean;
   inactivity_expiry_months: string;
   totp_step_seconds: string;
+  /** 0403: "Use points" as money off the bill; off by default. */
+  points_off_enabled: boolean;
 }
+
+/** loyalty_settings.inactivity_expiry_months: between 1 and 120 (0305's check). */
+export const EXPIRY_MONTHS_MAX = 120;
 
 export function settingsDraft(s: LoyaltySettings): SettingsDraft {
   return {
@@ -287,10 +321,11 @@ export function settingsDraft(s: LoyaltySettings): SettingsDraft {
     inactivity_expiry_months:
       s.inactivity_expiry_months == null ? '' : String(s.inactivity_expiry_months),
     totp_step_seconds: String(s.totp_step_seconds),
+    points_off_enabled: s.points_off_enabled === true,
   };
 }
 
-export type SettingsFieldError = 'positive' | 'notNegative' | 'step';
+export type SettingsFieldError = 'positive' | 'notNegative' | 'step' | 'months';
 
 export function settingsErrors(
   d: SettingsDraft,
@@ -305,7 +340,7 @@ export function settingsErrors(
   if (parseWhole(d.min_redeem_points) === null) out.min_redeem_points = 'notNegative';
   if (d.inactivity_expiry_months.trim() !== '') {
     const n = parseWhole(d.inactivity_expiry_months);
-    if (n === null || n <= 0) out.inactivity_expiry_months = 'positive';
+    if (n === null || n <= 0 || n > EXPIRY_MONTHS_MAX) out.inactivity_expiry_months = 'months';
   }
   const step = parseWhole(d.totp_step_seconds);
   if (step === null || step < 15 || step > 120) out.totp_step_seconds = 'step';
@@ -327,6 +362,7 @@ export function settingsPatch(d: SettingsDraft): LoyaltySettings {
     inactivity_expiry_months:
       d.inactivity_expiry_months.trim() === '' ? null : parseWhole(d.inactivity_expiry_months),
     totp_step_seconds: parseWhole(d.totp_step_seconds) ?? 30,
+    points_off_enabled: d.points_off_enabled,
   };
 }
 
@@ -425,7 +461,7 @@ export interface RewardDraft {
   name_en: string;
   name_ar: string;
   cost_points: string;
-  kind: 'iqd_off' | 'item';
+  kind: LoyaltyRewardKind;
   iqd_off: string;
   menu_variant_id: string | null;
   active: boolean;
@@ -475,7 +511,10 @@ export function rewardErrors(d: RewardDraft): {
   };
 }
 
-/** The p_reward app.upsert_loyalty_reward takes: the other kind's column is sent as null (the table's check). */
+/**
+ * The p_reward app.upsert_loyalty_reward takes: the other kind's column is sent as null (the
+ * table's check); a court_hour reward (0403) sends both as null.
+ */
 export function rewardPayload(d: RewardDraft): Record<string, unknown> {
   return {
     ...(d.id ? { id: d.id } : {}),

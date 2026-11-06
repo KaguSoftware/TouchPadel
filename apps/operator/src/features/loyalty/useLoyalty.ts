@@ -9,6 +9,7 @@
  */
 import { useQuery, type QueryClient } from '@tanstack/react-query';
 import type {
+  CourtRewardState,
   IdentifiedMember,
   LoyaltyAdmin,
   LoyaltyAdminReward,
@@ -30,6 +31,11 @@ import {
 export const LOYALTY_KEYS = {
   /** The member and loyalty rows of one tab (a child of the tab's own key). */
   tab: (tabId: string) => ['tab', tabId, 'loyalty'] as const,
+  /**
+   * The free court hour on the tab's booking (loyalty_court_reward, 0403): a child of the tab's
+   * own key, so every tab refresh re-reads it.
+   */
+  courtReward: (tabId: string) => ['tab', tabId, 'loyalty', 'courtReward'] as const,
   /** The chip's member: identify answer + loyalty_customer. */
   member: (customerId: string) => ['loyaltyMember', customerId] as const,
   /** The customer record's panel (a child of the record's own key). */
@@ -169,6 +175,10 @@ export function redeemReward(
   });
 }
 
+/**
+ * Undo a redemption: a tab adjustment's id, or (0403) a free court hour's
+ * reservation_loyalty_rewards id, which loyalty_unredeem takes in the same argument.
+ */
 export function unredeem(adjustmentId: string): Promise<{ balance: number }> {
   return appRpc<{ balance: number }>('loyalty_unredeem', { p_adjustment_id: adjustmentId });
 }
@@ -197,6 +207,8 @@ export interface TabLoyalty {
   id: string;
   status: string;
   customer_id: string | null;
+  /** The booking this tab belongs to (0106), else null: where a free court hour can go. */
+  reservation_id: string | null;
   tab_adjustments: (AdjustmentLike & { id: string })[];
 }
 
@@ -209,13 +221,26 @@ export function useTabLoyalty(tabId: string | null) {
       const { data, error } = await supabase
         .from('tabs')
         .select(
-          'id, status, customer_id, tab_adjustments(id, kind, amount_iqd, value, reason_code)',
+          'id, status, customer_id, reservation_id, tab_adjustments(id, kind, amount_iqd, value, reason_code)',
         )
         .eq('id', tabId!)
         .single();
       if (error) throw error;
       return data as unknown as TabLoyalty;
     },
+  });
+}
+
+/**
+ * The free court hour on a booking tab (app.loyalty_court_reward, 0403): whether one fits now,
+ * what it is worth, and the one already applied (the bill's line and its Undo). Read only for a
+ * tab that belongs to a booking; a tab without one never has a free hour.
+ */
+export function useCourtReward(tabId: string | null, enabled = true) {
+  return useQuery({
+    queryKey: LOYALTY_KEYS.courtReward(tabId ?? ''),
+    enabled: Boolean(tabId) && enabled,
+    queryFn: () => appRpc<CourtRewardState>('loyalty_court_reward', { p_tab_id: tabId }),
   });
 }
 
@@ -246,6 +271,8 @@ export function useLoyaltyCustomer(customerId: string, enabled = true) {
 
 export interface StaffLoyaltyTerms extends RedeemTerms {
   enabled: boolean | null;
+  /** 0403: "Use points" (points as money off) is on. Null while unknown, which reads as off. */
+  pointsOffEnabled: boolean | null;
   /** Null when this role cannot list them (loyalty_admin is manager/owner). */
   rewards: LoyaltyAdminReward[] | null;
 }
@@ -264,10 +291,12 @@ export function useLoyaltyTerms(enabled = true) {
         enabled: boolean;
         point_value_iqd: number | null;
         min_redeem_points: number | null;
+        points_off_enabled?: boolean;
         rewards: LoyaltyAdminReward[];
       }>('loyalty_till_terms', { p_venue_id: currentBranchId() });
       return {
         enabled: t.enabled,
+        pointsOffEnabled: t.points_off_enabled === true,
         pointValueIqd: t.point_value_iqd,
         minRedeemPoints: t.min_redeem_points,
         rewards: t.rewards,
