@@ -283,7 +283,11 @@ describe.each<Locale>(['en', 'ar'])('open matches on the booking sheet in %s', (
   });
 
   it('says so when the match has gone since the chip was drawn', async () => {
-    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    // Tap OK as jest.setup.ts does: the error coordinator in overlays.tsx is
+    // module state, and an alert nothing closes would hold the next case's.
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation((_title, _body, buttons) => {
+      buttons?.[0]?.onPress?.();
+    });
     const { screen, cellId } = renderSheet(
       locale,
       seeds({

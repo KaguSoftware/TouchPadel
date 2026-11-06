@@ -428,8 +428,9 @@ describe.each<Locale>(['en', 'ar'])('play survey in %s', (locale) => {
       expect(screen.getByTestId('play.for-you.coaches')).toBeTruthy();
       expect(screen.getByTestId('play.for-you.classes')).toBeTruthy();
       fireEvent.press(first);
+      // A tab target goes down to the tab (useDownToTab): replace with no stack under it.
       expect(routerState.calls).toContainEqual({
-        method: 'navigate',
+        method: 'replace',
         arg: { pathname: '/play', params: { show: 'matches' } },
       });
     } finally {

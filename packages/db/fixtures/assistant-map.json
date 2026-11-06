@@ -1,5 +1,5 @@
 {
-  "generated_from": "6a2a1670b8fa06be286ba4beafebee858dbffb4f",
+  "generated_from": "acf4c3fa4ec19ac9812998b0c2b9ad614b65e4fd",
   "chunks": [
     {
       "kind": "page",
@@ -31710,7 +31710,7 @@
       "ref": "label:ws.loyalty.redeem",
       "lang": "ar",
       "title": "ws.loyalty.redeem (packages/i18n/src/catalogs/ws/loyalty.ar.ts) (part 1 of 2)",
-      "body": "button: استخدام النقاط\ntitle: استخدام النقاط\nlead: لدى {name} {points} نقطة.\npoints: النقاط المستخدمة\nworth: تخصم {amount} من الفاتورة.\nworthUnknown: يحسب الخادم المبلغ، ولا يخصم أكثر مما بقي للدفع.\nmaxHint: حتى {points} نقطة تناسب ما بقي للدفع.\nconfirm: استخدام {points} نقطة\ndone: خصمت {points} نقطة {amount} من الفاتورة.\nnoBalance: لا توجد نقاط للاستخدام بعد.\nbelowMin: تُستخدم {min} نقطة على الأقل في كل مرة.\noverBalance: أكثر من النقاط التي لدى العضو ({points}).\nnothingDue: لم يبقَ شيء للدفع على هذه الفاتورة.\nusedTitle: النقاط المستخدمة على هذه الفاتورة\nusedRow: {points} نقطة · خصم {amount}\nrewardRow: مكافأة · خصم {amount}\ncourtRow: ساعة ملعب مجانية · خصم {amount} من أجرة الملعب\nundo: تراجع\nundone: أُعيدت النقاط إلى العضو.\nbillRow: نقاط الولاء\npinLabel: رمز المدير",
+      "body": "button: استخدام النقاط\ntitle: استخدام النقاط\nlead: لدى {name} {points} نقطة.\npoints: النقاط المستخدمة\nworth: تخصم {amount} من الفاتورة.\nworthUnknown: يحسب الخادم المبلغ، ولا يخصم أكثر مما بقي للدفع.\nmaxHint: حتى {points} نقطة تناسب ما بقي للدفع.\nconfirm: استخدام {points} نقطة\ndone: خصمت {points} نقطة {amount} من الفاتورة.\nnoBalance: لا توجد نقاط للاستخدام بعد.\nbelowMin: تُستخدم {min} نقطة على الأقل في كل مرة.\noverBalance: أكثر من النقاط التي لدى العضو ({points}).\nnothingDue: لم يبقَ شيء للدفع على هذه الفاتورة.\nusedTitle: النقاط المستخدمة على هذه الفاتورة\nusedRow: {points} نقطة · خصم {amount}\nrewardRow: مكافأة · خصم {amount}\ncourtRow: ساعة ملعب مجانية · خصم {amount} من أجرة الملعب\ncourtCovered: غطّت ساعة ملعب مجانية من النقاط أجرة الملعب ({amount}).\nundo: تراجع",
       "route": null
     },
     {
@@ -31718,7 +31718,7 @@
       "ref": "label:ws.loyalty.redeem",
       "lang": "en",
       "title": "ws.loyalty.redeem (packages/i18n/src/catalogs/ws/loyalty.en.ts) (part 1 of 2)",
-      "body": "button: Use points\ntitle: Use points\nlead: {name} has {points} points.\npoints: Points to use\nworth: Takes {amount} off the bill.\nworthUnknown: The server works out the amount and never takes more than is left to pay.\nmaxHint: Up to {points} points fit what is left to pay.\nconfirm: Use {points} points\ndone: {points} points took {amount} off the bill.\nnoBalance: No points to use yet.\nbelowMin: At least {min} points are used at a time.\noverBalance: More than the {points} points the member has.\nnothingDue: Nothing is left to pay on this bill.\nusedTitle: Points used on this bill\nusedRow: {points} points · {amount} off\nrewardRow: Reward · {amount} off\ncourtRow: Free court hour · {amount} off the court fee\nundo: Undo\nundone: Points given back to the member.",
+      "body": "button: Use points\ntitle: Use points\nlead: {name} has {points} points.\npoints: Points to use\nworth: Takes {amount} off the bill.\nworthUnknown: The server works out the amount and never takes more than is left to pay.\nmaxHint: Up to {points} points fit what is left to pay.\nconfirm: Use {points} points\ndone: {points} points took {amount} off the bill.\nnoBalance: No points to use yet.\nbelowMin: At least {min} points are used at a time.\noverBalance: More than the {points} points the member has.\nnothingDue: Nothing is left to pay on this bill.\nusedTitle: Points used on this bill\nusedRow: {points} points · {amount} off\nrewardRow: Reward · {amount} off\ncourtRow: Free court hour · {amount} off the court fee",
       "route": null
     },
     {
@@ -31726,7 +31726,7 @@
       "ref": "label:ws.loyalty.redeem~2",
       "lang": "ar",
       "title": "ws.loyalty.redeem (packages/i18n/src/catalogs/ws/loyalty.ar.ts) (part 2 of 2)",
-      "body": "button: استخدام النقاط\nrewardRow: مكافأة · خصم {amount}\ncourtRow: ساعة ملعب مجانية · خصم {amount} من أجرة الملعب\nundo: تراجع\nundone: أُعيدت النقاط إلى العضو.\nbillRow: نقاط الولاء\npinLabel: رمز المدير\npinHint: لم تُمسح بطاقة العضو للتو. امسحها مرة أخرى، أو يُدخل المدير رمزه.",
+      "body": "button: استخدام النقاط\nrewardRow: مكافأة · خصم {amount}\ncourtRow: ساعة ملعب مجانية · خصم {amount} من أجرة الملعب\ncourtCovered: غطّت ساعة ملعب مجانية من النقاط أجرة الملعب ({amount}).\nundo: تراجع\nundone: أُعيدت النقاط إلى العضو.\nbillRow: نقاط الولاء\npinLabel: رمز المدير\npinHint: لم تُمسح بطاقة العضو للتو. امسحها مرة أخرى، أو يُدخل المدير رمزه.",
       "route": null
     },
     {
@@ -31734,7 +31734,7 @@
       "ref": "label:ws.loyalty.redeem~2",
       "lang": "en",
       "title": "ws.loyalty.redeem (packages/i18n/src/catalogs/ws/loyalty.en.ts) (part 2 of 2)",
-      "body": "button: Use points\nusedRow: {points} points · {amount} off\nrewardRow: Reward · {amount} off\ncourtRow: Free court hour · {amount} off the court fee\nundo: Undo\nundone: Points given back to the member.\nbillRow: Loyalty points\npinLabel: Manager PIN",
+      "body": "button: Use points\nusedTitle: Points used on this bill\nusedRow: {points} points · {amount} off\nrewardRow: Reward · {amount} off\ncourtRow: Free court hour · {amount} off the court fee\ncourtCovered: A free court hour from points covered the court fee ({amount}).\nundo: Undo\nundone: Points given back to the member.\nbillRow: Loyalty points\npinLabel: Manager PIN",
       "route": null
     },
     {
@@ -31742,7 +31742,7 @@
       "ref": "label:ws.loyalty.rewards",
       "lang": "ar",
       "title": "ws.loyalty.rewards (packages/i18n/src/catalogs/ws/loyalty.ar.ts)",
-      "body": "button: المكافآت\ntitle: المكافآت\nlead: لدى {name} {points} نقطة.\nempty: لا توجد مكافآت معروضة.\nunavailable: قائمة المكافآت متاحة للمديرين. استخدم النقاط بدلًا منها، أو اطلب من المدير.\ncost: {points} نقطة\niqdOff: خصم {amount}\nitem: مجانًا على الفاتورة، ويُضاف إن لم يكن عليها\nuse: استخدام\ntooFew: النقاط غير كافية\ndone: استُخدمت المكافأة: خصم {amount} من الفاتورة.\ndoneItem: استُخدمت المكافأة: {name} مجانًا على الفاتورة.\ndoneItemAdded: استُخدمت المكافأة: أُضيف {name} إلى الفاتورة مجانًا.\ncourt: ساعة ملعب مجانية على هذا الحجز ({amount})\ndoneCourt: استُخدمت المكافأة: ساعة ملعب مجانية، وخُصم {amount} من أجرة الملعب.",
+      "body": "button: المكافآت\ntitle: المكافآت\nlead: لدى {name} {points} نقطة.\nempty: لا توجد مكافآت معروضة.\nunavailable: قائمة المكافآت متاحة للمديرين. اطلب من المدير.\ncost: {points} نقطة\niqdOff: خصم {amount}\nitem: مجانًا على الفاتورة، ويُضاف إن لم يكن عليها\nuse: استخدام\ntooFew: النقاط غير كافية\ndone: استُخدمت المكافأة: خصم {amount} من الفاتورة.\ndoneItem: استُخدمت المكافأة: {name} مجانًا على الفاتورة.\ndoneItemAdded: استُخدمت المكافأة: أُضيف {name} إلى الفاتورة مجانًا.\ncourt: ساعة ملعب مجانية على هذا الحجز ({amount})\ndoneCourt: استُخدمت المكافأة: ساعة ملعب مجانية، وخُصم {amount} من أجرة الملعب.",
       "route": null
     },
     {
@@ -31750,7 +31750,7 @@
       "ref": "label:ws.loyalty.rewards",
       "lang": "en",
       "title": "ws.loyalty.rewards (packages/i18n/src/catalogs/ws/loyalty.en.ts)",
-      "body": "button: Rewards\ntitle: Rewards\nlead: {name} has {points} points.\nempty: No rewards are on offer.\nunavailable: Rewards are listed for managers. Use points instead, or ask a manager.\ncost: {points} points\niqdOff: {amount} off\nitem: Free on the bill, added if it isn’t there yet\nuse: Use\ntooFew: Not enough points\ndone: Reward used: {amount} off the bill.\ndoneItem: Reward used: {name} is free on the bill.\ndoneItemAdded: Reward used: {name} added to the bill, free.\ncourt: One free hour of court on this booking ({amount})\ndoneCourt: Reward used: one free hour of court, {amount} off the court fee.",
+      "body": "button: Rewards\ntitle: Rewards\nlead: {name} has {points} points.\nempty: No rewards are on offer.\nunavailable: Rewards are listed for managers. Ask a manager.\ncost: {points} points\niqdOff: {amount} off\nitem: Free on the bill, added if it isn’t there yet\nuse: Use\ntooFew: Not enough points\ndone: Reward used: {amount} off the bill.\ndoneItem: Reward used: {name} is free on the bill.\ndoneItemAdded: Reward used: {name} added to the bill, free.\ncourt: One free hour of court on this booking ({amount})\ndoneCourt: Reward used: one free hour of court, {amount} off the court fee.",
       "route": null
     },
     {
