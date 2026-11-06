@@ -27,7 +27,6 @@ import { space } from '../src/theme';
 import {
   Button,
   ErrorText,
-  Field,
   FooterLink,
   FormScreen,
   LabeledDivider,
@@ -35,6 +34,7 @@ import {
   Screen,
   SegmentedControl,
 } from '../src/components/ui';
+import { FloatingField } from '../src/components/FloatingLabel';
 import { BirthDatePicker } from '../src/components/BirthDatePicker';
 import { ageBandOf } from '../src/features/playProfile/logic';
 import { birthDateToLocalDate, isValidBirthDate } from '../src/features/profile/birthDate';
@@ -222,9 +222,6 @@ function SignUpScreen({ step }: { step: number }) {
             style={{ marginTop: 18, marginBottom: 4 }}
           />
         ) : null}
-        <MicroLabel style={{ marginTop: 14 }}>
-          {t('auth.signUpStep', { step: step + 1, total: LAST_STEP + 1 })}
-        </MicroLabel>
         {step === 0 ? (
           <PhoneField
             testID="sign-up.phone"
@@ -238,7 +235,7 @@ function SignUpScreen({ step }: { step: number }) {
         ) : null}
         {step === 1 ? (
           <>
-            <Field
+            <FloatingField
               testID="sign-up.first-name"
               placeholder={t('auth.firstNameLabel')}
               value={firstName}
@@ -251,7 +248,7 @@ function SignUpScreen({ step }: { step: number }) {
               error={fieldErrors.firstName}
               style={{ marginTop: 6 }}
             />
-            <Field
+            <FloatingField
               testID="sign-up.last-name"
               placeholder={t('auth.lastNameLabel')}
               value={lastName}
@@ -285,7 +282,7 @@ function SignUpScreen({ step }: { step: number }) {
         ) : null}
         {step === 2 ? (
           <>
-            <Field
+            <FloatingField
               testID="sign-up.email"
               placeholder={t('auth.emailLabel')}
               value={email}
@@ -298,7 +295,7 @@ function SignUpScreen({ step }: { step: number }) {
               error={fieldErrors.email}
               style={{ marginTop: 6 }}
             />
-            <Field
+            <FloatingField
               testID="sign-up.password"
               placeholder={t('auth.passwordMinPlaceholder')}
               value={password}

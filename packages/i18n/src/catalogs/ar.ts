@@ -79,7 +79,6 @@ export const ar: Messages = {
     preferredLanguage: 'اللغة المفضلة',
     identifierLabel: 'البريد الإلكتروني أو رقم الهاتف',
     identifierRequired: 'أدخل بريدك الإلكتروني أو رقم هاتفك.',
-    signUpStep: 'الخطوة {step} من {total}',
     noAccount: 'أول زيارة؟ أنشئ حسابًا',
     haveAccount: 'لديك حساب بالفعل؟ سجّل الدخول',
     newHereLead: 'أول زيارة؟',
