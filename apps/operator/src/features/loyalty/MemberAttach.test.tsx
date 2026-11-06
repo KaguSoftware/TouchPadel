@@ -14,8 +14,18 @@ let role = 'cashier';
 let memberIsStaff = false;
 /** 0308 (c3): loyalty_redeem answers a spent token as data. */
 let tokenSpent = false;
+/** 0403: the owner's "Use points" switch (loyalty_till_terms.points_off_enabled). */
+let pointsOff = true;
+/** 0403: the free court hour already on the tab's booking (loyalty_court_reward.reward). */
+let courtReward: Record<string, unknown> | null = null;
 const TAB = 't1';
-let tabRow: { id: string; status: string; customer_id: string | null; tab_adjustments: unknown[] };
+let tabRow: {
+  id: string;
+  status: string;
+  customer_id: string | null;
+  reservation_id?: string | null;
+  tab_adjustments: unknown[];
+};
 
 vi.mock('../../lib/supabase', () => ({
   supabase: {
@@ -93,6 +103,7 @@ function mount(tabId = TAB, remainingIqd: number | null = 12_340) {
       case 'loyalty_till_terms':
         return {
           enabled: true,
+          points_off_enabled: pointsOff,
           point_value_iqd: 50,
           min_redeem_points: 100,
           rewards: [
@@ -121,6 +132,15 @@ function mount(tabId = TAB, remainingIqd: number | null = 12_340) {
         };
       case 'loyalty_unredeem':
         return { balance: 400 };
+      case 'loyalty_court_reward':
+        return {
+          tab_id: TAB,
+          reservation_id: 'res1',
+          plain_booking: true,
+          value_iqd: 40000,
+          refused: courtReward ? 'REWARD_ALREADY_ON_BOOKING' : null,
+          reward: courtReward,
+        };
       case 'verify_manager_pin':
         if (args?.p_pin !== '1234') return null;
         grants += 1;
@@ -149,7 +169,37 @@ describe('MemberAttach', () => {
     role = 'cashier';
     memberIsStaff = false;
     tokenSpent = false;
+    pointsOff = true;
+    courtReward = null;
     tabRow = { id: TAB, status: 'open', customer_id: null, tab_adjustments: [] };
+  });
+
+  it('hides Use points while the owner has it off; Rewards stays (0403)', async () => {
+    pointsOff = false;
+    tabRow = { ...tabRow, customer_id: 'p1' };
+    mount();
+    expect(await screen.findByRole('button', { name: 'Rewards' })).toBeTruthy();
+    await waitFor(() => expect(calls('loyalty_till_terms')).toHaveLength(1));
+    expect(screen.queryByTestId('member-use-points')).toBeNull();
+  });
+
+  it('shows the free court hour on a booking’s bill and undoes it by its own id (0403)', async () => {
+    courtReward = {
+      id: 'crw1',
+      reward_id: 'rw1',
+      name_en: 'Free court hour',
+      name_ar: 'ساعة ملعب مجانية',
+      points: 800,
+      amount_iqd: 40000,
+      created_at: '2026-11-05T20:00:00Z',
+      closed: false,
+    };
+    tabRow = { ...tabRow, customer_id: 'p1', reservation_id: 'res1' };
+    const user = userEvent.setup();
+    mount();
+    expect(await screen.findByTestId('member-court-hour')).toBeTruthy();
+    await user.click(screen.getByTestId('member-court-undo'));
+    await waitFor(() => expect(calls('loyalty_unredeem')).toEqual([{ p_adjustment_id: 'crw1' }]));
   });
 
   it('asks another manager’s PIN to add a member who works here, then attaches them (0308, c2)', async () => {

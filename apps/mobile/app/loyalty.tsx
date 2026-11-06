@@ -87,7 +87,9 @@ function LoyaltyScreen() {
       color: colors.mut,
     } as const;
     // How far the balance is to the smallest use at the cashier; no bar when there is no minimum.
-    const min = l.min_redeem_points;
+    // 0403: the smallest use only means something while points can be spent as money off; with
+    // rewards only (the default), the reward rings below show what the balance reaches.
+    const min = l.points_off_enabled ? l.min_redeem_points : 0;
     const usable = min > 0 ? Math.min(1, l.balance / min) : 1;
     const onCard = brand.navyText;
     return (
@@ -175,7 +177,7 @@ function LoyaltyScreen() {
               }}
             >
               <Text style={{ flexShrink: 1, fontFamily: fonts.body600, fontSize: 12, color: onCard }}>
-                {t('loyalty.guest.home.useAtCashier')}
+                {t(l.points_off_enabled ? 'loyalty.guest.home.useAtCashier' : 'loyalty.guest.home.rewardsAtCashier')}
               </Text>
               {min > 0 ? (
                 <Text
@@ -325,7 +327,12 @@ function LoyaltyScreen() {
                         </Svg>
                         <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
                           <Path
-                            d="M4 9h16v4H4zM6 13h12v7H6zM12 9v11M12 9c-2-4-6-3-5 0M12 9c2-4 6-3 5 0"
+                            d={
+                              r.kind === 'court_hour'
+                                ? // 0403: a free court hour: a court seen from above, net across the middle.
+                                  'M5 3h14v18H5zM5 12h14M9 3v4.5M15 3v4.5M9 16.5V21M15 16.5V21'
+                                : 'M4 9h16v4H4zM6 13h12v7H6zM12 9v11M12 9c-2-4-6-3-5 0M12 9c2-4 6-3 5 0'
+                            }
                             stroke={colors.ink}
                             strokeWidth={1.8}
                             strokeLinecap="round"

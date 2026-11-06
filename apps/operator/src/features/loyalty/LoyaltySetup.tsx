@@ -15,7 +15,12 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { formatIQD, formatNumber } from '@touch/i18n';
-import { tierColor, type LoyaltyAdminReward, type LoyaltyAdminTier } from '@touch/core/loyalty';
+import {
+  tierColor,
+  type LoyaltyAdminReward,
+  type LoyaltyAdminTier,
+  type LoyaltyRewardKind,
+} from '@touch/core/loyalty';
 import { appRpc } from '../../lib/appRpc';
 import { useLocale, pickName } from '../../lib/i18n';
 import { can, useAuth } from '../../lib/auth';
@@ -150,6 +155,17 @@ function SettingsPanel({ canEdit, draft0 }: { canEdit: boolean; draft0: Settings
           />
           <p style={{ margin: 0, fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>
             {tr(`${S}.enabledHint`)}
+          </p>
+        </div>
+        <div style={{ display: 'grid', gap: 'var(--tp-sp-1)' }}>
+          <Switch
+            checked={draft.points_off_enabled}
+            onChange={(v) => set('points_off_enabled', v)}
+            label={tr(`${S}.pointsOff`)}
+            disabled={!canEdit}
+          />
+          <p style={{ margin: 0, fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>
+            {tr(`${S}.pointsOffHint`)}
           </p>
         </div>
         <div
@@ -561,9 +577,11 @@ function RewardsPanel({ canEdit, rewards }: { canEdit: boolean; rewards: Loyalty
                   {tr('ws.loyalty.rewards.cost', { points: formatNumber(r.cost_points, locale) })}
                 </td>
                 <td>
-                  {r.kind === 'iqd_off' && r.iqd_off != null
-                    ? tr('ws.loyalty.rewards.iqdOff', { amount: formatIQD(r.iqd_off, locale) })
-                    : tr('ws.loyalty.rewards.item')}
+                  {r.kind === 'court_hour'
+                    ? tr(`${R}.courtHour`)
+                    : r.kind === 'iqd_off' && r.iqd_off != null
+                      ? tr('ws.loyalty.rewards.iqdOff', { amount: formatIQD(r.iqd_off, locale) })
+                      : tr('ws.loyalty.rewards.item')}
                 </td>
                 <td>
                   <Switch
@@ -635,7 +653,7 @@ function RewardEditor({ draft0, onClose }: { draft0: RewardDraft; onClose: () =>
   const R = `${K}.rewards` as const;
   const errors = touched ? rewardErrors(d) : {};
   useEffect(() => {
-    if (d.kind === 'iqd_off' && d.menu_variant_id) setD((x) => ({ ...x, menu_variant_id: null }));
+    if (d.kind !== 'item' && d.menu_variant_id) setD((x) => ({ ...x, menu_variant_id: null }));
   }, [d.kind, d.menu_variant_id]);
 
   async function save() {
@@ -704,16 +722,21 @@ function RewardEditor({ draft0, onClose }: { draft0: RewardDraft; onClose: () =>
           error={errors.cost ? tr(`${R}.errors.cost`) : undefined}
         />
         <Field label={tr(`${R}.kind`)} style={{ marginBlockEnd: 0 }}>
-          <Select<'iqd_off' | 'item'>
+          <Select<LoyaltyRewardKind>
             value={d.kind}
             onChange={(kind) => setD({ ...d, kind })}
             options={[
-              { value: 'iqd_off', label: tr(`${R}.kindIqdOff`) },
               { value: 'item', label: tr(`${R}.kindItem`) },
+              { value: 'court_hour', label: tr(`${R}.kindCourt`) },
+              { value: 'iqd_off', label: tr(`${R}.kindIqdOff`) },
             ]}
           />
         </Field>
-        {d.kind === 'iqd_off' ? (
+        {d.kind === 'court_hour' ? (
+          <p style={{ margin: 0, alignSelf: 'end', color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>
+            {tr(`${R}.kindCourtBody`)}
+          </p>
+        ) : d.kind === 'iqd_off' ? (
           <NumberField
             label={tr(`${R}.iqdOff`)}
             hint=""
@@ -965,7 +988,7 @@ function RewardWizard({ draft0, onClose }: { draft0: RewardDraft; onClose: () =>
   const item = variants.find((v) => v.value === d.menu_variant_id)?.label ?? '';
   // The other kind's answer is dropped when the kind changes (the table's check).
   const pickKind = (kind: RewardDraft['kind']) =>
-    setD({ ...d, kind, menu_variant_id: kind === 'iqd_off' ? null : d.menu_variant_id });
+    setD({ ...d, kind, menu_variant_id: kind === 'item' ? d.menu_variant_id : null });
 
   const steps: WizardStep[] = [
     {
@@ -990,11 +1013,13 @@ function RewardWizard({ draft0, onClose }: { draft0: RewardDraft; onClose: () =>
       key: 'gives',
       label: tr(`${R}.steps.gives`),
       note:
-        d.kind === 'iqd_off'
-          ? off !== null && off > 0
-            ? tr('ws.loyalty.rewards.iqdOff', { amount: formatIQD(off, locale) })
-            : null
-          : item || null,
+        d.kind === 'court_hour'
+          ? tr(`${R}.courtHour`)
+          : d.kind === 'iqd_off'
+            ? off !== null && off > 0
+              ? tr('ws.loyalty.rewards.iqdOff', { amount: formatIQD(off, locale) })
+              : null
+            : item || null,
       problems: [
         ...(errors.iqdOff ? [tr(`${R}.errors.iqdOff`)] : []),
         ...(errors.variant ? [tr(`${R}.errors.variant`)] : []),
@@ -1003,14 +1028,6 @@ function RewardWizard({ draft0, onClose }: { draft0: RewardDraft; onClose: () =>
         <>
           <WizardChoices label={tr(`${R}.steps.gives`)}>
             <WizardChoice
-              on={d.kind === 'iqd_off'}
-              title={tr(`${R}.kindIqdOff`)}
-              body={tr(`${R}.kindIqdOffBody`)}
-              disabled={busy}
-              onPick={() => pickKind('iqd_off')}
-              testId="loyalty-reward-kind-iqd_off"
-            />
-            <WizardChoice
               on={d.kind === 'item'}
               title={tr(`${R}.kindItemTitle`)}
               body={tr(`${R}.kindItemBody`)}
@@ -1018,8 +1035,24 @@ function RewardWizard({ draft0, onClose }: { draft0: RewardDraft; onClose: () =>
               onPick={() => pickKind('item')}
               testId="loyalty-reward-kind-item"
             />
+            <WizardChoice
+              on={d.kind === 'court_hour'}
+              title={tr(`${R}.kindCourtTitle`)}
+              body={tr(`${R}.kindCourtBody`)}
+              disabled={busy}
+              onPick={() => pickKind('court_hour')}
+              testId="loyalty-reward-kind-court_hour"
+            />
+            <WizardChoice
+              on={d.kind === 'iqd_off'}
+              title={tr(`${R}.kindIqdOff`)}
+              body={tr(`${R}.kindIqdOffBody`)}
+              disabled={busy}
+              onPick={() => pickKind('iqd_off')}
+              testId="loyalty-reward-kind-iqd_off"
+            />
           </WizardChoices>
-          {d.kind === 'iqd_off' ? (
+          {d.kind === 'court_hour' ? null : d.kind === 'iqd_off' ? (
             <WizardUnitField
               label={tr(`${R}.iqdOff`)}
               unit={tr(`${K}.settings.unitIqd`)}
@@ -1080,9 +1113,11 @@ function RewardWizard({ draft0, onClose }: { draft0: RewardDraft; onClose: () =>
             {
               label: tr(`${R}.review.gives`),
               value:
-                d.kind === 'iqd_off'
-                  ? tr(`${R}.review.offValue`, { amount: formatIQD(off ?? 0, locale) })
-                  : <bdi>{item}</bdi>,
+                d.kind === 'court_hour'
+                  ? tr(`${R}.courtHour`)
+                  : d.kind === 'iqd_off'
+                    ? tr(`${R}.review.offValue`, { amount: formatIQD(off ?? 0, locale) })
+                    : <bdi>{item}</bdi>,
               step: 'gives',
             },
             {

@@ -41,8 +41,10 @@ import {
   identifyCode,
   loyaltyAdjustments,
   parseWhole,
+  pointsOffOn,
   redeemBlock,
   redeemWorth,
+  rewardsForTab,
   type MemberView,
 } from './loyaltyLogic';
 import {
@@ -57,6 +59,7 @@ import {
   redeemReward,
   setTabCustomer,
   unredeem,
+  useCourtReward,
   useLoyaltyTerms,
   useMemberView,
   useTabLoyalty,
@@ -359,6 +362,12 @@ export function MemberAttach({
 
   const used = loyaltyAdjustments(tabQ.data?.tab_adjustments ?? []);
   const usedCap = useListCap(used);
+  // 0403: the free court hour lives on the booking, so only a booking's tab reads it.
+  const courtQ = useCourtReward(
+    tabQ.data?.reservation_id ? tabId : null,
+    allowed && !local && customerId !== null,
+  );
+  const courtUsed = courtQ.data?.reward ?? null;
 
   if (!allowed) return null;
 
@@ -367,6 +376,7 @@ export function MemberAttach({
   const member = customerId ? (memberQ.data ?? null) : null;
   const terms: StaffLoyaltyTerms = termsQ.data ?? {
     enabled: null,
+    pointsOffEnabled: null,
     pointValueIqd: null,
     minRedeemPoints: null,
     rewards: null,
@@ -446,21 +456,24 @@ export function MemberAttach({
           actions={
             open ? (
               <>
+                {/* 0403: points as money off only while the owner has it on. */}
+                {pointsOffOn(terms) && (
+                  <Button
+                    size="sm"
+                    icon="star"
+                    disabled={busy || off || !reachable || member.balance <= 0}
+                    disabledReason={
+                      offlineReason ?? (member.balance <= 0 ? tr(`${K}.redeem.noBalance`) : undefined)
+                    }
+                    onClick={() => setDialog({ kind: 'redeem' })}
+                    data-testid="member-use-points"
+                  >
+                    {tr(`${K}.redeem.button`)}
+                  </Button>
+                )}
                 <Button
                   size="sm"
                   kind="primary"
-                  icon="star"
-                  disabled={busy || off || !reachable || member.balance <= 0}
-                  disabledReason={
-                    offlineReason ?? (member.balance <= 0 ? tr(`${K}.redeem.noBalance`) : undefined)
-                  }
-                  onClick={() => setDialog({ kind: 'redeem' })}
-                  data-testid="member-use-points"
-                >
-                  {tr(`${K}.redeem.button`)}
-                </Button>
-                <Button
-                  size="sm"
                   icon="ticket"
                   disabled={busy || off || !reachable}
                   disabledReason={offlineReason}
@@ -498,7 +511,7 @@ export function MemberAttach({
         </span>
       )}
 
-      {used.length > 0 && (
+      {(used.length > 0 || courtUsed) && (
         <div style={{ display: 'grid', gap: 'var(--tp-sp-1)' }}>
           <span
             style={{ fontSize: 'var(--tp-fs-xs)', fontWeight: 600, color: 'var(--tp-muted-fg)' }}
@@ -554,6 +567,40 @@ export function MemberAttach({
                 )}
               </li>
             ))}
+            {courtUsed && (
+              <li
+                key={courtUsed.id}
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  gap: 'var(--tp-sp-2)',
+                  fontSize: 'var(--tp-fs-sm)',
+                }}
+                data-testid="member-court-hour"
+              >
+                <span>{tr(`${K}.redeem.courtRow`, { amount: formatIQD(courtUsed.amount_iqd, locale) })}</span>
+                {!courtUsed.closed && (
+                  <Button
+                    size="sm"
+                    kind="ghost"
+                    icon="undo"
+                    disabled={busy || !reachable}
+                    disabledReason={offlineReason}
+                    onClick={() =>
+                      void run(async () => {
+                        await unredeem(courtUsed.id);
+                        refresh();
+                        return tr(`${K}.redeem.undone`);
+                      })
+                    }
+                    data-testid="member-court-undo"
+                  >
+                    {tr(`${K}.redeem.undo`)}
+                  </Button>
+                )}
+              </li>
+            )}
           </ul>
           <ViewMore hidden={usedCap.hidden} open={usedCap.open} onToggle={usedCap.toggle} style={{ marginBlockStart: 0 }} />
         </div>
@@ -598,7 +645,8 @@ export function MemberAttach({
         <RewardsDialog
           tabId={tabId}
           member={member}
-          rewards={terms.rewards}
+          rewards={terms.rewards === null ? null : rewardsForTab(terms.rewards, courtQ.data)}
+          courtValueIqd={courtQ.data?.value_iqd ?? null}
           loading={termsQ.isLoading}
           onClose={() => setDialog({ kind: 'none' })}
           onDone={(text) => {
@@ -838,6 +886,7 @@ function RewardsDialog({
   tabId,
   member,
   rewards,
+  courtValueIqd,
   loading,
   onClose,
   onDone,
@@ -845,6 +894,8 @@ function RewardsDialog({
   tabId: string;
   member: MemberView;
   rewards: LoyaltyAdminReward[] | null;
+  /** 0403: what a free court hour is worth on this tab's booking (loyalty_court_reward). */
+  courtValueIqd: number | null;
   loading: boolean;
   onClose: () => void;
   onDone: (notice: string) => void;
@@ -874,7 +925,9 @@ function RewardsDialog({
       onDone(
         r.kind === 'item'
           ? tr(`${K}.rewards.${res.item_added ? 'doneItemAdded' : 'doneItem'}`, { name })
-          : tr(`${K}.rewards.done`, { amount: formatIQD(Number(res.amount_iqd), locale) }),
+          : r.kind === 'court_hour'
+            ? tr(`${K}.rewards.doneCourt`, { amount: formatIQD(Number(res.amount_iqd), locale) })
+            : tr(`${K}.rewards.done`, { amount: formatIQD(Number(res.amount_iqd), locale) }),
       );
     } catch (e) {
       proof.settle(e);
@@ -933,9 +986,11 @@ function RewardsDialog({
                   <strong>{locale === 'ar' ? r.name_ar : r.name_en}</strong>
                   <span style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>
                     {tr(`${K}.rewards.cost`, { points: n(r.cost_points) })} ·{' '}
-                    {r.kind === 'iqd_off' && r.iqd_off != null
-                      ? tr(`${K}.rewards.iqdOff`, { amount: formatIQD(r.iqd_off, locale) })
-                      : tr(`${K}.rewards.item`)}
+                    {r.kind === 'court_hour'
+                      ? tr(`${K}.rewards.court`, { amount: formatIQD(courtValueIqd ?? 0, locale) })
+                      : r.kind === 'iqd_off' && r.iqd_off != null
+                        ? tr(`${K}.rewards.iqdOff`, { amount: formatIQD(r.iqd_off, locale) })
+                        : tr(`${K}.rewards.item`)}
                   </span>
                 </span>
                 <Button

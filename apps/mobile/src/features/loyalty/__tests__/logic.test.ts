@@ -50,6 +50,17 @@ describe('parseMemberCard', () => {
 });
 
 describe('parseMyLoyalty', () => {
+  it('keeps a free court hour reward and the points-off switch (0403); absent reads as off', () => {
+    const l = parseMyLoyalty({
+      enabled: true,
+      points_off_enabled: true,
+      rewards: [{ id: 'c', name_en: 'Free court hour', name_ar: 'ساعة', cost_points: 800, kind: 'court_hour', iqd_off: null }],
+    });
+    expect(l.points_off_enabled).toBe(true);
+    expect(l.rewards[0]?.kind).toBe('court_hour');
+    expect(parseMyLoyalty({ enabled: true }).points_off_enabled).toBe(false);
+  });
+
   it('reads the contract shape', () => {
     const l = parseMyLoyalty({
       enabled: true,

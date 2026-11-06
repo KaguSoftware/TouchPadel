@@ -170,9 +170,12 @@ describe.skipIf(!docker)('lock-order gate over the local stack (loyalty)', () =>
     const seq = (fn: string) => line(fn).trim().slice(fn.length).trim();
     // 0350: an item reward may order its item onto the tab first (a shop item takes its stock,
     // as till_add_items does), still before the account.
+    // 0403: a free court hour locks the court, then the booking row (0042's order), still before
+    // the account; its undo does the same under the tab.
     expect(seq('loyalty_redeem')).toBe(
-      'tabs -> loyalty_attempts_advisory -> stock_batches -> loyalty_accounts',
+      'tabs -> loyalty_attempts_advisory -> stock_batches -> court_advisory -> reservations -> loyalty_accounts',
     );
+    expect(seq('loyalty_unredeem')).toBe('tabs -> court_advisory -> reservations -> loyalty_accounts');
     expect(seq('loyalty_identify')).toBe('loyalty_attempts_advisory');
     expect(seq('link_guest_session')).toBe('loyalty_attempts_advisory');
     expect(seq('loyalty_adjust')).toBe('loyalty_gift_advisory -> loyalty_accounts');

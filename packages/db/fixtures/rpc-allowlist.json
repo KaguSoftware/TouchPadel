@@ -297,6 +297,7 @@
     "log_stock",
     "loyalty_adjust",
     "loyalty_admin",
+    "loyalty_court_reward",
     "loyalty_customer",
     "loyalty_identify",
     "loyalty_redeem",

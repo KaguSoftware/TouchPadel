@@ -1224,6 +1224,7 @@ export const ar: Messages = {
         showCard: 'اعرض بطاقة العضوية',
         historyTitle: 'السجل',
         useAtCashier: 'استخدم النقاط عند الكاشير',
+        rewardsAtCashier: 'استبدل نقاطك بمكافأة عند الكاشير',
         earnTitle: 'كيف تجمع النقاط',
         earn1: 'ادفع عند الكاشير',
         earn2: 'اعرض بطاقة العضوية',

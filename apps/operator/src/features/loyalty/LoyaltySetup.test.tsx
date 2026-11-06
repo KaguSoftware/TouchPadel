@@ -174,3 +174,64 @@ describe('LoyaltySetupScreen, adding', () => {
     });
   });
 });
+
+// 0403 (Majed 2026-11-05: rewards are things you take, not a wallet).
+describe('LoyaltySetupScreen, rewards only (0403)', () => {
+  it('starts "Use points" off and saves it on with the rest of the settings', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    const settings = within(screen.getByTestId('loyalty-settings'));
+    const sw = settings.getByRole('switch', { name: /spend points as money off/ });
+    expect(sw.getAttribute('aria-checked')).toBe('false');
+    await user.click(sw);
+    expect(sw.getAttribute('aria-checked')).toBe('true');
+    await user.click(settings.getByTestId('loyalty-settings-save'));
+    await waitFor(() => expect(calls.find((c) => c.fn === 'set_loyalty_settings')).toBeTruthy());
+    expect(calls.find((c) => c.fn === 'set_loyalty_settings')?.args).toMatchObject({
+      p_patch: { points_off_enabled: true, enabled: true, point_value_iqd: 25 },
+    });
+  });
+
+  it('refuses an expiry above 120 months, as the table does', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    const settings = within(screen.getByTestId('loyalty-settings'));
+    await user.type(settings.getByRole('textbox', { name: /^Points expire after/ }), '121');
+    await user.click(settings.getByTestId('loyalty-settings-save'));
+    expect(settings.getByText('Between 1 and 120 months.')).toBeTruthy();
+    expect(calls.find((c) => c.fn === 'set_loyalty_settings')).toBeUndefined();
+  });
+
+  it('adds a free court hour: no amount, no item, sent with both as null', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(within(screen.getByTestId('loyalty-rewards')).getByRole('button', { name: 'Add a reward' }));
+    const wiz = screen.getByTestId('loyalty-reward-wizard');
+    const forward = (name: string) => user.click(within(wiz).getAllByRole('button', { name }).at(-1)!);
+    await user.type(within(wiz).getByRole('textbox', { name: 'Name (English)' }), 'Free court hour');
+    await user.type(within(wiz).getByRole('textbox', { name: 'Name (Arabic)' }), 'ساعة ملعب مجانية');
+    await forward('What it gives');
+    await user.click(within(wiz).getByTestId('loyalty-reward-kind-court_hour'));
+    expect(within(wiz).getByTestId('loyalty-reward-kind-court_hour').getAttribute('aria-pressed')).toBe('true');
+    expect(within(wiz).queryByRole('textbox', { name: /^Amount off/ })).toBeNull();
+    expect(within(wiz).queryByRole('combobox', { name: 'Menu item' })).toBeNull();
+    await forward('Cost');
+    await user.type(within(wiz).getByRole('textbox', { name: /^Cost/ }), '800');
+    await forward('Review');
+    expect(within(wiz).getByText('Gives').closest('div')!.textContent).toContain('One free hour of court');
+    await user.click(within(wiz).getByTestId('loyalty-reward-wizard.submit'));
+    await waitFor(() => expect(calls.find((c) => c.fn === 'upsert_loyalty_reward')).toBeTruthy());
+    expect(calls.find((c) => c.fn === 'upsert_loyalty_reward')?.args).toEqual({
+      p_reward: {
+        name_en: 'Free court hour',
+        name_ar: 'ساعة ملعب مجانية',
+        cost_points: 800,
+        kind: 'court_hour',
+        iqd_off: null,
+        menu_variant_id: null,
+        active: true,
+        venue_id: null,
+      },
+    });
+  });
+});

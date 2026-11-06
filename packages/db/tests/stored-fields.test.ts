@@ -350,6 +350,12 @@ const GUEST_DATA: Record<string, Record<string, Field>> = {
     reason: { category: 'Purchase history', why: 'why this booking was charged less — part of the venue’s takings', onDelete: 'keep' },
     applied_by: n, authorized_by: n, created_at: n,
   },
+  reservation_loyalty_rewards: {
+    reservation_id: n, id: n, tab_id: n, profile_id: n, reward_id: n,
+    points: { category: 'Purchase history', why: 'the points this guest spent on a free court hour', onDelete: 'keep' },
+    amount_iqd: { category: 'Purchase history', why: 'what the free hour took off this booking’s court fee — part of the venue’s takings', onDelete: 'keep' },
+    applied_by: n, authorized_by: n, proof: n, created_at: n,
+  },
   notification_outbox: {
     id: n, profile_id: n, kind: n,
     payload: { category: 'User content', why: 'the text of the push queued for this guest', onDelete: 'row' },

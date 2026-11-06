@@ -514,7 +514,7 @@ export function PointsCard({
 }: {
   /** `<route>.<element>`; the balance takes `${testID}.balance`. */
   testID: string;
-  loyalty: Pick<MyLoyalty, 'balance' | 'tier' | 'point_value_iqd'>;
+  loyalty: Pick<MyLoyalty, 'balance' | 'tier' | 'point_value_iqd' | 'points_off_enabled'>;
   /** The guest's name as their profile has it; the card goes without one while it is empty. */
   holder: string;
   onPress: () => void;
@@ -585,8 +585,9 @@ export function PointsCard({
   };
 
   const balance = isolateLtr(formatNumber(loyalty.balance, locale));
+  // 0403: points are an IQD worth only while the owner lets them be spent as money off.
   const worth =
-    loyalty.balance > 0 && loyalty.point_value_iqd > 0
+    loyalty.points_off_enabled === true && loyalty.balance > 0 && loyalty.point_value_iqd > 0
       ? t('loyalty.guest.home.worth', {
           amount: isolate(formatIQD(loyalty.balance * loyalty.point_value_iqd, locale)),
         })

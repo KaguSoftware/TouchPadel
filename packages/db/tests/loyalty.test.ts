@@ -253,9 +253,11 @@ begin
   end if;
 end $clear_attempts$;
 
+-- points_off_enabled (0403, default off): the points-off path these cases test is on; the 0403
+-- cases turn it off where they test POINTS_OFF.
 update loyalty_settings set enabled = true, iqd_per_point = 1000, point_value_iqd = 50, min_redeem_points = 100,
        earn_cafe = true, earn_shop = true, earn_court = true, earn_lesson = true, earn_tournament = true,
-       inactivity_expiry_months = null, totp_step_seconds = 30
+       inactivity_expiry_months = null, totp_step_seconds = 30, points_off_enabled = true
  where id;
 `;
 
@@ -1369,6 +1371,221 @@ describe.skipIf(!docker)('loyalty item rewards (0350)', () => {
   });
 });
 
+// ── 0403: rewards only — "Use points" is a switch, and a free court hour ───────
+
+/** A plain desk booking of a guest at branch A, `hours` long, priced `price` (null: no price). */
+const BOOKING = (name: string, guest: string, days: number, hours: number, price: number | null) =>
+  KEEP(
+    name,
+    `insert into reservations (court_id, kind, status, start_at, end_at, source, venue_id, guest_id, price_iqd)
+     values (gen_random_uuid(), 'booking', 'confirmed', now() + interval '${days} days',
+             now() + interval '${days} days' + interval '${hours} hours', 'desk', {{venue}}, {{${guest}}}, ${price ?? 'null'})
+     returning id::text`,
+  );
+const FEE_LEFT = (label: string, res: string) =>
+  Q(label, `select to_jsonb(app.court_fee_remaining({{${res}}}::uuid))`);
+const COURT_REWARD = [
+  T(
+    'rw_court',
+    'owner',
+    `select app.upsert_loyalty_reward(jsonb_build_object('name_en', 'Free court hour', 'name_ar', 'ساعة ملعب مجانية',
+       'cost_points', 800, 'kind', 'court_hour'))`,
+  ),
+  KEEP(
+    'court',
+    `select id::text from loyalty_rewards where name_en = 'Free court hour' order by created_at desc limit 1`,
+  ),
+];
+
+describe.skipIf(!docker)('loyalty rewards only (0403)', () => {
+  it('"Use points" is off until the owner turns it on; rewards work either way', () => {
+    const r = run('loy-points-off', [
+      GUEST('g1'),
+      PTS('g1', 1000),
+      STALE('cashier'),
+      SET('points_off_enabled = false'),
+      TAB('t1', 'cafe', { goods: 10000, customer: 'g1' }),
+      GRANT('cashier'),
+      T('off', 'cashier', REDEEM('t1', 100, null)),
+      T(
+        'rw',
+        'owner',
+        `select app.upsert_loyalty_reward('{"name_en":"2k off","name_ar":"خصم","cost_points":100,"kind":"iqd_off","iqd_off":2000}'::jsonb)`,
+      ),
+      KEEP('rw', `select id::text from loyalty_rewards where name_en = '2k off' order by created_at desc limit 1`),
+      T('reward_while_off', 'cashier', REDEEM('t1', null, 'rw')),
+      T('terms_off', 'cashier', `select app.loyalty_till_terms({{venue}})`),
+      SET('points_off_enabled = true'),
+      GRANT('cashier'),
+      T('on', 'cashier', REDEEM('t1', 100, null)),
+      T('terms_on', 'cashier', `select app.loyalty_till_terms({{venue}})`),
+    ]);
+    expect(refused(r, 'off')).toBe('POINTS_OFF');
+    expect(ok(r, 'reward_while_off')).toMatchObject({ points: 100, amount_iqd: 2000 });
+    expect(ok(r, 'terms_off')).toMatchObject({ points_off_enabled: false });
+    expect(ok(r, 'on')).toMatchObject({ points: 100, amount_iqd: 5000 });
+    expect(ok(r, 'terms_on')).toMatchObject({ points_off_enabled: true });
+  });
+
+  it('a free court hour: one hour of that booking, once, off the court fee, with undo and cancel', () => {
+    const r = run('loy-court-hour', [
+      GUEST('g1'),
+      PTS('g1', 5000),
+      STALE('desk'),
+      STALE('cashier'),
+      ...COURT_REWARD,
+      // a one-hour booking at 40,000: the hour is the whole fee
+      BOOKING('res60', 'g1', 410, 1, 40000),
+      TAB('t60', 'cafe', { customer: 'g1', res: 'res60' }),
+      T('state60', 'desk', `select app.loyalty_court_reward({{t60}})`),
+      GRANT('desk'),
+      T('free60', 'desk', REDEEM('t60', null, 'court')),
+      FEE_LEFT('left60', 'res60'),
+      KEEP('crw60', `select id::text from reservation_loyalty_rewards where reservation_id = {{res60}}::uuid`),
+      T('state60_after', 'desk', `select app.loyalty_court_reward({{t60}})`),
+      GRANT('desk'),
+      T('again', 'desk', REDEEM('t60', null, 'court')),
+      // a two-hour booking at 70,000: one hour of it, 35,000
+      BOOKING('res120', 'g1', 411, 2, 70000),
+      TAB('t120', 'cafe', { customer: 'g1', res: 'res120' }),
+      GRANT('desk'),
+      T('free120', 'desk', REDEEM('t120', null, 'court')),
+      FEE_LEFT('left120', 'res120'),
+      // undo while the bill is open gives the points back and the fee is owed again
+      KEEP('crw120', `select id::text from reservation_loyalty_rewards where reservation_id = {{res120}}::uuid`),
+      T('undo120', 'desk', `select app.loyalty_unredeem({{crw120}})`),
+      FEE_LEFT('left120_undone', 'res120'),
+      // taken again, then the bill settles: the hour is used and stays
+      GRANT('desk'),
+      T('free120_again', 'desk', REDEEM('t120', null, 'court')),
+      KEEP('crw120b', `select id::text from reservation_loyalty_rewards where reservation_id = {{res120}}::uuid`),
+      SETTLE('t120'),
+      T('undo_closed', 'desk', `select app.loyalty_unredeem({{crw120b}})`),
+      // no booking on the bill
+      TAB('cafe1', 'cafe', { goods: 5000, customer: 'g1' }),
+      GRANT('cashier'),
+      T('no_booking', 'cashier', REDEEM('cafe1', null, 'court')),
+      // a booking with no price is not a live booking for a free hour
+      BOOKING('res_np', 'g1', 412, 1, null),
+      TAB('t_np', 'cafe', { customer: 'g1', res: 'res_np' }),
+      GRANT('desk'),
+      T('no_price', 'desk', REDEEM('t_np', null, 'court')),
+      // the court fee already paid on an earlier bill: the hour is more than what is left
+      BOOKING('res_paid', 'g1', 413, 1, 40000),
+      TAB('paid1', 'cafe', { court: 40000, customer: 'g1', res: 'res_paid' }),
+      PAY('paid1p', 'paid1', 40000),
+      SETTLE('paid1'),
+      TAB('paid2', 'cafe', { customer: 'g1', res: 'res_paid' }),
+      GRANT('desk'),
+      T('exceeds', 'desk', REDEEM('paid2', null, 'court')),
+      BALANCE('before_cancel', 'g1'),
+      // the one-hour booking cancelled before its bill closed: the points come back, once
+      X(`update reservations set status = 'cancelled' where id = {{res60}}::uuid`),
+      X(`update reservations set status = 'cancelled' where id = {{res60}}::uuid`),
+      Q(
+        'cancel_back',
+        `select jsonb_build_object(
+                  'rows', (select count(*) from loyalty_ledger l
+                            where l.kind = 'redeem_void' and l.source_kind = 'reservation_reward'
+                              and l.source_id = {{crw60}}::uuid),
+                  'still_there', (select count(*) from reservation_loyalty_rewards where reservation_id = {{res60}}::uuid))`,
+      ),
+      BALANCE('after_cancel', 'g1'),
+    ]);
+
+    expect(ok(r, 'rw_court')).toBeTruthy();
+    expect(ok(r, 'state60')).toMatchObject({ plain_booking: true, value_iqd: 40000, refused: null, reward: null });
+    expect(ok(r, 'free60')).toMatchObject({ points: 800, amount_iqd: 40000, adjustment_id: null });
+    expect(ok<{ court_reward_id: string }>(r, 'free60').court_reward_id).toBeTruthy();
+    expect(ok<number>(r, 'left60')).toBe(0);
+    expect(ok(r, 'state60_after')).toMatchObject({
+      refused: 'REWARD_ALREADY_ON_BOOKING',
+      reward: { points: 800, amount_iqd: 40000, closed: false },
+    });
+    expect(refused(r, 'again')).toBe('REWARD_ALREADY_ON_BOOKING');
+    expect(ok(r, 'free120')).toMatchObject({ points: 800, amount_iqd: 35000 });
+    expect(ok<number>(r, 'left120')).toBe(35000);
+    expect(ok(r, 'undo120')).toBeTruthy();
+    expect(ok<number>(r, 'left120_undone')).toBe(70000);
+    expect(ok(r, 'free120_again')).toMatchObject({ amount_iqd: 35000 });
+    expect(refused(r, 'undo_closed')).toBe('COURT_BILL_CLOSED');
+    expect(refused(r, 'no_booking')).toBe('REWARD_NEEDS_BOOKING');
+    expect(refused(r, 'no_price')).toBe('COURT_DISCOUNT_NOT_ALLOWED');
+    // its hint says to refund what was paid first
+    expect(refused(r, 'exceeds')).toMatch(/^REWARD_EXCEEDS_BILL:/);
+    // 5,000 - 800 (res60) - 800 (res120) + 800 (undo) - 800 (res120 again) + 40 (res_paid's paid
+    // 40,000 court fee earns)
+    expect(ok<number>(r, 'before_cancel')).toBe(3440);
+    expect(ok(r, 'cancel_back')).toEqual({ rows: 1, still_there: 0 });
+    expect(ok<number>(r, 'after_cancel')).toBe(4240);
+  });
+
+  it('a free court hour: never on an open match, back on a no-show once, and the free part earns nothing', () => {
+    const r = run('loy-court-hour-2', [
+      GUEST('g1'),
+      PTS('g1', 5000),
+      STALE('desk'),
+      ...COURT_REWARD,
+      // an open match's booking prices its seats itself: no free hour on it (planted as postgres,
+      // on a real court of the branch, booked)
+      BOOKING('res_m', 'g1', 420, 1, 40000),
+      X(
+        `insert into matches (venue_id, status, start_at, end_at, duration_min, visibility, join_policy, category,
+                              price_iqd, shares_iqd, price_court_id, fill_deadline_at, share_token, organised_by,
+                              reservation_id)
+         select r.venue_id, 'booked', r.start_at, r.end_at, 60, 'public', 'open', 'open', 40000,
+                array[10000, 10000, 10000, 10000]::bigint[],
+                (select c.id from courts c where c.venue_id = r.venue_id order by c.id limit 1),
+                r.start_at - interval '1 hour', 'loy0403matchtoken00000', 'guest', r.id
+           from reservations r where r.id = {{res_m}}::uuid`,
+      ),
+      TAB('t_m', 'cafe', { customer: 'g1', res: 'res_m' }),
+      T('state_m', 'desk', `select app.loyalty_court_reward({{t_m}})`),
+      GRANT('desk'),
+      T('match', 'desk', REDEEM('t_m', null, 'court')),
+      // a no-show before the bill closed gives the points back, once
+      BOOKING('res_ns', 'g1', 421, 1, 40000),
+      TAB('t_ns', 'cafe', { customer: 'g1', res: 'res_ns' }),
+      GRANT('desk'),
+      T('free_ns', 'desk', REDEEM('t_ns', null, 'court')),
+      KEEP('crw_ns', `select id::text from reservation_loyalty_rewards where reservation_id = {{res_ns}}::uuid`),
+      BALANCE('before_ns', 'g1'),
+      X(`update reservations set status = 'no_show' where id = {{res_ns}}::uuid`),
+      X(`update reservations set status = 'no_show' where id = {{res_ns}}::uuid`),
+      Q(
+        'ns_back',
+        `select jsonb_build_object(
+                  'rows', (select count(*) from loyalty_ledger l
+                            where l.kind = 'redeem_void' and l.source_kind = 'reservation_reward'
+                              and l.source_id = {{crw_ns}}::uuid),
+                  'still_there', (select count(*) from reservation_loyalty_rewards where reservation_id = {{res_ns}}::uuid))`,
+      ),
+      BALANCE('after_ns', 'g1'),
+      // a two-hour booking at 70,000 with the free hour: the bill pays the other 35,000 and earns
+      // on that alone (35 points at 1,000 IQD a point), never on the 35,000 the hour covered
+      BOOKING('res_e', 'g1', 422, 2, 70000),
+      TAB('t_e', 'cafe', { court: 70000, customer: 'g1', res: 'res_e' }),
+      GRANT('desk'),
+      T('free_e', 'desk', REDEEM('t_e', null, 'court')),
+      FEE_LEFT('left_e', 'res_e'),
+      PAY('pay_e', 't_e', 35000),
+      SETTLE('t_e'),
+      EARNED('earned_e', 't_e'),
+    ]);
+
+    expect(ok(r, 'rw_court')).toBeTruthy();
+    expect(ok(r, 'state_m')).toMatchObject({ plain_booking: false, reward: null });
+    expect(refused(r, 'match')).toBe('COURT_DISCOUNT_NOT_ALLOWED');
+    expect(ok(r, 'free_ns')).toMatchObject({ points: 800, amount_iqd: 40000 });
+    expect(ok<number>(r, 'before_ns')).toBe(4200);
+    expect(ok(r, 'ns_back')).toEqual({ rows: 1, still_there: 0 });
+    expect(ok<number>(r, 'after_ns')).toBe(5000);
+    expect(ok(r, 'free_e')).toMatchObject({ points: 800, amount_iqd: 35000 });
+    expect(ok<number>(r, 'left_e')).toBe(35000);
+    expect(ok<number>(r, 'earned_e')).toBe(35);
+  });
+});
+
 describe.skipIf(!docker)('loyalty identify (contracts §1.3, L-4)', () => {
   it('takes a token within ±1 step or the exact phone, and tells expired from invalid', () => {
     const p = phone();
@@ -1469,6 +1686,7 @@ describe.skipIf(!docker)('loyalty identify (contracts §1.3, L-4)', () => {
         'next_tier',
         'point_value_iqd',
         'points_12m',
+        'points_off_enabled',
         'rewards',
         'tier',
       ].sort(),
@@ -1478,6 +1696,7 @@ describe.skipIf(!docker)('loyalty identify (contracts §1.3, L-4)', () => {
       balance: 0,
       point_value_iqd: 50,
       min_redeem_points: 100,
+      points_off_enabled: true,
     });
   });
 });

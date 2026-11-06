@@ -6448,6 +6448,13 @@ export const matrix: MatrixRule[] = [
     drop: 29,
   },
   {
+    kind: 'rpc', schema: 'app', name: 'loyalty_court_reward',
+    args: { p_tab_id: NIL_UUID },
+    expect: { ...CASHIER_DESK_UP, shop_staff: 'execute' },
+    note: 'loyalty (0403): the free court hour on a tab\'s booking; a nil tab is TAB_NOT_FOUND past the guard; read-only',
+    drop: 38,
+  },
+  {
     kind: 'rpc', schema: 'app', name: 'loyalty_customer',
     args: { p_profile_id: NIL_UUID },
     expect: { ...CASHIER_DESK_UP, shop_staff: 'execute' },
@@ -6909,6 +6916,22 @@ export const matrix: MatrixRule[] = [
     expect: ex<WriteExpectation>('denied'),
     note: '0342: no client write grant: app.apply_customer_court_discount only',
     drop: 34,
+  },
+  {
+    kind: 'select',
+    name: 'reservation_loyalty_rewards',
+    expect: ex<SelectExpectation>('denied'),
+    note: '0403: no client grant; app.loyalty_court_reward reads it, court_fee_remaining subtracts it',
+    drop: 38,
+  },
+  {
+    kind: 'write',
+    name: 'reservation_loyalty_rewards',
+    op: 'insert',
+    payload: { reservation_id: NIL_UUID, tab_id: NIL_UUID, profile_id: NIL_UUID, reward_id: NIL_UUID, points: 1, amount_iqd: 1, applied_by: NIL_UUID, authorized_by: NIL_UUID, proof: 'pin' },
+    expect: ex<WriteExpectation>('denied'),
+    note: '0403: no client write grant: app.loyalty_redeem only',
+    drop: 38,
   },
   {
     kind: 'select',

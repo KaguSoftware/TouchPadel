@@ -522,6 +522,11 @@ export const ERROR_CODE_KEYS = {
   // 0350: an item reward the court desk would have to order onto the bill.
   REWARD_ITEM_NOT_ON_TAB: 'op.errors.REWARD_ITEM_NOT_ON_TAB',
   LOYALTY_REDEEMED: 'op.errors.LOYALTY_REDEEMED',
+  // 0403 (rewards only): points as money off while the owner has it off; a free court hour on a
+  // bill with no booking; a second free court hour on the same booking.
+  POINTS_OFF: 'op.errors.POINTS_OFF',
+  REWARD_NEEDS_BOOKING: 'op.errors.REWARD_NEEDS_BOOKING',
+  REWARD_ALREADY_ON_BOOKING: 'op.errors.REWARD_ALREADY_ON_BOOKING',
   // 0364 ranks_leaderboard: the players' leaderboard (lines in catalogs/opErrors.ranks.*.ts).
   // RANKS_OFF the owner switched it (or player reports) off; RANKS_NOT_ELIGIBLE a booking that
   // is not the caller's, not played or past report_hours; RANKS_PLAYER_NOT_FOUND an unknown

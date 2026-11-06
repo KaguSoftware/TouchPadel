@@ -1,5 +1,5 @@
 {
-  "generated_from": "c7e68265faca82d9a1210be6b6895b63d636ecdf",
+  "generated_from": "6a2a1670b8fa06be286ba4beafebee858dbffb4f",
   "chunks": [
     {
       "kind": "page",
@@ -2990,7 +2990,7 @@
       "ref": "action:app.apply_customer_court_discount",
       "lang": "en",
       "title": "app.apply_customer_court_discount (part 1 of 4)",
-      "body": "0342. court_desk, cashier, manager, owner at the booking's branch (RESERVATION_NOT_FOUND, VENUE_MISMATCH), no PIN. The court-fee discount of a confirmed, arrived or completed plain booking with a price (COURT_DISCOUNT_NOT_ALLOWED detail not_a_live_booking | match). p_kind NULL refreshes it (a one-off keeps its kind and value, else the booking customer's standing court discount unless this booking waived it, else it goes) and answers every refusal as data ({applied, unchanged: true, refused}); 'standing' lifts the waiver and puts the standing discount on in place of a one-off; 'none' takes it off and waives the standing discount",
+      "body": "0342, 0403. court_desk, cashier, manager, owner at the booking's branch (RESERVATION_NOT_FOUND, VENUE_MISMATCH), no PIN. The court-fee discount of a confirmed, arrived or completed plain booking with a price (COURT_DISCOUNT_NOT_ALLOWED detail not_a_live_booking | match). p_kind NULL refreshes it (a one-off keeps its kind and value, else the booking customer's standing court discount unless this booking waived it, else it goes) and answers every refusal as data ({applied, unchanged: true, refused}); 'standing' lifts the waiver and puts the standing discount on in place of a one-off; 'none' takes it off and waives the standing",
       "route": null
     },
     {
@@ -2998,7 +2998,7 @@
       "ref": "action:app.apply_customer_court_discount~2",
       "lang": "en",
       "title": "app.apply_customer_court_discount (part 2 of 4)",
-      "body": "0342. court_desk, cashier, manager, owner at the booking's branch (RESERVATION_NOT_FOUND, VENUE_MISMATCH), no PIN. The court-fee discount of a confirmed, arrive\nfor this booking (customer_discount_waivers); 'percent' | 'amount' with p_value and p_reason gives it on this booking only (NO_CUSTOMER, SELF_DISCOUNT). The customer is the booking's guest, else its live tab's customer. Fixed once a bill of the booking settled with it in place (COURT_BILL_CLOSED). COURT_FEE_PAID when the fee is already paid; DISCOUNT_REQUIRES_REFUND when the discount is more than is still owed. Locks the court (lock_court) then the booking row. Audit court_discount.apply / court_discount.remove. Returns {applied, unchanged, kind, value, amount_iqd, standing, customer_id, remaining_iqd}.",
+      "body": "0342, 0403. court_desk, cashier, manager, owner at the booking's branch (RESERVATION_NOT_FOUND, VENUE_MISMATCH), no PIN. The court-fee discount of a confirmed, \ndiscount for this booking (customer_discount_waivers); 'percent' | 'amount' with p_value and p_reason gives it on this booking only (NO_CUSTOMER, SELF_DISCOUNT). The customer is the booking's guest, else its live tab's customer. Fixed once a bill of the booking settled with it in place (COURT_BILL_CLOSED). COURT_FEE_PAID when the fee is already paid; DISCOUNT_REQUIRES_REFUND when the discount is more than is still owed (0403: a free court hour from loyalty, reservation_loyalty_rewards, counts as already covered). Locks the court (lock_court) then the booking row. Audit court_discount.apply / court_discount.remove. Returns",
       "route": null
     },
     {
@@ -3006,7 +3006,7 @@
       "ref": "action:app.apply_customer_court_discount~3",
       "lang": "en",
       "title": "app.apply_customer_court_discount (part 3 of 4)",
-      "body": "0342. court_desk, cashier, manager, owner at the booking's branch (RESERVATION_NOT_FOUND, VENUE_MISMATCH), no PIN. The court-fee discount of a confirmed, arrive\nSignature: app.apply_customer_court_discount(p_reservation_id uuid, p_kind text default null, p_value int default null, p_reason text default null, p_device_id text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (court_desk, cashier, manager, owner).\nAudit actions written: court_discount.remove, court_discount.apply.\nError codes: FORBIDDEN, INVALID_KIND, INVALID_VALUE, REASON_REQUIRED, INVALID_ARGUMENT, RESERVATION_NOT_FOUND, VENUE_MISMATCH, COURT_DISCOUNT_NOT_ALLOWED, NO_CUSTOMER, SELF_DISCOUNT, COURT_BILL_CLOSED, COURT_FEE_PAID, DISCOUNT_REQUIRES_REFUND.",
+      "body": "0342, 0403. court_desk, cashier, manager, owner at the booking's branch (RESERVATION_NOT_FOUND, VENUE_MISMATCH), no PIN. The court-fee discount of a confirmed, \n{applied, unchanged, kind, value, amount_iqd, standing, customer_id, remaining_iqd}.\nSignature: app.apply_customer_court_discount(p_reservation_id uuid, p_kind text default null, p_value int default null, p_reason text default null, p_device_id text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (court_desk, cashier, manager, owner).\nAudit actions written: court_discount.remove, court_discount.apply.",
       "route": null
     },
     {
@@ -3014,7 +3014,7 @@
       "ref": "action:app.apply_customer_court_discount~4",
       "lang": "en",
       "title": "app.apply_customer_court_discount (part 4 of 4)",
-      "body": "0342. court_desk, cashier, manager, owner at the booking's branch (RESERVATION_NOT_FOUND, VENUE_MISMATCH), no PIN. The court-fee discount of a confirmed, arrive\nCalled from: apps/operator/src/features/discounts/useCustomerDiscount.ts.\nDefined in migration 0342 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "0342, 0403. court_desk, cashier, manager, owner at the booking's branch (RESERVATION_NOT_FOUND, VENUE_MISMATCH), no PIN. The court-fee discount of a confirmed, \nGranted to: authenticated. Guard: staff role in (court_desk, cashier, manager, owner).\nAudit actions written: court_discount.remove, court_discount.apply.\nError codes: FORBIDDEN, INVALID_KIND, INVALID_VALUE, REASON_REQUIRED, INVALID_ARGUMENT, RESERVATION_NOT_FOUND, VENUE_MISMATCH, COURT_DISCOUNT_NOT_ALLOWED, NO_CUSTOMER, SELF_DISCOUNT, COURT_BILL_CLOSED, COURT_FEE_PAID, DISCOUNT_REQUIRES_REFUND.\nCalled from: apps/operator/src/features/discounts/useCustomerDiscount.ts.\nDefined in migration 0403 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -3238,7 +3238,7 @@
       "ref": "action:app.bill_customer_discount",
       "lang": "en",
       "title": "app.bill_customer_discount (part 1 of 3)",
-      "body": "0342. court_desk, cashier, shop_staff, manager, owner at the bill's branch: the customer discount state of a bill (a tab, a booking, or a tab and its booking; INVALID_ARGUMENT with neither, TAB_NOT_FOUND, RESERVATION_NOT_FOUND, VENUE_MISMATCH). {customer: {id, name} | null (tab_customer, else the booking's), standing: customer_discount_json | null, cafe: {adjustment_id, kind, value, amount_iqd, standing} | null, court: {kind, value, amount_iqd, standing, reason, closed} | null, cafe_needs_refresh, court_needs_refresh (apply_customer_discount / apply_customer_court_discount with no kind would change something), cafe_waived,",
+      "body": "0342, 0403. court_desk, cashier, shop_staff, manager, owner at the bill's branch: the customer discount state of a bill (a tab, a booking, or a tab and its booking; INVALID_ARGUMENT with neither, TAB_NOT_FOUND, RESERVATION_NOT_FOUND, VENUE_MISMATCH). {customer: {id, name} | null (tab_customer, else the booking's), standing: customer_discount_json | null, cafe: {adjustment_id, kind, value, amount_iqd, standing} | null, court: {kind, value, amount_iqd, standing, reason, closed} | null, cafe_needs_refresh, court_needs_refresh (apply_customer_discount / apply_customer_court_discount with no kind would change something), cafe_waived,",
       "route": null
     },
     {
@@ -3246,7 +3246,7 @@
       "ref": "action:app.bill_customer_discount~2",
       "lang": "en",
       "title": "app.bill_customer_discount (part 2 of 3)",
-      "body": "0342. court_desk, cashier, shop_staff, manager, owner at the bill's branch: the customer discount state of a bill (a tab, a booking, or a tab and its booking; I\ncourt_waived (the standing discount was taken off this bill: customer_discount_waivers), court_allowed (a live plain booking with a price, no match)}.\nSignature: app.bill_customer_discount(p_tab_id uuid default null, p_reservation_id uuid default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (court_desk, cashier, shop_staff, manager, owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, INVALID_ARGUMENT, TAB_NOT_FOUND, RESERVATION_NOT_FOUND, VENUE_MISMATCH.\nCalled from: apps/operator/src/features/discounts/useCustomerDiscount.ts.",
+      "body": "0342, 0403. court_desk, cashier, shop_staff, manager, owner at the bill's branch: the customer discount state of a bill (a tab, a booking, or a tab and its book\ncourt_waived (the standing discount was taken off this bill: customer_discount_waivers), court_allowed (a live plain booking with a price, no match)}.\nSignature: app.bill_customer_discount(p_tab_id uuid default null, p_reservation_id uuid default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (court_desk, cashier, shop_staff, manager, owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, INVALID_ARGUMENT, TAB_NOT_FOUND, RESERVATION_NOT_FOUND, VENUE_MISMATCH.\nCalled from: apps/operator/src/features/discounts/useCustomerDiscount.ts.",
       "route": null
     },
     {
@@ -3254,7 +3254,7 @@
       "ref": "action:app.bill_customer_discount~3",
       "lang": "en",
       "title": "app.bill_customer_discount (part 3 of 3)",
-      "body": "0342. court_desk, cashier, shop_staff, manager, owner at the bill's branch: the customer discount state of a bill (a tab, a booking, or a tab and its booking; I\nError codes: FORBIDDEN, INVALID_ARGUMENT, TAB_NOT_FOUND, RESERVATION_NOT_FOUND, VENUE_MISMATCH.\nCalled from: apps/operator/src/features/discounts/useCustomerDiscount.ts.\nDefined in migration 0342 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "0342, 0403. court_desk, cashier, shop_staff, manager, owner at the bill's branch: the customer discount state of a bill (a tab, a booking, or a tab and its book\nError codes: FORBIDDEN, INVALID_ARGUMENT, TAB_NOT_FOUND, RESERVATION_NOT_FOUND, VENUE_MISMATCH.\nCalled from: apps/operator/src/features/discounts/useCustomerDiscount.ts.\nDefined in migration 0403 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -5947,6 +5947,22 @@
     },
     {
       "kind": "action",
+      "ref": "action:app.loyalty_court_reward",
+      "lang": "en",
+      "title": "app.loyalty_court_reward (part 1 of 2)",
+      "body": "0403. Desk roles (cashier, shop_staff, court_desk, manager, owner) at the tab's branch (TAB_NOT_FOUND, VENUE_MISMATCH). Read-only: the free court hour on the booking this tab belongs to. {tab_id, reservation_id, plain_booking (a confirmed, arrived or completed booking with a price and no open match: a court_hour reward can be offered here), value_iqd (app.court_hour_value, plain bookings only), refused (what app.loyalty_redeem would answer a court_hour reward now: REWARD_NEEDS_BOOKING | COURT_DISCOUNT_NOT_ALLOWED | REWARD_ALREADY_ON_BOOKING | COURT_BILL_CLOSED | NOTHING_OWED | REWARD_EXCEEDS_BILL | null), reward: {id (what",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.loyalty_court_reward~2",
+      "lang": "en",
+      "title": "app.loyalty_court_reward (part 2 of 2)",
+      "body": "0403. Desk roles (cashier, shop_staff, court_desk, manager, owner) at the tab's branch (TAB_NOT_FOUND, VENUE_MISMATCH). Read-only: the free court hour on the bo\napp.loyalty_unredeem takes), reward_id, name_en, name_ar, points, amount_iqd, created_at, closed} | null}.\nSignature: app.loyalty_court_reward(p_tab_id uuid) returns jsonb.\nGranted to: authenticated. Guard: staff role in (cashier, shop_staff, court_desk, manager, owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, TAB_NOT_FOUND, VENUE_MISMATCH.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0403 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
       "ref": "action:app.loyalty_customer",
       "lang": "en",
       "title": "app.loyalty_customer",
@@ -5989,56 +6005,80 @@
       "kind": "action",
       "ref": "action:app.loyalty_redeem",
       "lang": "en",
-      "title": "app.loyalty_redeem (part 1 of 6)",
-      "body": "Loyalty (M3, contracts §1.3, L-5; 0308, 0350). Cashier, shop_staff, court_desk, manager, owner at the tab's branch, the tab's kind for the role. Exactly one of p_points and p_reward_id (INVALID_ARGUMENT). LOYALTY_OFF, then claim_replay, then the tab (TAB_NOT_FOUND, TAB_MERGED, TAB_NOT_OPEN: open only) and its customer (NO_CUSTOMER). 0308 (c2, c3): the proof: p_member_token, spent once, must name the customer (MEMBER_CODE_MISMATCH; FORBIDDEN self_dealing when the customer is the caller); a token that does not pass (wrong, expired, replayed) is answered {error: MEMBER_CODE_INVALID | MEMBER_CODE_EXPIRED, detail} and counted in",
+      "title": "app.loyalty_redeem (part 1 of 8)",
+      "body": "Loyalty (M3, contracts §1.3, L-5; 0308, 0350, 0403). Cashier, shop_staff, court_desk, manager, owner at the tab's branch, the tab's kind for the role. Exactly one of p_points and p_reward_id (INVALID_ARGUMENT). LOYALTY_OFF, then claim_replay, then the tab (TAB_NOT_FOUND, TAB_MERGED, TAB_NOT_OPEN: open only) and its customer (NO_CUSTOMER). 0308 (c2, c3): the proof: p_member_token, spent once, must name the customer (MEMBER_CODE_MISMATCH; FORBIDDEN self_dealing when the customer is the caller); a token that does not pass (wrong, expired, replayed) is answered {error: MEMBER_CODE_INVALID | MEMBER_CODE_EXPIRED, detail} and counted in",
       "route": null
     },
     {
       "kind": "action",
       "ref": "action:app.loyalty_redeem~2",
       "lang": "en",
-      "title": "app.loyalty_redeem (part 2 of 6)",
-      "body": "Loyalty (M3, contracts §1.3, L-5; 0308, 0350). Cashier, shop_staff, court_desk, manager, owner at the tab's branch, the tab's kind for the role. Exactly one of \nloyalty_token_attempts, with the idempotency claim released, and MEMBER_CODE_LOCKED after ten misses by the caller in ten minutes; or without it a manager PIN grant (PIN_GRANT_REQUIRED) whose authorizer is not the customer (FORBIDDEN self_dealing). Then the account, locked last. Points: POINTS_BELOW_MIN (min_redeem_points, checked again after the fit: hint the points that fit), POINTS_INSUFFICIENT, rounded down to fit what is left to discount (the goods not yet discounted, and the unpaid bill), amount = points * point_value_iqd. Reward: active, this branch or every branch (REWARD_NOT_FOUND), POINTS_INSUFFICIENT for cost_points. An",
+      "title": "app.loyalty_redeem (part 2 of 8)",
+      "body": "Loyalty (M3, contracts §1.3, L-5; 0308, 0350, 0403). Cashier, shop_staff, court_desk, manager, owner at the tab's branch, the tab's kind for the role. Exactly o\nloyalty_token_attempts, with the idempotency claim released, and MEMBER_CODE_LOCKED after ten misses by the caller in ten minutes; or without it a manager PIN grant (PIN_GRANT_REQUIRED) whose authorizer is not the customer (FORBIDDEN self_dealing). Then the account, locked last. Points: POINTS_BELOW_MIN (min_redeem_points, checked again after the fit: hint the points that fit), POINTS_INSUFFICIENT, rounded down to fit what is left to discount (the goods not yet discounted, and the unpaid bill), amount = points * point_value_iqd. Reward: active, this branch or every branch (REWARD_NOT_FOUND), POINTS_INSUFFICIENT for cost_points. An",
       "route": null
     },
     {
       "kind": "action",
       "ref": "action:app.loyalty_redeem~3",
       "lang": "en",
-      "title": "app.loyalty_redeem (part 3 of 6)",
-      "body": "Loyalty (M3, contracts §1.3, L-5; 0308, 0350). Cashier, shop_staff, court_desk, manager, owner at the tab's branch, the tab's kind for the role. Exactly one of \niqd_off reward is a tab discount of iqd_off, REWARD_EXCEEDS_BILL when that is more than what is left (0308, c13). 0350: an item reward frees one unit of its exact variant on the tab: a line discount of that line's unit_price_iqd (modifiers stay paid) on the oldest live line of the variant with a unit free (fewer loyalty_reward rows on it than its qty, and a unit price left after its line discounts); with none, one unit is ordered onto the tab first (orders source till, placed_by the caller, app.add_order_items, a ticket or a served shop order; its refusals pass through) by a cashier, shop_staff, manager or owner",
+      "title": "app.loyalty_redeem (part 3 of 8)",
+      "body": "Loyalty (M3, contracts §1.3, L-5; 0308, 0350, 0403). Cashier, shop_staff, court_desk, manager, owner at the tab's branch, the tab's kind for the role. Exactly o\niqd_off reward is a tab discount of iqd_off, REWARD_EXCEEDS_BILL when that is more than what is left (0308, c13). 0350: an item reward frees one unit of its exact variant on the tab: a line discount of that line's unit_price_iqd (modifiers stay paid) on the oldest live line of the variant with a unit free (fewer loyalty_reward rows on it than its qty, and a unit price left after its line discounts); with none, one unit is ordered onto the tab first (orders source till, placed_by the caller, app.add_order_items, a ticket or a served shop order; its refusals pass through) by a cashier, shop_staff, manager or owner",
       "route": null
     },
     {
       "kind": "action",
       "ref": "action:app.loyalty_redeem~4",
       "lang": "en",
-      "title": "app.loyalty_redeem (part 4 of 6)",
-      "body": "Loyalty (M3, contracts §1.3, L-5; 0308, 0350). Cashier, shop_staff, court_desk, manager, owner at the tab's branch, the tab's kind for the role. Exactly one of \n(REWARD_ITEM_NOT_ON_TAB for the court desk), on the open day the tab belongs to (NO_OPEN_DAY, DAY_CLOSED; the day is locked before the tab). NOTHING_OWED when nothing is left to discount. Writes a tab_adjustments discount_amount (order_item_id = the freed line for an item reward, else null; value = points, applied_by = the caller, authorized_by = the caller for a token or the PIN's manager, reason_code loyalty_points | loyalty_reward) and a ledger row (redeem | reward, tab_adjustment, adjustment_id) in one transaction, then the 0037 guard. Returns {adjustment_id, points, amount_iqd, balance, order_item_id (an item reward's line,",
+      "title": "app.loyalty_redeem (part 4 of 8)",
+      "body": "Loyalty (M3, contracts §1.3, L-5; 0308, 0350, 0403). Cashier, shop_staff, court_desk, manager, owner at the tab's branch, the tab's kind for the role. Exactly o\n(REWARD_ITEM_NOT_ON_TAB for the court desk), on the open day the tab belongs to (NO_OPEN_DAY, DAY_CLOSED; the day is locked before the tab). NOTHING_OWED when nothing is left to discount. Writes a tab_adjustments discount_amount (order_item_id = the freed line for an item reward, else null; value = points, applied_by = the caller, authorized_by = the caller for a token or the PIN's manager, reason_code loyalty_points | loyalty_reward) and a ledger row (redeem | reward, tab_adjustment, adjustment_id) in one transaction, then the 0037 guard. Returns {adjustment_id, points, amount_iqd, balance, order_item_id (an item reward's line,",
       "route": null
     },
     {
       "kind": "action",
       "ref": "action:app.loyalty_redeem~5",
       "lang": "en",
-      "title": "app.loyalty_redeem (part 5 of 6)",
-      "body": "Loyalty (M3, contracts §1.3, L-5; 0308, 0350). Cashier, shop_staff, court_desk, manager, owner at the tab's branch, the tab's kind for the role. Exactly one of \nelse null), item_added}. Audited loyalty.redeem {proof qr | pin}.\nSignature: app.loyalty_redeem(p_tab_id uuid, p_points int, p_reward_id uuid, p_idempotency_key text, p_member_token text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (cashier, shop_staff, court_desk, manager, owner).\nAudit actions written: loyalty.redeem.",
+      "title": "app.loyalty_redeem (part 5 of 8)",
+      "body": "Loyalty (M3, contracts §1.3, L-5; 0308, 0350, 0403). Cashier, shop_staff, court_desk, manager, owner at the tab's branch, the tab's kind for the role. Exactly o\nelse null), item_added}. Audited loyalty.redeem {proof qr | pin}. 0403 (Majed 2026-11-05, rewards are things you take): p_points is POINTS_OFF unless loyalty_settings.points_off_enabled; a court_hour reward frees one hour of the court fee of the booking the tab belongs to (REWARD_NEEDS_BOOKING without one; COURT_DISCOUNT_NOT_ALLOWED detail not_a_live_booking | match for anything but a confirmed, arrived or completed plain booking with a price; REWARD_ALREADY_ON_BOOKING for a second; COURT_BILL_CLOSED once a bill of it closed with its court discount; REWARD_EXCEEDS_BILL when the hour, app.court_hour_value, is more than",
       "route": null
     },
     {
       "kind": "action",
       "ref": "action:app.loyalty_redeem~6",
       "lang": "en",
-      "title": "app.loyalty_redeem (part 6 of 6)",
-      "body": "Loyalty (M3, contracts §1.3, L-5; 0308, 0350). Cashier, shop_staff, court_desk, manager, owner at the tab's branch, the tab's kind for the role. Exactly one of \nGranted to: authenticated. Guard: staff role in (cashier, shop_staff, court_desk, manager, owner).\nAudit actions written: loyalty.redeem.\nError codes: FORBIDDEN, VENUE_MISMATCH, INVALID_ARGUMENT, LOYALTY_OFF, TAB_NOT_FOUND, TAB_MERGED, TAB_NOT_OPEN, NO_CUSTOMER, MEMBER_CODE_MISMATCH, REWARD_NOT_FOUND, REWARD_ITEM_NOT_ON_TAB, NO_OPEN_DAY, DAY_CLOSED, POINTS_INSUFFICIENT, REWARD_EXCEEDS_BILL, POINTS_BELOW_MIN, NOTHING_OWED, DISCOUNT_REQUIRES_REFUND.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0350 (last definition). The assistant cannot call this; it only explains it.",
+      "title": "app.loyalty_redeem (part 6 of 8)",
+      "body": "Loyalty (M3, contracts §1.3, L-5; 0308, 0350, 0403). Cashier, shop_staff, court_desk, manager, owner at the tab's branch, the tab's kind for the role. Exactly o\napp.court_fee_remaining; lock_court then the booking row, before the account), written as a reservation_loyalty_rewards row and a ledger row (reward, reservation_reward, the row id) with no tab adjustment; the result then has adjustment_id null, court_reward_id and reservation_id. Audited loyalty.redeem on reservation_loyalty_rewards, reason loyalty_court_hour.\nSignature: app.loyalty_redeem(p_tab_id uuid, p_points int, p_reward_id uuid, p_idempotency_key text, p_member_token text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (cashier, shop_staff, court_desk, manager, owner).",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.loyalty_redeem~7",
+      "lang": "en",
+      "title": "app.loyalty_redeem (part 7 of 8)",
+      "body": "Loyalty (M3, contracts §1.3, L-5; 0308, 0350, 0403). Cashier, shop_staff, court_desk, manager, owner at the tab's branch, the tab's kind for the role. Exactly o\nGranted to: authenticated. Guard: staff role in (cashier, shop_staff, court_desk, manager, owner).\nAudit actions written: loyalty.redeem.\nError codes: FORBIDDEN, VENUE_MISMATCH, INVALID_ARGUMENT, LOYALTY_OFF, POINTS_OFF, TAB_NOT_FOUND, TAB_MERGED, TAB_NOT_OPEN, NO_CUSTOMER, MEMBER_CODE_MISMATCH, REWARD_NOT_FOUND, REWARD_ITEM_NOT_ON_TAB, NO_OPEN_DAY, DAY_CLOSED, REWARD_NEEDS_BOOKING, COURT_DISCOUNT_NOT_ALLOWED, REWARD_ALREADY_ON_BOOKING, COURT_BILL_CLOSED, POINTS_INSUFFICIENT, REWARD_EXCEEDS_BILL, POINTS_BELOW_MIN, NOTHING_OWED, DISCOUNT_REQUIRES_REFUND.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.loyalty_redeem~8",
+      "lang": "en",
+      "title": "app.loyalty_redeem (part 8 of 8)",
+      "body": "Loyalty (M3, contracts §1.3, L-5; 0308, 0350, 0403). Cashier, shop_staff, court_desk, manager, owner at the tab's branch, the tab's kind for the role. Exactly o\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0403 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
       "kind": "action",
       "ref": "action:app.loyalty_till_terms",
       "lang": "en",
-      "title": "app.loyalty_till_terms",
-      "body": "Loyalty (M3, integration). Desk roles (cashier, shop_staff, court_desk, manager, owner): what the till needs to offer points and rewards: {enabled, point_value_iqd, min_redeem_points, rewards[] active at p_venue_id or every branch}. VENUE_MISMATCH outside the caller's branches. Read-only.\nSignature: app.loyalty_till_terms(p_venue_id uuid) returns jsonb.\nGranted to: authenticated. Guard: staff role in (cashier, shop_staff, court_desk, manager, owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, VENUE_MISMATCH.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0305 (last definition). The assistant cannot call this; it only explains it.",
+      "title": "app.loyalty_till_terms (part 1 of 2)",
+      "body": "Loyalty (M3, integration; 0403). Desk roles (cashier, shop_staff, court_desk, manager, owner): what the till needs to offer points and rewards: {enabled, point_value_iqd, min_redeem_points, points_off_enabled (0403: the till offers \"Use points\" only when true), rewards[] (kind iqd_off | item | court_hour) active at p_venue_id or every branch}. VENUE_MISMATCH outside the caller's branches. Read-only.\nSignature: app.loyalty_till_terms(p_venue_id uuid) returns jsonb.\nGranted to: authenticated. Guard: staff role in (cashier, shop_staff, court_desk, manager, owner).\nWrites no audit row of its own (or via a helper).",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.loyalty_till_terms~2",
+      "lang": "en",
+      "title": "app.loyalty_till_terms (part 2 of 2)",
+      "body": "Loyalty (M3, integration; 0403). Desk roles (cashier, shop_staff, court_desk, manager, owner): what the till needs to offer points and rewards: {enabled, point_\nGranted to: authenticated. Guard: staff role in (cashier, shop_staff, court_desk, manager, owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, VENUE_MISMATCH.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0403 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -6046,7 +6086,7 @@
       "ref": "action:app.loyalty_unredeem",
       "lang": "en",
       "title": "app.loyalty_unredeem (part 1 of 2)",
-      "body": "Loyalty (M3, contracts §1.3). Same roles as loyalty_redeem, at the tab's branch, the tab's kind for the role. Reverses a loyalty redemption on a tab that is still open (TAB_NOT_OPEN): deletes the adjustment and writes (redeem_void, tab_adjustment, adjustment_id) giving the points back. INVALID_ARGUMENT for an adjustment that is not a loyalty redemption. Returns {balance}. Audited loyalty.unredeem.\nSignature: app.loyalty_unredeem(p_adjustment_id uuid) returns jsonb.\nGranted to: authenticated. Guard: staff role in (cashier, shop_staff, court_desk, manager, owner).\nAudit actions written: loyalty.unredeem.",
+      "body": "Loyalty (M3, contracts §1.3; 0403). Same roles as loyalty_redeem, at the tab's branch, the tab's kind for the role. Reverses a loyalty redemption on a tab that is still open (TAB_NOT_OPEN): deletes the adjustment and writes (redeem_void, tab_adjustment, adjustment_id) giving the points back. 0403: p_adjustment_id may instead be a free court hour (reservation_loyalty_rewards.id), undone while no bill of its booking has settled since it was taken (COURT_BILL_CLOSED), whatever became of the tab it was taken on: the row goes and (redeem_void, reservation_reward, id) gives the points back; the tab, then lock_court and the booking row,",
       "route": null
     },
     {
@@ -6054,7 +6094,7 @@
       "ref": "action:app.loyalty_unredeem~2",
       "lang": "en",
       "title": "app.loyalty_unredeem (part 2 of 2)",
-      "body": "Loyalty (M3, contracts §1.3). Same roles as loyalty_redeem, at the tab's branch, the tab's kind for the role. Reverses a loyalty redemption on a tab that is sti\nGranted to: authenticated. Guard: staff role in (cashier, shop_staff, court_desk, manager, owner).\nAudit actions written: loyalty.unredeem.\nError codes: FORBIDDEN, VENUE_MISMATCH, INVALID_ARGUMENT, TAB_NOT_OPEN.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0305 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "Loyalty (M3, contracts §1.3; 0403). Same roles as loyalty_redeem, at the tab's branch, the tab's kind for the role. Reverses a loyalty redemption on a tab that \nthen the account. INVALID_ARGUMENT for an id that is neither. Returns {balance}. Audited loyalty.unredeem.\nSignature: app.loyalty_unredeem(p_adjustment_id uuid) returns jsonb.\nGranted to: authenticated. Guard: staff role in (cashier, shop_staff, court_desk, manager, owner).\nAudit actions written: loyalty.unredeem.\nError codes: FORBIDDEN, VENUE_MISMATCH, INVALID_ARGUMENT, COURT_BILL_CLOSED, TAB_NOT_OPEN.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0403 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -7014,7 +7054,7 @@
       "ref": "action:app.my_loyalty",
       "lang": "en",
       "title": "app.my_loyalty (part 1 of 2)",
-      "body": "Loyalty (M3, contracts §1.3; 0308, 0376). The signed-in guest's points: {enabled, balance, lifetime, points_12m, tier {id, name_en, name_ar, multiplier, color} (the base tier without an account), next_tier (+ min_points_12m, color) | null, point_value_iqd, min_redeem_points, history (50 newest LedgerRow; since 0308 the note only on reward and expire rows), rewards (every active one, any branch)}. AUTH_REQUIRED without a session, ACCOUNT_REQUIRED for an anonymous session or a deleted account.\nSignature: app.my_loyalty() returns jsonb.\nGranted to: authenticated. Guard: not detected by pattern — read the migration.",
+      "body": "Loyalty (M3, contracts §1.3; 0308, 0376, 0403). The signed-in guest's points: {enabled, balance, lifetime, points_12m, tier {id, name_en, name_ar, multiplier, color} (the base tier without an account), next_tier (+ min_points_12m, color) | null, point_value_iqd, min_redeem_points, points_off_enabled (0403: false = points are not spent as money off; rewards only), history (50 newest LedgerRow; since 0308 the note only on reward and expire rows), rewards (every active one, any branch; kind iqd_off | item | court_hour)}. AUTH_REQUIRED without a session, ACCOUNT_REQUIRED for an anonymous session or a deleted account.",
       "route": null
     },
     {
@@ -7022,7 +7062,7 @@
       "ref": "action:app.my_loyalty~2",
       "lang": "en",
       "title": "app.my_loyalty (part 2 of 2)",
-      "body": "Loyalty (M3, contracts §1.3; 0308, 0376). The signed-in guest's points: {enabled, balance, lifetime, points_12m, tier {id, name_en, name_ar, multiplier, color} \nSignature: app.my_loyalty() returns jsonb.\nGranted to: authenticated. Guard: not detected by pattern — read the migration.\nWrites no audit row of its own (or via a helper).\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0376 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "Loyalty (M3, contracts §1.3; 0308, 0376, 0403). The signed-in guest's points: {enabled, balance, lifetime, points_12m, tier {id, name_en, name_ar, multiplier, c\nSignature: app.my_loyalty() returns jsonb.\nGranted to: authenticated. Guard: not detected by pattern — read the migration.\nWrites no audit row of its own (or via a helper).\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0403 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -8718,7 +8758,7 @@
       "ref": "action:app.set_loyalty_settings",
       "lang": "en",
       "title": "app.set_loyalty_settings (part 1 of 2)",
-      "body": "Loyalty (M3, contracts §1.3; 0309). Owner: patches the business-wide settings with the keys given (enabled, iqd_per_point, point_value_iqd, min_redeem_points, earn_cafe, earn_shop, earn_court, earn_lesson, earn_tournament, inactivity_expiry_months, totp_step_seconds); an unknown key is INVALID_ARGUMENT (detail = the key), a value the table refuses INVALID_VALUE. Returns the settings. Audited loyalty.settings. 0309 (c8): enabled_at = now() when enabled turns on (the nightly inactivity expiry counts from it).\nSignature: app.set_loyalty_settings(p_patch jsonb) returns jsonb.\nGranted to: authenticated. Guard: staff role in (owner).",
+      "body": "Loyalty (M3, contracts §1.3; 0309, 0403). Owner: patches the business-wide settings with the keys given (enabled, iqd_per_point, point_value_iqd, min_redeem_points, earn_cafe, earn_shop, earn_court, earn_lesson, earn_tournament, inactivity_expiry_months, totp_step_seconds, points_off_enabled (0403: \"Use points\" as money off; off by default)); an unknown key is INVALID_ARGUMENT (detail = the key), a value the table refuses INVALID_VALUE. Returns the settings. Audited loyalty.settings. 0309 (c8): enabled_at = now() when enabled turns on (the nightly inactivity expiry counts from it).",
       "route": null
     },
     {
@@ -8726,7 +8766,7 @@
       "ref": "action:app.set_loyalty_settings~2",
       "lang": "en",
       "title": "app.set_loyalty_settings (part 2 of 2)",
-      "body": "Loyalty (M3, contracts §1.3; 0309). Owner: patches the business-wide settings with the keys given (enabled, iqd_per_point, point_value_iqd, min_redeem_points, e\nSignature: app.set_loyalty_settings(p_patch jsonb) returns jsonb.\nGranted to: authenticated. Guard: staff role in (owner).\nAudit actions written: loyalty.settings.\nError codes: FORBIDDEN, INVALID_ARGUMENT, INVALID_VALUE.\nCalled from: apps/operator/src/features/loyalty/LoyaltySetup.tsx.\nDefined in migration 0309 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "Loyalty (M3, contracts §1.3; 0309, 0403). Owner: patches the business-wide settings with the keys given (enabled, iqd_per_point, point_value_iqd, min_redeem_poi\nSignature: app.set_loyalty_settings(p_patch jsonb) returns jsonb.\nGranted to: authenticated. Guard: staff role in (owner).\nAudit actions written: loyalty.settings.\nError codes: FORBIDDEN, INVALID_ARGUMENT, INVALID_VALUE.\nCalled from: apps/operator/src/features/loyalty/LoyaltySetup.tsx.\nDefined in migration 0403 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -12310,39 +12350,47 @@
       "ref": "table:loyalty_rewards",
       "lang": "en",
       "title": "table loyalty_rewards",
-      "body": "Loyalty (M3). Rewards redeemed at the till for cost_points: iqd_off (a fixed amount off the bill) or item (the variant's current price off). venue_id null = every branch. Owner-written. No client grant.\nCreated in migration 0305.\nColumns:\n  id uuid primary key default gen_random_uuid()\n  name_en text not null\n  name_ar text not null\n  cost_points int not null\n  kind text not null\n  iqd_off int\n  menu_variant_id uuid references menu_item_variants(id)\n  active boolean not null default true\n  venue_id uuid references venues(id) — null: every branch\n  created_at timestamptz not null default now()",
+      "body": "Loyalty (M3; 0350, 0403). Rewards redeemed at the till for cost_points: iqd_off (a fixed amount off the bill), item (one unit of menu_variant_id free on the tab, 0350) or court_hour (one hour of the court fee of the tab's booking free, 0403; no amount, no item). venue_id null = every branch. Owner-written. No client grant.\nCreated in migration 0305.\nColumns:\n  id uuid primary key default gen_random_uuid()\n  name_en text not null\n  name_ar text not null\n  cost_points int not null\n  kind text not null\n  iqd_off int\n  menu_variant_id uuid references menu_item_variants(id)\n  active boolean not null default true\n  venue_id uuid references venues(id) — null: every branch\n  created_at timestamptz not null default now()",
       "route": null
     },
     {
       "kind": "table",
       "ref": "table:loyalty_settings",
       "lang": "en",
-      "title": "table loyalty_settings (part 1 of 4)",
-      "body": "Loyalty (Phase 2 M3, contracts §1.3). The one business-wide row (points are shared across branches, L-7). enabled ships false until the client gives the point value, tiers and rewards (L-1). iqd_per_point: IQD paid per point earned; point_value_iqd: IQD one point takes off a bill; min_redeem_points: the least a guest may redeem at once; earn_*: the per-domain earn switches (court = the court fee carried on any tab); inactivity_expiry_months: null = points never expire; totp_step_seconds: the member token's step. Owner-written through app.set_loyalty_settings. No client grant.\nCreated in migration 0305.\nColumns:",
+      "title": "table loyalty_settings (part 1 of 5)",
+      "body": "Loyalty (Phase 2 M3, contracts §1.3; 0403). The one business-wide row (points are shared across branches, L-7). enabled ships false until the client gives the point value, tiers and rewards (L-1). iqd_per_point: IQD paid per point earned; point_value_iqd: IQD one point takes off a bill, used only while points_off_enabled (0403, off by default); min_redeem_points: the least a guest may redeem at once; earn_*: the per-domain earn switches (court = the court fee carried on any tab); inactivity_expiry_months: null = points never expire; totp_step_seconds: the member token's step. Owner-written through app.set_loyalty_settings. No",
       "route": null
     },
     {
       "kind": "table",
       "ref": "table:loyalty_settings~2",
       "lang": "en",
-      "title": "table loyalty_settings (part 2 of 4)",
-      "body": "Loyalty (Phase 2 M3, contracts §1.3). The one business-wide row (points are shared across branches, L-7). enabled ships false until the client gives the point v\nCreated in migration 0305.\nColumns:\n  id boolean primary key default true check (id)\n  enabled boolean not null default false\n  iqd_per_point int not null default 1000 check (iqd_per_point > 0)\n  point_value_iqd int not null default 50 check (point_value_iqd > 0)\n  min_redeem_points int not null default 100 check (min_redeem_points >= 0)\n  earn_cafe boolean not null default true\n  earn_shop boolean not null default true\n  earn_court boolean not null default true\n  earn_lesson boolean not null default true\n  earn_tournament boolean not null default true",
+      "title": "table loyalty_settings (part 2 of 5)",
+      "body": "Loyalty (Phase 2 M3, contracts §1.3; 0403). The one business-wide row (points are shared across branches, L-7). enabled ships false until the client gives the p\nclient grant.\nCreated in migration 0305.\nColumns:\n  id boolean primary key default true check (id)\n  enabled boolean not null default false\n  iqd_per_point int not null default 1000 check (iqd_per_point > 0)\n  point_value_iqd int not null default 50 check (point_value_iqd > 0)\n  min_redeem_points int not null default 100 check (min_redeem_points >= 0)\n  earn_cafe boolean not null default true\n  earn_shop boolean not null default true\n  earn_court boolean not null default true\n  earn_lesson boolean not null default true\n  earn_tournament boolean not null default true",
       "route": null
     },
     {
       "kind": "table",
       "ref": "table:loyalty_settings~3",
       "lang": "en",
-      "title": "table loyalty_settings (part 3 of 4)",
-      "body": "Loyalty (Phase 2 M3, contracts §1.3). The one business-wide row (points are shared across branches, L-7). enabled ships false until the client gives the point v\n  earn_shop boolean not null default true\n  earn_court boolean not null default true\n  earn_lesson boolean not null default true\n  earn_tournament boolean not null default true\n  inactivity_expiry_months int check (inactivity_expiry_months is null or inactivity_expiry_months between 1 and 120)\n  totp_step_seconds int not null default 30 check (totp_step_seconds between 15 and 120)\n  updated_at timestamptz not null default now()\n  updated_by uuid references staff(id)",
+      "title": "table loyalty_settings (part 3 of 5)",
+      "body": "Loyalty (Phase 2 M3, contracts §1.3; 0403). The one business-wide row (points are shared across branches, L-7). enabled ships false until the client gives the p\n  earn_shop boolean not null default true\n  earn_court boolean not null default true\n  earn_lesson boolean not null default true\n  earn_tournament boolean not null default true\n  inactivity_expiry_months int check (inactivity_expiry_months is null or inactivity_expiry_months between 1 and 120)\n  totp_step_seconds int not null default 30 check (totp_step_seconds between 15 and 120)\n  updated_at timestamptz not null default now()\n  updated_by uuid references staff(id)",
       "route": null
     },
     {
       "kind": "table",
       "ref": "table:loyalty_settings~4",
       "lang": "en",
-      "title": "table loyalty_settings (part 4 of 4)",
-      "body": "Loyalty (Phase 2 M3, contracts §1.3). The one business-wide row (points are shared across branches, L-7). enabled ships false until the client gives the point v\n  totp_step_seconds int not null default 30 check (totp_step_seconds between 15 and 120)\n  updated_at timestamptz not null default now()\n  updated_by uuid references staff(id)\n  enabled_at timestamptz — Loyalty (0309, c8). When enabled last turned on (app.set_loyalty_settings). The nightly inactivity expiry measures from greatest(last_activity_at, enabled_at): a pause never counts as inactivity.",
+      "title": "table loyalty_settings (part 4 of 5)",
+      "body": "Loyalty (Phase 2 M3, contracts §1.3; 0403). The one business-wide row (points are shared across branches, L-7). enabled ships false until the client gives the p\n  totp_step_seconds int not null default 30 check (totp_step_seconds between 15 and 120)\n  updated_at timestamptz not null default now()\n  updated_by uuid references staff(id)\n  enabled_at timestamptz — Loyalty (0309, c8). When enabled last turned on (app.set_loyalty_settings). The nightly inactivity expiry measures from greatest(last_activity_at, enabled_at): a pause never counts as inactivity.",
+      "route": null
+    },
+    {
+      "kind": "table",
+      "ref": "table:loyalty_settings~5",
+      "lang": "en",
+      "title": "table loyalty_settings (part 5 of 5)",
+      "body": "Loyalty (Phase 2 M3, contracts §1.3; 0403). The one business-wide row (points are shared across branches, L-7). enabled ships false until the client gives the p\n  points_off_enabled boolean not null default false — 0403 (Majed 2026-11-05: rewards are things you take, not a wallet). True: the till offers \"Use points\", points spent as money off a bill at point_value_iqd (app.loyalty_redeem with p_points). False (the default): POINTS_OFF; points are spent on rewards only. Owner-written through app.set_loyalty_settings.",
       "route": null
     },
     {
@@ -13719,6 +13767,22 @@
       "lang": "en",
       "title": "table reservation_court_discounts (part 2 of 2)",
       "body": "0342. The court-fee discount of one booking: kind percent (basis points) or amount (IQD), standing (copied from the customer's customer_discounts row) or not (g\nCreated in migration 0342.\nColumns:\n  reservation_id uuid primary key references reservations(id) on delete cascade\n  customer_id uuid references profiles(id) on delete set null\n  kind text not null\n  value int not null\n  reason text not null\n  standing boolean not null\n  applied_by uuid not null references staff(id)\n  authorized_by uuid not null references staff(id)\n  created_at timestamptz not null default now()",
+      "route": null
+    },
+    {
+      "kind": "table",
+      "ref": "table:reservation_loyalty_rewards",
+      "lang": "en",
+      "title": "table reservation_loyalty_rewards (part 1 of 2)",
+      "body": "0403. The free court hour (a court_hour loyalty reward) on one booking: reward_id, the points it cost, amount_iqd (the IQD it took off the court fee, fixed when taken), the member (profile_id), the tab it was taken on, applied_by the caller, authorized_by the caller for a scanned member card or the manager whose PIN vouched (proof qr | pin). app.court_fee_remaining subtracts amount_iqd. The ledger row is (reward, reservation_reward, id). Written only by app.loyalty_redeem; removed by app.loyalty_unredeem and by app.trg_loyalty_court_reward_back (the booking cancelled or a no-show before its bill closed), each giving the points",
+      "route": null
+    },
+    {
+      "kind": "table",
+      "ref": "table:reservation_loyalty_rewards~2",
+      "lang": "en",
+      "title": "table reservation_loyalty_rewards (part 2 of 2)",
+      "body": "0403. The free court hour (a court_hour loyalty reward) on one booking: reward_id, the points it cost, amount_iqd (the IQD it took off the court fee, fixed when\nback. Read through app.loyalty_court_reward. No client grant.\nCreated in migration 0403.\nColumns:\n  reservation_id uuid primary key references reservations(id) on delete cascade\n  id uuid not null default gen_random_uuid()\n  tab_id uuid not null references tabs(id)\n  profile_id uuid not null references profiles(id)\n  reward_id uuid not null references loyalty_rewards(id)\n  points int not null\n  amount_iqd bigint not null\n  applied_by uuid not null references staff(id)\n  authorized_by uuid not null references staff(id)\n  proof text not null\n  created_at timestamptz not null default now()",
       "route": null
     },
     {
@@ -17671,6 +17735,14 @@
       "lang": "en",
       "title": "loyalty_settings.enabled_at",
       "body": "timestamptz\nLoyalty (0309, c8). When enabled last turned on (app.set_loyalty_settings). The nightly inactivity expiry measures from greatest(last_activity_at, enabled_at): a pause never counts as inactivity.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:loyalty_settings.points_off_enabled",
+      "lang": "en",
+      "title": "loyalty_settings.points_off_enabled",
+      "body": "boolean not null default false\n0403 (Majed 2026-11-05: rewards are things you take, not a wallet). True: the till offers \"Use points\", points spent as money off a bill at point_value_iqd (app.loyalty_redeem with p_points). False (the default): POINTS_OFF; points are spent on rewards only. Owner-written through app.set_loyalty_settings.",
       "route": null
     },
     {
@@ -31637,16 +31709,32 @@
       "kind": "label",
       "ref": "label:ws.loyalty.redeem",
       "lang": "ar",
-      "title": "ws.loyalty.redeem (packages/i18n/src/catalogs/ws/loyalty.ar.ts)",
-      "body": "button: استخدام النقاط\ntitle: استخدام النقاط\nlead: لدى {name} {points} نقطة.\npoints: النقاط المستخدمة\nworth: تخصم {amount} من الفاتورة.\nworthUnknown: يحسب الخادم المبلغ، ولا يخصم أكثر مما بقي للدفع.\nmaxHint: حتى {points} نقطة تناسب ما بقي للدفع.\nconfirm: استخدام {points} نقطة\ndone: خصمت {points} نقطة {amount} من الفاتورة.\nnoBalance: لا توجد نقاط للاستخدام بعد.\nbelowMin: تُستخدم {min} نقطة على الأقل في كل مرة.\noverBalance: أكثر من النقاط التي لدى العضو ({points}).\nnothingDue: لم يبقَ شيء للدفع على هذه الفاتورة.\nusedTitle: النقاط المستخدمة على هذه الفاتورة\nusedRow: {points} نقطة · خصم {amount}\nrewardRow: مكافأة · خصم {amount}\nundo: تراجع\nundone: أُعيدت النقاط إلى العضو.\nbillRow: نقاط الولاء\npinLabel: رمز المدير\npinHint: لم تُمسح بطاقة العضو للتو. امسحها مرة أخرى، أو يُدخل المدير رمزه.",
+      "title": "ws.loyalty.redeem (packages/i18n/src/catalogs/ws/loyalty.ar.ts) (part 1 of 2)",
+      "body": "button: استخدام النقاط\ntitle: استخدام النقاط\nlead: لدى {name} {points} نقطة.\npoints: النقاط المستخدمة\nworth: تخصم {amount} من الفاتورة.\nworthUnknown: يحسب الخادم المبلغ، ولا يخصم أكثر مما بقي للدفع.\nmaxHint: حتى {points} نقطة تناسب ما بقي للدفع.\nconfirm: استخدام {points} نقطة\ndone: خصمت {points} نقطة {amount} من الفاتورة.\nnoBalance: لا توجد نقاط للاستخدام بعد.\nbelowMin: تُستخدم {min} نقطة على الأقل في كل مرة.\noverBalance: أكثر من النقاط التي لدى العضو ({points}).\nnothingDue: لم يبقَ شيء للدفع على هذه الفاتورة.\nusedTitle: النقاط المستخدمة على هذه الفاتورة\nusedRow: {points} نقطة · خصم {amount}\nrewardRow: مكافأة · خصم {amount}\ncourtRow: ساعة ملعب مجانية · خصم {amount} من أجرة الملعب\nundo: تراجع\nundone: أُعيدت النقاط إلى العضو.\nbillRow: نقاط الولاء\npinLabel: رمز المدير",
       "route": null
     },
     {
       "kind": "label",
       "ref": "label:ws.loyalty.redeem",
       "lang": "en",
-      "title": "ws.loyalty.redeem (packages/i18n/src/catalogs/ws/loyalty.en.ts)",
-      "body": "button: Use points\ntitle: Use points\nlead: {name} has {points} points.\npoints: Points to use\nworth: Takes {amount} off the bill.\nworthUnknown: The server works out the amount and never takes more than is left to pay.\nmaxHint: Up to {points} points fit what is left to pay.\nconfirm: Use {points} points\ndone: {points} points took {amount} off the bill.\nnoBalance: No points to use yet.\nbelowMin: At least {min} points are used at a time.\noverBalance: More than the {points} points the member has.\nnothingDue: Nothing is left to pay on this bill.\nusedTitle: Points used on this bill\nusedRow: {points} points · {amount} off\nrewardRow: Reward · {amount} off\nundo: Undo\nundone: Points given back to the member.\nbillRow: Loyalty points\npinLabel: Manager PIN",
+      "title": "ws.loyalty.redeem (packages/i18n/src/catalogs/ws/loyalty.en.ts) (part 1 of 2)",
+      "body": "button: Use points\ntitle: Use points\nlead: {name} has {points} points.\npoints: Points to use\nworth: Takes {amount} off the bill.\nworthUnknown: The server works out the amount and never takes more than is left to pay.\nmaxHint: Up to {points} points fit what is left to pay.\nconfirm: Use {points} points\ndone: {points} points took {amount} off the bill.\nnoBalance: No points to use yet.\nbelowMin: At least {min} points are used at a time.\noverBalance: More than the {points} points the member has.\nnothingDue: Nothing is left to pay on this bill.\nusedTitle: Points used on this bill\nusedRow: {points} points · {amount} off\nrewardRow: Reward · {amount} off\ncourtRow: Free court hour · {amount} off the court fee\nundo: Undo\nundone: Points given back to the member.",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.loyalty.redeem~2",
+      "lang": "ar",
+      "title": "ws.loyalty.redeem (packages/i18n/src/catalogs/ws/loyalty.ar.ts) (part 2 of 2)",
+      "body": "button: استخدام النقاط\nrewardRow: مكافأة · خصم {amount}\ncourtRow: ساعة ملعب مجانية · خصم {amount} من أجرة الملعب\nundo: تراجع\nundone: أُعيدت النقاط إلى العضو.\nbillRow: نقاط الولاء\npinLabel: رمز المدير\npinHint: لم تُمسح بطاقة العضو للتو. امسحها مرة أخرى، أو يُدخل المدير رمزه.",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.loyalty.redeem~2",
+      "lang": "en",
+      "title": "ws.loyalty.redeem (packages/i18n/src/catalogs/ws/loyalty.en.ts) (part 2 of 2)",
+      "body": "button: Use points\nusedRow: {points} points · {amount} off\nrewardRow: Reward · {amount} off\ncourtRow: Free court hour · {amount} off the court fee\nundo: Undo\nundone: Points given back to the member.\nbillRow: Loyalty points\npinLabel: Manager PIN",
       "route": null
     },
     {
@@ -31654,7 +31742,7 @@
       "ref": "label:ws.loyalty.rewards",
       "lang": "ar",
       "title": "ws.loyalty.rewards (packages/i18n/src/catalogs/ws/loyalty.ar.ts)",
-      "body": "button: المكافآت\ntitle: المكافآت\nlead: لدى {name} {points} نقطة.\nempty: لا توجد مكافآت معروضة.\nunavailable: قائمة المكافآت متاحة للمديرين. استخدم النقاط بدلًا منها، أو اطلب من المدير.\ncost: {points} نقطة\niqdOff: خصم {amount}\nitem: مجانًا على الفاتورة، ويُضاف إن لم يكن عليها\nuse: استخدام\ntooFew: النقاط غير كافية\ndone: استُخدمت المكافأة: خصم {amount} من الفاتورة.\ndoneItem: استُخدمت المكافأة: {name} مجانًا على الفاتورة.\ndoneItemAdded: استُخدمت المكافأة: أُضيف {name} إلى الفاتورة مجانًا.",
+      "body": "button: المكافآت\ntitle: المكافآت\nlead: لدى {name} {points} نقطة.\nempty: لا توجد مكافآت معروضة.\nunavailable: قائمة المكافآت متاحة للمديرين. استخدم النقاط بدلًا منها، أو اطلب من المدير.\ncost: {points} نقطة\niqdOff: خصم {amount}\nitem: مجانًا على الفاتورة، ويُضاف إن لم يكن عليها\nuse: استخدام\ntooFew: النقاط غير كافية\ndone: استُخدمت المكافأة: خصم {amount} من الفاتورة.\ndoneItem: استُخدمت المكافأة: {name} مجانًا على الفاتورة.\ndoneItemAdded: استُخدمت المكافأة: أُضيف {name} إلى الفاتورة مجانًا.\ncourt: ساعة ملعب مجانية على هذا الحجز ({amount})\ndoneCourt: استُخدمت المكافأة: ساعة ملعب مجانية، وخُصم {amount} من أجرة الملعب.",
       "route": null
     },
     {
@@ -31662,7 +31750,7 @@
       "ref": "label:ws.loyalty.rewards",
       "lang": "en",
       "title": "ws.loyalty.rewards (packages/i18n/src/catalogs/ws/loyalty.en.ts)",
-      "body": "button: Rewards\ntitle: Rewards\nlead: {name} has {points} points.\nempty: No rewards are on offer.\nunavailable: Rewards are listed for managers. Use points instead, or ask a manager.\ncost: {points} points\niqdOff: {amount} off\nitem: Free on the bill, added if it isn’t there yet\nuse: Use\ntooFew: Not enough points\ndone: Reward used: {amount} off the bill.\ndoneItem: Reward used: {name} is free on the bill.\ndoneItemAdded: Reward used: {name} added to the bill, free.",
+      "body": "button: Rewards\ntitle: Rewards\nlead: {name} has {points} points.\nempty: No rewards are on offer.\nunavailable: Rewards are listed for managers. Use points instead, or ask a manager.\ncost: {points} points\niqdOff: {amount} off\nitem: Free on the bill, added if it isn’t there yet\nuse: Use\ntooFew: Not enough points\ndone: Reward used: {amount} off the bill.\ndoneItem: Reward used: {name} is free on the bill.\ndoneItemAdded: Reward used: {name} added to the bill, free.\ncourt: One free hour of court on this booking ({amount})\ndoneCourt: Reward used: one free hour of court, {amount} off the court fee.",
       "route": null
     },
     {
@@ -31677,7 +31765,7 @@
       "kind": "label",
       "ref": "label:ws.loyalty.setup",
       "lang": "en",
-      "title": "ws.loyalty.setup (packages/i18n/src/catalogs/ws/loyalty.en.ts) (part 1 of 3)",
+      "title": "ws.loyalty.setup (packages/i18n/src/catalogs/ws/loyalty.en.ts) (part 1 of 4)",
       "body": "title: Loyalty points\nlead: Points across every branch: what a guest earns, what a point is worth, the tiers and the rewards.\ncard: Points, tiers and rewards guests earn on every bill, at every branch.\nownerOnly: Only the owner can change loyalty.\nsaved: Saved.\nwizardLead: Loyalty\nsettings.title: Points\nsettings.enabled: Loyalty is on\nsettings.enabledHint: Off: no points are earned or used, and guests do not see a balance.\nsettings.iqdPerPoint: Spend for one point\nsettings.iqdPerPointHint: A guest earns one point for every this much paid.\nsettings.pointValue: Value of one point\nsettings.pointValueHint: What one point takes off a bill.\nsettings.minRedeem: Smallest use\nsettings.minRedeemHint: The fewest points a guest can use at once.",
       "route": "/setup"
     },
@@ -31686,15 +31774,15 @@
       "ref": "label:ws.loyalty.setup#2",
       "lang": "ar",
       "title": "ws.loyalty.setup (packages/i18n/src/catalogs/ws/loyalty.ar.ts) (part 1 of 4)",
-      "body": "tiers.colors.bronze: برونزي\ntiers.colors.silver: فضي\ntiers.colors.gold: ذهبي\ntiers.colors.platinum: بلاتيني\ntiers.colors.black: أسود\ntiers.sort: الترتيب\ntiers.remove: إزالة\ntiers.removeTitle: إزالة الفئة {name}؟\ntiers.removeBody: ينتقل ضيوفها إلى الفئة الأدنى.\ntiers.base: الفئة الأساسية\ntiers.columns.name: الفئة\ntiers.columns.minPoints: ابتداءً من\ntiers.columns.multiplier: الكسب\ntiers.columns.color: البطاقة\ntiers.multiplierValue: ×{value}\ntiers.steps.name: الاسم\ntiers.steps.points: النقاط والمضاعف\ntiers.steps.color: لون البطاقة\ntiers.placeNote: تأتي {name} بعد {below}. ينتقل الضيف إليها حين يكسب {points} نقطة خلال 12 شهرًا.\ntiers.review.name: الاسم\ntiers.review.from: ابتداءً من\ntiers.review.fromValue: {points} نقطة خلال 12 شهرًا\ntiers.review.earns: الكسب",
+      "body": "tiers.colorHint: تأخذ بطاقة نقاط الضيف هذا اللون في هذه الفئة: خطوطها واسم الفئة واسم الضيف. الأسود يجعل البطاقة كلها سوداء.\ntiers.colors.classic: كلاسيكي\ntiers.colors.bronze: برونزي\ntiers.colors.silver: فضي\ntiers.colors.gold: ذهبي\ntiers.colors.platinum: بلاتيني\ntiers.colors.black: أسود\ntiers.sort: الترتيب\ntiers.remove: إزالة\ntiers.removeTitle: إزالة الفئة {name}؟\ntiers.removeBody: ينتقل ضيوفها إلى الفئة الأدنى.\ntiers.base: الفئة الأساسية\ntiers.columns.name: الفئة\ntiers.columns.minPoints: ابتداءً من\ntiers.columns.multiplier: الكسب\ntiers.columns.color: البطاقة\ntiers.multiplierValue: ×{value}\ntiers.steps.name: الاسم\ntiers.steps.points: النقاط والمضاعف",
       "route": "/setup"
     },
     {
       "kind": "label",
       "ref": "label:ws.loyalty.setup#2",
       "lang": "en",
-      "title": "ws.loyalty.setup (packages/i18n/src/catalogs/ws/loyalty.en.ts) (part 1 of 5)",
-      "body": "tiers.colorHint: The guest’s points card takes this colour in this tier: its lines, the tier’s name and the guest’s name. Black makes the whole card black.\ntiers.colors.classic: Classic\ntiers.colors.bronze: Bronze\ntiers.colors.silver: Silver\ntiers.colors.gold: Gold\ntiers.colors.platinum: Platinum\ntiers.colors.black: Black\ntiers.sort: Order\ntiers.remove: Remove\ntiers.removeTitle: Remove the tier {name}?\ntiers.removeBody: Guests in it move to the tier below.\ntiers.base: Base tier\ntiers.columns.name: Tier\ntiers.columns.minPoints: From\ntiers.columns.multiplier: Earns\ntiers.columns.color: Card\ntiers.multiplierValue: ×{value}",
+      "title": "ws.loyalty.setup (packages/i18n/src/catalogs/ws/loyalty.en.ts) (part 1 of 4)",
+      "body": "tiers.color: Card colour\ntiers.colorHint: The guest’s points card takes this colour in this tier: its lines, the tier’s name and the guest’s name. Black makes the whole card black.\ntiers.colors.classic: Classic\ntiers.colors.bronze: Bronze\ntiers.colors.silver: Silver\ntiers.colors.gold: Gold\ntiers.colors.platinum: Platinum\ntiers.colors.black: Black\ntiers.sort: Order\ntiers.remove: Remove\ntiers.removeTitle: Remove the tier {name}?\ntiers.removeBody: Guests in it move to the tier below.\ntiers.base: Base tier\ntiers.columns.name: Tier\ntiers.columns.minPoints: From\ntiers.columns.multiplier: Earns\ntiers.columns.color: Card\ntiers.multiplierValue: ×{value}\ntiers.steps.name: Name\ntiers.steps.points: Points & multiplier\ntiers.steps.color: Card colour",
       "route": "/setup"
     },
     {
@@ -31702,15 +31790,15 @@
       "ref": "label:ws.loyalty.setup#2~2",
       "lang": "ar",
       "title": "ws.loyalty.setup (packages/i18n/src/catalogs/ws/loyalty.ar.ts) (part 2 of 4)",
-      "body": "tiers.colors.bronze: برونزي\ntiers.review.name: الاسم\ntiers.review.from: ابتداءً من\ntiers.review.fromValue: {points} نقطة خلال 12 شهرًا\ntiers.review.earns: الكسب\ntiers.review.earnsValue: {value}× النقاط\ntiers.review.color: لون البطاقة\ntiers.errors.names: الاسمان مطلوبان.\ntiers.errors.minPoints: اكتب عددًا صحيحًا، 0 أو أكثر.\ntiers.errors.multiplier: بين 1 و5.\nrewards.title: المكافآت\nrewards.lead: ما يأخذه الضيف مقابل النقاط عند الكاشير. أوقف المكافأة لتتوقف عن عرضها.\nrewards.add: إضافة مكافأة\nrewards.edit: تعديل المكافأة\nrewards.empty: لا توجد مكافآت بعد.\nrewards.nameEn: الاسم (بالإنجليزية)\nrewards.nameAr: الاسم (بالعربية)\nrewards.cost: الكلفة\nrewards.kind: تمنح\nrewards.kindIqdOff: خصم مبلغ من الفاتورة\nrewards.kindItem: صنف مجاني من القائمة (واحد، بهذا الحجم)\nrewards.iqdOff: مبلغ الخصم",
+      "body": "tiers.colorHint: تأخذ بطاقة نقاط الضيف هذا اللون في هذه الفئة: خطوطها واسم الفئة واسم الضيف. الأسود يجعل البطاقة كلها سوداء.\ntiers.columns.minPoints: ابتداءً من\ntiers.columns.multiplier: الكسب\ntiers.columns.color: البطاقة\ntiers.multiplierValue: ×{value}\ntiers.steps.name: الاسم\ntiers.steps.points: النقاط والمضاعف\ntiers.steps.color: لون البطاقة\ntiers.placeNote: تأتي {name} بعد {below}. ينتقل الضيف إليها حين يكسب {points} نقطة خلال 12 شهرًا.\ntiers.review.name: الاسم\ntiers.review.from: ابتداءً من\ntiers.review.fromValue: {points} نقطة خلال 12 شهرًا\ntiers.review.earns: الكسب\ntiers.review.earnsValue: {value}× النقاط\ntiers.review.color: لون البطاقة\ntiers.errors.names: الاسمان مطلوبان.\ntiers.errors.minPoints: اكتب عددًا صحيحًا، 0 أو أكثر.\ntiers.errors.multiplier: بين 1 و5.\nrewards.title: المكافآت",
       "route": "/setup"
     },
     {
       "kind": "label",
       "ref": "label:ws.loyalty.setup#2~2",
       "lang": "en",
-      "title": "ws.loyalty.setup (packages/i18n/src/catalogs/ws/loyalty.en.ts) (part 2 of 5)",
-      "body": "tiers.colorHint: The guest’s points card takes this colour in this tier: its lines, the tier’s name and the guest’s name. Black makes the whole card black.\ntiers.base: Base tier\ntiers.columns.name: Tier\ntiers.columns.minPoints: From\ntiers.columns.multiplier: Earns\ntiers.columns.color: Card\ntiers.multiplierValue: ×{value}\ntiers.steps.name: Name\ntiers.steps.points: Points & multiplier\ntiers.steps.color: Card colour\ntiers.placeNote: {name} sits after {below}. A guest moves up once they earn {points} points in 12 months.\ntiers.review.name: Name\ntiers.review.from: From\ntiers.review.fromValue: {points} points in 12 months\ntiers.review.earns: Earns\ntiers.review.earnsValue: {value}× points\ntiers.review.color: Card colour\ntiers.errors.names: Both names are needed.",
+      "title": "ws.loyalty.setup (packages/i18n/src/catalogs/ws/loyalty.en.ts) (part 2 of 4)",
+      "body": "tiers.color: Card colour\ntiers.columns.multiplier: Earns\ntiers.columns.color: Card\ntiers.multiplierValue: ×{value}\ntiers.steps.name: Name\ntiers.steps.points: Points & multiplier\ntiers.steps.color: Card colour\ntiers.placeNote: {name} sits after {below}. A guest moves up once they earn {points} points in 12 months.\ntiers.review.name: Name\ntiers.review.from: From\ntiers.review.fromValue: {points} points in 12 months\ntiers.review.earns: Earns\ntiers.review.earnsValue: {value}× points\ntiers.review.color: Card colour\ntiers.errors.names: Both names are needed.\ntiers.errors.minPoints: Type a whole number, 0 or more.\ntiers.errors.multiplier: Between 1 and 5.\nrewards.title: Rewards\nrewards.lead: What a guest can take for points at the café cashier. Switch a reward off to stop offering it.",
       "route": "/setup"
     },
     {
@@ -31718,15 +31806,15 @@
       "ref": "label:ws.loyalty.setup#2~3",
       "lang": "ar",
       "title": "ws.loyalty.setup (packages/i18n/src/catalogs/ws/loyalty.ar.ts) (part 3 of 4)",
-      "body": "tiers.colors.bronze: برونزي\nrewards.nameAr: الاسم (بالعربية)\nrewards.cost: الكلفة\nrewards.kind: تمنح\nrewards.kindIqdOff: خصم مبلغ من الفاتورة\nrewards.kindItem: صنف مجاني من القائمة (واحد، بهذا الحجم)\nrewards.iqdOff: مبلغ الخصم\nrewards.variant: صنف القائمة\nrewards.variantPlaceholder: اختر صنفًا\nrewards.active: معروضة\nrewards.steps.name: الاسم\nrewards.steps.gives: ما تمنحه\nrewards.steps.cost: الكلفة\nrewards.kindIqdOffBody: يُخصم عند الكاشير.\nrewards.kindItemTitle: صنف مجاني من القائمة\nrewards.kindItemBody: صنف واحد بهذا الحجم.\nrewards.activeOnHint: يستطيع الضيوف استبدالها الآن.\nrewards.activeOffHint: مخفية عن الضيوف حتى تشغّلها.\nrewards.review.name: الاسم\nrewards.review.gives: تمنح\nrewards.review.offValue: خصم {amount} من الفاتورة\nrewards.review.cost: الكلفة\nrewards.columns.name: المكافأة",
+      "body": "tiers.colorHint: تأخذ بطاقة نقاط الضيف هذا اللون في هذه الفئة: خطوطها واسم الفئة واسم الضيف. الأسود يجعل البطاقة كلها سوداء.\ntiers.review.color: لون البطاقة\ntiers.errors.names: الاسمان مطلوبان.\ntiers.errors.minPoints: اكتب عددًا صحيحًا، 0 أو أكثر.\ntiers.errors.multiplier: بين 1 و5.\nrewards.title: المكافآت\nrewards.lead: ما يأخذه الضيف مقابل النقاط عند الكاشير. أوقف المكافأة لتتوقف عن عرضها.\nrewards.add: إضافة مكافأة\nrewards.edit: تعديل المكافأة\nrewards.empty: لا توجد مكافآت بعد.\nrewards.nameEn: الاسم (بالإنجليزية)\nrewards.nameAr: الاسم (بالعربية)\nrewards.cost: الكلفة\nrewards.kind: تمنح\nrewards.kindIqdOff: خصم مبلغ من الفاتورة\nrewards.kindItem: صنف مجاني من القائمة (واحد، بهذا الحجم)\nrewards.kindCourt: ساعة ملعب مجانية\nrewards.courtHour: ساعة ملعب مجانية واحدة\nrewards.iqdOff: مبلغ الخصم",
       "route": "/setup"
     },
     {
       "kind": "label",
       "ref": "label:ws.loyalty.setup#2~3",
       "lang": "en",
-      "title": "ws.loyalty.setup (packages/i18n/src/catalogs/ws/loyalty.en.ts) (part 3 of 5)",
-      "body": "tiers.colorHint: The guest’s points card takes this colour in this tier: its lines, the tier’s name and the guest’s name. Black makes the whole card black.\ntiers.review.fromValue: {points} points in 12 months\ntiers.review.earns: Earns\ntiers.review.earnsValue: {value}× points\ntiers.review.color: Card colour\ntiers.errors.names: Both names are needed.\ntiers.errors.minPoints: Type a whole number, 0 or more.\ntiers.errors.multiplier: Between 1 and 5.\nrewards.title: Rewards\nrewards.lead: What a guest can take for points at the café cashier. Switch a reward off to stop offering it.\nrewards.add: Add a reward\nrewards.edit: Edit reward\nrewards.empty: No rewards yet.\nrewards.nameEn: Name (English)\nrewards.nameAr: Name (Arabic)\nrewards.cost: Cost\nrewards.kind: Gives",
+      "title": "ws.loyalty.setup (packages/i18n/src/catalogs/ws/loyalty.en.ts) (part 3 of 4)",
+      "body": "tiers.color: Card colour\ntiers.errors.multiplier: Between 1 and 5.\nrewards.title: Rewards\nrewards.lead: What a guest can take for points at the café cashier. Switch a reward off to stop offering it.\nrewards.add: Add a reward\nrewards.edit: Edit reward\nrewards.empty: No rewards yet.\nrewards.nameEn: Name (English)\nrewards.nameAr: Name (Arabic)\nrewards.cost: Cost\nrewards.kind: Gives\nrewards.kindIqdOff: An amount off the bill\nrewards.kindItem: A free menu item (one, that size)\nrewards.kindCourt: A free hour of court\nrewards.courtHour: One free hour of court\nrewards.iqdOff: Amount off\nrewards.variant: Menu item\nrewards.variantPlaceholder: Choose an item\nrewards.active: On offer\nrewards.steps.name: Name\nrewards.steps.gives: What it gives\nrewards.steps.cost: Cost",
       "route": "/setup"
     },
     {
@@ -31734,23 +31822,15 @@
       "ref": "label:ws.loyalty.setup#2~4",
       "lang": "ar",
       "title": "ws.loyalty.setup (packages/i18n/src/catalogs/ws/loyalty.ar.ts) (part 4 of 4)",
-      "body": "tiers.colors.bronze: برونزي\nrewards.review.name: الاسم\nrewards.review.gives: تمنح\nrewards.review.offValue: خصم {amount} من الفاتورة\nrewards.review.cost: الكلفة\nrewards.columns.name: المكافأة\nrewards.columns.cost: الكلفة",
+      "body": "tiers.colorHint: تأخذ بطاقة نقاط الضيف هذا اللون في هذه الفئة: خطوطها واسم الفئة واسم الضيف. الأسود يجعل البطاقة كلها سوداء.\nrewards.kindItem: صنف مجاني من القائمة (واحد، بهذا الحجم)\nrewards.kindCourt: ساعة ملعب مجانية\nrewards.courtHour: ساعة ملعب مجانية واحدة\nrewards.iqdOff: مبلغ الخصم\nrewards.variant: صنف القائمة\nrewards.variantPlaceholder: اختر صنفًا\nrewards.active: معروضة\nrewards.steps.name: الاسم\nrewards.steps.gives: ما تمنحه\nrewards.steps.cost: الكلفة\nrewards.kindIqdOffBody: يُخصم عند الكاشير.\nrewards.kindItemTitle: صنف مجاني من القائمة\nrewards.kindItemBody: صنف واحد بهذا الحجم.\nrewards.kindCourtTitle: ساعة ملعب مجانية",
       "route": "/setup"
     },
     {
       "kind": "label",
       "ref": "label:ws.loyalty.setup#2~4",
       "lang": "en",
-      "title": "ws.loyalty.setup (packages/i18n/src/catalogs/ws/loyalty.en.ts) (part 4 of 5)",
-      "body": "tiers.colorHint: The guest’s points card takes this colour in this tier: its lines, the tier’s name and the guest’s name. Black makes the whole card black.\nrewards.add: Add a reward\nrewards.edit: Edit reward\nrewards.empty: No rewards yet.\nrewards.nameEn: Name (English)\nrewards.nameAr: Name (Arabic)\nrewards.cost: Cost\nrewards.kind: Gives\nrewards.kindIqdOff: An amount off the bill\nrewards.kindItem: A free menu item (one, that size)\nrewards.iqdOff: Amount off\nrewards.variant: Menu item\nrewards.variantPlaceholder: Choose an item\nrewards.active: On offer\nrewards.steps.name: Name\nrewards.steps.gives: What it gives\nrewards.steps.cost: Cost\nrewards.kindIqdOffBody: Taken off at the till.\nrewards.kindItemTitle: A free menu item\nrewards.kindItemBody: One, that size.",
-      "route": "/setup"
-    },
-    {
-      "kind": "label",
-      "ref": "label:ws.loyalty.setup#2~5",
-      "lang": "en",
-      "title": "ws.loyalty.setup (packages/i18n/src/catalogs/ws/loyalty.en.ts) (part 5 of 5)",
-      "body": "tiers.colorHint: The guest’s points card takes this colour in this tier: its lines, the tier’s name and the guest’s name. Black makes the whole card black.\nrewards.steps.gives: What it gives\nrewards.steps.cost: Cost\nrewards.kindIqdOffBody: Taken off at the till.\nrewards.kindItemTitle: A free menu item\nrewards.kindItemBody: One, that size.\nrewards.activeOnHint: Guests can redeem it now.",
+      "title": "ws.loyalty.setup (packages/i18n/src/catalogs/ws/loyalty.en.ts) (part 4 of 4)",
+      "body": "tiers.color: Card colour\nrewards.variant: Menu item\nrewards.variantPlaceholder: Choose an item\nrewards.active: On offer\nrewards.steps.name: Name\nrewards.steps.gives: What it gives\nrewards.steps.cost: Cost\nrewards.kindIqdOffBody: Taken off at the till.\nrewards.kindItemTitle: A free menu item",
       "route": "/setup"
     },
     {
@@ -31758,7 +31838,7 @@
       "ref": "label:ws.loyalty.setup#3",
       "lang": "ar",
       "title": "ws.loyalty.setup (packages/i18n/src/catalogs/ws/loyalty.ar.ts)",
-      "body": "rewards.columns.gives: تمنح\nrewards.columns.active: معروضة\nrewards.errors.names: الاسمان مطلوبان.\nrewards.errors.cost: اكتب عددًا صحيحًا أكبر من 0.\nrewards.errors.iqdOff: اكتب مبلغًا أكبر من 0.\nrewards.errors.variant: اختر صنف القائمة.\nsave: حفظ\ncancel: إلغاء",
+      "body": "rewards.kindCourtBody: ساعة واحدة من الحجز، على فاتورة حجز ملعب.\nrewards.activeOnHint: يستطيع الضيوف استبدالها الآن.\nrewards.activeOffHint: مخفية عن الضيوف حتى تشغّلها.\nrewards.review.name: الاسم\nrewards.review.gives: تمنح\nrewards.review.offValue: خصم {amount} من الفاتورة\nrewards.review.cost: الكلفة\nrewards.columns.name: المكافأة\nrewards.columns.cost: الكلفة\nrewards.columns.gives: تمنح\nrewards.columns.active: معروضة\nrewards.errors.names: الاسمان مطلوبان.\nrewards.errors.cost: اكتب عددًا صحيحًا أكبر من 0.\nrewards.errors.iqdOff: اكتب مبلغًا أكبر من 0.\nrewards.errors.variant: اختر صنف القائمة.\nsave: حفظ\ncancel: إلغاء",
       "route": "/setup"
     },
     {
@@ -31766,7 +31846,7 @@
       "ref": "label:ws.loyalty.setup#3",
       "lang": "en",
       "title": "ws.loyalty.setup (packages/i18n/src/catalogs/ws/loyalty.en.ts)",
-      "body": "rewards.activeOffHint: Hidden from guests until you turn it on.\nrewards.review.name: Name\nrewards.review.gives: Gives\nrewards.review.offValue: {amount} off the bill\nrewards.review.cost: Cost\nrewards.columns.name: Reward\nrewards.columns.cost: Cost\nrewards.columns.gives: Gives\nrewards.columns.active: On offer\nrewards.errors.names: Both names are needed.\nrewards.errors.cost: Type a whole number above 0.\nrewards.errors.iqdOff: Type an amount above 0.\nrewards.errors.variant: Choose the menu item.\nsave: Save\ncancel: Cancel",
+      "body": "rewards.kindItemBody: One, that size.\nrewards.kindCourtTitle: A free hour of court\nrewards.kindCourtBody: One hour of the booking, on a court booking’s bill.\nrewards.activeOnHint: Guests can redeem it now.\nrewards.activeOffHint: Hidden from guests until you turn it on.\nrewards.review.name: Name\nrewards.review.gives: Gives\nrewards.review.offValue: {amount} off the bill\nrewards.review.cost: Cost\nrewards.columns.name: Reward\nrewards.columns.cost: Cost\nrewards.columns.gives: Gives\nrewards.columns.active: On offer\nrewards.errors.names: Both names are needed.\nrewards.errors.cost: Type a whole number above 0.\nrewards.errors.iqdOff: Type an amount above 0.\nrewards.errors.variant: Choose the menu item.\nsave: Save\ncancel: Cancel",
       "route": "/setup"
     },
     {
@@ -31774,15 +31854,15 @@
       "ref": "label:ws.loyalty.setup~2",
       "lang": "ar",
       "title": "ws.loyalty.setup (packages/i18n/src/catalogs/ws/loyalty.ar.ts) (part 2 of 4)",
-      "body": "title: نقاط الولاء\nsettings.pointValueHint: ما تخصمه نقطة واحدة من الفاتورة.\nsettings.minRedeem: أقل استخدام\nsettings.minRedeemHint: أقل عدد من النقاط يستخدمه الضيف في مرة واحدة.\nsettings.earnTitle: تُكسب النقاط على\nsettings.earnCafe: فواتير المقهى\nsettings.earnShop: مبيعات المتجر\nsettings.earnCourt: أجور الملاعب\nsettings.earnLesson: الدروس\nsettings.earnTournament: رسوم الاشتراك في البطولات\nsettings.inactivity: تنتهي النقاط بعد\nsettings.inactivityHint: أشهر بلا نقاط مكتسبة أو مستخدمة. اتركه فارغًا لتبقى النقاط دائمًا.\nsettings.totpStep: يتغيّر رمز QR للعضو كل\nsettings.totpStepHint: بين 15 و120 ثانية.\nsettings.unitIqd: د.ع\nsettings.unitPoints: نقطة\nsettings.unitMonths: أشهر\nsettings.unitSeconds: ثانية\nsettings.save: حفظ\nsettings.errors.positive: اكتب عددًا صحيحًا أكبر من 0.",
+      "body": "title: نقاط الولاء\nsettings.pointValueHint: ما تخصمه نقطة واحدة من الفاتورة.\nsettings.minRedeem: أقل استخدام\nsettings.minRedeemHint: أقل عدد من النقاط يستخدمه الضيف في مرة واحدة.\nsettings.earnTitle: تُكسب النقاط على\nsettings.earnCafe: فواتير المقهى\nsettings.earnShop: مبيعات المتجر\nsettings.earnCourt: أجور الملاعب\nsettings.earnLesson: الدروس\nsettings.earnTournament: رسوم الاشتراك في البطولات\nsettings.inactivity: تنتهي النقاط بعد\nsettings.inactivityHint: أشهر بلا نقاط مكتسبة أو مستخدمة. اتركه فارغًا لتبقى النقاط دائمًا.\nsettings.totpStep: يتغيّر رمز QR للعضو كل\nsettings.totpStepHint: بين 15 و120 ثانية.\nsettings.pointsOff: يمكن للضيوف أيضًا استخدام النقاط كخصم مالي من الفاتورة\nsettings.unitIqd: د.ع\nsettings.unitPoints: نقطة\nsettings.unitMonths: أشهر\nsettings.unitSeconds: ثانية",
       "route": "/setup"
     },
     {
       "kind": "label",
       "ref": "label:ws.loyalty.setup~2",
       "lang": "en",
-      "title": "ws.loyalty.setup (packages/i18n/src/catalogs/ws/loyalty.en.ts) (part 2 of 3)",
-      "body": "title: Loyalty points\nsettings.pointValue: Value of one point\nsettings.pointValueHint: What one point takes off a bill.\nsettings.minRedeem: Smallest use\nsettings.minRedeemHint: The fewest points a guest can use at once.\nsettings.earnTitle: Points are earned on\nsettings.earnCafe: Café bills\nsettings.earnShop: Shop sales\nsettings.earnCourt: Court fees\nsettings.earnLesson: Lessons\nsettings.earnTournament: Tournament entry fees\nsettings.inactivity: Points expire after\nsettings.inactivityHint: Months with no points earned or used. Leave empty to keep points for ever.\nsettings.totpStep: Member QR changes every\nsettings.totpStepHint: Between 15 and 120 seconds.\nsettings.unitIqd: IQD\nsettings.unitPoints: points\nsettings.unitMonths: months\nsettings.unitSeconds: seconds\nsettings.save: Save",
+      "title": "ws.loyalty.setup (packages/i18n/src/catalogs/ws/loyalty.en.ts) (part 2 of 4)",
+      "body": "title: Loyalty points\nsettings.pointValue: Value of one point\nsettings.pointValueHint: What one point takes off a bill.\nsettings.minRedeem: Smallest use\nsettings.minRedeemHint: The fewest points a guest can use at once.\nsettings.earnTitle: Points are earned on\nsettings.earnCafe: Café bills\nsettings.earnShop: Shop sales\nsettings.earnCourt: Court fees\nsettings.earnLesson: Lessons\nsettings.earnTournament: Tournament entry fees\nsettings.inactivity: Points expire after\nsettings.inactivityHint: Months with no points earned or used. Leave empty to keep points for ever.\nsettings.totpStep: Member QR changes every\nsettings.totpStepHint: Between 15 and 120 seconds.\nsettings.pointsOff: Guests can also spend points as money off the bill\nsettings.unitIqd: IQD\nsettings.unitPoints: points",
       "route": "/setup"
     },
     {
@@ -31790,15 +31870,15 @@
       "ref": "label:ws.loyalty.setup~3",
       "lang": "ar",
       "title": "ws.loyalty.setup (packages/i18n/src/catalogs/ws/loyalty.ar.ts) (part 3 of 4)",
-      "body": "title: نقاط الولاء\nsettings.unitIqd: د.ع\nsettings.unitPoints: نقطة\nsettings.unitMonths: أشهر\nsettings.unitSeconds: ثانية\nsettings.save: حفظ\nsettings.errors.positive: اكتب عددًا صحيحًا أكبر من 0.\nsettings.errors.notNegative: اكتب عددًا صحيحًا، 0 أو أكثر.\nsettings.errors.step: بين 15 و120.\ntiers.title: الفئات\ntiers.lead: يرتقي الضيف بالنقاط التي كسبها في آخر 12 شهرًا. الفئة الأولى للجميع ولا يمكن إزالتها.\ntiers.add: إضافة فئة\ntiers.edit: تعديل الفئة\ntiers.empty: لا توجد فئات.\ntiers.nameEn: الاسم (بالإنجليزية)\ntiers.nameAr: الاسم (بالعربية)\ntiers.minPoints: ابتداءً من النقاط (12 شهرًا)\ntiers.multiplier: مضاعف الكسب\ntiers.multiplierHint: بين 1 و5، مثلًا 1.5.\ntiers.color: لون البطاقة",
+      "body": "title: نقاط الولاء\nsettings.pointsOff: يمكن للضيوف أيضًا استخدام النقاط كخصم مالي من الفاتورة\nsettings.unitIqd: د.ع\nsettings.unitPoints: نقطة\nsettings.unitMonths: أشهر\nsettings.unitSeconds: ثانية\nsettings.save: حفظ\nsettings.errors.positive: اكتب عددًا صحيحًا أكبر من 0.\nsettings.errors.notNegative: اكتب عددًا صحيحًا، 0 أو أكثر.\nsettings.errors.step: بين 15 و120.\nsettings.errors.months: بين 1 و120 شهرًا.\ntiers.title: الفئات\ntiers.lead: يرتقي الضيف بالنقاط التي كسبها في آخر 12 شهرًا. الفئة الأولى للجميع ولا يمكن إزالتها.\ntiers.add: إضافة فئة\ntiers.edit: تعديل الفئة\ntiers.empty: لا توجد فئات.\ntiers.nameEn: الاسم (بالإنجليزية)\ntiers.nameAr: الاسم (بالعربية)\ntiers.minPoints: ابتداءً من النقاط (12 شهرًا)\ntiers.multiplier: مضاعف الكسب\ntiers.multiplierHint: بين 1 و5، مثلًا 1.5.",
       "route": "/setup"
     },
     {
       "kind": "label",
       "ref": "label:ws.loyalty.setup~3",
       "lang": "en",
-      "title": "ws.loyalty.setup (packages/i18n/src/catalogs/ws/loyalty.en.ts) (part 3 of 3)",
-      "body": "title: Loyalty points\nsettings.totpStepHint: Between 15 and 120 seconds.\nsettings.unitIqd: IQD\nsettings.unitPoints: points\nsettings.unitMonths: months\nsettings.unitSeconds: seconds\nsettings.save: Save\nsettings.errors.positive: Type a whole number above 0.\nsettings.errors.notNegative: Type a whole number, 0 or more.\nsettings.errors.step: Between 15 and 120.\ntiers.title: Tiers\ntiers.lead: A guest moves up by the points earned in the last 12 months. The first tier is everyone’s and cannot be removed.\ntiers.add: Add a tier\ntiers.edit: Edit tier\ntiers.empty: No tiers.\ntiers.nameEn: Name (English)\ntiers.nameAr: Name (Arabic)\ntiers.minPoints: From points (12 months)\ntiers.multiplier: Earn multiplier\ntiers.multiplierHint: Between 1 and 5, for example 1.5.\ntiers.color: Card colour",
+      "title": "ws.loyalty.setup (packages/i18n/src/catalogs/ws/loyalty.en.ts) (part 3 of 4)",
+      "body": "title: Loyalty points\nsettings.totpStepHint: Between 15 and 120 seconds.\nsettings.pointsOff: Guests can also spend points as money off the bill\nsettings.unitIqd: IQD\nsettings.unitPoints: points\nsettings.unitMonths: months\nsettings.unitSeconds: seconds\nsettings.save: Save\nsettings.errors.positive: Type a whole number above 0.\nsettings.errors.notNegative: Type a whole number, 0 or more.\nsettings.errors.step: Between 15 and 120.\nsettings.errors.months: Between 1 and 120 months.\ntiers.title: Tiers\ntiers.lead: A guest moves up by the points earned in the last 12 months. The first tier is everyone’s and cannot be removed.\ntiers.add: Add a tier\ntiers.edit: Edit tier\ntiers.empty: No tiers.\ntiers.nameEn: Name (English)\ntiers.nameAr: Name (Arabic)\ntiers.minPoints: From points (12 months)",
       "route": "/setup"
     },
     {
@@ -31806,7 +31886,15 @@
       "ref": "label:ws.loyalty.setup~4",
       "lang": "ar",
       "title": "ws.loyalty.setup (packages/i18n/src/catalogs/ws/loyalty.ar.ts) (part 4 of 4)",
-      "body": "title: نقاط الولاء\ntiers.nameAr: الاسم (بالعربية)\ntiers.minPoints: ابتداءً من النقاط (12 شهرًا)\ntiers.multiplier: مضاعف الكسب\ntiers.multiplierHint: بين 1 و5، مثلًا 1.5.\ntiers.color: لون البطاقة\ntiers.colorHint: تأخذ بطاقة نقاط الضيف هذا اللون في هذه الفئة: خطوطها واسم الفئة واسم الضيف. الأسود يجعل البطاقة كلها سوداء.\ntiers.colors.classic: كلاسيكي",
+      "body": "title: نقاط الولاء\ntiers.nameEn: الاسم (بالإنجليزية)\ntiers.nameAr: الاسم (بالعربية)\ntiers.minPoints: ابتداءً من النقاط (12 شهرًا)\ntiers.multiplier: مضاعف الكسب\ntiers.multiplierHint: بين 1 و5، مثلًا 1.5.\ntiers.color: لون البطاقة",
+      "route": "/setup"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.loyalty.setup~4",
+      "lang": "en",
+      "title": "ws.loyalty.setup (packages/i18n/src/catalogs/ws/loyalty.en.ts) (part 4 of 4)",
+      "body": "title: Loyalty points\ntiers.add: Add a tier\ntiers.edit: Edit tier\ntiers.empty: No tiers.\ntiers.nameEn: Name (English)\ntiers.nameAr: Name (Arabic)\ntiers.minPoints: From points (12 months)\ntiers.multiplier: Earn multiplier\ntiers.multiplierHint: Between 1 and 5, for example 1.5.",
       "route": "/setup"
     },
     {

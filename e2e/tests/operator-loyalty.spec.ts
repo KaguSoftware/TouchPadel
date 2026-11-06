@@ -67,12 +67,18 @@ async function signIn(browser: Browser, email: string, locale: 'en' | 'ar' = 'en
   return page;
 }
 
-type SettingsRow = { enabled: boolean; point_value_iqd: number; min_redeem_points: number };
+/** points_off_enabled (0403): "Use points" shows only while the owner has it on. */
+type SettingsRow = {
+  enabled: boolean;
+  point_value_iqd: number;
+  min_redeem_points: number;
+  points_off_enabled: boolean;
+};
 
 async function readSettings(svc: SupabaseClient): Promise<SettingsRow> {
   const { data, error } = await svc
     .from('loyalty_settings')
-    .select('enabled, point_value_iqd, min_redeem_points')
+    .select('enabled, point_value_iqd, min_redeem_points, points_off_enabled')
     .single();
   if (error) throw new Error(`loyalty_settings: ${error.message}`);
   return data as SettingsRow;
@@ -125,6 +131,7 @@ test.describe('operator loyalty', () => {
       enabled: true,
       point_value_iqd: POINT_VALUE,
       min_redeem_points: MIN_REDEEM,
+      points_off_enabled: true,
     });
     [guest] = await seedMatchPlayers(svc, ['l']);
     const { data } = await svc.from('profiles').select('phone').eq('id', guest.id).single();
