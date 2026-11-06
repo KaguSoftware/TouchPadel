@@ -15,7 +15,6 @@ import { useStaffStatus } from '../../src/features/staff/StaffStatusProvider';
 import { staffKeys } from '../../src/features/staff/keys';
 import { mapStaffError } from '../../src/features/staff/edge';
 import { ListCard } from '../../src/features/staff/protocols/parts';
-import { Lead } from '../../src/features/staff/checklists/parts';
 import { ackCall, fetchOpenCalls, resolveCall } from '../../src/features/staff/calls/api';
 import { useFloorLive } from '../../src/features/staff/calls/useFloorLive';
 import {
@@ -328,7 +327,6 @@ function CallsScreen() {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={pull.refreshing} onRefresh={pull.onRefresh} />}
       >
-        <Lead>{t('staff.calls.lead')}</Lead>
         {/* Said only when it matters: "live" is the normal state and earns no line. */}
         {live === 'down' ? (
           <Text

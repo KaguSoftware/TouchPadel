@@ -13,6 +13,7 @@ import { fireEvent } from '@testing-library/react-native';
 import { formatIQD, formatPercent, makeT, type Locale } from '@touch/i18n';
 import type { Can, RunRow, StepRow } from '@touch/core';
 import { runSmokeCases } from '../test/smokeCase';
+import { expectAlerted } from '../test/alertState';
 import { TEST_VENUE_ID, renderRoute } from '../test/smoke';
 import { headerAdd } from '../test/headerAdd';
 import { routerState } from '../test/routerState';
@@ -559,7 +560,7 @@ describe.each(LOCALES)('the protocol pages’ other states in %s', (locale) => {
     }
   });
 
-  it('holds the name step until it is filled, then opens courts & time', () => {
+  it('holds the name step until it is filled, then opens courts & time', async () => {
     const screen = renderRoute(StaffStart, {
       locale,
       staff: { role: 'court_desk' },
@@ -571,7 +572,7 @@ describe.each(LOCALES)('the protocol pages’ other states in %s', (locale) => {
       const next = screen.getByTestId('staff-start.plan.next');
       fireEvent.press(next);
       expect(routerState.calls.some((c) => c.method === 'push')).toBe(false);
-      expect(screen.getAllByText(t('staff.protocols.form.required')).length).toBeGreaterThan(0);
+      await expectAlerted(t('staff.protocols.form.required'));
 
       fireEvent.changeText(screen.getByTestId('staff-start.plan.name_en'), 'Friday Cup');
       fireEvent.changeText(screen.getByTestId('staff-start.plan.name_ar'), 'كأس الجمعة');
@@ -634,7 +635,7 @@ describe.each(LOCALES)('the protocol pages’ other states in %s', (locale) => {
   });
 
   // The hiring start, a page a step (Sait, 2026-10-17).
-  it('opens a hire on its role page, and holds it there until a role is picked', () => {
+  it('opens a hire on its role page, and holds it there until a role is picked', async () => {
     const kinds = renderRoute(StaffStart, { locale, staff: { role: 'manager' }, params: {} });
     try {
       fireEvent.press(kinds.getByTestId('staff-start.kind.hiring'));
@@ -655,7 +656,7 @@ describe.each(LOCALES)('the protocol pages’ other states in %s', (locale) => {
       const next = screen.getByTestId('staff-start.hiring.next');
       fireEvent.press(next);
       expect(routerState.calls.some((c) => c.method === 'push')).toBe(false);
-      expect(screen.getByText(t('staff.protocols.form.required'))).toBeTruthy();
+      await expectAlerted(t('staff.protocols.form.required'));
       fireEvent.press(screen.getByTestId('staff-start.hiring.role.barista'));
       fireEvent.press(screen.getByTestId('staff-start.hiring.next'));
       const push = routerState.calls.find((c) => c.method === 'push');

@@ -77,6 +77,9 @@ export const ar: Messages = {
     lastNameLabel: 'اسم العائلة',
     confirmPasswordLabel: 'تأكيد كلمة المرور',
     preferredLanguage: 'اللغة المفضلة',
+    identifierLabel: 'البريد الإلكتروني أو رقم الهاتف',
+    identifierRequired: 'أدخل بريدك الإلكتروني أو رقم هاتفك.',
+    signUpStep: 'الخطوة {step} من {total}',
     noAccount: 'أول زيارة؟ أنشئ حسابًا',
     haveAccount: 'لديك حساب بالفعل؟ سجّل الدخول',
     newHereLead: 'أول زيارة؟',
@@ -1007,7 +1010,7 @@ export const ar: Messages = {
   },
   consent: {
     title: 'شروطنا',
-    body: 'اقرأ شروط الخدمة وسياسة الخصوصية أدناه حتى النهاية، ثم وافق عليهما للمتابعة.',
+    body: 'ضع علامة للموافقة على شروط الخدمة وسياسة الخصوصية. اضغط على أيٍّ منهما لقراءته.',
     agree: 'أوافق على شروط الخدمة واطّلعت على سياسة الخصوصية.',
     scrollHint: 'مرّر حتى النهاية لتتمكّن من الموافقة.',
     part: 'الجزء {n} من {total}',

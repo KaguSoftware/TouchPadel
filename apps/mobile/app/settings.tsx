@@ -174,7 +174,7 @@ export default function SettingsScreen() {
         contentContainerStyle={{
           flexGrow: 1,
           paddingTop: 4,
-          paddingBottom: 40 + insets.bottom,
+          paddingBottom: space.sm + insets.bottom,
           gap: space.sm,
         }}
         showsVerticalScrollIndicator={false}

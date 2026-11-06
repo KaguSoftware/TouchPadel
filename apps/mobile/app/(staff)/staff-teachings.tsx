@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { RefreshControl, ScrollView, View, type ScrollViewInstance } from 'react-native';
+import { RefreshControl, View, type ScrollViewInstance } from 'react-native';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -9,6 +9,7 @@ import { Text } from '../../src/i18n/text';
 import { useLocale } from '../../src/i18n/LocaleProvider';
 import { space, useTheme } from '../../src/theme';
 import { Button, Card, ErrorText, Field, Hint, MicroLabel, Screen, SegmentedControl } from '../../src/components/ui';
+import { KeyboardScroll } from '../../src/components/KeyboardScroll';
 import { EmptyState, ErrorState, SkeletonList } from '../../src/components/states';
 import { useToast } from '../../src/components/overlays';
 import { PhotoButton, type AttachedPhoto } from '../../src/components/PhotoButton';
@@ -46,7 +47,6 @@ import {
 } from '../../src/features/staff/teachings/logic';
 import {
   GroupLabel,
-  Lead,
   MULTILINE_BOX,
   MULTILINE_TEXT,
   StaffPhotoThumb,
@@ -211,12 +211,6 @@ function TeachingsScreen() {
 
   const fieldError = (field: TeachingField): string | null =>
     issues.some((i) => i.field === field) ? t(`staff.checklists.teachings.errors.${field}`) : null;
-
-  const lead = mgmt
-    ? 'staff.checklists.teachings.leadMgmt'
-    : writer
-      ? 'staff.checklists.teachings.leadHead'
-      : 'staff.checklists.teachings.lead';
 
   const rows = (() => {
     const all = teachings.data?.teachings ?? [];
@@ -389,16 +383,16 @@ function TeachingsScreen() {
   };
 
   return (
-    <Screen edges={[]}>
+    <Screen edges={[]} keyboard>
       <Stack.Screen options={{ title: t('staff.checklists.teachings.title'), ...addOptions }} />
-      <ScrollView
+      <KeyboardScroll
         ref={scroll}
         contentContainerStyle={{ paddingTop: space.m, paddingBottom: 40 + insets.bottom, gap: space.sm }}
         keyboardShouldPersistTaps="handled"
+        automaticallyAdjustKeyboardInsets
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={pull.refreshing} onRefresh={pull.onRefresh} />}
       >
-        <Lead>{t(lead)}</Lead>
         {form()}
         {teachingFilters(role).length > 0 ? (
           <SegmentedControl<TeachingsFilter>
@@ -415,7 +409,7 @@ function TeachingsScreen() {
           <MicroLabel style={{ paddingStart: 4 }}>{t('staff.checklists.teachings.listTitle')}</MicroLabel>
           {list()}
         </View>
-      </ScrollView>
+      </KeyboardScroll>
     </Screen>
   );
 }

@@ -15,6 +15,7 @@ import { describe, expect, it } from '@jest/globals';
 import { act, fireEvent, within } from '@testing-library/react-native';
 import { makeT, type Locale } from '@touch/i18n';
 import { runSmokeCases } from '../test/smokeCase';
+import { expectAlerted } from '../test/alertState';
 import { TEST_VENUE_ID, renderRoute } from '../test/smoke';
 import { headerAdd } from '../test/headerAdd';
 import { routerState } from '../test/routerState';
@@ -23,6 +24,11 @@ import type { IngredientOptions, MyPurchases, ShoppingItem, ShoppingListPage } f
 import type { CampaignResults, MarketingRequest, MarketingRequestsPage } from '../features/staff/marketing/api';
 import StaffShopping from '../../app/(staff)/staff-shopping';
 import StaffPurchase from '../../app/(staff)/staff-purchase';
+import StaffPurchaseNew from '../../app/(staff)/staff-purchase-new';
+import StaffPurchaseItems from '../../app/(staff)/staff-purchase-items';
+import StaffPurchaseReview from '../../app/(staff)/staff-purchase-review';
+import { resetPurchaseDraft } from '../features/staff/supplies/purchaseDraft';
+import StaffPurchaseDetail from '../../app/(staff)/staff-purchase-detail';
 import StaffMarketing from '../../app/(staff)/staff-marketing';
 import StaffMarketingRequests from '../../app/(staff)/staff-marketing-requests';
 import StaffMarketingRequestNew from '../../app/(staff)/staff-marketing-request-new';
@@ -103,6 +109,55 @@ runSmokeCases('staff supplies and marketing', [
   {
     route: 'staff-purchase',
     Component: StaffPurchase,
+    nearbyKey: 'staff.supplies.purchase.list.empty',
+    options: {
+      staff: { role: 'driver' },
+      queryData: [[staffKeys.purchases(V), NO_PURCHASES]],
+    },
+  },
+  {
+    route: 'staff-purchase-detail',
+    Component: StaffPurchaseDetail,
+    nearbyKey: 'staff.supplies.purchase.list.secItems',
+    options: {
+      staff: { role: 'driver' },
+      params: { id: ID(40) },
+      queryData: [[staffKeys.purchases(V), { purchases: [{
+        id: ID(40), bought_at: '2026-09-25T09:00:00Z', shop_name: 'Al-Rasheed market', total_iqd: 60000,
+        status: 'to_receive', receipt_path: null, delivered_at: null,
+        lines: [{ label: null, name_en: 'Flour', name_ar: 'طحين', qty: 2000, unit: 'g', price_iqd: 60000, status: 'to_receive' }],
+      }] }]],
+    },
+  },
+  {
+    route: 'staff-purchase-new',
+    Component: StaffPurchaseNew,
+    labelKey: 'staff.supplies.purchase.form.nextItems',
+    options: {
+      staff: { role: 'driver' },
+      queryData: [
+        [staffKeys.shopping(V, 'open'), EMPTY_LIST],
+        [staffKeys.ingredients(V), INGREDIENTS],
+        [staffKeys.purchases(V), NO_PURCHASES],
+      ],
+    },
+  },
+  {
+    route: 'staff-purchase-items',
+    Component: StaffPurchaseItems,
+    labelKey: 'staff.supplies.purchase.form.nextReview',
+    options: {
+      staff: { role: 'driver' },
+      queryData: [
+        [staffKeys.shopping(V, 'open'), EMPTY_LIST],
+        [staffKeys.ingredients(V), INGREDIENTS],
+        [staffKeys.purchases(V), NO_PURCHASES],
+      ],
+    },
+  },
+  {
+    route: 'staff-purchase-review',
+    Component: StaffPurchaseReview,
     labelKey: 'staff.supplies.purchase.form.save',
     options: {
       staff: { role: 'driver' },
@@ -193,7 +248,7 @@ describe.each(LOCALES)('the supplies pages by role in %s', (locale) => {
       fireEvent.press(buy);
       expect(routerState.calls).toContainEqual({
         method: 'push',
-        arg: { pathname: '/staff-purchase', params: { itemIds: ID(12) } },
+        arg: { pathname: '/staff-purchase-new', params: { itemIds: ID(12) } },
       });
     } finally {
       screen.unmount();
@@ -223,7 +278,7 @@ describe.each(LOCALES)('the supplies pages by role in %s', (locale) => {
     }
   });
 
-  it('gives the head chef Approve and Decline on a waiting line, and Decline asks why', () => {
+  it('gives the head chef Approve and Decline on a waiting line, and Decline asks why', async () => {
     const screen = renderRoute(StaffShopping, {
       locale,
       staff: { role: 'head_chef' },
@@ -239,7 +294,7 @@ describe.each(LOCALES)('the supplies pages by role in %s', (locale) => {
       fireEvent.press(screen.getByTestId(`staff-shopping.decline.${ID(15)}`));
       expect(screen.getByTestId(`staff-shopping.decline.${ID(15)}.reason`)).toBeTruthy();
       fireEvent.press(screen.getByTestId(`staff-shopping.decline.${ID(15)}.confirm`));
-      expect(screen.getByText(t('staff.supplies.shopping.approve.errors.reason'))).toBeTruthy();
+      await expectAlerted(t('staff.supplies.shopping.approve.errors.reason'));
     } finally {
       screen.unmount();
     }
@@ -260,7 +315,7 @@ describe.each(LOCALES)('the supplies pages by role in %s', (locale) => {
     }
   });
 
-  it('prefills a ticked pack line in the base unit, and offers Delivered on a purchase not yet delivered', () => {
+  it('prefills a ticked pack line in the base unit; the list opens the form from the +, and offers Delivered on a purchase not yet delivered', () => {
     const purchases: MyPurchases = {
       purchases: [
         {
@@ -285,7 +340,9 @@ describe.each(LOCALES)('the supplies pages by role in %s', (locale) => {
         },
       ],
     };
-    const screen = renderRoute(StaffPurchase, {
+    // Step 1 (shop and receipt): Next opens the items page with the ticked lines.
+    resetPurchaseDraft();
+    const shopStep = renderRoute(StaffPurchaseNew, {
       locale,
       params: { itemIds: ID(20) },
       staff: { role: 'driver' },
@@ -296,11 +353,149 @@ describe.each(LOCALES)('the supplies pages by role in %s', (locale) => {
       ],
     });
     try {
-      expect(screen.getByTestId('staff-purchase.line.0.qty').props.value).toBe('2000');
-      expect(screen.getByTestId(`staff-purchase.delivered.${ID(40)}`)).toBeTruthy();
-      expect(screen.getByTestId(`staff-purchase.receipt.${ID(40)}`)).toBeTruthy();
-      expect(screen.queryByTestId(`staff-purchase.delivered.${ID(41)}`)).toBeNull();
-      expect(screen.getByText(t('staff.supplies.purchase.list.noReceipt'))).toBeTruthy();
+      fireEvent.press(shopStep.getByTestId('staff-purchase-new.next'));
+      expect(routerState.calls).toContainEqual({
+        method: 'push',
+        arg: { pathname: '/staff-purchase-items', params: { itemIds: ID(20) } },
+      });
+    } finally {
+      shopStep.unmount();
+    }
+    // Step 2 (items): the pack line is prefilled in grams; a missing price holds the page, a filled one opens the review.
+    const screen = renderRoute(StaffPurchaseItems, {
+      locale,
+      params: { itemIds: ID(20) },
+      staff: { role: 'driver' },
+      queryData: [
+        [staffKeys.shopping(V, 'open'), page([PACK_FLOUR])],
+        [staffKeys.ingredients(V), INGREDIENTS],
+        [staffKeys.purchases(V), purchases],
+      ],
+    });
+    try {
+      expect(screen.getByTestId('staff-purchase-items.line.0.qty').props.value).toBe('2000');
+      expect(screen.getByTestId('staff-purchase-items.line.add')).toBeTruthy();
+      expect(screen.getByTestId('staff-purchase-items.total')).toBeTruthy();
+      fireEvent.press(screen.getByTestId('staff-purchase-items.next'));
+      expect(routerState.calls.some((c) => JSON.stringify(c.arg).includes('staff-purchase-review'))).toBe(false);
+      // The pack's 2000 g is over the limit of 999: the page holds until it is changed.
+      fireEvent.changeText(screen.getByTestId('staff-purchase-items.line.0.price'), '60000');
+      fireEvent.press(screen.getByTestId('staff-purchase-items.next'));
+      expect(routerState.calls.some((c) => JSON.stringify(c.arg).includes('staff-purchase-review'))).toBe(false);
+      fireEvent.changeText(screen.getByTestId('staff-purchase-items.line.0.qty'), '500');
+      fireEvent.press(screen.getByTestId('staff-purchase-items.next'));
+      expect(routerState.calls).toContainEqual({
+        method: 'push',
+        arg: { pathname: '/staff-purchase-review', params: { itemIds: ID(20) } },
+      });
+    } finally {
+      screen.unmount();
+    }
+    // Step 3 (review): the typed price carries over, and Save is there.
+    const review = renderRoute(StaffPurchaseReview, {
+      locale,
+      params: { itemIds: ID(20) },
+      staff: { role: 'driver' },
+      queryData: [
+        [staffKeys.shopping(V, 'open'), page([PACK_FLOUR])],
+        [staffKeys.ingredients(V), INGREDIENTS],
+        [staffKeys.purchases(V), purchases],
+      ],
+    });
+    try {
+      expect(review.getByTestId('staff-purchase-review.save')).toBeTruthy();
+      expect(within(review.getByTestId('staff-purchase-review.total')).getByText(/60,000|٦٠٬٠٠٠/)).toBeTruthy();
+    } finally {
+      review.unmount();
+    }
+    const list = renderRoute(StaffPurchase, {
+      locale,
+      staff: { role: 'driver' },
+      queryData: [[staffKeys.purchases(V), purchases]],
+    });
+    const add = headerAdd(list);
+    expect(add).not.toBeNull();
+    act(() => add?.onPress());
+    expect(routerState.calls).toContainEqual({ method: 'push', arg: '/staff-purchase-new' });
+    try {
+      expect(list.getByTestId(`staff-purchase.delivered.${ID(40)}`)).toBeTruthy();
+      expect(list.queryByTestId(`staff-purchase.delivered.${ID(41)}`)).toBeNull();
+      // Details opens the purchase's own page.
+      fireEvent.press(list.getByTestId(`staff-purchase.details.${ID(40)}`));
+      expect(routerState.calls).toContainEqual({
+        method: 'push',
+        arg: { pathname: '/staff-purchase-detail', params: { id: ID(40) } },
+      });
+    } finally {
+      list.unmount();
+    }
+    // The page shows the purchase's items, info and receipt, and Delivered while it waits.
+    const detail = renderRoute(StaffPurchaseDetail, {
+      locale,
+      params: { id: ID(40) },
+      staff: { role: 'driver' },
+      queryData: [[staffKeys.purchases(V), purchases]],
+    });
+    try {
+      expect(detail.getByTestId('staff-purchase-detail.summary')).toBeTruthy();
+      expect(detail.getByText(t('staff.supplies.purchase.list.secItems'))).toBeTruthy();
+      expect(detail.getByText(t('staff.supplies.purchase.list.secInfo'))).toBeTruthy();
+      expect(detail.getByText(t('staff.supplies.purchase.list.secReceipt'))).toBeTruthy();
+      expect(detail.getByTestId('staff-purchase-detail.delivered')).toBeTruthy();
+    } finally {
+      detail.unmount();
+    }
+    const done = renderRoute(StaffPurchaseDetail, {
+      locale,
+      params: { id: ID(41) },
+      staff: { role: 'driver' },
+      queryData: [[staffKeys.purchases(V), purchases]],
+    });
+    try {
+      expect(done.queryByTestId('staff-purchase-detail.delivered')).toBeNull();
+      expect(done.getByText(t('staff.supplies.purchase.list.noReceipt'))).toBeTruthy();
+    } finally {
+      done.unmount();
+    }
+  });
+
+  it('goes from the shop to the items without asking for an item, and holds on the items until one is added', () => {
+    resetPurchaseDraft();
+    const queryData: [readonly unknown[], unknown][] = [
+      [staffKeys.shopping(V, 'open'), EMPTY_LIST],
+      [staffKeys.ingredients(V), INGREDIENTS],
+      [staffKeys.purchases(V), NO_PURCHASES],
+    ];
+    const shopStep = renderRoute(StaffPurchaseNew, { locale, staff: { role: 'driver' }, queryData });
+    try {
+      // No item asked for yet: Next just opens the items page.
+      fireEvent.press(shopStep.getByTestId('staff-purchase-new.next'));
+      expect(routerState.calls).toContainEqual({
+        method: 'push',
+        arg: { pathname: '/staff-purchase-items', params: { itemIds: '' } },
+      });
+    } finally {
+      shopStep.unmount();
+    }
+    const screen = renderRoute(StaffPurchaseItems, { locale, staff: { role: 'driver' }, queryData });
+    try {
+      // The items open with one new item to fill in, and it cannot be removed while it is the only one.
+      expect(screen.getByTestId('staff-purchase-items.line.0.label')).toBeTruthy();
+      expect(screen.queryByTestId('staff-purchase-items.line.0.remove')).toBeNull();
+      fireEvent.press(screen.getByTestId('staff-purchase-items.line.add'));
+      expect(screen.getByTestId('staff-purchase-items.line.1.remove')).toBeTruthy();
+      fireEvent.press(screen.getByTestId('staff-purchase-items.line.1.remove'));
+      // A price each: 6 × 2,000 is worked out and shown as what the line was paid.
+      fireEvent.changeText(screen.getByTestId('staff-purchase-items.line.0.label'), 'Milk');
+      fireEvent.changeText(screen.getByTestId('staff-purchase-items.line.0.qty'), '6');
+      fireEvent.changeText(screen.getByTestId('staff-purchase-items.line.0.price'), '2000');
+      expect(within(screen.getByTestId('staff-purchase-items.line.0.total')).getByText(/12,000|١٢٬٠٠٠/)).toBeTruthy();
+      expect(within(screen.getByTestId('staff-purchase-items.total')).getByText(/12,000|١٢٬٠٠٠/)).toBeTruthy();
+      fireEvent.changeText(screen.getByTestId('staff-purchase-items.line.0.label'), '');
+      // The name is missing: Next stays on the items instead of opening the review.
+      const before = routerState.calls.length;
+      fireEvent.press(screen.getByTestId('staff-purchase-items.next'));
+      expect(routerState.calls.length).toBe(before);
     } finally {
       screen.unmount();
     }
@@ -313,7 +508,7 @@ describe.each(LOCALES)('the supplies pages by role in %s', (locale) => {
       queryData: [[staffKeys.purchases(V), NO_PURCHASES]],
     });
     try {
-      expect(screen.queryByTestId('staff-purchase.save')).toBeNull();
+      expect(screen.queryByTestId('staff-purchase-review.save')).toBeNull();
       expect(screen.getByText(t('staff.supplies.purchase.list.mgmtNote'))).toBeTruthy();
     } finally {
       screen.unmount();
@@ -379,7 +574,7 @@ describe.each(LOCALES)('the marketing pages in %s', (locale) => {
     }
   });
 
-  it('gives marketing the inbox to answer, with no form to ask itself', () => {
+  it('gives marketing the inbox to answer, with no form to ask itself', async () => {
     const screen = renderRoute(StaffMarketingRequests, {
       locale,
       params: { id: ID(30) },
@@ -391,7 +586,7 @@ describe.each(LOCALES)('the marketing pages in %s', (locale) => {
       // The named request opens on its answer.
       expect(screen.getByTestId('staff-marketing-requests.answer')).toBeTruthy();
       fireEvent.press(screen.getByTestId('staff-marketing-requests.answer.done'));
-      expect(screen.getByText(t('staff.marketing.requests.errors.answer'))).toBeTruthy();
+      await expectAlerted(t('staff.marketing.requests.errors.answer'));
     } finally {
       screen.unmount();
     }
@@ -417,12 +612,12 @@ describe.each(LOCALES)('the marketing pages in %s', (locale) => {
     }
   });
 
-  it('asks for a title and the details before sending a request', () => {
+  it('asks for a title and the details before sending a request', async () => {
     const screen = renderRoute(StaffMarketingRequestNew, { locale, staff: { role: 'owner' } });
     try {
       fireEvent.press(screen.getByTestId('staff-marketing-request-new.submit'));
-      expect(screen.getByText(t('staff.marketing.requests.errors.title'))).toBeTruthy();
-      expect(screen.getByText(t('staff.marketing.requests.errors.body'))).toBeTruthy();
+      await expectAlerted(t('staff.marketing.requests.errors.title'));
+      await expectAlerted(t('staff.marketing.requests.errors.body'));
     } finally {
       screen.unmount();
     }
@@ -475,11 +670,11 @@ describe.each(LOCALES)('the marketing pages in %s', (locale) => {
   });
 
   it('never lets a guest in', () => {
-    for (const Component of [StaffShopping, StaffPurchase, StaffMarketing, StaffMarketingRequests, StaffMarketingRequestNew]) {
+    for (const Component of [StaffShopping, StaffPurchase, StaffPurchaseNew, StaffPurchaseItems, StaffPurchaseReview, StaffPurchaseDetail, StaffMarketing, StaffMarketingRequests, StaffMarketingRequestNew]) {
       const screen = renderRoute(Component, { locale, session: 'in' });
       try {
         expect(screen.queryByTestId('staff-shopping.add')).toBeNull();
-        expect(screen.queryByTestId('staff-purchase.save')).toBeNull();
+        expect(screen.queryByTestId('staff-purchase-review.save')).toBeNull();
         expect(screen.queryByTestId('staff-marketing.tab.take')).toBeNull();
         expect(screen.queryByTestId('staff-marketing-requests.list')).toBeNull();
         expect(screen.queryByTestId('staff-marketing-request-new.submit')).toBeNull();

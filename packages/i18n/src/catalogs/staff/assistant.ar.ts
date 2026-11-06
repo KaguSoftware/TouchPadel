@@ -125,6 +125,19 @@ export const staffAssistantAr: DeepMessages<typeof staffAssistantEn> = {
       generic: 'تعذّر على المساعد المجاني الإجابة. حاول مرة أخرى.',
     },
   },
+  touch: {
+    title: 'Touch AI',
+    intro:
+      'يدلّك Touch AI على الصفحات ويشرح طريقة إنجاز المهام في التطبيق. لا يطّلع على المبيعات ولا الحجوزات ولا أي بيانات أخرى.',
+    badge: 'Touch AI · لا يطّلع على أي بيانات',
+    errors: {
+      day: 'نفدت الأسئلة لهذا اليوم، وتتجدّد غدًا.',
+      busy: 'Touch AI مشغول الآن؛ حاول مرة أخرى بعد دقيقة.',
+      notConfigured: 'لم يُجهَّز Touch AI بعد.',
+      forbidden: 'لا يمكن لهذا الحساب استخدام Touch AI.',
+      generic: 'تعذّر على Touch AI الإجابة. حاول مرة أخرى.',
+    },
+  },
   chats: {
     title: 'المحادثات',
     open: 'المحادثات',

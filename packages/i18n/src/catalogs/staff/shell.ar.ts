@@ -14,6 +14,15 @@ export const staffShellAr: DeepMessages<typeof staffShellEn> = {
       people: 'الفريق',
       team: 'طلباتي',
     },
+    groupInfo: {
+      floor: 'نداءات الضيوف والطلبات',
+      protocols: 'البروتوكولات والأفكار',
+      supplies: 'الشراء والتحضير والجرد',
+      recipes: 'الوصفات والدروس',
+      daily: 'مهامك اليومية',
+      people: 'خصومات الرواتب',
+      team: 'اطلب واقترح',
+    },
     sections: {
       create: 'إضافة جديد',
       open: 'فتح',

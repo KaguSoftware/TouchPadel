@@ -473,6 +473,11 @@ export const shadows = {
   sheetDark: '0 20px 50px rgba(0,0,0,0.45)',
   /** The coach page's name card lifted off the hero (Figma "D · Profile"): `0 8px 24px rgba(27,42,71,.12)`. */
   card: '0 8px 24px rgba(27,42,71,0.12)',
+  /** A card in a list: softer and tighter, so one card's shadow never reads as a line on the next. */
+  listCard: '0 2px 14px rgba(27,42,71,0.10)',
+  listCardDark: '0 2px 14px rgba(0,0,0,0.32)',
+  /** The same lift, a deeper black in blue mode. */
+  cardDark: '0 8px 24px rgba(0,0,0,0.4)',
   /**
    * The Club tab's points card, held off the page like a card in the hand: a far shadow pulled in
    * by a negative spread so it falls UNDER the card, not beside it (a wide one was cut off square

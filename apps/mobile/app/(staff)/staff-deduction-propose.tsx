@@ -19,7 +19,6 @@ import { clearStaffIntentKey, staffIntentKey } from '../../src/lib/idempotency';
 import { useBackToItem } from '../../src/navigation/back';
 import {
   GroupLabel,
-  Lead,
   MULTILINE_BOX,
   MULTILINE_TEXT,
 } from '../../src/features/staff/checklists/parts';
@@ -188,15 +187,6 @@ function DeductionProposeScreen() {
         }
       >
         {venue === '' ? <Hint>{t('staff.shell.venue.none')}</Hint> : null}
-        <Lead>
-          {t(
-            atOnce
-              ? 'staff.deductions.propose.leadOwner'
-              : access.proposesForAnyone
-                ? 'staff.deductions.propose.leadMgmt'
-                : 'staff.deductions.propose.lead',
-          )}
-        </Lead>
         <Card style={{ padding: space.m, gap: space.s }}>
           <GroupLabel>{t('staff.deductions.propose.who')}</GroupLabel>
           {targets.isError ? (

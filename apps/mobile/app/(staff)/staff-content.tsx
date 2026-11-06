@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
-import { Pressable, RefreshControl, ScrollView, View } from 'react-native';
+import { KeyboardScroll } from '../../src/components/KeyboardScroll';
+import { Pressable, RefreshControl, View } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -33,7 +34,6 @@ import { clearStaffIntentKey, staffIntentKey } from '../../src/lib/idempotency';
 import { usePullRefresh } from '../../src/lib/usePullRefresh';
 import {
   GroupLabel,
-  Lead,
   MULTILINE_BOX,
   MULTILINE_TEXT,
   StaffPhotoThumb,
@@ -512,18 +512,18 @@ function ContentList({ role }: { role: StaffRole }) {
   );
 
   return (
-    <ScrollView
+    <KeyboardScroll
       contentContainerStyle={{
         paddingTop: space.m,
         paddingBottom: 40 + insets.bottom,
         gap: space.sm,
       }}
       keyboardShouldPersistTaps="handled"
+      automaticallyAdjustKeyboardInsets
       keyboardDismissMode="on-drag"
       showsVerticalScrollIndicator={false}
       refreshControl={<RefreshControl refreshing={pull.refreshing} onRefresh={pull.onRefresh} />}
     >
-      <Lead>{t(access.sends ? 'staff.content.lead' : 'staff.content.ownerLead')}</Lead>
       {venue === '' ? <Hint>{t('staff.shell.venue.none')}</Hint> : null}
       {toFix.length > 0 ? (
         <View style={{ gap: space.xs }}>
@@ -586,7 +586,7 @@ function ContentList({ role }: { role: StaffRole }) {
           {rows.map((r, i) => itemRow(r, i === rows.length - 1, `staff-content.item.${r.id}`))}
         </ListCard>
       )}
-    </ScrollView>
+    </KeyboardScroll>
   );
 }
 
@@ -878,13 +878,14 @@ function ContentItemView({ id, role }: { id: string; role: StaffRole }) {
 
   return (
     <>
-      <ScrollView
+      <KeyboardScroll
         contentContainerStyle={{
           paddingTop: space.m,
           paddingBottom: 40 + insets.bottom,
           gap: space.sm,
         }}
         keyboardShouldPersistTaps="handled"
+        automaticallyAdjustKeyboardInsets
         keyboardDismissMode="on-drag"
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={pull.refreshing} onRefresh={pull.onRefresh} />}
@@ -1088,7 +1089,7 @@ function ContentItemView({ id, role }: { id: string; role: StaffRole }) {
             ) : null}
           </>
         )}
-      </ScrollView>
+      </KeyboardScroll>
     </>
   );
 }
@@ -1101,7 +1102,7 @@ function ContentScreen() {
   const role = status.staff.role;
   // One title for the queue and an item: the item names itself in its own heading.
   return (
-    <Screen edges={[]}>
+    <Screen edges={[]} keyboard>
       <Stack.Screen options={{ title: t('staff.content.title') }} />
       {params.id ? <ContentItemView id={params.id} role={role} /> : <ContentList role={role} />}
     </Screen>

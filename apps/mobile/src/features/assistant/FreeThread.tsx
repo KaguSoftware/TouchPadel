@@ -29,6 +29,7 @@ import {
   answerPages,
   applyFreeEvent,
   buildFreeBody,
+  forRole,
   freeErrorMessage,
   freePages,
   freeTurn,
@@ -118,6 +119,8 @@ export function FreeThread({ testID, from, onUsePaid }: FreeThreadProps) {
   const insets = useSafeAreaInsets();
   const { status } = useStaffStatus();
   const role = status.kind === 'staff' ? status.staff.role : null;
+  // Only the owner is told there is a free AI beside a paid one; everyone else has "Touch AI".
+  const ns = role === 'owner' ? 'free' : 'touch';
   const lang = locale === 'ar' ? 'ar' : 'en';
   const pages = useMemo(() => (role ? freePages(role, (key) => t(key)) : []), [role, t]);
   const chat = useFreeChat({ route: from, lang, pages });
@@ -139,7 +142,7 @@ export function FreeThread({ testID, from, onUsePaid }: FreeThreadProps) {
     const { message } = freeErrorMessage(err);
     return message.kind === 'minute'
       ? countPhrase('staff.assistant.free.errors.minute', message.seconds, locale)
-      : t(message.key);
+      : t(forRole(message.key, ns));
   };
 
   return (
@@ -184,7 +187,7 @@ export function FreeThread({ testID, from, onUsePaid }: FreeThreadProps) {
                 testID={`${testID}.free.intro`}
                 style={{ fontFamily: fonts.body400, fontSize: 16, lineHeight: 23, color: colors.mut }}
               >
-                {t('staff.assistant.free.intro')}
+                {t(`staff.assistant.${ns}.intro`)}
               </Text>
             </View>
             <View style={{ gap: space.xs }}>
@@ -324,7 +327,7 @@ export function FreeThread({ testID, from, onUsePaid }: FreeThreadProps) {
             testID={`${testID}.free.badge`}
             style={{ flexShrink: 1, fontFamily: fonts.body600, fontSize: 13, lineHeight: 18, color: colors.mut }}
           >
-            {t('staff.assistant.free.badge')}
+            {t(`staff.assistant.${ns}.badge`)}
           </Text>
           {onUsePaid ? (
             <Pressable

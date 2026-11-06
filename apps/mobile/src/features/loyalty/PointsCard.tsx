@@ -510,6 +510,7 @@ export function PointsCard({
   testID,
   loyalty,
   holder,
+  memberCode,
   onPress,
 }: {
   /** `<route>.<element>`; the balance takes `${testID}.balance`. */
@@ -517,6 +518,8 @@ export function PointsCard({
   loyalty: Pick<MyLoyalty, 'balance' | 'tier' | 'point_value_iqd' | 'points_off_enabled'>;
   /** The guest's name as their profile has it; the card goes without one while it is empty. */
   holder: string;
+  /** The card's member code, shown where the till can read it off; absent until the card loads. */
+  memberCode?: string;
   onPress: () => void;
 }) {
   const { t, locale } = useLocale();
@@ -854,18 +857,45 @@ export function PointsCard({
                   />
                 ) : null}
               </View>
-              <View
-                style={{
-                  width: 34,
-                  height: 34,
-                  borderRadius: radius.pill,
-                  backgroundColor: withAlpha(brand.white, 0.12),
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                <ChevronIcon size={16} color={brand.white} />
-              </View>
+              {memberCode ? (
+                <View style={{ alignItems: 'flex-end' }}>
+                  <MicroLabel style={{ color: ink }}>
+                    {t('loyalty.guest.card.memberCode')}
+                  </MicroLabel>
+                  <Text
+                    testID={`${testID}.member-code`}
+                    numberOfLines={1}
+                    style={{
+                      fontFamily: fonts.display800,
+                      fontSize: 15,
+                      letterSpacing: 1.5,
+                      color: brand.white,
+                      writingDirection: 'ltr',
+                      fontVariant: ['tabular-nums'],
+                    }}
+                  >
+                    {isolateLtr(memberCode)}
+                  </Text>
+                </View>
+              ) : null}
+            </View>
+            {/* The way in, at the middle of the card's reading end. */}
+            <View
+              style={{
+                position: 'absolute',
+                // Absolute is measured from the card's own edge (padding does not count).
+                end: space.m,
+                top: '50%',
+                marginTop: -17,
+                width: 34,
+                height: 34,
+                borderRadius: radius.pill,
+                backgroundColor: withAlpha(brand.white, 0.12),
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <ChevronIcon size={16} color={brand.white} />
             </View>
           </View>
           {/* The cut edge catching the light, over everything. */}

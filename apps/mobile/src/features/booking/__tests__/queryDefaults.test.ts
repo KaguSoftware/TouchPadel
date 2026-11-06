@@ -48,6 +48,14 @@ describe('guest write retries', () => {
   });
 });
 
+describe('guest booking writes never pause offline', () => {
+  it('hold_slot and confirm_booking run now or fail now', () => {
+    for (const key of [['hold-slot'], ['confirm-booking']]) {
+      expect(queryClient.getMutationDefaults(key).networkMode).toBe('always');
+    }
+  });
+});
+
 describe('query retries', () => {
   const retry = queryClient.getDefaultOptions().queries?.retry as Retry;
 

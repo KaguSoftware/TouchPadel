@@ -20,7 +20,7 @@
  * (`src/test/routerState.ts`, `src/test/authState.ts`) rather than being
  * re-declared per file — see those files for why.
  */
-import { jest } from '@jest/globals';
+import { beforeEach, jest } from '@jest/globals';
 import { webcrypto } from 'node:crypto';
 import { createContext, createElement, useEffect, type ReactNode } from 'react';
 // react-native's OWN `Text`, not `src/i18n/text` (the restricted-import rule is
@@ -28,9 +28,10 @@ import { createContext, createElement, useEffect, type ReactNode } from 'react';
 // stand-in for a UIKit tab-bar label, which is not app copy and has no
 // paragraph direction to carry — the app's `Text` would drag LocaleProvider
 // into a mock that has to work before any provider is mounted.
-import { Text, View } from 'react-native';
+import { Alert, Text, View } from 'react-native';
 import { routerState } from './src/test/routerState';
 import { authState } from './src/test/authState';
+import { alertState } from './src/test/alertState';
 
 /**
  * THE `mock` PREFIX IS NOT DECORATION.
@@ -615,5 +616,17 @@ jest.mock('./src/components/Court3D', () => ({
 // for the Web Crypto global (react-native-get-random-values' target) finds
 // nothing in the RN jest environment. Node's own is equivalent and real.
 globalThis.crypto ??= webcrypto as unknown as Crypto;
+
+// Native alerts: recorded for `expectAlerted`, and tapped through at once (the
+// first button, like a guest pressing OK) so the error coordinator in
+// overlays.tsx is never left waiting on one that nothing will close. Installed
+// per case: `restoreMocks` in jest.config.js undoes a spy made at module scope.
+beforeEach(() => {
+  alertState.log.length = 0;
+  jest.spyOn(Alert, 'alert').mockImplementation((title, body, buttons) => {
+    alertState.log.push({ title: title ?? '', body: body ?? '' });
+    buttons?.[0]?.onPress?.();
+  });
+});
 
 export {};

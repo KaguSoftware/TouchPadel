@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { RefreshControl, ScrollView, View } from 'react-native';
+import { RefreshControl, View } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -8,6 +8,7 @@ import { formatDateTime, isolate, type MessageKey } from '@touch/i18n';
 import { useLocale } from '../../src/i18n/LocaleProvider';
 import { space, useTheme } from '../../src/theme';
 import { Button, ErrorText, MicroLabel, Screen } from '../../src/components/ui';
+import { KeyboardScroll } from '../../src/components/KeyboardScroll';
 import { EmptyState, ErrorState, SkeletonList } from '../../src/components/states';
 import { useToast } from '../../src/components/overlays';
 import { PhotoButton, type AttachedPhoto } from '../../src/components/PhotoButton';
@@ -47,7 +48,7 @@ import {
   useRefreshProtocols,
 } from '../../src/features/staff/protocols/parts';
 import { RecordView } from '../../src/features/staff/protocols/RecordView';
-import { Lead, Tag } from '../../src/features/staff/checklists/parts';
+import { Tag } from '../../src/features/staff/checklists/parts';
 import { statusTone } from '../../src/features/staff/statusTone';
 
 /**
@@ -318,11 +319,12 @@ function IdeasScreen() {
   }
 
   return (
-    <Screen edges={[]}>
+    <Screen edges={[]} keyboard>
       <Stack.Screen options={{ title: t('staff.protocols.ideas.title') }} />
-      <ScrollView
+      <KeyboardScroll
         contentContainerStyle={{ paddingTop: space.m, paddingBottom: 40 + insets.bottom, gap: space.sm }}
         keyboardShouldPersistTaps="handled"
+        automaticallyAdjustKeyboardInsets
         keyboardDismissMode="on-drag"
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={pull.refreshing} onRefresh={pull.onRefresh} />}
@@ -330,7 +332,6 @@ function IdeasScreen() {
         {!venueId ? <SkeletonList rows={2} height={72} /> : null}
         {author && venueId ? (
           <>
-            <Lead>{t('staff.protocols.ideas.lead')}</Lead>
             <IdeaForm venueId={venueId} onSent={() => void queryClient.invalidateQueries({ queryKey: staffKeys.ideas(venue) })} />
             <MicroLabel style={{ paddingStart: 4, marginTop: space.s }}>{t('staff.protocols.ideas.mine')}</MicroLabel>
             {mine.isPending ? (
@@ -355,7 +356,6 @@ function IdeasScreen() {
         ) : null}
         {reviewer && venueId ? (
           <>
-            <Lead>{t('staff.protocols.ideas.reviewLead')}</Lead>
             <MicroLabel style={{ paddingStart: 4, marginTop: space.s }}>{t('staff.protocols.ideas.toReview')}</MicroLabel>
             {review.isPending ? (
               <SkeletonList rows={2} height={96} />
@@ -376,7 +376,7 @@ function IdeasScreen() {
             )}
           </>
         ) : null}
-      </ScrollView>
+      </KeyboardScroll>
     </Screen>
   );
 }

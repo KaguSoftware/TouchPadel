@@ -179,12 +179,15 @@ function ReviewScreen() {
   const releaseRef = useRef(release.mutate);
   releaseRef.current = release.mutate;
   const keepHoldRef = useRef(false);
+  // Latched once the hold is handed back on purpose (PRICE_CHANGED), so the
+  // `removed` listener does not fire a second, doomed release.
+  const releasedRef = useRef(false);
   if (confirmed) keepHoldRef.current = true;
   const holdIdRef = useRef(holdId);
   holdIdRef.current = holdId;
   useEffect(() => {
     const unsubscribe = navigation.addListener('removed', () => {
-      if (holdIdRef.current && !keepHoldRef.current) releaseRef.current(holdIdRef.current);
+      if (holdIdRef.current && !keepHoldRef.current && !releasedRef.current) releaseRef.current(holdIdRef.current);
     });
     // `removed` is emitted after this screen's effects are cleaned up, so the
     // listener has to outlive the cleanup by a microtask (expo-router's docs).
@@ -253,6 +256,14 @@ function ReviewScreen() {
           // price and send the guest back to pick the time again (the next
           // hold is stamped with it); the grid reads the rates afresh.
           const move = confirmPriceMove(err, Number.isInteger(price) ? price : null);
+          // The refused hold is still the guest's own and still blocks the
+          // slot: hand it back NOW, so "pick it again" does not meet our own
+          // hold (SLOT_TAKEN → "something went wrong") or race the release
+          // that used to wait for this screen to leave.
+          if (holdId && !releasedRef.current) {
+            releasedRef.current = true;
+            release.mutate(holdId);
+          }
           setPriceMoved({ toIqd: move?.toIqd ?? null });
           void queryClient.invalidateQueries({ queryKey: availabilityKeys.ratePrices });
           void queryClient.invalidateQueries({ predicate: (q) => q.queryKey[0] === 'rate-rules' });

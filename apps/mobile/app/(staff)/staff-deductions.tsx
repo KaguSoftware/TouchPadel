@@ -18,7 +18,7 @@ import { mapStaffError } from '../../src/features/staff/edge';
 import { staffKeys } from '../../src/features/staff/keys';
 import { usePullRefresh } from '../../src/lib/usePullRefresh';
 import { useHeaderAddOptions } from '../../src/navigation/headerAdd';
-import { Lead, Tag } from '../../src/features/staff/checklists/parts';
+import { Tag } from '../../src/features/staff/checklists/parts';
 import { ListCard } from '../../src/features/staff/protocols/parts';
 import { namedFirst } from '../../src/features/staff/marketing/logic';
 import {
@@ -318,7 +318,6 @@ function DeductionsScreen() {
   const mineRows = namedFirst(mine.data?.deductions ?? [], params.id);
   const mineView = (
     <>
-      <Lead>{t('staff.deductions.mine.lead')}</Lead>
       {stepper}
       {mine.isPending && venue !== '' ? (
         <SkeletonList rows={2} height={72} />

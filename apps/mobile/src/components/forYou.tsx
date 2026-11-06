@@ -19,10 +19,12 @@ import { useRouter } from 'expo-router';
 import { Text } from '../i18n/text';
 import { useLocale } from '../i18n/LocaleProvider';
 import { radius, space, useTheme } from '../theme';
+import { useIconChip } from './iconChip';
 import { useAuth } from '../features/auth/context';
 import { usePlayProfile, useSuggestionAvailability } from '../features/playProfile/hooks';
 import { hasAnswers } from '../features/playProfile/logic';
 import { topSuggestions, type Suggestion, type SuggestionKind } from '../features/playProfile/suggest';
+import { useDownToTab } from '../navigation/back';
 import { suggestionTarget } from '../features/playProfile/links';
 import { dismissAsk, useAskDismissed } from '../features/playProfile/askDismissed';
 import { Rise, TiltPress } from './motion';
@@ -54,10 +56,11 @@ function KindIcon({ kind, color }: { kind: SuggestionKind; color: string }) {
 /** Opens a suggestion: a tab (with the Play tab's chip) or the group sessions list. */
 export function useOpenSuggestion() {
   const router = useRouter();
+  const downToTab = useDownToTab();
   return (kind: SuggestionKind) => {
     const target = suggestionTarget(kind);
     if (target.kind === 'push') router.push(target.href);
-    else router.navigate(target.href);
+    else downToTab(target.href);
   };
 }
 
@@ -75,6 +78,7 @@ export function SuggestionRow({
 }) {
   const { t } = useLocale();
   const { colors, fonts } = useTheme();
+  const chip = useIconChip();
   const title = t(`playProfile.kind.${suggestion.kind}`);
   const why = t(`playProfile.why.${suggestion.reason}`);
   return (
@@ -97,12 +101,14 @@ export function SuggestionRow({
             width: 34,
             height: 34,
             borderRadius: radius.pill,
-            backgroundColor: colors.gtint,
+            backgroundColor: chip.fill,
+            borderWidth: 1,
+            borderColor: chip.line,
             alignItems: 'center',
             justifyContent: 'center',
           }}
         >
-          <KindIcon kind={suggestion.kind} color={colors.gstrong} />
+          <KindIcon kind={suggestion.kind} color={chip.fg} />
         </View>
         <View style={{ flex: 1, minWidth: 0 }}>
           <Text style={{ fontFamily: fonts.body700, fontSize: 14.5, color: colors.ink, textAlign: 'auto' }}>

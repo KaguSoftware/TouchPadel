@@ -22,7 +22,7 @@ import { useStaffStatus } from '../../src/features/staff/StaffStatusProvider';
 import { staffKeys } from '../../src/features/staff/keys';
 import { mapStaffError } from '../../src/features/staff/edge';
 import { localName } from '../../src/features/staff/checklists/logic';
-import { GroupLabel, Lead, Tag } from '../../src/features/staff/checklists/parts';
+import { GroupLabel, Tag } from '../../src/features/staff/checklists/parts';
 import { usePullRefresh } from '../../src/lib/usePullRefresh';
 import { ScreenWithBar } from '../../src/components/BottomBar';
 import { useRememberedChoice } from '../../src/features/staff/remembered';
@@ -291,9 +291,6 @@ function LogScreen() {
           />
         }
       >
-        <Lead>
-          {t(role === 'shop_staff' ? 'staff.stores.log.leadShop' : 'staff.stores.log.lead')}
-        </Lead>
         {venue === '' ? <Hint>{t('staff.shell.venue.none')}</Hint> : null}
         {waiting > 0 ? (
           <Notice testID="staff-stock-log.driver-waiting">

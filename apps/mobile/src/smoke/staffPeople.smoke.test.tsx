@@ -19,6 +19,7 @@ import { describe, expect, it } from '@jest/globals';
 import { fireEvent, within } from '@testing-library/react-native';
 import { formatIQD, formatMonthYear, isolate, makeT, type Locale } from '@touch/i18n';
 import { runSmokeCases } from '../test/smokeCase';
+import { expectAlerted } from '../test/alertState';
 import { TEST_VENUE_ID, renderRoute } from '../test/smoke';
 import { routerState } from '../test/routerState';
 import { headerAdd } from '../test/headerAdd';
@@ -289,7 +290,7 @@ describe.each(LOCALES)('pay deductions by role in %s', (locale) => {
     }
   });
 
-  it('shows the head’s form on the propose page, and says what is missing before anything is sent', () => {
+  it('shows the head’s form on the propose page, and says what is missing before anything is sent', async () => {
     const screen = renderRoute(StaffDeductionPropose, {
       locale,
       staff: { role: 'head_barista' },
@@ -301,16 +302,14 @@ describe.each(LOCALES)('pay deductions by role in %s', (locale) => {
       ],
     });
     try {
-      expect(screen.getByText(t('staff.deductions.propose.lead'))).toBeTruthy();
       // The only person on the team is chosen already (Sait, 2026-10-17), and
       // named in what happens next.
       expect(
         screen.getByText(t('staff.deductions.propose.consequence', { name: isolate('Yusuf') })),
       ).toBeTruthy();
       fireEvent.press(screen.getByTestId('staff-deduction-propose.submit'));
-      expect(screen.queryByText(t('staff.deductions.propose.errors.who'))).toBeNull();
-      expect(screen.getByText(t('staff.deductions.propose.errors.amount'))).toBeTruthy();
-      expect(screen.getByText(t('staff.deductions.propose.errors.reason'))).toBeTruthy();
+      await expectAlerted(t('staff.deductions.propose.errors.amount'));
+      await expectAlerted(t('staff.deductions.propose.errors.reason'));
       // Change clears the choice, and the list is back.
       fireEvent.press(screen.getByTestId('staff-deduction-propose.target.change'));
       expect(screen.getByTestId(`staff-deduction-propose.target.${ID(40)}`)).toBeTruthy();
@@ -391,7 +390,6 @@ describe.each(LOCALES)('pay deductions by role in %s', (locale) => {
       ],
     });
     try {
-      expect(screen.getByText(t('staff.deductions.propose.leadOwner'))).toBeTruthy();
       expect(
         screen.getByText(t('staff.deductions.propose.consequenceOwner', { name: isolate('Yusuf') })),
       ).toBeTruthy();
@@ -517,7 +515,7 @@ describe.each(LOCALES)('incident reports by role in %s', (locale) => {
     }
   });
 
-  it('opens management on the reports to review, and a review needs a note', () => {
+  it('opens management on the reports to review, and a review needs a note', async () => {
     const page: IncidentsPage = {
       incidents: [
         incident({
@@ -555,7 +553,7 @@ describe.each(LOCALES)('incident reports by role in %s', (locale) => {
       fireEvent.press(screen.getByTestId(`staff-incidents.item.${ID(22)}`));
       expect(screen.getByText(t('staff.incidents.review.noteHint'))).toBeTruthy();
       fireEvent.press(screen.getByTestId('staff-incidents.review.confirm'));
-      expect(screen.getByText(t('staff.incidents.review.errors.note'))).toBeTruthy();
+      await expectAlerted(t('staff.incidents.review.errors.note'));
     } finally {
       screen.unmount();
     }
@@ -578,7 +576,6 @@ describe.each(LOCALES)('content for approval by role in %s', (locale) => {
     });
     try {
       expect(screen.queryByTestId('staff-content.submit')).toBeNull();
-      expect(screen.getByText(t('staff.content.ownerLead'))).toBeTruthy();
       fireEvent.press(screen.getByTestId(`staff-content.item.${ID(30)}`));
       expect(routerState.calls).toContainEqual({
         method: 'push',

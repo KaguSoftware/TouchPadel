@@ -5,7 +5,15 @@ import type { Locale } from '@touch/i18n';
 import { useLocale } from '../src/i18n/LocaleProvider';
 import { useAuth } from '../src/features/auth/context';
 import { needsProfileCompletion } from '../src/features/auth/social';
-import { useOwnProfile, useSetAgeBand, useUpdateProfile } from '../src/features/profile/hooks';
+import {
+  useAcceptTerms,
+  useOwnConsent,
+  useOwnProfile,
+  useSetAgeBand,
+  useUpdateProfile,
+} from '../src/features/profile/hooks';
+import { consentAction } from '../src/features/profile/consent';
+import { ConsentCheckbox } from '../src/features/profile/ConsentCheckbox';
 import { usePostAuthContinue } from '../src/features/booking/usePostAuthContinue';
 import { clearPendingIntents } from '../src/features/booking/pendingIntent';
 import { mapErrorToKey, rpcErrorCode } from '../src/features/booking/errors';
@@ -79,6 +87,14 @@ export default function CompleteProfileScreen() {
   const setMyGender = useSetMyGender();
   const setAgeBand = useSetAgeBand();
   const { continueAfterAuth, holdBusy } = usePostAuthContinue();
+  // Account creation for an Apple / Google sign-up: it never saw the sign-up
+  // form, so this is where the Terms are agreed (and recorded on save). An
+  // account that already accepted, or ticked at sign-up, is not asked.
+  const user = session?.user ?? null;
+  const consent = useOwnConsent(user && !user.is_anonymous ? user.id : null);
+  const acceptTerms = useAcceptTerms();
+  const needsTerms = consentAction(consent.data, user?.user_metadata) === 'ask';
+  const [agreed, setAgreed] = useState(false);
 
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -211,6 +227,7 @@ export default function CompleteProfileScreen() {
     setPhoneError(null);
     setGenderError(null);
     if (!firstName.trim()) return setNameError(t('auth.firstNameRequired'));
+    if (needsTerms && !agreed) return setError(t('auth.termsRequired'));
     if (askGender && !gender) return setGenderError(t('guestGender.required'));
     const badPhone = validatePhone(iso, national);
     if (badPhone === 'PHONE_REQUIRED') return setPhoneError(t('auth.phoneRequired'));
@@ -224,6 +241,16 @@ export default function CompleteProfileScreen() {
       { ...namePatch(firstName, lastName), phone: composePhone(iso, national) },
       {
         onSuccess: async () => {
+          if (needsTerms) {
+            try {
+              await acceptTerms.mutateAsync();
+            } catch (err) {
+              captureException(err, { scope: 'consent.accept' });
+              skipped.current = false;
+              setError(t('consent.failed'));
+              return;
+            }
+          }
           // 0353: the gender, once. A failure stops here with the reason; Save
           // again re-sends the (unchanged) profile and the gender.
           if (askGender && gender) {
@@ -356,12 +383,15 @@ export default function CompleteProfileScreen() {
               pinOrder
             />
           </View>
+          {needsTerms ? (
+            <ConsentCheckbox testID="complete-profile.terms" checked={agreed} onToggle={() => setAgreed((v) => !v)} />
+          ) : null}
           <ErrorText>{error}</ErrorText>
           <Button
             testID="complete-profile.submit"
             label={t('auth.completeProfileCta')}
             variant="cta"
-            busy={update.isPending || setMyGender.isPending || holdBusy}
+            busy={update.isPending || setMyGender.isPending || acceptTerms.isPending || holdBusy}
             onPress={onSave}
             style={{ marginTop: space.l }}
           />

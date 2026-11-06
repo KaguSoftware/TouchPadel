@@ -17,6 +17,7 @@ import { describe, expect, it, jest } from '@jest/globals';
 import { act, fireEvent, waitFor, within } from '@testing-library/react-native';
 import { makeT, type Locale } from '@touch/i18n';
 import { runSmokeCases } from '../test/smokeCase';
+import { expectAlerted } from '../test/alertState';
 import { TEST_VENUE_ID, renderRoute } from '../test/smoke';
 import { headerAdd } from '../test/headerAdd';
 import { routerState } from '../test/routerState';
@@ -368,7 +369,6 @@ describe.each(LOCALES)('who sees what on the daily-work pages in %s', (locale) =
   it('lists a past checklist, opens its lines, and offers older ones; the checklist page links to it', () => {
     const screen = renderRoute(StaffChecklistHistory, { locale, staff: { role: 'cashier' }, queryData: [HISTORY_SEED] });
     try {
-      expect(screen.getByText(t('staff.checklists.history.lead'))).toBeTruthy();
       expect(screen.queryByText(locale === 'ar' ? 'عُدّ صندوق الفكة' : 'Count the float')).toBeNull();
       fireEvent.press(screen.getByTestId('staff-checklist-history.list.run-past'));
       expect(screen.getByText(locale === 'ar' ? 'عُدّ صندوق الفكة' : 'Count the float')).toBeTruthy();
@@ -543,12 +543,11 @@ describe.each(LOCALES)('who sees what on the daily-work pages in %s', (locale) =
     }
   });
 
-  it('asks for the suggestion before sending it', () => {
+  it('asks for the suggestion before sending it', async () => {
     const screen = renderRoute(StaffSuggestionNew, { locale, staff: { role: 'cashier' } });
     try {
-      expect(screen.getByText(t('staff.checklists.suggestions.lead'))).toBeTruthy();
       fireEvent.press(screen.getByTestId('staff-suggestion-new.submit'));
-      expect(screen.getByText(t('staff.checklists.suggestions.errors.required'))).toBeTruthy();
+      await expectAlerted(t('staff.checklists.suggestions.errors.required'));
     } finally {
       screen.unmount();
     }

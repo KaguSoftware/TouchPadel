@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, RefreshControl, ScrollView, View, type ScrollViewInstance } from 'react-native';
+import { Pressable, RefreshControl, View, type ScrollViewInstance } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -9,6 +9,7 @@ import { Text } from '../../src/i18n/text';
 import { useLocale } from '../../src/i18n/LocaleProvider';
 import { radius, space, useTheme } from '../../src/theme';
 import { Button, Card, ErrorText, Field, Hint, MicroLabel, Screen, SegmentedControl } from '../../src/components/ui';
+import { KeyboardScroll } from '../../src/components/KeyboardScroll';
 import { EmptyState, ErrorState, SkeletonList } from '../../src/components/states';
 import { MenuRow } from '../../src/components/booking';
 import { CheckIcon, EnvelopeIcon } from '../../src/components/icons';
@@ -21,7 +22,7 @@ import { staffKeys } from '../../src/features/staff/keys';
 import { staffPhotoUrl } from '../../src/features/staff/photo';
 import { clearStaffIntentKey, staffIntentKey } from '../../src/lib/idempotency';
 import { StoredPhotos } from '../../src/features/staff/supplies/StoredPhotos';
-import { GroupLabel, Lead, MULTILINE_BOX, MULTILINE_TEXT, Tag, type TagTone } from '../../src/features/staff/checklists/parts';
+import { GroupLabel, MULTILINE_BOX, MULTILINE_TEXT, Tag, type TagTone } from '../../src/features/staff/checklists/parts';
 import { usePullRefresh } from '../../src/lib/usePullRefresh';
 import { useReduceMotion } from '../../src/lib/useReduceMotion';
 import { intentFor } from '../../src/features/staff/supplies/logic';
@@ -373,7 +374,6 @@ function MarketingScreen() {
   // ── Tabs ───────────────────────────────────────────────────────────────────
   const takeTab = (
     <>
-      <Lead>{t('staff.marketing.take.lead')}</Lead>
       <Card style={{ padding: space.m, gap: space.s }}>
         <MicroLabel>{t('staff.marketing.take.newTitle')}</MicroLabel>
         <GroupLabel>{t('staff.marketing.take.about')}</GroupLabel>
@@ -573,7 +573,6 @@ function MarketingScreen() {
 
   const draftsTab = (
     <>
-      <Lead>{t('staff.marketing.drafts.lead')}</Lead>
       {draftForm ?? (
         <Button
           testID="staff-marketing.draft.new"
@@ -681,7 +680,6 @@ function MarketingScreen() {
 
   const resultsTab = (
     <>
-      <Lead>{t('staff.marketing.results.lead')}</Lead>
       {results.isPending && venue !== '' ? (
         <SkeletonList rows={2} height={120} />
       ) : results.isError ? (
@@ -695,12 +693,13 @@ function MarketingScreen() {
   );
 
   return (
-    <Screen edges={[]}>
+    <Screen edges={[]} keyboard>
       <Stack.Screen options={{ title: t('staff.marketing.title') }} />
-      <ScrollView
+      <KeyboardScroll
         ref={scroll}
         contentContainerStyle={{ paddingTop: space.m, paddingBottom: 40 + insets.bottom, gap: space.sm }}
         keyboardShouldPersistTaps="handled"
+        automaticallyAdjustKeyboardInsets
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={pull.refreshing} onRefresh={pull.onRefresh} />}
       >
@@ -735,7 +734,7 @@ function MarketingScreen() {
           onChange={setTab}
         />
         {tab === 'take' ? takeTab : tab === 'drafts' ? draftsTab : resultsTab}
-      </ScrollView>
+      </KeyboardScroll>
     </Screen>
   );
 }

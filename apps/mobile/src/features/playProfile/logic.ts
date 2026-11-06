@@ -108,6 +108,21 @@ export function parseAgeBand(value: unknown): AgeBand | null {
   return oneOf(AGE_BANDS, value);
 }
 
+/** The band a date of birth falls in, counted in whole years at `now`. */
+export function ageBandOf(birth: Date, now: Date = new Date()): AgeBand {
+  let years = now.getFullYear() - birth.getFullYear();
+  const beforeBirthday =
+    now.getMonth() < birth.getMonth() ||
+    (now.getMonth() === birth.getMonth() && now.getDate() < birth.getDate());
+  if (beforeBirthday) years -= 1;
+  if (years < 18) return 'u18';
+  if (years < 25) return '18_24';
+  if (years < 35) return '25_34';
+  if (years < 45) return '35_44';
+  if (years < 55) return '45_54';
+  return '55_plus';
+}
+
 export function parseWants(value: unknown): PlayWant[] {
   if (!Array.isArray(value)) return [];
   return PLAY_WANTS.filter((w) => value.includes(w));

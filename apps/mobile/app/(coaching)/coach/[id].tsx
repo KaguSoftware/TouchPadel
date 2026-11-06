@@ -13,6 +13,7 @@ import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { HeaderHeightContext } from 'expo-router/react-navigation';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { countPhrase, formatIQD, isolate } from '@touch/i18n';
+import { useDownToTab } from '../../../src/navigation/back';
 import { Text } from '../../../src/i18n/text';
 import { useLocale } from '../../../src/i18n/LocaleProvider';
 import { useAuth } from '../../../src/features/auth/context';
@@ -83,6 +84,7 @@ export default function CoachDetailScreen() {
   const { width } = useWindowDimensions();
   const reduceMotion = useReduceMotion();
   const router = useRouter();
+  const downToTab = useDownToTab();
   const toast = useToast();
   const insets = useSafeAreaInsets();
   const { session } = useAuth();
@@ -308,7 +310,7 @@ export default function CoachDetailScreen() {
       fill
       title={t('coaching.guest.coach.notFound')}
       actionLabel={t('coaching.guest.coach.seeAll')}
-      onAction={() => router.replace('/coaches')}
+      onAction={() => downToTab('/coaches')}
     />
   );
 

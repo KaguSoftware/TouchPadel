@@ -299,6 +299,34 @@ export async function resendSignUpCode(client: Client, phoneE164: string) {
 }
 
 /**
+ * Create-account step 1: a code to the number, creating the account when there
+ * is none (shouldCreateUser true, the opposite of sendSignInCode). The verified
+ * code is the session; name, gender, birth date, email and password are added
+ * to that account by the later steps. A number that already has an account
+ * just signs in with the code.
+ */
+export async function sendSignUpCode(client: Client, phoneE164: string) {
+  const { error } = await client.auth.signInWithOtp({
+    phone: phoneE164,
+    options: { shouldCreateUser: true },
+  });
+  if (error) throw error;
+}
+
+/** The last create-account step: an email and a password on the phone-verified session. */
+export async function setEmailAndPassword(
+  client: Client,
+  args: { email: string; password: string },
+  redirectTo = VERIFY_REDIRECT,
+) {
+  const { error } = await client.auth.updateUser(
+    { email: args.email.trim(), password: args.password },
+    { emailRedirectTo: redirectTo },
+  );
+  if (error) throw error;
+}
+
+/**
  * A code to an EXISTING account's number: phone sign-in, and the second proof
  * of a password change (app/change-password.tsx). shouldCreateUser false is
  * load-bearing — without it a mistyped number would mint a password-less,

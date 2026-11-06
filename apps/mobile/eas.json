@@ -20,6 +20,7 @@
     "staging": {
       "distribution": "internal",
       "channel": "staging",
+      "environment": "production",
       "env": {
         "EXPO_PUBLIC_SUPABASE_URL": "https://REPLACE-KAGU-STAGING-REF.supabase.co",
         "EXPO_PUBLIC_SUPABASE_ANON_KEY": "REPLACE_WITH_STAGING_ANON_KEY",

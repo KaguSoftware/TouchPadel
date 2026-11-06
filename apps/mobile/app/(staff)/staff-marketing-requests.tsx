@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Pressable, RefreshControl, ScrollView, View } from 'react-native';
+import { KeyboardScroll } from '../../src/components/KeyboardScroll';
+import { Pressable, RefreshControl, View } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -26,7 +27,6 @@ import { staffKeys } from '../../src/features/staff/keys';
 import { useHeaderAddOptions } from '../../src/navigation/headerAdd';
 import { StoredPhotos } from '../../src/features/staff/supplies/StoredPhotos';
 import {
-  Lead,
   MULTILINE_BOX,
   MULTILINE_TEXT,
   Tag,
@@ -247,21 +247,19 @@ function RequestsScreen() {
     id === params.id ? { borderColor: colors.blue, borderWidth: 1.5 } : null;
 
   return (
-    <Screen edges={[]}>
+    <Screen edges={[]} keyboard>
       <Stack.Screen options={{ title: t('staff.marketing.requests.title'), ...addOptions }} />
-      <ScrollView
+      <KeyboardScroll
         contentContainerStyle={{
           paddingTop: space.m,
           paddingBottom: 40 + insets.bottom,
           gap: space.sm,
         }}
         keyboardShouldPersistTaps="handled"
+        automaticallyAdjustKeyboardInsets
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={pull.refreshing} onRefresh={pull.onRefresh} />}
       >
-        <Lead>
-          {t(view.answers ? 'staff.marketing.requests.inboxLead' : 'staff.marketing.requests.lead')}
-        </Lead>
         {venue === '' ? <Hint>{t('staff.shell.venue.none')}</Hint> : null}
 
         <View testID="staff-marketing-requests.list" style={{ gap: space.sm }}>
@@ -423,7 +421,7 @@ function RequestsScreen() {
             </>
           ) : null}
         </View>
-      </ScrollView>
+      </KeyboardScroll>
     </Screen>
   );
 }

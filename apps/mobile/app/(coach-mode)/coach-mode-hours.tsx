@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
-import { Alert, RefreshControl, ScrollView, View } from 'react-native';
+import { KeyboardScroll } from '../../src/components/KeyboardScroll';
+import { Alert, RefreshControl, View } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ceilToLessonGrid } from '@touch/core';
@@ -259,15 +260,16 @@ function CoachHoursBody({ coach }: { coach: CoachMe }) {
   const tz = coach.branches[0]?.timezone ?? branch?.timezone ?? DEFAULT_TZ;
 
   return (
-    <Screen edges={[]}>
+    <Screen edges={[]} keyboard>
       <Stack.Screen options={{ title: t('coaching.coach.hours.title') }} />
-      <ScrollView
+      <KeyboardScroll
         contentContainerStyle={{
           paddingTop: space.sm,
           paddingBottom: 40 + insets.bottom,
           gap: space.sm,
         }}
         keyboardShouldPersistTaps="handled"
+        automaticallyAdjustKeyboardInsets
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
@@ -355,7 +357,7 @@ function CoachHoursBody({ coach }: { coach: CoachMe }) {
             onGone={() => void hours.refetch()}
           />
         ) : null}
-      </ScrollView>
+      </KeyboardScroll>
     </Screen>
   );
 }

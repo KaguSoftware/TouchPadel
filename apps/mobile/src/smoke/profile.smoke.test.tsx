@@ -71,9 +71,8 @@ const CASES: SmokeCase[] = [
   {
     route: 'terms-review',
     Component: TermsReviewScreen,
-    // Opened from the sign-up checkbox, before any account exists: the same
-    // reader, with Accept locked until the text is read and ticked.
-    labelKey: 'consent.accept',
+    // Read-only viewer opened from the consent links; Close is its one action.
+    labelKey: 'common.close',
   },
 ];
 

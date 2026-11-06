@@ -87,7 +87,7 @@ export const SMOKE_ROUTES: readonly SmokeRoute[] = [
   { file: 'change-password.tsx', route: 'change-password', primary: 'change-password.submit' },
   { file: 'delete-account.tsx', route: 'delete-account', primary: 'delete-account.confirm' },
   { file: 'accept-terms.tsx', route: 'accept-terms', primary: 'accept-terms.accept' },
-  { file: 'terms-review.tsx', route: 'terms-review', primary: 'terms-review.accept' },
+  { file: 'terms-review.tsx', route: 'terms-review', primary: 'terms-review.close' },
   // ── staff ─────────────────────────────────────────────────────────────────
   // build-contracts-2026-09-23 §6.2. Each page lane adds its rows with its
   // screens. The suites that case them, in EN and AR, as a staff session:
@@ -131,7 +131,27 @@ export const SMOKE_ROUTES: readonly SmokeRoute[] = [
     primary: 'staff-production.record',
   },
   { file: '(staff)/staff-shopping.tsx', route: 'staff-shopping', primary: 'staff-shopping.add' },
-  { file: '(staff)/staff-purchase.tsx', route: 'staff-purchase', primary: 'staff-purchase.save' },
+  { file: '(staff)/staff-purchase.tsx', route: 'staff-purchase', primary: 'staff-purchase.empty' },
+  {
+    file: '(staff)/staff-purchase-new.tsx',
+    route: 'staff-purchase-new',
+    primary: 'staff-purchase-new.next',
+  },
+  {
+    file: '(staff)/staff-purchase-items.tsx',
+    route: 'staff-purchase-items',
+    primary: 'staff-purchase-items.next',
+  },
+  {
+    file: '(staff)/staff-purchase-review.tsx',
+    route: 'staff-purchase-review',
+    primary: 'staff-purchase-review.save',
+  },
+  {
+    file: '(staff)/staff-purchase-detail.tsx',
+    route: 'staff-purchase-detail',
+    primary: 'staff-purchase-detail.summary',
+  },
   // Phase 2 Milestone 4b: the camera pages.
   {
     file: '(staff)/staff-order-slip.tsx',

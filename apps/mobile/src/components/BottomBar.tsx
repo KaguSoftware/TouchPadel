@@ -20,6 +20,7 @@ import {
   type ScrollViewProps,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useLiftAssistantFab } from '../features/assistant/AssistantFab';
 import { space, useTheme } from '../theme';
 import { ErrorText } from './ui';
 
@@ -61,6 +62,8 @@ export function ScreenWithBar({
   error?: string | null;
   children: ReactNode;
 }) {
+  // The floating assistant button rides above the bar instead of covering it.
+  useLiftAssistantFab(!!bar);
   return (
     <KeyboardAvoidingView
       style={{ flex: 1 }}

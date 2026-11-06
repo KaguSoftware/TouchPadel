@@ -377,6 +377,17 @@ export const CupIcon = (p: IconProps) => (
 export const ChefHatIcon = (p: IconProps) => (
   <StrokeIcon d={['M8 17h8v3.5H8V17zM6 13a4 4 0 1 1 3-6.5 4 4 0 0 1 6 0A4 4 0 1 1 18 13v4H6v-4z']} {...p} />
 );
+/** Recipes and teaching: a chef's toque, three puffs over a pleated band. */
+export const ToqueIcon = (p: IconProps) => (
+  <StrokeIcon
+    d={[
+      'M7 14a3.6 3.6 0 0 1-.4-7.2A4 4 0 0 1 12 4a4 4 0 0 1 5.4 2.8A3.6 3.6 0 0 1 17 14',
+      'M7 14v5.5a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V14',
+      'M7 17.2h10M10.2 14v3.2M13.8 14v3.2',
+    ]}
+    {...p}
+  />
+);
 /** The driver (hiring): a van with its two wheels; directional, so it mirrors under RTL. */
 export const TruckIcon = (p: IconProps) => (
   <StrokeIcon d={['M3 16V7h11v9M14 10h4l3 3v3h-2M9 17h6M5 17a2 2 0 1 0 4 0 2 2 0 0 0-4 0zM15 17a2 2 0 1 0 4 0 2 2 0 0 0-4 0z']} flip {...p} />

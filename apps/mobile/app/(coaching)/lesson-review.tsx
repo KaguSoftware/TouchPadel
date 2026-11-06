@@ -1,5 +1,5 @@
 import { useContext, useState } from 'react';
-import { Pressable, View } from 'react-native';
+import { Alert, Pressable, View } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { HeaderHeightContext } from 'expo-router/react-navigation';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -31,6 +31,7 @@ import {
   lessonErrorCode,
   lessonErrorText,
 } from '../../src/features/coaching/errors';
+import { isTransportError } from '../../src/lib/network';
 import { parsePriceChanged } from '../../src/features/matches/errors';
 import {
   displayCoachName,
@@ -194,6 +195,11 @@ function LessonReviewScreen() {
   };
 
   const onError = (err: Error) => {
+    if (isTransportError(err)) {
+      // Offline: a native alert, not an inline red error. The booking key is kept, so a retry is the same intent.
+      Alert.alert(t('errors.title'), t('errors.network'));
+      return;
+    }
     const code = lessonErrorCode(err);
     const detail = rpcErrorDetail(err);
     switch (bookRefusalOf(code, detail)) {

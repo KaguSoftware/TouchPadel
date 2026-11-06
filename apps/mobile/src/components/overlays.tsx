@@ -40,6 +40,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useId,
   useMemo,
   useRef,
   useState,
@@ -130,36 +131,87 @@ export function NoticeSheet({
 }
 
 /**
- * A booking error as the platform's own alert, for failures that used to land
- * in a line of red text under the duration picker — an unbookable slot, a
- * conflict, an expired session. Same imperative pattern as `NoticeSheet`:
- * renders nothing, presents once per distinct message, and reports every
- * dismissal so the caller can clear its error state.
+ * Error messages as the platform's own alert, never a line of red text. Every
+ * `ErrorAlert` and `ErrorText` on screen registers its message here, and ONE
+ * alert carries them all: a form with five error boxes raises one alert whose
+ * body lists the distinct messages, not five stacked alerts. Registrations
+ * that land together (one render, or a few ms apart) are batched into that one
+ * alert; one that lands while an alert is open waits for it to close.
  *
- * Keyed on the MESSAGE, not a boolean: two different failures in a row must
- * each raise their own alert, and re-running a failed request that yields the
- * same message should not stack a second copy.
+ * A message alerts once per registration: it re-arms when the caller clears it
+ * (the slot unregisters) or unmounts, so re-running a failed request that
+ * yields the same message after a clear raises a fresh alert, and re-renders
+ * with the same message do not stack a second copy.
  */
-export function ErrorAlert({ message, onDismiss }: { message: string | null; onDismiss: () => void }) {
+interface ErrorSlot {
+  message: string;
+  title: string;
+  ok: string;
+  onDismiss: () => void;
+}
+
+const errorSlots = new Map<string, ErrorSlot>();
+const errorShown = new Map<string, string>();
+let errorAlertOpen = false;
+let errorFlushTimer: ReturnType<typeof setTimeout> | null = null;
+
+function scheduleErrorFlush() {
+  if (errorFlushTimer) return;
+  errorFlushTimer = setTimeout(flushErrors, 40);
+}
+
+function flushErrors() {
+  errorFlushTimer = null;
+  if (errorAlertOpen) return;
+  const fresh = [...errorSlots].filter(([id, slot]) => errorShown.get(id) !== slot.message);
+  const first = fresh[0];
+  if (!first) return;
+  for (const [id, slot] of fresh) errorShown.set(id, slot.message);
+  const messages = [...new Set(fresh.map(([, slot]) => slot.message))];
+  const { title, ok } = first[1];
+  errorAlertOpen = true;
+  let done = false;
+  const close = () => {
+    if (done) return;
+    done = true;
+    errorAlertOpen = false;
+    for (const [, slot] of fresh) slot.onDismiss();
+    if (errorSlots.size > 0) scheduleErrorFlush();
+  };
+  Alert.alert(title, messages.join('\n\n'), [{ text: ok, style: 'cancel', onPress: close }], {
+    cancelable: true,
+    onDismiss: close,
+  });
+}
+
+function useErrorSlot(message: string | null, onDismiss: () => void) {
   const { t } = useLocale();
-  const shownFor = useRef<string | null>(null);
+  const id = useId();
   const dismiss = useRef(onDismiss);
   useEffect(() => {
     dismiss.current = onDismiss;
   }, [onDismiss]);
-
+  const title = t('errors.title');
+  const ok = t('common.ok');
   useEffect(() => {
-    if (!message) {
-      shownFor.current = null;
-      return;
-    }
-    if (shownFor.current === message) return;
-    shownFor.current = message;
-    Alert.alert(t('errors.title'), message, [
-      { text: t('common.ok'), style: 'cancel', onPress: () => dismiss.current() },
-    ], { cancelable: true, onDismiss: () => dismiss.current() });
-  }, [message, t]);
+    if (!message) return;
+    errorSlots.set(id, { message, title, ok, onDismiss: () => dismiss.current() });
+    scheduleErrorFlush();
+    return () => {
+      errorSlots.delete(id);
+      errorShown.delete(id);
+    };
+  }, [id, message, title, ok]);
+}
 
+/**
+ * A booking error as the platform's own alert, for failures that used to land
+ * in a line of red text under the duration picker — an unbookable slot, a
+ * conflict, an expired session. Renders nothing and reports every dismissal so
+ * the caller can clear its error state. Shares the one-alert coordinator above.
+ */
+export function ErrorAlert({ message, onDismiss }: { message: string | null; onDismiss: () => void }) {
+  useErrorSlot(message, onDismiss);
   return null;
 }
 
@@ -273,13 +325,36 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const [toast, setToast] = useState<ToastState | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // An error toast is never covered by a calmer one (an Undo, say, whose
+  // earlier action failed a moment ago): the newcomer waits for the error's
+  // time to run out, and its own time is counted from when it was asked for,
+  // so an Undo never outlives the five seconds the queue holds its call.
+  const errorUntil = useRef(0);
+  const later = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const show = useCallback<ShowToast>((message, tone = 'success', options) => {
-    if (timer.current) clearTimeout(timer.current);
-    setToast({ message, tone, action: options?.action });
-    timer.current = setTimeout(
-      () => setToast(null),
-      options?.duration ?? (options?.action ? ACTION_TOAST_MS : TOAST_MS),
-    );
+    if (later.current) {
+      clearTimeout(later.current);
+      later.current = null;
+    }
+    const ms = options?.duration ?? (options?.action ? ACTION_TOAST_MS : TOAST_MS);
+    const asked = Date.now();
+    const present = (left: number) => {
+      if (timer.current) clearTimeout(timer.current);
+      setToast({ message, tone, action: options?.action });
+      if (tone === 'error') errorUntil.current = Date.now() + left;
+      timer.current = setTimeout(() => setToast(null), left);
+    };
+    const wait = tone === 'error' ? 0 : errorUntil.current - asked;
+    if (wait > 0) {
+      later.current = setTimeout(() => {
+        later.current = null;
+        const left = ms - (Date.now() - asked);
+        if (left > 0) present(left);
+      }, wait);
+      return;
+    }
+    present(ms);
   }, []);
 
   // The action closes the toast as it runs, so an Undo is never tapped twice.
@@ -292,6 +367,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   useEffect(
     () => () => {
       if (timer.current) clearTimeout(timer.current);
+      if (later.current) clearTimeout(later.current);
     },
     [],
   );

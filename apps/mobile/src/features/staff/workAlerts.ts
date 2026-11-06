@@ -22,6 +22,7 @@ import { useChecklistsLive } from './checklists/live';
 import { fetchMyWork } from './protocols/api';
 import { staffKeys } from './keys';
 import { waitingCount } from './workCount';
+import { useRecipeWork } from './recipes/work';
 import { useStaffStatus } from './StaffStatusProvider';
 import { pageBlocked } from './access';
 
@@ -48,8 +49,15 @@ export function useWaitingCount(venueId: string | null): number {
     queryFn: () => fetchMyWork(venueId!),
     enabled: !!venueId && showWork,
   });
+  const role = status.kind === 'staff' ? status.staff.role : null;
+  const recipes = useRecipeWork(venueId, role, status.kind === 'staff' && !pageBlocked('staff-recipe-change', status.staff));
   if (!venueId) return 0;
-  return waitingCount(showLists ? lists.data : null, showWork ? work.data : null);
+  return waitingCount(
+    showLists ? lists.data : null,
+    showWork ? work.data : null,
+    new Date(),
+    recipes.toDecide.length,
+  );
 }
 
 export function useWorkAlerts() {

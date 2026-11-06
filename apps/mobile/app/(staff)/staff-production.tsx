@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Pressable, RefreshControl, View } from 'react-native';
 import { Stack } from 'expo-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -38,7 +38,7 @@ import {
   recordBatch,
 } from '../../src/features/staff/supplies/productionApi';
 import { localName } from '../../src/features/staff/checklists/logic';
-import { Lead, Tag } from '../../src/features/staff/checklists/parts';
+import { Tag } from '../../src/features/staff/checklists/parts';
 import { usePullRefresh } from '../../src/lib/usePullRefresh';
 import { formatQty } from '../../src/features/staff/supplies/logic';
 import { Stepper } from '../../src/features/staff/floor/parts';
@@ -104,6 +104,9 @@ function ProductionScreen() {
     );
   };
 
+  // Synchronous in-flight latch: `record.isPending` only flips on the next
+  // render, so a double tap or Done-then-button lands twice on the same draft.
+  const inFlight = useRef(false);
   const record = useMutation({
     mutationKey: staffKeys.mutation('batch'),
     mutationFn: (args: BatchArgs) => recordBatch(args, staffIntentKey(batchIntent(args), 'batch')),
@@ -117,6 +120,9 @@ function ProductionScreen() {
       void queryClient.invalidateQueries({ queryKey: staffKeys.productionLog(venue) });
     },
     onError: (err) => setError(t(mapStaffError(err))),
+    onSettled: () => {
+      inFlight.current = false;
+    },
   });
 
   const list = sortProduction(items.data ?? []);
@@ -143,10 +149,14 @@ function ProductionScreen() {
     formatQty(t, locale, qty, unit);
 
   const onRecord = () => {
+    if (inFlight.current || record.isPending) return;
     setError(null);
     const found = validateBatch(draft, localIsoDate(new Date()));
     setIssues(found);
-    if (found.length === 0 && venue !== '') record.mutate(batchArgs(draft, venue));
+    if (found.length === 0 && venue !== '') {
+      inFlight.current = true;
+      record.mutate(batchArgs(draft, venue));
+    }
   };
 
   const fieldError = (field: BatchField): string | null => {
@@ -285,7 +295,6 @@ function ProductionScreen() {
           />
         }
       >
-        <Lead>{t('staff.checklists.production.lead')}</Lead>
 
         <MicroLabel style={{ paddingStart: 4, marginTop: space.xs }}>
           {t('staff.checklists.production.todayTitle')}

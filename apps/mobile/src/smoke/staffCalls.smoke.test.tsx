@@ -127,15 +127,13 @@ describe.each(LOCALES)('guest calls in %s', (locale) => {
       queryData: [[staffKeys.calls(V), CALLS]],
     });
     try {
-      // The floor tile comes first, and its preview carries the count.
+      // The floor tile comes first, with its description and the waiting dot;
+      // the count itself is on the sheet's calls row below.
       const tiles = today.queryAllByTestId(/^staff\.group\./);
       expect(tiles[0]?.props.testID).toBe('staff.group.floor');
       expect(within(tiles[0]!).getByText(t('staff.calls.group'))).toBeTruthy();
-      expect(
-        within(tiles[0]!).getByText(
-          new RegExp(t('staff.calls.rowCount', { count: formatNumber(2, locale) })),
-        ),
-      ).toBeTruthy();
+      expect(within(tiles[0]!).getByText(t('staff.shell.today.groupInfo.floor'))).toBeTruthy();
+      expect(today.queryByTestId('staff.group.floor.waiting')).toBeTruthy();
     } finally {
       today.unmount();
     }

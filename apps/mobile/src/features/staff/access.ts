@@ -119,6 +119,10 @@ export const STAFF_PAGE_AREAS = {
   // Stock and buying.
   'staff-shopping': STOCK,
   'staff-purchase': STOCK,
+  'staff-purchase-new': STOCK,
+  'staff-purchase-items': STOCK,
+  'staff-purchase-review': STOCK,
+  'staff-purchase-detail': STOCK,
   'staff-receipt': STOCK,
   'staff-stock': STOCK,
   'staff-stock-log': STOCK,

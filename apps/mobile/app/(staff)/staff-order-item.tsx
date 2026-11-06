@@ -77,10 +77,10 @@ function ItemSheet({ item, tableId }: { item: MenuItem; tableId: string }) {
   };
 
   return (
-    <Screen edges={[]}>
+    <Screen edges={[]} keyboard="bar">
       <Stack.Screen options={{ title: localName(item, locale) }} />
       <ScrollView
-        contentContainerStyle={{ paddingTop: space.m, paddingBottom: 110 + insets.bottom, gap: space.m }}
+        contentContainerStyle={{ paddingTop: space.m, paddingBottom: space.l, gap: space.m }}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
         showsVerticalScrollIndicator={false}
@@ -166,10 +166,6 @@ function ItemSheet({ item, tableId }: { item: MenuItem; tableId: string }) {
 
       <View
         style={{
-          position: 'absolute',
-          start: 0,
-          end: 0,
-          bottom: 0,
           gap: space.xs,
           paddingTop: space.sm,
           paddingBottom: space.sm + insets.bottom,
@@ -209,7 +205,7 @@ function ItemRoute() {
   const item = menu.data ? itemById(menu.data, params.item ?? '') : undefined;
   if (item && params.table) return <ItemSheet key={item.id} item={item} tableId={params.table} />;
   return (
-    <Screen edges={[]}>
+    <Screen edges={[]} keyboard="bar">
       <View style={{ paddingTop: space.m }}>
         {menu.isPending ? <SkeletonList rows={3} height={52} /> : <Hint>{t('errors.notFound')}</Hint>}
       </View>

@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { Animated, Easing, Pressable, RefreshControl, ScrollView, View } from 'react-native';
+import { Animated, Easing, Pressable, RefreshControl, View } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -7,6 +7,7 @@ import { Text } from '../../src/i18n/text';
 import { useLocale } from '../../src/i18n/LocaleProvider';
 import { radius, space, useTheme } from '../../src/theme';
 import { Button, Card, Field, Hint, MicroLabel, Screen } from '../../src/components/ui';
+import { KeyboardScroll } from '../../src/components/KeyboardScroll';
 import { EmptyState, ErrorState, SkeletonList } from '../../src/components/states';
 import { ChevronIcon } from '../../src/components/icons';
 import { RequireStaff } from '../../src/features/staff/RequireStaff';
@@ -23,7 +24,6 @@ import {
   type RecipeLine,
 } from '../../src/features/staff/recipes/logic';
 import { localName } from '../../src/features/staff/checklists/logic';
-import { Lead } from '../../src/features/staff/checklists/parts';
 import { usePullRefresh } from '../../src/lib/usePullRefresh';
 import { useReduceMotion } from '../../src/lib/useReduceMotion';
 import { searchField } from '../../src/components/fieldKeyboard';
@@ -347,15 +347,15 @@ function RecipesScreen() {
   };
 
   return (
-    <Screen edges={[]}>
+    <Screen edges={[]} keyboard>
       <Stack.Screen options={{ title: t('staff.checklists.recipes.title') }} />
-      <ScrollView
+      <KeyboardScroll
         contentContainerStyle={{ paddingTop: space.m, paddingBottom: 40 + insets.bottom, gap: space.sm }}
         keyboardShouldPersistTaps="handled"
+        automaticallyAdjustKeyboardInsets
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={pull.refreshing} onRefresh={pull.onRefresh} />}
       >
-        <Lead>{t('staff.checklists.recipes.lead')}</Lead>
         {asksRecipeChanges(role) ? (
           <View>
             <Button
@@ -390,7 +390,7 @@ function RecipesScreen() {
           <MicroLabel style={{ paddingStart: 4 }}>{t('staff.checklists.recipes.listTitle')}</MicroLabel>
           {lists()}
         </View>
-      </ScrollView>
+      </KeyboardScroll>
     </Screen>
   );
 }

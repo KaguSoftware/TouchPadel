@@ -195,6 +195,15 @@ export type FreeErrorMessage =
  * (asking again cannot help a used-up day, a missing key, a refused role or a
  * question the server would not take).
  */
+/** Errors that name the assistant have their own "Touch AI" wording for every role but the owner. */
+const TOUCH_ERRORS = ['day', 'busy', 'notConfigured', 'forbidden', 'generic'];
+export function forRole(key: MessageKey, ns: 'free' | 'touch'): MessageKey {
+  if (ns === 'free') return key;
+  const m = /^staff\.assistant\.free\.errors\.(\w+)$/.exec(key);
+  const name = m?.[1];
+  return name && TOUCH_ERRORS.includes(name) ? (`staff.assistant.touch.errors.${name}` as MessageKey) : key;
+}
+
 export function freeErrorMessage(err: FreeError): { message: FreeErrorMessage; retry: boolean } {
   const text = (key: MessageKey, retry: boolean) => ({ message: { kind: 'text' as const, key }, retry });
   switch (err.code) {

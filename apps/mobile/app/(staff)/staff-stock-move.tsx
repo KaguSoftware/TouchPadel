@@ -16,7 +16,6 @@ import { useStaffStatus } from '../../src/features/staff/StaffStatusProvider';
 import { staffKeys } from '../../src/features/staff/keys';
 import { mapStaffError } from '../../src/features/staff/edge';
 import { localName } from '../../src/features/staff/checklists/logic';
-import { Lead } from '../../src/features/staff/checklists/parts';
 import { usePullRefresh } from '../../src/lib/usePullRefresh';
 import { clearStaffIntentKey, staffIntentKey } from '../../src/lib/idempotency';
 import {
@@ -272,7 +271,6 @@ function MoveScreen() {
           />
         }
       >
-        <Lead>{t('staff.stores.move.lead')}</Lead>
         {venue === '' ? <Hint>{t('staff.shell.venue.none')}</Hint> : null}
 
         <Card style={{ padding: space.m, gap: space.s }}>
