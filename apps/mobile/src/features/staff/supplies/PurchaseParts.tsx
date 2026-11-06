@@ -9,7 +9,7 @@ import { Alert, View } from 'react-native';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Text } from '../../../i18n/text';
 import { useLocale } from '../../../i18n/LocaleProvider';
-import { brand, radius, space, useTheme } from '../../../theme';
+import { brand, radius, shadows, space, useTheme } from '../../../theme';
 import { ReceiptIcon, CheckIcon } from '../../../components/icons';
 import { useToast } from '../../../components/overlays';
 import { LinkText } from '../../../components/ui';
@@ -50,10 +50,6 @@ export function PurchaseBand({ row }: { row: PurchaseRow }) {
         paddingTop: 11,
         paddingBottom: 11,
         backgroundColor: bg,
-        // The band's own border is its own colour (the card's blue starts under it).
-        borderWidth: 1,
-        borderBottomWidth: 0,
-        borderColor: bg,
       }}
     >
       <ReceiptIcon size={18} color={fg} />
@@ -128,13 +124,71 @@ export function usePurchaseDelivery(venue: string) {
 export function PurchaseSection({
   title,
   action,
+  grouped,
+  plain,
   children,
 }: {
   title: string;
   action?: { label: string; onPress: () => void; testID: string };
-  children: ReactNode;
+  /** Inside a `PurchaseGroup`: no card chrome of its own. */
+  grouped?: boolean;
+  /** Inside a group, below its first section: black title on the card, no blue band. */
+  plain?: boolean;
+  children?: ReactNode;
 }) {
   const { colors, fonts, appearance } = useTheme();
+  return (
+    <View
+      style={
+        grouped
+          ? { backgroundColor: colors.card }
+          : {
+              borderRadius: radius.card,
+              backgroundColor: colors.card,
+              borderWidth: 1,
+              borderColor: colors.line,
+              overflow: 'hidden',
+            }
+      }
+    >
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          minHeight: 48,
+          paddingStart: 16,
+          paddingEnd: 16,
+          backgroundColor: plain ? colors.card : appearance === 'dark' ? colors.bg : brand.blue,
+          ...(plain ? { borderTopWidth: 1, borderTopColor: colors.line } : null),
+        }}
+      >
+        <Text
+          style={{
+            flex: 1,
+            fontFamily: fonts.display800,
+            fontSize: 18,
+            color: plain ? colors.ink : brand.white,
+          }}
+        >
+          {title}
+        </Text>
+        {action ? (
+          <LinkText
+            testID={action.testID}
+            label={action.label}
+            color={plain ? colors.ink : brand.white}
+            onPress={action.onPress}
+          />
+        ) : null}
+      </View>
+      {children ? <View style={{ padding: 16, gap: space.sm }}>{children}</View> : null}
+    </View>
+  );
+}
+
+/** Several `grouped` sections as one card, each keeping its own header band. */
+export function PurchaseGroup({ children }: { children: ReactNode }) {
+  const { colors } = useTheme();
   return (
     <View
       style={{
@@ -145,37 +199,14 @@ export function PurchaseSection({
         overflow: 'hidden',
       }}
     >
-      <View
-        style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          minHeight: 48,
-          paddingStart: 16,
-          paddingEnd: 16,
-          backgroundColor: appearance === 'dark' ? colors.bg : brand.blue,
-        }}
-      >
-        <Text style={{ flex: 1, fontFamily: fonts.display800, fontSize: 18, color: brand.white }}>
-          {title}
-        </Text>
-        {action ? (
-          <LinkText
-            testID={action.testID}
-            label={action.label}
-            color={brand.white}
-            onPress={action.onPress}
-          />
-        ) : null}
-      </View>
-      <View style={{ padding: 16, gap: space.sm }}>{children}</View>
+      {children}
     </View>
   );
 }
 
 /**
- * A purchase's card: the status band on top with a border of its own colour,
- * the body under it with a blue border (the band's colour is the card's
- * status; the body's blue is the frame, like the operator's panels).
+ * A purchase's card: the status band on top and the body under it, held off the
+ * page by a soft shadow instead of a border.
  */
 export function PurchaseCard({
   row,
@@ -186,20 +217,21 @@ export function PurchaseCard({
   testID: string;
   children: ReactNode;
 }) {
-  const { colors } = useTheme();
+  const { colors, appearance } = useTheme();
+  // The shadow sits on its own view: on the one that clips the band's corners it was cut
+  // off square at the card's edge and read as a line against the next card.
   return (
-    <View testID={testID} style={{ borderRadius: radius.card, overflow: 'hidden' }}>
-      <PurchaseBand row={row} />
-      <View
-        style={{
-          backgroundColor: colors.card,
-          borderWidth: 1,
-          borderTopWidth: 0,
-          borderColor: brand.blue,
-          borderBottomStartRadius: radius.card,
-          borderBottomEndRadius: radius.card,
-        }}
-      >
+    <View
+      testID={testID}
+      style={{
+        borderRadius: radius.card,
+        backgroundColor: colors.card,
+        // No border: a soft, wide shadow lifts the card off the page.
+        boxShadow: appearance === 'dark' ? shadows.listCardDark : shadows.listCard,
+      }}
+    >
+      <View style={{ borderRadius: radius.card, overflow: 'hidden' }}>
+        <PurchaseBand row={row} />
         {children}
       </View>
     </View>

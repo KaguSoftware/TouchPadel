@@ -325,13 +325,36 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const [toast, setToast] = useState<ToastState | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // An error toast is never covered by a calmer one (an Undo, say, whose
+  // earlier action failed a moment ago): the newcomer waits for the error's
+  // time to run out, and its own time is counted from when it was asked for,
+  // so an Undo never outlives the five seconds the queue holds its call.
+  const errorUntil = useRef(0);
+  const later = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const show = useCallback<ShowToast>((message, tone = 'success', options) => {
-    if (timer.current) clearTimeout(timer.current);
-    setToast({ message, tone, action: options?.action });
-    timer.current = setTimeout(
-      () => setToast(null),
-      options?.duration ?? (options?.action ? ACTION_TOAST_MS : TOAST_MS),
-    );
+    if (later.current) {
+      clearTimeout(later.current);
+      later.current = null;
+    }
+    const ms = options?.duration ?? (options?.action ? ACTION_TOAST_MS : TOAST_MS);
+    const asked = Date.now();
+    const present = (left: number) => {
+      if (timer.current) clearTimeout(timer.current);
+      setToast({ message, tone, action: options?.action });
+      if (tone === 'error') errorUntil.current = Date.now() + left;
+      timer.current = setTimeout(() => setToast(null), left);
+    };
+    const wait = tone === 'error' ? 0 : errorUntil.current - asked;
+    if (wait > 0) {
+      later.current = setTimeout(() => {
+        later.current = null;
+        const left = ms - (Date.now() - asked);
+        if (left > 0) present(left);
+      }, wait);
+      return;
+    }
+    present(ms);
   }, []);
 
   // The action closes the toast as it runs, so an Undo is never tapped twice.
@@ -344,6 +367,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   useEffect(
     () => () => {
       if (timer.current) clearTimeout(timer.current);
+      if (later.current) clearTimeout(later.current);
     },
     [],
   );

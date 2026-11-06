@@ -107,7 +107,7 @@ function CoachLessonBody({ coach }: { coach: CoachMe }) {
     (lesson.isError && !lesson.data && coachErrorCode(lesson.error) === 'LESSON_NOT_FOUND');
 
   return (
-    <Screen edges={[]}>
+    <Screen edges={[]} keyboard>
       <Stack.Screen options={{ title: t('coaching.coach.lesson.title') }} />
       {notFound ? (
         <EmptyState
@@ -688,6 +688,7 @@ function LessonDetail({
         ListFooterComponent={footer}
         contentContainerStyle={{ paddingBottom: 40 + insets.bottom }}
         keyboardShouldPersistTaps="handled"
+        automaticallyAdjustKeyboardInsets
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl

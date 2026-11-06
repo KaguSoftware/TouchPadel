@@ -12,7 +12,12 @@ import { RequireStaff } from '../../src/features/staff/RequireStaff';
 import { useStaffStatus } from '../../src/features/staff/StaffStatusProvider';
 import { staffKeys } from '../../src/features/staff/keys';
 import { StoredPhotos } from '../../src/features/staff/supplies/StoredPhotos';
-import { PurchaseCard, PurchaseSection, usePurchaseDelivery } from '../../src/features/staff/supplies/PurchaseParts';
+import {
+  PurchaseCard,
+  PurchaseGroup,
+  PurchaseSection,
+  usePurchaseDelivery,
+} from '../../src/features/staff/supplies/PurchaseParts';
 import { usePullRefresh } from '../../src/lib/usePullRefresh';
 import { fetchMyPurchases } from '../../src/features/staff/supplies/api';
 import { PURCHASE_ROLES, formatQty, lineName } from '../../src/features/staff/supplies/logic';
@@ -80,10 +85,19 @@ function PurchaseDetailScreen() {
             <PurchaseCard testID="staff-purchase-detail.summary" row={row}>
               <View style={{ padding: 16, gap: 6 }}>
                 <Text style={{ fontFamily: fonts.display800, fontSize: 21, color: colors.ink }}>
-                  {row.shop_name ? isolate(row.shop_name) : t('staff.supplies.purchase.list.noShop')}
+                  {row.shop_name
+                    ? isolate(row.shop_name)
+                    : t('staff.supplies.purchase.list.noShop')}
                 </Text>
                 <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8 }}>
-                  <Text style={{ flexShrink: 1, fontFamily: fonts.body600, fontSize: 14, color: colors.mut }}>
+                  <Text
+                    style={{
+                      flexShrink: 1,
+                      fontFamily: fonts.body600,
+                      fontSize: 14,
+                      color: colors.mut,
+                    }}
+                  >
                     {formatDateTime(new Date(row.bought_at), locale)}
                   </Text>
                   <View style={{ flex: 1 }} />
@@ -94,53 +108,71 @@ function PurchaseDetailScreen() {
               </View>
             </PurchaseCard>
 
-            <PurchaseSection title={t('staff.supplies.purchase.list.secItems')}>
-              {row.lines.map((l, i) => (
+            <PurchaseGroup>
+              <PurchaseSection grouped title={t('staff.supplies.purchase.list.detailTitle')} />
+              <PurchaseSection grouped plain title={t('staff.supplies.purchase.list.secItems')}>
+                {row.lines.map((l, i) => (
+                  <View
+                    key={`${row.id}-${i}`}
+                    style={{
+                      flexDirection: 'row',
+                      justifyContent: 'space-between',
+                      alignItems: 'baseline',
+                      gap: space.s,
+                    }}
+                  >
+                    <Text style={{ ...strong, flexShrink: 1 }}>
+                      {lineName(l, locale)}
+                      <Text style={body}>{` · ${formatQty(t, locale, l.qty, l.unit)}`}</Text>
+                    </Text>
+                    <Text style={{ fontFamily: fonts.body700, fontSize: 14, color: colors.gtext }}>
+                      {formatIQD(l.price_iqd, locale)}
+                    </Text>
+                  </View>
+                ))}
+                <View style={{ height: 1, backgroundColor: colors.line }} />
                 <View
-                  key={`${row.id}-${i}`}
-                  style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', gap: space.s }}
+                  style={{
+                    flexDirection: 'row',
+                    justifyContent: 'space-between',
+                    alignItems: 'baseline',
+                  }}
                 >
-                  <Text style={{ ...strong, flexShrink: 1 }}>
-                    {lineName(l, locale)}
-                    <Text style={body}>{` · ${formatQty(t, locale, l.qty, l.unit)}`}</Text>
+                  <Text style={{ fontFamily: fonts.body700, fontSize: 15, color: colors.ink }}>
+                    {t('staff.supplies.purchase.form.total')}
                   </Text>
-                  <Text style={{ fontFamily: fonts.body700, fontSize: 14, color: colors.gtext }}>
-                    {formatIQD(l.price_iqd, locale)}
+                  <Text style={{ fontFamily: fonts.body800, fontSize: 15, color: colors.gtext }}>
+                    {formatIQD(row.total_iqd, locale)}
                   </Text>
                 </View>
-              ))}
-              <View style={{ height: 1, backgroundColor: colors.line }} />
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                <Text style={{ fontFamily: fonts.body700, fontSize: 15, color: colors.ink }}>
-                  {t('staff.supplies.purchase.form.total')}
-                </Text>
-                <Text style={{ fontFamily: fonts.body800, fontSize: 15, color: colors.gtext }}>
-                  {formatIQD(row.total_iqd, locale)}
-                </Text>
-              </View>
-            </PurchaseSection>
-
-            <PurchaseSection title={t('staff.supplies.purchase.list.secInfo')}>
-              {info(
-                t('staff.supplies.purchase.list.shop'),
-                row.shop_name ? isolate(row.shop_name) : t('staff.supplies.purchase.list.noShop'),
-              )}
-              {info(t('staff.supplies.purchase.list.bought'), formatDateTime(new Date(row.bought_at), locale))}
-              {info(
-                t('staff.supplies.purchase.list.delivery'),
-                row.delivered_at
-                  ? formatDateTime(new Date(row.delivered_at), locale)
-                  : t('staff.supplies.purchase.list.notDelivered'),
-              )}
-            </PurchaseSection>
-
-            <PurchaseSection title={t('staff.supplies.purchase.list.secReceipt')}>
-              {row.receipt_path ? (
-                <StoredPhotos paths={[row.receipt_path]} size={Math.min(width - 2 * space.m - 34, 420)} />
-              ) : (
-                <Text style={body}>{t('staff.supplies.purchase.list.noReceipt')}</Text>
-              )}
-            </PurchaseSection>
+              </PurchaseSection>
+              <PurchaseSection grouped plain title={t('staff.supplies.purchase.list.secInfo')}>
+                {info(
+                  t('staff.supplies.purchase.list.shop'),
+                  row.shop_name ? isolate(row.shop_name) : t('staff.supplies.purchase.list.noShop'),
+                )}
+                {info(
+                  t('staff.supplies.purchase.list.bought'),
+                  formatDateTime(new Date(row.bought_at), locale),
+                )}
+                {info(
+                  t('staff.supplies.purchase.list.delivery'),
+                  row.delivered_at
+                    ? formatDateTime(new Date(row.delivered_at), locale)
+                    : t('staff.supplies.purchase.list.notDelivered'),
+                )}
+              </PurchaseSection>
+              <PurchaseSection grouped plain title={t('staff.supplies.purchase.list.secReceipt')}>
+                {row.receipt_path ? (
+                  <StoredPhotos
+                    paths={[row.receipt_path]}
+                    size={Math.min(width - 2 * space.m - 34, 420)}
+                  />
+                ) : (
+                  <Text style={body}>{t('staff.supplies.purchase.list.noReceipt')}</Text>
+                )}
+              </PurchaseSection>
+            </PurchaseGroup>
           </>
         )}
       </ScreenWithBar>

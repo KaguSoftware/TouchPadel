@@ -455,3 +455,36 @@ export function addableIngredients(
       (!q || o.name_en.toLowerCase().includes(q) || o.name_ar.toLowerCase().includes(q)),
   );
 }
+
+// ── Work alerts ─────────────────────────────────────────────────────────────
+
+/** Days a head keeps seeing a decided request, as protocol work does. */
+const DECIDED_DAYS = 7;
+
+export interface RecipeWork {
+  /** The owner's: waiting requests to approve or decline. */
+  toDecide: RecipeChangeRow[];
+  /** A head's own: still waiting. */
+  waiting: MyRecipeChange[];
+  /** A head's own: decided in the last week. */
+  decided: MyRecipeChange[];
+}
+
+export function recipeWorkOf(
+  asked: readonly MyRecipeChange[] | undefined,
+  toDecide: readonly RecipeChangeRow[] | undefined,
+  now: Date = new Date(),
+): RecipeWork {
+  const since = now.getTime() - DECIDED_DAYS * 86_400_000;
+  const mine = asked ?? [];
+  return {
+    toDecide: (toDecide ?? []).filter((r) => r.status === 'waiting'),
+    waiting: mine.filter((r) => r.status === 'waiting'),
+    decided: mine.filter(
+      (r) =>
+        (r.status === 'approved' || r.status === 'declined') &&
+        r.decided_at !== null &&
+        new Date(r.decided_at).getTime() > since,
+    ),
+  };
+}

@@ -1,6 +1,6 @@
 import { Linking, RefreshControl, ScrollView, View } from 'react-native';
 import { Stack } from 'expo-router';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text } from '../../src/i18n/text';
 import { useLocale } from '../../src/i18n/LocaleProvider';
@@ -14,6 +14,7 @@ import { staffKeys } from '../../src/features/staff/keys';
 import { fetchChecklistsToday } from '../../src/features/staff/checklists/api';
 import { checklistTodos } from '../../src/features/staff/checklists/logic';
 import { TodayChecklists } from '../../src/features/staff/checklists/TodayChecklists';
+import { useRecipeWork } from '../../src/features/staff/recipes/work';
 import { fetchMyWork } from '../../src/features/staff/protocols/api';
 import { WorkList } from '../../src/features/staff/protocols/WorkList';
 import { useWorkAlerts } from '../../src/features/staff/workAlerts';
@@ -53,16 +54,28 @@ function WorkScreen() {
     queryFn: () => fetchMyWork(venueId!),
     enabled: !!venueId && showWork,
   });
-  const pull = usePullRefresh(() =>
-    Promise.all([showLists ? lists.refetch() : null, showWork ? work.refetch() : null]),
+  const recipes = useRecipeWork(
+    venueId,
+    status.kind === 'staff' ? status.staff.role : null,
+    status.kind === 'staff' && !pageBlocked('staff-recipe-change', status.staff),
   );
+  const queryClient = useQueryClient();
+  const pull = usePullRefresh(() =>
+    Promise.all([
+      showLists ? lists.refetch() : null,
+      showWork ? work.refetch() : null,
+      queryClient.invalidateQueries({ queryKey: ['staff', 'myRecipeChanges'] }),
+      queryClient.invalidateQueries({ queryKey: ['staff', 'recipeChanges'] }),
+    ]),
+  );
+  const noRecipes = recipes.toDecide.length + recipes.waiting.length + recipes.decided.length === 0;
 
   const w = work.data;
   const noLists = !showLists || (lists.isSuccess && checklistTodos(lists.data).length === 0);
   const noWork =
     !showWork ||
     (!!w && w.to_decide.length + w.todo.length + w.waiting.length + w.decided.length === 0);
-  const empty = noLists && noWork;
+  const empty = noLists && noWork && noRecipes;
 
   return (
     <Screen edges={[]}>

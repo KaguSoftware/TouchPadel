@@ -73,6 +73,7 @@ import {
   SectionLabel,
   SegmentedControl,
 } from '../src/components/ui';
+import { useIconChip } from '../src/components/iconChip';
 import { useBack, useBackGuard } from '../src/navigation/back';
 import { PhoneField } from '../src/components/phone';
 import {
@@ -190,6 +191,7 @@ function HubRow({
   chevron?: boolean;
 }) {
   const { colors, fonts } = useTheme();
+  const chip = useIconChip();
   return (
     <Pressable
       testID={testID}
@@ -212,13 +214,17 @@ function HubRow({
         style={{
           width: 32,
           height: 32,
-          borderRadius: radius.pill,
-          backgroundColor: iconBg ?? colors.gtint,
+          borderRadius: 10,
+          backgroundColor: iconBg ?? chip.fill,
+          borderWidth: 1,
+          borderColor: iconBg ? 'transparent' : chip.line,
           alignItems: 'center',
           justifyContent: 'center',
         }}
       >
-        {icon}
+        {!iconBg && isValidElement<{ color?: string }>(icon)
+          ? cloneElement(icon, { color: chip.fg })
+          : icon}
       </View>
       <View style={{ flex: 1, minWidth: 0 }}>
         <Text

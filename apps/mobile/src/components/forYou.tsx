@@ -19,6 +19,7 @@ import { useRouter } from 'expo-router';
 import { Text } from '../i18n/text';
 import { useLocale } from '../i18n/LocaleProvider';
 import { radius, space, useTheme } from '../theme';
+import { useIconChip } from './iconChip';
 import { useAuth } from '../features/auth/context';
 import { usePlayProfile, useSuggestionAvailability } from '../features/playProfile/hooks';
 import { hasAnswers } from '../features/playProfile/logic';
@@ -77,6 +78,7 @@ export function SuggestionRow({
 }) {
   const { t } = useLocale();
   const { colors, fonts } = useTheme();
+  const chip = useIconChip();
   const title = t(`playProfile.kind.${suggestion.kind}`);
   const why = t(`playProfile.why.${suggestion.reason}`);
   return (
@@ -99,12 +101,14 @@ export function SuggestionRow({
             width: 34,
             height: 34,
             borderRadius: radius.pill,
-            backgroundColor: colors.gtint,
+            backgroundColor: chip.fill,
+            borderWidth: 1,
+            borderColor: chip.line,
             alignItems: 'center',
             justifyContent: 'center',
           }}
         >
-          <KindIcon kind={suggestion.kind} color={colors.gstrong} />
+          <KindIcon kind={suggestion.kind} color={chip.fg} />
         </View>
         <View style={{ flex: 1, minWidth: 0 }}>
           <Text style={{ fontFamily: fonts.body700, fontSize: 14.5, color: colors.ink, textAlign: 'auto' }}>

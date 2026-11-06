@@ -245,6 +245,8 @@ function GroupTile({
 
 /** Tiles on one page of the grid: two a row, four rows (owner, 2026-10-08). */
 const TILES_PER_PAGE = 8;
+/** First page while the reward card shows: two rows (Saeed, 2026-11-06). */
+const TILES_FIRST_PAGE_WITH_REWARD = 4;
 /** Room round a swipe page for the tiles' shadows, which its ScrollView would clip. */
 const SHADOW_ROOM = 24;
 
@@ -254,7 +256,17 @@ const SHADOW_ROOM = 24;
  * page; more and the grid becomes pages swiped sideways, with a dot per page
  * under it (owner, 2026-10-08).
  */
-function TilePages({ tiles }: { tiles: ReactElement[] }) {
+function TilePages({
+  tiles,
+  firstPageSize = TILES_PER_PAGE,
+  header,
+}: {
+  tiles: ReactElement[];
+  /** The reward card: the top of the first page, so a swipe takes it along. */
+  header?: ReactElement | null;
+  /** Tiles on the first page: 4 (2x2) while the reward card takes the room above. */
+  firstPageSize?: number;
+}) {
   // Brand blue in light, brand green in dark (owner, 2026-10-11).
   const { colors } = useTheme();
   const glass = useGlass();
@@ -264,7 +276,8 @@ function TilePages({ tiles }: { tiles: ReactElement[] }) {
   const [scrollX] = useState(() => new Animated.Value(0));
 
   const pages: ReactElement[][] = [];
-  for (let i = 0; i < tiles.length; i += TILES_PER_PAGE) {
+  pages.push(tiles.slice(0, firstPageSize));
+  for (let i = firstPageSize; i < tiles.length; i += TILES_PER_PAGE) {
     pages.push(tiles.slice(i, i + TILES_PER_PAGE));
   }
 
@@ -287,7 +300,17 @@ function TilePages({ tiles }: { tiles: ReactElement[] }) {
     </View>
   );
 
-  if (pages.length <= 1) return grid(tiles);
+  const withHeader = (pageIndex: number, pageTiles: ReactElement[]) =>
+    pageIndex === 0 && header ? (
+      <View style={{ gap: space.s }}>
+        {header}
+        {grid(pageTiles)}
+      </View>
+    ) : (
+      grid(pageTiles)
+    );
+
+  if (pages.length <= 1) return withHeader(0, tiles);
 
   // A page is the grid plus the screen's gutter on each side, and the swipe
   // runs edge to edge: the tiles keep their size, slide out to the screen's
@@ -325,7 +348,7 @@ function TilePages({ tiles }: { tiles: ReactElement[] }) {
               paddingVertical: SHADOW_ROOM,
             }}
           >
-            {grid(pageTiles)}
+            {withHeader(i, pageTiles)}
           </View>
         ))}
       </ScrollView>
@@ -655,6 +678,13 @@ function TodayScreen() {
   const resetTo = useResetTo();
   const insets = useSafeAreaInsets();
   const { status, venueId, venues, setVenueId } = useStaffStatus();
+  // Same key as TodayRewards, so one fetch: the grid needs to know whether the
+  // reward card is on the page to size its first page.
+  const myRewards = useQuery({
+    queryKey: staffKeys.myRewards(venueId ?? ''),
+    queryFn: () => fetchMyRewards(venueId!),
+    enabled: !!venueId,
+  });
   // C-27, R45: the hub reads coach_me on mount, like Profile, whatever the
   // staff status and the coaching switches say.
   const coachEntry = coachModeEntry(useCoachStatus({ read: true }).status);
@@ -672,6 +702,8 @@ function TodayScreen() {
   // RequireStaff renders this only for a staff status.
   if (status.kind !== 'staff') return null;
   const { staff } = status;
+  const hasReward =
+    !!venueId && staff.role !== 'owner' && (myRewards.data?.rewards.length ?? 0) > 0;
   // Every role's page is drawn at the owner's size, a little tighter so the
   // grid fits a phone without scrolling (owner 2026-10-07: "bigger a bit";
   // one size for all roles, Sait 2026-11-02).
@@ -775,11 +807,6 @@ function TodayScreen() {
           <AssistantButton testID="staff.assistant.header" size={46} glass />
         </Card>
 
-        {/* Rewards for orders placed: the owner sets them, so the owner has none. */}
-        {venueId && staff.role !== 'owner' ? (
-          <TodayRewards venueId={venueId} staffId={staff.id} />
-        ) : null}
-
         {showsVenuePicker(status.venues) ? (
           <Card style={{ padding: space.m }}>
             <MicroLabel>{t('staff.shell.venue.label')}</MicroLabel>
@@ -796,6 +823,13 @@ function TodayScreen() {
         {status.venues.length === 0 ? <Hint>{t('staff.shell.venue.none')}</Hint> : null}
 
         <TilePages
+          firstPageSize={hasReward ? TILES_FIRST_PAGE_WITH_REWARD : TILES_PER_PAGE}
+          // Rewards for orders placed: the owner sets them, so the owner has none.
+          header={
+            venueId && staff.role !== 'owner' ? (
+              <TodayRewards venueId={venueId} staffId={staff.id} />
+            ) : null
+          }
           tiles={[
             ...groups.map((group) => (
               <GroupTile

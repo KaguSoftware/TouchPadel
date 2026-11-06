@@ -23,6 +23,9 @@ import { Hint, LinkText, MicroLabel } from '../../../components/ui';
 import { SkeletonList } from '../../../components/states';
 import { mapStaffError } from '../edge';
 import { staffKeys } from '../keys';
+import { pageBlocked } from '../access';
+import { useStaffStatus } from '../StaffStatusProvider';
+import { useRecipeWork } from '../recipes/work';
 import { fetchMyWork } from './api';
 import { bilingual } from './logic';
 import { ListCard } from './parts';
@@ -93,6 +96,22 @@ export function WorkList({ venueId }: { venueId: string }) {
   const { t, locale } = useLocale();
   const router = useRouter();
   const work = useQuery({ queryKey: staffKeys.work(venueId), queryFn: () => fetchMyWork(venueId) });
+  const { status } = useStaffStatus();
+  const recipes = useRecipeWork(
+    venueId,
+    status.kind === 'staff' ? status.staff.role : null,
+    status.kind === 'staff' && !pageBlocked('staff-recipe-change', status.staff),
+  );
+  const openRecipe = (id: string) => router.push({ pathname: '/staff-recipe-change', params: { id } });
+  const recipeTitle = (r: {
+    item_name_en: string | null;
+    item_name_ar: string | null;
+    size_name_en: string | null;
+    size_name_ar: string | null;
+  }) =>
+    [bilingual(locale, r.item_name_en, r.item_name_ar), bilingual(locale, r.size_name_en, r.size_name_ar)]
+      .filter(Boolean)
+      .join(' · ') || t('staff.checklists.recipeChange.title');
 
   if (work.isPending) return <SkeletonList rows={2} height={64} />;
   if (work.isError) {
@@ -112,10 +131,29 @@ export function WorkList({ venueId }: { venueId: string }) {
   const open = (runStepId: string) => router.push({ pathname: '/staff-step', params: { id: runStepId } });
   // Nothing to show: no line at all (owner, 2026-10-01), so Today goes
   // straight from the greeting to the tiles.
-  if (w.to_decide.length + w.todo.length + w.waiting.length + w.decided.length === 0) return null;
+  const recipeRows =
+    recipes.toDecide.length + recipes.waiting.length + recipes.decided.length;
+  if (w.to_decide.length + w.todo.length + w.waiting.length + w.decided.length + recipeRows === 0) {
+    return null;
+  }
 
   return (
     <View style={{ gap: space.sm }}>
+      <Group title={t('staff.protocols.work.recipeToDecide')} count={recipes.toDecide.length}>
+        {recipes.toDecide.map((row, i) => (
+          <Row
+            key={row.id}
+            testID={`staff.recipe.decide.${row.id}`}
+            title={recipeTitle(row)}
+            sub={[
+              t('staff.protocols.work.from', { name: row.requested_by_name ?? '' }),
+              formatDateTime(new Date(row.requested_at), locale),
+            ].join(' · ')}
+            onPress={() => openRecipe(row.id)}
+            last={i === recipes.toDecide.length - 1}
+          />
+        ))}
+      </Group>
       <Group title={t('staff.protocols.work.toDecide')} count={w.to_decide.length}>
         {w.to_decide.map((row, i) => (
           <Row
@@ -155,6 +193,34 @@ export function WorkList({ venueId }: { venueId: string }) {
             sub={`${stepName(row)} · ${formatDateTime(new Date(row.submitted_at), locale)}`}
             onPress={() => open(row.run_step_id)}
             last={i === w.waiting.length - 1}
+          />
+        ))}
+      </Group>
+      <Group title={t('staff.protocols.work.recipeWaiting')} count={recipes.waiting.length}>
+        {recipes.waiting.map((row, i) => (
+          <Row
+            key={row.id}
+            testID={`staff.recipe.waiting.${row.id}`}
+            title={recipeTitle(row)}
+            sub={formatDateTime(new Date(row.requested_at), locale)}
+            onPress={() => openRecipe(row.id)}
+            last={i === recipes.waiting.length - 1}
+          />
+        ))}
+      </Group>
+      <Group title={t('staff.protocols.work.recipeDecided')} count={recipes.decided.length}>
+        {recipes.decided.map((row, i) => (
+          <Row
+            key={row.id}
+            testID={`staff.recipe.decided.${row.id}`}
+            title={recipeTitle(row)}
+            sub={t('staff.protocols.work.decidedBy', {
+              decision: t(`work.recipeChange.status.${row.status}`),
+              name: row.decided_by_name ?? '',
+            })}
+            note={row.decline_reason ? isolate(row.decline_reason) : null}
+            onPress={() => openRecipe(row.id)}
+            last={i === recipes.decided.length - 1}
           />
         ))}
       </Group>

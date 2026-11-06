@@ -318,10 +318,9 @@ function MenuScreen() {
       : target?.kind === 'new'
         ? t('staff.floor.menu.openTab')
         : t('staff.floor.menu.review');
-  const FOOTER = 76 + insets.bottom;
 
   return (
-    <Screen edges={[]}>
+    <Screen edges={[]} keyboard="bar">
       <Stack.Screen options={{ title }} />
       <ScrollView
         ref={scrollRef}
@@ -334,7 +333,7 @@ function MenuScreen() {
         stickyHeaderIndices={[1]}
         contentContainerStyle={{
           paddingTop: space.m,
-          paddingBottom: FOOTER + space.l,
+          paddingBottom: space.l,
           gap: space.sm,
         }}
         keyboardShouldPersistTaps="handled"
@@ -448,10 +447,6 @@ function MenuScreen() {
       {/* Always there, so the waiter knows what is in the order from anywhere on the menu. */}
       <View
         style={{
-          position: 'absolute',
-          start: 0,
-          end: 0,
-          bottom: 0,
           paddingTop: space.sm,
           paddingBottom: space.sm + insets.bottom,
           paddingStart: space.l,

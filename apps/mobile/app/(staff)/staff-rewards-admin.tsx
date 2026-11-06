@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Alert, Pressable, RefreshControl, ScrollView, View } from 'react-native';
+import { Alert, Pressable, RefreshControl, View } from 'react-native';
 import { Stack } from 'expo-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -8,6 +8,7 @@ import { Text } from '../../src/i18n/text';
 import { useLocale } from '../../src/i18n/LocaleProvider';
 import { radius, space, useTheme } from '../../src/theme';
 import { Button, ErrorText, Field, Screen } from '../../src/components/ui';
+import { KeyboardScroll } from '../../src/components/KeyboardScroll';
 import { EmptyState, ErrorState, SkeletonList } from '../../src/components/states';
 import { PlusIcon, TrashIcon } from '../../src/components/icons';
 import { useToast } from '../../src/components/overlays';
@@ -340,9 +341,9 @@ function RewardsAdminScreen() {
   const people = board.data?.people ?? [];
 
   return (
-    <Screen edges={[]}>
+    <Screen edges={[]} keyboard>
       <Stack.Screen options={{ title: t('staff.rewards.admin.title') }} />
-      <ScrollView
+      <KeyboardScroll
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
         automaticallyAdjustKeyboardInsets
@@ -385,7 +386,7 @@ function RewardsAdminScreen() {
             onClose={() => setOpenFor((cur) => (cur === p.staff_id ? null : cur))}
           />
         ))}
-      </ScrollView>
+      </KeyboardScroll>
     </Screen>
   );
 }

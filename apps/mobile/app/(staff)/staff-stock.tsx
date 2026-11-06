@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { RefreshControl, ScrollView, View } from 'react-native';
+import { RefreshControl, View } from 'react-native';
 import { Stack } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -8,6 +8,7 @@ import { Text } from '../../src/i18n/text';
 import { useLocale } from '../../src/i18n/LocaleProvider';
 import { space, useTheme } from '../../src/theme';
 import { Card, Field, Hint, MicroLabel, Screen } from '../../src/components/ui';
+import { KeyboardScroll } from '../../src/components/KeyboardScroll';
 import { ChoiceButton } from '../../src/components/ChoiceButton';
 import { useRememberedChoice } from '../../src/features/staff/remembered';
 import { EmptyState, ErrorState, SkeletonList } from '../../src/components/states';
@@ -29,7 +30,7 @@ import {
 import { STOCK_LOCATIONS, homeStore, otherStore, type StockLocation } from '../../src/features/staff/stores/logic';
 import type { StockUnit } from '../../src/features/staff/supplies/production';
 import { localName } from '../../src/features/staff/checklists/logic';
-import { Lead, Tag } from '../../src/features/staff/checklists/parts';
+import { Tag } from '../../src/features/staff/checklists/parts';
 import { usePullRefresh } from '../../src/lib/usePullRefresh';
 import { formatQty } from '../../src/features/staff/supplies/logic';
 import { searchField } from '../../src/components/fieldKeyboard';
@@ -191,23 +192,15 @@ function StockScreen() {
   };
 
   return (
-    <Screen edges={[]}>
+    <Screen edges={[]} keyboard>
       <Stack.Screen options={{ title: t('staff.checklists.stock.title') }} />
-      <ScrollView
+      <KeyboardScroll
         contentContainerStyle={{ paddingTop: space.m, paddingBottom: 40 + insets.bottom, gap: space.sm }}
         keyboardShouldPersistTaps="handled"
+        automaticallyAdjustKeyboardInsets
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={pull.refreshing} onRefresh={pull.onRefresh} />}
       >
-        <Lead>
-          {t(
-            role === 'shop_staff'
-              ? 'staff.checklists.stock.leadShop'
-              : split
-                ? 'staff.stores.stock.lead'
-                : 'staff.checklists.stock.lead',
-          )}
-        </Lead>
         {/* One row of two big buttons, each saying what it filters and what it
             shows now; a tap opens the phone's own choice (Sait, 2026-10-17). */}
         {split || filters.length > 0 ? (
@@ -256,7 +249,7 @@ function StockScreen() {
           </View>
           {list()}
         </View>
-      </ScrollView>
+      </KeyboardScroll>
     </Screen>
   );
 }

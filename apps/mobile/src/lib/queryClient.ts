@@ -164,8 +164,8 @@ export const queryClient = new QueryClient({
  * the hold id is its key. Both may pause offline and go on reconnect, as
  * before. cancel_reservation is NOT here: see the mutation default above.
  */
-queryClient.setMutationDefaults(['hold-slot'], { retry: retryKeyedWriteOnce });
-queryClient.setMutationDefaults(['confirm-booking'], { retry: retryKeyedWriteOnce });
+queryClient.setMutationDefaults(['hold-slot'], { networkMode: 'always', retry: retryKeyedWriteOnce });
+queryClient.setMutationDefaults(['confirm-booking'], { networkMode: 'always', retry: retryKeyedWriteOnce });
 
 /**
  * Staff writes run now or fail now (build-contracts-2026-09-23 §6.4).

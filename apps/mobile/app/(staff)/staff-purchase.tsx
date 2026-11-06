@@ -85,7 +85,7 @@ function PurchasesScreen() {
     <Screen edges={[]}>
       <Stack.Screen options={{ title: t('staff.supplies.purchase.title'), ...addOptions }} />
       <ScreenWithBar
-        contentContainerStyle={{ paddingTop: space.m, gap: space.sm }}
+        contentContainerStyle={{ paddingTop: space.m, paddingHorizontal: 2, gap: space.l }}
         stickyHeaderIndices={[stickyIndex]}
         refreshControl={<RefreshControl refreshing={pull.refreshing} onRefresh={pull.onRefresh} />}
         bar={null}

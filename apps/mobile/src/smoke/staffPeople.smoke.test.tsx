@@ -302,7 +302,6 @@ describe.each(LOCALES)('pay deductions by role in %s', (locale) => {
       ],
     });
     try {
-      expect(screen.getByText(t('staff.deductions.propose.lead'))).toBeTruthy();
       // The only person on the team is chosen already (Sait, 2026-10-17), and
       // named in what happens next.
       expect(
@@ -391,7 +390,6 @@ describe.each(LOCALES)('pay deductions by role in %s', (locale) => {
       ],
     });
     try {
-      expect(screen.getByText(t('staff.deductions.propose.leadOwner'))).toBeTruthy();
       expect(
         screen.getByText(t('staff.deductions.propose.consequenceOwner', { name: isolate('Yusuf') })),
       ).toBeTruthy();
@@ -578,7 +576,6 @@ describe.each(LOCALES)('content for approval by role in %s', (locale) => {
     });
     try {
       expect(screen.queryByTestId('staff-content.submit')).toBeNull();
-      expect(screen.getByText(t('staff.content.ownerLead'))).toBeTruthy();
       fireEvent.press(screen.getByTestId(`staff-content.item.${ID(30)}`));
       expect(routerState.calls).toContainEqual({
         method: 'push',

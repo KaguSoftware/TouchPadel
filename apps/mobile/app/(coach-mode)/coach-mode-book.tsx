@@ -16,6 +16,7 @@ import { Text } from '../../src/i18n/text';
 import { useLocale } from '../../src/i18n/LocaleProvider';
 import { brand, radius, space, useTheme } from '../../src/theme';
 import { Button, ErrorText, Field, Hint, LinkText, Screen } from '../../src/components/ui';
+import { KeyboardScroll } from '../../src/components/KeyboardScroll';
 import { useToast } from '../../src/components/overlays';
 import {
   CalendarIcon,
@@ -96,9 +97,11 @@ function CoachBookScreen() {
   return <CoachBookBody coach={status.coach} />;
 }
 
+const OPERATOR_PANEL_BAND = '#2E4573';
+
 function CoachBookBody({ coach }: { coach: CoachMe }) {
   const { t, locale } = useLocale();
-  const { colors, fonts } = useTheme();
+  const { colors, fonts, appearance } = useTheme();
   const headerOptions = useBlueHeaderOptions(t('coaching.coach.book.title'));
   const router = useRouter();
   const back = useBack('/coach-mode');
@@ -373,12 +376,29 @@ function CoachBookBody({ coach }: { coach: CoachMe }) {
   const card = {
     backgroundColor: colors.card,
     borderWidth: 1,
-    borderColor: colors.line,
+    borderColor: appearance === 'dark' ? OPERATOR_PANEL_BAND : colors.line,
     borderRadius: radius.card,
     padding: 14,
     gap: 10,
+    overflow: 'hidden',
   } as const;
-  const stepTitle = { fontFamily: fonts.body800, fontSize: 14, color: colors.ink } as const;
+  // The operator Panel's title band (kit.tsx): Touch Blue on light, #2E4573 on
+  // dark, white title, running to the frame's edges.
+  const band = {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: -14,
+    marginStart: -14,
+    marginEnd: -14,
+    paddingTop: 10,
+    paddingBottom: 10,
+    paddingStart: 14,
+    paddingEnd: 14,
+    minHeight: 48,
+    backgroundColor: appearance === 'dark' ? OPERATOR_PANEL_BAND : brand.blue,
+  } as const;
+  const stepTitle = { fontFamily: fonts.body800, fontSize: 14, color: brand.white } as const;
   const heroChip = (selected: boolean, pressed: boolean) => ({
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
@@ -392,9 +412,9 @@ function CoachBookBody({ coach }: { coach: CoachMe }) {
   });
 
   return (
-    <Screen edges={[]} padded={false}>
+    <Screen edges={[]} keyboard="bar" padded={false}>
       <Stack.Screen options={headerOptions} />
-      <ScrollView
+      <KeyboardScroll
         ref={scroll}
         onLayout={(e) => {
           viewportH.current = e.nativeEvent.layout.height;
@@ -408,6 +428,7 @@ function CoachBookBody({ coach }: { coach: CoachMe }) {
         scrollEventThrottle={16}
         contentContainerStyle={{ flexGrow: 1 }}
         keyboardShouldPersistTaps="handled"
+        automaticallyAdjustKeyboardInsets
         showsVerticalScrollIndicator={false}
       >
         {/* The hero: the bar's blue carried down, holding the time being booked. */}
@@ -584,7 +605,7 @@ function CoachBookBody({ coach }: { coach: CoachMe }) {
 
           {/* 1 · Lesson */}
           <View testID="coach-mode-book.type" style={card}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            <View style={band}>
               <StepBadge n={1} />
               <Text style={stepTitle}>{t('coaching.coach.book.type')}</Text>
             </View>
@@ -703,7 +724,7 @@ function CoachBookBody({ coach }: { coach: CoachMe }) {
             >
               {errorAt('when')}
               <View style={card}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                <View style={band}>
                   <StepBadge n={2} />
                   <View style={{ flex: 1 }}>
                     <DateTimeField
@@ -735,7 +756,7 @@ function CoachBookBody({ coach }: { coach: CoachMe }) {
           >
             {errorAt('students')}
             <View style={card}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+              <View style={band}>
                 <StepBadge n={type && allowed ? 3 : 2} />
                 <Text style={[stepTitle, { flex: 1 }]}>{t('coaching.coach.book.students')}</Text>
                 {maxParty > 1 ? (
@@ -958,6 +979,8 @@ function CoachBookBody({ coach }: { coach: CoachMe }) {
                             <LinkText
                               testID="coach-mode-book.phone-change"
                               label={t('coaching.coach.book.change')}
+                              color={colors.gtext}
+                              style={{ alignSelf: 'center' }}
                               onPress={() => setSavedKey(null)}
                             />
                           </View>
@@ -1026,7 +1049,7 @@ function CoachBookBody({ coach }: { coach: CoachMe }) {
           </View>
           {spacer > 0 ? <View style={{ height: spacer }} /> : null}
         </View>
-      </ScrollView>
+      </KeyboardScroll>
 
       {/* The bar under the form: paid at the desk, the price, and Book. */}
       <View

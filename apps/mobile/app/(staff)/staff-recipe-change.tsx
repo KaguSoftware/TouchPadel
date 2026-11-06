@@ -22,6 +22,7 @@ import { useToast } from '../../src/components/overlays';
 import { RequireStaff } from '../../src/features/staff/RequireStaff';
 import { useStaffStatus } from '../../src/features/staff/StaffStatusProvider';
 import { staffKeys } from '../../src/features/staff/keys';
+import { RECIPE_WORK_POLL_MS } from '../../src/features/staff/recipes/work';
 import { mapStaffError } from '../../src/features/staff/edge';
 import { clearStaffIntentKey, staffIntentKey } from '../../src/lib/idempotency';
 import {
@@ -67,7 +68,7 @@ import {
 } from '../../src/features/staff/recipes/logic';
 import type { StockUnit } from '../../src/features/staff/supplies/production';
 import { localName } from '../../src/features/staff/checklists/logic';
-import { Lead, MULTILINE_BOX, MULTILINE_TEXT, Tag, type TagTone } from '../../src/features/staff/checklists/parts';
+import { MULTILINE_BOX, MULTILINE_TEXT, Tag, type TagTone } from '../../src/features/staff/checklists/parts';
 import { usePullRefresh } from '../../src/lib/usePullRefresh';
 import { formatQty } from '../../src/features/staff/supplies/logic';
 import { searchField } from '../../src/components/fieldKeyboard';
@@ -147,11 +148,15 @@ function RecipeChangeScreen() {
     queryKey: staffKeys.myRecipeChanges(venue),
     queryFn: () => fetchMyRecipeChanges(venue),
     enabled: venue !== '' && head,
+    refetchInterval: RECIPE_WORK_POLL_MS,
+    refetchOnWindowFocus: 'always',
   });
   const page = useQuery({
     queryKey: staffKeys.recipeChanges(venue, filter),
     queryFn: () => fetchRecipeChanges(venue, filter),
     enabled: venue !== '' && !head,
+    refetchInterval: RECIPE_WORK_POLL_MS,
+    refetchOnWindowFocus: 'always',
   });
   const pull = usePullRefresh(() =>
     head ? Promise.all([view.refetch(), options.refetch(), mine.refetch()]) : page.refetch(),
@@ -203,6 +208,7 @@ function RecipeChangeScreen() {
       change(emptyRecipeDraft());
       setAdding(false);
       void queryClient.invalidateQueries({ queryKey: staffKeys.myRecipeChanges(venue) });
+      void queryClient.invalidateQueries({ queryKey: staffKeys.work(venue) });
     },
     onError: (err) => setError(t(mapStaffError(err))),
   });
@@ -883,12 +889,6 @@ function RecipeChangeScreen() {
     );
   };
 
-  const lead = head
-    ? 'staff.checklists.recipeChange.lead'
-    : owner
-      ? 'staff.checklists.recipeChange.leadOwner'
-      : 'staff.checklists.recipeChange.leadManager';
-
   return (
     <Screen edges={[]}>
       <Stack.Screen options={{ title: t('staff.checklists.recipeChange.title') }} />
@@ -911,7 +911,6 @@ function RecipeChangeScreen() {
           ) : null
         }
       >
-        <Lead>{t(lead)}</Lead>
         {venue === '' ? <Hint>{t('staff.shell.venue.none')}</Hint> : null}
         {selectedId ? (
           detail()

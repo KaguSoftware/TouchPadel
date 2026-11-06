@@ -12,7 +12,9 @@ export function waitingCount(
   lists: ChecklistsToday | null | undefined,
   work: MyProtocolWork | null | undefined,
   now: Date = new Date(),
+  /** Recipe changes the owner is asked to decide (they are work, as a submission to decide is). */
+  recipeToDecide = 0,
 ): number {
   const checklists = checklistTodos(lists, now).length;
-  return checklists + (work ? work.to_decide.length + work.todo.length : 0);
+  return checklists + recipeToDecide + (work ? work.to_decide.length + work.todo.length : 0);
 }

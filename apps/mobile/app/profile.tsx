@@ -17,6 +17,7 @@ import { venuePhoneOf } from '../src/features/availability/assemble';
 import { mapErrorToKey } from '../src/features/booking/errors';
 import { callPhone } from '../src/lib/phone';
 import { radius, space, useTheme } from '../src/theme';
+import { useIconChip } from '../src/components/iconChip';
 import { Button, Card, ErrorText, Screen, SectionLabel } from '../src/components/ui';
 import { MenuRow } from '../src/components/booking';
 import { anyCoaching } from '../src/features/coaching/logic';
@@ -94,6 +95,7 @@ function MenuGroup({ label, children }: { label: string; children: ReactNode }) 
 export default function ProfileScreen() {
   const { t, dir, locale } = useLocale();
   const { colors, fonts, appearance } = useTheme();
+  const chip = useIconChip();
   const router = useRouter();
   const resetTo = useResetTo();
   const downToTab = useDownToTab();
@@ -208,14 +210,16 @@ export default function ProfileScreen() {
             testID="profile.sign-in"
             label={t('auth.signIn')}
             variant="primary"
-            onPress={() => router.push('/sign-in')}
+            // navigate, not push: a second quick tap finds the page already open
+            // instead of stacking a copy of it.
+            onPress={() => router.navigate('/sign-in')}
             style={{ alignSelf: 'stretch', marginTop: space.xl }}
           />
           <Button
             testID="profile.sign-up"
             label={t('auth.signUp')}
             variant="cta"
-            onPress={() => router.push('/sign-up')}
+            onPress={() => router.navigate('/sign-up')}
             style={{ alignSelf: 'stretch', marginTop: 9 }}
           />
           {/* The menu is public: a guest who has not signed in can still look. */}
@@ -439,12 +443,14 @@ export default function ProfileScreen() {
                     width: 40,
                     height: 40,
                     borderRadius: radius.cell,
-                    backgroundColor: colors.gtint,
+                    backgroundColor: chip.fill,
+                    borderWidth: 1,
+                    borderColor: chip.line,
                     alignItems: 'center',
                     justifyContent: 'center',
                   }}
                 >
-                  <QrIcon size={20} color={colors.gstrong} />
+                  <QrIcon size={20} color={chip.fg} />
                 </View>
                 <View style={{ flex: 1, minWidth: 0 }}>
                   <Text style={{ fontFamily: fonts.display800, fontSize: 15, color: colors.ink }}>

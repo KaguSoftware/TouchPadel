@@ -24,6 +24,7 @@ import {
 import { Text } from '../../src/i18n/text';
 import { useLocale } from '../../src/i18n/LocaleProvider';
 import { brand, radius, space, useTheme } from '../../src/theme';
+import { useIconChip } from '../../src/components/iconChip';
 import { Button, Card, Screen, SectionLabel, SegmentedControl } from '../../src/components/ui';
 import { ListHeading } from '../../src/components/booking';
 import { EmptyState, ErrorState, SkeletonList } from '../../src/components/states';
@@ -88,6 +89,7 @@ function CoachModeScreen() {
 function CoachModeBody({ coach }: { coach: CoachMe }) {
   const { t, locale } = useLocale();
   const { colors, fonts } = useTheme();
+  const chip = useIconChip();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { retry } = useCoachStatus();
@@ -433,12 +435,14 @@ function CoachModeBody({ coach }: { coach: CoachMe }) {
                   width: 40,
                   height: 40,
                   borderRadius: 12,
-                  backgroundColor: colors.gtint,
+                  backgroundColor: chip.fill,
+                  borderWidth: 1,
+                  borderColor: chip.line,
                   alignItems: 'center',
                   justifyContent: 'center',
                 }}
               >
-                <a.icon size={20} color={colors.gstrong} />
+                <a.icon size={20} color={chip.fg} />
               </View>
               <Text style={{ fontFamily: fonts.body800, fontSize: 14, color: colors.ink }}>
                 {a.label}

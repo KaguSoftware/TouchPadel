@@ -27,7 +27,6 @@ import { ListCard, StatusPill, type Tone } from '../../src/features/staff/protoc
 import { usePullRefresh } from '../../src/lib/usePullRefresh';
 import { cacheEdit, useUndoable } from '../../src/features/staff/undo';
 import { useHeaderAddOptions } from '../../src/navigation/headerAdd';
-import { Lead } from '../../src/features/staff/checklists/parts';
 
 /**
  * Requests (migration 0072, unchanged): leave, a shift swap, a wage advance or
@@ -130,7 +129,6 @@ function RequestsScreen() {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={pull.refreshing} onRefresh={pull.onRefresh} />}
       >
-        <Lead>{t('staff.shell.requests.lead')}</Lead>
         {staff?.role === 'owner' ? <Hint>{t('staff.shell.requests.decideOnOperator')}</Hint> : null}
         {staff?.role === 'manager' ? <Hint>{t('staff.shell.requests.managerNote')}</Hint> : null}
 

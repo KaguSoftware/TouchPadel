@@ -5,6 +5,8 @@
  * Stateless — all data arrives as props (spec §06).
  */
 import {
+  cloneElement,
+  isValidElement,
   memo,
   useCallback,
   useEffect,
@@ -62,6 +64,7 @@ import {
 import { useReduceMotion } from '../lib/useReduceMotion';
 import { BrandPattern } from './BrandPattern';
 import { Button, SectionLabel } from './ui';
+import { useIconChip } from './iconChip';
 
 // ── Status pill (7 statuses, all handled — spec BookingStatusIndicator) ─────
 
@@ -2028,6 +2031,7 @@ export function MenuRow({
   testID?: string;
 }) {
   const { colors, fonts } = useTheme();
+  const chip = useIconChip();
   return (
     <Pressable
       testID={testID}
@@ -2055,12 +2059,16 @@ export function MenuRow({
             width: 30,
             height: 30,
             borderRadius: 9,
-            backgroundColor: iconBg ?? colors.gtint,
+            backgroundColor: iconBg ?? chip.fill,
+            borderWidth: 1,
+            borderColor: iconBg ? 'transparent' : chip.line,
             alignItems: 'center',
             justifyContent: 'center',
           }}
         >
-          {icon}
+          {!iconBg && isValidElement<{ color?: string }>(icon)
+            ? cloneElement(icon, { color: chip.fg })
+            : icon}
         </View>
         <Text
           numberOfLines={1}

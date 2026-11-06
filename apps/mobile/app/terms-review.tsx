@@ -1,38 +1,32 @@
+import { useLocalSearchParams } from 'expo-router';
 import { useBack } from '../src/navigation/back';
 import { useLocale } from '../src/i18n/LocaleProvider';
-import { TermsReader } from '../src/features/profile/TermsReader';
-import { termsReviewAccepted } from '../src/features/profile/termsReview';
-import { Button } from '../src/components/ui';
+import { TermsDocuments } from '../src/features/profile/TermsDocuments';
+import { Button, Screen, Title } from '../src/components/ui';
+import { space } from '../src/theme';
 
 /**
- * The Terms and the Privacy Policy, opened from the sign-up form's checkbox:
- * the same reader as the consent gate (app/accept-terms.tsx). The guest reads
- * to the end, ticks, accepts, and the sheet closes onto the form with its
- * checkbox ticked. Nothing is recorded here; there is no account yet.
- *
- * A modal the guest CAN swipe away or close with Not now (app/_layout.tsx):
- * either leaves the box unticked, and sign-up refuses to submit until it is
- * ticked, so there is no way past the form without accepting.
+ * One document, read-only (`?doc=terms|privacy`, default terms): opened from the
+ * link beside its consent checkbox (sign-up form, app/accept-terms.tsx).
+ * It records nothing and gates nothing; Close returns to where it came from.
  */
 export default function TermsReviewScreen() {
   const { t } = useLocale();
-  // Back to the sign-up form; a review opened with no history lands on it too.
   const back = useBack('/sign-up');
+  const { doc } = useLocalSearchParams<{ doc?: string }>();
+  const which = doc === 'privacy' ? 'privacy' : 'terms';
   return (
-    <TermsReader
-      testID="terms-review"
-      onAccept={() => {
-        termsReviewAccepted();
-        back();
-      }}
-      footer={
-        <Button
-          testID="terms-review.not-now"
-          label={t('consent.notNow')}
-          variant="secondary"
-          onPress={back}
-        />
-      }
-    />
+    // A modal sheet starts below the status bar, so no top inset here.
+    <Screen gutter={20} edges={['bottom']} style={{ paddingTop: space.xxl + space.xl }}>
+      <Title plain>{t(which === 'privacy' ? 'legal.privacy.title' : 'legal.terms.title')}</Title>
+      <TermsDocuments testID="terms-review.document" doc={which} />
+      <Button
+        testID="terms-review.close"
+        label={t('common.close')}
+        variant="secondary"
+        onPress={back}
+        style={{ marginVertical: space.m }}
+      />
+    </Screen>
   );
 }

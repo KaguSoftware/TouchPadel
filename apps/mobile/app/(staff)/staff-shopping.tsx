@@ -1,26 +1,27 @@
-import { useMemo, useState } from 'react';
-import { Pressable, RefreshControl, ScrollView, View } from 'react-native';
+import { useMemo, useRef, useState } from 'react';
+import { Pressable, RefreshControl, View } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import type { StaffRole } from '@touch/core';
-import { formatDateTime, isolate, type MessageKey } from '@touch/i18n';
+import { formatDateTime, isolate } from '@touch/i18n';
 import { Text } from '../../src/i18n/text';
 import { useLocale } from '../../src/i18n/LocaleProvider';
 import { radius, space, useTheme } from '../../src/theme';
 import { Button, Card, ErrorText, Field, Hint, LinkText, MicroLabel, Screen, SegmentedControl } from '../../src/components/ui';
+import { KeyboardScroll } from '../../src/components/KeyboardScroll';
 import { DetailsFold } from '../../src/components/DetailsFold';
 import { ChecklistRow } from '../../src/components/ChecklistRow';
 import { EmptyState, ErrorState, SkeletonList } from '../../src/components/states';
 import { MenuRow } from '../../src/components/booking';
 import { CardIcon, CheckIcon, ChevronIcon } from '../../src/components/icons';
 import { useToast } from '../../src/components/overlays';
-import { GroupLabel, Lead, MULTILINE_BOX, MULTILINE_TEXT } from '../../src/features/staff/checklists/parts';
+import { GroupLabel, MULTILINE_BOX, MULTILINE_TEXT } from '../../src/features/staff/checklists/parts';
 import { usePullRefresh } from '../../src/lib/usePullRefresh';
 import { RequireStaff } from '../../src/features/staff/RequireStaff';
 import { useStaffStatus } from '../../src/features/staff/StaffStatusProvider';
 import { mapStaffError } from '../../src/features/staff/edge';
 import { staffKeys } from '../../src/features/staff/keys';
+import { cacheEdit, cacheEdits, useUndoable } from '../../src/features/staff/undo';
 import { clearStaffIntentKey, staffIntentKey } from '../../src/lib/idempotency';
 import {
   SHOPPING_LIST_STATUSES,
@@ -33,7 +34,6 @@ import {
   type ShoppingItem,
   type ShoppingListPage,
 } from '../../src/features/staff/supplies/api';
-import { cacheEdit, cacheEdits, useUndoable } from '../../src/features/staff/undo';
 import {
   CAPS,
   DECLINED_SHOWN,
@@ -78,14 +78,6 @@ import {
  * one), so it never sees a line before its OK. No price is shown or asked for
  * here: the list carries none, and the purchase is the driver's own page.
  */
-
-function leadKey(role: StaffRole): MessageKey {
-  if (role === 'driver') return 'staff.supplies.shopping.lead.driver';
-  if (role === 'chef') return 'staff.supplies.shopping.lead.chef';
-  if (role === 'manager' || role === 'owner') return 'staff.supplies.shopping.lead.mgmt';
-  if (role === 'head_barista' || role === 'head_chef') return 'staff.supplies.shopping.lead.head';
-  return 'staff.supplies.shopping.lead.reader';
-}
 
 function ShoppingScreen() {
   const { t, locale } = useLocale();
@@ -199,9 +191,12 @@ function ShoppingScreen() {
   // ── Cancel, decide ─────────────────────────────────────────────────────────
   // Cancel at once, with Undo on the toast instead of "Are you sure?" (Sait,
   // 2026-10-17): the line leaves every list now, the call goes when the
-  // toast's time is up.
+  // toast's time is up. Before that, the line is checked against the server:
+  // if the driver bought it a moment ago, the refusal shows now and there is
+  // no Undo to offer. A buy during the Undo window is still refused at send.
   const undoable = useUndoable();
-  const cancel = (id: string) =>
+  const cancelling = useRef(new Set<string>());
+  const startCancel = (id: string) =>
     undoable({
       message: t('staff.supplies.shopping.list.cancelled'),
       ...cacheEdits(
@@ -214,11 +209,31 @@ function ShoppingScreen() {
       ),
       send: () => cancelShoppingItem(id),
       onSent: refreshLists,
+      // Refused: the saved list is stale, so show the refusal and read the
+      // lists again rather than put the old line back.
+      restoreOnError: false,
       onError: (err) => {
         toast(t(mapStaffError(err)), 'error');
         refreshLists();
       },
     });
+  const cancel = (id: string) => {
+    if (cancelling.current.has(id)) return;
+    cancelling.current.add(id);
+    Promise.all((['open', 'pending'] as const).map((s) => fetchShoppingList(venue, s)))
+      .then((pages) => {
+        const stillThere = pages.some((p) => p.items.some((i) => i.id === id));
+        if (stillThere) {
+          startCancel(id);
+        } else {
+          toast(t('op.errors.SHOPPING_ITEM_NOT_OPEN'), 'error');
+          refreshLists();
+        }
+      })
+      // The check itself failed (offline, say): go on, the send decides.
+      .catch(() => startCancel(id))
+      .finally(() => cancelling.current.delete(id));
+  };
 
   const [declining, setDeclining] = useState<{ id: string; reason: string; error: string | null } | null>(null);
   const decide = useMutation({
@@ -317,15 +332,15 @@ function ShoppingScreen() {
   );
 
   return (
-    <Screen edges={[]}>
+    <Screen edges={[]} keyboard>
       <Stack.Screen options={{ title: t('staff.supplies.shopping.title') }} />
-      <ScrollView
+      <KeyboardScroll
         contentContainerStyle={{ paddingTop: space.m, paddingBottom: 40 + insets.bottom, gap: space.sm }}
         keyboardShouldPersistTaps="handled"
+        automaticallyAdjustKeyboardInsets
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={pull.refreshing} onRefresh={pull.onRefresh} />}
       >
-        <Lead>{t(leadKey(status.staff.role))}</Lead>
         {venue === '' ? <Hint>{t('staff.shell.venue.none')}</Hint> : null}
 
         {view.canDecide && pending.isError ? loadError('staff-shopping.pending-error', pending) : null}
@@ -625,7 +640,7 @@ function ShoppingScreen() {
           </>
         ) : null}
 
-      </ScrollView>
+      </KeyboardScroll>
     </Screen>
   );
 }

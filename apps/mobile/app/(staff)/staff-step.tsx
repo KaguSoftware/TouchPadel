@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Pressable, RefreshControl, ScrollView, View } from 'react-native';
+import { Pressable, RefreshControl, View } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -18,6 +18,7 @@ import { Text } from '../../src/i18n/text';
 import { useLocale } from '../../src/i18n/LocaleProvider';
 import { space, useTheme } from '../../src/theme';
 import { Button, Hint, LinkText, Screen } from '../../src/components/ui';
+import { KeyboardScroll } from '../../src/components/KeyboardScroll';
 import { ErrorState, SkeletonList } from '../../src/components/states';
 import { useToast } from '../../src/components/overlays';
 import { CheckIcon } from '../../src/components/icons';
@@ -363,7 +364,7 @@ function StepScreen() {
 
   if (stepQ.isPending || !role || !venueId) {
     return (
-      <Screen edges={[]}>
+      <Screen edges={[]} keyboard>
         <Stack.Screen options={{ title: t('staff.protocols.step.title') }} />
         <View style={{ paddingTop: space.m }}>
           <SkeletonList rows={3} height={96} />
@@ -373,7 +374,7 @@ function StepScreen() {
   }
   if (stepQ.isError) {
     return (
-      <Screen edges={[]}>
+      <Screen edges={[]} keyboard>
         <Stack.Screen options={{ title: t('staff.protocols.step.title') }} />
         <ErrorState
           testID="staff-step.error"
@@ -431,11 +432,12 @@ function StepScreen() {
   })();
 
   return (
-    <Screen edges={[]}>
+    <Screen edges={[]} keyboard>
       <Stack.Screen options={{ title: t('staff.protocols.step.title') }} />
-      <ScrollView
+      <KeyboardScroll
         contentContainerStyle={{ paddingTop: space.m, paddingBottom: 40 + insets.bottom, gap: space.sm }}
         keyboardShouldPersistTaps="handled"
+        automaticallyAdjustKeyboardInsets
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={pull.refreshing} onRefresh={pull.onRefresh} />}
       >
@@ -514,7 +516,7 @@ function StepScreen() {
             />
           )
         ) : null}
-      </ScrollView>
+      </KeyboardScroll>
     </Screen>
   );
 }

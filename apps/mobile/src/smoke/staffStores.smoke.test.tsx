@@ -209,7 +209,6 @@ describe.each(LOCALES)('who sees what on the store pages in %s', (locale) => {
     });
     try {
       expect(screen.queryByTestId('staff-stock-log.store')).toBeNull();
-      expect(screen.getByText(t('staff.stores.log.leadShop'))).toBeTruthy();
       expect(screen.getByText(t('staff.stores.log.save.shop'))).toBeTruthy();
     } finally {
       screen.unmount();

@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import { Modal, Platform, Pressable, RefreshControl, ScrollView, View } from 'react-native';
+import { Modal, Platform, Pressable, RefreshControl, View } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -29,6 +29,7 @@ import {
   type IconProps,
 } from '../../src/components/icons';
 import { Button, Field, Hint, MicroLabel, Screen } from '../../src/components/ui';
+import { KeyboardScroll } from '../../src/components/KeyboardScroll';
 import { EmptyState, ErrorState, SkeletonList } from '../../src/components/states';
 import { useToast } from '../../src/components/overlays';
 import { RequireStaff } from '../../src/features/staff/RequireStaff';
@@ -37,7 +38,7 @@ import { mapStaffError } from '../../src/features/staff/edge';
 import { staffKeys } from '../../src/features/staff/keys';
 import { usePullRefresh } from '../../src/lib/usePullRefresh';
 import { useHeaderAddOptions } from '../../src/navigation/headerAdd';
-import { Lead, MULTILINE_BOX, MULTILINE_TEXT } from '../../src/features/staff/checklists/parts';
+import { MULTILINE_BOX, MULTILINE_TEXT } from '../../src/features/staff/checklists/parts';
 import { Chip } from '../../src/features/staff/protocols/FormFields';
 import { StoredPhotos } from '../../src/features/staff/supplies/StoredPhotos';
 import { localName } from '../../src/features/staff/marketing/logic';
@@ -460,7 +461,7 @@ function IncidentsScreen() {
             </Text>
           </Pressable>
         </View>
-        <ScrollView
+        <KeyboardScroll
           contentContainerStyle={{
             paddingHorizontal: space.l,
             paddingTop: space.s,
@@ -468,8 +469,8 @@ function IncidentsScreen() {
             gap: space.l,
           }}
           keyboardShouldPersistTaps="handled"
-          keyboardDismissMode="on-drag"
           automaticallyAdjustKeyboardInsets
+          keyboardDismissMode="on-drag"
         >
           <View
             style={{
@@ -561,7 +562,7 @@ function IncidentsScreen() {
               />
             </View>
           ) : null}
-        </ScrollView>
+        </KeyboardScroll>
       </View>
     );
   };
@@ -601,7 +602,6 @@ function IncidentsScreen() {
   // ── One's own reports ───────────────────────────────────────────────────────
   const mineView = (
     <>
-      <Lead>{t('staff.incidents.lead')}</Lead>
       {mine.isPending && venue !== '' ? (
         <SkeletonList rows={2} height={96} />
       ) : mine.isError ? (
@@ -649,20 +649,21 @@ function IncidentsScreen() {
   const opened = openId ? (shown.find((r) => r.id === openId) ?? null) : null;
 
   return (
-    <Screen edges={[]}>
+    <Screen edges={[]} keyboard>
       <Stack.Screen
         options={{
           title: t('staff.incidents.title'),
           ...addOptions,
         }}
       />
-      <ScrollView
+      <KeyboardScroll
         contentContainerStyle={{
           paddingTop: space.m,
           paddingBottom: 40 + insets.bottom,
           gap: space.sm,
         }}
         keyboardShouldPersistTaps="handled"
+        automaticallyAdjustKeyboardInsets
         keyboardDismissMode="on-drag"
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={pull.refreshing} onRefresh={pull.onRefresh} />}
@@ -671,7 +672,7 @@ function IncidentsScreen() {
         <View testID="staff-incidents.list" style={{ gap: space.sm }}>
           {reviews ? reviewView : mineView}
         </View>
-      </ScrollView>
+      </KeyboardScroll>
       {/* The platform's sheet on iOS, a full-screen slide on Android, as the
           assistant's settings; the modal sits outside the direction root. */}
       <Modal

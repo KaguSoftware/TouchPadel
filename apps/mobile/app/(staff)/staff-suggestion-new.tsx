@@ -20,7 +20,7 @@ import {
   suggestionIntent,
   suggestionIssue,
 } from '../../src/features/staff/suggestions/logic';
-import { Lead, MULTILINE_BOX, MULTILINE_TEXT } from '../../src/features/staff/checklists/parts';
+import { MULTILINE_BOX, MULTILINE_TEXT } from '../../src/features/staff/checklists/parts';
 
 /**
  * Send a suggestion (build-contracts-2026-09-23 §2.24.4, §6.1; plan #63).
@@ -85,7 +85,6 @@ function SuggestionNewScreen() {
           />
         }
       >
-        <Lead>{t('staff.checklists.suggestions.lead')}</Lead>
         {venue === '' ? <Hint>{t('staff.shell.venue.none')}</Hint> : null}
 
         <Card style={{ padding: space.m, gap: space.s }}>

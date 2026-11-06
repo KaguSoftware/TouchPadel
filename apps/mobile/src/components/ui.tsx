@@ -17,7 +17,7 @@
  * `lint` on any call site that leaves one off.
  */
 import { ErrorAlert } from './overlays';
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type Ref } from 'react';
+import { useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode, type Ref } from 'react';
 import {
   ActivityIndicator,
   Animated,
@@ -45,6 +45,7 @@ import { brand, radius, shadows, space, useTheme } from '../theme';
 import { BlurTargetView, BlurView } from 'expo-blur';
 import { BrandPattern } from './BrandPattern';
 import { fieldKeyboardDefaults } from './fieldKeyboard';
+import { KeyboardScrollContext } from './KeyboardScroll';
 import { TitleSquiggle } from './icons';
 import { insetStart, isFrame, type Frame } from './segmentedThumb';
 
@@ -78,10 +79,22 @@ export function Screen({
   gutter = space.l,
   edges = ['top'],
   pattern = false,
+  keyboard = false,
   style,
 }: {
   children: ReactNode;
   padded?: boolean;
+  /**
+   * The page holds text fields. `true`: the page's ScrollViews carry
+   * `automaticallyAdjustKeyboardInsets` (iOS), which lifts the content AND
+   * scrolls the focused field clear of the keyboard; Android resizes itself.
+   * `'bar'`: a pinned footer outside the scroll area (order item, order menu)
+   * must ride above the keyboard too, so the page is padded by a
+   * KeyboardAvoidingView instead. Never combine the two on one page (the
+   * lift is applied twice), and leave it off when the page already has a
+   * BottomBar, StepPage or FormScreen.
+   */
+  keyboard?: boolean | 'bar';
   /** The brand line pattern under the page, sharp or frosted (see above). */
   pattern?: boolean | 'blur';
   /** Horizontal inset when padded (design: 16 in the app, 20 on the auth screens). */
@@ -102,7 +115,17 @@ export function Screen({
       ]}
     >
       {pattern === 'blur' ? <BlurredPattern /> : pattern ? <BrandPattern /> : null}
-      {children}
+      {keyboard === 'bar' && Platform.OS === 'ios' ? (
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          keyboardVerticalOffset={Platform.OS === 'ios' && !edges.includes('top') ? 100 : 0}
+        >
+          {children}
+        </KeyboardAvoidingView>
+      ) : (
+        children
+      )}
     </View>
   );
 }
@@ -561,6 +584,9 @@ export function Field({
   const { colors, fonts } = useTheme();
   const { dir } = useLocale();
   const [focused, setFocused] = useState(false);
+  // Inside a KeyboardScroll, a focus asks it to show the button under the field too.
+  const keyboardScroll = useContext(KeyboardScrollContext);
+  const box = useRef<ViewInstance>(null);
   const isLatin =
     latin ??
     (inputProps.secureTextEntry === true ||
@@ -615,7 +641,7 @@ export function Field({
   }
 
   return (
-    <View style={{ marginTop: space.sm }}>
+    <View ref={box} style={{ marginTop: space.sm }}>
       {label ? <MicroLabel style={{ marginBottom: 5 }}>{label}</MicroLabel> : null}
       <View
         style={[
@@ -719,6 +745,7 @@ export function Field({
         {...fieldKeyboardDefaults(inputProps)}
         onFocus={(e) => {
           setFocused(true);
+          keyboardScroll?.reveal(box.current);
           onFocus?.(e);
         }}
         onBlur={(e) => {

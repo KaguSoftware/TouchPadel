@@ -27,7 +27,7 @@ import {
   type HistoryCursor,
   type HistoryList,
 } from '../../src/features/staff/checklists/logic';
-import { Lead, StaffPhotoThumb, Tag } from '../../src/features/staff/checklists/parts';
+import { StaffPhotoThumb, Tag } from '../../src/features/staff/checklists/parts';
 import { usePullRefresh } from '../../src/lib/usePullRefresh';
 
 /**
@@ -221,7 +221,6 @@ function HistoryScreen() {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={pull.refreshing} onRefresh={pull.onRefresh} />}
       >
-        <Lead>{t('staff.checklists.history.lead')}</Lead>
         {body()}
       </ScrollView>
     </Screen>

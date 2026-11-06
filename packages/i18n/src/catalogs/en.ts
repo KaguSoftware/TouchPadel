@@ -1119,7 +1119,7 @@ export const en = {
   // accounts, accounts from before 2026-09-23, and every version bump.
   consent: {
     title: 'Our terms',
-    body: 'Please read the Terms of Service and Privacy Policy below to the end, then agree to continue.',
+    body: 'Tick the box to agree to the Terms of Service and Privacy Policy. Tap either one to read it.',
     agree: 'I agree to the Terms of Service and have read the Privacy Policy.',
     scrollHint: 'Scroll to the end to agree.',
     part: 'Part {n} of {total}',

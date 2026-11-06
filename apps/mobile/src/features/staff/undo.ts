@@ -41,6 +41,12 @@ export interface Undoable {
   onError: (error: unknown) => void;
   /** After a good send: refresh what the call changed. */
   onSent?: () => void;
+  /**
+   * Put the row back when the send fails (default true). Turn it off when the
+   * failure can mean someone else changed the row: the snapshot is then stale,
+   * so `onError` refreshes from the server instead of showing it again.
+   */
+  restoreOnError?: boolean;
 }
 
 /** Returns `run(undoable)`. */
@@ -61,7 +67,7 @@ export function useUndoable() {
         u.send().then(
           () => u.onSent?.(),
           (e: unknown) => {
-            u.restore();
+            if (u.restoreOnError !== false) u.restore();
             u.onError(e);
           },
         );

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Pressable, ScrollView, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { countPhrase, formatIQD, isolate, isolateLtr } from '@touch/i18n';
@@ -7,6 +7,7 @@ import { Text } from '../../src/i18n/text';
 import { useLocale } from '../../src/i18n/LocaleProvider';
 import { brand, radius, space, useTheme } from '../../src/theme';
 import { Button, Card, ErrorText, Field, Hint, Screen } from '../../src/components/ui';
+import { KeyboardScroll } from '../../src/components/KeyboardScroll';
 import { useToast } from '../../src/components/overlays';
 import {
   CheckIcon,
@@ -260,11 +261,12 @@ function CoachNewBody({ coach }: { coach: CoachMe }) {
   const stepTitle = { fontFamily: fonts.body800, fontSize: 14, color: colors.ink } as const;
 
   return (
-    <Screen edges={[]} padded={false}>
+    <Screen edges={[]} keyboard="bar" padded={false}>
       <Stack.Screen options={headerOptions} />
-      <ScrollView
+      <KeyboardScroll
         contentContainerStyle={{ flexGrow: 1 }}
         keyboardShouldPersistTaps="handled"
+        automaticallyAdjustKeyboardInsets
         showsVerticalScrollIndicator={false}
       >
         {/* The hero: the bar's blue carried down, holding the two kinds. */}
@@ -553,7 +555,7 @@ function CoachNewBody({ coach }: { coach: CoachMe }) {
 
           {topError ? <ErrorText>{topError}</ErrorText> : null}
         </View>
-      </ScrollView>
+      </KeyboardScroll>
 
       {/* The bar under the form: what is being made, its price, and Create. */}
       <View

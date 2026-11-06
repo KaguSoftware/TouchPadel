@@ -369,7 +369,6 @@ describe.each(LOCALES)('who sees what on the daily-work pages in %s', (locale) =
   it('lists a past checklist, opens its lines, and offers older ones; the checklist page links to it', () => {
     const screen = renderRoute(StaffChecklistHistory, { locale, staff: { role: 'cashier' }, queryData: [HISTORY_SEED] });
     try {
-      expect(screen.getByText(t('staff.checklists.history.lead'))).toBeTruthy();
       expect(screen.queryByText(locale === 'ar' ? 'عُدّ صندوق الفكة' : 'Count the float')).toBeNull();
       fireEvent.press(screen.getByTestId('staff-checklist-history.list.run-past'));
       expect(screen.getByText(locale === 'ar' ? 'عُدّ صندوق الفكة' : 'Count the float')).toBeTruthy();
@@ -547,7 +546,6 @@ describe.each(LOCALES)('who sees what on the daily-work pages in %s', (locale) =
   it('asks for the suggestion before sending it', async () => {
     const screen = renderRoute(StaffSuggestionNew, { locale, staff: { role: 'cashier' } });
     try {
-      expect(screen.getByText(t('staff.checklists.suggestions.lead'))).toBeTruthy();
       fireEvent.press(screen.getByTestId('staff-suggestion-new.submit'));
       await expectAlerted(t('staff.checklists.suggestions.errors.required'));
     } finally {

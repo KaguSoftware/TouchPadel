@@ -27,7 +27,7 @@ import { useFieldChain } from '../../src/components/fieldChain';
 import { staffKeys } from '../../src/features/staff/keys';
 import { mapStaffError } from '../../src/features/staff/edge';
 import { localName } from '../../src/features/staff/checklists/logic';
-import { GroupLabel, Lead, Tag } from '../../src/features/staff/checklists/parts';
+import { GroupLabel, Tag } from '../../src/features/staff/checklists/parts';
 import { usePullRefresh } from '../../src/lib/usePullRefresh';
 import { clearStaffIntentKey, staffIntentKey } from '../../src/lib/idempotency';
 import {
@@ -431,7 +431,6 @@ function CountScreen() {
           </>
         }
       >
-        <Lead>{t('staff.stores.count.lead')}</Lead>
         {venue === '' ? <Hint>{t('staff.shell.venue.none')}</Hint> : null}
         {waiting ? (
           <Notice testID="staff-stock-count.waiting">
