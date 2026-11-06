@@ -9,6 +9,7 @@ import {
   resendSignUpCode,
   sendPasswordResetCode,
   sendSignInCode,
+  sendSignUpCode,
   verifyPhoneLink,
   verifyPhoneOtp,
 } from '../src/features/auth/api';
@@ -24,7 +25,8 @@ import { phoneTakenKey } from '../src/features/loyalty/errors';
 import { useAuth } from '../src/features/auth/context';
 import { markRecoverySession } from '../src/features/auth/recovery';
 import { RequireSession } from '../src/features/auth/RequireSession';
-import { updateOwnProfile } from '../src/features/profile/api';
+import { fetchOwnProfile, updateOwnProfile } from '../src/features/profile/api';
+import { needsProfileCompletion } from '../src/features/auth/social';
 import { profileKeys } from '../src/features/profile/hooks';
 import { usePostAuthContinue } from '../src/features/booking/usePostAuthContinue';
 import { useFinishSignIn } from '../src/features/auth/useFinishSignIn';
@@ -37,7 +39,7 @@ import { Button, ErrorText, FormScreen, Hint, LinkText, Screen, Title } from '..
 import { CodeInput } from '../src/components/CodeInput';
 import { useToast } from '../src/components/overlays';
 
-type Mode = 'signup' | 'signin' | 'reset' | 'link';
+type Mode = 'signup' | 'register' | 'signin' | 'reset' | 'link';
 
 /**
  * Code entry. Reached with the E.164 number and the mode; a code was JUST
@@ -50,6 +52,10 @@ type Mode = 'signup' | 'signin' | 'reset' | 'link';
  *           path uses. The name and language came with the sign-up, so there
  *           is no complete-profile step. This is the ONLY code a guest spends
  *           to confirm the number.
+ *   register  create account's code (app/sign-up.tsx step 1): the verified code is
+ *           the new account's session. A profile still missing its name goes on to
+ *           the details steps (sign-up step 2); an account that is already whole
+ *           is signed in like `signin`.
  *   signin  verifyOtp(type 'sms') on a sign-in code (app/sign-in.tsx, the
  *           phone segment: code-only since 2026-10-11, owner) and lands the
  *           way the email sign-in does (useFinishSignIn): staff to Today, an
@@ -160,6 +166,21 @@ function VerifyOtpForm({
         await finishSignIn(user);
         return;
       }
+      if (mode === 'register') {
+        const profile = await queryClient.fetchQuery({
+          queryKey: profileKeys.own,
+          queryFn: () => fetchOwnProfile(supabase),
+          staleTime: 0,
+        });
+        if (needsProfileCompletion(profile)) {
+          // A new account: its name, gender and birth date come next.
+          router.replace({ pathname: '/sign-up', params: { step: '1' } });
+        } else {
+          // The number already had a whole account: this was a sign-in.
+          await finishSignIn(user);
+        }
+        return;
+      }
       // The profile row was written at sign-up; drop any signed-out cache of it.
       void queryClient.invalidateQueries({ queryKey: profileKeys.own });
       if (mode === 'reset') {
@@ -191,6 +212,7 @@ function VerifyOtpForm({
       if (mode === 'link') await resendPhoneLink(supabase, phone);
       else if (mode === 'reset') await sendPasswordResetCode(supabase, phone);
       else if (mode === 'signin') await sendSignInCode(supabase, phone);
+      else if (mode === 'register') await sendSignUpCode(supabase, phone);
       else await resendSignUpCode(supabase, phone);
       setNotice(t('auth.codeSentAgain'));
       restartCooldown();
@@ -260,7 +282,12 @@ export default function VerifyOtpScreen() {
   const params = useLocalSearchParams<{ phone?: string; mode?: string; from?: string; returnTo?: string }>();
   const { session, initializing } = useAuth();
   const mode: Mode =
-    params.mode === 'link' || params.mode === 'reset' || params.mode === 'signin' ? params.mode : 'signup';
+    params.mode === 'link' ||
+    params.mode === 'reset' ||
+    params.mode === 'signin' ||
+    params.mode === 'register'
+      ? params.mode
+      : 'signup';
   const phone = typeof params.phone === 'string' ? params.phone : '';
   if (mode === 'link') {
     // The booking modes work whatever the flag says (app/phone-sign-in.tsx).

@@ -36,6 +36,7 @@ import { clearPendingJoin } from '../features/matches/pendingJoin';
 import { BookingSheet } from '../components/BookingSheet';
 import CompleteProfileScreen from '../../app/complete-profile';
 import SignUpScreen from '../../app/sign-up';
+import { resetSignUpDraft } from '../features/auth/signUpDraft';
 import { onlinePaymentsOnForFile } from '../test/onlinePaymentsEnv';
 
 onlinePaymentsOnForFile();
@@ -130,7 +131,10 @@ describe.each<Locale>(['en', 'ar'])('a gender for every account in %s', (locale)
   });
 
   it('sign up asks it under the name and refuses without it', async () => {
-    const screen = renderRoute(SignUpScreen, { locale });
+    // Step 2 of create account: the code has made the account, so a session exists.
+    // The draft is module state, shared by the steps: start each case clean.
+    resetSignUpDraft();
+    const screen = renderRoute(SignUpScreen, { locale, session: 'in', params: { step: '1' } });
     try {
       const picker = screen.getByTestId('sign-up.gender');
       expect(picker).toBeTruthy();

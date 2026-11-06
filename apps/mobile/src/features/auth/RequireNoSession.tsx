@@ -34,12 +34,23 @@ import { usePendingIntent } from '../booking/pendingIntent';
 import { useStaffStatus } from '../staff/StaffStatusProvider';
 import { Loading } from '../../components/ui';
 
-export function RequireNoSession({ children }: { children: ReactNode }) {
+export function RequireNoSession({
+  children,
+  allowSession = false,
+}: {
+  children: ReactNode;
+  /**
+   * Create-account's first step stays mounted under the steps that follow the
+   * code, after the session has landed; it must not redirect then.
+   */
+  allowSession?: boolean;
+}) {
   const { session, initializing } = useAuth();
   const pending = usePendingIntent();
   const profile = useOwnProfile(session !== null);
   const { status: staff, answered: staffAnswered } = useStaffStatus();
   const gate = profileGateState(profile);
+  if (allowSession && !initializing) return <>{children}</>;
   switch (
     noSessionGate({
       initializing,

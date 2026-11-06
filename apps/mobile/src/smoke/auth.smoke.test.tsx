@@ -55,10 +55,12 @@ const CASES: SmokeCase[] = [
   {
     route: 'sign-in',
     Component: SignInScreen,
-    // Phone is the default segment and is code-only (2026-10-11): its CTA sends a code.
-    labelKey: 'auth.sendCode',
+    // One field for email or phone: empty, the CTA is Continue (an email says Sign in,
+    // a phone number Send code).
+    labelKey: 'auth.continueCta',
   },
-  { route: 'sign-up', Component: SignUpScreen, labelKey: 'auth.signUp' },
+  // Step by step: the first step's primary is Next; Sign up is the last step's.
+  { route: 'sign-up', Component: SignUpScreen, labelKey: 'common.next' },
   {
     route: 'forgot-password',
     Component: ForgotPasswordScreen,

@@ -327,7 +327,7 @@ const MAX_DIAL_LENGTH = Math.max(...COUNTRIES.map((c) => c.dial.length));
  * points DOWN (the picker opens below), which is direction-neutral, so the
  * two edges are named logically and the glyph is identical in both languages.
  */
-function Chevron({ color }: { color: string }) {
+export function Chevron({ color }: { color: string }) {
   return (
     <View
       style={{
@@ -357,7 +357,7 @@ function Chevron({ color }: { color: string }) {
 /** Iraq's name in each app language: the probe that the platform's names speak it. */
 const IRAQ = { en: 'Iraq', ar: 'العراق' } as const;
 
-function CountryPicker({
+export function CountryPicker({
   testID,
   ...props
 }: {

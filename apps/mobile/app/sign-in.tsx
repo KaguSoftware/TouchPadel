@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { View } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { supabase } from '../src/lib/supabase';
 import { sendSignInCode, signIn } from '../src/features/auth/api';
@@ -9,41 +8,41 @@ import { usePostAuthContinue } from '../src/features/booking/usePostAuthContinue
 import { hasSocial, useSocialSignIn } from '../src/features/auth/useSocialSignIn';
 import { useFinishSignIn } from '../src/features/auth/useFinishSignIn';
 import { isNoAccountForPhone, mapOtpError, validatePhoneInput } from '../src/features/auth/phoneOtp';
-import { isValidEmail, parseAuthMethod, type AuthMethod } from '../src/features/auth/emailAuth';
+import { isValidEmail } from '../src/features/auth/emailAuth';
+import { identifierKind, phoneFromIdentifier } from '../src/features/auth/identifier';
+import { IdentifierField } from '../src/components/IdentifierField';
+import { Reveal } from '../src/components/Reveal';
+import { FloatingField } from '../src/components/FloatingLabel';
 import { classifySignInFailure } from '../src/features/profile/changePasswordFlow';
 import { SocialSignInBlock } from '../src/components/social';
-import { PhoneField } from '../src/components/phone';
-import { parsePhone } from '../src/features/profile/phone';
 import { mapErrorToKey } from '../src/features/booking/errors';
 import { useLocale } from '../src/i18n/LocaleProvider';
 import { space } from '../src/theme';
 import {
   Button,
   ErrorText,
-  Field,
   FooterLink,
   FormScreen,
   Hint,
   LabeledDivider,
   LinkText,
   Screen,
-  SegmentedControl,
 } from '../src/components/ui';
 import { useToast } from '../src/components/overlays';
 
 /**
- * Sign in with the account's phone number (default segment, owner decision
- * 2026-09-15) or its email (restored beside phone 2026-09-20, Phase 2 plan O2
- * — the SOW's M1 names email).
+ * Sign in through ONE field that takes the account's email or its phone
+ * number; what was typed decides the rest (features/auth/identifier.ts):
  *
  *   phone  a code, no password (owner, 2026-10-11): the number gets a code and
  *          app/verify-otp.tsx (mode signin) signs the guest in with it. Only an
  *          existing account gets one; a number nobody uses is told so on the
  *          field. A number whose sign-up code was never entered is confirmed
  *          by this code too.
- *   email  email + password. Wrong credentials render on the password field;
- *          an address whose link was never opened goes to verify-email and its
- *          resend button. Forgot password sits under this segment only.
+ *   email  email + password (the password field appears once an address is
+ *          typed). Wrong credentials render on the password field; an address
+ *          whose link was never opened goes to verify-email and its resend
+ *          button. Forgot password shows under an email only.
  *
  * Anything else renders below (spec 05.4).
  *
@@ -62,20 +61,16 @@ function SignInScreen() {
   const { continueAfterAuth, holdBusy } = usePostAuthContinue();
   const finishSignIn = useFinishSignIn(continueAfterAuth);
   const params = useLocalSearchParams<{ authError?: string; method?: string; phone?: string; email?: string }>();
-  // A screen that sent the guest here (sign-up's footer, a dead email link)
-  // says which segment to open on, so the method never flips under them.
-  const [method, setMethod] = useState<AuthMethod>(() => parseAuthMethod(params.method));
-  // Sign-up finding the number or address already taken passes it on, so the
-  // guest only asks for the code (or types the password).
-  const [iso, setIso] = useState(() => parsePhone(typeof params.phone === 'string' ? params.phone : '').iso);
-  const [national, setNational] = useState(
-    () => parsePhone(typeof params.phone === 'string' ? params.phone : '').national,
+  // A screen that sent the guest here (a dead email link, a sign-up that found
+  // the number or address taken) passes it on, so the field arrives filled.
+  const [identifier, setIdentifier] = useState(() =>
+    typeof params.email === 'string' ? params.email : typeof params.phone === 'string' ? params.phone : '',
   );
-  const [email, setEmail] = useState(() => (typeof params.email === 'string' ? params.email : ''));
+  const kind = identifierKind(identifier);
+  const email = identifier;
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
-  const [phoneError, setPhoneError] = useState<string | null>(null);
-  const [emailError, setEmailError] = useState<string | null>(null);
+  const [identifierError, setIdentifierError] = useState<string | null>(null);
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   // useAuthDeepLink lands here when an emailed link is dead, so the user is
@@ -94,16 +89,16 @@ function SignInScreen() {
 
   const clearErrors = () => {
     setError(null);
-    setPhoneError(null);
-    setEmailError(null);
+    setIdentifierError(null);
     setPasswordError(null);
     social.clearError();
   };
 
   const onSubmitPhone = async () => {
     clearErrors();
+    const { iso, national, plausible } = phoneFromIdentifier(identifier);
     const { e164 } = validatePhoneInput(iso, national);
-    if (!e164) return setPhoneError(t(national.trim() ? 'auth.phoneOtpInvalid' : 'auth.phoneRequired'));
+    if (!e164 || !plausible) return setIdentifierError(t('auth.phoneOtpInvalid'));
     setBusy(true);
     try {
       await sendSignInCode(supabase, e164);
@@ -111,7 +106,7 @@ function SignInScreen() {
       // incomplete profile, the pending slot, or the tabs.
       router.push({ pathname: '/verify-otp', params: { phone: e164, mode: 'signin' } });
     } catch (err) {
-      if (isNoAccountForPhone(err)) setPhoneError(t('auth.resetNoAccount'));
+      if (isNoAccountForPhone(err)) setIdentifierError(t('auth.resetNoAccount'));
       else setError(t(mapOtpError(err)));
     } finally {
       setBusy(false);
@@ -120,8 +115,7 @@ function SignInScreen() {
 
   const onSubmitEmail = async () => {
     clearErrors();
-    if (!email.trim()) return setEmailError(t('auth.emailRequired'));
-    if (!isValidEmail(email)) return setEmailError(t('auth.emailInvalid'));
+    if (!isValidEmail(email)) return setIdentifierError(t('auth.emailInvalid'));
     if (!password) return setPasswordError(t('auth.passwordRequired'));
     setBusy(true);
     try {
@@ -145,7 +139,13 @@ function SignInScreen() {
     }
   };
 
-  const onSubmit = method === 'email' ? onSubmitEmail : onSubmitPhone;
+  const onSubmit = () => {
+    if (kind === 'none') {
+      clearErrors();
+      return setIdentifierError(t('auth.identifierRequired'));
+    }
+    return kind === 'email' ? onSubmitEmail() : onSubmitPhone();
+  };
 
   return (
     <Screen gutter={20} edges={[]}>
@@ -164,67 +164,39 @@ function SignInScreen() {
         {hasSocial(social.available) ? (
           <LabeledDivider label={t('auth.orContinueWithPhoneOrEmail')} style={{ marginTop: 18, marginBottom: 4 }} />
         ) : null}
-        <View style={{ marginTop: 6 }}>
-          <SegmentedControl<AuthMethod>
-            testID="sign-in.method"
-            options={[
-              { value: 'phone', label: t('auth.phoneLabel') },
-              { value: 'email', label: t('auth.emailLabel') },
-            ]}
-            value={method}
-            onChange={(next) => {
-              setMethod(next);
-              clearErrors();
-            }}
+        <IdentifierField
+          testID="sign-in.identifier"
+          placeholder={t('auth.identifierLabel')}
+          value={identifier}
+          onChangeText={(v) => {
+            setIdentifier(v);
+            if (identifierError) setIdentifierError(null);
+          }}
+          error={identifierError}
+          style={{ marginTop: 6 }}
+          onSubmitEditing={() => void onSubmit()}
+        />
+        {/* What the typed value asks for opens and closes with a reveal. */}
+        <Reveal show={kind === 'email'}>
+          <FloatingField
+            testID="sign-in.password"
+            placeholder={t('auth.passwordLabel')}
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+            autoComplete="current-password"
+            textContentType="password"
+            error={passwordError}
+            onSubmitEditing={() => void onSubmit()}
           />
-        </View>
-        {method === 'email' ? (
-          <>
-            <Field
-              testID="sign-in.email"
-              placeholder={t('auth.emailLabel')}
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoCorrect={false}
-              autoComplete="email"
-              textContentType="emailAddress"
-              error={emailError}
-              style={{ marginTop: 6 }}
-            />
-            <Field
-              testID="sign-in.password"
-              placeholder={t('auth.passwordLabel')}
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-              autoComplete="current-password"
-              textContentType="password"
-              error={passwordError}
-              onSubmitEditing={() => void onSubmit()}
-            />
-          </>
-        ) : (
-          // Same 6pt the email Field takes, so the fields below sit at one
-          // height whichever segment is selected.
-          <View style={{ marginTop: 6 }}>
-            <PhoneField
-              testID="sign-in.phone"
-              placeholder={t('auth.phoneLabel')}
-              iso={iso}
-              onChangeIso={setIso}
-              national={national}
-              onChangeNational={setNational}
-              error={phoneError}
-            />
-            <Hint style={{ marginTop: 8 }}>{t('auth.signInCodeHint')}</Hint>
-          </View>
-        )}
+        </Reveal>
+        <Reveal show={kind === 'phone'}>
+          <Hint style={{ marginTop: 8 }}>{t('auth.signInCodeHint')}</Hint>
+        </Reveal>
         <ErrorText>{error ?? social.errorText ?? (linkError ? t(linkError) : null)}</ErrorText>
         <Button
           testID="sign-in.submit"
-          label={t(method === 'email' ? 'auth.signIn' : 'auth.sendCode')}
+          label={t(kind === 'email' ? 'auth.signIn' : kind === 'phone' ? 'auth.sendCode' : 'auth.continueCta')}
           onPress={() => void onSubmit()}
           busy={busy || holdBusy}
           disabled={social.busyProvider !== null}
@@ -232,19 +204,19 @@ function SignInScreen() {
           style={{ marginTop: space.l }}
         />
         {/* A phone sign-in has no password to forget. */}
-        {method === 'email' ? (
+        <Reveal show={kind === 'email'}>
           <LinkText
             testID="sign-in.forgot-password"
             label={t('auth.forgotPassword')}
             onPress={() => router.push({ pathname: '/forgot-password', params: { method: 'email' } })}
             style={{ marginTop: 12, paddingStart: 4 }}
           />
-        ) : null}
+        </Reveal>
         <FooterLink
           testID="sign-in.create-account"
           lead={t('auth.newHereLead')}
           label={t('auth.createAccountLink')}
-          onPress={() => router.push({ pathname: '/sign-up', params: { method } })}
+          onPress={() => router.replace('/sign-up')}
           style={{ marginTop: 18 }}
         />
       </FormScreen>

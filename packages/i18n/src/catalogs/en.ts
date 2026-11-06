@@ -82,6 +82,9 @@ export const en = {
     lastNameLabel: 'Surname',
     confirmPasswordLabel: 'Confirm password',
     preferredLanguage: 'Preferred language',
+    identifierLabel: 'Email or phone number',
+    identifierRequired: 'Enter your email or phone number.',
+    signUpStep: 'Step {step} of {total}',
     noAccount: 'New here? Create an account',
     haveAccount: 'Already have an account? Sign in',
     // Design 2026-08-31: the lead reads muted, only the action is the link.
