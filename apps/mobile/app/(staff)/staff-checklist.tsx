@@ -302,7 +302,7 @@ function ChecklistScreen() {
   };
 
   return (
-    <Screen edges={[]}>
+    <Screen pattern="blur" clearBar edges={[]}>
       <Stack.Screen options={{ title: t('staff.checklists.title') }} />
       <ScrollView
         contentContainerStyle={{ paddingTop: space.m, paddingBottom: 40 + insets.bottom, gap: space.sm }}

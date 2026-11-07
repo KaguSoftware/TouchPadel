@@ -383,7 +383,7 @@ function TeachingsScreen() {
   };
 
   return (
-    <Screen edges={[]} keyboard>
+    <Screen pattern="blur" clearBar edges={[]} keyboard>
       <Stack.Screen options={{ title: t('staff.checklists.teachings.title'), ...addOptions }} />
       <KeyboardScroll
         ref={scroll}

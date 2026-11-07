@@ -37,7 +37,7 @@ function ChatsScreen() {
     router.dismissTo({ pathname: '/staff-assistant', params: { id: id ?? '' } });
 
   return (
-    <Screen edges={[]}>
+    <Screen pattern="blur" clearBar edges={[]}>
       <Stack.Screen options={{ title: t('staff.assistant.chats.title') }} />
       <ScrollView
         showsVerticalScrollIndicator={false}

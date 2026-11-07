@@ -6,17 +6,23 @@
  * the till say the same thing. Mirror every key in scan.ar.ts.
  */
 export const staffScanEn = {
+  take: 'Take photo',
+  library: 'Choose a saved photo',
+  retake: 'Retake photo',
+  slips: {
+    title: 'Slips',
+    add: 'Scan an order',
+  },
   rows: {
     slip: 'Scan an order',
     receipt: 'Scan a receipt',
   },
   slip: {
+    tileTitle: 'Photograph the paper slip',
+    tileHint: 'The till reads it and sends it to the kitchen',
     title: 'Scan an order',
-    lead: 'Photograph the order slip, flat and in good light, with the table number on it. The café cashier checks it and sends it to the kitchen.',
-    photo: 'Order slip',
     send: 'Send to the café cashier',
     sent: 'Sent. The café cashier has it.',
-    noPhoto: 'Take a photo of the slip first.',
     mine: 'My slips today',
     empty: 'Nothing sent today.',
     table: 'Table {number}',
@@ -25,12 +31,11 @@ export const staffScanEn = {
     setAside: 'Set aside: {reason}',
   },
   receipt: {
+    tileTitle: 'Photograph the receipt',
+    tileHint: 'A manager checks it in Goods in',
     title: 'Scan a receipt',
-    lead: 'Photograph a supplier’s receipt or invoice, flat and in good light. A manager checks it in Goods in and puts it into stock.',
-    photo: 'Receipt photo',
     send: 'Send to Goods in',
     sent: 'Sent. A manager will check it in Goods in.',
-    noPhoto: 'Take a photo of the receipt first.',
     mine: 'My receipts',
     empty: 'No receipts sent in the last 30 days.',
     supplier: 'Supplier not read',

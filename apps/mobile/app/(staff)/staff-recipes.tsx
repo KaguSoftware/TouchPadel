@@ -347,7 +347,7 @@ function RecipesScreen() {
   };
 
   return (
-    <Screen edges={[]} keyboard>
+    <Screen pattern="blur" clearBar edges={[]} keyboard>
       <Stack.Screen options={{ title: t('staff.checklists.recipes.title') }} />
       <KeyboardScroll
         contentContainerStyle={{ paddingTop: space.m, paddingBottom: 40 + insets.bottom, gap: space.sm }}

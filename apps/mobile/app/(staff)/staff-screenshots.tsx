@@ -31,7 +31,7 @@ function ScreenshotsScreen() {
   const rows = list.data ?? [];
 
   return (
-    <Screen edges={[]}>
+    <Screen pattern="blur" clearBar edges={[]}>
       <Stack.Screen options={{ title: t('staff.screenshots.title') }} />
       <ScrollView
         showsVerticalScrollIndicator={false}

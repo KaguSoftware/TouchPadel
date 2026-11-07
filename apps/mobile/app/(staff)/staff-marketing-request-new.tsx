@@ -141,7 +141,7 @@ function AskMarketingScreen() {
   const wantByDay = parseTypedDate(draft.wantBy);
 
   return (
-    <Screen edges={[]}>
+    <Screen pattern="blur" clearBar edges={[]}>
       <Stack.Screen options={{ title: t('staff.marketing.requests.newTitle') }} />
       <ScreenWithBar
         contentContainerStyle={{ paddingTop: space.m, gap: space.sm }}

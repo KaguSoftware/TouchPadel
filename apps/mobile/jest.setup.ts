@@ -270,7 +270,7 @@ jest.mock('expo-router/js-tabs', () => ({
  * triggers, for the three expected routes, with the labels the locale gives.
  * It does NOT prove UIKit renders them — nothing running in Node can.
  */
-jest.mock('expo-router/unstable-native-tabs', () => {
+jest.mock('expo-router/native-tabs', () => {
   // A `hidden` trigger is not in UIKit's bar at all (the tournaments build switch swaps Play and
   // Ranks this way), so the stand-in draws nothing for it.
   const Trigger = ({ name, hidden, children }: { name: string; hidden?: boolean; children?: ReactNode }) =>

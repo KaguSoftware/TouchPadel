@@ -6,7 +6,7 @@ import { formatNumber, isolate } from '@touch/i18n';
 import { Text } from '../../src/i18n/text';
 import { useLocale } from '../../src/i18n/LocaleProvider';
 import { radius, space, useTheme } from '../../src/theme';
-import { Card, Hint, LinkText, MicroLabel, Screen } from '../../src/components/ui';
+import { Button, Card, Hint, MicroLabel, Screen } from '../../src/components/ui';
 import { EmptyState, ErrorState, SkeletonList } from '../../src/components/states';
 import { RequireStaff } from '../../src/features/staff/RequireStaff';
 import { useStaffStatus } from '../../src/features/staff/StaffStatusProvider';
@@ -154,7 +154,7 @@ function TablesScreen() {
   };
 
   return (
-    <Screen edges={[]}>
+    <Screen pattern="blur" clearBar edges={[]}>
       <Stack.Screen options={{ title: t('staff.floor.tables.title') }} />
       <ScrollView
         contentContainerStyle={{ paddingTop: space.m, paddingBottom: 40 + insets.bottom, gap: space.sm }}
@@ -165,9 +165,10 @@ function TablesScreen() {
         {/* The paper slip stays for when the phone is not enough (a big table
             written on a pad): it goes to the till as before. */}
         {role && SLIP_ROLES.includes(role) ? (
-          <View style={{ alignItems: 'flex-start', marginTop: space.m }}>
-            <LinkText
+          <View style={{ marginTop: space.m }}>
+            <Button
               testID="staff-order.slip"
+              variant="secondary"
               label={t('staff.floor.tables.slip')}
               onPress={() => router.push('/staff-order-slip')}
             />

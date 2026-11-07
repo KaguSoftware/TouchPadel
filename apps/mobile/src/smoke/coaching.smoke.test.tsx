@@ -152,7 +152,7 @@ const CASES: SmokeCase[] = [
     Component: CoachDetailScreen,
     nearbyKey: 'coaching.guest.coach.privateLessons',
     options: {
-      session: 'out',
+      session: 'in',
       params: { id: COACH_ID, venueId: TEST_VENUE_ID },
       queryData: coachSeeds(),
     },
@@ -171,7 +171,7 @@ const CASES: SmokeCase[] = [
     route: 'classes',
     Component: ClassesScreen,
     nearbyKey: 'coaching.guest.classes.filterAll',
-    options: { session: 'out', queryData: publicSeeds() },
+    options: { session: 'in', queryData: publicSeeds() },
   },
   {
     route: 'class-detail',
@@ -301,7 +301,7 @@ describe.each(LOCALES)('coaching states in %s', (locale) => {
   it('splits lessons into private and group rows, leaving out a group lesson with no dates', () => {
     const screen = renderRoute(CoachDetailScreen, {
       locale,
-      session: 'out',
+      session: 'in',
       params: { id: COACH_ID, venueId: TEST_VENUE_ID },
       queryData: coachSeeds({ sessions: [] }),
     });
@@ -317,7 +317,7 @@ describe.each(LOCALES)('coaching states in %s', (locale) => {
     }
     const dated = renderRoute(CoachDetailScreen, {
       locale,
-      session: 'out',
+      session: 'in',
       params: { id: COACH_ID, venueId: TEST_VENUE_ID },
       queryData: coachSeeds(),
     });
@@ -333,7 +333,7 @@ describe.each(LOCALES)('coaching states in %s', (locale) => {
   it('a group lesson’s card opens its own page, listing its upcoming dates', async () => {
     const screen = renderRoute(CoachDetailScreen, {
       locale,
-      session: 'out',
+      session: 'in',
       params: { id: COACH_ID, venueId: TEST_VENUE_ID },
       queryData: coachSeeds(),
     });
@@ -371,7 +371,7 @@ describe.each(LOCALES)('coaching states in %s', (locale) => {
   it('a private lesson’s card on the coach’s page opens its free times', async () => {
     const screen = renderRoute(CoachDetailScreen, {
       locale,
-      session: 'out',
+      session: 'in',
       params: { id: COACH_ID, venueId: TEST_VENUE_ID },
       queryData: coachSeeds(),
     });
@@ -534,7 +534,7 @@ describe.each(LOCALES)('coaching states in %s', (locale) => {
       () =>
         renderRoute(ClassesScreen, {
           locale,
-          session: 'out',
+          session: 'in',
           queryData: [
             ...venue(),
             [
@@ -803,7 +803,7 @@ describe.each(LOCALES)('coaching states in %s', (locale) => {
     const paused = coachSeeds({ coach: { ...coachProfileFixture().coach, status: 'paused' } });
     const screen = renderRoute(CoachDetailScreen, {
       locale,
-      session: 'out',
+      session: 'in',
       params: { id: COACH_ID, venueId: TEST_VENUE_ID },
       queryData: paused,
     });
@@ -838,7 +838,7 @@ describe.each(LOCALES)('coaching states in %s', (locale) => {
   ])('%s shows the not-found layout', (_name, id, queryData) => {
     const screen = renderRoute(CoachDetailScreen, {
       locale,
-      session: 'out',
+      session: 'in',
       params: { id },
       queryData,
     });
@@ -853,7 +853,7 @@ describe.each(LOCALES)('coaching states in %s', (locale) => {
     }
   });
 
-  it('the Coaches tab signed out: every coach, no level line, the ways to classes and My lessons', () => {
+  it('the Coaches tab signed out: every coach, no level line, the ways in lead to Welcome', () => {
     const screen = renderRoute(CoachesScreen, { locale, session: 'out', queryData: publicSeeds() });
     try {
       // The tab no longer asks the level (2026-10-12): it is the questionnaire's.
@@ -861,6 +861,20 @@ describe.each(LOCALES)('coaching states in %s', (locale) => {
       expect(screen.queryByTestId('coaches.level.beginner')).toBeNull();
       expect(screen.getByTestId(`coaches.row.${COACH_ID}`)).toBeTruthy();
 
+      // Signed out, each of the three goes straight to Welcome: no blank page first.
+      for (const id of [`coaches.row.${COACH_ID}`, 'coaches.classes', 'coaches.my-lessons']) {
+        routerState.calls.length = 0;
+        fireEvent.press(screen.getByTestId(id));
+        expect(routerState.calls).toEqual([{ method: 'push', arg: '/welcome' }]);
+      }
+    } finally {
+      screen.unmount();
+    }
+  });
+
+  it('the Coaches tab signed in opens the coach, the classes and My lessons', () => {
+    const screen = renderRoute(CoachesScreen, { locale, session: 'in', queryData: publicSeeds() });
+    try {
       fireEvent.press(screen.getByTestId(`coaches.row.${COACH_ID}`));
       expect(routerState.calls).toContainEqual({
         method: 'push',

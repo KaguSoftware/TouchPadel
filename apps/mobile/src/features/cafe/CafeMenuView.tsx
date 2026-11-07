@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Image,
+  Platform,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -9,10 +10,11 @@ import {
   type NativeSyntheticEvent,
   type ScrollViewInstance,
 } from 'react-native';
+import { BlurView } from 'expo-blur';
 import { formatIQD } from '@touch/i18n';
 import { Text } from '../../i18n/text';
 import { useLocale } from '../../i18n/LocaleProvider';
-import { radius, space, useTheme } from '../../theme';
+import { radius, space, useTheme, withAlpha } from '../../theme';
 import { EmptyState, ErrorState, SkeletonList } from '../../components/states';
 import { BranchPicker } from '../availability/BranchPicker';
 import { useGuestVenue } from '../availability/hooks';
@@ -73,13 +75,13 @@ export function CafeMenuView({
   testID,
   bottomPad,
 }: {
-  /** `<route>.<element>`; the parts take `${testID}.list`, `.note`, `.item.<id>`, `.category.<id>`, … */
+  /** `<route>.<element>`; the parts take `${testID}.list`, `.item.<id>`, `.category.<id>`, … */
   testID: string;
   /** Space under the last row: the home indicator on a pushed screen, the tab bar on a tab. */
   bottomPad: number;
 }) {
   const { t, locale } = useLocale();
-  const { colors, fonts } = useTheme();
+  const { colors, fonts, appearance } = useTheme();
   const guest = useGuestVenue();
   const menu = useCafeMenu(guest.venueId);
   const pull = usePullRefresh(() => Promise.all([guest.query.refetch(), menu.refetch()]));
@@ -164,8 +166,51 @@ export function CafeMenuView({
           borderBottomColor: colors.sub,
         })}
       >
-        <View style={{ opacity: item.available ? 1 : 0.5 }}>
-          <Thumb path={item.photo_path} categoryEn={categoryEn} />
+        <View>
+          <View style={{ opacity: item.available ? 1 : 0.5 }}>
+            <Thumb path={item.photo_path} categoryEn={categoryEn} />
+          </View>
+          {item.available ? null : (
+            <View
+              pointerEvents="none"
+              style={{
+                position: 'absolute',
+                top: 0,
+                bottom: 0,
+                start: -4,
+                end: -4,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <View
+                style={{
+                  transform: [{ rotate: '-25deg' }],
+                  borderWidth: 1.5,
+                  borderColor: colors.ink,
+                  borderRadius: 6,
+                  backgroundColor: colors.card,
+                  paddingHorizontal: 5,
+                  paddingVertical: 4,
+                }}
+              >
+                <Text
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.7}
+                  style={{
+                    fontFamily: fonts.display800,
+                    fontSize: 8,
+                    color: colors.ink,
+                    textTransform: 'uppercase',
+                    letterSpacing: 0.4,
+                  }}
+                >
+                  {t('cafe.soldOut')}
+                </Text>
+              </View>
+            </View>
+          )}
         </View>
         <View style={{ flex: 1, minWidth: 0, gap: 3, paddingTop: 2 }}>
           <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: space.s }}>
@@ -239,24 +284,6 @@ export function CafeMenuView({
                   </Text>
                 </View>
               ))}
-            </View>
-          )}
-          {item.available ? null : (
-            <View
-              style={{
-                alignSelf: 'flex-start',
-                marginTop: 3,
-                paddingStart: 8,
-                paddingEnd: 8,
-                paddingTop: 3,
-                paddingBottom: 3,
-                borderRadius: radius.pill,
-                backgroundColor: colors.amb,
-              }}
-            >
-              <Text style={{ fontFamily: fonts.body700, fontSize: 11.5, color: colors.ambtext }}>
-                {t('cafe.soldOutCta')}
-              </Text>
             </View>
           )}
         </View>
@@ -367,7 +394,7 @@ export function CafeMenuView({
         jumpingTo.current = null;
       }}
       scrollEventThrottle={32}
-      // Child 1 is the chips (child 0 is the note and the branch picker).
+      // Child 1 is the chips (child 0 is the branch picker, empty when the guest has one branch).
       stickyHeaderIndices={sections.length > 1 ? [1] : undefined}
       contentContainerStyle={{ paddingTop: space.m, paddingBottom: bottomPad }}
       showsVerticalScrollIndicator={false}
@@ -380,34 +407,44 @@ export function CafeMenuView({
       }
     >
       <View style={{ gap: space.m, paddingBottom: space.sm }}>
-        {/* What this page is not, said once, before anything else. */}
-        <Text
-          testID={`${testID}.note`}
-          style={{ fontFamily: fonts.body400, fontSize: 13, lineHeight: 19, color: colors.mut }}
-        >
-          {t('cafe.viewOnlyNote')}
-        </Text>
         {guest.showPicker ? <BranchPicker testID={`${testID}.branch`} /> : null}
       </View>
 
       {sections.length > 1 ? (
         <View
-          style={{ paddingTop: space.xs, paddingBottom: space.sm, backgroundColor: colors.bg }}
+          style={{ paddingTop: space.xs, paddingBottom: space.sm }}
           onLayout={(e) => {
             headerH.current = e.nativeEvent.layout.height;
           }}
         >
-          <ScrollView
-            ref={chipsRef}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ gap: space.s, paddingVertical: 2 }}
-            onLayout={(e) => {
-              chipsW.current = e.nativeEvent.layout.width;
+          {/* The chips ride on the segmented control's track, frosted: the menu scrolls under it blurred, with no hard edge. */}
+          <View
+            style={{
+              borderRadius: radius.cell,
+              overflow: 'hidden',
+              backgroundColor: withAlpha(colors.seg, 0.7),
             }}
           >
-            {sections.map((s) => chip(s.id, pickText(s.name_en, s.name_ar, locale)))}
-          </ScrollView>
+            {Platform.OS === 'ios' ? (
+              <BlurView
+                pointerEvents="none"
+                intensity={40}
+                tint={appearance === 'dark' ? 'dark' : 'light'}
+                style={{ position: 'absolute', top: 0, bottom: 0, start: 0, end: 0 }}
+              />
+            ) : null}
+            <ScrollView
+              ref={chipsRef}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ gap: space.s, padding: 4 }}
+              onLayout={(e) => {
+                chipsW.current = e.nativeEvent.layout.width;
+              }}
+            >
+              {sections.map((s) => chip(s.id, pickText(s.name_en, s.name_ar, locale)))}
+            </ScrollView>
+          </View>
         </View>
       ) : null}
 
@@ -420,7 +457,12 @@ export function CafeMenuView({
       >
         {body()}
       </View>
-      <ItemDetail item={opened?.item ?? null} categoryEn={opened?.categoryEn ?? ''} testID={`${testID}.detail`} onClose={() => setOpened(null)} />
+      <ItemDetail
+        item={opened?.item ?? null}
+        categoryEn={opened?.categoryEn ?? ''}
+        testID={`${testID}.detail`}
+        onClose={() => setOpened(null)}
+      />
     </ScrollView>
   );
 }

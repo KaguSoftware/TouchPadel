@@ -73,7 +73,7 @@ function ShopStep() {
   ) : null;
 
   return (
-    <Screen edges={[]}>
+    <Screen pattern="blur" clearBar edges={[]}>
       <Stack.Screen options={{ title: t('staff.supplies.purchase.form.title') }} />
       <ScreenWithBar contentContainerStyle={{ paddingTop: space.m, gap: space.sm }} bar={bar}>
         {form.venue === '' ? <Hint>{t('staff.shell.venue.none')}</Hint> : null}

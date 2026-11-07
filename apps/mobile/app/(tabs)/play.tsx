@@ -194,7 +194,7 @@ export default function PlayScreen() {
   const switchedOn = matchesEnabled(knobs);
   // Switch off means no work: neither match read runs until the branch says on.
   const open = useOpenMatches(switchedOn && signedIn ? venueId : null, tz);
-  const slots = useMatchSlots(venueId, { enabled: switchedOn && !signedIn, timezone: tz });
+  const slots = useMatchSlots(venueId, { enabled: false, timezone: tz });
   const pub = useTournamentsPublic();
 
   // "Tonight" moves at the trading night's turn, not at midnight.
@@ -246,8 +246,8 @@ export default function PlayScreen() {
       if (open.data) return banned ? 'off' : 'ready';
       return open.isError ? 'error' : 'loading';
     }
-    if (slots.data) return 'ready';
-    return slots.isError ? 'error' : 'loading';
+    // Signed out, nothing is read: the list is an invitation to sign in (Sait, 2026-11-07).
+    return 'ready';
   })();
   // The branches' switches decide (F-71): the server answers `off` when none has tournaments on.
   const toursState: SourceState = pub.data
@@ -312,16 +312,18 @@ export default function PlayScreen() {
   const today = tradingNightOf(new Date(nowMs), knobs ?? {});
   const nightsFor = useCallback(
     (cat: CategoryFilter) =>
-      playNights({
-        matches: matchesState === 'ready' ? matchList : NO_MATCHES,
-        slots: matchesState === 'ready' ? slotList : NO_SLOTS,
-        tournaments: tours,
-        kind,
-        category: cat,
-        nightOf: (startAt) => tradingNightOf(startAt, knobs ?? {}),
-        today,
-      }),
-    [matchesState, matchList, slotList, tours, kind, knobs, today],
+      !signedIn
+        ? []
+        : playNights({
+            matches: matchesState === 'ready' ? matchList : NO_MATCHES,
+            slots: matchesState === 'ready' ? slotList : NO_SLOTS,
+            tournaments: tours,
+            kind,
+            category: cat,
+            nightOf: (startAt) => tradingNightOf(startAt, knobs ?? {}),
+            today,
+          }),
+    [signedIn, matchesState, matchList, slotList, tours, kind, knobs, today],
   );
   const nights = useMemo(() => nightsFor(category), [nightsFor, category]);
   // The chips show while there is anything to narrow, whichever chip is on.
@@ -395,7 +397,8 @@ export default function PlayScreen() {
   );
 
   // ── Actions ───────────────────────────────────────────────────────────────
-  const canStart = switchedOn && !banned;
+  // Signed out there is nothing to start or follow: no Book & invite, no court caption.
+  const canStart = switchedOn && !banned && signedIn;
   const startOne = useCallback(() => {
     // A free time on the Book sheet starts it (match-new needs the court and the time).
     requestBookingSheet();
@@ -630,7 +633,7 @@ export default function PlayScreen() {
 
   // ── The sheet's head: switch, chips, notices, and the states ──────────────
   const kindSwitch =
-    bothOn && (matchesState === 'ready' || toursState === 'ready') ? (
+    signedIn && bothOn && (matchesState === 'ready' || toursState === 'ready') ? (
       <SegmentedControl<PlayKind>
         testID="play.kind"
         options={[
@@ -646,15 +649,16 @@ export default function PlayScreen() {
 
   // One round button for the category, in the title bar beside the avatar (Sait, 2026-10-20).
   // It narrows matches only: a tournament is for one gender, so the Tournaments view has none.
-  const filter = anyRows && kind !== 'tournaments' ? (
-    <FilterMenu<CategoryFilter>
-      testID="play.filter"
-      label={t('play.filter.label')}
-      options={CATEGORIES.map((f) => ({ value: f.value, label: t(f.key) }))}
-      value={category}
-      onChange={setCategory}
-    />
-  ) : null;
+  const filter =
+    anyRows && kind !== 'tournaments' ? (
+      <FilterMenu<CategoryFilter>
+        testID="play.filter"
+        label={t('play.filter.label')}
+        options={CATEGORIES.map((f) => ({ value: f.value, label: t(f.key) }))}
+        value={category}
+        onChange={setCategory}
+      />
+    ) : null;
 
   // 0339: a signed-in guest who has not said their level or years sees every
   // tournament, and is asked; registering asks too (TOURNAMENT_PROFILE_REQUIRED).
@@ -782,6 +786,20 @@ export default function PlayScreen() {
         </View>
       );
     }
+    if (!signedIn) {
+      const what = kind === 'matches' ? 'matches' : kind === 'tournaments' ? 'tournaments' : 'both';
+      return (
+        <EmptyState
+          testID="play.sign-in"
+          stretch
+          title={t(`play.signIn.${what}`)}
+          message={t('play.signIn.body')}
+          actionLabel={t('play.signIn.cta')}
+          onAction={() => router.push('/welcome')}
+          actionTestID="play.sign-in.cta"
+        />
+      );
+    }
     if (nights.length > 0) return null;
     if (matchesState === 'loading' || toursState === 'loading') {
       return <SkeletonList rows={3} height={104} />;
@@ -800,8 +818,9 @@ export default function PlayScreen() {
   })();
 
   // ── The court's caption and its open spots' targets ─────────────────────
-  const caption =
-    court.show === 'match'
+  const caption = !signedIn
+    ? null
+    : court.show === 'match'
       ? {
           lead: [
             court.match.mine ? t('matches.list.mine') : null,
@@ -838,7 +857,7 @@ export default function PlayScreen() {
       pointerEvents="box-none"
       style={[StyleSheet.absoluteFill, { transform: [{ translateY: scroll.y }] }]}
     >
-      {(court.spots ? spotPoints : [])
+      {(signedIn && court.spots ? spotPoints : [])
         .filter((p) => p.seat >= court.taken)
         .map((p) => (
           <Pressable
@@ -1024,8 +1043,9 @@ export default function PlayScreen() {
       <View style={{ flex: 1 }} onLayout={(e) => setFrame(e.nativeEvent.layout)}>
         {frame && heroTop !== null ? (
           <CourtStage
-            scene="join"
-            join={courtSeats}
+            // Signed out there are no open spots to mark: the rackets just rally.
+            scene={signedIn ? 'join' : 'rally'}
+            join={signedIn ? courtSeats : undefined}
             top={heroTop}
             height={stage.height}
             patternBox={
@@ -1055,6 +1075,8 @@ export default function PlayScreen() {
               stickySectionHeadersEnabled
               StickyHeaderComponent={StickyUnder}
               showsVerticalScrollIndicator={false}
+              // Signed out the sheet stays where it sits; it moves once there are cards.
+              scrollEnabled={signedIn}
               onScroll={scroll.onScroll}
               scrollEventThrottle={16}
               ListHeaderComponent={header}
@@ -1090,11 +1112,13 @@ export default function PlayScreen() {
                 }, 250);
               }}
               refreshControl={
-                <RefreshControl
-                  refreshing={pull.refreshing}
-                  onRefresh={pull.onRefresh}
-                  tintColor={colors.blue}
-                />
+                signedIn ? (
+                  <RefreshControl
+                    refreshing={pull.refreshing}
+                    onRefresh={pull.onRefresh}
+                    tintColor={colors.blue}
+                  />
+                ) : undefined
               }
             />
           </StickyOffset.Provider>

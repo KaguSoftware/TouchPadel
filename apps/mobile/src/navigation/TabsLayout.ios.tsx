@@ -1,4 +1,4 @@
-import { NativeTabs } from 'expo-router/unstable-native-tabs';
+import { NativeTabs } from 'expo-router/native-tabs';
 import { useLocale } from '../i18n/LocaleProvider';
 import { brand, useTheme } from '../theme';
 import { playTabShown } from '../features/tournaments/shipped';
@@ -42,7 +42,7 @@ const { Icon, Label } = NativeTabs.Trigger;
  * tree, so there is no RN node to hang an id from and nothing a testID could
  * reach. Android's bar is ordinary Pressables and carries `tabs.bookings` /
  * `tabs.play` / `tabs.book` / `tabs.club` / `tabs.coaches`; the smoke tests
- * see those same five ids through the `expo-router/unstable-native-tabs` mock,
+ * see those same five ids through the `expo-router/native-tabs` mock,
  * which stands in for UIKit (jest.setup.ts explains what that does and does
  * not prove).
  */

@@ -150,7 +150,7 @@ function NotesScreen() {
   const itemId = picked ?? initialItemId(items.data ?? [], params.itemId);
 
   return (
-    <Screen edges={[]} keyboard>
+    <Screen pattern="blur" clearBar edges={[]} keyboard>
       <Stack.Screen options={{ title: t('staff.notes.title') }} />
       <KeyboardScroll
         contentContainerStyle={{ paddingTop: space.m, paddingBottom: 40 + insets.bottom, gap: space.sm }}

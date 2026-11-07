@@ -12,6 +12,7 @@ import {
   presentationDragIndicator,
 } from '@expo/ui/swift-ui/modifiers';
 import { useWindowDimensions } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocale } from '../../i18n/LocaleProvider';
 import { brand, useTheme } from '../../theme';
 import { ItemDetailContent } from './ItemDetailContent';
@@ -24,6 +25,15 @@ export function ItemDetail({ item, categoryEn, testID, onClose }: ItemDetailProp
   const { appearance, colors } = useTheme();
   const { locale } = useLocale();
   const { height } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  // React measures the photo from the hidden host, not from the sheet, so the photo viewer needs
+  // to be told where the sheet's top-left is on the screen: the detent is a fraction of the height
+  // under the status bar, and the sheet floats a few points off the sides and bottom (measured on
+  // an iPhone with the sheet at its opening detent; an estimate, the viewer fades into the photo).
+  const screenOffset = {
+    x: 8,
+    y: height - OPEN_FRACTION * (height - insets.top) + 16,
+  };
   const scheme = appearance === 'dark' ? 'dark' : 'light';
   return (
     <Host style={{ position: 'absolute', width: 0, height: 0 }} colorScheme={scheme}>
@@ -48,7 +58,7 @@ export function ItemDetail({ item, categoryEn, testID, onClose }: ItemDetailProp
                   categoryEn={categoryEn}
                   testID={testID}
                   height={height}
-                  onClose={onClose}
+                  screenOffset={screenOffset}
                 />
               </RNHostView>
             ) : (

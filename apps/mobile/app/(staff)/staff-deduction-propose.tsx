@@ -168,7 +168,7 @@ function DeductionProposeScreen() {
   const datePreview = parseTypedDate(draft.date);
 
   return (
-    <Screen edges={[]}>
+    <Screen pattern="blur" clearBar edges={[]}>
       <Stack.Screen options={{ title: t('staff.deductions.propose.title') }} />
       <ScreenWithBar
         contentContainerStyle={{ paddingTop: space.m, gap: space.sm }}

@@ -82,7 +82,7 @@ function PurchasesScreen() {
         : t('staff.supplies.purchase.list.deliveredPill');
 
   return (
-    <Screen edges={[]}>
+    <Screen pattern="blur" clearBar edges={[]}>
       <Stack.Screen options={{ title: t('staff.supplies.purchase.title'), ...addOptions }} />
       <ScreenWithBar
         contentContainerStyle={{ paddingTop: space.m, paddingHorizontal: 2, gap: space.l }}

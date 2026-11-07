@@ -451,7 +451,7 @@ function AssistantScreen() {
 
   if (free) {
     return (
-      <Screen edges={[]} padded={false}>
+      <Screen pattern="blur" clearBar edges={[]} padded={false}>
         <Stack.Screen
           options={{
             title: owner ? t('staff.assistant.free.title') : t('staff.assistant.touch.title'),
@@ -473,7 +473,7 @@ function AssistantScreen() {
   }
 
   return (
-    <Screen edges={[]} padded={false}>
+    <Screen pattern="blur" clearBar edges={[]} padded={false}>
       <Stack.Screen
         options={{
           title: t('staff.assistant.title'),

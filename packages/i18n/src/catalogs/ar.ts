@@ -758,8 +758,8 @@ export const ar: Messages = {
       lifetime: 'كل نقاطك: {points}',
     },
     signIn: {
-      title: 'أين أنت في الترتيب؟',
-      message: 'سجّل الدخول لترى نقاطك ومركزك ومستواك.',
+      title: 'سجّل الدخول لترى ترتيبك',
+      message: 'ستظهر هنا نقاطك ومركزك ومستواك.',
     },
     waiting: {
       title: 'أكّد النتيجة',

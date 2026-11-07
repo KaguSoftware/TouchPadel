@@ -364,7 +364,7 @@ function StepScreen() {
 
   if (stepQ.isPending || !role || !venueId) {
     return (
-      <Screen edges={[]} keyboard>
+      <Screen pattern="blur" clearBar edges={[]} keyboard>
         <Stack.Screen options={{ title: t('staff.protocols.step.title') }} />
         <View style={{ paddingTop: space.m }}>
           <SkeletonList rows={3} height={96} />
@@ -374,7 +374,7 @@ function StepScreen() {
   }
   if (stepQ.isError) {
     return (
-      <Screen edges={[]} keyboard>
+      <Screen pattern="blur" clearBar edges={[]} keyboard>
         <Stack.Screen options={{ title: t('staff.protocols.step.title') }} />
         <ErrorState
           testID="staff-step.error"
@@ -432,7 +432,7 @@ function StepScreen() {
   })();
 
   return (
-    <Screen edges={[]} keyboard>
+    <Screen pattern="blur" clearBar edges={[]} keyboard>
       <Stack.Screen options={{ title: t('staff.protocols.step.title') }} />
       <KeyboardScroll
         contentContainerStyle={{ paddingTop: space.m, paddingBottom: 40 + insets.bottom, gap: space.sm }}

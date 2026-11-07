@@ -116,7 +116,7 @@ function RequestsScreen() {
   };
 
   return (
-    <Screen edges={[]}>
+    <Screen pattern="blur" clearBar edges={[]}>
       <Stack.Screen options={{ title: t('staff.shell.requests.title'), ...addOptions }} />
       <ScrollView
         contentContainerStyle={{

@@ -1102,7 +1102,7 @@ function ContentScreen() {
   const role = status.staff.role;
   // One title for the queue and an item: the item names itself in its own heading.
   return (
-    <Screen edges={[]} keyboard>
+    <Screen pattern="blur" clearBar edges={[]} keyboard>
       <Stack.Screen options={{ title: t('staff.content.title') }} />
       {params.id ? <ContentItemView id={params.id} role={role} /> : <ContentList role={role} />}
     </Screen>

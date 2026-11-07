@@ -30,6 +30,7 @@ import { Screen, SegmentedControl } from '../../src/components/ui';
 import { EmptyState, ErrorState, SkeletonList } from '../../src/components/states';
 import { MatchNotice } from '../../src/components/match';
 import { ClassRow } from '../../src/components/coaching';
+import { RequireSession } from '../../src/features/auth/RequireSession';
 
 /**
  * Group sessions and courses with places (docs/design/coaching/guest.md
@@ -38,7 +39,7 @@ import { ClassRow } from '../../src/components/coaching';
  * "Next {date} · {n} of {total}" once running. Public; switched off at the
  * branch, no work and the notice.
  */
-export default function ClassesScreen() {
+function ClassesScreen() {
   const { t, locale } = useLocale();
   const { colors } = useTheme();
   const router = useRouter();
@@ -185,5 +186,14 @@ export default function ClassesScreen() {
       <Stack.Screen options={{ title: t('coaching.guest.classes.title') }} />
       {body}
     </Screen>
+  );
+}
+
+/** Signed-in only: no blank first frame, a signed-out guest lands on Welcome (RequireSession). */
+export default function GuardedClassesScreen() {
+  return (
+    <RequireSession>
+      <ClassesScreen />
+    </RequireSession>
   );
 }

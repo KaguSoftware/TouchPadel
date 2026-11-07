@@ -101,7 +101,7 @@ function RunsScreen() {
   );
 
   return (
-    <Screen edges={[]}>
+    <Screen pattern="blur" clearBar edges={[]}>
       <Stack.Screen options={{ title: t('staff.protocols.runs.title'), ...addOptions }} />
       <ScrollView
         contentContainerStyle={{ paddingTop: space.m, paddingBottom: 40 + insets.bottom, gap: space.sm }}

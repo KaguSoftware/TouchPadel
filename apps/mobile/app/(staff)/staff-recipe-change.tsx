@@ -890,7 +890,7 @@ function RecipeChangeScreen() {
   };
 
   return (
-    <Screen edges={[]}>
+    <Screen pattern="blur" clearBar edges={[]}>
       <Stack.Screen options={{ title: t('staff.checklists.recipeChange.title') }} />
       <ScreenWithBar
         contentContainerStyle={{ paddingTop: space.m, gap: space.sm }}

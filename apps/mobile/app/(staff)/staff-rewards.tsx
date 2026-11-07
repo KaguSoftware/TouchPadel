@@ -152,7 +152,7 @@ function MyRewardsScreen() {
   const nothing = data && data.rewards.length === 0 && data.last_month.reached.length === 0;
 
   return (
-    <Screen edges={[]}>
+    <Screen pattern="blur" clearBar edges={[]}>
       <Stack.Screen options={{ title: t('staff.rewards.mine.title') }} />
       <ScrollView
         showsVerticalScrollIndicator={false}

@@ -33,6 +33,7 @@ import StaffMarketing from '../../app/(staff)/staff-marketing';
 import StaffMarketingRequests from '../../app/(staff)/staff-marketing-requests';
 import StaffMarketingRequestNew from '../../app/(staff)/staff-marketing-request-new';
 import StaffOrderSlip from '../../app/(staff)/staff-order-slip';
+import StaffOrderSlipNew from '../../app/(staff)/staff-order-slip-new';
 import StaffReceipt from '../../app/(staff)/staff-receipt';
 
 const V = TEST_VENUE_ID;
@@ -202,7 +203,7 @@ runSmokeCases('staff supplies and marketing', [
   {
     route: 'staff-order-slip',
     Component: StaffOrderSlip,
-    labelKey: 'staff.scan.slip.send',
+    nearbyKey: 'staff.scan.slip.mine',
     options: {
       staff: { role: 'waiter' },
       queryData: [
@@ -213,9 +214,15 @@ runSmokeCases('staff supplies and marketing', [
     },
   },
   {
+    route: 'staff-order-slip-new',
+    Component: StaffOrderSlipNew,
+    labelKey: 'staff.scan.take',
+    options: { staff: { role: 'waiter' } },
+  },
+  {
     route: 'staff-receipt',
     Component: StaffReceipt,
-    labelKey: 'staff.scan.receipt.send',
+    labelKey: 'staff.scan.take',
     options: {
       staff: { role: 'driver' },
       queryData: [

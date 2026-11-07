@@ -837,8 +837,8 @@ export const en = {
       lifetime: 'All-time points: {points}',
     },
     signIn: {
-      title: 'Where do you stand?',
-      message: 'Sign in to see your points, your place and your level.',
+      title: 'Sign in to see your rank',
+      message: 'Your points, your place and your level will show here.',
     },
     waiting: {
       title: 'Confirm a score',

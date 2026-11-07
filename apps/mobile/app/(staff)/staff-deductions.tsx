@@ -396,7 +396,7 @@ function DeductionsScreen() {
   );
 
   return (
-    <Screen edges={[]}>
+    <Screen pattern="blur" clearBar edges={[]}>
       <Stack.Screen
         options={{
           title: t(access.proposes ? 'staff.deductions.title' : 'staff.deductions.mineTitle'),

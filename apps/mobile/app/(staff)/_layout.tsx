@@ -1,6 +1,7 @@
 import { Stack } from 'expo-router';
 import { useGroupStackOptions } from '../../src/navigation/groupStack';
 import { withAssistantFab } from '../../src/features/assistant/AssistantFab';
+import { clearBarOptions } from '../../src/navigation/clearBar';
 import { MinFontSize, STAFF_MIN_FONT } from '../../src/i18n/text';
 
 /**
@@ -16,7 +17,9 @@ import { MinFontSize, STAFF_MIN_FONT } from '../../src/i18n/text';
  * every push and pop.
  */
 export default function StaffLayout() {
-  const screenOptions = useGroupStackOptions();
+  const groupOptions = useGroupStackOptions();
+  // A clear, blurred-ground bar like Profile's (owner, 2026-11-07); each page starts below it (`Screen clearBar`).
+  const screenOptions: typeof groupOptions = (args) => ({ ...groupOptions(args), ...clearBarOptions });
   return (
     <Stack
       screenOptions={screenOptions}

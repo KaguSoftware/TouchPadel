@@ -135,8 +135,8 @@ const CASES: SmokeCase[] = [
   {
     route: 'cafe-menu',
     Component: CafeMenuScreen,
-    // The list has no words of its own: the line that says where ordering happens is beside it.
-    nearbyKey: 'cafe.viewOnlyNote',
+    // The list has no words of its own: the seeded sold-out item's banner is the nearest.
+    nearbyKey: 'cafe.soldOut',
     options: { queryData: menuSeeds() },
   },
 ];
@@ -155,9 +155,9 @@ describe.each(LOCALES)('café menu states in %s', (locale) => {
       expect(within(latte).getByText(locale === 'ar' ? 'لاتيه' : 'Latte')).toBeTruthy();
       expect(within(latte).getByText(formatIQD(4000, locale))).toBeTruthy();
       expect(within(latte).getByText(formatIQD(5000, locale))).toBeTruthy();
-      expect(within(latte).queryByText(t('cafe.soldOutCta'))).toBeNull();
+      expect(within(latte).queryByText(t('cafe.soldOut'))).toBeNull();
       const cookie = screen.getByTestId('cafe-menu.item.cookie');
-      expect(within(cookie).getByText(t('cafe.soldOutCta'))).toBeTruthy();
+      expect(within(cookie).getByText(t('cafe.soldOut'))).toBeTruthy();
       expect(within(cookie).getByText(formatIQD(2500, locale))).toBeTruthy();
       expect(screen.getByTestId('cafe-menu.category.coffee')).toBeTruthy();
       expect(screen.getByTestId('cafe-menu.category.sweets')).toBeTruthy();

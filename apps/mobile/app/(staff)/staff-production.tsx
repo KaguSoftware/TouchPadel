@@ -279,7 +279,7 @@ function ProductionScreen() {
   };
 
   return (
-    <Screen edges={[]}>
+    <Screen pattern="blur" clearBar edges={[]}>
       <Stack.Screen options={{ title: t('staff.checklists.production.title') }} />
       <ScreenWithBar
         contentContainerStyle={{ paddingTop: space.m, gap: space.sm }}

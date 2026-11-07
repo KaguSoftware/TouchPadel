@@ -341,7 +341,7 @@ function RewardsAdminScreen() {
   const people = board.data?.people ?? [];
 
   return (
-    <Screen edges={[]} keyboard>
+    <Screen pattern="blur" clearBar edges={[]} keyboard>
       <Stack.Screen options={{ title: t('staff.rewards.admin.title') }} />
       <KeyboardScroll
         showsVerticalScrollIndicator={false}

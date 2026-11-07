@@ -48,6 +48,7 @@ import { fieldKeyboardDefaults } from './fieldKeyboard';
 import { KeyboardScrollContext } from './KeyboardScroll';
 import { TitleSquiggle } from './icons';
 import { insetStart, isFrame, type Frame } from './segmentedThumb';
+import { useClearBarPad } from '../navigation/clearBar';
 
 export { TitleSquiggle };
 
@@ -79,6 +80,7 @@ export function Screen({
   gutter = space.l,
   edges = ['top'],
   pattern = false,
+  clearBar = false,
   keyboard = false,
   style,
 }: {
@@ -97,6 +99,8 @@ export function Screen({
   keyboard?: boolean | 'bar';
   /** The brand line pattern under the page, sharp or frosted (see above). */
   pattern?: boolean | 'blur';
+  /** The page sits under a clear native bar (iOS): start it below the bar. Pair with `clearBarOptions`. */
+  clearBar?: boolean;
   /** Horizontal inset when padded (design: 16 in the app, 20 on the auth screens). */
   gutter?: number;
   edges?: readonly ScreenEdge[];
@@ -104,10 +108,12 @@ export function Screen({
 }) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
+  const barPad = useClearBarPad();
   return (
     <View
       style={[
         { flex: 1, backgroundColor: colors.bg },
+        clearBar && barPad,
         edges.includes('top') && { paddingTop: insets.top },
         edges.includes('bottom') && { paddingBottom: insets.bottom },
         padded && { paddingStart: gutter, paddingEnd: gutter },

@@ -120,7 +120,7 @@ function ReviewScreen() {
         : t('staff.floor.review.send');
 
   return (
-    <Screen edges={[]}>
+    <Screen pattern="blur" clearBar edges={[]}>
       <Stack.Screen
         options={{
           title: table

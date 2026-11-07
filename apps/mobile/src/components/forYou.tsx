@@ -16,6 +16,7 @@
  */
 import { View, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useAccountPush } from '../features/auth/useAccountPush';
 import { Text } from '../i18n/text';
 import { useLocale } from '../i18n/LocaleProvider';
 import { radius, space, useTheme } from '../theme';
@@ -55,11 +56,11 @@ function KindIcon({ kind, color }: { kind: SuggestionKind; color: string }) {
 
 /** Opens a suggestion: a tab (with the Play tab's chip) or the group sessions list. */
 export function useOpenSuggestion() {
-  const router = useRouter();
+  const accountPush = useAccountPush();
   const downToTab = useDownToTab();
   return (kind: SuggestionKind) => {
     const target = suggestionTarget(kind);
-    if (target.kind === 'push') router.push(target.href);
+    if (target.kind === 'push') accountPush(target.href);
     else downToTab(target.href);
   };
 }

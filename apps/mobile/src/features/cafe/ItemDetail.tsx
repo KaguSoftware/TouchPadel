@@ -30,7 +30,6 @@ export function ItemDetail({ item, categoryEn, testID, onClose }: ItemDetailProp
             categoryEn={categoryEn}
             testID={testID}
             height={sheetHeight}
-            onClose={onClose}
           />
         </RNHostView>
       </ModalBottomSheet>

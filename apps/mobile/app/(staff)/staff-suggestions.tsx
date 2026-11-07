@@ -195,7 +195,7 @@ function SuggestionsScreen() {
   };
 
   return (
-    <Screen edges={[]}>
+    <Screen pattern="blur" clearBar edges={[]}>
       <Stack.Screen options={{ title: t('staff.checklists.suggestions.title'), ...addOptions }} />
       <ScrollView
         contentContainerStyle={{

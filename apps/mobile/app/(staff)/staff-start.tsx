@@ -816,7 +816,7 @@ function StartScreen() {
   }
 
   return (
-    <Screen edges={[]} keyboard>
+    <Screen pattern="blur" clearBar edges={[]} keyboard>
       <Stack.Screen options={{ title: kind && kinds.length > 1 ? t(`work.protocol.kind.${kind}`) : t('staff.protocols.start.title') }} />
       <KeyboardScroll
         contentContainerStyle={{ paddingTop: space.m, paddingBottom: 40 + insets.bottom, gap: space.sm }}

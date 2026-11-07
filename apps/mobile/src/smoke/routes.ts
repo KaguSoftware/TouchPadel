@@ -156,7 +156,12 @@ export const SMOKE_ROUTES: readonly SmokeRoute[] = [
   {
     file: '(staff)/staff-order-slip.tsx',
     route: 'staff-order-slip',
-    primary: 'staff-order-slip.send',
+    primary: 'staff-order-slip.list',
+  },
+  {
+    file: '(staff)/staff-order-slip-new.tsx',
+    route: 'staff-order-slip-new',
+    primary: 'staff-order-slip-new.take',
   },
   // Place an order (0251): the tables, a table's menu, an item's sheet and the
   // review, cased by staffOrder.smoke.test.tsx.
@@ -176,7 +181,7 @@ export const SMOKE_ROUTES: readonly SmokeRoute[] = [
     route: 'staff-order-review',
     primary: 'staff-order-review.send',
   },
-  { file: '(staff)/staff-receipt.tsx', route: 'staff-receipt', primary: 'staff-receipt.send' },
+  { file: '(staff)/staff-receipt.tsx', route: 'staff-receipt', primary: 'staff-receipt.take' },
   {
     file: '(staff)/staff-marketing.tsx',
     route: 'staff-marketing',

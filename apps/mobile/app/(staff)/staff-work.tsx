@@ -78,7 +78,7 @@ function WorkScreen() {
   const empty = noLists && noWork && noRecipes;
 
   return (
-    <Screen edges={[]}>
+    <Screen pattern="blur" clearBar edges={[]}>
       <Stack.Screen options={{ title: t('staff.shell.account.alerts') }} />
       <ScrollView
         showsVerticalScrollIndicator={false}

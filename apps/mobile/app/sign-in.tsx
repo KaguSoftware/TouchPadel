@@ -176,8 +176,10 @@ function SignInScreen() {
           style={{ marginTop: 6 }}
           onSubmitEditing={() => void onSubmit()}
         />
-        {/* What the typed value asks for opens and closes with a reveal. */}
-        <Reveal show={kind === 'email'}>
+        {/* The password field stays mounted until a phone number is typed: iOS/Android
+            autofill looks for the password field when the username is filled, and a field
+            that only appears once an email is typed is not there to receive it. */}
+        <Reveal show={kind !== 'phone'}>
           <FloatingField
             testID="sign-in.password"
             placeholder={t('auth.passwordLabel')}

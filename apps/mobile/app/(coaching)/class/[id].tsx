@@ -46,6 +46,7 @@ import { MatchNotice, MatchSectionTitle } from '../../../src/components/match';
 import { CoachAvatar, LessonPoster, PaymentModeChoice } from '../../../src/components/coaching';
 import { ChevronIcon } from '../../../src/components/icons';
 import { useToast } from '../../../src/components/overlays';
+import { RequireSession } from '../../../src/features/auth/RequireSession';
 
 /**
  * A group session or a course (docs/design/coaching/guest.md §4.8.5, §4.9.2):
@@ -59,7 +60,7 @@ import { useToast } from '../../../src/components/overlays';
  * payment (`lesson-begin`). Refusals follow §4.9.2: a full or closed offer is
  * read again and its status line replaces Join.
  */
-export default function ClassDetailScreen() {
+function ClassDetailScreen() {
   const { t, locale } = useLocale();
   const { colors, fonts } = useTheme();
   const router = useRouter();
@@ -453,5 +454,14 @@ export default function ClassDetailScreen() {
         ) : null}
       </ScrollView>
     </Screen>
+  );
+}
+
+/** Signed-in only: no blank first frame, a signed-out guest lands on Welcome (RequireSession). */
+export default function GuardedClassDetailScreen() {
+  return (
+    <RequireSession>
+      <ClassDetailScreen />
+    </RequireSession>
   );
 }

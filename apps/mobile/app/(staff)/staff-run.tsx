@@ -360,7 +360,7 @@ function RunScreen() {
   const run = useQuery({ queryKey: staffKeys.run(id), queryFn: () => fetchRunDetail(id), enabled: id !== '' });
 
   return (
-    <Screen edges={[]}>
+    <Screen pattern="blur" clearBar edges={[]}>
       <Stack.Screen options={{ title: t('staff.protocols.run.title') }} />
       {run.isPending ? (
         <View style={{ paddingTop: space.m }}>

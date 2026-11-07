@@ -667,6 +667,7 @@ export default function BookingsScreen() {
             testID="bookings.signed-out"
             actionTestID="bookings.sign-in"
             fill
+            stretch
             title={t('booking.noBookingsTitle')}
             message={t('auth.signedOutPitch')}
             actionLabel={t('auth.signIn')}

@@ -649,7 +649,7 @@ function IncidentsScreen() {
   const opened = openId ? (shown.find((r) => r.id === openId) ?? null) : null;
 
   return (
-    <Screen edges={[]} keyboard>
+    <Screen pattern="blur" clearBar edges={[]} keyboard>
       <Stack.Screen
         options={{
           title: t('staff.incidents.title'),

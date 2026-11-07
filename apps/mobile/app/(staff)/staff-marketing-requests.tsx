@@ -247,7 +247,7 @@ function RequestsScreen() {
     id === params.id ? { borderColor: colors.blue, borderWidth: 1.5 } : null;
 
   return (
-    <Screen edges={[]} keyboard>
+    <Screen pattern="blur" clearBar edges={[]} keyboard>
       <Stack.Screen options={{ title: t('staff.marketing.requests.title'), ...addOptions }} />
       <KeyboardScroll
         contentContainerStyle={{

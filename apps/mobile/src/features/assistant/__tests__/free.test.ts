@@ -86,7 +86,7 @@ describe('freeFrom', () => {
 });
 
 describe('buildFreeBody', () => {
-  const pages = [{ route: '/staff', label: 'Today' }];
+  const pages = [{ route: '/staff', label: 'Staff panel' }];
 
   it('sends the question for the phone with its page and pages', () => {
     expect(buildFreeBody({ text: '  where?  ', lang: 'ar', route: '/staff-order', earlier: [], pages })).toEqual({
@@ -202,7 +202,7 @@ describe('refusals', () => {
 
 describe('answerPages', () => {
   const pages = [
-    { route: '/staff', label: 'Today' },
+    { route: '/staff', label: 'Staff panel' },
     { route: '/staff-request', label: 'Vacation & requests' },
     { route: '/staff-suggestions', label: 'Suggestions' },
     { route: '/staff-incidents', label: 'Incidents' },

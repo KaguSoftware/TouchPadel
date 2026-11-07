@@ -51,6 +51,7 @@ import { useReduceMotion } from '../../../src/lib/useReduceMotion';
 import { LevelMeter } from '../../../src/components/coachShowcase';
 import { ChevronDownIcon } from '../../../src/components/icons';
 import { useToast } from '../../../src/components/overlays';
+import { RequireSession } from '../../../src/features/auth/RequireSession';
 
 /** How far the name card rides up over the hero (Figma "D · Profile": the card overlaps the band). */
 const CARD_OVERLAP = 56;
@@ -78,7 +79,7 @@ const BIO_EASE_MS = 220;
  * at their own page (R56) show a line, and the private cards open nothing; on
  * their own page no card opens at all, the coach only sees their lessons.
  */
-export default function CoachDetailScreen() {
+function CoachDetailScreen() {
   const { t, locale, dir } = useLocale();
   const { colors, fonts } = useTheme();
   const { width } = useWindowDimensions();
@@ -644,5 +645,14 @@ export default function CoachDetailScreen() {
         reduceMotion={reduceMotion}
       />
     </Screen>
+  );
+}
+
+/** Signed-in only: no blank first frame, a signed-out guest lands on Welcome (RequireSession). */
+export default function GuardedCoachDetailScreen() {
+  return (
+    <RequireSession>
+      <CoachDetailScreen />
+    </RequireSession>
   );
 }

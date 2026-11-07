@@ -6,7 +6,7 @@
  */
 export const staffShellEn = {
   today: {
-    title: 'Today',
+    title: 'Staff panel',
     greeting: 'Hello, {name}',
     // "Head chef · Touch Padel"
     roleAtVenue: '{role} · {venue}',

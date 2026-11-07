@@ -42,20 +42,30 @@ export function FloatingLabel({
   const { colors, fonts } = useTheme();
   const { dir } = useLocale();
   const reduceMotion = useReduceMotion();
-  // `lift` moves the label (native driver); `room` opens the space above the box
-  // (a layout value, so it runs on the JS thread). Same length, same curve.
+  // ONE value drives both the label's lift and the room above the box. The room is a
+  // layout value, so it must run on the JS thread; driving the lift from a separate
+  // native-driver value let the two drift apart (and a LayoutAnimation elsewhere on the
+  // screen could interrupt one of them), which left the label stuck half-way.
   const [lift] = useState(() => new Animated.Value(floated ? 1 : 0));
-  const [room] = useState(() => new Animated.Value(floated ? 1 : 0));
+  const room = lift;
   useEffect(() => {
+    lift.stopAnimation();
     if (reduceMotion) {
       lift.setValue(floated ? 1 : 0);
-      room.setValue(floated ? 1 : 0);
       return;
     }
-    const timing = { duration: LABEL_MS, easing: Easing.out(Easing.cubic) };
-    Animated.timing(lift, { toValue: floated ? 1 : 0, ...timing, useNativeDriver: true }).start();
-    Animated.timing(room, { toValue: floated ? 1 : 0, ...timing, useNativeDriver: false }).start();
-  }, [floated, reduceMotion, lift, room]);
+    const target = floated ? 1 : 0;
+    Animated.timing(lift, {
+      toValue: target,
+      duration: LABEL_MS,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: false,
+    }).start(({ finished }) => {
+      // An interrupted run never leaves the label between its two resting places.
+      if (!finished) return;
+      lift.setValue(target);
+    });
+  }, [floated, reduceMotion, lift]);
 
   // Where the label rests (over the text's first line, the room still closed)
   // and how far up it goes, into the room that opens above the box.

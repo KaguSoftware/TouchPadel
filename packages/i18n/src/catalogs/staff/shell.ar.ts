@@ -3,7 +3,7 @@ import type { staffShellEn } from './shell.en';
 
 export const staffShellAr: DeepMessages<typeof staffShellEn> = {
   today: {
-    title: 'اليوم',
+    title: 'لوحة الموظفين',
     greeting: 'أهلًا، {name}',
     roleAtVenue: '{role} · {venue}',
     groups: {

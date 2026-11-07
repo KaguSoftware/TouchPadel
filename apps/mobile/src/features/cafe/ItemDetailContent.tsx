@@ -1,24 +1,26 @@
-import { useState } from 'react';
+import { useRef, useState, type ComponentRef } from 'react';
 import { Image, Pressable, ScrollView, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { formatIQD } from '@touch/i18n';
 import { Text } from '../../i18n/text';
 import { useLocale } from '../../i18n/LocaleProvider';
-import { CloseIcon, ExpandIcon } from '../../components/icons';
+import { ExpandIcon } from '../../components/icons';
 import { radius, space, useTheme } from '../../theme';
 import { CategoryPlaceholder } from './categoryArt';
+import { PhotoViewer, type PhotoOrigin } from './PhotoViewer';
 import { menuPhotoUrl, pickText, type MenuViewItem } from './logic';
 
-const BTN = 36;
+const BTN = 28;
 
 /**
  * The inside of the item sheet, laid out as the web menu's item sheet is (`ItemSheet.tsx`): the
- * photo (or the category's drawing) on top with a round close button and an expand button, then
+ * photo (or the category's drawing) on top with a round expand button, then
  * a name header that stays put while the rest scrolls (the eyebrow, the name in capitals), the
  * hook, the description, the allergen chips, the sizes with their prices, and a foot with the
  * price. Hosted by the platform's own sheet (`ItemDetail.ios.tsx`: SwiftUI; `ItemDetail.tsx`:
  * Material), which bring the grabber, the detents and the drag to dismiss. Tapping the photo or
- * the expand button opens it over the sheet, where it pinches to zoom (iOS) and pans. Looking
+ * the expand button opens it over the whole screen (not for a sold-out item), where it pinches to
+ * zoom and pans, and a drag down sends it back to its place. Looking
  * only: the web's quantity, notes and add button are left out, nothing is ordered here.
  */
 export function ItemDetailContent({
@@ -26,20 +28,43 @@ export function ItemDetailContent({
   categoryEn,
   testID,
   height,
-  onClose,
+  screenOffset,
 }: {
   item: MenuViewItem;
   categoryEn: string;
   testID: string;
   /** The sheet's height, which the hosted view fills. */
   height: number;
-  onClose(): void;
+  /**
+   * Where this content's top-left corner is on the screen, when the host puts it somewhere the
+   * layout cannot see (the iOS sheet: React measures from the hidden host, not from the sheet).
+   */
+  screenOffset?: { x: number; y: number };
 }) {
   const { t, locale } = useLocale();
   const { colors, fonts, tracking } = useTheme();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const [zoom, setZoom] = useState(false);
+  const [origin, setOrigin] = useState<PhotoOrigin | null>(null);
+  const photoRef = useRef<ComponentRef<typeof View>>(null);
+  /** Opens the photo over the screen, growing from where it sits now. */
+  const openZoom = () => {
+    const node = photoRef.current;
+    if (!node) {
+      setOrigin(null);
+      setZoom(true);
+      return;
+    }
+    node.measureInWindow((x, y, w, h) => {
+      setOrigin(
+        w > 0 && h > 0
+          ? { x: x + (screenOffset?.x ?? 0), y: y + (screenOffset?.y ?? 0), width: w, height: h }
+          : null,
+      );
+      setZoom(true);
+    });
+  };
   const url = menuPhotoUrl(item.photo_path);
   const name = pickText(item.name_en, item.name_ar, locale);
   const hook = pickText(item.hook_en, item.hook_ar, locale);
@@ -63,6 +88,8 @@ export function ItemDetailContent({
   return (
     <View style={{ width, height, backgroundColor: colors.card }}>
       <View
+        ref={photoRef}
+        collapsable={false}
         style={{
           width: '100%',
           aspectRatio: 4 / 3,
@@ -70,12 +97,19 @@ export function ItemDetailContent({
           overflow: 'hidden',
         }}
       >
-        {url ? (
+        {url && !item.available ? (
+          <Image
+            source={{ uri: url }}
+            style={{ width: '100%', height: '100%', backgroundColor: colors.gtint }}
+            resizeMode="cover"
+            accessibilityIgnoresInvertColors
+          />
+        ) : url ? (
           <Pressable
             testID={`${testID}.photo`}
             accessibilityRole="imagebutton"
             accessibilityLabel={t('cafe.expandPhoto')}
-            onPress={() => setZoom(true)}
+            onPress={openZoom}
             style={{ flex: 1 }}
           >
             <Image
@@ -118,26 +152,17 @@ export function ItemDetailContent({
             </View>
           </View>
         )}
-        {url ? (
+        {url && item.available ? (
           <Pressable
             testID={`${testID}.expand`}
             accessibilityRole="button"
             accessibilityLabel={t('cafe.expandPhoto')}
-            onPress={() => setZoom(true)}
-            style={{ ...roundButton, bottom: space.m, end: space.m }}
+            onPress={openZoom}
+            style={{ ...roundButton, bottom: space.s, end: space.s }}
           >
-            <ExpandIcon size={18} color={colors.ink} />
+            <ExpandIcon size={14} color={colors.ink} />
           </Pressable>
         ) : null}
-        <Pressable
-          testID={`${testID}.close`}
-          accessibilityRole="button"
-          accessibilityLabel={t('common.close')}
-          onPress={onClose}
-          style={{ ...roundButton, top: space.m, end: space.m }}
-        >
-          <CloseIcon size={18} color={colors.ink} />
-        </Pressable>
       </View>
 
       <ScrollView
@@ -304,35 +329,7 @@ export function ItemDetailContent({
       ) : null}
 
       {zoom && url ? (
-        <View style={{ ...StyleAbsoluteFill, backgroundColor: '#000' }}>
-          <ScrollView
-            testID={`${testID}.zoom`}
-            maximumZoomScale={4}
-            minimumZoomScale={1}
-            centerContent
-            bouncesZoom
-            showsHorizontalScrollIndicator={false}
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={{ width, height, justifyContent: 'center' }}
-          >
-            <Image
-              source={{ uri: url }}
-              style={{ width, height }}
-              resizeMode="contain"
-              accessibilityIgnoresInvertColors
-            />
-          </ScrollView>
-          <Pressable
-            testID={`${testID}.zoomClose`}
-            accessibilityRole="button"
-            accessibilityLabel={t('cafe.lightbox.close')}
-            onPress={() => setZoom(false)}
-            hitSlop={8}
-            style={{ ...roundButton, top: space.m, end: space.m }}
-          >
-            <CloseIcon size={18} color={colors.ink} />
-          </Pressable>
-        </View>
+        <PhotoViewer url={url} testID={testID} origin={origin} onClose={() => setZoom(false)} />
       ) : null}
     </View>
   );

@@ -36,7 +36,6 @@ import { availabilityKeys } from '../features/availability/hooks';
 import { profileKeys } from '../features/profile/hooks';
 import { matchKeys } from '../features/matches/keys';
 import { guestWindow } from '../features/matches/logic';
-import { clearPendingJoin, getPendingJoin } from '../features/matches/pendingJoin';
 import { takeBookingSheetRequest } from '../features/courtTransition/openIntent';
 import { tournamentKeys } from '../features/tournaments/keys';
 import { parseTournamentsPublic } from '../features/tournaments/logic';
@@ -175,23 +174,23 @@ describe.each(LOCALES)('Play states in %s', (locale) => {
     }
   });
 
-  it('lets a signed-out guest browse, and keeps the time a match card was tapped for', () => {
-    const slot = matchSlotsFixture()[0]!;
+  it('asks a signed-out guest to sign in instead of listing matches and tournaments', () => {
     const screen = renderRoute(PlayScreen, {
       locale,
       session: 'out',
       queryData: [...venue(), ...slotSeeds(), ...tours()],
     });
     try {
-      const card = screen.getByTestId(`play.slot.${Date.parse(slot.startAt)}-0`);
-      expect(within(card).getByText(t('matches.link.signIn'))).toBeTruthy();
-      fireEvent.press(card);
-      expect(getPendingJoin()).toEqual({ kind: 'slot', venueId: TEST_VENUE_ID, startAt: slot.startAt });
+      expect(screen.getByTestId('play.sign-in')).toBeTruthy();
+      expect(screen.getByText(t('play.signIn.both'))).toBeTruthy();
+      expect(screen.queryByTestId(`play.tournament.${TOUR_ID}`)).toBeNull();
+      expect(
+        screen.queryByTestId(`play.slot.${Date.parse(matchSlotsFixture()[0]!.startAt)}-0`),
+      ).toBeNull();
+      fireEvent.press(screen.getByTestId('play.sign-in.cta'));
       expect(routerState.calls).toContainEqual({ method: 'push', arg: '/welcome' });
-      expect(screen.getByTestId(`play.tournament.${TOUR_ID}`)).toBeTruthy();
     } finally {
       screen.unmount();
-      clearPendingJoin();
     }
   });
 
@@ -246,7 +245,7 @@ describe.each(LOCALES)('Play states in %s', (locale) => {
   it('opens a tournament from its card', () => {
     const screen = renderRoute(PlayScreen, {
       locale,
-      session: 'out',
+      session: 'in',
       queryData: [...venue(false), ...tours()],
     });
     try {

@@ -50,6 +50,7 @@ import { useGuestPreview } from '../src/features/staff/guestPreview';
 import { useStaffStatus } from '../src/features/staff/StaffStatusProvider';
 import { useToast } from '../src/components/overlays';
 import { useDownToTab, useResetTo } from '../src/navigation/back';
+import { clearBarOptions, useClearBarPad } from '../src/navigation/clearBar';
 import { closeBookingSheetNow } from '../src/features/courtTransition/openIntent';
 
 const LOGO_H = 40;
@@ -100,6 +101,9 @@ export default function ProfileScreen() {
   const resetTo = useResetTo();
   const downToTab = useDownToTab();
   const insets = useSafeAreaInsets();
+  // The bar is clear, so the page's own ground (frosted pattern included) runs up
+  // under it and the bar matches the page; the page starts below the bar.
+  const barPad = useClearBarPad();
   const { session } = useAuth();
   const profile = useOwnProfile(!!session);
   const settings = useVenueSettings();
@@ -167,12 +171,12 @@ export default function ProfileScreen() {
     ]);
   };
 
-  const header = <Stack.Screen options={{ title: t('profile.title') }} />;
+  const header = <Stack.Screen options={{ title: t('profile.title'), ...clearBarOptions }} />;
   const previewPill = previewing ? <GuestPreviewPill bottom={insets.bottom + space.sm} /> : null;
 
   if (!session) {
     return (
-      <Screen pattern="blur" edges={[]}>
+      <Screen pattern="blur" edges={[]} style={barPad}>
         {header}
         <View
           style={{
@@ -227,7 +231,7 @@ export default function ProfileScreen() {
             testID="profile.cafe-menu"
             label={t('profile.cafeMenu')}
             variant="ghost"
-            onPress={() => router.push('/cafe-menu')}
+            onPress={() => downToTab({ pathname: '/club', params: { show: 'menu' } })}
             style={{ alignSelf: 'stretch', marginTop: space.l }}
           />
         </View>
@@ -252,7 +256,7 @@ export default function ProfileScreen() {
   const incomplete = profileGateState(profile) === 'incomplete';
 
   return (
-    <Screen pattern="blur" edges={[]}>
+    <Screen pattern="blur" edges={[]} style={barPad}>
       {header}
       {profile.isLoading ? (
         <SkeletonList rows={2} height={90} />
@@ -497,7 +501,7 @@ export default function ProfileScreen() {
               testID="profile.cafe-menu"
               icon={<CupIcon size={15} color={colors.gstrong} />}
               label={t('profile.cafeMenu')}
-              onPress={() => router.push('/cafe-menu')}
+              onPress={() => downToTab({ pathname: '/club', params: { show: 'menu' } })}
             />
           </MenuGroup>
 

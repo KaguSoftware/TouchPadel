@@ -693,7 +693,7 @@ function MarketingScreen() {
   );
 
   return (
-    <Screen edges={[]} keyboard>
+    <Screen pattern="blur" clearBar edges={[]} keyboard>
       <Stack.Screen options={{ title: t('staff.marketing.title') }} />
       <KeyboardScroll
         ref={scroll}

@@ -135,6 +135,7 @@ export const STAFF_PAGE_AREAS = {
   'staff-order-item': FLOOR,
   'staff-order-review': FLOOR,
   'staff-order-slip': FLOOR,
+  'staff-order-slip-new': FLOOR,
   // The people records.
   'staff-incidents': ['incidents'],
   'staff-incident-report': ['incidents'],

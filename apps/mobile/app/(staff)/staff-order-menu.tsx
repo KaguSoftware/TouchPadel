@@ -320,7 +320,7 @@ function MenuScreen() {
         : t('staff.floor.menu.review');
 
   return (
-    <Screen edges={[]} keyboard="bar">
+    <Screen pattern="blur" clearBar edges={[]} keyboard="bar">
       <Stack.Screen options={{ title }} />
       <ScrollView
         ref={scrollRef}

@@ -13,6 +13,14 @@ export const playEn = {
   kindMatches: 'Matches',
   // The branch has open matches off AND no branch runs tournaments.
   off: 'Open matches and tournaments are not running at this branch right now.',
+  // Signed out: open matches and tournaments need an account (Sait, 2026-11-07).
+  signIn: {
+    matches: 'Sign in to see open matches',
+    tournaments: 'Sign in to see tournaments',
+    both: 'Sign in to see open matches and tournaments',
+    body: 'Create an account or sign in to browse, join and follow them.',
+    cta: 'Sign in',
+  },
   // Nothing on either side, with no chip narrowing it.
   emptyBody: 'No open matches or tournaments coming up. Start a match from any free time.',
   // One side failed to load while the other is on the page.

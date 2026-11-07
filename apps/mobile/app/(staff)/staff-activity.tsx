@@ -254,7 +254,7 @@ function ActivityScreen() {
   const ago = (at: string) => sinceWords(sinceOf(at, serverTime, fetchedAt, now), t, locale);
 
   return (
-    <Screen edges={[]}>
+    <Screen pattern="blur" clearBar edges={[]}>
       <Stack.Screen options={{ title: t('staff.activity.title') }} />
       <ScrollView
         showsVerticalScrollIndicator={false}

@@ -77,7 +77,12 @@ export function SkeletonList({ rows = 4, height = 84 }: { rows?: number; height?
   return (
     <View style={{ paddingTop: space.xs }}>
       {Array.from({ length: rows }, (_, i) => (
-        <Skeleton key={i} height={height} radius={radius.button} style={{ marginBottom: space.sm }} />
+        <Skeleton
+          key={i}
+          height={height}
+          radius={radius.button}
+          style={{ marginBottom: space.sm }}
+        />
       ))}
     </View>
   );
@@ -188,6 +193,7 @@ export function EmptyState({
   centered = false,
   testID,
   actionTestID,
+  stretch = false,
 }: {
   title: string;
   message?: string;
@@ -209,6 +215,8 @@ export function EmptyState({
    * "browse courts", whatever the screen has none of — so the caller names it.
    */
   actionTestID?: string;
+  /** The action is a wider button (a fixed minimum), not just its label's width. */
+  stretch?: boolean;
 }) {
   const { colors, fonts } = useTheme();
   const box = useRef<ViewInstance>(null);
@@ -274,7 +282,12 @@ export function EmptyState({
           onPress={onAction}
           variant="cta"
           size="compact"
-          style={{ marginTop: space.l, paddingStart: 22, paddingEnd: 22 }}
+          style={{
+            marginTop: space.l,
+            paddingStart: 22,
+            paddingEnd: 22,
+            ...(stretch ? { minWidth: 180 } : null),
+          }}
         />
       ) : null}
     </View>

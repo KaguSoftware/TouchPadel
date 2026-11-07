@@ -9,7 +9,7 @@ import {
   type LayoutRectangle,
   type ViewInstance,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useAccountPush } from '../../src/features/auth/useAccountPush';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { formatIQD, isolate } from '@touch/i18n';
 import { useLocale } from '../../src/i18n/LocaleProvider';
@@ -87,7 +87,7 @@ const COURT_AIR = 10;
 export default function CoachesScreen() {
   const { t, locale } = useLocale();
   const { colors } = useTheme();
-  const router = useRouter();
+  const accountPush = useAccountPush();
   const toast = useToast();
   const tabBarHeight = useTabBarHeight();
   // The page runs up under the status bar; the pinned title clears it itself.
@@ -191,7 +191,7 @@ export default function CoachesScreen() {
           icon={<CalendarIcon size={16} color={colors.gstrong} />}
           title={t('coaching.guest.mine.title')}
           sub={t('coachShowcase.myLessonsSub')}
-          onPress={() => router.push('/my-lessons')}
+          onPress={() => accountPush('/my-lessons')}
         />
       </View>
       <View style={{ flex: 1 }}>
@@ -200,7 +200,7 @@ export default function CoachesScreen() {
           icon={<WhistleIcon size={16} color={colors.gstrong} />}
           title={t('coachShowcase.classesTitle')}
           sub={t('coachShowcase.classesSub')}
-          onPress={() => router.push('/classes')}
+          onPress={() => accountPush('/classes')}
         />
       </View>
     </View>
@@ -227,7 +227,7 @@ export default function CoachesScreen() {
           }
           parallax={{ scrollY, y, viewport: screenH }}
           onPress={() =>
-            router.push({ pathname: '/coach/[id]', params: { id: c.id, venueId: venueId ?? '' } })
+            accountPush({ pathname: '/coach/[id]', params: { id: c.id, venueId: venueId ?? '' } })
           }
         />
       </Rise>

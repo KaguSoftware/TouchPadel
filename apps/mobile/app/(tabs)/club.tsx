@@ -63,22 +63,30 @@ export default function ClubScreen() {
   };
   // Without a card to show, a pick of the card falls to the next segment.
   const view: ClubView =
-    picked === 'card' && !offersCard ? 'menu' : (picked ?? (offersCard && member ? 'card' : 'menu'));
+    picked === 'card' && !offersCard
+      ? 'menu'
+      : (picked ?? (offersCard && member ? 'card' : 'menu'));
   const bottomPad = tabBarHeight + 24;
 
+  const prompt =
+    member || view === 'menu'
+      ? null
+      : view === 'card'
+        ? {
+            testID: 'club.signed-out',
+            actionTestID: 'club.sign-in',
+            title: t('loyalty.guest.card.title'),
+            message: t('loyalty.guest.card.signInPitch'),
+          }
+        : {
+            testID: 'club.ranks.signed-out',
+            actionTestID: 'club.ranks.sign-in',
+            title: t('ranks.signIn.title'),
+            message: t('ranks.signIn.message'),
+          };
+
   const card = () => {
-    if (!member) {
-      return (
-        <EmptyState
-          testID="club.signed-out"
-          title={t('loyalty.guest.card.title')}
-          message={t('loyalty.guest.card.signInPitch')}
-          actionLabel={t('auth.signIn')}
-          onAction={() => router.push('/sign-in')}
-          actionTestID="club.sign-in"
-        />
-      );
-    }
+    if (!member) return null;
     if (loyalty.isPending) return <SkeletonList rows={1} height={300} />;
     return (
       <MemberCardPanel testID="club.card" bottomPad={bottomPad}>
@@ -125,11 +133,38 @@ export default function ClubScreen() {
         {view === 'card' ? (
           card()
         ) : view === 'ranks' ? (
-          <RanksView testID="club.ranks" bottomPad={bottomPad} />
+          member ? (
+            <RanksView testID="club.ranks" bottomPad={bottomPad} />
+          ) : null
         ) : (
           <CafeMenuView testID="club.menu" bottomPad={bottomPad} />
         )}
       </View>
+      {prompt ? (
+        // Centred on the phone's screen, not on the page under the switch: laid over the
+        // whole Screen, still, and out of the way of the title and switch above it.
+        <View
+          pointerEvents="box-none"
+          style={{
+            position: 'absolute',
+            top: 0,
+            bottom: 0,
+            start: 0,
+            end: 0,
+            justifyContent: 'center',
+          }}
+        >
+          <EmptyState
+            testID={prompt.testID}
+            stretch
+            title={prompt.title}
+            message={prompt.message}
+            actionLabel={t('auth.signIn')}
+            onAction={() => router.push('/sign-in')}
+            actionTestID={prompt.actionTestID}
+          />
+        </View>
+      ) : null}
     </Screen>
   );
 }

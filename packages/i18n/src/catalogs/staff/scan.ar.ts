@@ -3,17 +3,23 @@ import type { staffScanEn } from './scan.en';
 
 /** `staff.scan.*` بالعربية. Drafted by the build team; the client reviews the Arabic. */
 export const staffScanAr: DeepMessages<typeof staffScanEn> = {
+  take: 'التقاط صورة',
+  library: 'اختيار صورة محفوظة',
+  retake: 'إعادة التصوير',
+  slips: {
+    title: 'الأوراق',
+    add: 'مسح طلب',
+  },
   rows: {
     slip: 'مسح طلب',
     receipt: 'مسح إيصال',
   },
   slip: {
+    tileTitle: 'صوّر ورقة الطلب',
+    tileHint: 'يقرؤها الكاشير ويرسلها إلى المطبخ',
     title: 'مسح طلب',
-    lead: 'صوّر ورقة الطلب مفرودة وفي ضوء جيد. تأكّد أن رقم الطاولة مكتوب عليها. يراجعها كاشير الكافيه ويرسلها إلى المطبخ.',
-    photo: 'ورقة الطلب',
     send: 'إرسال إلى كاشير الكافيه',
     sent: 'أُرسلت الورقة. وصلت إلى كاشير الكافيه.',
-    noPhoto: 'صوّر الورقة أولًا.',
     mine: 'أوراقي اليوم',
     empty: 'لم تُرسل أي ورقة اليوم.',
     table: 'طاولة {number}',
@@ -22,12 +28,11 @@ export const staffScanAr: DeepMessages<typeof staffScanEn> = {
     setAside: 'وُضعت جانبًا: {reason}',
   },
   receipt: {
+    tileTitle: 'صوّر الإيصال',
+    tileHint: 'يراجعه المدير في «استلام البضائع»',
     title: 'مسح إيصال',
-    lead: 'صوّر إيصال المورّد أو فاتورته مفرودًا وفي ضوء جيد. يراجعه المدير في «استلام البضائع» ويُدخله إلى المخزون.',
-    photo: 'صورة الإيصال',
     send: 'إرسال إلى استلام البضائع',
     sent: 'أُرسل الإيصال. سيراجعه المدير في «استلام البضائع».',
-    noPhoto: 'صوّر الإيصال أولًا.',
     mine: 'إيصالاتي',
     empty: 'لم يُرسل أي إيصال خلال آخر 30 يومًا.',
     supplier: 'لم يُقرأ اسم المورّد',

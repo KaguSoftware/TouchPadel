@@ -16,7 +16,7 @@
  *  • `tabs` (the iOS layout, which the `jest-expo/ios` preset resolves
  *    `(tabs)/_layout` to). `TabsLayout.ios.tsx` carries NO testID — UIKit
  *    draws the bar — and `tabs.book` exists only because jest.setup.ts's
- *    `expo-router/unstable-native-tabs` mock names each Trigger's View after
+ *    `expo-router/native-tabs` mock names each Trigger's View after
  *    its route. The case proves the layout declares five triggers with the
  *    locale's labels; it does not prove a `tabs.book` node exists on a device.
  *    The Android case below is where that id is asserted on the app's own
