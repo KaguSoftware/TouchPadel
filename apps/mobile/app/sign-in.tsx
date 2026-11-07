@@ -39,8 +39,8 @@ import { useToast } from '../src/components/overlays';
  *          existing account gets one; a number nobody uses is told so on the
  *          field. A number whose sign-up code was never entered is confirmed
  *          by this code too.
- *   email  email + password (the password field appears once an address is
- *          typed). Wrong credentials render on the password field; an address
+ *   email  email + password (the password field stays mounted until a phone
+ *          number is typed, for autofill). Wrong credentials render on the password field; an address
  *          whose link was never opened goes to verify-email and its resend
  *          button. Forgot password shows under an email only.
  *

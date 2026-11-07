@@ -192,14 +192,14 @@ describe.each(LOCALES)('café menu states in %s', (locale) => {
       expect(within(row).getByText(t('profile.cafeMenu'))).toBeTruthy();
       expect(signedIn.getByText(t('profile.groupCafe'))).toBeTruthy();
       fireEvent.press(row);
-      expect(routerState.calls).toContainEqual({ method: 'push', arg: '/cafe-menu' });
+      expect(routerState.calls).toContainEqual({ method: 'replace', arg: { pathname: '/club', params: { show: 'menu' } } });
     } finally {
       signedIn.unmount();
     }
     const signedOut = renderRoute(ProfileScreen, { locale, session: 'out' });
     try {
       fireEvent.press(signedOut.getByTestId('profile.cafe-menu'));
-      expect(routerState.calls).toContainEqual({ method: 'push', arg: '/cafe-menu' });
+      expect(routerState.calls).toContainEqual({ method: 'replace', arg: { pathname: '/club', params: { show: 'menu' } } });
     } finally {
       signedOut.unmount();
     }

@@ -62,15 +62,25 @@ describe('FloatingField', () => {
 });
 
 describe('sign-in', () => {
-  it('shows the password field once an email is typed, and not for a phone number', () => {
+  it('keeps the password field until a phone number is typed, and forgot password under an email only', () => {
+    jest.useFakeTimers();
     const screen = renderRoute(SignInScreen, { locale: 'en' });
     try {
-      expect(screen.queryByTestId('sign-in.password')).toBeNull();
+      // Mounted before anything is typed, so autofill finds it when it fills the username.
+      expect(screen.getByTestId('sign-in.password')).toBeTruthy();
+      expect(screen.queryByTestId('sign-in.forgot-password')).toBeNull();
       fireEvent.changeText(screen.getByTestId('sign-in.identifier'), 'sara@mail.com');
       expect(screen.getByTestId('sign-in.password')).toBeTruthy();
       expect(screen.getByTestId('sign-in.forgot-password')).toBeTruthy();
+      fireEvent.changeText(screen.getByTestId('sign-in.identifier'), '07701234567');
+      act(() => {
+        jest.advanceTimersByTime(600);
+      });
+      expect(screen.queryByTestId('sign-in.password')).toBeNull();
+      expect(screen.queryByTestId('sign-in.forgot-password')).toBeNull();
     } finally {
       screen.unmount();
+      jest.useRealTimers();
     }
   });
 });
