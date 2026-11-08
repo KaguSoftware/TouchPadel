@@ -470,16 +470,6 @@ export function EmptyState({
   );
 }
 
-/** Placeholder for a screen a lane has not built yet; makes the shell navigable meanwhile. */
-export function ScreenScaffold({ title, lead }: { title: string; lead?: string }) {
-  return (
-    <div>
-      <PageHeader title={title} />
-      <EmptyState icon="spark" title={lead ?? title} />
-    </div>
-  );
-}
-
 // ---------------------------------------------------------------------------
 // Status indicators (spec: seven booking statuses, all handled; labelled, never colour-only)
 // ---------------------------------------------------------------------------

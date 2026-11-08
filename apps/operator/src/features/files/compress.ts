@@ -20,8 +20,6 @@ export type Encoding = 'gzip' | 'webp';
 
 /** What one picked file may weigh before compression (0354 venue_files_size_chk). */
 export const MAX_FILE_BYTES = 50 * 1024 * 1024;
-/** The bucket's own limit per object (0354). */
-export const MAX_STORED_BYTES = 50 * 1024 * 1024;
 
 export const PHOTO_MAX_EDGE = 2560;
 export const PHOTO_QUALITY = 0.82;

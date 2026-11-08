@@ -377,9 +377,6 @@ export function decisionTone(decision: SubmissionRow['decision']): BadgeTone {
   }
 }
 
-/** Whether a run is finished (done, stopped or withdrawn): nothing on it changes any more. */
-export const isFinished = (status: RunRow['status']): boolean => status === 'done' || status === 'stopped' || status === 'withdrawn';
-
 // ── The timeline ─────────────────────────────────────────────────────────────
 
 /** A step's submissions grouped by round, the latest round first, each round oldest first. */
@@ -393,13 +390,6 @@ export function submissionRounds(step: Pick<StepRow, 'submissions'>): { round: n
   return [...byRound.entries()]
     .sort(([a], [b]) => b - a)
     .map(([round, submissions]) => ({ round, submissions: [...submissions].sort((a, b) => a.submitted_at.localeCompare(b.submitted_at)) }));
-}
-
-/** The submission a step's current round stands on: not withdrawn or set aside, the newest. */
-export function standingSubmission(step: Pick<StepRow, 'submissions' | 'round'>): SubmissionRow | null {
-  const live = step.submissions.filter((s) => s.withdrawn_at === null && s.superseded_at === null);
-  if (live.length === 0) return null;
-  return [...live].sort((a, b) => b.round - a.round || b.submitted_at.localeCompare(a.submitted_at))[0] ?? null;
 }
 
 /**
@@ -713,11 +703,6 @@ export function addStepAfterChoices(steps: readonly StepRow[], lastKey: string |
     if (after.position >= last.position) return false;
     return sorted.every((s) => s.position <= after.position || s.id === last.id || s.status === 'waiting');
   });
-}
-
-/** The step a kind's defs mark last (the launch, the ready check, the hire, the apply). */
-export function lastStepKey(defs: readonly StepDef[]): string | null {
-  return defs.find((d) => d.fixed === 'last')?.step_key ?? null;
 }
 
 /** A step's list may be edited while it has not finished (§2.7 `edit_run_items`, STEP_CLOSED). */

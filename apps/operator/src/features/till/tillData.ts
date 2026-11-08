@@ -336,11 +336,6 @@ export const tabDetailQuery = (tabId: string) => ({
   queryFn: () => fetchTabDetail(tabId),
 });
 
-/** True when the server marked a promotion adjustment (0067: reason_code = 'promotion'). */
-export function isPromotionAdjustment(a: Pick<TabAdjustmentRow, 'reason_code'>): boolean {
-  return a.reason_code === 'promotion';
-}
-
 // ---------------------------------------------------------------------------
 // Basket (unsent lines, priced from the cached menu for display only)
 // ---------------------------------------------------------------------------

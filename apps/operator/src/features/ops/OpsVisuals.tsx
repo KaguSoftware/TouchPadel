@@ -158,25 +158,6 @@ export function FigureRow({
   );
 }
 
-/** A small caption that splits a card's rows into named groups ("Kitchen"). */
-export function RowGroupLabel({ children }: { children: ReactNode }) {
-  return (
-    <p
-      style={{
-        margin: 0,
-        marginBlockStart: 'var(--tp-sp-2)',
-        paddingInline: 'var(--tp-sp-2)',
-        fontSize: 'var(--tp-fs-xs)',
-        fontWeight: 600,
-        color: 'var(--tp-muted-fg)',
-        textTransform: 'uppercase',
-        letterSpacing: '0.04em',
-      }}
-    >
-      {children}
-    </p>
-  );
-}
 
 /** A panel title with its glyph. */
 export function CardTitle({ icon, children }: { icon: IconName; children: ReactNode }) {

@@ -11,7 +11,6 @@
 // ---------------------------------------------------------------------------
 
 export type RanksPeriod = 'all' | 'month' | 'quarter';
-export const RANKS_PERIODS: readonly RanksPeriod[] = ['all', 'month', 'quarter'];
 
 export interface RanksSettings {
   enabled: boolean;

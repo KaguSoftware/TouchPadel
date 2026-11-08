@@ -19,7 +19,6 @@ import type { AssistantScope } from '@touch/core/assistant/tools';
 import { useAuth } from '../../lib/auth';
 import { useLocale } from '../../lib/i18n';
 import { Button, trapTab } from '../../components/ui';
-import { Kbd } from '../../components/kit';
 import { Icon } from '../../components/icons';
 import { useOwnsScreen } from '../../lib/screenOwner';
 import { Thread } from './Thread';
@@ -76,20 +75,6 @@ export function AssistantDrawerProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo(() => ({ open: open && allowed, openDrawer, closeDrawer, toggleDrawer, allowed }), [open, allowed, openDrawer, closeDrawer, toggleDrawer]);
   return <DrawerContext.Provider value={value}>{children}</DrawerContext.Provider>;
-}
-
-/** The rail footer row. Renders nothing for a role that may not open it. */
-export function AssistantRailButton({ style }: { style?: CSSProperties }) {
-  const { tr } = useLocale();
-  const drawer = useAssistantDrawerOrNull();
-  if (!drawer?.allowed) return null;
-  return (
-    <button type="button" className="tp-nav-item" style={style} onClick={drawer.toggleDrawer} aria-pressed={drawer.open} aria-keyshortcuts="Control+K Meta+K">
-      <Icon name="spark" size={16} />
-      <span style={{ flex: 1 }}>{tr('ws.shell.nav.assistant')}</span>
-      <Kbd>⌘K</Kbd>
-    </button>
-  );
 }
 
 /**
