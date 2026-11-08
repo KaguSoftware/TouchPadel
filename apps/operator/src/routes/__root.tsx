@@ -2040,23 +2040,32 @@ function SignInScreen() {
  * so he comes before the barista (wave 5 §2.1.6). Prep sits after the bar and
  * kitchen family it was split into (0155): every route prep opens, they open
  * too, so a refusal names a role the owner can still assign rather than the
- * retired one.
+ * retired one. The developer and the shop assistant each open one page of
+ * their own (/monitoring, /shop) and little else, so they come straight after
+ * the baseline: the list once left them out, and a refusal on /shop named the
+ * manager, on /monitoring the owner.
+ *
+ * Keyed by every StaffRole, so a role added to core fails typecheck here until
+ * it has a place; the keys' written order is the order.
  */
-const ROLE_ORDER: readonly StaffRole[] = [
-  'driver',
-  'marketing',
-  'waiter',
-  'assistant_barista',
-  'barista',
-  'chef',
-  'head_barista',
-  'head_chef',
-  'prep',
-  'cashier',
-  'court_desk',
-  'manager',
-  'owner',
-];
+const ROLE_PLACE: Record<StaffRole, true> = {
+  driver: true,
+  marketing: true,
+  waiter: true,
+  dev: true,
+  shop_staff: true,
+  assistant_barista: true,
+  barista: true,
+  chef: true,
+  head_barista: true,
+  head_chef: true,
+  prep: true,
+  cashier: true,
+  court_desk: true,
+  manager: true,
+  owner: true,
+};
+const ROLE_ORDER = Object.keys(ROLE_PLACE) as StaffRole[];
 function requiredRoleFor(route: string): StaffRole {
   return ROLE_ORDER.find((r) => canAccess(r, route)) ?? 'owner';
 }

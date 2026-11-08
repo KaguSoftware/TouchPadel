@@ -47,7 +47,7 @@ import {
   type Column,
 } from '../../components/kit';
 import { Icon } from '../../components/icons';
-import { MoneyInput } from '../../components/inputs';
+import { MoneyInput, digitsOnly } from '../../components/inputs';
 import { Switch } from '../../components/Switch';
 import { useToast } from '../../components/toast';
 import { MARK_FG, MARK_SOFT } from '../ops/OpsVisuals';
@@ -460,10 +460,10 @@ function RuleForm({
         <input
           style={{ ...inputStyle, inlineSize: '7rem' }}
           dir="ltr"
-          type="number"
+          inputMode="numeric"
           value={priority}
           disabled={readOnly}
-          onChange={(e) => setPriority(Number(e.target.value) || 0)}
+          onChange={(e) => setPriority(Number(digitsOnly(e.target.value)) || 0)}
         />
       </Field>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--tp-sp-2-5)' }}>

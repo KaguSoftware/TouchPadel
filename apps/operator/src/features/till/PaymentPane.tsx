@@ -40,6 +40,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { formatIQD, isolate } from '@touch/i18n';
 import { useLocale } from '../../lib/i18n';
 import { AmountPad, Button, ErrorText, Field, Modal, inputStyle } from '../../components/ui';
+import { digitsOnly } from '../../components/inputs';
 import { MessagePresenter, Money } from '../../components/kit';
 import { Switch } from '../../components/Switch';
 import { useTillShiftOptional } from '../tillShift/shiftContext';
@@ -125,7 +126,8 @@ export function PaymentPane({
   const change = computeChange(target, tendered);
   const amountValid = target > 0 && target <= due;
 
-  const digits = (raw: string) => Number(raw.replace(/\D/g, '')) || 0;
+  // Arabic-Indic digits from an Arabic keyboard count; `\D` alone would drop them.
+  const digits = (raw: string) => Number(digitsOnly(raw)) || 0;
 
   /*
    * Rulebook 4.3. The two ways to reach a dead-ended Record payment are a

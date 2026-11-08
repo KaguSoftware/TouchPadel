@@ -76,6 +76,7 @@ import {
   matchesSearch,
   memberQueueCall,
   saleItems,
+  saleOwed,
   saleLabel,
   saleReceiptLines,
   setLineQty,
@@ -109,10 +110,12 @@ const OPEN_SHOP_SALES = {
   refetchInterval: 30_000,
 };
 
-/** A sale being paid: its tab, what is due, and the method pressed. */
+/** A sale being paid: its tab, its whole bill, what is due, and the method pressed. */
 interface Paying {
   tabId: string;
   label: string;
+  /** The whole bill, sent as expectedTotalIqd: settle_tab compares the full total, not the due. */
+  total: number;
   due: number;
   method: PaymentMethod;
   /** The lines as sold, for a local receipt when the server has not answered (F-56). */
@@ -220,12 +223,14 @@ export function ShopTill() {
       const items = saleItems(basket);
       const lines = saleReceiptLines(basket, catalogue.sizes, name);
       let due = estimate;
+      let total = estimate;
       if (tabId.startsWith(LOCAL_TAB_PREFIX)) {
         const idemKey = tabId.slice(LOCAL_TAB_PREFIX.length);
         await mutate('order.add_items', { tabIdemKey: idemKey, items, shop: true });
         appendOfflineLines(idemKey, lines);
         // What the server will charge at replay (tax per group at the cached rate, F-06).
         due = offlineTabTotals({ lines }, taxCtx).total;
+        total = due;
         if (member) {
           // F-56: the member rides the queue ahead of the settle, so the points land with it.
           // Not awaited: the write is on the queue as soon as the call starts
@@ -236,14 +241,18 @@ export function ShopTill() {
           setMember(null);
         }
         setBasket([]);
-        setPaying({ tabId, label, due, method, lines });
+        setPaying({ tabId, label, total, due, method, lines });
         void queryClient.invalidateQueries({ queryKey: ['tabs'] });
         return;
       } else {
         await mutate('order.add_items', { tabId, items, shop: true });
-        // The server's total (tax, rounding) is what is charged.
+        // The sale as the server will total it (tax, discounts) is what is charged.
         const detail = await fetchTabDetail(tabId).catch(() => null);
-        if (detail?.total_iqd != null) due = detail.total_iqd;
+        if (detail) {
+          const owed = saleOwed(detail, taxCtx);
+          total = owed.total;
+          due = owed.due;
+        }
       }
       setBasket([]);
       if (member && !tabId.startsWith(LOCAL_TAB_PREFIX)) {
@@ -251,7 +260,7 @@ export function ShopTill() {
         try {
           await setTabCustomer(tabId, member.customer_id);
           setMember(null);
-          setMemberStep({ tabId, label, due, method, lines });
+          setMemberStep({ tabId, label, total, due, method, lines });
           void queryClient.invalidateQueries({ queryKey: ['tabs'] });
           return;
         } catch (e) {
@@ -259,7 +268,7 @@ export function ShopTill() {
         }
       }
       setMember(null);
-      setPaying({ tabId, label, due, method, lines });
+      setPaying({ tabId, label, total, due, method, lines });
       void queryClient.invalidateQueries({ queryKey: ['tabs'] });
     } catch (e) {
       setError(e);
@@ -274,10 +283,8 @@ export function ShopTill() {
     setError(null);
     try {
       const detail = await fetchTabDetail(step.tabId);
-      const paidSoFar = detail.payments.reduce((s, p) => s + p.amount_iqd, 0);
-      const due = Math.max((detail.total_iqd ?? detail.subtotal_iqd ?? 0) - paidSoFar, 0);
       setMemberStep(null);
-      setPaying({ ...step, due });
+      setPaying({ ...step, ...saleOwed(detail, taxCtx) });
     } catch (e) {
       setError(e);
     } finally {
@@ -291,9 +298,7 @@ export function ShopTill() {
     setError(null);
     try {
       const detail = await fetchTabDetail(sale.id);
-      const paidSoFar = detail.payments.reduce((s, p) => s + p.amount_iqd, 0);
-      const due = Math.max((detail.total_iqd ?? detail.subtotal_iqd ?? 0) - paidSoFar, 0);
-      setPaying({ tabId: sale.id, label: sale.label ?? '', due, method: 'cash', lines: detailReceiptLines(detail.orders, locale) });
+      setPaying({ tabId: sale.id, label: sale.label ?? '', ...saleOwed(detail, taxCtx), method: 'cash', lines: detailReceiptLines(detail.orders, locale) });
     } catch (e) {
       setError(e);
     } finally {
@@ -310,7 +315,7 @@ export function ShopTill() {
         const idemKey = paying.tabId.slice(LOCAL_TAB_PREFIX.length);
         // The amount shown is the amount charged (F-06): a server total that
         // differs is refused TOTAL_CHANGED and comes back on the till's plan.
-        const settled = await mutate('tab.settle', offlineSettlePayload({ tabIdemKey: idemKey, method, totalIqd: paying.due, tenderedIqd }));
+        const settled = await mutate('tab.settle', offlineSettlePayload({ tabIdemKey: idemKey, method, totalIqd: paying.total, tenderedIqd }));
         // Queued: the tab stays, marked settled, until this settle acks. Acked
         // inside mutate()'s wait: its result has already fired, so retire it here.
         if (settled.queued) markOfflineSettled(idemKey, settled.idempotencyKey, { method, amountIqd: paying.due, tenderedIqd });
@@ -330,7 +335,7 @@ export function ShopTill() {
         method,
         ...(amountIqd != null ? { amountIqd } : {}),
         ...(tenderedIqd != null ? { tenderedIqd } : {}),
-        expectedTotalIqd: paying.due,
+        expectedTotalIqd: paying.total,
       });
       void queryClient.invalidateQueries({ queryKey: ['tabs'] });
       void queryClient.invalidateQueries({ queryKey: ['tab', paying.tabId] });
@@ -338,8 +343,7 @@ export function ShopTill() {
       if (outcome.result && outcome.result.status !== 'settled') {
         // A part payment: stay on the payment with what is still owed.
         const detail = await fetchTabDetail(paying.tabId);
-        const paidSoFar = detail.payments.reduce((s, p) => s + p.amount_iqd, 0);
-        setPaying({ ...paying, due: Math.max((detail.total_iqd ?? 0) - paidSoFar, 0) });
+        setPaying({ ...paying, ...saleOwed(detail, taxCtx) });
         return;
       }
       const slow = !outcome.result;
@@ -354,7 +358,7 @@ export function ShopTill() {
     } catch (e) {
       if (e instanceof AppRpcError && e.code === 'TOTAL_CHANGED') {
         const detail = await fetchTabDetail(paying.tabId).catch(() => null);
-        if (detail?.total_iqd != null) setPaying({ ...paying, due: detail.total_iqd });
+        if (detail) setPaying({ ...paying, ...saleOwed(detail, taxCtx) });
       }
       setError(e);
     } finally {
@@ -598,9 +602,10 @@ export function ShopTill() {
 function ShopMemberStep({ tabId, fallbackDue }: { tabId: string; fallbackDue: number }) {
   const { tr } = useLocale();
   const { staff } = useAuth();
+  const taxCtx = useTaxContext();
   const detailQ = useQuery({ queryKey: ['tab', tabId] as const, queryFn: () => fetchTabDetail(tabId) });
   const d = detailQ.data;
-  const due = d ? Math.max((d.total_iqd ?? d.subtotal_iqd ?? 0) - d.payments.reduce((s, p) => s + p.amount_iqd, 0), 0) : fallbackDue;
+  const due = d ? saleOwed(d, taxCtx).due : fallbackDue;
   const discountAllowed = canDiscount(staff);
   const off = discountBreakdown(d?.tab_adjustments ?? []);
   const version = `${d?.subtotal_iqd ?? ''}|${off.manager}|${off.promotion}|${off.customer}`;

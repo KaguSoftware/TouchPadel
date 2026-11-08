@@ -9,7 +9,7 @@ import { useMutation } from '@tanstack/react-query';
 import { appRpc } from '../../../lib/appRpc';
 import { useLocale, pickName } from '../../../lib/i18n';
 import { Button, inputStyle } from '../../../components/ui';
-import { BilingualFields, SortButtons } from '../../../components/inputs';
+import { BilingualFields, SortButtons, digitsOnly } from '../../../components/inputs';
 import { useToast } from '../../../components/toast';
 import { useConfirm } from '../../../components/ConfirmDialog';
 import {
@@ -155,20 +155,18 @@ export function RevealsEditor({ modifier, data }: { modifier: ModifierRow; data:
             <span dir="ltr" style={{ display: 'inline-flex', gap: 'var(--tp-sp-1)', alignItems: 'center' }}>
               <input
                 style={numStyle}
-                type="number"
-                min={0}
+                inputMode="numeric"
                 value={draft.min}
                 aria-label={tr('op.menu.minSelect')}
-                onChange={(e) => setDraft({ ...draft, min: Math.max(0, Math.floor(Number(e.target.value) || 0)) })}
+                onChange={(e) => setDraft({ ...draft, min: Number(digitsOnly(e.target.value)) || 0 })}
               />
               /
               <input
                 style={numStyle}
-                type="number"
-                min={1}
+                inputMode="numeric"
                 value={draft.max}
                 aria-label={tr('op.menu.maxSelect')}
-                onChange={(e) => setDraft({ ...draft, max: Math.max(0, Math.floor(Number(e.target.value) || 0)) })}
+                onChange={(e) => setDraft({ ...draft, max: Number(digitsOnly(e.target.value)) || 0 })}
               />
             </span>
             <span style={{ flex: 1 }} />

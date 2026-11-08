@@ -51,7 +51,7 @@ import {
   asyncStatus,
   type Tone,
 } from '../../../components/kit';
-import { MoneyInput, PercentInput } from '../../../components/inputs';
+import { MoneyInput, PercentInput, digitsOnly } from '../../../components/inputs';
 import { Icon } from '../../../components/icons';
 import { Switch } from '../../../components/Switch';
 import { useToast } from '../../../components/toast';
@@ -513,7 +513,7 @@ function CountInput({ value, onChange, disabled }: { value: number | null; onCha
       value={value === null ? '' : String(value)}
       disabled={disabled}
       onChange={(e) => {
-        const digits = e.target.value.replace(/\D/g, '');
+        const digits = digitsOnly(e.target.value);
         onChange(digits === '' ? null : Number(digits));
       }}
     />

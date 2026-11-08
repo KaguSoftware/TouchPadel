@@ -9,7 +9,9 @@
  * `cleanRecord` trims, and drops what was left blank, so the record the server
  * checks is the one the core validator checked (`validateStep`).
  */
+import { localParts, wallTimeToUtc } from '@touch/core';
 import type { FieldDef, FieldIssue } from '@touch/core/protocols';
+import { VENUE_TZ } from '@touch/i18n';
 import { isObj } from './protocolLogic';
 
 export type Obj = Record<string, unknown>;
@@ -234,18 +236,27 @@ export function labelIds(path: readonly (string | number)[]): string[] {
 
 const pad = (n: number) => String(n).padStart(2, '0');
 
-/** An ISO instant as a `datetime-local` value in this station's time. */
-export function toLocalInput(iso: unknown): string {
+/*
+ * The venue's wall clock, never the station's: a launch time or an interview
+ * slot typed on a laptop abroad, or on a PC whose OS zone is wrong, would be
+ * stored shifted by the difference. /tasks has always converted in the venue
+ * zone (tasks/formModel.ts localToIso, isoToLocal); this did not.
+ */
+
+/** An ISO instant as a `datetime-local` value in the venue's time. */
+export function toLocalInput(iso: unknown, tz: string = VENUE_TZ): string {
   if (typeof iso !== 'string' || iso === '') return '';
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '';
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  const p = localParts(d, tz);
+  return `${p.date}T${pad(Math.floor(p.minutesOfDay / 60))}:${pad(p.minutesOfDay % 60)}`;
 }
 
-/** A `datetime-local` value back to an ISO instant; blank stays blank. */
-export function fromLocalInput(v: string): string {
-  if (v === '') return '';
-  const d = new Date(v);
+/** A `datetime-local` value in the venue's time back to an ISO instant; blank stays blank. */
+export function fromLocalInput(v: string, tz: string = VENUE_TZ): string {
+  const m = /^(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2})/.exec(v);
+  if (!m) return '';
+  const d = wallTimeToUtc(m[1]!, Number(m[2]) * 60 + Number(m[3]), tz);
   return Number.isNaN(d.getTime()) ? '' : d.toISOString();
 }
 

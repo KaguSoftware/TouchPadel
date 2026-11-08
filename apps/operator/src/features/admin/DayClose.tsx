@@ -82,7 +82,7 @@ import {
   TabStatusIndicator,
   type Column,
 } from '../../components/kit';
-import { MoneyInput } from '../../components/inputs';
+import { MoneyInput, digitsOnly } from '../../components/inputs';
 import { useConfirm } from '../../components/ConfirmDialog';
 import { downloadWorkbook } from '../analytics/exportTables';
 import { dayListKey, isOverdue, type DayStateList } from '../checklists/checklistLogic';
@@ -534,7 +534,7 @@ export function DayClose() {
                 dir="ltr"
                 inputMode="numeric"
                 value={openingFloat}
-                onChange={(e) => setOpeningFloat(Number(e.target.value.replace(/\D/g, '')) || 0)}
+                onChange={(e) => setOpeningFloat(Number(digitsOnly(e.target.value)) || 0)}
               />
             </Field>
             <div style={{ display: 'flex', justifyContent: 'center', marginBlockEnd: 'var(--tp-sp-2-5)' }}>
