@@ -75,6 +75,14 @@ is a line in that file.
   text[])` (own unclaimed slots only); F-64: service-role `venue_files_gc()`, cron
   `tp_venue_files_gc` every 10 minutes, deletes ready rows whose blob is gone and uploads stuck a
   day; `tests/protocol-photos-files-gc.test.ts`).
+- **0404 (2026-11-07, shop_only_second_jobs; brooks audit db.md Critical):** a person with
+  `shop_staff` as a SECOND job passed the `is_staff('manager','owner','shop_staff')` guard and
+  skipped every shop limit, which tested `app.staff_role() = 'shop_staff'` (the main role alone).
+  The limit is now `not app.is_staff(<the guard's other roles>)`: manager and owner, plus the
+  cashier for `record_waste` (a cashier writes off anywhere); a caller held to the shop defaults to
+  the shop store in `start_count` and `record_waste`. **0404 holds `upsert_menu_item`,
+  `upsert_variant`** (0246 no longer) **and `receive_delivery`, `start_count`, `record_waste`,
+  `finalize_count`, `discard_count`** (0245 no longer); `tests/second-jobs.test.ts` "0404".
 - **0403 (2026-11-05, loyalty_rewards_only; Majed: points buy things you take, a free coffee or a
   free court hour, not money off like a wallet):** `loyalty_settings.points_off_enabled` (default
   false; the hosted row turns false): `loyalty_redeem(p_points)` is `POINTS_OFF` while it is off,
@@ -106,8 +114,9 @@ is a line in that file.
   `tests/sweeps-report.test.ts` counts handlers against `app.monitor` calls in each latest body.
   `app.monitor_scrub_text` masks any run of eight digits, dashes included, so a digit-heavy uuid
   in a message or detail is stored as `[number]`.
-- Ordinal strictly greater than the current max, never a reused one. Latest is `0376`
-  (0376 loyalty_tier_colors, 2026-10-31 (Ameen: a tier made "from 100 points" never reached a
+- Ordinal strictly greater than the current max, never a reused one. Latest is `0404`
+  (0380–0391 and 0402–0404 are at the top of this list; 0392–0401 are in their own headers, and
+  0377–0379 have no file). Before them: (0376 loyalty_tier_colors, 2026-10-31 (Ameen: a tier made "from 100 points" never reached a
   gifted account, and the owner picks each tier's card colour): `loyalty_tiers.color` (classic |
   bronze | silver | gold | platinum | black, default classic, `loyalty_tiers_color`; the same keys
   as `TIER_COLORS` in `@touch/core/loyalty`), and points given by hand (kind `adjust`) count toward
@@ -391,7 +400,7 @@ is a line in that file.
   tools, 0329 messages and calls written by the service role only; what each holds is below;
   0323 is `20261008000323_checklist_schedules.sql`, scheduled and assigned checklists;
   0322 is `20261008000322_shop_price_watch.sql`, the shop desk's hourly supplier price watch;
-  0321 is `20261008000321_coach_statements_live.sql`; 0314–0320 usernames and photo frames, Phase 2 Edit profile: usernames_frames,
+  0321 is `20261008000321_coach_statements_live.sql` (holds `report_coach_statements`); 0314–0320 usernames and photo frames, Phase 2 Edit profile: usernames_frames,
   profiles_username_unique, earned_frames, frame_style, frame_grants, username_not_allowed,
   frame_grants_merge — written as 0307–0313 on the saeed branch and renumbered +7 at the merge
   because main took 0307–0313; 0320 re-issues `profile_merge_columns` and
@@ -416,7 +425,7 @@ is a line in that file.
   0149 assistant-cap, 0150 move-not-into-past, 0151 out-of-stock-alert, 0152 my-reservations,
   0153 terms-consent, 0154 analytics-returning-guest, 0155–0157 six new staff roles, 0158–0206
   protocols and the staff phone (change-order line 10), 0207–0227 multi-venue slices 2–4); the next is
-  `0373`. **Check the directory, not this line** — it said 0146 while 0147–0149 were already on
+  `0405`. **Check the directory, not this line** — it said 0146 while 0147–0149 were already on
   disk, and later 0150 while 0154 was, and a reused ordinal fails `check-migrations.mjs` after the
   file is written.
 - `0069` and `0071` are already doubled; `0023`, `0040` and `0101` have no file, so leave the gaps.
@@ -435,17 +444,18 @@ is a line in that file.
   `upsert_court`) is as much "the latest body" as `create or replace function`. Searching for the
   long form only is how 0115 re-issued two RPCs at an arity 0049 had dropped and created stray
   overloads (fixed by 0119). The latest file is often not the obvious one: `is_degraded()` 0137
-  and `is_degraded(uuid)` 0139, `set_opening_hours` 0052, `apply_discount` and `override_price`
-  0119, `staff_create_reservation` 0147, `cafe_setting_specs` 0105, `set_staff_role` 0157; 0156
-  holds `heartbeat`, `verify_manager_pin`, `verify_own_pin`, `consume_pin_grant`, `break_status`,
-  `start_break`, `end_break`, `cover_station`, `set_ticket_status` and `set_order_item_ready`
+  and `is_degraded(uuid)` 0248, `set_opening_hours` 0390, `apply_discount` and `override_price`
+  0244, `staff_create_reservation` 0280, `cafe_setting_specs` 0355, `set_staff_role` 0157; 0156
+  holds `verify_own_pin`, `consume_pin_grant`, `break_status`, `start_break`, `end_break` and
+  `cover_station`, and its `heartbeat` (0397 holds it now), `verify_manager_pin` (0231),
+  `set_ticket_status` and `set_order_item_ready` (0217) were re-issued since
   (copying an older body back brings a five-role guard with it and locks the 0155 roles out).
   0257 (match settings) holds `accept_terms` (0153 is no longer the latest; an older version never
   replaces a newer one on record). 0262 (open matches at the desk) holds `court_fee_remaining`, `compute_tab_totals`,
   `booking_bill`, `booking_bill_states`, `mark_reservation`, `set_customer_flags`,
   `customer_counts`, `customer_record`, `customer_search` and `customer_directory`.
-  0263 (the reservation trigger and the match sweep) holds `hold_slot` (0252's hold-ladder body
-  plus R22) and `staff_create_reservation`; `release_hold` and `expire_stale_holds` stay 0252's
+  0263 (the reservation trigger and the match sweep) held `hold_slot` (0252's hold-ladder body
+  plus R22; 0269 principal_lock_caps holds it now) and `staff_create_reservation` (0280 holds it now); `release_hold` and `expire_stale_holds` stay 0252's
   (0260's `match_expire_holds` twin settles no strike: the guest's next hold or `tp_hold_sweep` does). 0264 holds `delete_my_account` (0077 is no longer the latest; the
   body scrubs the open-match rows and calls `ticket_refund_deleted` before the audit row, with no
   match lock, R25). 0265 (open-match reports) holds `reports_figures` and `report_courts` (0219 is
@@ -479,8 +489,8 @@ is a line in that file.
   `report_revenue`, `report_lessons`, `ops_overview` and `report_drill` (0281, 0283, 0288 and 0219
   are no longer the latest; `lesson_money_figures` no longer carries `refundsDueDesk*`), plus the
   new internal `lesson_enrolment_may_owe` and the column `lesson_enrolments.kept_until`.
-  0293 `coach_statement_void`, `coach_statement_mark_paid`, `report_coach_statements`,
-  `coach_statement_detail` (0287 is no longer the latest) and `lesson_blocked_refund_record`, now
+  0293 `coach_statement_void`, `coach_statement_mark_paid` (0344 holds it now), `report_coach_statements`
+  (0321 holds it now), `coach_statement_detail` (0287 is no longer the latest) and `lesson_blocked_refund_record`, now
   `(uuid, bigint, text, text, text, text)` with a required `p_idempotency_key` (0281's 5-argument
   version is dropped), plus the new internal `looks_like_card` behind the re-added
   `coach_statements_no_card` CHECK; `tp_coach_statements` runs `'0 12 1 * *'` UTC.
@@ -617,7 +627,8 @@ is a line in that file.
   Coach mode and coach links (0335–0338, 2026-10-11): 0335 holds `coach_book_private` (0291 is no
   longer the latest: a saved student's key in place of a phone, and the other students' names and
   phones) plus the new `coach_saved_students`, the column `lesson_enrolments.friend_phones` and its
-  scrub trigger; 0336 is the latest body of `coach_lesson` (0283) and `desk_lesson_detail` (0294),
+  scrub trigger; 0336 is the latest body of `desk_lesson_detail` (0294) and re-issued `coach_lesson` (0283; 0401
+  coach_student_level holds it now),
   each adding `friend_phones`; 0337 is the latest body of `coaching_public`, `coach_profile`,
   `coaches_admin` and `coach_update` (0334 is no longer the latest: each keeps `levels` and adds
   `slug`; `coach_update` accepts `slug`, COACH_SLUG_TAKEN), plus `coaches.slug`, its trigger,
@@ -642,8 +653,8 @@ is a line in that file.
   branch who placed no order and had no recorded day there in it. `wages_due` and `undo_wage_paid`
   stay 0271's.
   Owner assistant (0324–0329, 2026-10-08): 0324 (web search) holds `assistant_usage` (0207 is
-  no longer the latest) plus the service-role `llm_record_web_search`. 0325 (search recall) holds
-  `assistant_search` (0110 is no longer the latest) plus the new `search_fold` (Arabic and digit
+  no longer the latest) plus the service-role `llm_record_web_search`. 0325 (search recall) re-issued
+  `assistant_search` (0110 is no longer the latest; 0367 assistant_search_full_window holds it now) plus the new `search_fold` (Arabic and digit
   folding, granted to anon, authenticated and service_role because the generated column runs it)
   and `assistant_tsquery` (an OR of prefix lexemes, stopwords dropped); it rebuilds
   `assistant_chunks.tsv` over the folded text with the title at weight A, and adds
@@ -695,9 +706,10 @@ is a line in that file.
   `_shared/staff-push.json`; the guest kinds of open matches take their copy from
   `send-push/guestStrings.ts` and `_shared/guest-push.json`, not `STRINGS`.
   `tests/outbox-kinds.test.ts` holds the CHECK to the three lists. A new staff title key also
-  joins `app.notify_staff`'s `c_title_keys` (latest `0333`, which appended `reward_unlocked` and the
-  route `staff-rewards` after 0323's `checklist_due` and
-  `checklist_overdue`, themselves after 0322's `shop_price_changed`, itself after 0313's `screenshot_taken`, itself after 0308's `loyalty_gift` and 0261's `match_report_new`) in
+  joins `app.notify_staff`'s `c_title_keys` (latest `0363`, 52 keys, which appended `step_passed`,
+  `decision_waiting`, `run_scheduled`, `run_done` and `run_withdrawn` after 0362's `plan_submitted`,
+  `plan_approved` and `plan_changes`, themselves after 0333's `reward_unlocked` and the route
+  `staff-rewards`, after 0323's `checklist_due` and `checklist_overdue`, themselves after 0322's `shop_price_changed`, itself after 0313's `screenshot_taken`, itself after 0308's `loyalty_gift` and 0261's `match_report_new`) in
   the same commit, and a guest title key `app.match_notify`'s `c_keys` (`0261`) or, for a
   lesson or coach key, `app.lesson_notify`'s `c_keys` (`0283`; every lesson push is queued by the
   `lesson_events_notify` trigger except the two statement keys); the stack tests
@@ -789,7 +801,7 @@ is a line in that file.
   names its columns: `select('*')` on `venue_settings` is refused.
 - Guest-readable knobs go on `venue_settings` through the `app.set_venue_details` allowlist (0104,
   per branch with `p_venue_id` since 0208) and `venue_settings_public` (one row per active branch);
-  everything else in the `cafe_settings` registry (`app.cafe_setting_specs`, latest 0105). Design
+  everything else in the `cafe_settings` registry (`app.cafe_setting_specs`, latest 0355). Design
   notes: `docs/design/multi-venue/slice-1-2026-09-21.md`, `slice-2-2026-09-26.md`,
   `slice-3-4-2026-09-26.md`, `audit-2026-09-26.md`.
 
@@ -802,6 +814,11 @@ is a line in that file.
   and `app.staff_role() is not null` in a policy (the 0072 form), never a list of every role. 0156
   converted the old five-role lists, so a new role needs no re-issue; a guard for a subset (kitchen,
   till, money, stock) still names its roles.
+- `app.is_staff` counts second jobs (0345), `app.staff_role()` is the main job alone. A limit on
+  one role the guard admits tests `not app.is_staff(<the guard's other roles>)`, never
+  `app.staff_role() = '<role>'`, or a second job of that role skips it (0404). A role that can
+  never be a second job (`manager`, `owner`, the heads; `staff_extra_roles_chk`) may still be
+  read from `staff_role()`.
 - Errors are `raise exception 'CODE'` (P0001). Every new code gets its line in the one error
   catalogue, `ERROR_CODE_KEYS` in `packages/i18n/src/errors.ts`, EN and AR, in the same commit
   (`check:error-codes` fails otherwise); the operator's `MAPPED_CODES`, the web's `rpcErrorKey` and

@@ -505,8 +505,9 @@ function statements(sql) {
       buf += " '' ";
       continue;
     }
-    // dollar-quoted body: $$ ... $$ or $tag$ ... $tag$
-    const dq = ch === '$' ? sql.slice(i).match(/^\$[A-Za-z_]*\$/) : null;
+    // dollar-quoted body: $$ ... $$ or $tag$ ... $tag$. A tag may carry digits
+    // after its first character ($override_0049$), as in fn-signatures.mjs.
+    const dq = ch === '$' ? sql.slice(i, i + 80).match(/^\$[A-Za-z_][A-Za-z0-9_]*\$|^\$\$/) : null;
     if (dq) {
       dollarTag = dq[0];
       i += dq[0].length;
