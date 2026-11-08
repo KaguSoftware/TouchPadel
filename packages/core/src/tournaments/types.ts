@@ -113,11 +113,9 @@ export type TourRoundsDetail = (typeof TOUR_ROUNDS_DETAILS)[number];
 
 /** `TOURNAMENT_SCORE_REFUSED` details (§1.9). */
 export const TOUR_SCORE_DETAILS = ['status', 'invalid', 'changed', 'locked', 'closed'] as const;
-export type TourScoreDetail = (typeof TOUR_SCORE_DETAILS)[number];
 
 /** `TOURNAMENT_NOT_OPEN` details (§1.9). */
 export const TOUR_NOT_OPEN_DETAILS = ['status', 'cutoff'] as const;
-export type TourNotOpenDetail = (typeof TOUR_NOT_OPEN_DETAILS)[number];
 
 /** `TOURNAMENT_NOT_PAYABLE` details, in the order settle tests them (§1.9, S14). */
 export const TOUR_NOT_PAYABLE_DETAILS = [
@@ -127,7 +125,6 @@ export const TOUR_NOT_PAYABLE_DETAILS = [
   'cancelled',
   'nothing_owed',
 ] as const;
-export type TourNotPayableDetail = (typeof TOUR_NOT_PAYABLE_DETAILS)[number];
 
 /**
  * `TOURNAMENT_PUBLISH_REFUSED` details (§1.9). A bad settings value is `settings:<key>`, one of
@@ -142,8 +139,6 @@ export const TOUR_PUBLISH_DETAILS = [
   'fee_not_approved',
   'no_blocks',
 ] as const;
-export type TourPublishDetail =
-  (typeof TOUR_PUBLISH_DETAILS)[number] | `settings:${TourPublishSetting}`;
 
 /** The keys `tournament_publish` reads from `p_settings` (§1.6). */
 export const TOUR_PUBLISH_SETTINGS = [
@@ -174,4 +169,3 @@ export const TOUR_ERROR_CODES = [
   'TOURNAMENT_OWED_CHANGED',
   'TOURNAMENT_VIA_EVENTS',
 ] as const;
-export type TourErrorCode = (typeof TOUR_ERROR_CODES)[number];

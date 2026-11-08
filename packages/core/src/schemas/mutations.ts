@@ -251,8 +251,6 @@ export const orderCreatePayloadSchema = z
     path: ['tabId'],
   });
 
-export type OrderCreatePayload = z.infer<typeof orderCreatePayloadSchema>;
-
 export const paymentRecordPayloadSchema = z
   .object({
     clientRef: clientRefSchema,
@@ -308,8 +306,6 @@ export const paymentRecordPayloadSchema = z
     }
   });
 
-export type PaymentRecordPayload = z.infer<typeof paymentRecordPayloadSchema>;
-
 /**
  * 0147 dropped the group size (padel is always four). A payload queued by a
  * till on an older build may still carry `players`; it is removed here before
@@ -357,8 +353,6 @@ const reservationCreateShape = z
 
 export const reservationCreatePayloadSchema = z.preprocess(dropLegacyPlayers, reservationCreateShape);
 
-export type ReservationCreatePayload = z.infer<typeof reservationCreatePayloadSchema>;
-
 /**
  * order.add_items — replayed through app.till_add_items. The replay mapper reads
  * variantId/qty/notes/modifiers per item (menuItemId/clientRef are order.create-only,
@@ -405,8 +399,6 @@ export const orderAddItemsPayloadSchema = z
     path: ['tabId'],
   });
 
-export type OrderAddItemsPayload = z.infer<typeof orderAddItemsPayloadSchema>;
-
 /**
  * ticket.status — app.set_ticket_status; transition-idempotent server-side.
  * ticketIdemKey references a ticket whose order was itself queued offline (the
@@ -424,8 +416,6 @@ export const ticketStatusPayloadSchema = z
     message: 'exactly one of ticketId or ticketIdemKey is required',
     path: ['ticketId'],
   });
-
-export type TicketStatusPayload = z.infer<typeof ticketStatusPayloadSchema>;
 
 /**
  * tab.open — app.open_tab(p_table_id, p_label, p_reservation_id, ...).
@@ -450,8 +440,6 @@ export const tabOpenPayloadSchema = z
     message: 'a shop counter sale needs a label',
     path: ['label'],
   });
-
-export type TabOpenPayload = z.infer<typeof tabOpenPayloadSchema>;
 
 /**
  * tab.settle — app.settle_tab. amountIqd/tenderedIqd optional (the server computes
@@ -496,8 +484,6 @@ export const tabSettlePayloadSchema = z
       });
     }
   });
-
-export type TabSettlePayload = z.infer<typeof tabSettlePayloadSchema>;
 
 /**
  * adjustment.apply — kind discriminates app.override_price vs app.apply_discount
@@ -548,8 +534,6 @@ export const adjustmentApplyPayloadSchema = z
     }
   });
 
-export type AdjustmentApplyPayload = z.infer<typeof adjustmentApplyPayloadSchema>;
-
 // ---------------------------------------------------------------------------
 // Item 9 / C3 (0120): the till's remaining money corrections join the queue.
 // The PIN rides in the payload where the RPC takes one (refund, void): the
@@ -563,13 +547,11 @@ const reasonCodeSchema = z.string().trim().min(1).max(300);
 
 /** tab.cancel — app.cancel_tab: an OPEN tab with nothing on it goes, with a reason. */
 export const tabCancelPayloadSchema = z.object({ tabId: uuid, reasonCode: reasonCodeSchema }).strict();
-export type TabCancelPayload = z.infer<typeof tabCancelPayloadSchema>;
 
 /** tab.settle_zero — app.settle_zero_tab: a tab that owes nothing closes as settled, no payment row. */
 export const tabSettleZeroPayloadSchema = z
   .object({ tabId: uuid, reasonCode: reasonCodeSchema })
   .strict();
-export type TabSettleZeroPayload = z.infer<typeof tabSettleZeroPayloadSchema>;
 
 /**
  * payment.refund — app.refund (manager PIN). amountIqd is what goes back, never
@@ -588,13 +570,11 @@ export const paymentRefundPayloadSchema = z
       .optional(),
   })
   .strict();
-export type PaymentRefundPayload = z.infer<typeof paymentRefundPayloadSchema>;
 
 /** order_item.void — app.void_after_send (manager PIN): a sent line is voided as waste. */
 export const orderItemVoidPayloadSchema = z
   .object({ orderItemId: uuid, pin: pinSchema, reasonCode: reasonCodeSchema })
   .strict();
-export type OrderItemVoidPayload = z.infer<typeof orderItemVoidPayloadSchema>;
 
 /**
  * stock.waste — app.record_waste. qty is numeric on the server (grams may be fractional).
@@ -611,7 +591,6 @@ export const stockWastePayloadSchema = z
     location: z.enum(['cafe', 'bakery']).optional(),
   })
   .strict();
-export type StockWastePayload = z.infer<typeof stockWastePayloadSchema>;
 
 /**
  * The desk's override reason: a reason code, or "code: note" (the prompt caps
@@ -668,7 +647,6 @@ export const reservationUpdatePayloadSchema = z.discriminatedUnion('action', [
     })
     .strict(),
 ]);
-export type ReservationUpdatePayload = z.infer<typeof reservationUpdatePayloadSchema>;
 
 /**
  * waiter_call.action — app.ack_waiter_call / app.resolve_waiter_call(p_call_id).
@@ -678,7 +656,6 @@ export type ReservationUpdatePayload = z.infer<typeof reservationUpdatePayloadSc
 export const waiterCallActionPayloadSchema = z
   .object({ callId: uuid, action: z.enum(['ack', 'resolve']) })
   .strict();
-export type WaiterCallActionPayload = z.infer<typeof waiterCallActionPayloadSchema>;
 
 /** A queued RPC's argument object stays small: a settings patch, never a file. */
 export const RPC_QUEUED_MAX_ARGS_BYTES = 32 * 1024;
@@ -708,7 +685,6 @@ export const rpcQueuedPayloadSchema = z
       ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'pin must be 4-12 digits', path: ['args', 'p_pin'] });
     }
   });
-export type RpcQueuedPayload = z.infer<typeof rpcQueuedPayloadSchema>;
 
 // ---------------------------------------------------------------------------
 // Envelope

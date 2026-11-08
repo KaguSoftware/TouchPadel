@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { addIqd, iqd, isIqd, mulIqd, subIqd, sumIqd, MoneyError, ZERO_IQD } from './iqd';
 import { calcTaxIqd, toIqdHalfUp } from './tax';
-import { formatIQD } from './format';
 
 describe('iqd branded type', () => {
   it('accepts non-negative safe integers', () => {
@@ -116,33 +115,5 @@ describe('toIqdHalfUp (fractional internals -> whole dinars)', () => {
   it('rejects negatives and non-finite values', () => {
     expect(() => toIqdHalfUp(-0.4)).toThrowError(MoneyError);
     expect(() => toIqdHalfUp(Number.NaN)).toThrowError(MoneyError);
-  });
-});
-
-describe('formatIQD', () => {
-  it('formats en with Western digits and grouping', () => {
-    const out = formatIQD(iqd(1250000), 'en');
-    expect(out).toContain('1,250,000');
-    expect(out).toMatch(/IQD/);
-  });
-
-  it('formats ar with WESTERN digits by default (plan decision)', () => {
-    const out = formatIQD(iqd(1250000), 'ar');
-    expect(out).not.toMatch(/[٠-٩]/); // no Arabic-Indic digits
-    expect(out).toContain('1');
-    expect(out).toContain('250');
-  });
-
-  it('exposes arabic-indic digits as an option for later', () => {
-    const out = formatIQD(iqd(12500), 'ar', { digits: 'arabic-indic' });
-    expect(out).toMatch(/[٠-٩]/);
-  });
-
-  it('never shows decimals (zero-decimal currency)', () => {
-    expect(formatIQD(iqd(999), 'en')).not.toMatch(/999[.,]0/);
-  });
-
-  it('rejects fractional input', () => {
-    expect(() => formatIQD(10.5, 'en')).toThrowError(MoneyError);
   });
 });

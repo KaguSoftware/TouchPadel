@@ -376,11 +376,6 @@ export interface ScheduleRecord {
   at?: string | null;
 }
 
-/** An owner-added step: a note and 0 to 6 photos in `steps`. */
-export interface GenericStepRecord {
-  note?: string | null;
-}
-
 /** Every record, by kind and step key. */
 export interface StepRecords {
   product_release: {
@@ -408,15 +403,6 @@ export interface StepRecords {
     announce: PriceAnnounceRecord;
     apply: ScheduleRecord;
   };
-}
-
-export type StepRecord<K extends ProtocolKind, S extends StepKey<K>> = S extends keyof StepRecords[K]
-  ? StepRecords[K][S]
-  : never;
-
-/** The decision data an approval may carry (only release `propose` asks for any). */
-export interface ReleaseProposeDecisionData {
-  category_id: string;
 }
 
 // ── What the engine's reads return (§2.7; every key present, nulls allowed) ──
