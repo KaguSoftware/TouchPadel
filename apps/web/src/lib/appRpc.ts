@@ -1,7 +1,7 @@
 import { PostgrestError, type SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@touch/db';
 import { errorMessageKey, type ErrorOverrides, type MessageKey } from '@touch/i18n';
-import { DEFAULT_REQUEST_TIMEOUT_MS, RequestTimeoutError, normalizeTimeout, startDeadline } from '@touch/core';
+import { DEFAULT_REQUEST_TIMEOUT_MS, RequestTimeoutError, normalizeTimeout, startDeadline } from '@touch/core/net/timeout';
 
 export interface AppRpcOptions {
   /** Override the deadline (ms); null for none. Default 15 s. */

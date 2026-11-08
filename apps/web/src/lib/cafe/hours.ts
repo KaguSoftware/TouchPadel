@@ -1,5 +1,5 @@
 import { VENUE_TZ, type MessageKey } from '@touch/i18n';
-import { displayWindows } from '@touch/core';
+import { displayWindows } from '@touch/core/time/openingHours';
 import type { VenueOpeningHours } from '../menu';
 
 /**

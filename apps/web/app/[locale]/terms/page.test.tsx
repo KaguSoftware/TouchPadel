@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { screen, within } from '@testing-library/react';
 import { t, type Locale } from '@touch/i18n';
-import { CURRENT_TERMS_VERSION } from '@touch/core';
+import { CURRENT_TERMS_VERSION } from '@touch/core/legal/terms';
 import { resetServerData, serverData, VENUE_FIXTURE, VENUE_PHONE } from '@/test/fixtures';
 import { renderServerPage } from '@/test/renderPage';
 import { hoursPhrase } from '@/lib/site/plural';

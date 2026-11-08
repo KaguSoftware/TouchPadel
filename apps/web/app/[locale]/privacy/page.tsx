@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import { makeT } from '@touch/i18n';
-import { CURRENT_TERMS_VERSION } from '@touch/core';
+import { CURRENT_TERMS_VERSION } from '@touch/core/legal/terms';
 import { LOCALES, requireLocale } from '@/lib/locales';
 import { getCachedVenue } from '@/lib/menu.server';
 import { getRequestNonce, getSiteMode } from '@/lib/site/mode.server';

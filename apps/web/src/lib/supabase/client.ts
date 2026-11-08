@@ -2,7 +2,7 @@ import { createBrowserClient } from '@supabase/ssr';
 import { supabaseEnv } from './env';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@touch/db';
-import { DEFAULT_REQUEST_TIMEOUT_MS, timeoutFetch } from '@touch/core';
+import { DEFAULT_REQUEST_TIMEOUT_MS, timeoutFetch } from '@touch/core/net/timeout';
 
 // Browser-side Supabase client (anonymous cafe sessions use the standard sb-* cookie
 // via @supabase/ssr — design-arch.md §4).

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, renderHook } from '@testing-library/react';
-import { CHANNEL_RECONNECT_MAX_MS } from '@touch/core';
+import { CHANNEL_RECONNECT_MAX_MS } from '@touch/core/net/resilientChannel';
 import type { BrowserSupabase } from '@/lib/supabase/client';
 import { useSessionChannel, type SessionChannelHandlers } from './useSessionChannel';
 

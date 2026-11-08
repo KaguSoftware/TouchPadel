@@ -3,7 +3,7 @@
 import { useCallback } from 'react';
 import Image from 'next/image';
 import { makeT, type Locale } from '@touch/i18n';
-import { applyPctDiscountIqd } from '@touch/core';
+import { applyPctDiscountIqd } from '@touch/core/money/discount';
 import type { MenuItem } from '@/lib/menu';
 import { TempChips } from '../TempChips';
 import { CategoryIcon, type SectionArt } from '../MenuStage/sectionArt';

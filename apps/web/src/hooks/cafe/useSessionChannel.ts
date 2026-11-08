@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { createResilientChannel, type RealtimeClientLike } from '@touch/core';
+import { createResilientChannel, type RealtimeClientLike } from '@touch/core/net/resilientChannel';
 import type { BrowserSupabase } from '@/lib/supabase/client';
 import type { GuestOrderStatus } from './orders';
 import type { WaiterCallStatus } from './waiter';
