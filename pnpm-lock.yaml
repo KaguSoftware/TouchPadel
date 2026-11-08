@@ -87,9 +87,6 @@ importers:
       '@touch/i18n':
         specifier: workspace:*
         version: link:../../packages/i18n
-      '@touch/ui':
-        specifier: workspace:*
-        version: link:../../packages/ui
       expo:
         specifier: ~58.0.23
         version: 58.0.23(@babel/core@7.29.7)(@expo/dom-webview@58.0.2)(@expo/metro-runtime@58.0.17)(expo-router@58.0.30)(react-dom@19.3.0(react@19.3.0))(react-native-worklets@0.13.0(@babel/core@7.29.7)(@react-native/metro-config@0.88.1(@babel/core@7.29.7))(react-native@0.88.1(@babel/core@7.29.7)(@react-native/metro-config@0.88.1(@babel/core@7.29.7))(@types/react@19.3.0)(react@19.3.0))(react@19.3.0))(react-native@0.88.1(@babel/core@7.29.7)(@react-native/metro-config@0.88.1(@babel/core@7.29.7))(@types/react@19.3.0)(react@19.3.0))(react@19.3.0)(typescript@5.9.3)
@@ -277,9 +274,6 @@ importers:
       pdfjs-dist:
         specifier: ^6.4.299
         version: 6.4.299
-      qrcode:
-        specifier: ^1.5.4
-        version: 1.5.4
       react:
         specifier: 19.3.0
         version: 19.3.0
@@ -302,9 +296,6 @@ importers:
       '@touch/config':
         specifier: workspace:*
         version: link:../../packages/config
-      '@types/qrcode':
-        specifier: ^1.5.5
-        version: 1.5.6
       '@types/react':
         specifier: 19.3.0
         version: 19.3.0
