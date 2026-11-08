@@ -338,6 +338,10 @@ export const persistOptions = {
       query.queryKey[0] !== 'my-bookings' &&
       query.queryKey[0] !== 'reservation' &&
       query.queryKey[0] !== 'staff' &&
+      // The owner's assistant (features/assistant/api.ts): a chat carries the
+      // owner's questions and the answers drawn from the club's money and
+      // staff data; it sits outside `staff`, so it is named here.
+      query.queryKey[0] !== 'assistant' &&
       query.queryKey[0] !== 'deposit' &&
       query.queryKey[0] !== 'match' &&
       query.queryKey[0] !== 'coaching' &&

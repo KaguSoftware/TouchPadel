@@ -10,6 +10,7 @@ import {
   validateSkip,
   type FieldIssue,
   type PriceChangeKind,
+  type StaffAccess,
   type StepRow,
   type SubmissionRow,
 } from '@touch/core';
@@ -39,6 +40,7 @@ import {
 } from '../../src/features/staff/protocols/api';
 import {
   bilingual,
+  holdsActorRole,
   numbersRenames,
   runTitle,
   sendBackTargets,
@@ -81,7 +83,7 @@ import { useStepReads, type StepReads } from '../../src/features/staff/protocols
  * the server said what this person may do on this step.
  */
 
-function StepHeader({ detail, role }: { detail: StepDetail; role: string }) {
+function StepHeader({ detail, who }: { detail: StepDetail; who: StaffAccess }) {
   const { t, locale } = useLocale();
   const { colors } = useTheme();
   const router = useRouter();
@@ -89,7 +91,7 @@ function StepHeader({ detail, role }: { detail: StepDetail; role: string }) {
   const { run, step, can } = detail;
   const title = runTitle(run, locale) ?? t(`work.protocol.kind.${run.kind}`);
   const covering =
-    can.submit && !step.assigned_to && !step.actor_roles.includes(role as StepRow['actor_roles'][number]);
+    can.submit && !step.assigned_to && !holdsActorRole(who, step.actor_roles);
   return (
     <Section>
       <LinkText
@@ -297,12 +299,13 @@ function StepScreen() {
   const { status, venueId } = useStaffStatus();
   const params = useLocalSearchParams<{ id?: string }>();
   const id = typeof params.id === 'string' ? params.id : '';
-  const role = status.kind === 'staff' ? status.staff.role : null;
+  const who = status.kind === 'staff' ? status.staff : null;
+  const role = who?.role ?? null;
 
   const stepQ = useQuery({ queryKey: staffKeys.step(id), queryFn: () => fetchStepDetail(id), enabled: id !== '' });
   const runId = stepQ.data?.run.id ?? '';
   const runQ = useQuery({ queryKey: staffKeys.run(runId), queryFn: () => fetchRunDetail(runId), enabled: runId !== '' });
-  const reads = useStepReads(stepQ.data, runQ.data, role, venueId, locale);
+  const reads = useStepReads(stepQ.data, runQ.data, who, venueId, locale);
   const pull = usePullRefresh(refresh);
 
   const [decisionIssues, setDecisionIssues] = useState<FieldIssue[]>([]);
@@ -362,7 +365,7 @@ function StepScreen() {
     },
   });
 
-  if (stepQ.isPending || !role || !venueId) {
+  if (stepQ.isPending || !who || !role || !venueId) {
     return (
       <Screen pattern="blur" clearBar edges={[]} keyboard>
         <Stack.Screen options={{ title: t('staff.protocols.step.title') }} />
@@ -441,7 +444,7 @@ function StepScreen() {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={pull.refreshing} onRefresh={pull.onRefresh} />}
       >
-        <StepHeader detail={detail} role={role} />
+        <StepHeader detail={detail} who={who} />
         <StepContext detail={detail} reads={reads} />
         <Renames reads={reads} />
         <Checklist step={step} canTick={can.tick} />

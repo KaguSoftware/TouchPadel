@@ -1,7 +1,7 @@
 /**
  * The reads a step page needs beside the step itself (build-contracts-2026-09-23
  * §6.1 `staff-step.tsx`): each step's context read, made only for the step and
- * the role its guard admits, so a page never asks for what it would be
+ * the jobs its guard admits (a second job's too, 0345), so a page never asks for what it would be
  * refused (release_cost, price_promo_numbers and the rest are management's; a
  * test's recipe is its assignee's; a court's context its actors').
  *
@@ -9,7 +9,7 @@
  */
 import { useMemo } from 'react';
 import { useQueries, useQuery } from '@tanstack/react-query';
-import { isLessonChange, type PriceChangeKind, type StaffRole } from '@touch/core';
+import { isLessonChange, rolesOf, type PriceChangeKind, type StaffAccess, type StaffRole } from '@touch/core';
 import type { Locale } from '@touch/i18n';
 import { staffKeys } from '../keys';
 import { staffPhotoUrl } from '../photo';
@@ -46,7 +46,7 @@ const BAR_KITCHEN: readonly StaffRole[] = ['head_barista', 'barista', 'head_chef
 export function useStepReads(
   detail: StepDetail | undefined,
   runDetail: RunDetail | undefined,
-  role: StaffRole | null,
+  who: StaffAccess | null,
   venueId: string | null,
   locale: Locale,
 ) {
@@ -55,7 +55,9 @@ export function useStepReads(
   const runId = detail?.run.id ?? '';
   const stepId = detail?.step.id ?? '';
   const can = detail?.can;
-  const mgmt = isMgmt(role);
+  const roles = who ? rolesOf(who) : [];
+  const mgmt = roles.some((r) => isMgmt(r));
+  const marketing = roles.includes('marketing');
   const acting = !!can?.submit;
   const venue = venueId ?? '';
   const steps = runDetail?.steps;
@@ -66,7 +68,7 @@ export function useStepReads(
     queryKey: staffKeys.ingredients(venue),
     queryFn: () => fetchIngredients(venue),
     select: ingredientList,
-    enabled: !!venue && is('product_release', 'propose') && (mgmt || (!!role && BAR_KITCHEN.includes(role))),
+    enabled: !!venue && is('product_release', 'propose') && (mgmt || roles.some((r) => BAR_KITCHEN.includes(r))),
   });
   const categories = useQuery({
     queryKey: staffKeys.cafeCategories(venue),
@@ -107,7 +109,7 @@ export function useStepReads(
       change !== 'promotion' &&
       (lessonRun
         ? mgmt
-        : is('price_promo', 'propose') && acting && (mgmt || role === 'marketing') && (change !== 'shop_launch' || mgmt)),
+        : is('price_promo', 'propose') && acting && (mgmt || marketing) && (change !== 'shop_launch' || mgmt)),
   });
   // MB-20: a lesson_launch run's targets list only types never launched, so
   // once its type is launched the record would name nothing; the lesson_price
@@ -144,7 +146,7 @@ export function useStepReads(
   const campaigns = useQuery({
     queryKey: staffKeys.campaignDrafts(venue),
     queryFn: () => fetchCampaignDrafts(venue),
-    enabled: !!venue && role === 'marketing' && acting && (key === 'marketing' || key === 'announce'),
+    enabled: !!venue && marketing && acting && (key === 'marketing' || key === 'announce'),
   });
 
   // Ids a record may name, by what the page has read.

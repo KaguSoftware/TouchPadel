@@ -11,6 +11,7 @@ import {
   PURCHASE_ROLES,
   SHOPPING_ROLES,
   boughtUnit,
+  buysPurchases,
   canCancel,
   emptyFreeLine,
   emptyShoppingDraft,
@@ -31,6 +32,7 @@ import {
   shoppingArgs,
   shoppingStatusesFor,
   shoppingView,
+  shoppingViewOf,
   tickedInOrder,
   toggleTick,
   unitsFor,
@@ -71,6 +73,16 @@ function item(patch: Partial<ShoppingItem>): ShoppingItem {
   };
 }
 
+describe('who records purchases (#70)', () => {
+  it('is the driver, as a main job or a second one (record_purchase counts it, 0345)', () => {
+    expect(buysPurchases({ role: 'driver' })).toBe(true);
+    expect(buysPurchases({ role: 'cashier', extraRoles: ['driver'] })).toBe(true);
+    expect(buysPurchases({ role: 'cashier' })).toBe(false);
+    // Management reads the list and records nothing on the phone.
+    expect(buysPurchases({ role: 'manager' })).toBe(false);
+  });
+});
+
 describe('who does what on the shopping page (§6.1, #26, #66, #70)', () => {
   it('lets the heads and MGMT add straight to the driver, and the chef assistant add for an OK', () => {
     expect(shoppingView('head_barista')).toMatchObject({ canAdd: true, addWaitsForOk: false, canDecide: false });
@@ -93,6 +105,15 @@ describe('who does what on the shopping page (§6.1, #26, #66, #70)', () => {
     for (const role of STAFF_ROLES) {
       expect(shoppingView(role).runChecklist, role).toBe(role === 'driver');
     }
+  });
+
+  it('joins every job’s part of the page, a second job’s too (0345)', () => {
+    // A cashier who also drives: the run, and nothing to add.
+    expect(shoppingViewOf({ role: 'cashier', extraRoles: ['driver'] })).toEqual({ ...shoppingView('barista'), runChecklist: true });
+    // A barista who also cooks adds, and the line waits (add_shopping_item's is_staff('chef')).
+    expect(shoppingViewOf({ role: 'barista', extraRoles: ['chef'] })).toEqual(shoppingView('chef'));
+    expect(shoppingViewOf({ role: 'head_chef' })).toEqual(shoppingView('head_chef'));
+    expect(shoppingViewOf({ role: 'owner', extraRoles: ['driver'] })).toEqual(shoppingView('owner'));
   });
 
   it('never asks for a waiting or declined line on a driver’s behalf', () => {

@@ -12,7 +12,7 @@
  *
  * PURE: no react-native, no expo.
  */
-import type { StaffRole } from '@touch/core';
+import { rolesOf, type StaffAccess } from '@touch/core';
 import {
   FREE_PAGES_MAX,
   FREE_PAGE_LABEL_MAX,
@@ -34,12 +34,12 @@ const oneLine = (s: string): string =>
   s.replace(/[\u0000-\u001f\u007f]+/g, ' ').replace(/\s+/g, ' ').trim();
 
 /**
- * The staff pages this role can open, in the person's language: Today first,
- * then Today's rows for the role (`staffRows`), once each, at most
+ * The staff pages this person can open, in their language: Today first, then
+ * Today's rows for their jobs, a second job's too (`staffRows`, 0345), once each, at most
  * FREE_PAGES_MAX. A route the server would drop (not `/staff[-words]`) or an
  * empty label is left out here.
  */
-export function freePages(role: StaffRole, label: (key: MessageKey) => string): FreePageHint[] {
+export function freePages(who: StaffAccess, label: (key: MessageKey) => string): FreePageHint[] {
   const out: FreePageHint[] = [];
   const add = (route: string, key: MessageKey) => {
     if (out.length >= FREE_PAGES_MAX) return;
@@ -48,7 +48,7 @@ export function freePages(role: StaffRole, label: (key: MessageKey) => string): 
     if (text !== '') out.push({ route, label: text });
   };
   add('/staff', 'staff.shell.today.title');
-  for (const row of staffRows(role)) add(row.href, row.labelKey);
+  for (const row of staffRows(who.role, rolesOf(who).slice(1))) add(row.href, row.labelKey);
   return out;
 }
 

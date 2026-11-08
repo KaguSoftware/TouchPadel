@@ -3,12 +3,17 @@
  * app/(staff)/staff-receipt.tsx): who may use each, the two logs read defensively, and
  * each row's tone. PURE (vitest).
  */
-import type { StaffRole } from '@touch/core';
+import { rolesOf, type StaffAccess, type StaffRole } from '@touch/core';
 
 /** create_order_slip's roles (0239): the floor and management. */
 export const SLIP_ROLES: readonly StaffRole[] = ['waiter', 'cashier', 'manager', 'owner'];
 /** create_receipt's roles (0237): the driver and management, as purchases. */
 export const RECEIPT_ROLES: readonly StaffRole[] = ['driver', 'manager', 'owner'];
+
+/** Whether the person files paper slips: one of SLIP_ROLES, a second job too (0345; create_order_slip asks is_staff). */
+export function filesSlips(who: StaffAccess): boolean {
+  return rolesOf(who).some((r) => SLIP_ROLES.includes(r));
+}
 
 export type SlipStatus = 'uploaded' | 'reading' | 'read' | 'failed' | 'sent' | 'rejected';
 export type ReceiptStatus = 'uploaded' | 'reading' | 'read' | 'failed' | 'confirmed' | 'rejected';

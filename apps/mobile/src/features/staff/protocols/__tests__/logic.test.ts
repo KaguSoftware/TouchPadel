@@ -18,6 +18,7 @@ import {
   completeRenames,
   conflictKindKey,
   courtsRecord,
+  holdsActorRole,
   interviewsRecord,
   isProtocolQueryKey,
   launchPhotoChoices,
@@ -33,6 +34,7 @@ import {
   positionRole,
   priceNumbersStart,
   priceProposeResubmit,
+  priceChangeKindsOf,
   priceProposeStart,
   readBlockAnswer,
   readTournamentContext,
@@ -41,6 +43,7 @@ import {
   runTitle,
   sendBackTargets,
   startDecidedByStarter,
+  startableKindsOf,
   submitIntent,
   targetKindOf,
   titlesFromRecord,
@@ -109,6 +112,20 @@ describe('who may open the pages', () => {
   it('lets exactly the roles that may start something open the start page (§2.7)', () => {
     expect([...START_ROLES].sort()).toEqual(STAFF_ROLES.filter((r) => startableKinds(r).length > 0).sort());
     expect([...START_ROLES].sort()).toEqual(['court_desk', 'head_barista', 'head_chef', 'manager', 'marketing', 'owner']);
+  });
+
+  it('offers a second job’s kinds too, in the kinds’ order (start_protocol counts it, 0345)', () => {
+    expect(startableKindsOf({ role: 'cashier' })).toEqual([]);
+    expect(startableKindsOf({ role: 'cashier', extraRoles: ['marketing', 'court_desk'] })).toEqual(['tournament', 'price_promo']);
+    expect(startableKindsOf({ role: 'head_chef', extraRoles: ['court_desk'] })).toEqual(['product_release', 'tournament']);
+    expect(startableKindsOf({ role: 'owner', extraRoles: ['court_desk'] })).toEqual(startableKinds('owner'));
+    expect(priceChangeKindsOf({ role: 'cashier', extraRoles: ['marketing'] })).toEqual(priceChangeKinds('marketing'));
+    expect(priceChangeKindsOf({ role: 'cashier' })).toEqual([]);
+  });
+
+  it('counts a second job among a step’s actors, so the page does not say covering', () => {
+    expect(holdsActorRole({ role: 'cashier', extraRoles: ['marketing'] }, ['marketing'])).toBe(true);
+    expect(holdsActorRole({ role: 'cashier' }, ['marketing'])).toBe(false);
   });
 
   it('opens the ideas page to the authors and their reviewers only (#65)', () => {
@@ -523,6 +540,12 @@ describe('the court desk’s windows (§2.11)', () => {
     ],
     blocked: [{ reservation_id: C, court_id: A, start_at: '2026-10-02T18:00:00+03:00', end_at: '2026-10-02T22:00:00+03:00' }],
     entry_fee_iqd: 50000,
+  });
+
+  it('reads every class of a multi-class plan (0359), and the one `class` of an older server', () => {
+    expect(ctx.tournamentClasses).toEqual(['A']);
+    expect(readTournamentContext({ class: 'A', classes: ['A', 'C'] }).tournamentClasses).toEqual(['A', 'C']);
+    expect(readTournamentContext({}).tournamentClasses).toEqual([]);
   });
 
   it('lists each court and window once, matched to the run’s block of it', () => {

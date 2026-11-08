@@ -7,7 +7,7 @@
  *
  * PURE (vitest): no react-native, no client.
  */
-import { westernDigits, type StaffRole } from '@touch/core';
+import { rolesOf, westernDigits, type StaffAccess, type StaffRole } from '@touch/core';
 import { formatNumber, type Locale, type MessageKey, type TParams } from '@touch/i18n';
 import type {
   AddShoppingArgs,
@@ -31,6 +31,15 @@ export const SHOPPING_ROLES: readonly StaffRole[] = [
 
 /** The roles `my_purchases` and `record_purchase` answer (0166, 0186). */
 export const PURCHASE_ROLES: readonly StaffRole[] = ['driver', 'manager', 'owner'];
+
+/**
+ * Whether the person records purchases on the phone (the + on Purchases, the
+ * form's own page): the driver, as a main job or a second one (0345: the
+ * guard of record_purchase is is_staff, which counts second jobs).
+ */
+export function buysPurchases(who: StaffAccess): boolean {
+  return rolesOf(who).includes('driver');
+}
 
 /** shopping_items.unit (0166): the base units plus packs. */
 export type ShoppingUnit = 'g' | 'ml' | 'pc' | 'pack';
@@ -90,6 +99,23 @@ export function shoppingView(role: StaffRole): ShoppingView {
       // The barista reads the list and adds nothing (PROPOSAL, §2.24.9).
       return NOTHING;
   }
+}
+
+/**
+ * The person's view: every job's at once (0345). add_shopping_item's guard is
+ * is_staff and its "waits for an OK" is is_staff('chef'), so a second job
+ * counts on both, as it does for the driver's run (record_purchase).
+ */
+export function shoppingViewOf(who: StaffAccess): ShoppingView {
+  return rolesOf(who)
+    .map(shoppingView)
+    .reduce((a, b) => ({
+      canAdd: a.canAdd || b.canAdd,
+      addWaitsForOk: a.addWaitsForOk || b.addWaitsForOk,
+      canDecide: a.canDecide || b.canDecide,
+      runChecklist: a.runChecklist || b.runChecklist,
+      cancelsAny: a.cancelsAny || b.cancelsAny,
+    }), NOTHING);
 }
 
 /** The line lists the page asks for, by view: a driver is never sent a waiting or declined line. */

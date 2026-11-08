@@ -7,7 +7,7 @@
  *
  * PURE (vitest): no react-native, no client.
  */
-import { localParts, parseTypedDate, wallTimeToUtc, type StaffRole } from '@touch/core';
+import { localParts, parseTypedDate, rolesOf, wallTimeToUtc, type StaffAccess, type StaffRole } from '@touch/core';
 import { VENUE_TZ } from '@touch/i18n';
 import type {
   AddNoteArgs,
@@ -75,6 +75,16 @@ export interface RequestsView {
 export function requestsView(role: StaffRole): RequestsView {
   const marketing = role === 'marketing';
   return { asks: ASK_MARKETING_ROLES.includes(role), answers: marketing, readsAll: marketing || MGMT.includes(role) };
+}
+
+/** The person's view: marketing as a second job answers too (0345; answer_marketing_request asks is_staff_at). */
+export function requestsViewOf(who: StaffAccess): RequestsView {
+  const all = rolesOf(who).map(requestsView);
+  return {
+    asks: all.some((v) => v.asks),
+    answers: all.some((v) => v.answers),
+    readsAll: all.some((v) => v.readsAll),
+  };
 }
 
 /** The inbox filters of `marketing_requests_page`. */

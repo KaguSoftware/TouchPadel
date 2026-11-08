@@ -51,6 +51,7 @@ import {
   namedFirst,
   MARKETING_REQUEST_ROLES,
   requestsView,
+  requestsViewOf,
   validateAnswer,
 } from '../../src/features/staff/marketing/logic';
 
@@ -91,8 +92,8 @@ function RequestsScreen() {
   const params = useLocalSearchParams<{ id?: string }>();
   const router = useRouter();
 
-  const role: StaffRole = status.kind === 'staff' ? status.staff.role : 'cashier';
-  const view = requestsView(role);
+  // Marketing as a second job answers too (0345): answer_marketing_request counts it.
+  const view = status.kind === 'staff' ? requestsViewOf(status.staff) : requestsView('cashier');
   // Marketing answers and never asks itself, so it gets no +.
   const addOptions = useHeaderAddOptions(
     view.asks
