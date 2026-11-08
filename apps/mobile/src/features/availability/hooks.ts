@@ -226,7 +226,7 @@ interface GridSources {
  * The assembled trading night for `date`, from cache when the five inputs are
  * the same OBJECTS as last time and built (and cached) otherwise. Pure apart
  * from the cache, and safe to call for a date nothing is rendering — which is
- * exactly what `usePrefetchAdjacentDays` does with it.
+ * exactly what `useWarmDayGrids` does with it.
  */
 function buildDayGrid(date: string, src: GridSources): CourtSlots[] {
   const { settings, courts, rules, prices, availability } = src;

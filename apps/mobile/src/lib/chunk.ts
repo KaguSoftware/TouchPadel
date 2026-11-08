@@ -29,14 +29,6 @@ export function buildManifest(count: number): string {
   return `${MANIFEST}${count}`;
 }
 
-/** Split an array into consecutive groups of `size` (the last may be shorter). */
-export function chunkArray<T>(items: readonly T[], size: number): T[][] {
-  if (!Number.isInteger(size) || size <= 0) throw new RangeError('chunk size must be positive');
-  const out: T[][] = [];
-  for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size));
-  return out;
-}
-
 /**
  * The slice keys a chunked value of `count` parts occupies: `k.0 … k.{count-1}`.
  *

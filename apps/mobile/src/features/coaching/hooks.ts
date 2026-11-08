@@ -270,9 +270,3 @@ export function useCoachingBranch() {
   const settings = useVenueSettings(guest.venueId);
   return { guest, settings, on: coachingEnabled(settings.data) };
 }
-
-/** For the root layout's foreground push listener: refresh every lesson read now. */
-export function useRefreshLessons(): () => void {
-  const invalidate = useInvalidateLessons();
-  return useCallback(() => invalidate(), [invalidate]);
-}
