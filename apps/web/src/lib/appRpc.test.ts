@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@touch/db';
-import { DEFAULT_REQUEST_TIMEOUT_MS } from '@touch/core';
+import { DEFAULT_REQUEST_TIMEOUT_MS } from '@touch/core/net/timeout';
 import { t } from '@touch/i18n';
 import { appRpc, isRpcError, rpcErrorKey, shouldRefreshMenu } from './appRpc';
 

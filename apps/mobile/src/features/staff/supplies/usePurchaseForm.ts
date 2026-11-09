@@ -23,6 +23,7 @@ import {
 } from './api';
 import {
   boughtUnit,
+  buysPurchases,
   emptyFreeLine,
   listLineFor,
   missingItemIds,
@@ -37,8 +38,7 @@ export function usePurchaseForm() {
   const params = useLocalSearchParams<{ itemIds?: string }>();
   const draft = usePurchaseDraft();
 
-  const role = status.kind === 'staff' ? status.staff.role : null;
-  const buyer = role === 'driver';
+  const buyer = status.kind === 'staff' && buysPurchases(status.staff);
   const venue = venueId ?? '';
   const itemIds = useMemo(() => parseItemIds(params.itemIds), [params.itemIds]);
 

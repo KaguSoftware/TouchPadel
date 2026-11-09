@@ -49,6 +49,7 @@ import {
   shoppingArgs,
   shoppingStatusesFor,
   shoppingView,
+  shoppingViewOf,
   tickedInOrder,
   toggleTick,
   unitsFor,
@@ -89,7 +90,8 @@ function ShoppingScreen() {
   const { status, venueId } = useStaffStatus();
 
   const role = status.kind === 'staff' ? status.staff.role : null;
-  const view: ShoppingView = role ? shoppingView(role) : shoppingView('cashier');
+  // Every job's part of the page, a second job's too (0345): the shopping RPCs count it.
+  const view: ShoppingView = status.kind === 'staff' ? shoppingViewOf(status.staff) : shoppingView('cashier');
   const venue = venueId ?? '';
   const statuses = shoppingStatusesFor(view);
 

@@ -8,6 +8,16 @@
 import nextPlugin from '@next/eslint-plugin-next';
 import { base, react, clientSecrets, rtlGuardRules } from '@touch/config/eslint';
 
+// The @touch/core root barrel re-exports the operator's zod till-mutation
+// schemas, and core has no `sideEffects: false`, so one root import put zod and
+// the manager-PIN payload shapes in the guest café bundle (audit W2,
+// 2026-11-07). Core exports every module as a subpath; import that.
+const coreRootImport = {
+  name: '@touch/core',
+  message:
+    "Import the module's subpath (e.g. '@touch/core/money/iqd'): the root barrel pulls zod and the operator's till schemas into the guest bundle.",
+};
+
 export default [
   ...base, // typescript-eslint recommended + the repo's RTL logical-property guard
   ...react, // react-hooks
@@ -34,6 +44,7 @@ export default [
         'error',
         {
           paths: [
+            coreRootImport,
             {
               // The service-role client belongs to packages/db tooling and the
               // edge functions. Importing it here would put a full-database
@@ -52,10 +63,11 @@ export default [
   {
     // src/lib/supabase/* IS the factory the rule points everyone at — client.ts,
     // server.ts and static.ts each wrap createClient for one rendering mode.
-    // They are the intended single place the raw import lives.
+    // They are the intended single place the raw import lives. The core-root
+    // ban still holds here: client.ts runs in the browser.
     name: '@touch/web/supabase-factory',
     files: ['src/lib/supabase/**/*.ts'],
-    rules: { 'no-restricted-imports': 'off' },
+    rules: { 'no-restricted-imports': ['error', { paths: [coreRootImport] }] },
   },
 
   {

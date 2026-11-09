@@ -1,5 +1,5 @@
 {
-  "generated_from": "acf4c3fa4ec19ac9812998b0c2b9ad614b65e4fd",
+  "generated_from": "b9504891f7b0c2762a65b60f9c5379b776cf21ee",
   "chunks": [
     {
       "kind": "page",
@@ -5206,7 +5206,7 @@
       "ref": "action:app.discard_count",
       "lang": "en",
       "title": "app.discard_count (part 1 of 2)",
-      "body": "stock_counts_by_location (wave 5 §2.8.5, D7) + shop_store (0245). MGMT, or the shop assistant for a count of the shop store, at the count's venue: deletes a count that was never applied (an operator count left open, or a phone count not worth applying), with its lines; stock is untouched. Returns {count_id, discarded: true}. FORBIDDEN, COUNT_NOT_FOUND (also another venue's, or already discarded), COUNT_FINALIZED. Audit stock.discard_count {location, source, lines}.\nSignature: app.discard_count(p_count_id uuid) returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager,owner,shop_staff).",
+      "body": "stock_counts_by_location (wave 5 §2.8.5, D7) + shop_store (0245). MGMT, or the shop assistant, as main or second job (0404), for a count of the shop store, at the count's venue: deletes a count that was never applied (an operator count left open, or a phone count not worth applying), with its lines; stock is untouched. Returns {count_id, discarded: true}. FORBIDDEN, COUNT_NOT_FOUND (also another venue's, or already discarded), COUNT_FINALIZED. Audit stock.discard_count {location, source, lines}.\nSignature: app.discard_count(p_count_id uuid) returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager,owner,shop_staff).",
       "route": "/stock"
     },
     {
@@ -5214,7 +5214,7 @@
       "ref": "action:app.discard_count~2",
       "lang": "en",
       "title": "app.discard_count (part 2 of 2)",
-      "body": "stock_counts_by_location (wave 5 §2.8.5, D7) + shop_store (0245). MGMT, or the shop assistant for a count of the shop store, at the count's venue: deletes a cou\nSignature: app.discard_count(p_count_id uuid) returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager,owner,shop_staff).\nAudit actions written: stock.discard_count.\nError codes: FORBIDDEN, COUNT_NOT_FOUND, COUNT_FINALIZED.\nCalled from: apps/operator/src/features/stock/CountScreen.tsx (pages /stock).\nDefined in migration 0245 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "stock_counts_by_location (wave 5 §2.8.5, D7) + shop_store (0245). MGMT, or the shop assistant, as main or second job (0404), for a count of the shop store, at t\nSignature: app.discard_count(p_count_id uuid) returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager,owner,shop_staff).\nAudit actions written: stock.discard_count.\nError codes: FORBIDDEN, COUNT_NOT_FOUND, COUNT_FINALIZED.\nCalled from: apps/operator/src/features/stock/CountScreen.tsx (pages /stock).\nDefined in migration 0404 (last definition). The assistant cannot call this; it only explains it.",
       "route": "/stock"
     },
     {
@@ -5318,7 +5318,7 @@
       "ref": "action:app.finalize_count",
       "lang": "en",
       "title": "app.finalize_count (part 1 of 2)",
-      "body": "0019/0044 + stock_counts_by_location (D7) + shop_store (0245). MGMT, or the shop assistant for a count of the shop store, at the count's venue: applies an operator count or a waiting phone count. p_lines [{ingredient_id, counted_qty}] overwrite the counted quantities (COUNT_LINE_NOT_FOUND for an ingredient not in the count); every drifted line is reconciled at the count's store with count_adjustment movements (a shortage FEFO with any rest batch-less, a surplus into that store's newest live batch or a new one). Returns {count_id, adjusted_lines, finalized_at, location}. FORBIDDEN, COUNT_NOT_FOUND (also another venue's),",
+      "body": "0019/0044 + stock_counts_by_location (D7) + shop_store (0245). MGMT, or the shop assistant, as main or second job (0404), for a count of the shop store, at the count's venue: applies an operator count or a waiting phone count. p_lines [{ingredient_id, counted_qty}] overwrite the counted quantities (COUNT_LINE_NOT_FOUND for an ingredient not in the count); every drifted line is reconciled at the count's store with count_adjustment movements (a shortage FEFO with any rest batch-less, a surplus into that store's newest live batch or a new one). Returns {count_id, adjusted_lines, finalized_at, location}. FORBIDDEN, COUNT_NOT_FOUND",
       "route": "/stock"
     },
     {
@@ -5326,7 +5326,7 @@
       "ref": "action:app.finalize_count~2",
       "lang": "en",
       "title": "app.finalize_count (part 2 of 2)",
-      "body": "0019/0044 + stock_counts_by_location (D7) + shop_store (0245). MGMT, or the shop assistant for a count of the shop store, at the count's venue: applies an opera\nCOUNT_FINALIZED, INVALID_LINE. Audit stock.finalize_count.\nSignature: app.finalize_count(p_count_id uuid, p_lines jsonb default '[]'::jsonb, p_device_id text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager,owner,shop_staff).\nAudit actions written: stock.finalize_count.\nError codes: FORBIDDEN, COUNT_NOT_FOUND, COUNT_FINALIZED, COUNT_LINE_NOT_FOUND, INVALID_LINE.\nCalled from: apps/operator/src/features/stock/CountScreen.tsx (pages /stock).\nDefined in migration 0245 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "0019/0044 + stock_counts_by_location (D7) + shop_store (0245). MGMT, or the shop assistant, as main or second job (0404), for a count of the shop store, at the \n(also another venue's), COUNT_FINALIZED, INVALID_LINE. Audit stock.finalize_count.\nSignature: app.finalize_count(p_count_id uuid, p_lines jsonb default '[]'::jsonb, p_device_id text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager,owner,shop_staff).\nAudit actions written: stock.finalize_count.\nError codes: FORBIDDEN, COUNT_NOT_FOUND, COUNT_FINALIZED, COUNT_LINE_NOT_FOUND, INVALID_LINE.\nCalled from: apps/operator/src/features/stock/CountScreen.tsx (pages /stock).\nDefined in migration 0404 (last definition). The assistant cannot call this; it only explains it.",
       "route": "/stock"
     },
     {
@@ -7766,7 +7766,7 @@
       "ref": "action:app.receive_delivery",
       "lang": "en",
       "title": "app.receive_delivery (part 1 of 3)",
-      "body": "0145 + stock_locations (D4). MGMT at the venue: Goods in. p_lines [{ingredient_id, qty_received, unit_cost_iqd, qty_expected?, expiry_date?}] booked as one delivery into p_location (cafe or bakery, default cafe) through app.receive_delivery_internal. Returns {delivery_id, batch_ids}. Idempotent by key. EMPTY_DELIVERY, SUPPLIER_NOT_FOUND, INVALID_ARGUMENT (hint location; hint kind: a shop line at the bakery), STORE_BEING_COUNTED (an operator count is open at that store), INGREDIENT_NOT_FOUND, INVALID_LINE. Audit stock.receive_delivery.",
+      "body": "0145 + stock_locations (D4) + shop_store (0245). MGMT, or the shop assistant, as main or second job (0404), into the shop store only (FORBIDDEN hint location for another store; the shop store when none is named), at the venue: Goods in. p_lines [{ingredient_id, qty_received, unit_cost_iqd, qty_expected?, expiry_date?}] booked as one delivery into p_location (default cafe) through app.receive_delivery_internal. Returns {delivery_id, batch_ids}. Idempotent by key. EMPTY_DELIVERY, SUPPLIER_NOT_FOUND, INVALID_ARGUMENT (hint location; hint kind), STORE_BEING_COUNTED (an operator count is open at that store), INGREDIENT_NOT_FOUND,",
       "route": null
     },
     {
@@ -7774,7 +7774,7 @@
       "ref": "action:app.receive_delivery~2",
       "lang": "en",
       "title": "app.receive_delivery (part 2 of 3)",
-      "body": "0145 + stock_locations (D4). MGMT at the venue: Goods in. p_lines [{ingredient_id, qty_received, unit_cost_iqd, qty_expected?, expiry_date?}] booked as one deli\nSignature: app.receive_delivery(p_lines jsonb, p_supplier_name text DEFAULT NULL::text, p_notes text DEFAULT NULL::text, p_device_id text DEFAULT NULL::text, p_supplier_id uuid DEFAULT NULL::uuid, p_idempotency_key text DEFAULT NULL::text, p_location text DEFAULT NULL::text) returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager,owner,shop_staff).\nAudit actions written: stock.receive_delivery.\nError codes: FORBIDDEN, EMPTY_DELIVERY, SUPPLIER_NOT_FOUND.\nNot called directly by the operator app (edge function, guest app, queue or internal).",
+      "body": "0145 + stock_locations (D4) + shop_store (0245). MGMT, or the shop assistant, as main or second job (0404), into the shop store only (FORBIDDEN hint location fo\nINVALID_LINE. Audit stock.receive_delivery.\nSignature: app.receive_delivery(p_lines jsonb, p_supplier_name text DEFAULT NULL::text, p_notes text DEFAULT NULL::text, p_device_id text DEFAULT NULL::text, p_supplier_id uuid DEFAULT NULL::uuid, p_idempotency_key text DEFAULT NULL::text, p_location text DEFAULT NULL::text) returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager,owner,shop_staff).\nAudit actions written: stock.receive_delivery.\nError codes: FORBIDDEN, EMPTY_DELIVERY, SUPPLIER_NOT_FOUND.\nNot called directly by the operator app (edge function, guest app, queue or internal).",
       "route": null
     },
     {
@@ -7782,7 +7782,7 @@
       "ref": "action:app.receive_delivery~3",
       "lang": "en",
       "title": "app.receive_delivery (part 3 of 3)",
-      "body": "0145 + stock_locations (D4). MGMT at the venue: Goods in. p_lines [{ingredient_id, qty_received, unit_cost_iqd, qty_expected?, expiry_date?}] booked as one deli\nAudit actions written: stock.receive_delivery.\nError codes: FORBIDDEN, EMPTY_DELIVERY, SUPPLIER_NOT_FOUND.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0245 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "0145 + stock_locations (D4) + shop_store (0245). MGMT, or the shop assistant, as main or second job (0404), into the shop store only (FORBIDDEN hint location fo\nAudit actions written: stock.receive_delivery.\nError codes: FORBIDDEN, EMPTY_DELIVERY, SUPPLIER_NOT_FOUND.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0404 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -7941,16 +7941,24 @@
       "kind": "action",
       "ref": "action:app.record_waste",
       "lang": "en",
-      "title": "app.record_waste (part 1 of 2)",
-      "body": "0018/0049 + stock_locations (D3). The cashier and MGMT: records waste_spill or waste_spoilage with a reason, FEFO from p_location first (cafe or bakery; default the caller's home store), then the other store. Idempotent by key (the queued stock.waste passes p_location only when it names one). FORBIDDEN, INVALID_MOVEMENT, REASON_REQUIRED, INVALID_ARGUMENT (hint location), INVALID_QTY. Audit stock.record_waste (+ location).",
+      "title": "app.record_waste (part 1 of 3)",
+      "body": "0018/0049 + stock_locations (D3) + shop_store (0245). The cashier and MGMT, or the shop assistant, as main or second job, at the shop store only (0404: held there unless the cashier, manager or owner is also one of their jobs; FORBIDDEN hint location): records waste_spill or waste_spoilage with a reason at the ingredient's branch (VENUE_MISMATCH), FEFO from p_location (default the caller's home store; the shop store for a shop assistant). Shop stock is written off at the shop store and nowhere else (INVALID_ARGUMENT hint kind). Idempotent by key (the queued stock.waste passes p_location only when it names one). FORBIDDEN,",
       "route": null
     },
     {
       "kind": "action",
       "ref": "action:app.record_waste~2",
       "lang": "en",
-      "title": "app.record_waste (part 2 of 2)",
-      "body": "0018/0049 + stock_locations (D3). The cashier and MGMT: records waste_spill or waste_spoilage with a reason, FEFO from p_location first (cafe or bakery; default\nSignature: app.record_waste(p_ingredient_id uuid, p_qty numeric, p_movement_type movement_type default 'waste_spill', p_reason_code text default null, p_device_id text default null, p_idempotency_key text default null, p_location text default null) returns void.\nGranted to: authenticated. Guard: staff role in (cashier,manager,owner,shop_staff).\nAudit actions written: stock.record_waste.\nError codes: FORBIDDEN, VENUE_MISMATCH, INVALID_MOVEMENT, REASON_REQUIRED.\nCalled from: apps/operator/src/lib/mutate.ts (till queue).\nDefined in migration 0245 (last definition). The assistant cannot call this; it only explains it.",
+      "title": "app.record_waste (part 2 of 3)",
+      "body": "0018/0049 + stock_locations (D3) + shop_store (0245). The cashier and MGMT, or the shop assistant, as main or second job, at the shop store only (0404: held the\nINVALID_MOVEMENT, REASON_REQUIRED, INVALID_ARGUMENT (hint location), INVALID_QTY. Audit stock.record_waste (+ location).\nSignature: app.record_waste(p_ingredient_id uuid, p_qty numeric, p_movement_type movement_type default 'waste_spill', p_reason_code text default null, p_device_id text default null, p_idempotency_key text default null, p_location text default null) returns void.\nGranted to: authenticated. Guard: staff role in (cashier,manager,owner,shop_staff).\nAudit actions written: stock.record_waste.\nError codes: FORBIDDEN, VENUE_MISMATCH, INVALID_MOVEMENT, REASON_REQUIRED.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.record_waste~3",
+      "lang": "en",
+      "title": "app.record_waste (part 3 of 3)",
+      "body": "0018/0049 + stock_locations (D3) + shop_store (0245). The cashier and MGMT, or the shop assistant, as main or second job, at the shop store only (0404: held the\nAudit actions written: stock.record_waste.\nError codes: FORBIDDEN, VENUE_MISMATCH, INVALID_MOVEMENT, REASON_REQUIRED.\nCalled from: apps/operator/src/lib/mutate.ts (till queue).\nDefined in migration 0404 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -9454,7 +9462,7 @@
       "ref": "action:app.start_count",
       "lang": "en",
       "title": "app.start_count (part 1 of 2)",
-      "body": "0019 + stock_counts_by_location (D7) + shop_store (0245). MGMT, or the shop assistant for the shop store, at the venue: opens an operator count of one store (p_location, default the caller's home store) under the store's count lock, snapshotting every active ingredient of the venue at its ledger sum in that store (the shop store holds shop stock only, the cafe and bakery none). Receipts and moves into the store are refused until it is finalized or discarded. Returns {count_id, lines, started_at, location}. FORBIDDEN, INVALID_ARGUMENT (hint location), COUNT_IN_PROGRESS (a count of that store is open or waiting). Audit",
+      "body": "0019 + stock_counts_by_location (D7) + shop_store (0245). MGMT, or the shop assistant, as main or second job (0404), for the shop store, at the venue: opens an operator count of one store (p_location, default the caller's home store; the shop store for a shop assistant) under the store's count lock, snapshotting every active ingredient of the venue at its ledger sum in that store (the shop store holds shop stock only, the cafe and bakery none). Receipts and moves into the store are refused until it is finalized or discarded. Returns {count_id, lines, started_at, location}. FORBIDDEN, INVALID_ARGUMENT (hint location),",
       "route": "/stock"
     },
     {
@@ -9462,7 +9470,7 @@
       "ref": "action:app.start_count~2",
       "lang": "en",
       "title": "app.start_count (part 2 of 2)",
-      "body": "0019 + stock_counts_by_location (D7) + shop_store (0245). MGMT, or the shop assistant for the shop store, at the venue: opens an operator count of one store (p_\nstock.start_count.\nSignature: app.start_count(p_location text default null, p_venue_id uuid default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager,owner,shop_staff).\nAudit actions written: stock.start_count.\nError codes: FORBIDDEN, COUNT_IN_PROGRESS.\nCalled from: apps/operator/src/features/stock/CountScreen.tsx (pages /stock).\nDefined in migration 0245 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "0019 + stock_counts_by_location (D7) + shop_store (0245). MGMT, or the shop assistant, as main or second job (0404), for the shop store, at the venue: opens an \nCOUNT_IN_PROGRESS (a count of that store is open or waiting). Audit stock.start_count.\nSignature: app.start_count(p_location text default null, p_venue_id uuid default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager,owner,shop_staff).\nAudit actions written: stock.start_count.\nError codes: FORBIDDEN, COUNT_IN_PROGRESS.\nCalled from: apps/operator/src/features/stock/CountScreen.tsx (pages /stock).\nDefined in migration 0404 (last definition). The assistant cannot call this; it only explains it.",
       "route": "/stock"
     },
     {
@@ -10470,7 +10478,7 @@
       "ref": "action:app.upsert_menu_item",
       "lang": "en",
       "title": "app.upsert_menu_item (part 1 of 3)",
-      "body": "Manager or owner, or the shop assistant for shop products only (0246; FORBIDDEN hint category otherwise, and none of the manager rules below reach them): creates or updates a menu item or shop product (0054; a wrapper over app.upsert_menu_item_internal since product_release). ITEM_IN_RELEASE, for everyone, on switching on an item whose product release is not live or done, or moving it into a category that is not a cafe one. For a manager: ITEM_VIA_RELEASE on any item moved from a shop category into a cafe one; and on a new item or a draft (never launched, switched off, not in release), ITEM_VIA_RELEASE for a new cafe item or a",
+      "body": "Manager or owner, or the shop assistant, as main or second job (0404), for shop products only (0246; FORBIDDEN hint category otherwise, and none of the manager rules below reach them): creates or updates a menu item or shop product (0054; a wrapper over app.upsert_menu_item_internal since product_release). ITEM_IN_RELEASE, for everyone, on switching on an item whose product release is not live or done, or moving it into a category that is not a cafe one. For a manager: ITEM_VIA_RELEASE on any item moved from a shop category into a cafe one; and on a new item or a draft (never launched, switched off, not in release),",
       "route": null
     },
     {
@@ -10478,7 +10486,7 @@
       "ref": "action:app.upsert_menu_item~2",
       "lang": "en",
       "title": "app.upsert_menu_item (part 2 of 3)",
-      "body": "Manager or owner, or the shop assistant for shop products only (0246; FORBIDDEN hint category otherwise, and none of the manager rules below reach them): create\ncafe draft switched on, LAUNCH_VIA_PROTOCOL for a shop product saved switched on. CATEGORY_NOT_FOUND, ITEM_NOT_FOUND, INVALID_HIGHLIGHT, INVALID_SERVE_TEMP, HOOK_TOO_LONG, HOOK_PAIR_MISMATCH.\nSignature: app.upsert_menu_item(p_category_id uuid, p_name_en text, p_name_ar text, p_id uuid default null, p_description_en text default null, p_description_ar text default null, p_sort_order int default 0, p_is_active boolean default true, p_hook_en text default '', p_hook_ar text default '', p_highlight text default 'none', p_serve_temp text default null) returns uuid.",
+      "body": "Manager or owner, or the shop assistant, as main or second job (0404), for shop products only (0246; FORBIDDEN hint category otherwise, and none of the manager \nITEM_VIA_RELEASE for a new cafe item or a cafe draft switched on, LAUNCH_VIA_PROTOCOL for a shop product saved switched on. CATEGORY_NOT_FOUND, ITEM_NOT_FOUND, INVALID_HIGHLIGHT, INVALID_SERVE_TEMP, HOOK_TOO_LONG, HOOK_PAIR_MISMATCH.\nSignature: app.upsert_menu_item(p_category_id uuid, p_name_en text, p_name_ar text, p_id uuid default null, p_description_en text default null, p_description_ar text default null, p_sort_order int default 0, p_is_active boolean default true, p_hook_en text default '', p_hook_ar text default '', p_highlight text default 'none', p_serve_temp text default null) returns uuid.",
       "route": null
     },
     {
@@ -10486,7 +10494,7 @@
       "ref": "action:app.upsert_menu_item~3",
       "lang": "en",
       "title": "app.upsert_menu_item (part 3 of 3)",
-      "body": "Manager or owner, or the shop assistant for shop products only (0246; FORBIDDEN hint category otherwise, and none of the manager rules below reach them): create\nGranted to: authenticated. Guard: staff role in (manager,owner,shop_staff).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, ITEM_IN_RELEASE, ITEM_VIA_RELEASE, LAUNCH_VIA_PROTOCOL.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0246 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "Manager or owner, or the shop assistant, as main or second job (0404), for shop products only (0246; FORBIDDEN hint category otherwise, and none of the manager \nGranted to: authenticated. Guard: staff role in (manager,owner,shop_staff).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, ITEM_IN_RELEASE, ITEM_VIA_RELEASE, LAUNCH_VIA_PROTOCOL.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0404 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -10622,7 +10630,7 @@
       "ref": "action:app.upsert_variant",
       "lang": "en",
       "title": "app.upsert_variant (part 1 of 3)",
-      "body": "Manager or owner, or the shop assistant for shop sizes only (0246; FORBIDDEN hint category otherwise; PRICE_VIA_PROTOCOL does not reach them): creates or updates one size of a menu item or shop product (0013; a wrapper over app.upsert_variant_internal since product_release). ITEM_IN_RELEASE, for everyone, on a new size or a price change of an item whose product release is not live or done: its prices come from the price step. PRICE_VIA_PROTOCOL (price_promo, #51), for a manager, on a new size or a price change of any item that is not a draft (launched_at set, or switched on), cafe or shop, including through",
+      "body": "Manager or owner, or the shop assistant, as main or second job (0404), for shop sizes only (0246; FORBIDDEN hint category otherwise; PRICE_VIA_PROTOCOL does not reach them): creates or updates one size of a menu item or shop product (0013; a wrapper over app.upsert_variant_internal since product_release). ITEM_IN_RELEASE, for everyone, on a new size or a price change of an item whose product release is not live or done: its prices come from the price step. PRICE_VIA_PROTOCOL (price_promo, #51), for a manager, on a new size or a price change of any item that is not a draft (launched_at set, or switched on), cafe or shop, including",
       "route": "/admin"
     },
     {
@@ -10630,7 +10638,7 @@
       "ref": "action:app.upsert_variant~2",
       "lang": "en",
       "title": "app.upsert_variant (part 2 of 3)",
-      "body": "Manager or owner, or the shop assistant for shop sizes only (0246; FORBIDDEN hint category otherwise; PRICE_VIA_PROTOCOL does not reach them): creates or update\napp.upsert_retail_variant: it goes through a price change. PRICE_VIA_PROTOCOL hint name (price_promo_renames, #9), for a manager, on a changed name (either language, compared trimmed) of an existing size of such an item, checked after the price: the rename goes through a price change too. ITEM_NOT_FOUND, VARIANT_NOT_FOUND, INVALID_PRICE.\nSignature: app.upsert_variant(p_item_id uuid, p_name_en text, p_name_ar text, p_price_iqd bigint, p_id uuid default null, p_is_default boolean default false, p_sort_order int default 0) returns uuid.\nGranted to: authenticated. Guard: staff role in (manager,owner,shop_staff).",
+      "body": "Manager or owner, or the shop assistant, as main or second job (0404), for shop sizes only (0246; FORBIDDEN hint category otherwise; PRICE_VIA_PROTOCOL does not\nthrough app.upsert_retail_variant: it goes through a price change. PRICE_VIA_PROTOCOL hint name (price_promo_renames, #9), for a manager, on a changed name (either language, compared trimmed) of an existing size of such an item, checked after the price: the rename goes through a price change too. ITEM_NOT_FOUND, VARIANT_NOT_FOUND, INVALID_PRICE.\nSignature: app.upsert_variant(p_item_id uuid, p_name_en text, p_name_ar text, p_price_iqd bigint, p_id uuid default null, p_is_default boolean default false, p_sort_order int default 0) returns uuid.\nGranted to: authenticated. Guard: staff role in (manager,owner,shop_staff).",
       "route": "/admin"
     },
     {
@@ -10638,7 +10646,7 @@
       "ref": "action:app.upsert_variant~3",
       "lang": "en",
       "title": "app.upsert_variant (part 3 of 3)",
-      "body": "Manager or owner, or the shop assistant for shop sizes only (0246; FORBIDDEN hint category otherwise; PRICE_VIA_PROTOCOL does not reach them): creates or update\nGranted to: authenticated. Guard: staff role in (manager,owner,shop_staff).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, ITEM_IN_RELEASE, PRICE_VIA_PROTOCOL.\nCalled from: apps/operator/src/features/admin/menu/VariantsEditor.tsx (pages /admin).\nDefined in migration 0246 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "Manager or owner, or the shop assistant, as main or second job (0404), for shop sizes only (0246; FORBIDDEN hint category otherwise; PRICE_VIA_PROTOCOL does not\nGranted to: authenticated. Guard: staff role in (manager,owner,shop_staff).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, ITEM_IN_RELEASE, PRICE_VIA_PROTOCOL.\nCalled from: apps/operator/src/features/admin/menu/VariantsEditor.tsx (pages /admin).\nDefined in migration 0404 (last definition). The assistant cannot call this; it only explains it.",
       "route": "/admin"
     },
     {

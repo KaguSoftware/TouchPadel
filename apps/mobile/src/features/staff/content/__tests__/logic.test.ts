@@ -8,6 +8,7 @@ import {
   CONTENT_ROLES,
   canSendAgain,
   contentAccess,
+  contentAccessOf,
   contentArgs,
   currentVersion,
   draftFromDetail,
@@ -101,6 +102,12 @@ describe('who sends and who decides', () => {
       expect(access.decides, role).toBe(role === 'owner');
     }
     expect(contentAccess('manager')).toEqual({ sends: false, decides: false });
+  });
+
+  it('lets marketing as a second job send, as the content RPCs do (0345)', () => {
+    expect(contentAccessOf({ role: 'cashier', extraRoles: ['marketing'] })).toEqual({ sends: true, decides: false });
+    expect(contentAccessOf({ role: 'cashier' })).toEqual({ sends: false, decides: false });
+    expect(contentAccessOf({ role: 'owner' })).toEqual({ sends: false, decides: true });
   });
 
   it('opens the owner on what waits, and marketing on everything', () => {

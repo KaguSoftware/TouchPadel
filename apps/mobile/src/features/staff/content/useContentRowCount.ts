@@ -6,16 +6,16 @@
  * there moves the number here. Nobody else reads content (§8 Q14).
  */
 import { useQuery } from '@tanstack/react-query';
-import type { StaffRole } from '@touch/core';
+import type { StaffAccess } from '@touch/core';
 import { staffKeys } from '../keys';
 import { fetchContentPage } from './api';
-import { contentAccess } from './logic';
+import { contentAccessOf } from './logic';
 
 export function useContentRowCount(
   venueId: string | null,
-  role: StaffRole | null,
+  who: StaffAccess | null,
 ): { count: number; changes: boolean } {
-  const access = role ? contentAccess(role) : { sends: false, decides: false };
+  const access = who ? contentAccessOf(who) : { sends: false, decides: false };
   const on = !!venueId && (access.sends || access.decides);
   const filter = access.sends ? 'changes' : 'waiting';
   const page = useQuery({

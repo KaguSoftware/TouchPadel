@@ -10,6 +10,7 @@
  * and is settled at this desk; nothing here is trusted for a price.
  */
 import type { CategoryRow, TillMenu } from '../till/tillData';
+import { computeTabTotals, type TaxContext, type TotalsInput } from '../till/tabTotals';
 
 /** One sellable size of one shop product. */
 export interface ShopSize {
@@ -119,6 +120,20 @@ export function setLineQty(basket: readonly ShopLine[], variantId: string, qty: 
 export function basketEstimate(basket: readonly ShopLine[], sizes: readonly ShopSize[]): number {
   const byId = new Map(sizes.map((s) => [s.variantId, s]));
   return basket.reduce((sum, l) => sum + (byId.get(l.variantId)?.priceIqd ?? 0) * l.qty, 0);
+}
+
+/**
+ * What a sale on the server owes, worked out in one place: `total` is the whole
+ * bill, which is what settle_tab compares p_expected_total_iqd with (0106), and
+ * `due` is what is still to pay after the payments so far. It is the till's
+ * mirror of app.compute_tab_totals (till/tabTotals.ts), so tax and discounts
+ * count. The raw tabs.total_iqd column is stamped only by a settle, so it is
+ * null on a sale that has never been paid. Sending the due as the expected
+ * total made every second part payment fail with TOTAL_CHANGED.
+ */
+export function saleOwed(detail: TotalsInput, tax: TaxContext | null): { total: number; due: number } {
+  const t = computeTabTotals(detail, tax, 0);
+  return { total: t.total, due: t.due };
 }
 
 export function basketCount(basket: readonly ShopLine[]): number {

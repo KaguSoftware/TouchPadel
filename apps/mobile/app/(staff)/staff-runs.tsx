@@ -3,7 +3,7 @@ import { Pressable, RefreshControl, ScrollView, View } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { startableKinds, type RunRow } from '@touch/core';
+import { type RunRow } from '@touch/core';
 import { formatDateTime } from '@touch/i18n';
 import { useLocale } from '../../src/i18n/LocaleProvider';
 import { radius, space, useTheme } from '../../src/theme';
@@ -18,7 +18,14 @@ import { staffKeys } from '../../src/features/staff/keys';
 import { usePullRefresh } from '../../src/lib/usePullRefresh';
 import { useHeaderAddOptions } from '../../src/navigation/headerAdd';
 import { fetchRuns } from '../../src/features/staff/protocols/api';
-import { RUN_FILTERS, bilingual, parseRunFilter, runTitle, type RunFilter } from '../../src/features/staff/protocols/logic';
+import {
+  RUN_FILTERS,
+  bilingual,
+  parseRunFilter,
+  runTitle,
+  startableKindsOf,
+  type RunFilter,
+} from '../../src/features/staff/protocols/logic';
 import { Muted, StatusPill, Strong, runStatusTone, useRefreshProtocols } from '../../src/features/staff/protocols/parts';
 
 /**
@@ -83,7 +90,6 @@ function RunsScreen() {
   const { status, venueId } = useStaffStatus();
   const params = useLocalSearchParams<{ filter?: string }>();
   const [filter, setFilter] = useState<RunFilter>(() => parseRunFilter(params.filter));
-  const role = status.kind === 'staff' ? status.staff.role : null;
   const venue = venueId ?? '';
   const runs = useQuery({
     queryKey: staffKeys.runs(venue, filter),
@@ -91,7 +97,7 @@ function RunsScreen() {
     enabled: venue !== '',
   });
   const addOptions = useHeaderAddOptions(
-    startableKinds(role).length > 0
+    status.kind === 'staff' && startableKindsOf(status.staff).length > 0
       ? {
           testID: 'staff-runs.add',
           label: t('staff.protocols.runs.start'),

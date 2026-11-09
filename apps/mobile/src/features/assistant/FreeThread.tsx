@@ -118,11 +118,12 @@ export function FreeThread({ testID, from, onUsePaid }: FreeThreadProps) {
   const { colors, fonts } = useTheme();
   const insets = useSafeAreaInsets();
   const { status } = useStaffStatus();
-  const role = status.kind === 'staff' ? status.staff.role : null;
+  const who = status.kind === 'staff' ? status.staff : null;
+  const role = who?.role ?? null;
   // Only the owner is told there is a free AI beside a paid one; everyone else has "Touch AI".
   const ns = role === 'owner' ? 'free' : 'touch';
   const lang = locale === 'ar' ? 'ar' : 'en';
-  const pages = useMemo(() => (role ? freePages(role, (key) => t(key)) : []), [role, t]);
+  const pages = useMemo(() => (who ? freePages(who, (key) => t(key)) : []), [who, t]);
   const chat = useFreeChat({ route: from, lang, pages });
   const [draft, setDraft] = useState('');
 

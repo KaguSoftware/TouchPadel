@@ -4,7 +4,7 @@ import { Pressable, RefreshControl, View } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { localIsoDate, parseTypedDate, type StaffRole } from '@touch/core';
+import { localIsoDate, parseTypedDate } from '@touch/core';
 import { formatDate, formatDateTime, isolate, type MessageKey } from '@touch/i18n';
 import { Text } from '../../src/i18n/text';
 import { useLocale } from '../../src/i18n/LocaleProvider';
@@ -68,7 +68,7 @@ import {
   CONTENT_ROLES,
   CONTENT_TONE,
   canSendAgain,
-  contentAccess,
+  contentAccessOf,
   contentArgs,
   currentVersion,
   draftFromDetail,
@@ -78,6 +78,7 @@ import {
   sendAgainDraft,
   validateContent,
   validateDecision,
+  type ContentAccess,
   type ContentDraft,
   type ContentField,
   type ContentIssue,
@@ -416,14 +417,13 @@ function ContentForm({
 
 // ── The queue ─────────────────────────────────────────────────────────────────
 
-function ContentList({ role }: { role: StaffRole }) {
+function ContentList({ access }: { access: ContentAccess }) {
   const { t, locale } = useLocale();
   const { colors, fonts } = useTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { venueId } = useStaffStatus();
   const venue = venueId ?? '';
-  const access = contentAccess(role);
 
   const [filter, setFilter] = useState<ContentFilter>(() => initialFilter(access));
   // A fresh form after each send, so its photos and fields start empty.
@@ -594,7 +594,7 @@ function ContentList({ role }: { role: StaffRole }) {
 
 type Choice = ContentDecision | null;
 
-function ContentItemView({ id, role }: { id: string; role: StaffRole }) {
+function ContentItemView({ id, access }: { id: string; access: ContentAccess }) {
   const { t, locale } = useLocale();
   const { colors, fonts } = useTheme();
   const toast = useToast();
@@ -603,7 +603,6 @@ function ContentItemView({ id, role }: { id: string; role: StaffRole }) {
   const queryClient = useQueryClient();
   const { venueId } = useStaffStatus();
   const venue = venueId ?? '';
-  const access = contentAccess(role);
   const today = localIsoDate(new Date());
 
   const detail = useQuery({
@@ -1099,12 +1098,13 @@ function ContentScreen() {
   const { status } = useStaffStatus();
   const params = useLocalSearchParams<{ id?: string }>();
   if (status.kind !== 'staff') return null;
-  const role = status.staff.role;
+  // Marketing as a second job sends too (0345): the content RPCs count it.
+  const access = contentAccessOf(status.staff);
   // One title for the queue and an item: the item names itself in its own heading.
   return (
     <Screen pattern="blur" clearBar edges={[]} keyboard>
       <Stack.Screen options={{ title: t('staff.content.title') }} />
-      {params.id ? <ContentItemView id={params.id} role={role} /> : <ContentList role={role} />}
+      {params.id ? <ContentItemView id={params.id} access={access} /> : <ContentList access={access} />}
     </Screen>
   );
 }

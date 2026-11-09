@@ -414,9 +414,3 @@ export function useSetMyGender() {
     },
   });
 }
-
-/** For the root layout's foreground push listener: refresh every match read now. */
-export function useRefreshMatches(): () => void {
-  const invalidate = useInvalidateMatches();
-  return useCallback(() => invalidate(), [invalidate]);
-}

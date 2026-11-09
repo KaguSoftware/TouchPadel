@@ -522,7 +522,6 @@ export const LESSON_EVENT_TYPES = [
   'settled',
   'refunded',
 ] as const;
-export type LessonEventType = (typeof LESSON_EVENT_TYPES)[number];
 
 /** The history sentence's key; `late` (R26) turns `under_filled` into "nothing was cancelled". */
 export function eventKey(type: string, late = false): MessageKey | null {
@@ -808,7 +807,6 @@ export const COACHING_CANCEL_CODES = [
   'duplicate',
   'other',
 ] as const;
-export type CoachingCancelCode = (typeof COACHING_CANCEL_CODES)[number];
 
 /** The reason form (§5.7): `<code>` or `<code>: <note>`, the note capped at 200 characters. */
 export function reasonForm(code: string, note?: string | null): string {

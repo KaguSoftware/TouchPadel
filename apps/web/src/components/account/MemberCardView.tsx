@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { formatIraqiNational } from '@touch/core';
+import { formatIraqiNational } from '@touch/core/phone/iraq';
 import { memberToken, type MemberCard } from '@touch/core/loyalty';
 import { formatNumber, makeT, type Locale } from '@touch/i18n';
 import { MemberQr } from './MemberQr';

@@ -36,7 +36,6 @@
     "@touch/court3d": "workspace:*",
     "@touch/db": "workspace:*",
     "@touch/i18n": "workspace:*",
-    "@touch/ui": "workspace:*",
     "expo": "~58.0.23",
     "expo-apple-authentication": "~58.0.2",
     "expo-application": "~58.1.2",

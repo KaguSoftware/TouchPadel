@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { startForm, stepForm, validateStep } from '@touch/core/protocols';
 import { cleanRecord, fromLocalInput, getAt, hintOf, initialValue, issueAt, labelIds, mintKey, setAt, toLocalInput, toTimeInput } from './formModel';
+import { isoToLocal, localToIso } from '../tasks/formModel';
 
 describe('a form’s value', () => {
   it('opens with a blank for every field and one row to fill in a list that needs one', () => {
@@ -90,10 +91,16 @@ describe('paths and hints', () => {
 });
 
 describe('times and keys', () => {
-  it('turns a local date-time into an instant and back', () => {
+  it('turns a venue date-time into an instant and back, whatever the station zone', () => {
+    // Asia/Baghdad is UTC+3: 18:30 at the venue is 15:30Z, on any machine.
     const iso = fromLocalInput('2099-10-09T18:30');
-    expect(iso).toMatch(/^2099-10-09T\d{2}:30:00\.000Z$/);
+    expect(iso).toBe('2099-10-09T15:30:00.000Z');
     expect(toLocalInput(iso)).toBe('2099-10-09T18:30');
+    expect(toLocalInput('2099-10-09T22:15:00.000Z')).toBe('2099-10-10T01:15');
+    // The same instants /tasks stores for the same wall time.
+    expect(fromLocalInput('2099-10-09T18:30')).toBe(localToIso('2099-10-09T18:30'));
+    expect(toLocalInput('2099-10-09T15:30:00.000Z')).toBe(isoToLocal('2099-10-09T15:30:00.000Z'));
+    expect(fromLocalInput('2099-10-09T18:30', 'Europe/London')).toBe('2099-10-09T17:30:00.000Z');
     expect(fromLocalInput('')).toBe('');
     expect(toLocalInput('not a date')).toBe('');
     expect(toTimeInput('07:30:00')).toBe('07:30');

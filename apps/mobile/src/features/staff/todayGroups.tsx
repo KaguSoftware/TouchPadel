@@ -11,6 +11,7 @@ import { MenuRow } from '../../components/booking';
 import { space, useTheme } from '../../theme';
 import { MicroLabel } from '../../components/ui';
 import { ListCard } from './protocols/parts';
+import { rolesOf } from '@touch/core';
 import { formatNumber, type MessageKey } from '@touch/i18n';
 import { useLocale } from '../../i18n/LocaleProvider';
 import {
@@ -226,12 +227,14 @@ export function useTodayGroups(): {
   const { t, locale } = useLocale();
   const { status, venueId } = useStaffStatus();
   const staffRole = status.kind === 'staff' ? status.staff.role : null;
-  // Wave 5, lane R (§2.1.8): the open-call count on the waiter's calls row.
-  const openCalls = useOpenCallCount(venueId, staffRole !== null && CALL_ROLES.includes(staffRole));
+  const who = status.kind === 'staff' ? status.staff : null;
+  // Wave 5, lane R (§2.1.8): the open-call count on the waiter's calls row,
+  // a second job's too (0345: its row shows, and ack_waiter_call counts it).
+  const openCalls = useOpenCallCount(venueId, who !== null && rolesOf(who).some((r) => CALL_ROLES.includes(r)));
   // Wave 5, lane P (§5.3): management's reports to review, and the content
   // waiting on the owner or sent back to marketing.
   const toReview = useToReviewCount(venueId, staffRole !== null && reviewsIncidents(staffRole));
-  const content = useContentRowCount(venueId, staffRole);
+  const content = useContentRowCount(venueId, who);
   // Two rows say "nothing now" when empty (rows.ts quietRow): Protocols with
   // no run in progress that involves the person (management always has it),
   // and Notes on new items with none at its feedback stage. The same cache

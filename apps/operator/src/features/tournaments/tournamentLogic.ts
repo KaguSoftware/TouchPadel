@@ -262,11 +262,6 @@ export function substitutes(d: Pick<TournamentDetail, 'entries'>): TourEntry[] {
   return sortEntries(d.entries.filter((e) => e.status === 'waitlisted'));
 }
 
-/** Registered players now / the cap. */
-export function registeredCount(d: Pick<TournamentDetail, 'entries'>): number {
-  return d.entries.filter((e) => e.status === 'registered').length;
-}
-
 /** 0390 (F-40): registered entries the desk has not confirmed yet; the draw waits for none. */
 export function unconfirmedEntries(d: Pick<TournamentDetail, 'entries'>): TourEntry[] {
   return d.entries.filter((e) => e.status === 'registered' && !e.confirmed);

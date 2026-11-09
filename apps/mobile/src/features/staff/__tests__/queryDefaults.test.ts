@@ -56,6 +56,15 @@ describe('the disk cache', () => {
     expect(dehydrates(staffKeys.work('v-1'))).toBe(false);
   });
 
+  it('keeps the owner’s assistant chats in memory only', () => {
+    // Literal keys: features/assistant/api.ts pulls in expo/fetch and the module client.
+    expect(dehydrates(['assistant', 'conversations'])).toBe(false);
+    expect(dehydrates(['assistant', 'conversation', 'c-1'])).toBe(false);
+    expect(dehydrates(['assistant', 'messages', 'c-1'])).toBe(false);
+    expect(dehydrates(['assistant', 'models'])).toBe(false);
+    expect(dehydrates(['assistant', 'usage'])).toBe(false);
+  });
+
   it('still persists the guest’s reads as before', () => {
     expect(dehydrates(['courts'])).toBe(true);
     expect(dehydrates(['my-bookings'])).toBe(false);

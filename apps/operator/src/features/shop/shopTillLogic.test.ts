@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { TillMenu } from '../till/tillData';
+import { taxContextFrom } from '../till/tabTotals';
 import {
   addToBasket,
   basketCount,
@@ -11,6 +12,7 @@ import {
   memberQueueCall,
   saleItems,
   saleLabel,
+  saleOwed,
   saleReceiptLines,
   setLineQty,
   shopCatalogue,
@@ -161,5 +163,30 @@ describe('offline shop sale: member and receipt (F-56)', () => {
     );
     expect(lines).toEqual([{ name: 'Balls · Tube', qty: 3, priceIqd: 3333, categoryId: 'c', lineTotalIqd: 10_000 }]);
     expect(localReceiptBill({ lines, totalIqd: 10_000, method: 'card' }).orders[0]!.order_items[0]!.line_total_iqd).toBe(10_000);
+  });
+
+  describe('saleOwed', () => {
+    // A 10% tax group on the shop section; tabs.total_iqd is null until a settle stamps it.
+    const tax = taxContextFrom([{ id: 'shop', tax_group: { id: 'vat', rate_bp: 1000, is_active: true } }], false);
+    const sale = (payments: number[]) => ({
+      orders: [{ status: 'open', order_items: [{ line_total_iqd: 20_000, voided: false, menu_item: { category_id: 'shop' } }] }],
+      tab_adjustments: [],
+      payments: payments.map((amount_iqd) => ({ amount_iqd })),
+    });
+
+    it('a sale never paid owes its bill with tax, not the bare basket', () => {
+      expect(saleOwed(sale([]), tax)).toEqual({ total: 22_000, due: 22_000 });
+    });
+
+    it('a part-paid sale still sends the whole bill as the expected total, with the rest due', () => {
+      // settle_tab compares p_expected_total_iqd with the full total (0106): the due would be refused TOTAL_CHANGED.
+      expect(saleOwed(sale([10_000]), tax)).toEqual({ total: 22_000, due: 12_000 });
+      expect(saleOwed(sale([10_000, 12_000]), tax)).toEqual({ total: 22_000, due: 0 });
+    });
+
+    it('a discount comes off before the tax, as the server totals it', () => {
+      const discounted = { ...sale([]), tab_adjustments: [{ kind: 'discount_amount', amount_iqd: 5000, order_item_id: null }] };
+      expect(saleOwed(discounted, tax)).toEqual({ total: 16_500, due: 16_500 });
+    });
   });
 });

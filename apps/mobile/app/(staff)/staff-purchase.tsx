@@ -20,6 +20,7 @@ import { fetchMyPurchases, type PurchaseRow } from '../../src/features/staff/sup
 import {
   PURCHASE_FILTERS,
   PURCHASE_ROLES,
+  buysPurchases,
   filterPurchases,
   type PurchaseFilter,
 } from '../../src/features/staff/supplies/logic';
@@ -45,8 +46,8 @@ function PurchasesScreen() {
   const router = useRouter();
   const { status, venueId } = useStaffStatus();
 
-  const role = status.kind === 'staff' ? status.staff.role : null;
-  const buyer = role === 'driver';
+  // The driver, a second job too (0345): record_purchase counts it.
+  const buyer = status.kind === 'staff' && buysPurchases(status.staff);
   const venue = venueId ?? '';
 
   const addOptions = useHeaderAddOptions(

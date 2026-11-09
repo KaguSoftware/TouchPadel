@@ -3,7 +3,7 @@
 import { useId, useRef, useState, type FormEvent } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@touch/db';
-import { formatIraqiNational, toE164Iraq } from '@touch/core';
+import { formatIraqiNational, toE164Iraq } from '@touch/core/phone/iraq';
 import { isolateLtr, makeT, type Locale, type MessageKey } from '@touch/i18n';
 import { appRpc } from '@/lib/appRpc';
 import { createEphemeralBrowserSupabase } from '@/lib/supabase/client';

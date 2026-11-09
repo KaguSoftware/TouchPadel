@@ -18,6 +18,7 @@ import {
   noteArgs,
   requestArgs,
   requestsView,
+  requestsViewOf,
   typedInArabic,
   validateAnswer,
   validateCampaign,
@@ -62,6 +63,15 @@ describe('who asks and who answers (#73)', () => {
   it('shows the whole venue’s requests to marketing and MGMT only', () => {
     const readers = STAFF_ROLES.filter((r) => requestsView(r).readsAll);
     expect([...readers].sort()).toEqual(['manager', 'marketing', 'owner']);
+  });
+
+  it('lets marketing as a second job answer and read the inbox, as the server does (0345)', () => {
+    expect(requestsViewOf({ role: 'cashier', extraRoles: ['marketing'] })).toEqual({
+      asks: false,
+      answers: true,
+      readsAll: true,
+    });
+    expect(requestsViewOf({ role: 'cashier' })).toEqual(requestsView('cashier'));
   });
 
   it('answers and withdraws only an open request', () => {

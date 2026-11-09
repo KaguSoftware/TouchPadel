@@ -228,7 +228,11 @@ export function StepContext({ detail, reads }: { detail: StepDetail; reads: Step
         <Strong>{bilingual(locale, c.name.en, c.name.ar) ?? ''}</Strong>
         <Muted>
           {[
-            c.tournamentClass ? t('staff.protocols.context.tournamentClass', { class: c.tournamentClass }) : null,
+            c.tournamentClasses.length > 0
+              ? t('staff.protocols.context.tournamentClass', {
+                  class: c.tournamentClasses.join(locale === 'ar' ? '، ' : ', '),
+                })
+              : null,
             c.format ? t(`staff.protocols.option.format.${c.format}` as MessageKey) : null,
             c.capacity
               ? t(

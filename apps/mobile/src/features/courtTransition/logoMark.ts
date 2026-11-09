@@ -84,9 +84,6 @@ export const STACK_OFFSET = { x: -122.75, y: 52.64 } as const;
  */
 export const STACK_CIRCLE = { cx: 90.657, cy: 87.551, r: 172.979 } as const;
 
-/** Artwork units from the "T"'s baseline to its cap — the size the eye reads. */
-export const CAP_HEIGHT = 41.34;
-
 /**
  * Artwork space → three's: centred on the stacked ink's enclosing circle and
  * y-flipped, so the mark stands upright and its enclosing circle is centred on

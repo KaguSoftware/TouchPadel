@@ -28,6 +28,7 @@ import { useLocale, pickName } from '../../lib/i18n';
 import { mergeDonorLabel } from './tillData';
 import { requiredRoleFor } from '../../lib/auth';
 import { Button, ErrorText, Field, Modal, PinReasonModal, Select, inputStyle, type ReasonCode } from '../../components/ui';
+import { digitsOnly } from '../../components/inputs';
 import { MessagePresenter, Money, PermissionRefusedNotice } from '../../components/kit';
 import { Switch } from '../../components/Switch';
 import { kvRow, muted, numeric, reasonedFooter } from './tillStyles';
@@ -240,7 +241,7 @@ export function RefundDialog({
                 inputMode="numeric"
                 disabled={!canRefund}
                 value={amount}
-                onChange={(e) => setAmount(Number(e.target.value.replace(/\D/g, '')) || 0)}
+                onChange={(e) => setAmount(Number(digitsOnly(e.target.value)) || 0)}
               />
             </Field>
             {(lesson || tournament) && (
@@ -278,7 +279,7 @@ export function RefundDialog({
                           aria-label={pickName(locale, l.menu_item) || l.id}
                           value={items[l.id] ?? 0}
                           onChange={(e) => {
-                            const qty = Math.min(Math.max(Number(e.target.value.replace(/\D/g, '')) || 0, 0), l.qty);
+                            const qty = Math.min(Math.max(Number(digitsOnly(e.target.value)) || 0, 0), l.qty);
                             setItems((prev) => ({ ...prev, [l.id]: qty }));
                           }}
                         />
@@ -390,7 +391,7 @@ export function OverridePriceDialog({
             inputMode="numeric"
             autoFocus
             value={price}
-            onChange={(e) => setPrice(Number(e.target.value.replace(/\D/g, '')) || 0)}
+            onChange={(e) => setPrice(Number(digitsOnly(e.target.value)) || 0)}
           />
         </Field>
         <ErrorText error={error} />

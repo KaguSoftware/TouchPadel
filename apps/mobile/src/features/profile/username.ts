@@ -7,11 +7,10 @@
  */
 import type { MessageKey } from '@touch/i18n';
 
-export const USERNAME_MIN = 3;
-export const USERNAME_MAX = 20;
 /** How long after a change the next one is allowed. */
 export const USERNAME_CHANGE_DAYS = 7;
 
+/** 3 to 20 characters: a letter or digit at each end, dots and underscores between. */
 const GRAMMAR = /^[a-z0-9][a-z0-9._]{1,18}[a-z0-9]$/;
 
 /** As the server stores it: trimmed, lower case, a leading "@" dropped; '' for blank. */

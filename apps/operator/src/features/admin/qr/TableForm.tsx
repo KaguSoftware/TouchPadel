@@ -13,6 +13,7 @@ import { useLocale } from '../../../lib/i18n';
 import { useToast } from '../../../components/toast';
 import { Switch } from '../../../components/Switch';
 import { Button, ErrorText, Field, Modal, inputStyle } from '../../../components/ui';
+import { digitsOnly } from '../../../components/inputs';
 import { ReviewList, StepWizard, WizardToggle } from '../../../components/StepWizard';
 import { TABLE_QR_QUERY_KEY, TABLES_QUERY_KEY } from './queries';
 
@@ -84,11 +85,13 @@ export function TableForm({ initial, onClose }: { initial: TableDraft; onClose: 
       <input
         style={wide ? inputStyle : { ...inputStyle, inlineSize: '6rem' }}
         dir="ltr"
-        type="number"
-        min={1}
-        max={99}
+        inputMode="numeric"
+        maxLength={2}
         value={draft.capacity ?? ''}
-        onChange={(e) => setDraft({ ...draft, capacity: e.target.value === '' ? null : Number(e.target.value) })}
+        onChange={(e) => {
+          const digits = digitsOnly(e.target.value);
+          setDraft({ ...draft, capacity: digits === '' ? null : Number(digits) });
+        }}
       />
     </Field>
   );

@@ -14,12 +14,14 @@
  * The `app.handle_new_user` trigger (migration 0004) creates the profile row
  * on insert; nothing here needs to.
  *
- * Reads SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY from apps/web/.env.local.
+ * Reads SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY from the environment, falling
+ * back to scripts/.env.local (git-ignored). Never apps/web/.env.local: the
+ * service-role key never reaches the web package (apps/web/CLAUDE.md, "Data").
  * Idempotent: re-running finds the existing user and upserts the staff row.
  *
  *   node scripts/create-operator-owner.mjs <email> <password> <display name>
  */
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 
 // No defaults (S1, 2026-09-21). Until then this file shipped a default email and
 // password, which is a committed credential for an OWNER account on the client's
@@ -38,6 +40,7 @@ if (PASSWORD.length < 12) {
 
 function envFromFile(path) {
   const out = {};
+  if (!existsSync(path)) return out;
   for (const line of readFileSync(path, 'utf8').split('\n')) {
     const m = /^([A-Z0-9_]+)=(.*)$/.exec(line.trim());
     if (m) out[m[1]] = m[2];
@@ -45,10 +48,10 @@ function envFromFile(path) {
   return out;
 }
 
-const env = envFromFile(new URL('../apps/web/.env.local', import.meta.url));
-const URL_ = env.SUPABASE_URL;
-const KEY = env.SUPABASE_SERVICE_ROLE_KEY;
-if (!URL_ || !KEY) throw new Error('apps/web/.env.local is missing SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY');
+const env = envFromFile(new URL('./.env.local', import.meta.url));
+const URL_ = process.env.SUPABASE_URL ?? env.SUPABASE_URL;
+const KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ?? env.SUPABASE_SERVICE_ROLE_KEY;
+if (!URL_ || !KEY) throw new Error('Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY (or put them in scripts/.env.local)');
 
 const headers = { apikey: KEY, Authorization: `Bearer ${KEY}`, 'Content-Type': 'application/json' };
 

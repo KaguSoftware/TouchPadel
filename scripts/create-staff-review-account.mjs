@@ -36,7 +36,7 @@
  * owner's session, which a service-role script does not have.)
  *
  * Reads SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY from the environment, falling
- * back to apps/web/.env.local (same as create-review-account.mjs). The owner
+ * back to scripts/.env.local (same as create-review-account.mjs). The owner
  * named in the audit rows is the only active owner, or --actor <staff id>.
  *
  *   node scripts/create-staff-review-account.mjs                        # create / refresh
@@ -72,11 +72,13 @@ function envFromFile(url) {
   return out;
 }
 
-const fileEnv = envFromFile(new URL('../apps/web/.env.local', import.meta.url));
+// Not apps/web/.env.local: the service-role key never reaches the web package
+// (apps/web/CLAUDE.md, "Data"). scripts/.env.local is git-ignored (`.env.*`).
+const fileEnv = envFromFile(new URL('./.env.local', import.meta.url));
 const URL_ = process.env.SUPABASE_URL ?? fileEnv.SUPABASE_URL;
 const KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ?? fileEnv.SUPABASE_SERVICE_ROLE_KEY;
 if (!URL_ || !KEY) {
-  throw new Error('Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY (or put them in apps/web/.env.local)');
+  throw new Error('Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY (or put them in scripts/.env.local)');
 }
 
 async function call(path, { method = 'GET', body, token, headers = {} } = {}) {

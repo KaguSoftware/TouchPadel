@@ -1,4 +1,5 @@
-import { addIqd, applyPctDiscountIqd, mulIqd, sumIqd } from '@touch/core';
+import { addIqd, mulIqd, sumIqd } from '@touch/core/money/iqd';
+import { applyPctDiscountIqd } from '@touch/core/money/discount';
 import {
   activeGroups,
   featuredDiscountPct,

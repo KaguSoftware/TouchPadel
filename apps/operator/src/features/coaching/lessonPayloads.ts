@@ -73,19 +73,8 @@ export function lessonKindOf(v: unknown): LessonKind | null {
 }
 
 export const LESSON_STATUSES = ['held', 'scheduled', 'completed', 'cancelled', 'expired'] as const;
-export const COURSE_STATUSES = ['open', 'running', 'completed', 'cancelled'] as const;
 export const ENROLMENT_STATUSES = ['held', 'booked', 'cancelled', 'expired'] as const;
 export const COACH_STATUSES = ['active', 'paused', 'retired'] as const;
-export const STATEMENT_STATUSES = ['draft', 'approved', 'paid', 'void'] as const;
-export const LESSON_CANCEL_REASONS = [
-  'guest_cancel',
-  'coach_cancel',
-  'staff_cancel',
-  'under_filled',
-  'payment_expired',
-  'account_deleted',
-  'coach_retired',
-] as const;
 export const CANCEL_KINDS = [
   'guest_free',
   'guest_late',
@@ -96,8 +85,6 @@ export const CANCEL_KINDS = [
   'account_deleted',
   'course_cancelled',
 ] as const;
-/** Who booked: the guest in the app, the coach in coach mode, or the desk. */
-export const BOOKED_BY_KINDS = ['guest', 'coach', 'staff'] as const;
 
 // ---------------------------------------------------------------------------
 // app.desk_lessons(p_venue_id, p_from, p_to) → envelope (§5.6.1, X16, R20)

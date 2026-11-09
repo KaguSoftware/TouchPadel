@@ -9,15 +9,20 @@
  */
 import {
   COACHING_SHAPES,
+  PRICE_CHANGE_KINDS,
   PROMOTION_FIELDS,
+  PROTOCOL_KINDS,
   RATE_RULE_FIELDS,
   STAFF_ROLES,
   isLessonChange,
+  priceChangeKinds,
+  rolesOf,
   stepForm,
   startableKinds,
   type PriceChangeKind,
   type ProtocolKind,
   type RunRow,
+  type StaffAccess,
   type StaffRole,
   type StepRow,
   type SubmissionRow,
@@ -48,6 +53,27 @@ export function isMgmt(role: StaffRole | null | undefined): boolean {
 
 /** Every role that may start at least one kind (§2.7): the start page's gate. */
 export const START_ROLES: readonly StaffRole[] = STAFF_ROLES.filter((r) => startableKinds(r).length > 0);
+
+/**
+ * The kinds the person may start: every job's, a second job's too (0345;
+ * start_protocol asks is_staff for the kind's roles). Core's startableKinds
+ * takes one role, so the jobs are joined here, in the kinds' own order.
+ */
+export function startableKindsOf(who: StaffAccess): ProtocolKind[] {
+  const mine = new Set(rolesOf(who).flatMap((r) => startableKinds(r)));
+  return PROTOCOL_KINDS.filter((k) => mine.has(k));
+}
+
+/** priceChangeKinds for the person: marketing as a second job too (price_promo_targets asks is_staff). */
+export function priceChangeKindsOf(who: StaffAccess): PriceChangeKind[] {
+  const mine = new Set(rolesOf(who).flatMap((r) => priceChangeKinds(r)));
+  return PRICE_CHANGE_KINDS.filter((k) => mine.has(k));
+}
+
+/** Whether one of the person's jobs is among a step's actors (the server's is_staff_at), so they are not covering. */
+export function holdsActorRole(who: StaffAccess, actorRoles: readonly StaffRole[]): boolean {
+  return rolesOf(who).some((r) => actorRoles.includes(r));
+}
 
 /** A barista's or chef assistant's ideas go to their head (#65). */
 export const IDEA_AUTHOR_ROLES: readonly StaffRole[] = ['barista', 'chef'];
@@ -733,7 +759,8 @@ export interface EventBlock {
 
 export interface TournamentContext {
   name: { en: string; ar: string };
-  tournamentClass: string | null;
+  /** 0359: every class of the plan; a server before it sends only `class` (the first). */
+  tournamentClasses: string[];
   format: string | null;
   capacity: { unit: 'players' | 'pairs'; count: number } | null;
   ranges: { courtIds: string[]; courtNames: { en: string; ar: string }[]; from: string; to: string }[];
@@ -756,7 +783,11 @@ export function readTournamentContext(payload: unknown): TournamentContext {
   const count = typeof cap.count === 'number' ? cap.count : null;
   return {
     name: { en: str(p.name_en) ?? '', ar: str(p.name_ar) ?? '' },
-    tournamentClass: str(p.class),
+    tournamentClasses: Array.isArray(p.classes)
+      ? p.classes.filter((c): c is string => typeof c === 'string' && c !== '')
+      : str(p.class)
+        ? [str(p.class)!]
+        : [],
     format: str(p.format),
     capacity: unit && count !== null ? { unit, count } : null,
     ranges: list(p.ranges)

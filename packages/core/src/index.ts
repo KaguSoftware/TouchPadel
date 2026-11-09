@@ -5,7 +5,6 @@ export * from './money/split';
 export * from './money/tax';
 export * from './money/discount';
 export * from './money/promotion';
-export * from './money/format';
 export * from './pricing/rateRules';
 export * from './availability/slotGrid';
 export * from './availability/genderRules';

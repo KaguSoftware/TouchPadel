@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import { formatIQD, makeT, type Locale } from '@touch/i18n';
-import { applyPctDiscountIqd } from '@touch/core';
+import { applyPctDiscountIqd } from '@touch/core/money/discount';
 import type { CafeSettings, MenuItem } from '@/lib/menu';
 
 /**

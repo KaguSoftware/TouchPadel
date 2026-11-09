@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@touch/db';
-import { toE164Iraq } from '@touch/core';
+import { toE164Iraq } from '@touch/core/phone/iraq';
 import type { LedgerKind, MemberCard, MyLoyalty } from '@touch/core/loyalty';
 import type { Locale, MessageKey } from '@touch/i18n';
 import { appRpc } from '@/lib/appRpc';

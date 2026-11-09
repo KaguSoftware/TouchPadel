@@ -68,6 +68,15 @@ describe('PaymentPane — cash', () => {
     expect(onSettle).not.toHaveBeenCalled();
   });
 
+  it('a tender typed in Arabic-Indic digits counts, not as 0', async () => {
+    const user = userEvent.setup();
+    const { onSettle } = renderCash();
+    await user.type(screen.getByLabelText('Tendered'), '٢٥٠٠٠');
+    expect(screen.getByText('Change to give')).toBeTruthy();
+    expect(screen.getByText('7,000 IQD')).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: 'Record payment' }));
+    expect(onSettle).toHaveBeenCalledWith('cash', null, 25_000);
+  });
 });
 
 // Open matches (operator.md §5.13.4–§5.13.5): a seat's share comes through this pane.

@@ -84,10 +84,3 @@ export function startAuthRefreshLifecycle(): () => void {
   const sub = AppState.addEventListener('change', apply);
   return () => sub.remove();
 }
-
-/**
- * All business writes go through app.* RPCs (schema-qualified — mirrors
- * packages/db/tests/helpers.ts appRpc). The generated Database type covers the
- * `app` schema, so function names and args are typed.
- */
-export const appSchema = () => supabase.schema('app');

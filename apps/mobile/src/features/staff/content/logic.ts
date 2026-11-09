@@ -7,7 +7,7 @@
  *
  * PURE (vitest): no react-native, no client.
  */
-import { parseTypedDate, type StaffRole } from '@touch/core';
+import { parseTypedDate, rolesOf, type StaffAccess, type StaffRole } from '@touch/core';
 import type {
   ContentChannel,
   ContentDetail,
@@ -31,6 +31,12 @@ export interface ContentAccess {
 
 export function contentAccess(role: StaffRole): ContentAccess {
   return { sends: role === 'marketing', decides: role === 'owner' };
+}
+
+/** The person's access: marketing as a second job sends too (0345; the content RPCs ask is_staff). */
+export function contentAccessOf(who: StaffAccess): ContentAccess {
+  const all = rolesOf(who).map(contentAccess);
+  return { sends: all.some((a) => a.sends), decides: all.some((a) => a.decides) };
 }
 
 export const CONTENT_CHANNELS: readonly ContentChannel[] = [

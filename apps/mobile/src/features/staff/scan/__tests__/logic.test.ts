@@ -1,10 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import { RECEIPT_ROLES, SLIP_ROLES, readMyReceipts, readMySlips, scanTone } from '../logic';
+import { RECEIPT_ROLES, SLIP_ROLES, filesSlips, readMyReceipts, readMySlips, scanTone } from '../logic';
 
 describe('scan pages', () => {
   it('names who may use each page, as the server does', () => {
     expect([...SLIP_ROLES]).toEqual(['waiter', 'cashier', 'manager', 'owner']);
     expect([...RECEIPT_ROLES]).toEqual(['driver', 'manager', 'owner']);
+  });
+
+  it('offers the paper slip to a second job too (create_order_slip counts it, 0345)', () => {
+    expect(filesSlips({ role: 'barista', extraRoles: ['waiter'] })).toBe(true);
+    expect(filesSlips({ role: 'cashier' })).toBe(true);
+    expect(filesSlips({ role: 'barista' })).toBe(false);
   });
 
   it('reads the slip log defensively; the table resolved beats the one read', () => {

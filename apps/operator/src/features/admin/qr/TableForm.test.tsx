@@ -40,7 +40,8 @@ describe('TableForm', () => {
     await user.type(dialog.getByRole('textbox', { name: 'Table number' }), '12');
     await user.click(dialog.getByTestId('table-form.step.where'));
     await user.type(dialog.getByRole('textbox', { name: 'Zone' }), 'Terrace');
-    await user.type(dialog.getByRole('spinbutton', { name: 'Seats' }), '4');
+    // An Arabic keyboard types Arabic-Indic digits: ٤ is 4 seats, not a blank.
+    await user.type(dialog.getByRole('textbox', { name: 'Seats' }), '٤');
     // In use says what it means.
     expect(dialog.getByText('The card works and the table appears at the café cashier.')).toBeTruthy();
     await user.click(dialog.getByTestId('table-form.step.review'));

@@ -30,25 +30,35 @@ const done = (id: number, question: string, text: string): FreeLiveTurn => ({
 
 describe('freePages', () => {
   it('starts with Today and lists the role’s rows once each, in its language', () => {
-    const pages = freePages('waiter', (k) => en(k));
+    const pages = freePages({ role: 'waiter' }, (k) => en(k));
     expect(pages[0]).toEqual({ route: '/staff', label: en('staff.shell.today.title') });
     expect(pages.map((p) => p.route)).toContain('/staff-request');
     expect(pages.map((p) => p.route)).toContain('/staff-suggestions');
     expect(new Set(pages.map((p) => p.route)).size).toBe(pages.length);
-    const arPages = freePages('waiter', (k) => ar(k));
+    const arPages = freePages({ role: 'waiter' }, (k) => ar(k));
     expect(arPages[0]!.label).toBe(ar('staff.shell.today.title'));
   });
 
   it('never offers a page the role cannot open', () => {
-    const waiter = freePages('waiter', (k) => en(k)).map((p) => p.route);
+    const waiter = freePages({ role: 'waiter' }, (k) => en(k)).map((p) => p.route);
     expect(waiter).not.toContain('/staff-production');
-    const chef = freePages('head_chef', (k) => en(k)).map((p) => p.route);
+    const chef = freePages({ role: 'head_chef' }, (k) => en(k)).map((p) => p.route);
     expect(chef).toContain('/staff-production');
   });
 
-  it('stays inside the server’s limits for every role', () => {
+  it('offers a second job’s pages too, as Today does (0345)', () => {
+    const waiter = freePages({ role: 'waiter' }, (k) => en(k)).map((p) => p.route);
+    expect(waiter).not.toContain('/staff-purchase');
+    const both = freePages({ role: 'waiter', extraRoles: ['driver'] }, (k) => en(k)).map((p) => p.route);
+    expect(both).toContain('/staff-purchase');
+    // An owner's list is the owner alone.
+    const owner = freePages({ role: 'owner' }, (k) => en(k)).map((p) => p.route);
+    expect(freePages({ role: 'owner', extraRoles: ['driver'] }, (k) => en(k)).map((p) => p.route)).toEqual(owner);
+  });
+
+    it('stays inside the server’s limits for every role', () => {
     for (const role of STAFF_ROLES) {
-      const pages = freePages(role, (k) => en(k));
+      const pages = freePages({ role }, (k) => en(k));
       expect(pages.length).toBeLessThanOrEqual(FREE_PAGES_MAX);
       for (const p of pages) {
         expect(p.route).toMatch(MOBILE_STAFF_ROUTE);
@@ -61,13 +71,13 @@ describe('freePages', () => {
   it('carries the pages every starter asks about, for every role', () => {
     expect(FREE_STARTERS).toHaveLength(3);
     for (const role of STAFF_ROLES) {
-      const routes = freePages(role, (k) => en(k)).map((p) => p.route);
+      const routes = freePages({ role }, (k) => en(k)).map((p) => p.route);
       expect(routes).toEqual(expect.arrayContaining(['/staff-request', '/staff-suggestions', '/staff-incidents']));
     }
   });
 
   it('drops empty labels', () => {
-    expect(freePages('waiter', () => '  ')).toEqual([]);
+    expect(freePages({ role: 'waiter' }, () => '  ')).toEqual([]);
   });
 });
 

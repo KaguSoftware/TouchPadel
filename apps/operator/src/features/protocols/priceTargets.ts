@@ -429,12 +429,6 @@ export function pickTarget(change: PriceChangeKind, targets: Targets, record: Ob
   }
 }
 
-/** The item a target list holds, by id; for labels. */
-export function targetItemName(targets: Targets, id: unknown, locale: Locale): string {
-  const item = targets.items.find((i) => i.menu_item_id === id);
-  return item ? pickText(locale, item.name_en, item.name_ar) : '';
-}
-
 // ── Lesson targets in words (coaching 0285) ─────────────────────────────────
 
 function kindWord(kind: string): LessonKindWord | null {

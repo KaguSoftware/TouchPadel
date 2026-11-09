@@ -1,7 +1,8 @@
 # apps/mobile — rules for every change
 
 The guest app: Expo SDK 58 with expo-router screens under `app/` and feature code under
-`src/features/{auth,availability,booking,boot,courtTransition,deposit,matches,profile,staff}`.
+`src/features/{assistant,auth,availability,booking,boot,cafe,coach,coaching,courtTransition,deposit,
+loyalty,matches,monitoring,play,playProfile,profile,ranks,staff,tournaments}`.
 Written 2026-09-20 (Phase 2, Milestone 0 item 12) from `PHASE-2-PLAN.md` Part A5 plus the 09-20
 code verification. Database-side rules are in `packages/db/CLAUDE.md`.
 
@@ -30,6 +31,7 @@ floating button (`src/features/assistant/AssistantFab.tsx`, drawn inside each sc
 `(staff)` Stack's `screenLayout` so it moves with the page's transition) on staff
 pages other than the assistant's own and Today, which carries the same button (`AssistantButton`)
 at the end of its greeting card, where the floating one covered Sign out (owner, 2026-10-09).
+Everything under `['assistant']` (its chats and usage) stays off disk (`src/lib/queryClient.ts`).
 
 Rewards (Majed, 2026-10-10; migration 0332): the owner sets each waiter's, cashier's or manager's
 rewards (a number of orders placed in a business month, for an IQD bonus, a prize or both) at
@@ -86,19 +88,22 @@ once an opponent confirms. Everything under `['ranks']` stays off disk.
 - Every write is an `app.*` RPC on the shared client (`src/lib/supabase.ts`). Reservation writes
   carry a per-intent idempotency key from `src/lib/idempotency.ts`
   (`{station}:{mutation_type}:{ulid}`; mobile is one logical station) passed as `p_idempotency_key`
-  (`src/features/booking/api.ts:25`).
+  (`src/features/booking/api.ts:26`).
 - A retry of the same intent reuses its key; a new intent gets a new key. Never mint a key inside a
   retry loop.
-- Server codes map through `CODE_TO_KEY` and `mapErrorToKey`
-  (`src/features/booking/errors.ts:12,83`); a new code gets an entry there and both catalogs.
-  `isDegradedRefusal` (`:73`) is the only place that recognises a degraded-mode refusal.
+- Server codes map through the one shared catalogue (`ERROR_CODE_KEYS` and `errorMessageKey` in
+  `packages/i18n/src/errors.ts`); `mapErrorToKey` (`src/features/booking/errors.ts:121`) applies it
+  with the phone's own words, `MOBILE_OVERRIDES` (`:25`). A new code goes into the catalogue with its
+  line in both catalogs (`check-error-codes` in root `pnpm security` fails on a raised code it
+  lacks); an override only where the phone says it differently. `isDegradedRefusal` (`:106`) is the
+  only place that recognises a degraded-mode refusal.
 - The booking gate (`bookingGateState` + `bookingGateHref`, `src/features/auth/social.ts`) stands
   before every intent that ends in a court booking: a slot's hold and an open match's start or join
   (owner, 2026-09-27 and 2026-09-29; `intentBooksCourt` in `src/features/matches/pendingJoin.ts`).
   No phone → `/complete-profile`, a phone nobody verified → `/phone-sign-in`: continue mode from
   the Book tab and the post-auth continuation (the intent stays pending), back mode from Review and
   the match screens' Start / Join. The list and one's own match are browsing and pass.
-- `isTransportError` (`src/lib/network.ts:66`) decides what `src/lib/queryClient.ts` retries; a
+- `isTransportError` (`src/lib/network.ts:42`) decides what `src/lib/queryClient.ts` retries; a
   P0001 business error is never retried and never shown as "offline".
 - Auth links: only the code-exchange path in `src/features/auth/deepLink.ts`. The raw-tokens branch
   is S6 and goes in Milestone 0 item 6, as does the `app/reset-password.tsx` guard (render only
@@ -106,8 +111,8 @@ once an opponent confirms. Everything under `['ranks']` stays off disk.
 
 ## Queries
 
-- Query keys are families exported next to their hooks: `availabilityKeys`, `bookingKeys`,
-  `profileKeys` (`src/features/*/hooks.ts`), `historyKeys` (`src/features/booking/history.ts`) and
+- Query keys are families exported next to their hooks: `availabilityKeys`
+  (`src/features/availability/keys.ts`), `bookingKeys`, `profileKeys` (`src/features/*/hooks.ts`), `historyKeys` (`src/features/booking/history.ts`) and
   `matchKeys` (`src/features/matches/keys.ts`, re-exported by its `hooks.ts`), and coaching's
   `coachingKeys` (`src/features/coaching/keys.ts`, the guest's lessons) and `coachKeys`
   (`src/features/coach/keys.ts`, coach mode). Extend a family; never inline a key array in a
@@ -122,8 +127,8 @@ once an opponent confirms. Everything under `['ranks']` stays off disk.
   `src/features/coaching/pushRoutes.ts`.
 - Open matches (`docs/design/open-matches/guest.md` §4.23): everything under `['match']` is live
   state and is never persisted (`src/lib/queryClient.ts` leaves it out of the dehydrate filter).
-  `match_start` is the only match write with a key: `matchIntentKey(matchStartIntent(…))` from
-  `src/lib/idempotency.ts`, kept across the refusals the guest fixes and the ticket continuation
+  `match_start` is the only match write with a key: `matchIntentKey(matchStartIntent(…))`
+  (`src/lib/idempotency.ts`, `src/features/matches/logic.ts`), kept across the refusals the guest fixes and the ticket continuation
   that replays the start. Every other match write is state-idempotent and takes none. The list
   is the Play tab (`app/(tabs)/play.tsx`); the match, the start and the report sit in
   `app/(matches)/`, a nested stack like `(tournaments)` (2026-10-11); the invite link's landing
@@ -145,18 +150,18 @@ once an opponent confirms. Everything under `['ranks']` stays off disk.
 - Native-feel rule (owner, 2026-08-24): expo-router `Tabs`, native stack with platform back
   gestures, platform pickers, switches and sheets; no web-styled custom nav
   (`docs/design/mobile-audit-2026-08-27.md` section 1.5;
-  `src/navigation/TabsLayout.android.tsx:96`).
+  `src/navigation/TabsLayout.android.tsx:197`).
 - `Text` comes from `src/i18n/text.tsx`, never from `react-native` (restricted import,
-  `eslint.config.mjs:51-52`): it carries the paragraph's writing direction.
+  `eslint.config.mjs:57-67`): it carries the paragraph's writing direction.
 - Direction is app state from `useLocale().dir` (`src/i18n/direction.tsx`); `I18nManager`,
-  `DevSettings` and `reloadAsync` are restricted imports (`eslint.config.mjs:39-57`). A language
+  `DevSettings` and `reloadAsync` are restricted imports (`eslint.config.mjs:47-72`). A language
   switch never reloads the app.
 - Logical style props only (`paddingStart`, `marginEnd`, `start`, `end`); `rtlGuardRules` from
   `packages/config/src/eslint.js` fails `lint` on the physical ones, and
   `src/lib/__tests__/rtlGuard.test.ts` pins the rule.
 - Colours come from `src/theme/tokens.ts` (the palette is closed, owner 2026-09-05); components
-  never reference raw hex. Import `@touch/ui` by subpath only (`eslint.config.mjs:26-31`), never the
-  barrel.
+  never reference raw hex. Nothing imports `@touch/ui` any more; if it comes back, by subpath only
+  (`eslint.config.mjs:39-46`), never the barrel.
 - Strings live in `packages/i18n/src/catalogs/en.ts` + `ar.ts` under the shared namespaces (`auth`,
   `booking`, `profile`, `cafe`, `errors`, `degraded`, …); `packages/i18n/src/__tests__/t.test.ts:35`
   asserts key parity. Open-match strings are `matches.*` (`catalogs/matches.en.ts` + `ar.ts`, which
@@ -167,12 +172,12 @@ once an opponent confirms. Everything under `['ranks']` stays off disk.
 
 ## Config and builds
 
-- Env is `EXPO_PUBLIC_*`, inlined at build time (`src/lib/supabase.ts:11-12`, `app.config.ts`). A
+- Env is `EXPO_PUBLIC_*`, inlined at build time (`src/lib/supabase.ts:13-14`, `app.config.ts`). A
   new variable goes into `app.config.ts` and into the `env` block of all three `eas.json` build
   profiles (`development`, `staging`, `production`); nothing goes in `extra`.
 - Service-role or `sb_secret_` values never reach the bundle; `clientSecrets` lint
   (`@touch/config/eslint`) fails on them, and CI runs
-  `scripts/security/check-artifact-secrets.mjs --only=mobile` on the export (`ci.yml:241`).
+  `scripts/security/check-artifact-secrets.mjs --only=mobile` on the export (`ci.yml:276`).
 - Migrations reach hosted before a build that calls them. `eas` and `expo` run from `apps/mobile`,
   never the repo root. Production `eas build` and any store submit are Parsa's to run; prepare the
   command and hand it over.

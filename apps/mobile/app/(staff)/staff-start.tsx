@@ -6,10 +6,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   PRICE_CHANGE_KINDS,
   TOURNAMENT_VARIANTS,
-  priceChangeKinds,
   randomPromoCode,
   startForm,
-  startableKinds,
   validateStart,
   type FieldIssue,
   type LessonChangeKind,
@@ -58,8 +56,10 @@ import {
   completeRenames,
   parseVariant,
   phoneStartChanges,
+  priceChangeKindsOf,
   priceProposeStart,
   startDecidedByStarter,
+  startableKindsOf,
   targetKindOf,
   titlesFromRecord,
   type FixedRow,
@@ -81,8 +81,9 @@ import { parseHiringStep } from '../../src/features/staff/protocols/hiringSteps'
  * `staff-start.tsx?kind=&variant=&change=&itemId=&addonId=&promotionId=&ruleId=`,
  * plus `ideaId` for a head starting a new item from their team's idea, #65).
  *
- * The kinds offered are the role's (`startableKinds`, the twin of the
- * `start_protocol` guard): a new item for the heads and management, a
+ * The kinds offered are the person's, every job's (`startableKindsOf` over
+ * core's `startableKinds`, the twin of the `start_protocol` guard, which
+ * counts a second job since 0345): a new item for the heads and management, a
  * tournament for management and the court desk (#67), hiring for management,
  * a price or promotion change for management and marketing, whose kinds are
  * `priceChangeKinds` (marketing never `shop_launch`). A start is the first
@@ -622,10 +623,10 @@ function StartScreen() {
     ret?: string;
   }>();
   const role = status.kind === 'staff' ? status.staff.role : null;
-  const kinds = startableKinds(role);
+  const kinds = status.kind === 'staff' ? startableKindsOf(status.staff) : [];
   // Lesson prices are started on the operator, where the lesson types are
   // (coaching 0285): neither the list nor a link starts one here.
-  const changes = phoneStartChanges(priceChangeKinds(role));
+  const changes = phoneStartChanges(status.kind === 'staff' ? priceChangeKindsOf(status.staff) : []);
   const paramKind = kinds.find((k) => k === params.kind) ?? null;
   const kind: ProtocolKind | null = paramKind ?? (kinds.length === 1 ? kinds[0]! : null);
   const variant: TournamentVariant | null = parseVariant(params.variant);

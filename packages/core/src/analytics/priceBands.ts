@@ -16,8 +16,6 @@ import type { SoldItemTotals } from './menuMatrix';
 /** Ascending band edges in IQD; N edges → N + 1 bands. */
 export const PRICE_BAND_EDGES_IQD = [3000, 6000, 10000] as const;
 
-export type PriceBandIndex = 0 | 1 | 2 | 3;
-
 /** Index of the band a price falls in: the count of edges ≤ price. */
 export function bandOf(priceIqd: number, edges: readonly number[] = PRICE_BAND_EDGES_IQD): number {
   let i = 0;

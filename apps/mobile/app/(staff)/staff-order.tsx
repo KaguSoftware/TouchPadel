@@ -11,7 +11,7 @@ import { EmptyState, ErrorState, SkeletonList } from '../../src/components/state
 import { RequireStaff } from '../../src/features/staff/RequireStaff';
 import { useStaffStatus } from '../../src/features/staff/StaffStatusProvider';
 import { mapStaffError } from '../../src/features/staff/edge';
-import { SLIP_ROLES } from '../../src/features/staff/scan/logic';
+import { filesSlips } from '../../src/features/staff/scan/logic';
 import { usePullRefresh } from '../../src/lib/usePullRefresh';
 import { FLOOR_ROLES, type FloorTable } from '../../src/features/staff/floor/logic';
 import { useDraftTables } from '../../src/features/staff/floor/drafts';
@@ -44,7 +44,7 @@ function TablesScreen() {
   const floor = useFloor(venue);
   const drafts = useDraftTables();
   const pull = usePullRefresh(() => floor.refetch());
-  const role = status.kind === 'staff' ? status.staff.role : null;
+  const slips = status.kind === 'staff' && filesSlips(status.staff);
   // Every tile gets the same measured width: flex alone let a short last
   // row's tiles grow past the empty slots beside them.
   const [gridWidth, setGridWidth] = useState(0);
@@ -164,7 +164,7 @@ function TablesScreen() {
         <View testID="staff-order.tables">{body()}</View>
         {/* The paper slip stays for when the phone is not enough (a big table
             written on a pad): it goes to the till as before. */}
-        {role && SLIP_ROLES.includes(role) ? (
+        {slips ? (
           <View style={{ marginTop: space.m }}>
             <Button
               testID="staff-order.slip"
