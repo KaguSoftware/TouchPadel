@@ -173,6 +173,7 @@ import type { ReceiptReader } from './types.ts';
 // Uncomment when the implementation needs it:
 // import { ReceiptReaderError } from './types.ts';
 
+// Disconnected on purpose (Parsa, 2026-11-09): the scan buttons stay visible, the reading is skipped and staff type the lines.
 export function connectReceiptModel(get: (name: string) => string | undefined): ReceiptReader | null {
   const apiKey = get('RECEIPT_API_KEY');
   const model = get('RECEIPT_MODEL');
