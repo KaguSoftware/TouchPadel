@@ -1771,6 +1771,7 @@
     "docs/design/design-data.md": "index:doc",
     "docs/design/design-delivery.md": "index:doc",
     "docs/design/loyalty/build-contracts-2026-10-05.md": "excluded: the loyalty build contract, edited throughout the build; becomes index:doc when the loyalty milestone lands",
+    "docs/design/loyalty/points-economy-2026-11-09.md": "excluded: the working plan for the loyalty points and stamp-card numbers with open DECIDE items; the owner-facing rules are the live loyalty settings, tiers and rewards",
     "docs/design/mobile-audit-2026-08-27.md": "index:doc",
     "docs/design/mobile-ui/touch-padel-mobile-ui-spec.md": "index:doc",
     "docs/design/multi-venue/audit-2026-09-26.md": "index:doc",
