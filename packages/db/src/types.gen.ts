@@ -698,6 +698,16 @@ export type Database = {
         Returns: number
       }
       assistant_component_upsert: { Args: { p: Json }; Returns: Json }
+      assistant_conversation_persist: {
+        Args: {
+          p_context?: Json
+          p_conversation_id: string
+          p_handles: Json
+          p_title?: string
+          p_usage: Json
+        }
+        Returns: Json
+      }
       assistant_count: {
         Args: { p_args?: Json; p_tool: string }
         Returns: number
@@ -783,6 +793,13 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      assistant_job_claim_tick: {
+        Args: { p_seconds?: number }
+        Returns: {
+          claimed_until: string
+          job_id: string
+        }[]
       }
       assistant_job_tick_nudge: { Args: never; Returns: undefined }
       assistant_job_transition: {
@@ -6918,6 +6935,7 @@ export type Database = {
           result: Json | null
           started_at: string | null
           status: string
+          tick_claimed_until: string | null
           tokens: Json
         }
         Insert: {
@@ -6936,6 +6954,7 @@ export type Database = {
           result?: Json | null
           started_at?: string | null
           status?: string
+          tick_claimed_until?: string | null
           tokens?: Json
         }
         Update: {
@@ -6954,6 +6973,7 @@ export type Database = {
           result?: Json | null
           started_at?: string | null
           status?: string
+          tick_claimed_until?: string | null
           tokens?: Json
         }
         Relationships: [

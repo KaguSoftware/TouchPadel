@@ -71,6 +71,27 @@ function dockerReachable(): boolean {
 }
 const docker = up && dockerReachable();
 
+/**
+ * The edge runtime is serving: ci.yml's readiness rule (`replay` answers 401
+ * without a session). With the stack up and the runtime serving, assistant-chat
+ * must be there too, so the dry run below fails on any network error or non-200
+ * instead of passing quietly (it used to warn and return on a fetch error and on
+ * 404/502/503, which also swallowed a function that crashed at boot). Without a
+ * serving runtime the case is skipped, visibly: a skip in the CI db job fails
+ * scripts/check-no-skips.mjs.
+ */
+async function edgeRuntimeServes(): Promise<boolean> {
+  if (!up) return false;
+  try {
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/replay`, { method: 'POST', signal: AbortSignal.timeout(5_000) });
+    await res.text();
+    return res.status === 401;
+  } catch {
+    return false;
+  }
+}
+const served = await edgeRuntimeServes();
+
 function sections(text: string): { cleanup: string; plant: string } {
   const cleanup = text.match(/^-- @section cleanup\s*\n([\s\S]*?)^-- @section plant/m)?.[1] ?? '';
   const plant = text.match(/^-- @section plant\s*\n([\s\S]*)$/m)?.[1] ?? '';
@@ -291,26 +312,19 @@ describe.skipIf(!docker)('assistant eval set — fixture and truths (local stack
     }
   });
 
-  it('the chat function accepts the eval request shape (dry run, no model)', async () => {
+  it.skipIf(!served)('the chat function accepts the eval request shape (dry run, no model)', async () => {
     const { data } = await owner.auth.getSession();
     const token = data.session?.access_token;
     expect(token).toBeTruthy();
-    let res: Response;
-    try {
-      res = await fetch(`${SUPABASE_URL}/functions/v1/assistant-chat`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', apikey: ANON_KEY, Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ conversation_id: null, text: '', lang: 'en', scopes: ['money', 'howto'], range: { from: '2024-03-04', to: '2024-03-10' }, dry_run: true }),
-        signal: AbortSignal.timeout(20_000),
-      });
-    } catch {
-      console.warn('assistant-chat is not served locally; skipping the dry-run check');
-      return;
-    }
-    if (res.status === 404 || res.status === 502 || res.status === 503) {
-      console.warn(`assistant-chat answered ${res.status}; skipping the dry-run check`);
-      return;
-    }
+    // No catch and no status escape hatch: the runtime is serving (`served`),
+    // so a network error, a 404 (not deployed), a 502 (crashed at boot) or a
+    // 503 fails here.
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/assistant-chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', apikey: ANON_KEY, Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ conversation_id: null, text: '', lang: 'en', scopes: ['money', 'howto'], range: { from: '2024-03-04', to: '2024-03-10' }, dry_run: true }),
+      signal: AbortSignal.timeout(20_000),
+    });
     expect(res.status, await res.clone().text()).toBe(200);
     const json = (await res.json()) as { packs: { scope: string; tokens_est: number }[]; scopes: string[] };
     expect(Array.isArray(json.packs)).toBe(true);

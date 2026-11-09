@@ -198,6 +198,32 @@ export function pgErrorBody(err: PgError, where: string): { status: number; body
   return { status: mapped.status, body: { error: mapped.code, message: mapped.code } };
 }
 
+/** A SQLSTATE or a PostgREST code as it may be printed: five characters, or PGRST plus three digits. */
+const PRINTABLE_PG_CODE = /^(?:[0-9A-Z]{5}|PGRST\d{3})$/;
+
+/**
+ * A database error as a line of text for a model or a stored note (the
+ * assistant's tool results, sources[].error, a job's thrown chunk error;
+ * review 2026-11-09). A P0001 refusal is our own `raise exception 'CODE'`, so
+ * `CODE: CODE` passes exactly as before. Any other SQLSTATE is the mapped code
+ * plus a FIXED sentence naming the SQLSTATE: mapPgError's `message` is then
+ * the raw Postgres / PostgREST text (a 22P02 quotes the rejected input, a
+ * 42501 names the table, a 23505 the key), and clean.ts `cleanedNotice` admits
+ * only our own words. The raw text goes to logError under `where`. A transient
+ * one (RETRY_LATER: a timeout, a deadlock, no connection) says so, so the
+ * model may try once more instead of reporting a refusal.
+ */
+export function safePgMessage(err: PgError, where: string): string {
+  const mapped = mapPgError(err);
+  if (err.code === 'P0001') return `${mapped.code}: ${mapped.message}`;
+  logError(where, err);
+  const raw = (err.code ?? '').toUpperCase();
+  const state = PRINTABLE_PG_CODE.test(raw) ? raw : 'no code';
+  return mapped.code === 'RETRY_LATER'
+    ? `${mapped.code}: the database could not run this call right now (${state})`
+    : `${mapped.code}: the database refused this call (${state})`;
+}
+
 /**
  * CORS for browser callers (the operator renderer, a browser tab, Expo web).
  * The local stack's Kong answers the preflight itself; the hosted gateway hands

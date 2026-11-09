@@ -14,7 +14,6 @@ import {
   loadFreeThread,
   newExchange,
   parseFreeThread,
-  saveFreeThread,
   type FreeExchange,
 } from './freeThreadLogic';
 
@@ -104,12 +103,10 @@ describe('the session mirror', () => {
   });
   afterEach(() => vi.unstubAllGlobals());
 
-  it('round-trips per person and empties on clear', () => {
-    saveFreeThread('u1', [done('q', 'a')]);
+  it('loads per person from the old session key', () => {
+    data.set(FREE_THREAD_SESSION_KEY, JSON.stringify({ user: 'u1', exchanges: [done('q', 'a')] }));
     expect(loadFreeThread('u1')).toEqual([done('q', 'a')]);
     expect(loadFreeThread('u2')).toEqual([]);
-    saveFreeThread('u1', []);
-    expect(data.has(FREE_THREAD_SESSION_KEY)).toBe(false);
   });
 
   it('shows an answer that was still streaming as stopped', () => {

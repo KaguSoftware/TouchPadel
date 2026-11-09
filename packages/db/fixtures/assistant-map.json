@@ -1,5 +1,5 @@
 {
-  "generated_from": "b9504891f7b0c2762a65b60f9c5379b776cf21ee",
+  "generated_from": "eb15c4799cfa2aa6f48c2d16d28bcbd121bbafa0",
   "chunks": [
     {
       "kind": "page",
@@ -11206,7 +11206,7 @@
       "ref": "table:assistant_conversations",
       "lang": "en",
       "title": "table assistant_conversations (part 1 of 5)",
-      "body": "0108. One owner chat with the assistant. scopes = the context checkboxes (plan §5.5); range = the date range the checkboxes read; handles = the short-id table (r1, c2, …) the edge function owns; tokens = rolled-up counts. Archived rows keep their messages.\nCreated in migration 0108.\nColumns:\n  id uuid primary key default gen_random_uuid()\n  owner_id uuid not null references staff(id) — The owner account that opened the chat (staff.id = auth.uid()).\n  title text — First 60 characters of the first question; the UI shows it in the list.",
+      "body": "0108, 0405. One chat with the owner assistant. The owner reads it and inserts it (by column, 0325) under RLS; scopes, range, model and archiving move through definer RPCs; every other write is the assistant-chat / assistant-job edge function under the service role (0405 revoked the client UPDATE 0108 granted: tokens and handles were writable by any owner session). The end of a turn goes through app.assistant_conversation_persist, which adds the turn's spend in SQL.\nCreated in migration 0108.\nColumns:\n  id uuid primary key default gen_random_uuid()",
       "route": null
     },
     {
@@ -11214,7 +11214,7 @@
       "ref": "table:assistant_conversations~2",
       "lang": "en",
       "title": "table assistant_conversations (part 2 of 5)",
-      "body": "0108. One owner chat with the assistant. scopes = the context checkboxes (plan §5.5); range = the date range the checkboxes read; handles = the short-id table (\n  owner_id uuid not null references staff(id) — The owner account that opened the chat (staff.id = auth.uid()).\n  title text — First 60 characters of the first question; the UI shows it in the list.\n  scopes text[] not null default '{howto}' — Context scopes this chat may read: cafe, courts, money, stock, staff, customers, audit, marketing, settings, system, howto, docs, tables. Validated by app.assistant_set_scopes.\n  range jsonb — Optional {\"from\": \"YYYY-MM-DD\", \"to\": \"YYYY-MM-DD\"} the context packs and default tool ranges use.",
+      "body": "0108, 0405. One chat with the owner assistant. The owner reads it and inserts it (by column, 0325) under RLS; scopes, range, model and archiving move through de\nCreated in migration 0108.\nColumns:\n  id uuid primary key default gen_random_uuid()\n  owner_id uuid not null references staff(id) — The owner account that opened the chat (staff.id = auth.uid()).\n  title text — First 60 characters of the first question; the UI shows it in the list.\n  scopes text[] not null default '{howto}' — Context scopes this chat may read: cafe, courts, money, stock, staff, customers, audit, marketing, settings, system, howto, docs, tables. Validated by app.assistant_set_scopes.\n  range jsonb — Optional {\"from\": \"YYYY-MM-DD\", \"to\": \"YYYY-MM-DD\"} the context packs and default tool ranges use.",
       "route": null
     },
     {
@@ -11222,7 +11222,7 @@
       "ref": "table:assistant_conversations~3",
       "lang": "en",
       "title": "table assistant_conversations (part 3 of 5)",
-      "body": "0108. One owner chat with the assistant. scopes = the context checkboxes (plan §5.5); range = the date range the checkboxes read; handles = the short-id table (\n  range jsonb — Optional {\"from\": \"YYYY-MM-DD\", \"to\": \"YYYY-MM-DD\"} the context packs and default tool ranges use.\n  handles jsonb not null default '{}'::jsonb — Handle table {\"r1\": \"<uuid>\", \"c2\": \"<uuid>\", …, \"_next\": {\"r\": 2, \"c\": 3}} — the edge function owns the format; the database stores it.\n  tokens jsonb not null default '{}'::jsonb — Rolled-up token counts for the chat: {\"input\", \"cache_write\", \"cache_read\", \"output\", \"cost_micros\"}.\n  created_at timestamptz not null default now()\n  updated_at timestamptz not null default now()",
+      "body": "0108, 0405. One chat with the owner assistant. The owner reads it and inserts it (by column, 0325) under RLS; scopes, range, model and archiving move through de\n  range jsonb — Optional {\"from\": \"YYYY-MM-DD\", \"to\": \"YYYY-MM-DD\"} the context packs and default tool ranges use.\n  handles jsonb not null default '{}'::jsonb — Handle table {\"r1\": \"<uuid>\", \"c2\": \"<uuid>\", …, \"_next\": {\"r\": 2, \"c\": 3}} — the edge function owns the format; the database stores it.\n  tokens jsonb not null default '{}'::jsonb — Rolled-up token counts for the chat: {\"input\", \"cache_write\", \"cache_read\", \"output\", \"cost_micros\"}.\n  created_at timestamptz not null default now()\n  updated_at timestamptz not null default now()",
       "route": null
     },
     {
@@ -11230,7 +11230,7 @@
       "ref": "table:assistant_conversations~4",
       "lang": "en",
       "title": "table assistant_conversations (part 4 of 5)",
-      "body": "0108. One owner chat with the assistant. scopes = the context checkboxes (plan §5.5); range = the date range the checkboxes read; handles = the short-id table (\n  created_at timestamptz not null default now()\n  updated_at timestamptz not null default now()\n  archived_at timestamptz — Set by app.assistant_archive_conversation; the UI hides archived chats. Never deleted.\n  model text — 0140, 0312. This chat's model (claude-opus-5-5 or claude-sonnet-5-5, CHECK), or NULL to follow platform_settings.llm_default_model. Set by app.assistant_set_model; the edge function resolves the effective model per answer and stamps it on every assistant_calls row.",
+      "body": "0108, 0405. One chat with the owner assistant. The owner reads it and inserts it (by column, 0325) under RLS; scopes, range, model and archiving move through de\n  created_at timestamptz not null default now()\n  updated_at timestamptz not null default now()\n  archived_at timestamptz — Set by app.assistant_archive_conversation; the UI hides archived chats. Never deleted.\n  model text — 0140, 0312. This chat's model (claude-opus-5-5 or claude-sonnet-5-5, CHECK), or NULL to follow platform_settings.llm_default_model. Set by app.assistant_set_model; the edge function resolves the effective model per answer and stamps it on every assistant_calls row.",
       "route": null
     },
     {
@@ -11238,7 +11238,7 @@
       "ref": "table:assistant_conversations~5",
       "lang": "en",
       "title": "table assistant_conversations (part 5 of 5)",
-      "body": "0108. One owner chat with the assistant. scopes = the context checkboxes (plan §5.5); range = the date range the checkboxes read; handles = the short-id table (\n  context jsonb — 0325. The frozen first-turn context of this chat, built once and replayed on every later turn so the prompt prefix stays cacheable: {v: 1, text, numbers, scopes, range, today, tz, built_at}. Written by the assistant-chat edge function under the service role and read only by it (the apps name their columns and never select it); NULL until the first answer. No client role may insert or update it, and it is not in app.assistant_readable_columns, so table_read never returns it.",
+      "body": "0108, 0405. One chat with the owner assistant. The owner reads it and inserts it (by column, 0325) under RLS; scopes, range, model and archiving move through de\n  context jsonb — 0325. The frozen first-turn context of this chat, built once and replayed on every later turn so the prompt prefix stays cacheable: {v: 1, text, numbers, scopes, range, today, tz, built_at}. Written by the assistant-chat edge function under the service role and read only by it (the apps name their columns and never select it); NULL until the first answer. No client role may insert or update it, and it is not in app.assistant_readable_columns, so table_read never returns it.",
       "route": null
     },
     {
@@ -11301,7 +11301,7 @@
       "kind": "table",
       "ref": "table:assistant_jobs",
       "lang": "en",
-      "title": "table assistant_jobs (part 1 of 4)",
+      "title": "table assistant_jobs (part 1 of 5)",
       "body": "0108. A proposed read over more rows than a chat turn may hold (plan §6). estimate holds the numbers the owner accepted; the state machine lives in app.assistant_job_transition (0112). Written by the assistant-job edge function under the service role; the owner reads it and may cancel.\nCreated in migration 0108.\nColumns:\n  id uuid primary key default gen_random_uuid()\n  conversation_id uuid references assistant_conversations(id) on delete cascade\n  message_id uuid references assistant_messages(id) on delete set null",
       "route": null
     },
@@ -11309,7 +11309,7 @@
       "kind": "table",
       "ref": "table:assistant_jobs~2",
       "lang": "en",
-      "title": "table assistant_jobs (part 2 of 4)",
+      "title": "table assistant_jobs (part 2 of 5)",
       "body": "0108. A proposed read over more rows than a chat turn may hold (plan §6). estimate holds the numbers the owner accepted; the state machine lives in app.assistan\n  id uuid primary key default gen_random_uuid()\n  conversation_id uuid references assistant_conversations(id) on delete cascade\n  message_id uuid references assistant_messages(id) on delete set null\n  status text not null default 'estimated' check (status in ('estimated','accepted','running','reducing','done','failed','cancelled','over_estimate')) — estimated → accepted → running → {reducing → done | over_estimate → running | failed | cancelled}; estimated/accepted → cancelled.\n  plan jsonb not null — The JobPlan the model proposed: question, list-tool calls without paging, extract and reduce instructions.",
       "route": null
     },
@@ -11317,7 +11317,7 @@
       "kind": "table",
       "ref": "table:assistant_jobs~3",
       "lang": "en",
-      "title": "table assistant_jobs (part 3 of 4)",
+      "title": "table assistant_jobs (part 3 of 5)",
       "body": "0108. A proposed read over more rows than a chat turn may hold (plan §6). estimate holds the numbers the owner accepted; the state machine lives in app.assistan\n  plan jsonb not null — The JobPlan the model proposed: question, list-tool calls without paging, extract and reduce instructions.\n  estimate jsonb not null — The JobEstimate shown to the owner: rows, chunks, tokens by kind, the price at the time, assumptions.\n  mode text check (mode in ('live', 'batch')) — live (runs inside the function call) or batch (submitted to the provider's batch API and polled by cron).\n  chunks_total int — How many row chunks the plan pages through.\n  chunks_done int not null default 0 — Chunks finished so far; the UI polls this at 2 s.",
       "route": null
     },
@@ -11325,8 +11325,16 @@
       "kind": "table",
       "ref": "table:assistant_jobs~4",
       "lang": "en",
-      "title": "table assistant_jobs (part 4 of 4)",
+      "title": "table assistant_jobs (part 4 of 5)",
       "body": "0108. A proposed read over more rows than a chat turn may hold (plan §6). estimate holds the numbers the owner accepted; the state machine lives in app.assistan\n  chunks_total int — How many row chunks the plan pages through.\n  chunks_done int not null default 0 — Chunks finished so far; the UI polls this at 2 s.\n  tokens jsonb not null default '{}'::jsonb — Actual spend so far, four kinds plus cost_micros; over_estimate when it passes estimate × 1.25.\n  result jsonb — The reduced answer object once done.\n  error text — Why it failed, when it did.\n  batch_id text — Provider batch id for mode = batch.\n  created_at timestamptz not null default now()\n  started_at timestamptz\n  finished_at timestamptz",
+      "route": null
+    },
+    {
+      "kind": "table",
+      "ref": "table:assistant_jobs~5",
+      "lang": "en",
+      "title": "table assistant_jobs (part 5 of 5)",
+      "body": "0108. A proposed read over more rows than a chat turn may hold (plan §6). estimate holds the numbers the owner accepted; the state machine lives in app.assistan\n  error text — Why it failed, when it did.\n  batch_id text — Provider batch id for mode = batch.\n  created_at timestamptz not null default now()\n  started_at timestamptz\n  finished_at timestamptz\n  tick_claimed_until timestamptz — 0405. The batch tick's lease: app.assistant_job_claim_tick stamps it (now() + p_seconds) on the running batch jobs one tick works, and a later tick skips a job until it lapses; the tick clears its own stamp when the batch is still in flight. A stale stamp on a job that left running is harmless (readers filter on status). Not readable by the assistant (not in app.assistant_readable_columns).",
       "route": null
     },
     {
@@ -15927,6 +15935,14 @@
       "lang": "en",
       "title": "assistant_jobs.status",
       "body": "text not null default 'estimated' check (status in ('estimated','accepted','running','reducing','done','failed','cancelled','over_estimate'))\nestimated → accepted → running → {reducing → done | over_estimate → running | failed | cancelled}; estimated/accepted → cancelled.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:assistant_jobs.tick_claimed_until",
+      "lang": "en",
+      "title": "assistant_jobs.tick_claimed_until",
+      "body": "timestamptz\n0405. The batch tick's lease: app.assistant_job_claim_tick stamps it (now() + p_seconds) on the running batch jobs one tick works, and a later tick skips a job until it lapses; the tick clears its own stamp when the batch is still in flight. A stale stamp on a job that left running is harmless (readers filter on status). Not readable by the assistant (not in app.assistant_readable_columns).",
       "route": null
     },
     {
@@ -42901,32 +42917,24 @@
       "kind": "system",
       "ref": "system:edge:assistant-chat",
       "lang": "en",
-      "title": "edge function assistant-chat (part 1 of 4)",
-      "body": "verify_jwt = true (supabase/config.toml).\nassistant-chat — one owner message, streamed (plan §4.1, contracts\n\"assistant-chat/index.ts\").\n\nRequest  POST { conversation_id: uuid|null, text, lang: 'en'|'ar', scopes?, range?: {from,to}, model?, dry_run?: true }\nResponse text/event-stream; events `message_start, delta, tool_start, tool_end,\n         sources, gate, usage, job_estimate, done, error` (see the contracts table).\n         Before the stream opens, refusals are plain JSON exactly like\n         analytics-insights: 400 INVALID_REQUEST · 401 AUTH_REQUIRED · 403 FORBIDDEN ·\n         404 NOT_FOUND · 429 LLM_DAILY_QUOTA / LLM_MONTHLY_CAP · 503 NOT_CONFIGURED.\n         `dry_run: true` answers JSON `{ packs, start }`: the pack size per scope and",
+      "title": "edge function assistant-chat (part 1 of 3)",
+      "body": "verify_jwt = true (supabase/config.toml).\nassistant-chat — one owner message, streamed (plan §4.1, contracts\n\"assistant-chat/index.ts\"). This file is the request: parsing, the owner\ncheck and every refusal before the stream, then the stream's orchestration.\nThe work lives in _shared/assistant/: runners.ts (the tools, as the owner),\nturn.ts (the rounds), persist.ts (the end of a turn), reads.ts, recheck.ts,\nreuse.ts, sse.ts. Why each rule is so: docs/design/assistant/chat-changelog.md;\nplan and contracts: docs/design/assistant/owner-assistant-plan-2026-09-20.md,\nbuild-contracts-2026-09-20.md.\n\nRequest  POST { conversation_id: uuid|null, text, lang: 'en'|'ar', scopes?, range?: {from,to}, model?, venue_scope?, dry_run?: true }",
       "route": null
     },
     {
       "kind": "system",
       "ref": "system:edge:assistant-chat~2",
       "lang": "en",
-      "title": "edge function assistant-chat (part 2 of 4)",
-      "body": "verify_jwt = true (supabase/config.toml).\n         404 NOT_FOUND · 429 LLM_DAILY_QUOTA / LLM_MONTHLY_CAP · 503 NOT_CONFIGURED.\n         `dry_run: true` answers JSON `{ packs, start }`: the pack size per scope and\n         `start` = { tokens, exact, model } | null, what any question in this chat\n         sends before a tool runs (system prompt + tool list + first turn with the\n         packs that fit), counted by the vendor where it can. No model call, no\n         llm_begin_request, no rows written; null when the model's vendor has no key.\n\nRe-check (plan §3.5, DECIDE 10; manual only, never automatic)\nRequest  POST { recheck: { message_id } } (owner session)\nResponse JSON { message_id, checked_at, tools: [{ name, args, row_count, ms, error? }],",
+      "title": "edge function assistant-chat (part 2 of 3)",
+      "body": "verify_jwt = true (supabase/config.toml).\nbuild-contracts-2026-09-20.md.\n\nRequest  POST { conversation_id: uuid|null, text, lang: 'en'|'ar', scopes?, range?: {from,to}, model?, venue_scope?, dry_run?: true }\n         POST { recheck: { message_id }, venue_scope? } — the re-check (recheck.ts): tools only, no model, quota or writes\nResponse text/event-stream: message_start, delta, tool_start, tool_end, sources, gate,\n         usage, job_estimate, done, error. Refusals before the stream are plain JSON:\n         400 INVALID_REQUEST · 401 AUTH_REQUIRED · 403 FORBIDDEN · 404 NOT_FOUND ·\n         429 LLM_DAILY_QUOTA / LLM_MONTHLY_CAP · 503 NOT_CONFIGURED. `dry_run` answers\n         JSON { packs: [], start: { tokens, exact, model } | null, scopes, range }.\n",
       "route": null
     },
     {
       "kind": "system",
       "ref": "system:edge:assistant-chat~3",
       "lang": "en",
-      "title": "edge function assistant-chat (part 3 of 4)",
-      "body": "verify_jwt = true (supabase/config.toml).\nRequest  POST { recheck: { message_id } } (owner session)\nResponse JSON { message_id, checked_at, tools: [{ name, args, row_count, ms, error? }],\n         changed: [{ value_then, value_now? }], unchanged, baseline }\n         The stored assistant message's tool calls (its `sources`) are re-run with\n         the same arguments as the owner — knowledge and meta tools skipped, handles\n         resolved from the conversation's table, nothing minted or persisted — each\n         result cleaned, and the figures the answer printed are compared with the\n         live number set (recheck.ts `diffNumbers`). The baseline is `gate.numbers`,\n         persisted since this shape landed; a message saved before it answers",
-      "route": null
-    },
-    {
-      "kind": "system",
-      "ref": "system:edge:assistant-chat~4",
-      "lang": "en",
-      "title": "edge function assistant-chat (part 4 of 4)",
-      "body": "verify_jwt = true (supabase/config.toml).\n         live number set (recheck.ts `diffNumbers`). The baseline is `gate.numbers`,\n         persisted since this shape landed; a message saved before it answers\n         `baseline: false`. No model, no llm_begin_request, no assistant_calls row;\n         30 s time box. 404 for a message that is not an assistant turn of the\n         caller's; ",
+      "title": "edge function assistant-chat (part 3 of 3)",
+      "body": "verify_jwt = true (supabase/config.toml).\n         429 LLM_DAILY_QUOTA / LLM_MONTHLY_CAP · 503 NOT_CONFIGURED. `dry_run` answers\n         JSON { packs: [], start: { tokens, exact, model } | null, scopes, range }.\n\nThe door (plan §11.0, tests/assistant-clean-door.test.ts): rows become a tool result\nonly through clean.ts; provider.ts is the only SDK importer. Two clients (§7.1):\nevery business read goes through `asOwner` (the caller's JWT: the dispatcher's owner\ncheck and app.assistant_run_tool's read-only wall apply); the service client touches\nonly bookkeeping. Wall clock 50 s: the abort signal rides on every RPC and fetch,\nthen the stream ends with error TIMEOUT after persisting what exists.",
       "route": null
     },
     {
@@ -43006,7 +43014,7 @@
       "ref": "system:edge:assistant-job",
       "lang": "en",
       "title": "edge function assistant-job (part 1 of 4)",
-      "body": "verify_jwt = true (supabase/config.toml).\nassistant-job — accepted estimates become work (plan §4.3, §6.4, contracts\n\"assistant-job/index.ts\").\n\n  POST {action:'accept', job_id, mode:'live'|'batch'}  owner session\n    estimated → accepted → running. `live` runs the chunks inline (≤ 40\n    chunks, LIVE_MAX_CHUNKS), JOB_LIVE_CONCURRENCY at a time, and\n    reduces; `batch` reads every chunk's rows now (as the owner), submits\n    one Batch API request per chunk with custom_id `job:<id>:<chunk>`,\n    stores batch_id and returns.\n  POST {action:'tick'}                                   service role (cron tp_assistant_job_tick)\n    polls every running batch job; when ended, collects results by\n    custom_id, reduces, finishes.",
+      "body": "verify_jwt = true (supabase/config.toml).\nassistant-job — accepted estimates become work (plan §4.3, §6.4, contracts\n\"assistant-job/index.ts\").\n\n  POST {action:'accept', job_id, mode:'live'|'batch'}  owner session\n    estimated → accepted → running. `live` runs the chunks inline (≤ 40\n    chunks, LIVE_MAX_CHUNKS), JOB_LIVE_CONCURRENCY at a time, and\n    reduces; `batch` reads every chunk's rows now (as the owner), submits\n    one Batch API request per chunk with custom_id `job:<id>:<chunk>`,\n    stores batch_id and returns.\n  POST {action:'tick'}                                   service role (cron tp_assistant_job_tick)\n    claims the running batch jobs no other tick holds (0405\n    app.assistant_job_claim_tick) and polls only those; when ended,",
       "route": null
     },
     {
@@ -43014,7 +43022,7 @@
       "ref": "system:edge:assistant-job~2",
       "lang": "en",
       "title": "edge function assistant-job (part 2 of 4)",
-      "body": "verify_jwt = true (supabase/config.toml).\n  POST {action:'tick'}                                   service role (cron tp_assistant_job_tick)\n    polls every running batch job; when ended, collects results by\n    custom_id, reduces, finishes.\n  POST {action:'cancel', job_id}                         owner session\n    app.assistant_job_cancel, and the batch is cancelled when one exists.\n\nRows never enter the chat (§11.6): each chunk is a fixed extraction prompt\nover cleaned rows returning a JSON object; only the objects reach the\nreduce step, whose answer is inserted as an ordinary assistant message\nwith `sources: [{job_id}]`. Rows are read through the owner's JWT client\n(`assistant_run_tool`), never the service role. Per chunk:",
+      "body": "verify_jwt = true (supabase/config.toml).\n    claims the running batch jobs no other tick holds (0405\n    app.assistant_job_claim_tick) and polls only those; when ended,\n    collects results by custom_id, reduces, finishes.\n  POST {action:'cancel', job_id}                         owner session\n    app.assistant_job_cancel, and the batch is cancelled when one exists.\n\nRows never enter the chat (§11.6): each chunk is a fixed extraction prompt\nover cleaned rows returning a JSON object; only the objects reach the\nreduce step, whose answer is inserted as an ordinary assistant message\nwith `sources: [{job_id}]`. Rows are read through the owner's JWT client\n(`assistant_run_tool`), never the service role. Per chunk:\n`llm_begin_request` (the cap), one model call, `llm_record_usage`; the job",
       "route": null
     },
     {
@@ -43022,7 +43030,7 @@
       "ref": "system:edge:assistant-job~3",
       "lang": "en",
       "title": "edge function assistant-job (part 3 of 4)",
-      "body": "verify_jwt = true (supabase/config.toml).\nwith `sources: [{job_id}]`. Rows are read through the owner's JWT client\n(`assistant_run_tool`), never the service role. Per chunk:\n`llm_begin_request` (the cap), one model call, `llm_record_usage`; the job\npauses in `over_estimate` when spend passes the accepted estimate × 1.25.\n\nModels (2026-10-08): every chunk extraction, live and batch, runs on\nJOB_EXTRACT_MODEL (Sonnet 5.5, estimate.ts) — pulling counts and sums out\nof one chunk is mechanical; the reduce step runs on the job's model (the\nchat's, stamped as tokens.model at accept) because it writes the owner's\nanswer. Every call is priced (`llm_price_micros`), recorded\n(`llm_record_usage`) and stored (`assistant_calls.model`) at the model",
+      "body": "verify_jwt = true (supabase/config.toml).\n(`assistant_run_tool`), never the service role. Per chunk:\n`llm_begin_request` (the cap), one model call, `llm_record_usage`; the job\npauses in `over_estimate` when spend passes the accepted estimate × 1.25.\n\nModels (2026-10-08): every chunk extraction, live and batch, runs on\nJOB_EXTRACT_MODEL (Sonnet 5.5, estimate.ts) — pulling counts and sums out\nof one chunk is mechanical; the reduce step runs on the job's model (the\nchat's, stamped as tokens.model at accept) because it writes the owner's\nanswer. Every call is priced (`llm_price_micros`), recorded\n(`llm_record_usage`) and stored (`assistant_calls.model`) at the model\nthat served it; tokens.extract_model says which model read the chunks.",
       "route": null
     },
     {
@@ -43030,7 +43038,7 @@
       "ref": "system:edge:assistant-job~4",
       "lang": "en",
       "title": "edge function assistant-job (part 4 of 4)",
-      "body": "verify_jwt = true (supabase/config.toml).\nanswer. Every call is priced (`llm_price_micros`), recorded\n(`llm_record_usage`) and stored (`assistant_calls.model`) at the model\nthat served it; tokens.extract_model says which model read the chunks.\nBatch ids are account-wide (one ANTHROPIC_API_KEY): the batch is created,\npolled and read through the extraction provider and cancelled through the\ndefault one; the model only r",
+      "body": "verify_jwt = true (supabase/config.toml).\n(`llm_record_usage`) and stored (`assistant_calls.model`) at the model\nthat served it; tokens.extract_model says which model read the chunks.\nBatch ids are account-wide (one ANTHROPIC_API_KEY): the batch is created,\npolled and read throug",
       "route": null
     },
     {
@@ -48710,7 +48718,7 @@
       "ref": "doc:docs/design/assistant/build-contracts-2026-09-20.md#45~3",
       "lang": "en",
       "title": "docs/design/assistant/build-contracts-2026-09-20.md › Lane D · operator app (part 3 of 4)",
-      "body": "## Lane D · operator app\n(Arabic parity is enforced by the type), `ws.shell.nav.assistant` in `shell.en.ts`/`shell.ar.ts`.\n\n`streamEdge(fn, body, { onEvent(name, data), signal })`: same auth header and error mapping as `callEdge`; non-2xx → parse JSON body → throw `EdgeError` via `statusToEdgeCode`; 2xx → read `res.body` with `TextDecoder`, split on `\\n\\n`, parse `event:`/`data:` lines (a pure `parseSseChunk(buffer) → {events, rest}` in `features/assistant/sse.ts` with a unit test). Never caches.\n",
+      "body": "## Lane D · operator app\n(Arabic parity is enforced by the type), `ws.shell.nav.assistant` in `shell.en.ts`/`shell.ar.ts`.\n\n`streamEdge(fn, body, { onEvent(name, data), signal })`: same auth header and error mapping as `callEdge`; non-2xx → parse JSON body → throw `EdgeError` via `statusToEdgeCode`; 2xx → read `res.body` with `TextDecoder`, split on `\\n\\n`, parse `event:`/`data:` lines (a pure `parseSseChunk(buffer) → {events, rest}` in `packages/core/src/assistant/sse.ts` with a unit test). Never caches.\n",
       "route": null
     },
     {

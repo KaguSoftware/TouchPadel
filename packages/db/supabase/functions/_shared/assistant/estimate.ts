@@ -106,12 +106,13 @@ function band(t: TokenBreakdown): TokenBreakdown {
 }
 
 /**
- * Estimate a job. `counts` is `tool → rows` from `app.assistant_count` for
- * every call in the plan (a tool called twice is counted twice by the caller
- * and summed before it gets here). `catalog` is the tool list, so this stays
- * pure and the test can pass a fixture.
+ * Estimate a job. `counts[i]` is call i's rows from `app.assistant_count`, in
+ * `plan.calls` order — per call, never summed by tool: a tool called twice
+ * (two ranges, say) has two counts, and keying by name double-counted both
+ * (review 2026-11-09). `catalog` is the tool list, so this stays pure and the
+ * test can pass a fixture.
  */
-export function estimateJob(plan: JobPlan, counts: Readonly<Record<string, number>>, catalog: readonly ToolSpec[]): EstimateBody {
+export function estimateJob(plan: JobPlan, counts: readonly number[], catalog: readonly ToolSpec[]): EstimateBody {
   const byName = new Map(catalog.map((t) => [t.name, t]));
   const per_tool: EstimateBody['per_tool'] = [];
   const assumptions: string[] = [];
@@ -119,9 +120,9 @@ export function estimateJob(plan: JobPlan, counts: Readonly<Record<string, numbe
   let chunks = 0;
   let rowTokens = 0;
 
-  for (const call of plan.calls) {
+  for (const [i, call] of plan.calls.entries()) {
     const spec = byName.get(call.tool);
-    const n = Math.max(0, Math.floor(counts[call.tool] ?? 0));
+    const n = Math.max(0, Math.floor(counts[i] ?? 0));
     const chunk_rows = spec?.chunk_rows ?? DEFAULT_CHUNK_ROWS;
     const measured = typeof spec?.tokens_per_row === 'number';
     const tokens_per_row = measured ? (spec?.tokens_per_row as number) : TOKENS_PER_ROW_FALLBACK;

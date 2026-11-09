@@ -106,7 +106,7 @@ export function canRetry(info: FreeErrorInfo): boolean {
 }
 
 // ---------------------------------------------------------------------------
-// sessionStorage mirror
+// Legacy sessionStorage thread (read-only: freeChats migrates it once, nothing writes it)
 // ---------------------------------------------------------------------------
 
 function isExchange(v: unknown): v is FreeExchange {
@@ -140,15 +140,6 @@ export function loadFreeThread(userId: string): FreeExchange[] {
     return parseFreeThread(sessionStorage.getItem(FREE_THREAD_SESSION_KEY), userId);
   } catch {
     return [];
-  }
-}
-
-export function saveFreeThread(userId: string, exchanges: readonly FreeExchange[]): void {
-  try {
-    if (!userId || exchanges.length === 0) sessionStorage.removeItem(FREE_THREAD_SESSION_KEY);
-    else sessionStorage.setItem(FREE_THREAD_SESSION_KEY, JSON.stringify({ user: userId, exchanges: exchanges.slice(-FREE_THREAD_KEEP) }));
-  } catch {
-    /* private mode */
   }
 }
 

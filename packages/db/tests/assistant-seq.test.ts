@@ -78,8 +78,12 @@ describe('wiring', () => {
 
   it('assistant-chat inserts both turns through it and checks ownership before the quota', () => {
     const src = read('../supabase/functions/assistant-chat/index.ts');
-    expect(src).not.toMatch(/seq: userSeq \+ 1/);
-    expect(src).toMatch(/insertAtNextSeq\(/);
+    // Both inserts go through persist.ts insertMessage since the 2026-11-09 split.
+    const persist = read('../supabase/functions/_shared/assistant/persist.ts');
+    for (const s of [src, persist]) expect(s).not.toMatch(/seq: userSeq \+ 1/);
+    expect(persist).toMatch(/insertAtNextSeq\(/);
+    expect(src.match(/insertMessage\(service, conv\.id, \{/g)).toHaveLength(1);
+    expect(persist).toMatch(/insertMessage\(service, convId, \{/);
     const handler = src.slice(src.indexOf("Deno.serve(handle('assistant-chat'"));
     const owner = handler.indexOf("'not your conversation'");
     const quota = handler.indexOf("rpc('llm_begin_request')");

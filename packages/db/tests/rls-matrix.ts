@@ -7667,4 +7667,14 @@ export const matrix: MatrixRule[] = [
     note: "0400 (F-27): whether the CALLER may see that staff row; false for a guest, reveals no row",
     drop: 38,
   },
+  // ── 0405 assistant_concurrency ──
+  {
+    kind: 'write',
+    name: 'assistant_conversations',
+    op: 'update',
+    payload: { tokens: { cost_micros: 0 } },
+    expect: ex<WriteExpectation>('denied'),
+    note: '0405: no client UPDATE grant, owner included (0108 granted title, scopes, range, handles, tokens, updated_at): an owner session could rewrite the chat\'s spend or its handle table; scopes, model and archiving move through definer RPCs, the rest through the service role. Discriminating: with the old column grant every authenticated principal got RLS silence on the NIL_UUID row (no error, read as allowed); without it PostgREST answers 42501. tests/assistant-rls.test.ts ("0405: nobody, the owner included…") updates a real conversation',
+    drop: 38,
+  },
 ];

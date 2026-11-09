@@ -1,7 +1,9 @@
 /**
  * Server-sent events, both directions (contracts "sse.ts"). The chat function
- * writes frames with `sseFrame`; the operator's `parseSseChunk` mirrors
- * `parseSseChunk` here, and tests/assistant-sse.test.ts round-trips the two.
+ * writes frames with `sseFrame`; the clients' parser,
+ * packages/core/src/assistant/sse.ts, mirrors `parseSseChunk` here, and
+ * tests/assistant-sse.test.ts round-trips the two. `sseStream` is the response
+ * scaffold assistant-chat and assistant-free share.
  *
  * Frame: `event: <name>\ndata: <json>\n\n`. A heartbeat is a comment line,
  * `: keep-alive\n\n`, which every SSE parser ignores. Pure: no Deno.
@@ -36,6 +38,58 @@ export function sseFrame(event: string, data: unknown): string {
 /** A comment frame that keeps the connection warm without producing an event. */
 export function sseHeartbeat(): string {
   return ': keep-alive\n\n';
+}
+
+/** An open event stream: the body to answer with and the writers into it. */
+export interface SseStream<E extends string = string> {
+  stream: ReadableStream<Uint8Array>;
+  /** Raw text into the stream; a no-op once it is closed or the client left. */
+  write(chunk: string): void;
+  emit(event: E, data: unknown): void;
+  /** Stops the heartbeat and closes the stream (a client that already left is fine). */
+  close(): void;
+}
+
+/**
+ * The stream both assistant functions answer with: a heartbeat comment every
+ * `heartbeatMs` from the moment it opens, writes that turn into no-ops once
+ * the client cancels (which also calls `onCancel`, the function's abort) or
+ * the stream is closed, and a close that never throws.
+ */
+export function sseStream<E extends string = string>(o: { heartbeatMs: number; onCancel?: () => void }): SseStream<E> {
+  const encoder = new TextEncoder();
+  let controller: ReadableStreamDefaultController<Uint8Array> | null = null;
+  let closed = false;
+  const stream = new ReadableStream<Uint8Array>({
+    start(c) {
+      controller = c;
+    },
+    cancel() {
+      closed = true;
+      o.onCancel?.();
+    },
+  });
+  const write = (chunk: string) => {
+    if (closed || !controller) return;
+    try {
+      controller.enqueue(encoder.encode(chunk));
+    } catch {
+      closed = true;
+    }
+  };
+  const emit = (event: E, data: unknown) => write(sseFrame(event, data));
+  const heartbeat = setInterval(() => write(sseHeartbeat()), o.heartbeatMs);
+  const close = () => {
+    clearInterval(heartbeat);
+    closed = true;
+    try {
+      // Assigned inside the stream's start() callback, so TS still sees the initial null here.
+      (controller as ReadableStreamDefaultController<Uint8Array> | null)?.close();
+    } catch {
+      // already closed by the client
+    }
+  };
+  return { stream, write, emit, close };
 }
 
 export interface SseEvent {

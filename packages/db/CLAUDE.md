@@ -17,6 +17,20 @@ is a line in that file.
 
 ## Migrations
 
+- **0405 (2026-11-09, assistant_concurrency; review 2026-11-09):** `assistant_conversations` loses
+  its client UPDATE (`revoke update, delete … from authenticated, anon`, policy
+  `assistant_conversations_update_owner` dropped: an owner session could rewrite `tokens` or
+  `handles` over PostgREST; scopes, range, model and archiving stay on their definer RPCs, every
+  other write is the service role); the service-role `app.assistant_conversation_persist(
+  p_conversation_id, p_handles, p_usage, p_title default null, p_context default null)`, the end of
+  a chat turn in ONE UPDATE on the locked row (each `tokens` counter = stored + this turn's delta,
+  so two turns of one chat no longer lose one's spend; handles last-writer-wins; title only while
+  empty; context only when given), called by assistant-chat's `_shared/assistant/persist.ts`;
+  `assistant_jobs.tick_claimed_until` (an internal lease, not in `assistant_readable_columns`) and
+  the service-role `app.assistant_job_claim_tick(p_seconds int default 120)` (1..900,
+  INVALID_ARGUMENT; claims the running batch jobs FOR UPDATE SKIP LOCKED, so two overlapping ticks
+  never collect one batch twice); `assistant_job_transition` stays 0112's; both functions
+  excluded in `fixtures/assistant-coverage.json`; `tests/assistant-concurrency.test.ts`.
 - **0380–0386 (2026-11-01, launch findings; tests next to each):** 0380 tax_zero (every
   `tax_groups.rate_bp` is 0, seed too; `tests/tax-zero.test.ts`); 0381 pin_length (**0381 holds
   `set_staff_pin`**: 4–12 digits); 0382 branch_isolation (no broadcast on the literal `kds`,
@@ -114,8 +128,8 @@ is a line in that file.
   `tests/sweeps-report.test.ts` counts handlers against `app.monitor` calls in each latest body.
   `app.monitor_scrub_text` masks any run of eight digits, dashes included, so a digit-heavy uuid
   in a message or detail is stored as `[number]`.
-- Ordinal strictly greater than the current max, never a reused one. Latest is `0404`
-  (0380–0391 and 0402–0404 are at the top of this list; 0392–0401 are in their own headers, and
+- Ordinal strictly greater than the current max, never a reused one. Latest is `0405`
+  (0380–0391 and 0402–0405 are at the top of this list; 0392–0401 are in their own headers, and
   0377–0379 have no file). Before them: (0376 loyalty_tier_colors, 2026-10-31 (Ameen: a tier made "from 100 points" never reached a
   gifted account, and the owner picks each tier's card colour): `loyalty_tiers.color` (classic |
   bronze | silver | gold | platinum | black, default classic, `loyalty_tiers_color`; the same keys
@@ -425,7 +439,7 @@ is a line in that file.
   0149 assistant-cap, 0150 move-not-into-past, 0151 out-of-stock-alert, 0152 my-reservations,
   0153 terms-consent, 0154 analytics-returning-guest, 0155–0157 six new staff roles, 0158–0206
   protocols and the staff phone (change-order line 10), 0207–0227 multi-venue slices 2–4); the next is
-  `0405`. **Check the directory, not this line** — it said 0146 while 0147–0149 were already on
+  `0406`. **Check the directory, not this line** — it said 0146 while 0147–0149 were already on
   disk, and later 0150 while 0154 was, and a reused ordinal fails `check-migrations.mjs` after the
   file is written.
 - `0069` and `0071` are already doubled; `0023`, `0040` and `0101` have no file, so leave the gaps.

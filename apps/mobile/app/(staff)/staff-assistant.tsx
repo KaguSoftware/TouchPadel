@@ -332,7 +332,7 @@ function AssistantThread({
               text={text}
               tools={src.items}
               gate={m.gate}
-              jobProposed={src.hasJob}
+              jobProposed={src.jobIds.length > 0}
               // A stored answer never offers "turn on": the question it would
               // re-ask is only known for the turn in front of the owner.
             />
@@ -350,7 +350,7 @@ function AssistantThread({
               streaming={!live.done}
               stopped={live.stopped}
               error={live.error}
-              jobProposed={live.jobProposed}
+              jobProposed={live.jobEstimate !== null}
               turnOn={
                 live.done
                   ? refusedScopes(

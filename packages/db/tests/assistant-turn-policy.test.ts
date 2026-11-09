@@ -28,7 +28,6 @@ import {
   gateSignatureInput,
   keepWarmRoute,
   webSearchOn,
-  lookupReplays,
   previousTurnOf,
   signedPreviousNumbers,
   SMALL_LIST_ROWS,
@@ -289,19 +288,10 @@ describe('review: the frozen context is per branch and stored only when whole', 
     expect(reusableContext(stored({ model: 42 }), WANT, NOW)).toBeNull();
   });
 
-  it('a lookup replays the stored packs only on the model that built them', () => {
-    const c = reusableContext(stored(), WANT, NOW)!;
-    expect(lookupReplays(c, OPUS)).toBe(true);
-    expect(lookupReplays(c, LOOKUP_MODEL)).toBe(false);
-    const { model: _m, ...noModel } = stored();
-    expect(lookupReplays(reusableContext(noModel, WANT, NOW)!, OPUS)).toBe(false);
-  });
-
-  it('a build with a failed or aborted pack, or from a failed turn, is not stored', () => {
-    expect(contextStorable({ packsFailed: 0, aborted: false, turnFailed: false })).toBe(true);
-    expect(contextStorable({ packsFailed: 1, aborted: false, turnFailed: false })).toBe(false);
-    expect(contextStorable({ packsFailed: 0, aborted: true, turnFailed: false })).toBe(false);
-    expect(contextStorable({ packsFailed: 0, aborted: false, turnFailed: true })).toBe(false);
+  it('a build from an aborted or failed turn is not stored', () => {
+    expect(contextStorable({ aborted: false, turnFailed: false })).toBe(true);
+    expect(contextStorable({ aborted: true, turnFailed: false })).toBe(false);
+    expect(contextStorable({ aborted: false, turnFailed: true })).toBe(false);
   });
 });
 

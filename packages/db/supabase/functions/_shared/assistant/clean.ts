@@ -848,3 +848,21 @@ export function cleanedNotice(text: string): Cleaned {
   const stats: CleanStats = { rows_in: 0, rows_out: 0, cols_in: 0, cols_out: 0, bytes_in: 0, bytes_out: byteLength(text), tokens_est: estimateTokens(text), dropped: [], redacted: 0 };
   return brand({ text, stats, numbers: [] });
 }
+
+/**
+ * A cleaned result with one short fixed sentence of ours appended (the chat's
+ * "Search ran on text only" note when embedding failed). `numbers` stays the
+ * result's own, so the gate's allowed set (turn.ts dispatchTool) keeps every
+ * figure clean() let through, and the stats keep their rows, columns, drops
+ * and redactions, with the output size re-measured. Re-wrapping the text in
+ * cleanedNotice instead emptied `numbers` and zeroed the stats, so every
+ * figure of a degraded search was flagged unverified and could buy a paid gate
+ * retry (review 2026-11-09). The note's own digits (none today) are not added:
+ * only what came through clean() is a verified figure. Minted here because
+ * only this file may brand a Cleaned.
+ */
+export function withNote(cleaned: Cleaned, note: string): Cleaned {
+  const text = `${cleaned.text}\n${note}`;
+  const stats: CleanStats = { ...cleaned.stats, dropped: [...cleaned.stats.dropped], bytes_out: byteLength(text), tokens_est: estimateTokens(text) };
+  return brand({ text, stats, numbers: cleaned.numbers });
+}

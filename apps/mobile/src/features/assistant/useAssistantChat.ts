@@ -4,21 +4,24 @@
  * delta, tool rows come and go, the gate marks land and `done` closes it. The
  * stored rows replace the live turn once the messages query has them (the
  * screen does that matching), so a turn that failed half-way stays on screen
- * with its error sentence. The operator's `useAssistantChat`, minus the usage
- * and model plumbing the phone does not show.
+ * with its error sentence. The operator's `useAssistantChat` on the phone's
+ * fetch: the turn and its reducer are @touch/core/assistant/client's, so the
+ * live turn carries everything the stream sends (scopes, model, usage, tool
+ * stats, both message ids) even where the phone does not show it yet.
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import type { AssistantScope } from '@touch/core/assistant/tools';
-import { captureException } from '../../lib/telemetry';
-import { assistantKeys, sendMessage } from './api';
 import {
-  AssistantStreamError,
   applyEvent,
   emptyTurn,
+  settleTools,
   type AssistantErrorCode,
   type LiveTurn,
-} from './chat';
+} from '@touch/core/assistant/client';
+import { captureException } from '../../lib/telemetry';
+import { assistantKeys, sendMessage } from './api';
+import { AssistantStreamError } from './chat';
 
 export interface UseAssistantChatOptions {
   conversationId: string | null;
@@ -117,7 +120,7 @@ export function useAssistantChat(opts: UseAssistantChatOptions): UseAssistantCha
         if (isAbort(err)) {
           setLive((cur) =>
             cur
-              ? { ...cur, done: true, stopped: true, tools: cur.tools.map((t) => ({ ...t, pending: false })) }
+              ? { ...cur, done: true, stopped: true, tools: settleTools(cur.tools) }
               : cur,
           );
         } else {
@@ -133,7 +136,7 @@ export function useAssistantChat(opts: UseAssistantChatOptions): UseAssistantCha
                   // Only the code reaches the screen (staff.assistant.errors.<code>); the
                   // server's own words went to the tracker above, not into the state.
                   error: cur.error ?? { code, message: '' },
-                  tools: cur.tools.map((t) => ({ ...t, pending: false })),
+                  tools: settleTools(cur.tools),
                 }
               : cur,
           );

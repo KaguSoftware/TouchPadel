@@ -25,6 +25,7 @@ import { ArrowUpIcon, ChevronIcon, StopIcon } from '../../components/icons';
 import {
   DEFAULT_MODEL_VALUE,
   PHONE_SCOPES,
+  assistantErrorSentence,
   modelName,
   type AssistantErrorCode,
   type GatePayload,
@@ -275,7 +276,7 @@ export function Answer(props: AnswerProps) {
             accessibilityRole="alert"
             style={{ fontFamily: fonts.body600, fontSize: 14.5, lineHeight: 21, color: colors.redtext }}
           >
-            {t(`staff.assistant.errors.${error.code}`)}
+            {t(`staff.assistant.errors.${assistantErrorSentence(error.code)}`)}
           </Text>
           {props.onRetry ? (
             <View style={{ alignSelf: 'flex-start' }}>
