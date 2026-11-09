@@ -673,3 +673,48 @@ describe('the join scene (Play: the next open match)', () => {
     court.dispose();
   });
 });
+
+describe('the field option', () => {
+  const statics = (court: ReturnType<typeof buildCourtScene>) =>
+    court.scene.children.filter((o) => o instanceof THREE.Mesh || o instanceof THREE.LineSegments);
+
+  it.each(['book', 'top'] as const)('false leaves no turf, lines, net or cage (%s view)', (view) => {
+    const full = buildCourtScene('lite', { view });
+    const bare = buildCourtScene('lite', { view, field: false });
+    expect(statics(full).length).toBeGreaterThan(0);
+    expect(statics(bare)).toHaveLength(0);
+    // The join scene adds its four open-spot marks and nothing else.
+    const join = buildCourtScene('lite', { view, scene: 'join', field: false });
+    expect(statics(join)).toHaveLength(4);
+    join.dispose();
+    full.dispose();
+    bare.dispose();
+  });
+
+  it('keeps the four rackets, the lights and the ball, and plays the join rally', () => {
+    const court = buildCourtScene('lite', { view: 'top', scene: 'join', field: false });
+    court.setJoin({ taken: 2, spots: false, mirror: false }, false);
+    expect(() => {
+      for (let frame = 1; frame <= 120; frame++) court.update(frame / 60, 0, 0);
+    }).not.toThrow();
+    expect(court.scene.children.filter((o) => o.name === 'padel_racket')).toHaveLength(4);
+    expect(court.scene.children.some((o) => o instanceof THREE.Light)).toBe(true);
+    expect(ballOf(court)).toBeTruthy();
+    court.dispose();
+  });
+
+  it.each([false, true])('draws nothing extra and throws nothing under lean=%s', (lean) => {
+    const court = buildCourtScene('lite', { view: 'top', scene: 'join', field: false, lean });
+    court.update(0.5, 0, 0);
+    court.dispose();
+  });
+
+  it('is on by default: the court is what it always was', () => {
+    const a = buildCourtScene('lite');
+    const b = buildCourtScene('lite', { field: true });
+    expect(b.scene.children.length).toBe(a.scene.children.length);
+    a.dispose();
+    b.dispose();
+  });
+});
+

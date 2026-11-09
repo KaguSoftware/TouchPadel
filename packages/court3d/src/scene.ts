@@ -188,6 +188,15 @@ export interface CourtSceneOptions {
    * mesh, so only a host that has asked its renderer may turn it on.
    */
   instancing?: boolean;
+  /**
+   * Whether the court draws its field: the turf, lines, net, base and cage.
+   * Default true. `false` leaves the rackets, the ball and its trail, for a
+   * host that draws the field itself and lays this scene over it on a
+   * transparent surface (the match screen's flat court). The meshes are still
+   * built, so every material the frame loop drives exists; they are just never
+   * added to the scene.
+   */
+  field?: boolean;
 }
 
 /** The ball's spin in rad/s under `spin: 'time'`: the phone's 0.12 / 0.07 rad a frame, at 60 fps. */
@@ -350,6 +359,7 @@ export function buildCourtScene(
   const shadows = quality === 'full';
   const spinByTime = opts.spin === 'time';
   const top = opts.view === 'top';
+  const field = opts.field !== false;
   const disposables: { dispose(): void }[] = [];
   const scene = new THREE.Scene();
   const overlay = new THREE.Scene();
@@ -430,7 +440,7 @@ export function buildCourtScene(
     const m = new THREE.Mesh(geometry, material);
     m.position.set(x, y, z);
     m.castShadow = shadow && shadows;
-    scene.add(m);
+    if (field) scene.add(m);
     return m;
   };
 
@@ -564,7 +574,7 @@ export function buildCourtScene(
     const m = new THREE.LineSegments(g, mat);
     m.position.set(x, y, z);
     m.rotation.y = ry;
-    scene.add(m);
+    if (field) scene.add(m);
   };
   // white window squares inset in each 2 m glass bay
   const windows = (

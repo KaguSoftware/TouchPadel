@@ -28,20 +28,27 @@ export interface PhoneCourtOptions {
   view?: CourtView;
   /** The renderer can draw instanced meshes (scene.ts `instancing`). */
   instancing?: boolean;
+  /**
+   * Only the rackets and the ball, for a page that draws the field itself: no field
+   * (scene.ts `field`), no pattern behind it, no logo.
+   */
+  overlay?: boolean;
 }
 
 export function buildPhoneCourt(
   quality: CourtQuality,
   lean = false,
-  { scene = 'rally', view = 'book', instancing = false }: PhoneCourtOptions = {},
+  { scene = 'rally', view = 'book', instancing = false, overlay = false }: PhoneCourtOptions = {},
 ): CourtScene {
   const court = buildCourtScene(quality, {
-    backdrop: buildPatternBackdrop,
+    backdrop: overlay ? undefined : buildPatternBackdrop,
     lean,
     scene,
     view,
     instancing,
+    field: !overlay,
   });
+  if (overlay) return court;
   const logo = buildCourtLogo();
   court.scene.add(logo.group);
   return {

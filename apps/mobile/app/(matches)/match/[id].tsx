@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ScrollView, Share, StyleSheet, Switch, Pressable, View } from 'react-native';
+import { ScrollView, Share, StyleSheet, Pressable, View } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -44,14 +44,16 @@ import {
 } from '../../../src/features/matches/hooks';
 import {
   byCategory,
+  categoryKey,
   displayName,
   friendsFor,
   LIVE_MATCH_STATUSES,
   missingTickets,
   needsFriendsDeclaration,
   ORGANISER_CANCEL_REASONS,
-  seatsOfLabel,
+  PRESET_MESSAGE_CODES,
   SEATS_TOTAL,
+  totalShareIqd,
   type MatchDetail,
   type MatchSeat,
   type MessageCode,
@@ -82,8 +84,6 @@ import {
   Button,
   Card,
   ErrorText,
-  LinkText,
-  MicroLabel,
   Screen,
   SegmentedControl,
 } from '../../../src/components/ui';
@@ -91,20 +91,22 @@ import { ErrorState, SkeletonList } from '../../../src/components/states';
 import { ConfirmAlert, useToast } from '../../../src/components/overlays';
 import {
   GenderAsk,
-  MatchMessages,
-  MatchInfoCard,
+  ListGroup,
+  ListRow,
+  MatchChat,
+  MatchHero,
   MatchMoneyCard,
   MatchNotice,
-  MatchPoster,
   MatchRestrictedCard,
-  MatchRulesCard,
+  MatchRulesList,
   MatchSectionTitle,
+  MatchSheet,
   messageLabelKey,
   nightLabel,
-  QuickMessageBar,
+  MatchRallyCourt,
   RequestRow,
-  SeatGrid,
   ShareGlyph,
+  type ChatBubble,
 } from '../../../src/components/match';
 import { nativeChoice } from '../../../src/components/nativeChoice';
 
@@ -196,8 +198,8 @@ function MatchDetailScreen() {
   const nowMs = serverNowMs(view?.serverNow ?? null, match.dataUpdatedAt, deviceNow);
 
   const [seatsWanted, setSeatsWanted] = useState(1);
-  // The friends' declaration answers one seat count (OM-39).
-  const [declaredFor, setDeclaredFor] = useState<number | null>(null);
+  const [chatOpen, setChatOpen] = useState(false);
+  const [rulesOpen, setRulesOpen] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [rowErrors, setRowErrors] = useState<Record<string, string>>({});
   const [deciding, setDeciding] = useState<{ id: string; approve: boolean } | null>(null);
@@ -243,18 +245,18 @@ function MatchDetailScreen() {
     void Share.share({ message: text }).catch(() => {});
   };
 
-  const lines = !detail
+  const bubbles: ChatBubble[] = !detail
     ? []
     : detail.messages
         .filter((m) => m.code !== null)
         .map((m, i) => ({
           key: `${m.at ?? ''}|${m.seatNo ?? ''}|${i}`,
-          text: t('matches.messages.line', {
-            name: m.isMe ? t('matches.common.you') : displayName(m, detail.category, t),
-            label: t(messageLabelKey(m.code!)),
-            time: m.at ? formatTime(new Date(m.at), locale, tz) : '',
-          }),
+          name: m.isMe ? t('matches.common.you') : displayName(m, detail.category, t),
+          mine: m.isMe,
+          label: t(messageLabelKey(m.code!)),
+          time: m.at ? formatTime(new Date(m.at), locale, tz) : '',
         }));
+  const lastBubble = bubbles[bubbles.length - 1] ?? null;
 
   // ── Loading, missing, restricted ──────────────────────────────────────────
   const header = (
@@ -352,10 +354,9 @@ function MatchDetailScreen() {
   // The seats the card shows, and so the seats every write sends: a poll that
   // lowers seats_left under the picked count clamps it (the stepper and the
   // friends' declaration answer this count, OM-39).
-  const pickedSeats =
-    card.kind === 'join' || card.kind === 'ask' || card.kind === 'buy'
-      ? Math.min(seatsWanted, card.maxSeats)
-      : 1;
+  const maxSeats =
+    card.kind === 'join' || card.kind === 'ask' || card.kind === 'buy' ? card.maxSeats : 1;
+  const pickedSeats = maxSeats > 1 ? Math.min(seatsWanted, maxSeats) : 1;
   const available = wallet.data?.available ?? me.ticketsAvailable;
   const share = partyShareIqd(state, me.seats);
   const line = stateLine(
@@ -381,7 +382,7 @@ function MatchDetailScreen() {
     d.status === 'filling' && d.fillDeadlineAt
       ? {
           text: [
-            t('matches.detail.fillsBy', {
+            t('matches.detail.fillsByShort', {
               time: formatTime(new Date(d.fillDeadlineAt), locale, tz),
             }),
             minutesLeft !== null && minutesLeft < 60
@@ -404,6 +405,28 @@ function MatchDetailScreen() {
     withdraw.isPending ||
     leave.isPending ||
     cancel.isPending;
+
+  /**
+   * A gendered match with friends asks once, as the guest presses the action:
+   * "You are taking 2 seats. This is a men's match. Are you all men?" (OM-39).
+   * The friends' gender is the match's own (`friendsFor`), so the answer
+   * changes nothing that is sent; it is the guest's word that it is true.
+   */
+  const askFriends = (run: () => void) => {
+    if (!needsFriendsDeclaration(cat, pickedSeats)) {
+      run();
+      return;
+    }
+    const women = cat === 'women';
+    setConfirm({
+      title: t('matches.detail.takeTitle', {
+        taking: countPhrase('matches.count.seats', pickedSeats, locale),
+      }),
+      body: t(women ? 'matches.detail.takeBodyWomen' : 'matches.detail.takeBodyMen'),
+      confirmLabel: t(women ? 'matches.detail.takeConfirmWomen' : 'matches.detail.takeConfirmMen'),
+      run,
+    });
+  };
 
   /** §4.10.3: remember the join or request, then buy what is missing. */
   const buyThen = (kind: 'join' | 'request', count: number) => {
@@ -668,50 +691,27 @@ function MatchDetailScreen() {
   // ── The action card (§4.14 table) ─────────────────────────────────────────
   const lead = { fontFamily: fonts.body700, fontSize: 14, lineHeight: 20, color: colors.ink };
 
-  const seatsStepper = (maxSeats: number, wanted: number) =>
+  const seatsRow = (wanted: number) =>
     maxSeats > 1 ? (
-      <>
-        <MicroLabel style={{ marginBottom: 6 }}>{t('matches.detail.seats')}</MicroLabel>
-        <SegmentedControl<number>
-          testID="match-detail.seats-wanted"
-          options={Array.from({ length: maxSeats }, (_, i) => ({
-            value: i + 1,
-            label:
-              i === 0
-                ? t('matches.create.seatsMe')
-                : t('matches.create.seatsMePlus', { extra: isolateLtr(`+${i}`) }),
-          }))}
-          value={wanted}
-          onChange={setSeatsWanted}
-        />
-        {needsFriendsDeclaration(cat, wanted) ? (
-          <Pressable
-            testID="match-detail.friends-gender-row"
-            accessibilityRole="switch"
-            accessibilityState={{ checked: declaredFor === wanted }}
-            onPress={() => setDeclaredFor(declaredFor === wanted ? null : wanted)}
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              gap: space.sm,
-              marginTop: space.sm,
-            }}
-          >
-            <Switch
-              testID="match-detail.friends-gender"
-              value={declaredFor === wanted}
-              onValueChange={(on) => setDeclaredFor(on ? wanted : null)}
-              trackColor={{ true: colors.blue, false: colors.line }}
-              accessibilityLabel={t(
-                cat === 'women' ? 'matches.create.friendsWomen' : 'matches.create.friendsMen',
-              )}
-            />
-            <Text style={{ flex: 1, fontFamily: fonts.body600, fontSize: 13.5, color: colors.ink }}>
-              {t(cat === 'women' ? 'matches.create.friendsWomen' : 'matches.create.friendsMen')}
-            </Text>
-          </Pressable>
-        ) : null}
-      </>
+      <ListRow
+        testID="match-detail.seats-row"
+        label={t('matches.detail.seats')}
+        accessory={
+          <SegmentedControl<number>
+            fit
+            testID="match-detail.seats-wanted"
+            options={Array.from({ length: maxSeats }, (_, i) => ({
+              value: i + 1,
+              label:
+                i === 0
+                  ? t('matches.create.seatsMe')
+                  : t('matches.create.seatsMePlus', { extra: isolateLtr(`+${i}`) }),
+            }))}
+            value={wanted}
+            onChange={setSeatsWanted}
+          />
+        }
+      />
     ) : null;
 
   const leaveButton = me.can.leave ? (
@@ -795,9 +795,9 @@ function MatchDetailScreen() {
       case 'join':
       case 'ask':
       case 'buy':
-        // The action itself sits in the bar at the foot of the screen; the card
-        // keeps the seat count and the friends' declaration, when there are any.
-        return seatsStepper(card.maxSeats, pickedSeats);
+        // The action sits in the bar at the foot of the screen, the seat count
+        // and the match's terms in the list above it.
+        return null;
       case 'refusal': {
         const text =
           card.code === 'TERMS_REQUIRED' && !needsTerms
@@ -853,10 +853,10 @@ function MatchDetailScreen() {
               : missingTickets(available, pickedSeats),
         }
       : null;
-  const declared = !needsFriendsDeclaration(cat, pickedSeats) || declaredFor === pickedSeats;
-  // The share the next player takes (the four differ by at most 1 IQD).
+  // The next share, and what the picked seats come to.
   const nextShare =
     d.sharesIqd.length > 0 ? (d.sharesIqd[Math.min(d.seatsTaken, d.sharesIqd.length - 1)] ?? null) : null;
+  const total = totalShareIqd(d.sharesIqd, d.seatsTaken, pickedSeats);
 
   const joinBar = joinPlan ? (
     <View
@@ -873,102 +873,65 @@ function MatchDetailScreen() {
         paddingEnd: space.m,
         paddingTop: 12,
         paddingBottom: 12 + insets.bottom,
-        gap: 6,
+        gap: 10,
       }}
     >
       <ErrorText>{actionError}</ErrorText>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
-        <View style={{ flex: 1, gap: 2 }}>
-          {nextShare !== null ? (
-            <Text style={{ fontFamily: fonts.display900, fontSize: 17, color: colors.ink }}>
-              {money(nextShare)}
-            </Text>
-          ) : null}
-          <Text style={{ fontFamily: fonts.body600, fontSize: 12, lineHeight: 17, color: colors.mut }}>
-            {joinPlan.missing > 0
-              ? available > 0
-                ? t('matches.detail.youHave', {
-                    ready: countPhrase('matches.count.ticketsReady', available, locale),
-                  })
-                : t('matches.detail.youHaveNone')
-              : payAtDesk
-                ? t(joinPlan.kind === 'join' ? 'matches.detail.payAtDesk' : 'matches.detail.askPayAtDesk')
-                : joinPlan.kind === 'join'
-                  ? countPhrase('matches.count.ticketsUse', pickedSeats, locale)
-                  : t(byCategory(cat, 'matches.detail.askCaption'), {
-                      tickets: countPhrase('matches.count.ticketsGen', pickedSeats, locale),
-                    })}
+      {total !== null ? (
+        <View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' }}>
+          <Text style={{ fontFamily: fonts.body700, fontSize: 14, color: colors.mut }}>
+            {t('matches.detail.total', {
+              seats: countPhrase('matches.count.seats', pickedSeats, locale),
+            })}
           </Text>
+          <Text style={{ fontFamily: fonts.display900, fontSize: 20, color: colors.ink }}>{money(total)}</Text>
         </View>
-        {joinPlan.missing > 0 ? (
-          <Button
-            testID="match-detail.buy"
-            label={t(
-              joinPlan.kind === 'join' ? 'matches.detail.buyAndJoin' : 'matches.detail.buyAndAsk',
-              { tickets: countPhrase('matches.count.ticketsGen', joinPlan.missing, locale) },
-            )}
-            variant="cta"
-            disabled={!declared}
-            // Before the purchase: the ticket continuation replays the join.
-            onPress={() => {
+      ) : null}
+      {joinPlan.missing > 0 ? (
+        <Text style={{ fontFamily: fonts.body600, fontSize: 13, color: colors.mut }}>
+          {available > 0
+            ? t('matches.detail.youHave', {
+                ready: countPhrase('matches.count.ticketsReady', available, locale),
+              })
+            : t('matches.detail.youHaveNone')}
+        </Text>
+      ) : null}
+      {joinPlan.missing > 0 ? (
+        <Button
+          testID="match-detail.buy"
+          label={t(
+            joinPlan.kind === 'join' ? 'matches.detail.buyAndJoin' : 'matches.detail.buyAndAsk',
+            { tickets: countPhrase('matches.count.ticketsGen', joinPlan.missing, locale) },
+          )}
+          variant="cta"
+          // Before the purchase: the ticket continuation replays the join.
+          onPress={() =>
+            askFriends(() => {
               if (!verifyFirst()) buyThen(joinPlan.kind, joinPlan.missing);
-            }}
-            style={{ paddingStart: 20, paddingEnd: 20 }}
-          />
-        ) : joinPlan.kind === 'join' ? (
-          <Button
-            testID="match-detail.join"
-            label={t('matches.detail.join')}
-            variant="cta"
-            busy={join.isPending}
-            disabled={busy || !declared}
-            onPress={() => onJoin('join')}
-            style={{ paddingStart: 28, paddingEnd: 28 }}
-          />
-        ) : (
-          <Button
-            testID="match-detail.ask"
-            label={t('matches.detail.ask')}
-            variant="cta"
-            busy={request.isPending}
-            disabled={busy || !declared}
-            onPress={() => onJoin('request')}
-            style={{ paddingStart: 24, paddingEnd: 24 }}
-          />
-        )}
-      </View>
+            })
+          }
+        />
+      ) : joinPlan.kind === 'join' ? (
+        <Button
+          testID="match-detail.join"
+          label={t('matches.detail.join')}
+          variant="cta"
+          busy={join.isPending}
+          disabled={busy}
+          onPress={() => askFriends(() => onJoin('join'))}
+        />
+      ) : (
+        <Button
+          testID="match-detail.ask"
+          label={t('matches.detail.ask')}
+          variant="cta"
+          busy={request.isPending}
+          disabled={busy}
+          onPress={() => askFriends(() => onJoin('request'))}
+        />
+      )}
     </View>
   ) : null;
-
-  const infoRows = joinPlan
-    ? [
-        ...(nextShare !== null
-          ? [
-              {
-                key: 'share' as const,
-                title: t('matches.detail.infoShareTitle', { share: money(nextShare) }),
-                body: t('matches.detail.infoShareBody'),
-              },
-            ]
-          : []),
-        {
-          key: 'ticket' as const,
-          title: t('matches.detail.infoTicketTitle'),
-          body: t('matches.detail.infoTicketBody'),
-        },
-        ...(d.status === 'filling' && d.fillDeadlineAt
-          ? [
-              {
-                key: 'court' as const,
-                title: t('matches.detail.infoCourtTitle'),
-                body: t('matches.detail.infoCourtBody', {
-                  time: formatTime(new Date(d.fillDeadlineAt), locale, tz),
-                }),
-              },
-            ]
-          : []),
-      ]
-    : [];
 
   // The money card is for members: a seat still in play, or played.
   const member = ownSeat !== null && (ownSeat.status === 'in' || ownSeat.status === 'attended');
@@ -984,24 +947,14 @@ function MatchDetailScreen() {
         }}
         showsVerticalScrollIndicator={false}
       >
-        <MatchPoster
+        <MatchHero
           time={formatTime(start, locale, tz)}
           endTime={t('matches.detail.until', { time: formatTime(new Date(d.endAt), locale, tz) })}
-          seatsTaken={d.seatsTaken}
-          when={branchLabel ? t('matches.detail.when', { day, branch: branchLabel }) : day}
-          category={cat}
-          chips={[
-            t(
-              d.visibility === 'link'
-                ? 'matches.detail.visibilityLink'
-                : 'matches.detail.visibilityPublic',
-            ),
-            d.joinPolicy === 'approve'
-              ? t(byCategory(cat, 'matches.detail.policyApprove'))
-              : t('matches.detail.policyOpen'),
-            t('booking.durationMinutes', { minutes: d.durationMin }),
-          ]}
-          seatsLine={`${seatsOfLabel(d.seatsTaken, t, d.seatsTotal)} · ${countPhrase('matches.count.seatsLeft', d.seatsLeft, locale)}`}
+          when={[
+            branchLabel ? t('matches.detail.when', { day, branch: branchLabel }) : day,
+            t(categoryKey(cat)),
+          ].join(' · ')}
+          seatsLine={countPhrase('matches.count.seatsLeft', d.seatsLeft, locale)}
           fillLine={fillLine}
           courtLine={
             d.status === 'booked' && courtName
@@ -1010,33 +963,51 @@ function MatchDetailScreen() {
           }
           stateLine={!live && state.state !== 'unknown' ? line : null}
         >
-          <SeatGrid
+          <MatchRallyCourt
             testID="match-detail.seats"
             seats={d.seats}
             category={cat}
             hasMenu={hasMenu}
             onMenu={onSeatMenu}
           />
-        </MatchPoster>
+        </MatchHero>
 
+        <MatchSectionTitle>{t('matches.detail.groupSeat')}</MatchSectionTitle>
         {joinPlan ? (
-          actionCard ? (
-            <Card style={{ marginTop: space.m }}>
-              <View testID="match-detail.seats-card">{actionCard}</View>
-            </Card>
-          ) : null
+          <View testID="match-detail.seats-card">
+            <ListGroup>
+              {seatsRow(pickedSeats)}
+              <ListRow
+                testID="match-detail.policy"
+                label={t('matches.detail.rowJoin')}
+                value={
+                  d.joinPolicy === 'approve'
+                    ? t(byCategory(cat, 'matches.detail.policyApprove'))
+                    : t('matches.detail.policyOpen')
+                }
+              />
+              {d.visibility === 'link' ? (
+                <ListRow
+                  testID="match-detail.visibility"
+                  label={t('matches.detail.rowVisibility')}
+                  value={t('matches.detail.visibilityLink')}
+                />
+              ) : null}
+              {nextShare !== null ? (
+                <ListRow
+                  testID="match-detail.price"
+                  label={t('matches.detail.rowPrice')}
+                  value={t('matches.detail.infoShareTitle', { share: money(nextShare) })}
+                />
+              ) : null}
+            </ListGroup>
+          </View>
         ) : (
-          <Card style={{ marginTop: space.m }}>
+          <Card>
             <View testID="match-detail.action">{actionCard}</View>
             <ErrorText>{actionError}</ErrorText>
           </Card>
         )}
-
-        {infoRows.length > 0 ? (
-          <View style={{ marginTop: space.m }}>
-            <MatchInfoCard rows={infoRows} />
-          </View>
-        ) : null}
 
         {member ? (
           <View style={{ marginTop: space.m }}>
@@ -1083,63 +1054,57 @@ function MatchDetailScreen() {
                 </View>
               </>
             ) : null}
-            {(d.shareToken && me.can.share) || me.can.cancel ? (
-              <View style={{ marginTop: space.m, gap: space.sm }}>
-                {d.shareToken && me.can.share ? (
-                  <Button
-                    testID="match-detail.share"
-                    label={t('matches.detail.share')}
-                    variant="primary"
-                    size="compact"
-                    onPress={onShare}
-                  />
-                ) : null}
-                {me.can.cancel ? (
-                  <Button
-                    testID="match-detail.cancel"
-                    label={t('matches.detail.cancel')}
-                    variant="dangerOutline"
-                    size="compact"
-                    busy={cancel.isPending}
-                    disabled={busy}
-                    onPress={() => void askCancel()}
-                  />
-                ) : null}
-              </View>
-            ) : null}
-          </>
-        ) : null}
-
-        {showMessages || lines.length > 0 ? (
-          <>
-            <MatchSectionTitle>{t('matches.messages.title')}</MatchSectionTitle>
-            {showMessages ? (
-              <View style={{ marginBottom: space.sm }}>
-                <QuickMessageBar
-                  testID="match-detail.message"
-                  resting={resting}
-                  busy={message.isPending ? (message.variables?.code ?? null) : null}
-                  onSend={onMessage}
+            {me.can.cancel ? (
+              <View style={{ marginTop: space.m }}>
+                <Button
+                  testID="match-detail.cancel"
+                  label={t('matches.detail.cancel')}
+                  variant="dangerOutline"
+                  size="compact"
+                  busy={cancel.isPending}
+                  disabled={busy}
+                  onPress={() => void askCancel()}
                 />
               </View>
             ) : null}
-            <MatchMessages lines={lines} />
           </>
         ) : null}
 
-        <View style={{ marginTop: space.l }}>
-          <MatchRulesCard testID="match-detail.rules" />
-        </View>
-
-        {phone ? (
-          <View style={{ marginTop: space.l, alignItems: 'center' }}>
-            <LinkText
-              testID="match-detail.call-venue"
-              label={t('matches.detail.questions', { branch: branchLabel ?? t('common.appName') })}
-              onPress={callVenue}
-            />
+        {showMessages || bubbles.length > 0 ? (
+          <View style={{ marginTop: space.m }}>
+            <ListGroup>
+              <ListRow
+                testID="match-detail.messages"
+                label={t('matches.messages.title')}
+                value={
+                  lastBubble
+                    ? t('matches.messages.last', { name: lastBubble.name, label: lastBubble.label })
+                    : null
+                }
+                chevron
+                onPress={() => setChatOpen(true)}
+              />
+            </ListGroup>
           </View>
         ) : null}
+
+        <MatchSectionTitle>{t('matches.detail.groupAbout')}</MatchSectionTitle>
+        <ListGroup>
+          <ListRow
+            testID="match-detail.rules"
+            label={t('matches.detail.rulesTitle')}
+            chevron
+            onPress={() => setRulesOpen(true)}
+          />
+          {phone ? (
+            <ListRow
+              testID="match-detail.call-venue"
+              label={t('matches.detail.questions', { branch: branchLabel ?? t('common.appName') })}
+              chevron
+              onPress={callVenue}
+            />
+          ) : null}
+        </ListGroup>
       </ScrollView>
 
       {joinBar}
@@ -1158,6 +1123,40 @@ function MatchDetailScreen() {
         }}
         onDismiss={() => setConfirm(null)}
       />
+
+      <MatchSheet
+        testID="match-detail.chat"
+        visible={chatOpen}
+        title={t('matches.messages.title')}
+        onClose={() => setChatOpen(false)}
+      >
+        <MatchChat
+          testID="match-detail.chat"
+          bubbles={bubbles}
+          canSend={showMessages}
+          codes={PRESET_MESSAGE_CODES}
+          resting={resting}
+          busy={message.isPending ? (message.variables?.code ?? null) : null}
+          onSend={onMessage}
+        />
+      </MatchSheet>
+
+      <MatchSheet
+        testID="match-detail.rules-sheet"
+        visible={rulesOpen}
+        title={t('matches.detail.rulesTitle')}
+        onClose={() => setRulesOpen(false)}
+      >
+        <ScrollView contentContainerStyle={{ padding: space.l }}>
+          <MatchRulesList
+            extra={[
+              t('matches.detail.infoShareBody'),
+              t('matches.detail.rulesCalledOff'),
+              ...(d.joinPolicy === 'approve' ? [t('matches.detail.askPayAtDesk')] : []),
+            ]}
+          />
+        </ScrollView>
+      </MatchSheet>
     </Screen>
   );
 }

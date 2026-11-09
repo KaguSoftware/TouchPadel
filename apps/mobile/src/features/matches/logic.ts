@@ -1010,6 +1010,51 @@ export function needsFriendsDeclaration(category: MatchCategory, seats: number):
   return category !== 'open' && seats > 1;
 }
 
+/**
+ * What `seats` seats cost the guest at the desk: the next `seats` shares off
+ * the match's four (`shares_iqd`, which differ by at most 1 IQD), the first
+ * one being the share the next player takes. Null when the server sent none.
+ */
+export function totalShareIqd(
+  shares: readonly number[],
+  seatsTaken: number,
+  seats: number,
+): number | null {
+  if (shares.length === 0 || seats < 1) return null;
+  let total = 0;
+  for (let i = 0; i < seats; i++) {
+    total += shares[Math.min(Math.max(0, seatsTaken) + i, shares.length - 1)] ?? 0;
+  }
+  return total;
+}
+
+/**
+ * The presets the match chat offers. "Who's bringing balls?" (`bring_balls`)
+ * is held back for now: nothing in this set can answer it. The code stays
+ * valid on the server and in the feed, so an older message with it still
+ * reads, and bringing the button back is a one-line change here.
+ */
+export const PRESET_MESSAGE_CODES: readonly MessageCode[] = [
+  'on_my_way',
+  'running_late',
+  'cant_make_it',
+];
+
+/**
+ * Where the four seats stand on the match's court. The court claims a seat
+ * COUNT and fills its places in order (court3d join.ts), so the taken seats,
+ * in seat order, take the first places and the open ones the rest. Index =
+ * place. A place with no seat row is null (an empty seat the server did not
+ * send).
+ */
+export function courtPlaces(seats: readonly MatchSeat[]): (MatchSeat | null)[] {
+  const taken = seats.filter((s) => !s.open).sort((a, b) => a.seatNo - b.seatNo);
+  const open = seats.filter((s) => s.open).sort((a, b) => a.seatNo - b.seatNo);
+  const places: (MatchSeat | null)[] = [...taken, ...open].slice(0, SEATS_TOTAL);
+  while (places.length < SEATS_TOTAL) places.push(null);
+  return places;
+}
+
 // ── How the phone prints a player (§4.9) ────────────────────────────────────
 
 /**

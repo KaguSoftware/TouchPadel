@@ -18,14 +18,15 @@
  * Last, the booking gate on Start and Join (owner, 2026-09-29): a phone nobody
  * has verified goes to the code first, before any purchase too. Then the seat
  * count a poll lowers under the picked one (the join sends what the card
- * shows), and the rules chevron in both directions.
+ * shows), the friends alert and the total, the chat and rules sheets, and
+ * who may see Messages.
  */
 import { describe, expect, it, jest } from '@jest/globals';
-import { StyleSheet } from 'react-native';
+import { Alert } from 'react-native';
 import { act, fireEvent, waitFor, within } from '@testing-library/react-native';
-import { countPhrase, isolate, isolateLtr, makeT, type Locale } from '@touch/i18n';
+import { countPhrase, formatIQD, isolate, isolateLtr, makeT, type Locale } from '@touch/i18n';
 import { runSmokeCases, type SmokeCase } from '../test/smokeCase';
-import { expectAlerted } from '../test/alertState';
+import { alertState, expectAlerted } from '../test/alertState';
 import { renderRoute } from '../test/smoke';
 import { routerState } from '../test/routerState';
 import {
@@ -250,7 +251,7 @@ describe.each(LOCALES)('open-match states in %s', (locale) => {
     }
   });
 
-  it("gives the organiser the requests, with games and no-shows, plus share and cancel", () => {
+  it("gives the organiser the requests, with games and no-shows, plus cancel", () => {
     const screen = renderRoute(MatchDetailScreen, {
       locale,
       ...detail({
@@ -289,14 +290,15 @@ describe.each(LOCALES)('open-match states in %s', (locale) => {
       ).toBeTruthy();
       expect(screen.getByTestId(`match-detail.request.${REQUEST_ID}.approve`)).toBeTruthy();
       expect(screen.getByTestId(`match-detail.request.${REQUEST_ID}.decline`)).toBeTruthy();
-      expect(within(screen.getByTestId('match-detail.share')).getByText(t('matches.detail.share'))).toBeTruthy();
+      // Share lives in the header alone: no second button down the page.
+      expect(screen.queryByTestId('match-detail.share')).toBeNull();
       expect(within(screen.getByTestId('match-detail.cancel')).getByText(t('matches.detail.cancel'))).toBeTruthy();
     } finally {
       screen.unmount();
     }
   });
 
-  it('tells a booked member what they pay at the desk, and offers the quick messages', () => {
+  it('tells a booked member what they pay at the desk, and opens the chat with three presets', () => {
     const screen = renderRoute(MatchDetailScreen, {
       locale,
       ...detail({
@@ -326,9 +328,15 @@ describe.each(LOCALES)('open-match states in %s', (locale) => {
     });
     try {
       expect(screen.getByTestId('match-detail.leave')).toBeTruthy();
-      expect(screen.getByTestId('match-detail.message.on_my_way')).toBeTruthy();
-      expect(screen.getByTestId('match-detail.message.bring_balls')).toBeTruthy();
       expect(screen.getByText(t('matches.detail.moneyNote'))).toBeTruthy();
+      // Messages is a row; the presets are in the sheet it opens.
+      expect(screen.queryByTestId('match-detail.chat.send.on_my_way')).toBeNull();
+      fireEvent.press(screen.getByTestId('match-detail.messages'));
+      expect(screen.getByTestId('match-detail.chat.send.on_my_way')).toBeTruthy();
+      expect(screen.getByTestId('match-detail.chat.send.running_late')).toBeTruthy();
+      expect(screen.getByTestId('match-detail.chat.send.cant_make_it')).toBeTruthy();
+      // "Who's bringing balls?" is held back: nothing in the set can answer it.
+      expect(screen.queryByTestId('match-detail.chat.send.bring_balls')).toBeNull();
     } finally {
       screen.unmount();
     }
@@ -606,19 +614,122 @@ describe.each(LOCALES)('open-match states in %s', (locale) => {
     }
   });
 
-  it('turns the rules chevron down when open, in both directions', () => {
-    const screen = renderRoute(MatchDetailScreen, { locale, ...detail() });
-    const rotation = () =>
-      (StyleSheet.flatten(screen.getByTestId('match-detail.rules.chevron').props.style) as {
-        transform?: { rotate?: string }[];
-      }).transform?.[0]?.rotate;
+  it('opens the rules in a sheet, with the explanations the screen no longer prints', () => {
+    const screen = renderRoute(MatchDetailScreen, { locale, ...detail({ joinPolicy: 'approve' }) });
     try {
-      expect(rotation()).toBe('0deg');
-      fireEvent.press(screen.getByTestId('match-detail.rules.toggle'));
-      // The chevron is mirrored in Arabic, so "down" is the other way round.
-      expect(rotation()).toBe(locale === 'ar' ? '-90deg' : '90deg');
+      // No hint lines on the screen itself.
+      expect(screen.queryByText(t('matches.detail.infoShareBody'))).toBeNull();
+      expect(screen.queryByText(t('matches.detail.infoCourtTitle'))).toBeNull();
+      expect(screen.queryByTestId('match-detail.rules-sheet')).toBeNull();
+      fireEvent.press(screen.getByTestId('match-detail.rules'));
+      expect(screen.getByTestId('match-detail.rules-sheet')).toBeTruthy();
+      expect(screen.getByText(t('matches.detail.infoShareBody'))).toBeTruthy();
+      expect(screen.getByText(t('matches.detail.rulesCalledOff'))).toBeTruthy();
+      expect(screen.getByText(t('matches.detail.askPayAtDesk'))).toBeTruthy();
+      expect(screen.getByText(t('matches.detail.courtRule'))).toBeTruthy();
+      fireEvent.press(screen.getByTestId('match-detail.rules-sheet.done'));
+      expect(screen.queryByTestId('match-detail.rules-sheet')).toBeNull();
     } finally {
       screen.unmount();
+    }
+  });
+
+  it('keeps Messages from a guest who is not in the match', () => {
+    const screen = renderRoute(MatchDetailScreen, { locale, ...detail() });
+    try {
+      expect(screen.queryByTestId('match-detail.messages')).toBeNull();
+      expect(screen.queryByTestId('match-detail.chat')).toBeNull();
+    } finally {
+      screen.unmount();
+    }
+  });
+
+  it('shows the total for the seats picked, over a full-width action', () => {
+    const first = matchDetailFixture();
+    const threeLeft = detail({ seatsTaken: 1, seatsLeft: 3, seats: first.seats.slice(0, 1) });
+    const screen = renderRoute(MatchDetailScreen, {
+      locale,
+      ...threeLeft,
+      session: 'verified',
+      queryData: [
+        ...threeLeft.queryData,
+        [profileKeys.own, profileFixture()],
+        [matchKeys.tickets, myTicketsFixture({ available: 2 })],
+      ],
+    });
+    try {
+      const bar = within(screen.getByTestId('match-detail.action'));
+      expect(bar.getByText(t('matches.detail.total', { seats: countPhrase('matches.count.seats', 1, locale) }))).toBeTruthy();
+      expect(bar.getByText(isolate(formatIQD(10000, locale)))).toBeTruthy();
+      fireEvent.press(screen.getByTestId('match-detail.seats-wanted.2'));
+      expect(bar.getByText(t('matches.detail.total', { seats: countPhrase('matches.count.seats', 2, locale) }))).toBeTruthy();
+      expect(bar.getByText(isolate(formatIQD(20000, locale)))).toBeTruthy();
+    } finally {
+      screen.unmount();
+    }
+  });
+
+  it("asks once, naming the seats and the match's gender, before a +1 join", async () => {
+    const rpc = jest.fn((fn: string, _args: Record<string, unknown>) =>
+      fn === 'match_join'
+        ? Promise.resolve({ data: null, error: { message: 'MATCH_FULL', details: null, hint: null, code: 'P0001' } })
+        : new Promise<never>(() => {}),
+    );
+    Object.assign(supabase, { schema: () => ({ rpc }) });
+    const first = matchDetailFixture();
+    const threeLeft = detail({ seatsTaken: 1, seatsLeft: 3, seats: first.seats.slice(0, 1), category: 'men' });
+    const screen = renderRoute(MatchDetailScreen, {
+      locale,
+      ...threeLeft,
+      session: 'verified',
+      queryData: [
+        ...threeLeft.queryData,
+        [profileKeys.own, profileFixture()],
+        [matchKeys.tickets, myTicketsFixture({ available: 2 })],
+      ],
+    });
+    try {
+      // Alone: no question, the join goes straight out.
+      fireEvent.press(screen.getByTestId('match-detail.join'));
+      await waitFor(() => expect(rpc).toHaveBeenCalledWith('match_join', { p_match_id: TEST_MATCH_ID, p_friends: [] }), {
+        timeout: 5000,
+      });
+      rpc.mockClear();
+      alertState.log.length = 0;
+      // Hold the next alert open: the suite's own mock would press Cancel at once.
+      let shown: { text: string; onPress?: () => void }[] = [];
+      jest.spyOn(Alert, 'alert').mockImplementation((title, body, buttons) => {
+        alertState.log.push({ title: title ?? '', body: body ?? '' });
+        shown = (buttons ?? []) as typeof shown;
+      });
+      // With a friend: nothing is sent until the guest says they are all men.
+      fireEvent.press(screen.getByTestId('match-detail.seats-wanted.2'));
+      fireEvent.press(screen.getByTestId('match-detail.join'));
+      await waitFor(
+        () => expect(alertState.log.some((a) => a.body.includes(t('matches.detail.takeBodyMen')))).toBe(true),
+        { timeout: 5000 },
+      );
+      const asked = alertState.log.find((a) => a.body.includes(t('matches.detail.takeBodyMen')));
+      expect(asked?.title).toBe(
+        t('matches.detail.takeTitle', { taking: countPhrase('matches.count.seats', 2, locale) }),
+      );
+      expect(rpc).not.toHaveBeenCalledWith('match_join', expect.anything());
+      // The alert's second button is the guest's yes.
+      expect(shown[1]?.text).toBe(t('matches.detail.takeConfirmMen'));
+      await act(async () => {
+        shown[1]?.onPress?.();
+      });
+      await waitFor(
+        () =>
+          expect(rpc).toHaveBeenCalledWith('match_join', {
+            p_match_id: TEST_MATCH_ID,
+            p_friends: [{ gender: 'male' }],
+          }),
+        { timeout: 5000 },
+      );
+    } finally {
+      screen.unmount();
+      delete (supabase as { schema?: unknown }).schema;
     }
   });
 

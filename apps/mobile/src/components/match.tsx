@@ -1,6 +1,6 @@
 /**
  * The open-match building blocks (docs/design/open-matches/guest.md §4.9,
- * §4.12–§4.18): the poster with its 2×2 seat grid, the list row, the
+ * §4.12–§4.18): the green hero with the flat court under the join court's rackets, the grouped list and the sheets, the list row, the
  * organiser's request row, the quick messages, the money card, the rules, the
  * restricted link card and the one-time gender ask.
  *
@@ -16,12 +16,25 @@
  * `MatchMessages` render no Pressable. The seat menu and the cancel reason
  * use the shared native sheet, `components/nativeChoice.ts`.
  */
-import { useState, type ReactNode } from 'react';
-import { Platform, Pressable, StyleSheet, View } from 'react-native';
+import { Children, isValidElement, useMemo, useRef, useState, type ReactNode } from 'react';
+import {
+  Image,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  useWindowDimensions,
+  View,
+  type ScrollViewInstance,
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { SymbolView } from 'expo-symbols';
 import { useRouter } from 'expo-router';
 import { wallTimeToUtc } from '@touch/core';
+import { projectTop, TOP_VIEW } from '@touch/court3d/camera';
+import { seatSpot } from '@touch/court3d/join';
 import {
   formatDayNumber,
   formatMonthShort,
@@ -32,10 +45,11 @@ import {
 } from '@touch/i18n';
 import { Text } from '../i18n/text';
 import { useLocale } from '../i18n/LocaleProvider';
-import { radius, space, useTheme } from '../theme';
+import { brand, radius, space, useTheme } from '../theme';
 import { addDays, DEFAULT_TZ, type VenueSettingsPublic } from '../features/availability/assemble';
 import {
   categoryKey,
+  courtPlaces,
   displaySeat,
   MESSAGE_CODES,
   SEATS_TOTAL,
@@ -45,8 +59,9 @@ import {
   type MessageCode,
 } from '../features/matches/logic';
 import { GENDER_SURVEY_HREF } from '../features/playProfile/links';
+import { CourtStage, topStageFor } from './CourtStage';
 import { Button } from './ui';
-import { CalendarIcon, CardIcon, CheckIcon, ChevronIcon, ClockIcon, PlusIcon, TagIcon } from './icons';
+import { CheckIcon, ChevronIcon, PlusIcon } from './icons';
 
 // ── Branch knobs and trading nights ─────────────────────────────────────────
 
@@ -103,25 +118,6 @@ export function CategoryPill({ category }: { category: MatchCategory }) {
       <Text style={{ fontFamily: fonts.body700, fontSize: 11.5, color: colors.blue }}>
         {t(categoryKey(category))}
       </Text>
-    </View>
-  );
-}
-
-/** A quiet information chip (visibility, join policy). */
-function InfoChip({ label }: { label: string }) {
-  const { colors, fonts } = useTheme();
-  return (
-    <View
-      style={{
-        backgroundColor: colors.sub,
-        borderRadius: radius.pill,
-        paddingStart: 9,
-        paddingEnd: 9,
-        paddingTop: 3,
-        paddingBottom: 3,
-      }}
-    >
-      <Text style={{ fontFamily: fonts.body600, fontSize: 11.5, color: colors.mut }}>{label}</Text>
     </View>
   );
 }
@@ -198,173 +194,71 @@ function MoreGlyph({ color, size = 18 }: { color: string; size?: number }) {
 
 // ── MatchPoster (§4.14 item 1; the court-hero layout, 2026-10-10) ───────────
 
-/**
- * The top of the match screen: the day and branch, the time (and its end),
- * the category pill with the visibility and policy chips, the court with its
- * seats (passed in, with its own ids), then the seat count over a four-step
- * bar and the fill deadline as a pill (amber, stronger in its last 30
- * minutes). Not pressable.
- */
-export function MatchPoster({
-  time,
-  endTime,
-  when,
-  category,
-  chips,
-  seatsTaken,
-  seatsLine,
-  fillLine,
-  courtLine,
-  stateLine,
-  children,
-}: {
-  time: string;
-  /** "to 19:30". */
-  endTime?: string | null;
-  when: string;
-  category: MatchCategory;
-  chips: readonly string[];
-  seatsTaken: number;
-  seatsLine: string;
-  fillLine?: { text: string; urgent: boolean } | null;
-  courtLine?: string | null;
-  /** An ended match's §4.15 line. */
-  stateLine?: string | null;
-  children: ReactNode;
-}) {
-  const { dir } = useLocale();
-  const { colors, fonts, tracking } = useTheme();
-  const rtl = dir === 'rtl';
-  return (
-    <View style={{ gap: space.m }}>
-      <View style={{ gap: 6 }}>
-        <Text
-          style={{
-            fontFamily: fonts.display800,
-            fontSize: 12,
-            letterSpacing: rtl ? 0 : tracking(0.6),
-            textTransform: rtl ? 'none' : 'uppercase',
-            color: colors.fnt,
-          }}
-        >
-          {when}
-        </Text>
-        <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 10 }}>
-          <Text
-            style={{
-              fontFamily: fonts.display900,
-              fontSize: 44,
-              lineHeight: rtl ? 60 : 48,
-              color: colors.ink,
-            }}
-          >
-            {time}
-          </Text>
-          {endTime ? (
-            <Text style={{ fontFamily: fonts.body700, fontSize: 16, color: colors.mut }}>{endTime}</Text>
-          ) : null}
-        </View>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>
-          <CategoryPill category={category} />
-          {chips.map((c) => (
-            <InfoChip key={c} label={c} />
-          ))}
-        </View>
-      </View>
-
-      {children}
-
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm }}>
-        <View style={{ flex: 1, gap: 6 }}>
-          <Text style={{ fontFamily: fonts.body800, fontSize: 14.5, color: colors.ink }}>{seatsLine}</Text>
-          <View style={{ flexDirection: 'row', gap: 4 }} accessible={false}>
-            {Array.from({ length: SEATS_TOTAL }, (_, i) => (
-              <View
-                key={i}
-                style={{
-                  flex: 1,
-                  height: 6,
-                  borderRadius: 3,
-                  backgroundColor: i < seatsTaken ? colors.gstrong : colors.seg,
-                }}
-              />
-            ))}
-          </View>
-        </View>
-        {fillLine ? (
-          <View
-            style={{
-              flexShrink: 1,
-              maxWidth: '55%',
-              flexDirection: 'row',
-              alignItems: 'center',
-              gap: 5,
-              backgroundColor: colors.amb,
-              borderWidth: 1,
-              borderColor: fillLine.urgent ? colors.ambstrong : colors.ambline,
-              borderRadius: radius.pill,
-              paddingStart: 10,
-              paddingEnd: 10,
-              paddingTop: 6,
-              paddingBottom: 6,
-            }}
-          >
-            <ClockIcon size={13} color={colors.ambstrong} strokeWidth={2.4} />
-            <Text
-              style={{
-                flexShrink: 1,
-                fontFamily: fillLine.urgent ? fonts.body800 : fonts.body700,
-                fontSize: 12,
-                color: colors.ambtext,
-              }}
-            >
-              {fillLine.text}
-            </Text>
-          </View>
-        ) : null}
-      </View>
-      {courtLine ? (
-        <Text style={{ fontFamily: fonts.body700, fontSize: 13, color: colors.gtext, marginTop: -6 }}>
-          {courtLine}
-        </Text>
-      ) : null}
-      {stateLine ? (
-        <Text style={{ fontFamily: fonts.body600, fontSize: 13, color: colors.mut2, marginTop: -6 }}>
-          {stateLine}
-        </Text>
-      ) : null}
-    </View>
-  );
-}
-
 // ── The court drawing (the list card and the match screen) ──────────────────
 
 /**
  * A padel court drawn to its 2:1: the walls, the service lines a quarter in
  * from each end, the centre line between them and the net with its posts.
  * Whatever stands on it is `children`, placed by fractions of the same box.
+ *
+ * `bare` is just the field (the match screen): no walls round it, no padding,
+ * no posts at the ends of the net, and the turf's own corners rounded, so the
+ * lines run out to the edge of the turf. Its service lines run through the
+ * middle of the open-seat spots (`SERVICE_LINE_AT`), as the old court's did.
  */
-function CourtLines({ pad, children }: { pad: number; children: ReactNode }) {
+function CourtLines({
+  pad,
+  bare = false,
+  children,
+}: {
+  pad: number;
+  bare?: boolean;
+  children?: ReactNode;
+}) {
   const { colors } = useTheme();
   const line = colors.crtLine;
   const net = colors.crtShadow;
+  const service = bare ? SERVICE_LINE_AT : '24%';
   return (
-    <View style={{ backgroundColor: colors.crtTurf, borderRadius: radius.cell, padding: pad }}>
+    <View
+      style={{
+        backgroundColor: colors.crtTurf,
+        borderRadius: bare ? radius.card : radius.cell,
+        padding: bare ? 0 : pad,
+        overflow: bare ? 'hidden' : 'visible',
+      }}
+    >
       <View style={{ aspectRatio: 2 }}>
-        <View style={{ position: 'absolute', top: 0, bottom: 0, start: 0, end: 0, borderWidth: 2, borderColor: line }} />
-        <View style={{ position: 'absolute', top: 0, bottom: 0, start: '24%', width: 2, marginStart: -1, backgroundColor: line }} />
-        <View style={{ position: 'absolute', top: 0, bottom: 0, end: '24%', width: 2, marginEnd: -1, backgroundColor: line }} />
-        <View style={{ position: 'absolute', top: '50%', start: '24%', end: '24%', height: 2, marginTop: -1, backgroundColor: line }} />
-        <View style={{ position: 'absolute', top: -5, bottom: -5, start: '50%', width: 3, marginStart: -1.5, backgroundColor: net }} />
-        <View style={{ position: 'absolute', top: -6, start: '50%', width: 7, height: 7, marginStart: -3.5, borderRadius: 2, backgroundColor: net }} />
-        <View style={{ position: 'absolute', bottom: -6, start: '50%', width: 7, height: 7, marginStart: -3.5, borderRadius: 2, backgroundColor: net }} />
+        {bare ? null : (
+          <View style={{ position: 'absolute', top: 0, bottom: 0, start: 0, end: 0, borderWidth: 2, borderColor: line }} />
+        )}
+        <View style={{ position: 'absolute', top: 0, bottom: 0, start: service, width: 2, marginStart: -1, backgroundColor: line }} />
+        <View style={{ position: 'absolute', top: 0, bottom: 0, end: service, width: 2, marginEnd: -1, backgroundColor: line }} />
+        <View style={{ position: 'absolute', top: '50%', start: service, end: service, height: 2, marginTop: -1, backgroundColor: line }} />
+        <View
+          style={{
+            position: 'absolute',
+            top: bare ? 0 : -5,
+            bottom: bare ? 0 : -5,
+            start: '50%',
+            width: 3,
+            marginStart: -1.5,
+            backgroundColor: net,
+          }}
+        />
+        {bare ? null : (
+          <>
+            <View style={{ position: 'absolute', top: -6, start: '50%', width: 7, height: 7, marginStart: -3.5, borderRadius: 2, backgroundColor: net }} />
+            <View style={{ position: 'absolute', bottom: -6, start: '50%', width: 7, height: 7, marginStart: -3.5, borderRadius: 2, backgroundColor: net }} />
+          </>
+        )}
         {children}
       </View>
     </View>
   );
 }
 
-/** A taken seat's marker glyph: a figure, never a name or a face. */
+/** A taken seat's marker glyph on the list card's little court: a figure, never a name or a face. */
 function SeatFigure({ size, color }: { size: number; color: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -374,26 +268,82 @@ function SeatFigure({ size, color }: { size: number; color: string }) {
   );
 }
 
-// ── SeatGrid (§4.14 item 1, §4.9) ───────────────────────────────────────────
-
-/** Seat n's place on the court: two a side, standing on the service lines. */
-const SEAT_PLACES = [
-  { start: '24%', top: '22%' },
-  { start: '24%', top: '72%' },
-  { start: '76%', top: '22%' },
-  { start: '76%', top: '72%' },
-] as const;
-const SEAT_SIZE = 44;
-const SEAT_LABEL_WIDTH = 140;
+/**
+ * The app's own padel racket, rendered from the join court's scene
+ * (scripts/render-racket.mjs), head to the left and handle toward the net. The
+ * head sits `RACKET_HEAD_SHIFT` points off the picture's centre; a seat on the
+ * court's right side shows it mirrored.
+ */
+const RACKET_IMAGE = require('../../assets/court/racket.png') as number;
+const RACKET_SIZE = 64;
+const RACKET_HEAD_SHIFT = 12.6;
 
 /**
- * The four seats on the court, each a marker with its name under it, printed
- * by `displaySeat` ("Ahmed K.", "Ahmed K. +1", "Former player", "Open seat ·
- * taking a player") or "Open seat". Seat `n` is `${testID}.<n>`; a seat the
- * viewer can act on (the server's `seats[].can`, or the viewer's own friend
- * seat) makes its marker a button at `${testID}.<n>.menu`, with a "•••" badge.
+ * A taken seat's marker: that racket, its head on the seat, never a name or a
+ * face. The viewer's own has a lime ring round its head.
  */
-export function SeatGrid({
+function SeatRacket({ size, mine, flip }: { size: number; mine: boolean; flip: boolean }) {
+  return (
+    <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
+      {mine ? (
+        <View
+          style={{
+            position: 'absolute',
+            width: size - 4,
+            height: size - 4,
+            borderRadius: (size - 4) / 2,
+            borderWidth: 2.5,
+            borderColor: brand.green,
+          }}
+        />
+      ) : null}
+      <Image
+        source={RACKET_IMAGE}
+        accessible={false}
+        style={{
+          position: 'absolute',
+          width: RACKET_SIZE,
+          height: RACKET_SIZE,
+          transform: [{ translateX: flip ? -RACKET_HEAD_SHIFT : RACKET_HEAD_SHIFT }, { scaleX: flip ? -1 : 1 }],
+        }}
+      />
+    </View>
+  );
+}
+
+// ── The match's court (§4.14 item 1, §4.9) ──────────────────────────────────
+
+const SEAT_SIZE = 44;
+const SEAT_LABEL_WIDTH = 140;
+/** The court's length in metres, which the join court's camera fits `TOP_VIEW.span` metres around. */
+const COURT_METRES = 20;
+/**
+ * Where a bare court's service lines stand, in from each end: through the middle
+ * of the open-seat spots, which the join court puts 6.05 m from the net.
+ */
+const SERVICE_LINE_AT = `${((0.5 - Math.abs(seatSpot(0, false).z) / COURT_METRES) * 100).toFixed(2)}%`;
+
+/**
+ * The match's court: the flat field (turf with round corners, the net, the
+ * service lines), the join court's rackets over it, and the four seats' name
+ * tags, menus and open spots in the page's own layer.
+ *
+ * The rackets are the Play tab's join court (packages/court3d, `join` scene) on
+ * a TRANSPARENT surface with no field of its own (`overlay`): one racket per
+ * taken seat, passing one ball between them as they do there. The court claims
+ * a seat COUNT only, so the taken seats stand in seat order (`courtPlaces`).
+ * The surface is framed so the scene's 20 m court lies exactly on the flat
+ * one, and each seat's mark and menu target is laid where the scene's own
+ * camera puts it (`projectTop`). A phone with no GL draws the same rackets as
+ * a still picture (SeatRacket) on the same seats.
+ *
+ * Seat `n` is `${testID}.<n>`; a seat the viewer can act on (the server's
+ * `seats[].can`, or the viewer's own friend seat) gets a menu button at
+ * `${testID}.<n>.menu`, with a "•••" badge. Names are `displaySeat`'s ("Ahmed
+ * K.", "Ahmed K. +1", "Former player", "Open seat · taking a player") or "Open
+ * seat".
+ */
+export function MatchRallyCourt({
   testID,
   seats,
   category,
@@ -406,40 +356,123 @@ export function SeatGrid({
   hasMenu?: (seat: MatchSeat) => boolean;
   onMenu?: (seat: MatchSeat, label: string) => void;
 }) {
-  const { t } = useLocale();
-  // A seat sits at its own number; any seat whose number is out of range (or
-  // taken twice) fills the first empty place, so four seats always show.
-  const cells: (MatchSeat | null)[] = Array.from({ length: SEATS_TOTAL }, () => null);
-  const spill: MatchSeat[] = [];
-  for (const s of seats) {
-    const i = s.seatNo - 1;
-    if (i >= 0 && i < SEATS_TOTAL && cells[i] === null) cells[i] = s;
-    else spill.push(s);
-  }
-  for (const s of spill) {
-    const i = cells.indexOf(null);
-    if (i >= 0) cells[i] = s;
-  }
+  const { t, dir } = useLocale();
+  const mirror = dir === 'rtl';
+  const { width: windowWidth } = useWindowDimensions();
+  // Until the card is measured: the screen less the page's and the card's padding.
+  const [laid, setLaid] = useState<number | null>(null);
+  const width = laid ?? Math.max(0, windowWidth - 4 * space.m);
+  const [glOff, setGlOff] = useState(false);
+  const places = courtPlaces(seats);
+  const taken = places.filter((p) => p !== null && !p.open).length;
+  const frame = useMemo(() => {
+    if (width <= 0) return null;
+    // The stage is wider than the court by the camera's margin, centred on it.
+    const stageWidth = (width * TOP_VIEW.span) / COURT_METRES;
+    const stage = topStageFor(stageWidth, 6);
+    const centre = (stage.height * (1 - TOP_VIEW.raise)) / 2;
+    const points = [0, 1, 2, 3].map((place) => {
+      const at = seatSpot(place, mirror);
+      const px = projectTop({ x: at.x, y: 0, z: at.z }, stageWidth, stage.height);
+      // `start` is the reading start: the right edge in Arabic. The court never flips.
+      return { place, start: mirror ? stageWidth - px.x : px.x, top: px.y, onLeft: px.x < stageWidth / 2 };
+    });
+    return {
+      stageWidth,
+      height: stage.height,
+      offset: (stageWidth - width) / 2,
+      top: width / 4 - centre,
+      points,
+    };
+  }, [width, mirror]);
   return (
-    <View testID={testID}>
-      <CourtLines pad={12}>
-        {cells.map((seat, index) => {
-          const n = index + 1;
-          const label = seat ? displaySeat(seat, category, t, seats) : t('matches.common.openSeat');
-          const menu = seat && onMenu && hasMenu?.(seat);
-          return (
-            <SeatSpot
-              key={n}
-              testID={`${testID}.${n}`}
-              menuTestID={`${testID}.${n}.menu`}
-              place={SEAT_PLACES[index]!}
-              label={label}
-              seat={seat}
-              onMenu={menu ? () => onMenu(seat, label) : undefined}
+    <View testID={testID} onLayout={(e) => setLaid(Math.round(e.nativeEvent.layout.width))}>
+      <CourtLines pad={0} bare />
+      {frame ? (
+        <View
+          pointerEvents="box-none"
+          style={{
+            position: 'absolute',
+            start: -frame.offset,
+            top: frame.top,
+            width: frame.stageWidth,
+            height: frame.height,
+          }}
+        >
+          {glOff ? null : (
+            <CourtStage
+              overlay
+              scene="join"
+              join={{ taken, spots: false, mirror }}
+              top={0}
+              height={frame.height}
+              onUnavailable={() => setGlOff(true)}
             />
-          );
-        })}
-      </CourtLines>
+          )}
+          {frame.points.map((pt) => {
+            const seat = places[pt.place] ?? null;
+            const n = pt.place + 1;
+            const label = seat ? displaySeat(seat, category, t, seats) : t('matches.common.openSeat');
+            const menu = seat && onMenu && hasMenu?.(seat);
+            return (
+              <SeatSpot
+                key={n}
+                testID={`${testID}.${n}`}
+                menuTestID={`${testID}.${n}.menu`}
+                place={{ start: pt.start, top: pt.top }}
+                label={label}
+                seat={seat}
+                flip={!pt.onLeft}
+                racket={glOff}
+                onMenu={menu ? () => onMenu(seat, label) : undefined}
+              />
+            );
+          })}
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+/**
+ * A seat's name tag: navy with white type for a player (the viewer's own gets
+ * "You" in front), white with blue type for an open seat. The flat grid and
+ * the join court print the same tag.
+ */
+function SeatLabel({ label, taken, mine }: { label: string; taken: boolean; mine: boolean }) {
+  const { t } = useLocale();
+  const { colors, fonts } = useTheme();
+  return (
+    <View
+      style={{
+        maxWidth: SEAT_LABEL_WIDTH,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+        backgroundColor: taken ? colors.crtShadow : colors.card,
+        borderRadius: radius.pill,
+        paddingStart: 8,
+        paddingEnd: 8,
+        paddingTop: 2,
+        paddingBottom: 2,
+      }}
+    >
+      {mine ? (
+        <Text style={{ fontFamily: fonts.body800, fontSize: 11, color: colors.gline }}>
+          {t('matches.common.you')}
+        </Text>
+      ) : null}
+      <Text
+        numberOfLines={1}
+        style={{
+          flexShrink: 1,
+          fontFamily: fonts.body800,
+          fontSize: 11,
+          color: taken ? colors.crtLine : colors.blue,
+        }}
+      >
+        {label}
+      </Text>
     </View>
   );
 }
@@ -450,17 +483,23 @@ function SeatSpot({
   place,
   label,
   seat,
+  flip,
+  racket,
   onMenu,
 }: {
   testID: string;
   menuTestID: string;
-  place: (typeof SEAT_PLACES)[number];
+  place: { start: number; top: number };
   label: string;
   seat: MatchSeat | null;
+  /** The still racket faces the net: mirrored on the court's right side. */
+  flip: boolean;
+  /** Draw the still racket on a taken seat (no GL court is drawing it). */
+  racket: boolean;
   onMenu?: () => void;
 }) {
   const { t } = useLocale();
-  const { colors, fonts } = useTheme();
+  const { colors } = useTheme();
   const taken = seat !== null && !seat.open;
   const mine = seat?.isMe === true;
   const marker = (
@@ -468,20 +507,20 @@ function SeatSpot({
       style={{
         width: SEAT_SIZE,
         height: SEAT_SIZE,
-        borderRadius: SEAT_SIZE / 2,
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: taken ? colors.gstrong : colors.card,
-        borderWidth: mine ? 3 : 2.5,
-        borderStyle: taken ? 'solid' : 'dashed',
-        borderColor: mine ? colors.blue : taken ? colors.crtLine : colors.blue,
+        ...(taken
+          ? null
+          : {
+              borderRadius: SEAT_SIZE / 2,
+              backgroundColor: colors.card,
+              borderWidth: 2.5,
+              borderStyle: 'dashed' as const,
+              borderColor: colors.blue,
+            }),
       }}
     >
-      {taken ? (
-        <SeatFigure size={20} color={colors.crtLine} />
-      ) : (
-        <PlusIcon size={18} color={colors.blue} strokeWidth={3} />
-      )}
+      {taken ? racket ? <SeatRacket size={SEAT_SIZE} mine={mine} flip={flip} /> : null : <PlusIcon size={18} color={colors.blue} strokeWidth={3} />}
       {onMenu ? (
         <View
           style={{
@@ -531,105 +570,7 @@ function SeatSpot({
       ) : (
         marker
       )}
-      <View
-        style={{
-          maxWidth: SEAT_LABEL_WIDTH,
-          flexDirection: 'row',
-          alignItems: 'center',
-          gap: 4,
-          backgroundColor: taken ? colors.crtShadow : colors.card,
-          borderRadius: radius.pill,
-          paddingStart: 8,
-          paddingEnd: 8,
-          paddingTop: 2,
-          paddingBottom: 2,
-        }}
-      >
-        {mine ? (
-          <Text style={{ fontFamily: fonts.body800, fontSize: 11, color: colors.gline }}>
-            {t('matches.common.you')}
-          </Text>
-        ) : null}
-        <Text
-          numberOfLines={1}
-          style={{
-            flexShrink: 1,
-            fontFamily: fonts.body800,
-            fontSize: 11,
-            color: taken ? colors.crtLine : colors.blue,
-          }}
-        >
-          {label}
-        </Text>
-      </View>
-    </View>
-  );
-}
-
-// ── MatchInfoCard (the match screen, before a guest takes a seat) ───────────
-
-/**
- * What joining means, in three lines with a glyph each: the share at the
- * desk, the ticket held while they play, and when the court is booked.
- * Not pressable.
- */
-export function MatchInfoCard({
-  rows,
-}: {
-  rows: readonly { key: 'share' | 'ticket' | 'court'; title: string; body: string }[];
-}) {
-  const { colors, fonts } = useTheme();
-  const tone = {
-    share: { bg: colors.gtint, fg: colors.gstrong, Icon: CardIcon },
-    ticket: { bg: colors.tint, fg: colors.blue, Icon: TagIcon },
-    court: { bg: colors.sub, fg: colors.mut2, Icon: CalendarIcon },
-  } as const;
-  return (
-    <View
-      style={{
-        backgroundColor: colors.card,
-        borderWidth: 1,
-        borderColor: colors.line,
-        borderRadius: radius.card,
-      }}
-    >
-      {rows.map((r, i) => {
-        const { bg, fg, Icon } = tone[r.key];
-        return (
-          <View
-            key={r.key}
-            style={{
-              flexDirection: 'row',
-              gap: 12,
-              paddingStart: space.m,
-              paddingEnd: space.m,
-              paddingTop: 14,
-              paddingBottom: 14,
-              borderTopWidth: i === 0 ? 0 : StyleSheet.hairlineWidth,
-              borderTopColor: colors.line,
-            }}
-          >
-            <View
-              style={{
-                width: 32,
-                height: 32,
-                borderRadius: 10,
-                backgroundColor: bg,
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <Icon size={16} color={fg} strokeWidth={2.2} />
-            </View>
-            <View style={{ flex: 1, gap: 2 }}>
-              <Text style={{ fontFamily: fonts.body800, fontSize: 14, color: colors.ink }}>{r.title}</Text>
-              <Text style={{ fontFamily: fonts.body600, fontSize: 12.5, lineHeight: 18, color: colors.mut }}>
-                {r.body}
-              </Text>
-            </View>
-          </View>
-        );
-      })}
+      <SeatLabel label={label} taken={taken} mine={mine} />
     </View>
   );
 }
@@ -1050,11 +991,14 @@ export function messageLabelKey(code: MessageCode): MessageKey {
  */
 export function QuickMessageBar({
   testID,
+  codes = MESSAGE_CODES,
   resting,
   busy,
   onSend,
 }: {
   testID: string;
+  /** The presets to offer, in this order (the screen holds one back for now). */
+  codes?: readonly MessageCode[];
   resting: ReadonlySet<MessageCode>;
   busy: MessageCode | null;
   onSend: (code: MessageCode) => void;
@@ -1063,7 +1007,7 @@ export function QuickMessageBar({
   const { colors, fonts } = useTheme();
   return (
     <View testID={testID} style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-      {MESSAGE_CODES.map((code) => {
+      {codes.map((code) => {
         const disabled = resting.has(code) || busy !== null;
         return (
           <Pressable
@@ -1199,6 +1143,37 @@ const RULES: readonly MessageKey[] = [
   'matches.detail.courtRule',
 ];
 
+/**
+ * The numbered rules: the wallet's seven, then the court rule, with any `extra`
+ * lines the caller puts first (the explanations that used to sit on the match
+ * screen as hints).
+ */
+export function MatchRulesList({ extra = [] }: { extra?: readonly string[] }) {
+  const { t } = useLocale();
+  const { colors, fonts } = useTheme();
+  const lines = [...extra, ...RULES.map((key) => t(key))];
+  return (
+    <View style={{ gap: 8 }}>
+      {lines.map((line, i) => (
+        <View key={i} style={{ flexDirection: 'row', gap: 8 }}>
+          <Text style={{ fontFamily: fonts.body800, fontSize: 13, color: colors.gtext }}>{i + 1}</Text>
+          <Text
+            style={{
+              flex: 1,
+              fontFamily: fonts.body400,
+              fontSize: 13,
+              lineHeight: 20,
+              color: colors.mut2,
+            }}
+          >
+            {line}
+          </Text>
+        </View>
+      ))}
+    </View>
+  );
+}
+
 /** "How open matches work", folded until the guest opens it (`${testID}.toggle`). */
 export function MatchRulesCard({ testID }: { testID: string }) {
   const { t, dir } = useLocale();
@@ -1243,24 +1218,7 @@ export function MatchRulesCard({ testID }: { testID: string }) {
         <View
           style={{ paddingStart: space.m, paddingEnd: space.m, paddingBottom: space.m, gap: 8 }}
         >
-          {RULES.map((key, i) => (
-            <View key={key} style={{ flexDirection: 'row', gap: 8 }}>
-              <Text style={{ fontFamily: fonts.body800, fontSize: 12.5, color: colors.gtext }}>
-                {i + 1}
-              </Text>
-              <Text
-                style={{
-                  flex: 1,
-                  fontFamily: fonts.body400,
-                  fontSize: 12.5,
-                  lineHeight: 19,
-                  color: colors.mut2,
-                }}
-              >
-                {t(key)}
-              </Text>
-            </View>
-          ))}
+          <MatchRulesList />
         </View>
       ) : null}
     </View>
@@ -1418,31 +1376,348 @@ export function MatchNotice({ text, tone = 'amber' }: { text: string; tone?: 'am
   );
 }
 
-/** A section heading inside a match screen. */
+/** A group title inside a match screen: sentence case, large and bold. */
 export function MatchSectionTitle({ children }: { children: ReactNode }) {
-  const { colors, fonts, tracking } = useTheme();
+  const { colors, fonts } = useTheme();
   return (
+    <Text
+      accessibilityRole="header"
+      style={{
+        fontFamily: fonts.display800,
+        fontSize: 17,
+        lineHeight: 24,
+        color: colors.ink,
+        marginTop: space.xl,
+        marginBottom: space.s,
+        marginStart: 2,
+      }}
+    >
+      {children}
+    </Text>
+  );
+}
+
+// ── The match screen's tidy-up (2026-11-07) ─────────────────────────────────
+
+/** A grouped list, the iOS way: one card, a hairline between its rows. */
+export function ListGroup({ children }: { children: ReactNode }) {
+  const { colors } = useTheme();
+  const rows = Children.toArray(children);
+  return (
+    <View
+      style={{
+        backgroundColor: colors.card,
+        borderRadius: radius.card,
+        borderWidth: 1,
+        borderColor: colors.line,
+        overflow: 'hidden',
+      }}
+    >
+      {rows.map((row, i) => (
+        <View
+          key={isValidElement(row) && row.key !== null ? row.key : i}
+          style={{
+            borderTopWidth: i === 0 ? 0 : StyleSheet.hairlineWidth,
+            borderTopColor: colors.line,
+          }}
+        >
+          {row}
+        </View>
+      ))}
+    </View>
+  );
+}
+
+/**
+ * One row of a `ListGroup`: a bold label, then the value (or a control in
+ * `accessory`) at the end. With `onPress` the whole row is a button, and
+ * `chevron` says it opens something. `${testID}` is the row.
+ */
+export function ListRow({
+  testID,
+  label,
+  value,
+  accessory,
+  onPress,
+  chevron = false,
+}: {
+  testID: string;
+  label: string;
+  value?: string | null;
+  accessory?: ReactNode;
+  onPress?: () => void;
+  chevron?: boolean;
+}) {
+  const { colors, fonts } = useTheme();
+  const body = (
     <View
       style={{
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 8,
-        marginTop: space.xl,
-        marginBottom: space.s,
+        gap: space.sm,
+        minHeight: 52,
+        paddingStart: space.m,
+        paddingEnd: space.m,
+        paddingTop: 12,
+        paddingBottom: 12,
       }}
     >
-      <Text
-        style={{
-          fontFamily: fonts.display800,
-          fontSize: 11.5,
-          letterSpacing: tracking(0.6),
-          textTransform: 'uppercase',
-          color: colors.fnt,
-        }}
+      <Text style={{ fontFamily: fonts.body800, fontSize: 15, color: colors.ink }}>{label}</Text>
+      <View style={{ flex: 1, alignItems: 'flex-end' }}>
+        {accessory ??
+          (value ? (
+            <Text
+              numberOfLines={1}
+              style={{ fontFamily: fonts.body600, fontSize: 14, color: colors.mut }}
+            >
+              {value}
+            </Text>
+          ) : null)}
+      </View>
+      {chevron ? <ChevronIcon size={16} color={colors.fnt2} /> : null}
+    </View>
+  );
+  if (!onPress) return <View testID={testID}>{body}</View>;
+  return (
+    <Pressable
+      testID={testID}
+      accessibilityRole="button"
+      onPress={onPress}
+      style={({ pressed }) => ({ backgroundColor: pressed ? colors.sub : 'transparent' })}
+    >
+      {body}
+    </Pressable>
+  );
+}
+
+/**
+ * A native sheet over the match: a page sheet on iOS, the whole screen on
+ * Android. A title, Done (`${testID}.done`) and the body.
+ */
+export function MatchSheet({
+  testID,
+  visible,
+  title,
+  onClose,
+  children,
+}: {
+  testID: string;
+  visible: boolean;
+  title: string;
+  onClose: () => void;
+  children: ReactNode;
+}) {
+  const { t } = useLocale();
+  const { colors, fonts } = useTheme();
+  const insets = useSafeAreaInsets();
+  return (
+    <Modal
+      visible={visible}
+      animationType="slide"
+      presentationStyle={Platform.OS === 'ios' ? 'pageSheet' : 'fullScreen'}
+      onRequestClose={onClose}
+    >
+      <View testID={testID} style={{ flex: 1, backgroundColor: colors.bg }}>
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            paddingStart: space.l,
+            paddingEnd: space.l,
+            paddingTop: Platform.OS === 'ios' ? space.l : insets.top + space.s,
+            paddingBottom: space.sm,
+          }}
+        >
+          <Text accessibilityRole="header" style={{ fontFamily: fonts.display800, fontSize: 20, color: colors.ink }}>
+            {title}
+          </Text>
+          <Pressable testID={`${testID}.done`} accessibilityRole="button" hitSlop={12} onPress={onClose}>
+            <Text style={{ fontFamily: fonts.body800, fontSize: 16, color: colors.blue }}>{t('common.done')}</Text>
+          </Pressable>
+        </View>
+        <View style={{ flex: 1, paddingBottom: insets.bottom }}>{children}</View>
+      </View>
+    </Modal>
+  );
+}
+
+/** One message in the chat: who, what and when, already formatted. */
+export interface ChatBubble {
+  key: string;
+  name: string;
+  mine: boolean;
+  label: string;
+  time: string;
+}
+
+/**
+ * The match chat's body: the last messages as bubbles, a name above every one
+ * (the viewer's own says "You"), and, when the viewer may speak, the presets
+ * under them. No free text (OM-17).
+ */
+export function MatchChat({
+  testID,
+  bubbles,
+  canSend,
+  codes,
+  resting,
+  busy,
+  onSend,
+}: {
+  testID: string;
+  bubbles: readonly ChatBubble[];
+  canSend: boolean;
+  codes: readonly MessageCode[];
+  resting: ReadonlySet<MessageCode>;
+  busy: MessageCode | null;
+  onSend: (code: MessageCode) => void;
+}) {
+  const { t } = useLocale();
+  const { colors, fonts } = useTheme();
+  const scroller = useRef<ScrollViewInstance>(null);
+  return (
+    <View style={{ flex: 1 }}>
+      <ScrollView
+        ref={scroller}
+        testID={`${testID}.list`}
+        style={{ flex: 1 }}
+        contentContainerStyle={{ padding: space.l, gap: space.sm, flexGrow: 1 }}
+        onContentSizeChange={() => scroller.current?.scrollToEnd({ animated: false })}
       >
-        {children}
-      </Text>
-      <View style={{ flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: colors.line }} />
+        {bubbles.length === 0 ? (
+          <Text style={{ fontFamily: fonts.body400, fontSize: 14, color: colors.mut }}>
+            {t('matches.messages.empty')}
+          </Text>
+        ) : null}
+        {bubbles.map((b) => (
+          <View
+            key={b.key}
+            // Your own messages sit at the end (an auto start margin, logical in both
+            // directions); everyone else's at the start.
+            style={{ maxWidth: '82%', alignSelf: 'flex-start', gap: 3, marginStart: b.mine ? 'auto' : 0 }}
+          >
+            <Text style={{ fontFamily: fonts.body700, fontSize: 12, color: colors.mut, marginStart: 6 }}>
+              {b.name}
+            </Text>
+            <View
+              style={{
+                backgroundColor: b.mine ? brand.blue : colors.card,
+                borderWidth: b.mine ? 0 : 1,
+                borderColor: colors.line,
+                borderRadius: 18,
+                paddingStart: 14,
+                paddingEnd: 14,
+                paddingTop: 9,
+                paddingBottom: 9,
+              }}
+            >
+              <Text
+                style={{
+                  fontFamily: fonts.body600,
+                  fontSize: 15,
+                  color: b.mine ? brand.white : colors.ink,
+                }}
+              >
+                {b.label}
+              </Text>
+            </View>
+            <Text style={{ fontFamily: fonts.body600, fontSize: 11, color: colors.fnt, marginStart: 6 }}>
+              {b.time}
+            </Text>
+          </View>
+        ))}
+      </ScrollView>
+      {canSend ? (
+        <View
+          style={{
+            gap: space.s,
+            padding: space.l,
+            borderTopWidth: StyleSheet.hairlineWidth,
+            borderTopColor: colors.line,
+            backgroundColor: colors.card,
+          }}
+        >
+          <Text style={{ fontFamily: fonts.body600, fontSize: 12.5, color: colors.mut }}>
+            {t('matches.messages.sendHint')}
+          </Text>
+          <QuickMessageBar
+            testID={`${testID}.send`}
+            codes={codes}
+            resting={resting}
+            busy={busy}
+            onSend={onSend}
+          />
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+/**
+ * The match's green card: the start time, the day and branch, the court, then
+ * the seats left and the fill deadline. Black type on the brand green, in both
+ * themes. An ended match's §4.15 line (`stateLine`) and the booked court
+ * (`courtLine`) close it.
+ */
+export function MatchHero({
+  time,
+  endTime,
+  when,
+  seatsLine,
+  fillLine,
+  courtLine,
+  stateLine,
+  children,
+}: {
+  time: string;
+  /** "to 19:30". */
+  endTime?: string | null;
+  /** "Tomorrow · Erbil · Men only". */
+  when: string;
+  seatsLine: string;
+  fillLine?: { text: string; urgent: boolean } | null;
+  courtLine?: string | null;
+  stateLine?: string | null;
+  children: ReactNode;
+}) {
+  const { dir } = useLocale();
+  const { fonts } = useTheme();
+  const rtl = dir === 'rtl';
+  const ink = brand.greenInk;
+  return (
+    <View style={{ backgroundColor: brand.green, borderRadius: radius.card, padding: space.m, gap: space.sm }}>
+      <View style={{ gap: 2 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 10 }}>
+          <Text style={{ fontFamily: fonts.display900, fontSize: 40, lineHeight: rtl ? 56 : 46, color: ink }}>
+            {time}
+          </Text>
+          {endTime ? (
+            <Text style={{ fontFamily: fonts.body700, fontSize: 16, color: ink, opacity: 0.75 }}>{endTime}</Text>
+          ) : null}
+        </View>
+        <Text style={{ fontFamily: fonts.body700, fontSize: 14, color: ink, opacity: 0.8 }}>{when}</Text>
+      </View>
+      {children}
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space.sm }}>
+        <Text style={{ fontFamily: fonts.body800, fontSize: 14, color: ink }}>{seatsLine}</Text>
+        {fillLine ? (
+          <Text
+            style={{
+              flexShrink: 1,
+              fontFamily: fillLine.urgent ? fonts.body800 : fonts.body700,
+              fontSize: 13,
+              color: ink,
+            }}
+          >
+            {fillLine.text}
+          </Text>
+        ) : null}
+      </View>
+      {courtLine ? <Text style={{ fontFamily: fonts.body700, fontSize: 13, color: ink }}>{courtLine}</Text> : null}
+      {stateLine ? (
+        <Text style={{ fontFamily: fonts.body600, fontSize: 13, color: ink, opacity: 0.75 }}>{stateLine}</Text>
+      ) : null}
     </View>
   );
 }
