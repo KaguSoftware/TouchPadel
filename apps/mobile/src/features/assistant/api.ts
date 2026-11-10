@@ -19,19 +19,18 @@
 import { fetch as streamingFetch } from 'expo/fetch';
 import type { AssistantScope } from '@touch/core/assistant/tools';
 import { FREE_ASSISTANT_FN, type FreeAskBody } from '@touch/core/assistant/free';
+import { asModelsPayload, refusalCode, type ModelsPayload } from '@touch/core/assistant/client';
+import { freeRefusal } from '@touch/core/assistant/free-client';
+import { parseSseChunk, parseSseData } from '@touch/core/assistant/sse';
 import { supabase } from '../../lib/supabase';
 import {
   AssistantStreamError,
-  asModelsPayload,
-  refusalCode,
   asUsageSummary,
   type ConversationRow,
-  type ModelsPayload,
   type UsageSummary,
   type MessageRow,
 } from './chat';
-import { parseSseChunk, parseSseData } from './sse';
-import { FreeStreamError, freeRefusal } from './free';
+import { FreeStreamError } from './free';
 
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL ?? '';
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? '';

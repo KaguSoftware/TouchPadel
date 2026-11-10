@@ -144,26 +144,14 @@ export function frozenContext(input: ContextWant & { text: string; numbers: read
 }
 
 /**
- * Whether a lookup replays the stored first turn (its packs) or sends the
- * pack-less one: only on the model the context was built on. On another model
- * the packs would be a cold cache write a lookup does not need (review
- * 2026-10-08); the pack-less turn is deterministic, so back-to-back lookups
- * still share a prefix.
+ * Store a freshly built first turn only from a turn that finished: its signal
+ * was not aborted (the owner pressed Stop, or the 50 s wall) and it did not
+ * fail; otherwise it serves this turn only (review 2026-10-08). The rule once
+ * also required every context pack to have come back; packs are gone since
+ * 2026-10-09, and so is that field.
  */
-export function lookupReplays(ctx: FrozenContext, model: string): boolean {
-  return ctx.model === model;
-}
-
-/**
- * Store a freshly built first turn only when it is the whole truth: every
- * planned pack came back, the turn's signal was not aborted (the owner pressed
- * Stop, or the 50 s wall, which turns every in-flight pack into an error) and
- * the turn did not fail. A partial build is sent for this turn only, like a
- * lookup's pack-less turn, so one statement timeout costs one turn, not 30
- * minutes of a first turn missing its money pack (review 2026-10-08).
- */
-export function contextStorable(o: { packsFailed: number; aborted: boolean; turnFailed: boolean }): boolean {
-  return o.packsFailed === 0 && !o.aborted && !o.turnFailed;
+export function contextStorable(o: { aborted: boolean; turnFailed: boolean }): boolean {
+  return !o.aborted && !o.turnFailed;
 }
 
 // ---------------------------------------------------------------------------

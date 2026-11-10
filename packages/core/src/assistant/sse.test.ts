@@ -29,6 +29,11 @@ describe('parseSseChunk', () => {
     expect(rest).toBe('');
   });
 
+  it('reads lone-CR line endings and an event whose data is not JSON', () => {
+    const { events } = parseSseChunk(': keep-alive\r\revent: error\rdata: nope\r\r');
+    expect(events).toEqual([{ event: 'error', data: 'nope' }]);
+  });
+
   it('returns nothing for an empty buffer', () => {
     expect(parseSseChunk('')).toEqual({ events: [], rest: '' });
   });

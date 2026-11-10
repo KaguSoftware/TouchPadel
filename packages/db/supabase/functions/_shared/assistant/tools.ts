@@ -78,50 +78,6 @@ export const SCOPE_CHUNK_KINDS: Readonly<Record<AssistantScope, readonly string[
   files: [],
 };
 
-/**
- * The scope a page pre-checks when the drawer opens from it (longest prefix
- * wins). `howto` is always added by the caller.
- */
-export const ROUTE_SCOPES: readonly (readonly [prefix: string, scope: AssistantScope])[] = [
-  ['/analytics/cafe', 'cafe'],
-  ['/analytics/courts', 'courts'],
-  ['/reports/cafe', 'cafe'],
-  ['/reports/courts', 'courts'],
-  ['/reports/revenue', 'money'],
-  ['/reports/stock', 'stock'],
-  ['/reports/staff', 'staff'],
-  ['/panel', 'money'],
-  ['/financial', 'money'],
-  ['/till', 'cafe'],
-  ['/desk/customers', 'customers'],
-  ['/desk', 'courts'],
-  ['/observation/courts', 'courts'],
-  ['/observation/tills', 'cafe'],
-  ['/observation/requests', 'staff'],
-  ['/observation', 'system'],
-  ['/ops', 'system'],
-  ['/stock', 'stock'],
-  ['/admin/audit', 'audit'],
-  ['/admin/staff', 'staff'],
-  ['/admin/promotions', 'marketing'],
-  ['/marketing', 'marketing'],
-  ['/admin', 'settings'],
-  ['/setup', 'settings'],
-  ['/files', 'files'],
-];
-
-export function scopeForRoute(path: string): AssistantScope | null {
-  const bare = path.replace(/[?#].*$/, '').replace(/\/+$/, '') || '/';
-  let best: (readonly [string, AssistantScope]) | null = null;
-  for (const entry of ROUTE_SCOPES) {
-    const [prefix] = entry;
-    if (bare === prefix || bare.startsWith(`${prefix}/`)) {
-      if (!best || prefix.length > best[0].length) best = entry;
-    }
-  }
-  return best ? best[1] : null;
-}
-
 // ---------------------------------------------------------------------------
 // Argument and tool specs
 // ---------------------------------------------------------------------------
@@ -1090,8 +1046,6 @@ const BY_NAME: ReadonlyMap<string, ToolSpec> = new Map(ASSISTANT_TOOLS.map((t) =
 export function toolByName(name: string): ToolSpec | undefined {
   return BY_NAME.get(name);
 }
-
-export const CORE_TOOL_NAMES: readonly string[] = ASSISTANT_TOOLS.filter((t) => t.core).map((t) => t.name);
 
 /** The `app.*` names the dispatcher must have a branch for (rpc-backed tools only). */
 export const DISPATCHED_RPCS: readonly string[] = ASSISTANT_TOOLS.filter((t) => t.rpc).map((t) => t.rpc as string);

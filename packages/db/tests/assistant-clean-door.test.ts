@@ -5,7 +5,10 @@
  *   - an embeddings request body is built in embed.ts and nowhere else;
  *   - provider.ts types its tool results with `Cleaned` from clean.ts;
  *   - the Anthropic SDK is imported by provider.ts only (one adapter, §4.1);
- *   - the pure modules import neither `Deno` nor `npm:` (vitest must load them).
+ *   - the pure modules import neither `Deno` nor `npm:` (vitest must load them);
+ *   - neither the functions nor the Deno modules split out of assistant-chat
+ *     (runners.ts, persist.ts, reads.ts, 2026-11-09) call the vendor around
+ *     the provider or dispatch a tool on the service client.
  */
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
@@ -29,8 +32,10 @@ const files = [
     .flatMap((n) => walk(join(FUNCTIONS, n))),
 ].map((p) => ({ path: relative(FUNCTIONS, p).split(sep).join('/'), text: readFileSync(p, 'utf8') })); // POSIX separators on Windows too
 
-const PURE = ['tools', 'clean', 'handles', 'gate', 'estimate', 'sse', 'scopes', 'prompt', 'embed', 'recheck', 'pool', 'turnPolicy', 'turn'].map((m) => `_shared/assistant/${m}.ts`);
-const DENO = ['_shared/assistant/provider.ts', '_shared/assistant/map.ts', 'assistant-chat/index.ts', 'assistant-index/index.ts', 'assistant-job/index.ts'];
+const PURE = ['tools', 'clean', 'handles', 'gate', 'estimate', 'sse', 'scopes', 'prompt', 'embed', 'recheck', 'reuse', 'pool', 'turnPolicy', 'turn'].map((m) => `_shared/assistant/${m}.ts`);
+/** assistant-chat's own code, split out of its index.ts (2026-11-09): held to the same rules as the function. */
+const CHAT_MODULES = ['runners', 'persist', 'reads'].map((m) => `_shared/assistant/${m}.ts`);
+const DENO = ['_shared/assistant/provider.ts', '_shared/assistant/map.ts', ...CHAT_MODULES, 'assistant-chat/index.ts', 'assistant-index/index.ts', 'assistant-job/index.ts'];
 
 describe('the clean door', () => {
   it('scans the expected files', () => {
@@ -65,8 +70,8 @@ describe('the clean door', () => {
     }
   });
 
-  it('the three functions never call the vendor around the provider and never read business data with the service client', () => {
-    for (const p of DENO.filter((x) => x.startsWith('assistant-'))) {
+  it('the three functions and the chat modules never call the vendor around the provider and never read business data with the service client', () => {
+    for (const p of DENO.filter((x) => x.startsWith('assistant-') || CHAT_MODULES.includes(x))) {
       const f = files.find((x) => x.path === p)!;
       expect(f.text, `${p} calls api.anthropic.com`).not.toMatch(/api\.anthropic\.com/);
       // Business reads go through the JWT-bound client; the service client may

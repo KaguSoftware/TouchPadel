@@ -9,6 +9,7 @@ import {
   capMarker,
   clean,
   CleanError,
+  cleanedNotice,
   DATA_SENTENCE,
   fold,
   frame,
@@ -20,6 +21,7 @@ import {
   sourceForTool,
   sourceForToolName,
   toolResultBlock,
+  withNote,
   type CleanSource,
   type Row,
 } from '../supabase/functions/_shared/assistant/clean.ts';
@@ -381,5 +383,46 @@ describe('clean() edge cases', () => {
     const block = toolResultBlock('toolu_1', c);
     expect(block).toEqual({ type: 'tool_result', tool_use_id: 'toolu_1', content: c.text });
     expect(toolResultBlock('toolu_2', c, true).is_error).toBe(true);
+  });
+});
+
+describe('withNote (the degraded-search note, review 2026-11-09)', () => {
+  const spec = toolByName('search')!;
+  const rows = [
+    { kind: 'promotion', title: 'Annual membership', price_iqd: 4500000, route: '/admin/promotions' },
+    { kind: 'menu_item', title: 'Espresso', price_iqd: 3000, route: '/admin/menu', phone: '07701234567' },
+  ];
+  const note = 'Search ran on text only (no embedding provider).';
+
+  it("appends our sentence and keeps the result's figures, rows, columns, drops and redactions", () => {
+    const c = clean(sourceForTool(spec), rows, opts());
+    const n = withNote(c, note);
+    expect(n.text).toBe(`${c.text}\n${note}`);
+    expect(n.numbers).toEqual(c.numbers);
+    expect(n.numbers).toEqual(expect.arrayContaining([4500000, 3000]));
+    expect(n.stats).toMatchObject({ rows_in: c.stats.rows_in, rows_out: c.stats.rows_out, cols_in: c.stats.cols_in, cols_out: c.stats.cols_out, redacted: c.stats.redacted, dropped: c.stats.dropped, bytes_in: c.stats.bytes_in });
+    expect(n.stats.redacted).toBeGreaterThan(0);
+    expect(n.stats.bytes_out).toBeGreaterThan(c.stats.bytes_out);
+    expect(n.stats.tokens_est).toBe(Math.ceil(n.stats.bytes_out / 4));
+    expect(n.text).not.toContain('7701234567');
+  });
+
+  it("adds no figure of the note's own and leaves the original untouched", () => {
+    const c = clean(sourceForTool(spec), rows, opts());
+    const before = [...c.numbers];
+    const n = withNote(c, 'Note: 999999 is not a verified figure.');
+    expect(n.numbers).not.toContain(999999);
+    expect(c.numbers).toEqual(before);
+    expect(n.stats.dropped).not.toBe(c.stats.dropped);
+  });
+
+  it('cleanedNotice, by contrast, carries no figures: re-wrapping a result in it lost them all', () => {
+    const c = clean(sourceForTool(spec), rows, opts());
+    expect(cleanedNotice(`${c.text}\n${note}`).numbers).toEqual([]);
+  });
+
+  it('goes through toolResultBlock like any cleaned value', () => {
+    const n = withNote(clean(sourceForTool(spec), rows, opts()), note);
+    expect(toolResultBlock('toolu_9', n).content).toBe(n.text);
   });
 });

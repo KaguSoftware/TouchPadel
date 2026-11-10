@@ -1,10 +1,15 @@
 /**
- * Server-sent events, parsed by hand (build-contracts §Lane D). `streamEdge`
- * reads the response body in chunks that end anywhere — mid-line, mid-JSON —
- * so the parser takes the whole buffer so far and hands back every COMPLETE
- * event plus the unfinished tail to prepend to the next chunk.
+ * Server-sent events, parsed by hand (build-contracts §Lane D). The operator's
+ * `streamEdge` and the phone's `expo/fetch` reader both get the response body
+ * in chunks that end anywhere — mid-line, mid-JSON — so the parser takes the
+ * whole buffer so far and hands back every COMPLETE event plus the unfinished
+ * tail to prepend to the next chunk.
  *
- * Pure: no DOM, no fetch, so vitest runs it under node.
+ * The frames are the edge functions' (`sseFrame` in
+ * packages/db/supabase/functions/_shared/assistant/sse.ts, which Deno keeps
+ * apart: it cannot import a workspace package). Both apps read them here.
+ *
+ * Pure: no imports, no DOM, no fetch, so vitest runs it under node.
  */
 
 export interface SseEvent {

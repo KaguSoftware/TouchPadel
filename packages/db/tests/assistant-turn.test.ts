@@ -26,7 +26,7 @@
  * Pure: no database, no network, no SDK (turn.ts never loads provider.ts).
  */
 import { describe, expect, it, vi } from 'vitest';
-import { clean, cleanedNotice, sourceForTool, type CleanedToolResult } from '../supabase/functions/_shared/assistant/clean.ts';
+import { clean, cleanedNotice, sourceForTool, withNote, type CleanedToolResult } from '../supabase/functions/_shared/assistant/clean.ts';
 import { numbersIn, retryMessage } from '../supabase/functions/_shared/assistant/gate.ts';
 import { newHandleTable } from '../supabase/functions/_shared/assistant/handles.ts';
 import { MAX_TOOL_ROUNDS, toolByName, type AssistantScope, type ToolSpec } from '../supabase/functions/_shared/assistant/tools.ts';
@@ -633,6 +633,28 @@ describe('the round loop: gate retry', () => {
     const uncited = harness([answer('A nearby club charges 2,750,000 IQD a month.'), answer('I do not know.')]);
     await uncited.run();
     expect(uncited.state.gateRetried).toBe(true);
+  });
+
+  it('a text-only search (embedding down) keeps its figures: withNote passes the gate, the old cleanedNotice re-wrap retried (review 2026-11-09)', async () => {
+    // assistant-chat runSearch's degraded branch: the cleaned rows plus the note.
+    const search = toolByName('search')!;
+    const rows = [{ kind: 'promotion', title: 'Annual membership', price_iqd: 4500000, route: '/admin/promotions' }];
+    const cleaned = clean(sourceForTool(search), rows, { ...OPTS, handles: newHandleTable(null) });
+    const note = 'Search ran on text only (no embedding provider).';
+    const script = () => [tools([toolUse('s1', 'search', { query: 'membership price' })]), answer('The annual membership is 4,500,000 IQD.'), answer('I do not have it.')];
+
+    const kept = harness(script(), { runTool: async () => ({ cleaned: withNote(cleaned, note), isError: false, row_count: 1 }) });
+    await kept.run();
+    expect(kept.sent).toHaveLength(2); // the tool round and the answer, no paid retry
+    expect(kept.state.allowed).toContain(4500000);
+    expect(kept.state.gate?.status).toBe('ok');
+    expect(kept.state.gateRetried).toBe(false);
+    expect(toolResults(kept.sent[1]!.at(-1))[0]!.content).toContain(note);
+
+    const lost = harness(script(), { runTool: async () => ({ cleaned: cleanedNotice(`${cleaned.text}\n${note}`), isError: false, row_count: 1 }) });
+    await lost.run();
+    expect(lost.state.allowed).not.toContain(4500000);
+    expect(lost.state.gateRetried).toBe(true);
   });
 
   it('a false refusal and a gate retry in one message: two reset deltas, three calls', async () => {

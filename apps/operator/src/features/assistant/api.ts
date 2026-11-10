@@ -16,6 +16,16 @@
  * with no other change.
  */
 import type { AssistantScope } from '@touch/core/assistant/tools';
+import {
+  asModelsPayload,
+  sourcesOf as readSources,
+  type ConversationRow,
+  type DateRange,
+  type JobEstimate,
+  type MessageRow,
+  type ModelsPayload,
+  type StoredSources,
+} from '@touch/core/assistant/client';
 import { toAppRpcError } from '../../lib/appRpc';
 import { callEdge, streamEdge, type StreamEdgeOptions } from '../../lib/edge';
 import { supabase } from '../../lib/supabase';
@@ -33,104 +43,30 @@ function scopeField(): { venue_scope?: string } {
 import type { PricingMap, TokenKinds } from '../../lib/assistantPricing';
 
 // ---------------------------------------------------------------------------
-// Rows (0108) and payloads (assistant-chat SSE, estimate.ts)
+// Rows (0108) and payloads (assistant-chat SSE, estimate.ts): one copy, in
+// @touch/core/assistant/client, shared with the phone.
 // ---------------------------------------------------------------------------
 
-export interface DateRange {
-  from: string;
-  to: string;
-}
-
-export interface ConversationRow {
-  id: string;
-  owner_id: string;
-  title: string | null;
-  scopes: string[];
-  range: DateRange | null;
-  /** 0114: this chat's model, or null to follow the venue default. */
-  model: string | null;
-  tokens: Partial<TokenKinds> & { cost_micros?: number; calls?: number; model?: string };
-  created_at: string;
-  updated_at: string | null;
-  archived_at: string | null;
-}
+export type {
+  AssistantErrorCode,
+  ConversationRow,
+  DateRange,
+  EstimateTokens,
+  GatePayload,
+  JobEstimate,
+  JobEstimateModes,
+  JobEstimateStep,
+  MessageRow,
+  ModelsPayload,
+  SourceItem,
+  UsagePayload,
+} from '@touch/core/assistant/client';
+export { textOfContent } from '@touch/core/assistant/client';
 
 export type JobStatus = 'estimated' | 'accepted' | 'running' | 'reducing' | 'done' | 'failed' | 'cancelled' | 'over_estimate';
 export type JobMode = 'live' | 'batch';
 
 export const TERMINAL_JOB_STATUSES: readonly JobStatus[] = ['done', 'failed', 'cancelled'];
-
-export interface SourceItem {
-  call_id: string;
-  name: string;
-  args: Record<string, unknown>;
-  row_count: number | null;
-  ms: number | null;
-  route: string | null;
-  error?: string;
-  stats?: Record<string, unknown>;
-}
-
-export interface GatePayload {
-  status: 'ok' | 'unverified';
-  unverified: { raw: string; value: number }[];
-  checked: number;
-  retried?: boolean;
-  /** Every number the tools gave that turn — the re-check baseline (stored messages only). */
-  numbers?: number[];
-}
-
-export interface UsagePayload extends TokenKinds {
-  cost_micros: number;
-  calls: number;
-  model: string;
-}
-
-export interface MessageRow {
-  id: string;
-  conversation_id: string;
-  seq: number;
-  role: 'user' | 'assistant';
-  /** Stored content blocks verbatim, or a bare string for a user turn. */
-  content: unknown;
-  sources: (SourceItem | { job_id: string })[] | { items?: SourceItem[]; scopes?: string[] } | null;
-  gate: GatePayload | null;
-  tokens: Partial<UsagePayload> | null;
-  created_at: string;
-}
-
-export interface JobEstimateModes {
-  aggregate: { calls: { tool: string; args: Record<string, unknown> }[]; tokens_est: number } | null;
-  live: { allowed: boolean; reason?: string };
-  batch: { allowed: true };
-}
-
-export type EstimateTokens = { input: number; cache_read: number; output: number; total: number };
-
-/** One step of a job at one model (estimate.ts EstimateStep); `model: null` is the chat's own model. */
-export interface JobEstimateStep {
-  model: string | null;
-  tokens: EstimateTokens;
-  tokens_high: EstimateTokens;
-}
-
-export interface JobEstimate {
-  job_id: string;
-  rows: number;
-  chunks: number;
-  per_tool: { tool: string; rows: number; chunk_rows: number; tokens_per_row: number; measured: boolean }[];
-  tokens: EstimateTokens;
-  tokens_high: EstimateTokens;
-  /**
-   * The same tokens by step since 2026-10-08: the chunks are read by a cheaper
-   * model (`extract.model`), the answer is written by the chat's (`reduce`).
-   * Absent on older estimates; then `tokens` is priced at the chat's model.
-   */
-  by_step?: { extract: JobEstimateStep; reduce: JobEstimateStep };
-  modes: JobEstimateModes;
-  assumptions: string[];
-  first_chunk_exact: number | null;
-}
 
 export interface JobRow {
   id: string;
@@ -149,37 +85,6 @@ export interface JobRow {
   created_at: string;
   started_at: string | null;
   finished_at: string | null;
-}
-
-export type AssistantErrorCode =
-  | 'AUTH_REQUIRED'
-  | 'FORBIDDEN'
-  | 'NOT_CONFIGURED'
-  | 'LLM_DAILY_QUOTA'
-  | 'LLM_MONTHLY_CAP'
-  | 'RATE_LIMITED'
-  | 'UPSTREAM'
-  | 'TIMEOUT'
-  | 'INVALID_REQUEST'
-  | 'ASSISTANT_MODEL_NOT_PRICED'
-  | 'UNKNOWN';
-
-export const ASSISTANT_ERROR_CODES: readonly AssistantErrorCode[] = [
-  'AUTH_REQUIRED',
-  'FORBIDDEN',
-  'NOT_CONFIGURED',
-  'LLM_DAILY_QUOTA',
-  'LLM_MONTHLY_CAP',
-  'RATE_LIMITED',
-  'UPSTREAM',
-  'TIMEOUT',
-  'INVALID_REQUEST',
-  'ASSISTANT_MODEL_NOT_PRICED',
-  'UNKNOWN',
-];
-
-export function asAssistantErrorCode(code: unknown): AssistantErrorCode {
-  return typeof code === 'string' && (ASSISTANT_ERROR_CODES as readonly string[]).includes(code) ? (code as AssistantErrorCode) : 'UNKNOWN';
 }
 
 /** `assistant_usage(p_from, p_to)` (0111). */
@@ -348,17 +253,8 @@ export function archiveConversation(conversationId: string): Promise<void> {
 }
 
 /** `assistant_models()` (0114): the venue default and every model with rates, sorted. */
-export interface ModelsPayload {
-  default_model: string | null;
-  models: string[];
-}
-
 export async function fetchModels(): Promise<ModelsPayload> {
-  const raw = await assistantRpc<Partial<ModelsPayload> | null>('assistant_models');
-  return {
-    default_model: typeof raw?.default_model === 'string' ? raw.default_model : null,
-    models: Array.isArray(raw?.models) ? raw.models.filter((m): m is string => typeof m === 'string') : [],
-  };
+  return asModelsPayload(await assistantRpc<unknown>('assistant_models'));
 }
 
 /** This chat's model; `null` follows the venue default. Refused with ASSISTANT_MODEL_NOT_PRICED when unpriced. */
@@ -478,38 +374,10 @@ export async function startSize(
 }
 
 // ---------------------------------------------------------------------------
-// Content helpers
+// Content helpers (the readers are @touch/core/assistant/client's)
 // ---------------------------------------------------------------------------
 
-/** The plain text of a stored message: a string, or the `text` blocks joined. */
-export function textOfContent(content: unknown): string {
-  if (typeof content === 'string') return content;
-  if (Array.isArray(content)) {
-    return content
-      .filter((b): b is { type: 'text'; text: string } => typeof b === 'object' && b !== null && (b as { type?: unknown }).type === 'text' && typeof (b as { text?: unknown }).text === 'string')
-      .map((b) => b.text)
-      .join('\n\n')
-      .trim();
-  }
-  if (content && typeof content === 'object' && typeof (content as { text?: unknown }).text === 'string') {
-    return (content as { text: string }).text;
-  }
-  return '';
-}
-
-/** The tool rows of a stored assistant message, whichever of the two shapes it was saved in. */
-export function sourcesOf(m: MessageRow): { items: SourceItem[]; scopes: string[]; jobIds: string[] } {
-  const out = { items: [] as SourceItem[], scopes: [] as string[], jobIds: [] as string[] };
-  const s = m.sources;
-  if (!s) return out;
-  if (Array.isArray(s)) {
-    for (const item of s) {
-      if ('job_id' in item) out.jobIds.push(item.job_id);
-      else out.items.push(item);
-    }
-    return out;
-  }
-  out.items = s.items ?? [];
-  out.scopes = s.scopes ?? [];
-  return out;
+/** The tool rows, scopes and jobs of a stored assistant message, whichever of the two shapes it was saved in. */
+export function sourcesOf(m: MessageRow): StoredSources {
+  return readSources(m.sources);
 }

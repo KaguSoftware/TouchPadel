@@ -19,12 +19,7 @@ export interface DateRange {
   to: string;
 }
 
-export interface PackCall {
-  tool: string;
-  args: Record<string, unknown>;
-}
-
-/** Business days the default pack range covers (today inclusive). */
+/** Business days the default tool range covers (today inclusive). */
 export const DEFAULT_RANGE_DAYS = 7;
 
 function ymd(d: Date): string {
@@ -58,36 +53,6 @@ export function isRange(v: unknown): v is DateRange {
   if (!v || typeof v !== 'object') return false;
   const r = v as Record<string, unknown>;
   return typeof r.from === 'string' && typeof r.to === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(r.from) && /^\d{4}-\d{2}-\d{2}$/.test(r.to) && r.from <= r.to;
-}
-
-/** The pack tool plan per scope (contracts): scopes without a pack return []. */
-export function packPlan(scope: AssistantScope, range: DateRange): PackCall[] {
-  switch (scope) {
-    case 'money':
-      return [{ tool: 'panel_headline', args: { from: range.from, to: range.to, compare: 'previousPeriod' } }];
-    case 'cafe':
-      return [
-        { tool: 'analytics_best_sellers', args: { from: range.from, to: range.to, limit: 5 } },
-        { tool: 'report_cafe', args: { from: range.from, to: range.to } },
-      ];
-    case 'courts':
-      return [{ tool: 'analytics_courts_summary', args: { from: range.from, to: range.to } }];
-    case 'stock':
-      return [
-        { tool: 'stock_view', args: { view: 'expiring_soon', limit: 20 } },
-        { tool: 'stock_view', args: { view: 'on_hand', limit: 50 } },
-      ];
-    case 'staff':
-      return [{ tool: 'staff_requests_page', args: { status: 'pending' } }];
-    case 'marketing':
-      return [{ tool: 'analytics_promo', args: { from: range.from, to: range.to } }];
-    case 'settings':
-      return [{ tool: 'settings_read', args: {} }];
-    case 'system':
-      return [{ tool: 'system_status', args: {} }];
-    default:
-      return [];
-  }
 }
 
 /** Validate a scopes array from the request; unknown names are dropped, empty → defaults. */

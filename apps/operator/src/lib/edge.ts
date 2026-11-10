@@ -18,7 +18,7 @@ import {
   startDeadline,
 } from '@touch/core';
 import { supabase, supabaseAnonKey, supabaseUrl } from './supabase';
-import { parseSseChunk, parseSseData } from '../features/assistant/sse';
+import { parseSseChunk, parseSseData } from '@touch/core/assistant/sse';
 
 export type EdgeFunctionName =
   | 'analytics-posthog'

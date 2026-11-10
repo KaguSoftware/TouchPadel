@@ -12,8 +12,6 @@
  *   deferTools   false — no tool search; only the tools the chat's scopes allow are sent.
  *   resultRows   60 — a tool result is cut at 60 rows with the usual "… N more rows" marker (a two-tool
  *                     courts question reached 20k tokens at 500).
- *   packBudget   1500 — context packs above this (estimated tokens, smallest first) are left out of the
- *                       first turn; the model calls the tool instead. The courts pack alone is ~8k tokens.
  * Usage: prompt/completion totals; `prompt_tokens_details.cached_tokens` (Groq's automatic prefix
  * cache) is reported as cache_read and subtracted from input, cache_write is 0.
  *
@@ -115,7 +113,7 @@ export function groqProvider(apiKey: string, model: string): Provider {
   return {
     model,
     vendor: 'groq',
-    capabilities: { batch: false, exactTokens: false, compactMap: false, deferTools: false, packBudget: 1500, resultRows: 60 },
+    capabilities: { batch: false, exactTokens: false, compactMap: false, deferTools: false, resultRows: 60 },
 
     async stream(call: ProviderCall): Promise<ProviderTurn> {
       const started = Date.now();

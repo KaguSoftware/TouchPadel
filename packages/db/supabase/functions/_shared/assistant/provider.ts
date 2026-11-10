@@ -143,13 +143,6 @@ export interface ProviderCapabilities {
   compactMap: boolean;
   /** Server-side tool search with defer_loading; otherwise only the scoped tools are sent. */
   deferTools: boolean;
-  /**
-   * The most estimated tokens of context packs the first user turn may carry;
-   * packs beyond it are left out (largest first) and the model calls the tool
-   * instead. Infinity on Anthropic; the free Groq tier's per-request budget
-   * needs a small number (the courts pack alone is ~8k tokens).
-   */
-  packBudget: number;
   /** Row cap on one tool result (clean.ts stage 7). 500 on Anthropic; smaller where a request must fit a small budget. */
   resultRows: number;
 }
@@ -284,7 +277,7 @@ function anthropicProvider(apiKey: string, model: string, cacheTtl: CacheTtl = '
     vendor: 'anthropic',
     // compactMap false (owner call 2026-10-09): the ~17k-token venue map no longer rides in every
     // prefix; how-to turns are pre-searched (route.ts) and every tool carries its page (wireTools).
-    capabilities: { batch: true, exactTokens: true, compactMap: false, deferTools: true, packBudget: Number.POSITIVE_INFINITY, resultRows: 500 },
+    capabilities: { batch: true, exactTokens: true, compactMap: false, deferTools: true, resultRows: 500 },
 
     async stream(call) {
       const started = Date.now();

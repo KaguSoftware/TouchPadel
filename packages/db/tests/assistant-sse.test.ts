@@ -4,7 +4,7 @@
  * boundaries the network picks.
  */
 import { describe, expect, it } from 'vitest';
-import { ASSISTANT_EVENTS, parseSseChunk, sseFrame, sseHeartbeat } from '../supabase/functions/_shared/assistant/sse.ts';
+import { ASSISTANT_EVENTS, parseSseChunk, sseFrame, sseHeartbeat, sseStream } from '../supabase/functions/_shared/assistant/sse.ts';
 
 describe('sseFrame / parseSseChunk', () => {
   it('encodes one frame per event with JSON data', () => {
@@ -42,5 +42,42 @@ describe('sseFrame / parseSseChunk', () => {
   it('keeps non-JSON data as a string and defaults the event name', () => {
     const { events } = parseSseChunk('data: plain text\n\n');
     expect(events).toEqual([{ event: 'message', data: 'plain text' }]);
+  });
+});
+
+describe('sseStream (the scaffold assistant-chat and assistant-free share)', () => {
+  async function drain(stream: ReadableStream<Uint8Array>): Promise<string> {
+    const reader = stream.getReader();
+    const dec = new TextDecoder();
+    let out = '';
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) return out;
+      out += dec.decode(value, { stream: true });
+    }
+  }
+
+  it('writes frames until closed, then nothing; close twice is harmless', async () => {
+    const sse = sseStream({ heartbeatMs: 60_000 });
+    sse.emit('delta', { text: 'a' });
+    sse.emit('done', { stop_reason: 'end_turn' });
+    sse.close();
+    sse.emit('delta', { text: 'late' });
+    sse.close();
+    const { events, rest } = parseSseChunk(await drain(sse.stream));
+    expect(events).toEqual([
+      { event: 'delta', data: { text: 'a' } },
+      { event: 'done', data: { stop_reason: 'end_turn' } },
+    ]);
+    expect(rest).toBe('');
+  });
+
+  it('a client that cancels calls onCancel and turns writes into no-ops', async () => {
+    let cancelled = 0;
+    const sse = sseStream({ heartbeatMs: 60_000, onCancel: () => cancelled++ });
+    await sse.stream.cancel();
+    expect(cancelled).toBe(1);
+    expect(() => sse.emit('delta', { text: 'x' })).not.toThrow();
+    sse.close();
   });
 });

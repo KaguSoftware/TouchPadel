@@ -6,18 +6,17 @@ import {
   FREE_STARTERS,
   FreeStreamError,
   answerPages,
-  applyFreeEvent,
   buildFreeBody,
   freeErrorMessage,
   freeFrom,
   freePages,
-  freeRefusal,
   freeTurn,
-  freeTurnsOf,
   routeSegment,
   type FreeLiveTurn,
 } from '../free';
-import { parseSseChunk, parseSseData } from '../sse';
+
+// The stream reducer, freeTurnsOf and freeRefusal are shared with the operator;
+// their tests live in packages/core/src/assistant/free-client.test.ts.
 
 const en = makeT('en');
 const ar = makeT('ar');
@@ -124,12 +123,6 @@ describe('buildFreeBody', () => {
       done(5, 'q5', 'a5'),
       done(6, 'q6', 'a6'),
     ];
-    expect(freeTurnsOf(earlier.slice(0, 4))).toEqual([
-      { role: 'user', text: 'q1' },
-      { role: 'assistant', text: 'a1' },
-      { role: 'user', text: 'q4' },
-      { role: 'assistant', text: 'a4' },
-    ]);
     const body = buildFreeBody({ text: 'next', lang: 'en', route: null, earlier, pages });
     expect(body.history).toHaveLength(FREE_HISTORY_MAX);
     expect(body.history![0]).toEqual({ role: 'user', text: 'q4' });
@@ -137,49 +130,7 @@ describe('buildFreeBody', () => {
   });
 });
 
-describe('applyFreeEvent', () => {
-  it('folds a streamed answer', () => {
-    const stream =
-      'event: message_start\ndata: {"model":"m","free":true}\n\n' +
-      'event: delta\ndata: {"text":"Open "}\n\n' +
-      ': keep-alive\n\n' +
-      'event: delta\ndata: {"text":"/staff-request"}\n\n' +
-      'event: done\ndata: {"stop_reason":"end_turn"}\n\n';
-    let turn = freeTurn(1, 'day off?');
-    for (const ev of parseSseChunk(stream).events) turn = applyFreeEvent(turn, ev.event, parseSseData(ev.data));
-    expect(turn).toMatchObject({ text: 'Open /staff-request', done: true, error: null });
-  });
-
-  it('keeps the first error and ends the turn', () => {
-    let turn = applyFreeEvent(freeTurn(1, 'q'), 'error', { code: 'TIMEOUT', message: 'slow' });
-    turn = applyFreeEvent(turn, 'done', { stop_reason: 'TIMEOUT' });
-    expect(turn.error).toEqual({ code: 'TIMEOUT' });
-    expect(turn.done).toBe(true);
-    expect(applyFreeEvent(freeTurn(1, 'q'), 'error', { code: 'WHAT' }).error).toEqual({ code: 'UNKNOWN' });
-  });
-});
-
 describe('refusals', () => {
-  it('reads the body’s code, scope and wait', () => {
-    expect(freeRefusal(429, { code: 'RATE_LIMITED', scope: 'minute', retry_after_s: 12.2 })).toEqual({
-      code: 'RATE_LIMITED',
-      scope: 'minute',
-      retryAfterS: 13,
-    });
-    expect(freeRefusal(429, { code: 'RATE_LIMITED', scope: 'club' })).toEqual({ code: 'RATE_LIMITED', scope: 'club' });
-    expect(freeRefusal(503, { code: 'NOT_CONFIGURED' })).toEqual({ code: 'NOT_CONFIGURED' });
-  });
-
-  it('falls back to the HTTP class', () => {
-    expect(freeRefusal(401, null).code).toBe('AUTH_REQUIRED');
-    expect(freeRefusal(403, 'no').code).toBe('FORBIDDEN');
-    expect(freeRefusal(429, {}).code).toBe('RATE_LIMITED');
-    expect(freeRefusal(503, {}).code).toBe('NOT_CONFIGURED');
-    expect(freeRefusal(502, {}).code).toBe('UPSTREAM');
-    expect(freeRefusal(400, {}).code).toBe('INVALID_REQUEST');
-    expect(freeRefusal(418, {}).code).toBe('UNKNOWN');
-  });
-
   it('carries the refusal on the thrown error', () => {
     const err = new FreeStreamError({ code: 'RATE_LIMITED', scope: 'day' });
     expect(err.info.scope).toBe('day');

@@ -287,6 +287,8 @@ describe('assistant-job: transition patches stay inside the 0112 allowlist (stac
 
   it('parses the allowlist from the migration', () => {
     expect(allow).toEqual(['mode', 'chunks_total', 'chunks_done', 'tokens', 'result', 'error', 'batch_id', 'estimate', 'message_id']);
+    // 0405: the tick's lease is stamped by app.assistant_job_claim_tick, never patched through a transition.
+    expect(allow).not.toContain('tick_claimed_until');
   });
 
   it('finds every transition call, each with a literal status', () => {
@@ -374,5 +376,67 @@ describe('assistant-job: every call is priced and recorded at its own model (sta
     expect(live).toMatch(/if \(overBudget\) throw new Error\('LLM_MONTHLY_CAP'\)/);
     // the reduce keeps the request's own signal (it has the reduce budget left)
     expect(live).toMatch(/book\.reduce\(job, objects, spend, calls, handles, signal\)/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Stackless: the tick claim (0405, review 2026-11-09). Two overlapping ticks
+// used to work the same batch job and record every chunk's usage twice. The
+// tick now works only what app.assistant_job_claim_tick hands it, and the
+// claim selects exactly the jobs 0113's nudge wakes the tick for. Reads the
+// migrations and the source, like the blocks above; the behaviour itself is
+// tests/assistant-concurrency.test.ts.
+// ---------------------------------------------------------------------------
+
+/** The LATEST body of app.<name> across the migrations, up to its closing dollar tag. */
+function latestBody(name: string): string {
+  const files = readdirSync(MIGRATIONS).filter((f) => f.endsWith('.sql')).sort();
+  let latest: string | null = null;
+  for (const f of files) {
+    const sql = readFileSync(join(MIGRATIONS, f), 'utf8');
+    const at = sql.search(new RegExp(`function\\s+app\\.${name}\\s*\\(`));
+    if (at < 0) continue;
+    const tag = sql.slice(at).match(/as\s+(\$[a-z0-9_]*\$)/i)?.[1];
+    if (!tag) throw new Error(`app.${name} in ${f} has no dollar tag`);
+    const open = sql.indexOf(tag, at) + tag.length;
+    latest = sql.slice(open, sql.indexOf(tag, open));
+  }
+  if (!latest) throw new Error(`no migration defines app.${name}`);
+  return latest;
+}
+
+/** `status = 'running' and mode = 'batch' and batch_id is not null`, aliases and whitespace dropped. */
+const predicateOf = (body: string): string[] =>
+  [...body.matchAll(/(?:\w+\.)?(status\s*=\s*'running'|mode\s*=\s*'batch'|batch_id\s+is\s+not\s+null)/g)].map((m) => m[1]!.replace(/\s+/g, ' '));
+
+describe('assistant-job: the tick works only the jobs it claimed (0405, stackless)', () => {
+  const src = readFileSync(JOB_INDEX, 'utf8');
+  const tickBody = src.slice(src.indexOf('async function tick('), src.indexOf('Deno.serve('));
+
+  it("the claim selects 0113's nudge predicate, unclaimed or lapsed, FOR UPDATE SKIP LOCKED", () => {
+    const nudge = predicateOf(latestBody('assistant_job_tick_nudge'));
+    const claim = latestBody('assistant_job_claim_tick');
+    expect(nudge).toEqual(["status = 'running'", "mode = 'batch'", 'batch_id is not null']);
+    expect(predicateOf(claim)).toEqual(nudge);
+    expect(claim).toMatch(/tick_claimed_until is null or j\.tick_claimed_until <= now\(\)/);
+    expect(claim).toMatch(/for update of j skip locked/i);
+    expect(claim).toMatch(/set tick_claimed_until = now\(\) \+ make_interval\(secs => p_seconds\)/);
+  });
+
+  it('the tick claims before it reads a job, reads only the claimed ids, and exits quietly on none', () => {
+    const claimAt = tickBody.indexOf(".rpc('assistant_job_claim_tick'");
+    const readAt = tickBody.indexOf(".from('assistant_jobs').select(");
+    expect(claimAt).toBeGreaterThan(0);
+    expect(readAt).toBeGreaterThan(claimAt);
+    expect(tickBody.slice(readAt, tickBody.indexOf('\n', readAt))).toMatch(/\.in\('id', \[\.\.\.claimed\.keys\(\)\]\)/);
+    expect(tickBody).toMatch(/if \(claimed\.size === 0\) return json\(\{ ok: true, jobs: \[\] \}\)/);
+    // the tick is the only reader of running batch jobs in the function
+    expect(src.match(/\.eq\('mode', 'batch'\)/g)).toHaveLength(1);
+  });
+
+  it('a batch still in flight releases only its own claim (matched on the stamp the claim returned)', () => {
+    expect(src).toMatch(/\.update\(\{ tick_claimed_until: null \}\)\.eq\('id', jobId\)\.eq\('tick_claimed_until', claimedUntil\)/);
+    const notEnded = tickBody.slice(tickBody.indexOf('if (!status.ended) {'), tickBody.indexOf('continue;', tickBody.indexOf('if (!status.ended) {')));
+    expect(notEnded).toMatch(/await releaseClaim\(jb\.service, job\.id, claimed\.get\(job\.id\)!\)/);
   });
 });

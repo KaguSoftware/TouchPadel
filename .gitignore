@@ -85,3 +85,6 @@ packages/db/vitest-report.json
 .claude/worktrees/
 SECURITY-PENTEST-NOTES.local.md
 pentest-idor.local.mjs
+
+# Gradle build cache (rewritten on every Android build or editor sync)
+.gradle/

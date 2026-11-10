@@ -7,7 +7,9 @@
  * call each granted function. Messages and calls have no update/delete grant
  * for anyone; jobs are written by the service role only. Since 0329 messages
  * and calls have no client INSERT grant either (the owner's included): the
- * edge functions write them as the service role.
+ * edge functions write them as the service role. Since 0405 conversations
+ * have no client UPDATE grant (the owner's included) either: scopes, model
+ * and archiving go through definer RPCs, the rest through the service role.
  */
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -126,12 +128,20 @@ describe.skipIf(!up)('assistant tables and RPCs are owner-only', () => {
     expect((data as { scopes: string[] }).scopes).toEqual(['howto']);
   });
 
-  it("the owner may update a conversation's scopes directly but not delete it", async () => {
-    const { error: uErr } = await owner
-      .from('assistant_conversations')
-      .update({ scopes: ['howto', 'money'] })
-      .eq('id', conversationId);
-    expect(uErr).toBeNull();
+  it('0405: nobody, the owner included, may update a conversation directly; nobody deletes one', async () => {
+    // 0108 granted UPDATE (title, scopes, range, handles, tokens, updated_at):
+    // an owner session could rewrite the chat's spend or its handle table.
+    // Scopes move through app.assistant_set_scopes; the rest is the service role's.
+    const { data: before } = await svc.from('assistant_conversations').select('scopes, tokens, handles, title').eq('id', conversationId).single();
+    for (const [who, c] of [['owner', owner], ['manager', manager], ['guest', guest]] as const) {
+      for (const patch of [{ scopes: ['howto', 'money'] }, { tokens: { cost_micros: 0 } }, { handles: { r1: NIL } }, { title: 'rewritten' }]) {
+        const { error } = await c.from('assistant_conversations').update(patch).eq('id', conversationId);
+        expect(error, `${who} update ${Object.keys(patch)[0]}`).not.toBeNull();
+        expect(error?.code, `${who} update ${Object.keys(patch)[0]}`).toBe('42501');
+      }
+    }
+    const { data: after } = await svc.from('assistant_conversations').select('scopes, tokens, handles, title').eq('id', conversationId).single();
+    expect(after).toEqual(before);
     const { error: dErr, count } = await owner
       .from('assistant_conversations')
       .delete({ count: 'exact' })
@@ -235,6 +245,9 @@ describe.skipIf(!up)('assistant tables and RPCs are owner-only', () => {
       ['llm_record_usage', { p_model: 'x', p_input: 1, p_cache_write: 0, p_cache_read: 0, p_output: 0, p_model_calls: 1 }],
       ['assistant_bookings_list', { p_from: '2026-09-01', p_to: '2026-09-02' }],
       ['assistant_table_read', { p_table: 'courts' }],
+      // 0405
+      ['assistant_conversation_persist', { p_conversation_id: conversationId, p_handles: {}, p_usage: { input: 1 } }],
+      ['assistant_job_claim_tick', { p_seconds: 60 }],
     ] as const) {
       const res = await appRpc(owner, fn, args as Record<string, unknown>).then(outcome);
       expect(res.ok, `${fn} must not be callable by the owner directly`).toBe(false);

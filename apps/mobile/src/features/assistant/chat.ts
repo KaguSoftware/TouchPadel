@@ -1,145 +1,40 @@
 /**
- * The owner's assistant on the phone, as pure logic (vitest): the event table
- * the edge function streams, the reducer that folds it into one live turn, the
- * stored-row readers, the scopes a phone offers and the sentence a refusal
- * lands on. The reducer is the operator's (`useAssistantChat.ts`
- * `applyEvent`), reduced to what the phone shows: no usage meter, no model
- * switch, no re-check or pin yet.
+ * The owner's assistant on the phone, as pure logic (vitest): the stored-row
+ * shapes this phone reads, the scopes a phone offers, the model names and the
+ * spend it shows, and the error a refusal throws. The event table, the reducer
+ * that folds it into one live turn, the row readers and the refusal codes are
+ * @touch/core/assistant/client's, shared with the operator (re-exported here so
+ * the screens keep one import); the phone shows less of the turn than the
+ * desktop does (no usage meter or re-check yet), but it holds all of it.
  *
  * The edge function is the wall (`requireStaffRole(['owner'])`); nothing here
  * decides who may ask.
  */
 import { ASSISTANT_SCOPES, type AssistantScope } from '@touch/core/assistant/tools';
+import type {
+  AssistantErrorCode,
+  ConversationRow as StoredConversationRow,
+  MessageRow as StoredMessageRow,
+} from '@touch/core/assistant/client';
+
+export { assistantErrorSentence, sourcesOf, textOfContent } from '@touch/core/assistant/client';
+export type { AssistantErrorCode, GatePayload, SourceItem } from '@touch/core/assistant/client';
 
 // ── Rows ────────────────────────────────────────────────────────────────────
 
-export interface SourceItem {
-  call_id: string;
-  name: string;
-  args: Record<string, unknown>;
-  row_count: number | null;
-  ms: number | null;
-  route: string | null;
-  error?: string;
-}
-
-export interface GatePayload {
-  status: 'ok' | 'unverified';
-  unverified: { raw: string; value: number }[];
-  checked: number;
-  retried?: boolean;
-}
-
-export interface ConversationRow {
-  id: string;
-  title: string | null;
-  scopes: string[];
-  /** This chat's model, or null to follow the venue default. */
-  model: string | null;
-  /** The chat's running meter (assistant-chat sums every answer into it); only `cost_micros` is read. */
+/**
+ * The columns `fetchConversations` reads (api.ts CONVERSATION_COLUMNS). The
+ * running meter may be missing on a row the phone built itself; only
+ * `cost_micros` is read.
+ */
+export type ConversationRow = Pick<StoredConversationRow, 'id' | 'title' | 'scopes' | 'model' | 'updated_at' | 'created_at'> & {
   tokens?: { cost_micros?: unknown } | null;
-  updated_at: string | null;
-  created_at: string;
-}
+};
 
-export interface MessageRow {
-  id: string;
-  conversation_id: string;
-  seq: number;
-  role: 'user' | 'assistant';
-  /** Stored content blocks verbatim, or a bare string for a user turn. */
-  content: unknown;
-  sources: unknown;
-  gate: GatePayload | null;
-  created_at: string;
-}
-
-/** The plain text of a stored message: a string, or its `text` blocks joined. */
-export function textOfContent(content: unknown): string {
-  if (typeof content === 'string') return content;
-  if (Array.isArray(content)) {
-    return content
-      .filter(
-        (b): b is { type: 'text'; text: string } =>
-          typeof b === 'object' &&
-          b !== null &&
-          (b as { type?: unknown }).type === 'text' &&
-          typeof (b as { text?: unknown }).text === 'string',
-      )
-      .map((b) => b.text)
-      .join('\n\n')
-      .trim();
-  }
-  if (content && typeof content === 'object' && typeof (content as { text?: unknown }).text === 'string') {
-    return (content as { text: string }).text;
-  }
-  return '';
-}
-
-/** The tool rows of a stored assistant message, whichever of the two shapes it was saved in. */
-export function sourcesOf(sources: unknown): { items: SourceItem[]; hasJob: boolean } {
-  const out = { items: [] as SourceItem[], hasJob: false };
-  if (Array.isArray(sources)) {
-    for (const item of sources) {
-      if (item && typeof item === 'object' && 'job_id' in item) out.hasJob = true;
-      else if (item && typeof item === 'object' && typeof (item as SourceItem).name === 'string') {
-        out.items.push(item as SourceItem);
-      }
-    }
-    return out;
-  }
-  if (sources && typeof sources === 'object') {
-    const items = (sources as { items?: unknown }).items;
-    if (Array.isArray(items)) out.items = items.filter((i): i is SourceItem => !!i && typeof i === 'object');
-  }
-  return out;
-}
+/** The columns `fetchMessages` reads: everything but the per-answer tokens. */
+export type MessageRow = Omit<StoredMessageRow, 'tokens'>;
 
 // ── Errors ──────────────────────────────────────────────────────────────────
-
-export const ASSISTANT_ERROR_CODES = [
-  'AUTH_REQUIRED',
-  'FORBIDDEN',
-  'NOT_CONFIGURED',
-  'LLM_DAILY_QUOTA',
-  'LLM_MONTHLY_CAP',
-  'RATE_LIMITED',
-  'UPSTREAM',
-  'TIMEOUT',
-  'INVALID_REQUEST',
-  'ASSISTANT_MODEL_NOT_PRICED',
-  'UNKNOWN',
-] as const;
-export type AssistantErrorCode = (typeof ASSISTANT_ERROR_CODES)[number];
-
-export function asAssistantErrorCode(code: unknown): AssistantErrorCode {
-  return typeof code === 'string' && (ASSISTANT_ERROR_CODES as readonly string[]).includes(code)
-    ? (code as AssistantErrorCode)
-    : 'UNKNOWN';
-}
-
-/** The `code` (or an upper-snake `error`) of an edge refusal's JSON body. */
-export function bodyCode(body: unknown): string | undefined {
-  if (body === null || typeof body !== 'object') return undefined;
-  const b = body as { code?: unknown; error?: unknown };
-  if (typeof b.code === 'string') return b.code;
-  if (typeof b.error === 'string' && /^[A-Z][A-Z0-9_]*$/.test(b.error)) return b.error;
-  return undefined;
-}
-
-/**
- * A non-2xx answer before the stream starts (auth and quota refuse as plain
- * JSON): the body's own code wins (LLM_MONTHLY_CAP …), then the HTTP class.
- */
-export function refusalCode(status: number, body: unknown): AssistantErrorCode {
-  const own = asAssistantErrorCode(bodyCode(body));
-  if (own !== 'UNKNOWN') return own;
-  if (status === 401) return 'AUTH_REQUIRED';
-  if (status === 403) return 'FORBIDDEN';
-  if (status === 429) return 'RATE_LIMITED';
-  if (status >= 500) return 'UPSTREAM';
-  return 'UNKNOWN';
-}
 
 /** A refusal that arrives as a thrown value (the fetch itself, or ours). */
 export class AssistantStreamError extends Error {
@@ -152,20 +47,6 @@ export class AssistantStreamError extends Error {
 }
 
 // ── Models ──────────────────────────────────────────────────────────────────
-
-/** `assistant_models()` (0114): the venue default and every model the pricing table can bill. */
-export interface ModelsPayload {
-  default_model: string | null;
-  models: string[];
-}
-
-export function asModelsPayload(raw: unknown): ModelsPayload {
-  const r = (typeof raw === 'object' && raw !== null ? raw : {}) as Partial<ModelsPayload>;
-  return {
-    default_model: typeof r.default_model === 'string' ? r.default_model : null,
-    models: Array.isArray(r.models) ? r.models.filter((m): m is string => typeof m === 'string') : [],
-  };
-}
 
 /** Model ids with a spoken name; anything else prints as its id. */
 const MODEL_NAMES: Readonly<Record<string, string>> = {
@@ -221,125 +102,6 @@ export function isModelNotPriced(err: unknown): boolean {
     code.code === 'ASSISTANT_MODEL_NOT_PRICED' ||
     (typeof code.message === 'string' && code.message.includes('ASSISTANT_MODEL_NOT_PRICED'))
   );
-}
-
-// ── The live turn ───────────────────────────────────────────────────────────
-
-export interface ToolRow extends SourceItem {
-  pending: boolean;
-}
-
-export interface LiveTurn {
-  conversationId: string | null;
-  userText: string;
-  assistantMessageId: string | null;
-  text: string;
-  tools: ToolRow[];
-  gate: GatePayload | null;
-  /** A `propose_job` ended the turn: the estimate card lives on the desktop. */
-  jobProposed: boolean;
-  done: boolean;
-  stopped: boolean;
-  error: { code: AssistantErrorCode; message: string } | null;
-}
-
-export function emptyTurn(conversationId: string | null, userText: string): LiveTurn {
-  return {
-    conversationId,
-    userText,
-    assistantMessageId: null,
-    text: '',
-    tools: [],
-    gate: null,
-    jobProposed: false,
-    done: false,
-    stopped: false,
-    error: null,
-  };
-}
-
-function isRecord(v: unknown): v is Record<string, unknown> {
-  return typeof v === 'object' && v !== null;
-}
-const str = (v: unknown): string | null => (typeof v === 'string' ? v : null);
-const num = (v: unknown): number | null => (typeof v === 'number' && Number.isFinite(v) ? v : null);
-
-/** Apply one SSE event to a turn (event table: build-contracts Lane C). */
-export function applyEvent(turn: LiveTurn, name: string, data: unknown): LiveTurn {
-  const d = isRecord(data) ? data : {};
-  const settle = (tools: ToolRow[]) => tools.map((t) => ({ ...t, pending: false }));
-  switch (name) {
-    case 'message_start':
-      return {
-        ...turn,
-        conversationId: str(d.conversation_id) ?? turn.conversationId,
-        assistantMessageId: str(d.assistant_message_id),
-      };
-    case 'delta':
-      // `reset: true` precedes a gate retry: the first answer is withdrawn and re-streamed.
-      if (d.reset === true) return { ...turn, text: str(d.text) ?? '' };
-      return { ...turn, text: turn.text + (str(d.text) ?? '') };
-    case 'tool_start': {
-      const row: ToolRow = {
-        call_id: str(d.call_id) ?? `call-${turn.tools.length}`,
-        name: str(d.name) ?? '?',
-        args: isRecord(d.args) ? d.args : {},
-        row_count: null,
-        ms: null,
-        route: null,
-        pending: true,
-      };
-      return { ...turn, tools: [...turn.tools, row] };
-    }
-    case 'tool_end': {
-      const id = str(d.call_id);
-      const patch = {
-        row_count: num(d.row_count),
-        ms: num(d.ms),
-        route: str(d.route),
-        error: str(d.error) ?? undefined,
-        pending: false,
-      };
-      const idx = turn.tools.findIndex((t) => t.call_id === id);
-      if (idx === -1) {
-        const row: ToolRow = {
-          call_id: id ?? `call-${turn.tools.length}`,
-          name: str(d.name) ?? '?',
-          args: {},
-          ...patch,
-        };
-        return { ...turn, tools: [...turn.tools, row] };
-      }
-      const tools = turn.tools.slice();
-      tools[idx] = { ...tools[idx]!, ...patch };
-      return { ...turn, tools };
-    }
-    case 'sources': {
-      const items = Array.isArray(d.items) ? (d.items as SourceItem[]) : null;
-      // The summary is authoritative; a tool_end that never arrived is closed here.
-      return items ? { ...turn, tools: items.map((it) => ({ ...it, pending: false })) } : turn;
-    }
-    case 'gate':
-      return { ...turn, gate: d as unknown as GatePayload };
-    case 'job_estimate':
-      return { ...turn, jobProposed: true };
-    case 'done':
-      return {
-        ...turn,
-        done: true,
-        assistantMessageId: str(d.message_id) ?? turn.assistantMessageId,
-        tools: settle(turn.tools),
-      };
-    case 'error':
-      return {
-        ...turn,
-        done: true,
-        error: { code: asAssistantErrorCode(d.code), message: str(d.message) ?? '' },
-        tools: settle(turn.tools),
-      };
-    default:
-      return turn;
-  }
 }
 
 // ── Scopes ──────────────────────────────────────────────────────────────────

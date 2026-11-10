@@ -1,11 +1,12 @@
 /**
  * The free assistant on the phone, as pure logic (vitest): the pages a person
- * can open (sent with every question), the request body, the event table the
- * `assistant-free` edge function streams folded into one turn, the refusals
- * and the sentence each one lands on, and the "Open …" buttons an answer
- * earns. The contract is `@touch/core/assistant/free` (owner call 2026-10-16:
- * every staff role gets this one and only this one; the owner may pick it as
- * "The free AI").
+ * can open (sent with every question), the request body, the sentence each
+ * refusal lands on, and the "Open …" buttons an answer earns. The contract is
+ * `@touch/core/assistant/free` (owner call 2026-10-16: every staff role gets
+ * this one and only this one; the owner may pick it as "The free AI"); the
+ * reducer that folds the `assistant-free` stream into one turn and the refusal
+ * codes are `@touch/core/assistant/free-client`, re-exported here for the
+ * screen.
  *
  * It reads no business data: navigation and how-to only. Nothing is stored
  * server-side, so the thread lives in the screen and is sent back as history.
@@ -22,11 +23,13 @@ import {
   mobileRoutesIn,
   type FreeAskBody,
   type FreePageHint,
-  type FreeTurn,
 } from '@touch/core/assistant/free';
+import { freeTurnsOf, type FreeError, type FreeLiveTurn } from '@touch/core/assistant/free-client';
 import type { MessageKey } from '@touch/i18n';
 import { staffRows } from '../staff/rows';
-import { bodyCode } from './chat';
+
+export { applyFreeEvent, freeTurn } from '@touch/core/assistant/free-client';
+export type { FreeError, FreeLiveTurn } from '@touch/core/assistant/free-client';
 
 // ── Pages ───────────────────────────────────────────────────────────────────
 
@@ -66,73 +69,6 @@ export function freeFrom(param: unknown): string | null {
 
 // ── The thread ──────────────────────────────────────────────────────────────
 
-export const FREE_ERROR_CODES = [
-  'AUTH_REQUIRED',
-  'FORBIDDEN',
-  'INVALID_REQUEST',
-  'NOT_CONFIGURED',
-  'RATE_LIMITED',
-  'UPSTREAM',
-  'TIMEOUT',
-  'UNKNOWN',
-] as const;
-export type FreeErrorCode = (typeof FREE_ERROR_CODES)[number];
-
-export interface FreeError {
-  code: FreeErrorCode;
-  /** RATE_LIMITED only: whose allowance ran out. */
-  scope?: 'minute' | 'day' | 'club';
-  /** RATE_LIMITED only: when to ask again, in seconds. */
-  retryAfterS?: number;
-}
-
-export function asFreeErrorCode(code: unknown): FreeErrorCode {
-  return typeof code === 'string' && (FREE_ERROR_CODES as readonly string[]).includes(code)
-    ? (code as FreeErrorCode)
-    : 'UNKNOWN';
-}
-
-/** One question and its answer, as the screen holds it. */
-export interface FreeLiveTurn {
-  id: number;
-  question: string;
-  text: string;
-  done: boolean;
-  stopped: boolean;
-  error: FreeError | null;
-}
-
-export function freeTurn(id: number, question: string): FreeLiveTurn {
-  return { id, question, text: '', done: false, stopped: false, error: null };
-}
-
-const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null;
-
-/** Apply one SSE event (`message_start`, `delta`, `done`, `error`) to a turn. */
-export function applyFreeEvent(turn: FreeLiveTurn, name: string, data: unknown): FreeLiveTurn {
-  const d = isRecord(data) ? data : {};
-  switch (name) {
-    case 'delta':
-      return typeof d.text === 'string' ? { ...turn, text: turn.text + d.text } : turn;
-    case 'error':
-      return { ...turn, done: true, error: turn.error ?? { code: asFreeErrorCode(d.code) } };
-    case 'done':
-      return { ...turn, done: true };
-    default:
-      return turn;
-  }
-}
-
-/** The earlier turns worth sending back: questions with a whole answer, in order. */
-export function freeTurnsOf(turns: readonly FreeLiveTurn[]): FreeTurn[] {
-  const out: FreeTurn[] = [];
-  for (const t of turns) {
-    if (!t.done || t.error || t.stopped || t.text.trim() === '') continue;
-    out.push({ role: 'user', text: t.question }, { role: 'assistant', text: t.text });
-  }
-  return out;
-}
-
 /** The request body for one question (`FreeAskBody`, app 'mobile'). */
 export function buildFreeBody(args: {
   text: string;
@@ -153,28 +89,6 @@ export function buildFreeBody(args: {
 }
 
 // ── Refusals ────────────────────────────────────────────────────────────────
-
-/** A JSON refusal before the stream: its own code first, then the HTTP class. */
-export function freeRefusal(status: number, body: unknown): FreeError {
-  let code = asFreeErrorCode(bodyCode(body));
-  if (code === 'UNKNOWN') {
-    if (status === 401) code = 'AUTH_REQUIRED';
-    else if (status === 403) code = 'FORBIDDEN';
-    else if (status === 429) code = 'RATE_LIMITED';
-    else if (status === 503) code = 'NOT_CONFIGURED';
-    else if (status >= 500) code = 'UPSTREAM';
-    else if (status === 400 || status === 413) code = 'INVALID_REQUEST';
-  }
-  if (code !== 'RATE_LIMITED') return { code };
-  const b = isRecord(body) ? body : {};
-  const scope = b.scope === 'minute' || b.scope === 'day' || b.scope === 'club' ? b.scope : undefined;
-  const s = typeof b.retry_after_s === 'number' && Number.isFinite(b.retry_after_s) ? b.retry_after_s : null;
-  return {
-    code,
-    ...(scope ? { scope } : {}),
-    ...(s !== null && s > 0 ? { retryAfterS: Math.ceil(s) } : {}),
-  };
-}
 
 /** A refusal that arrives as a thrown value. */
 export class FreeStreamError extends Error {

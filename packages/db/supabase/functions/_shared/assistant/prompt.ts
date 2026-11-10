@@ -150,13 +150,8 @@ export function buildSystem(input: { compactMap: string; lang: Lang }): string {
   ].join('\n');
 }
 
-export interface PackForPrompt {
-  scope: AssistantScope;
-  cleaned: Cleaned;
-}
-
-/** The volatile first user turn: date, tz, scopes on/off, the packs. Below the breakpoint. */
-export function buildFirstUserTurn(input: { today: string; tz: string; scopes: readonly AssistantScope[]; packs: readonly PackForPrompt[] }): string {
+/** The volatile first user turn: date, tz, scopes on/off (no context packs since 2026-10-09). Below the breakpoint. */
+export function buildFirstUserTurn(input: { today: string; tz: string; scopes: readonly AssistantScope[] }): string {
   const on = input.scopes.map((s) => SCOPE_TITLES[s]).join(', ');
   const off = ASSISTANT_SCOPES.filter((s) => !input.scopes.includes(s)).map((s) => SCOPE_TITLES[s]);
   const lines = [
@@ -164,9 +159,6 @@ export function buildFirstUserTurn(input: { today: string; tz: string; scopes: r
     `Context on for this chat: ${on || 'none'}.`,
     off.length ? `Context off for this chat: ${off.join(', ')}. Say "<Name> context is off for this chat" if asked about one.` : 'Every context is on.',
   ];
-  for (const p of input.packs) {
-    lines.push('', `Context pack for ${SCOPE_TITLES[p.scope]}:`, p.cleaned.text);
-  }
   return lines.join('\n');
 }
 

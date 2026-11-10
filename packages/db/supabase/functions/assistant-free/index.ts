@@ -26,12 +26,13 @@
  * Wall clock 25 s; the answer is at most FREE_MAX_OUTPUT_TOKENS.
  */
 import { createServiceClient } from '../_shared/supabase.ts';
-import { requireStaffRole, type StaffRole } from '../_shared/auth.ts';
+import { requireStaffRole } from '../_shared/auth.ts';
 import { handle, json, KB, logError, readJsonBody } from '../_shared/http.ts';
 import { mapChunks } from '../_shared/assistant/map.ts';
-import { SSE_HEADERS, sseFrame, sseHeartbeat } from '../_shared/assistant/sse.ts';
+import { SSE_HEADERS, sseStream } from '../_shared/assistant/sse.ts';
 import { GROQ_URL, applyChunk, newAccumulator, stopReasonFromOai, supportsReasoningEffort, takeSseData, usageFromOai } from '../_shared/assistant/groqWire.ts';
 import {
+  ALL_ROLES,
   FREE_MAX_OUTPUT_TOKENS,
   buildFreeSystem,
   createLimiter,
@@ -43,24 +44,6 @@ import {
   rankPages,
   type FreeReq,
 } from '../_shared/assistant/free.ts';
-
-/** Every staff role: the free guide is for everyone with a staff row. */
-const ALL_ROLES: readonly StaffRole[] = [
-  'owner',
-  'manager',
-  'cashier',
-  'court_desk',
-  'prep',
-  'head_barista',
-  'barista',
-  'assistant_barista',
-  'head_chef',
-  'chef',
-  'driver',
-  'marketing',
-  'waiter',
-  'shop_staff',
-];
 
 const WALL_MS = 25_000;
 const HEARTBEAT_MS = 10_000;
@@ -108,10 +91,10 @@ async function post(apiKey: string, body: unknown, signal: AbortSignal, retried 
       await new Promise((r) => setTimeout(r, wait + 250));
       return post(apiKey, body, signal, true);
     }
-    console.error('[assistant-free] Groq refused', res.status, text.slice(0, 300));
+    logError('assistant-free', new Error(`Groq refused ${res.status}`), text.slice(0, 300));
     throw new FreeError('RATE_LIMITED');
   }
-  console.error('[assistant-free] Groq error', res.status, text.slice(0, 300));
+  logError('assistant-free', new Error(`Groq error ${res.status}`), text.slice(0, 300));
   throw new FreeError(res.status === 401 || res.status === 403 ? 'NOT_CONFIGURED' : 'UPSTREAM');
 }
 
@@ -178,28 +161,9 @@ Deno.serve(handle('assistant-free', async (req) => {
     return json({ error: code, code, message: ERROR_TEXT[code] ?? ERROR_TEXT.UPSTREAM }, 502);
   }
 
-  const encoder = new TextEncoder();
-  let controller: ReadableStreamDefaultController<Uint8Array> | null = null;
-  let closed = false;
-  const stream = new ReadableStream<Uint8Array>({
-    start(c) {
-      controller = c;
-    },
-    cancel() {
-      closed = true;
-      abort.abort();
-    },
-  });
-  const write = (chunk: string) => {
-    if (closed || !controller) return;
-    try {
-      controller.enqueue(encoder.encode(chunk));
-    } catch {
-      closed = true;
-    }
-  };
-  const emit = (event: string, data: unknown) => write(sseFrame(event, data));
-  const heartbeat = setInterval(() => write(sseHeartbeat()), HEARTBEAT_MS);
+  // The shared scaffold (sse.ts sseStream): a client that leaves aborts the Groq read.
+  const sse = sseStream({ heartbeatMs: HEARTBEAT_MS, onCancel: () => abort.abort() });
+  const emit = sse.emit;
 
   (async () => {
     const started = Date.now();
@@ -230,22 +194,16 @@ Deno.serve(handle('assistant-free', async (req) => {
       }
     } catch (e) {
       errorCode = e instanceof FreeError ? e.code : abort.signal.aborted ? 'TIMEOUT' : 'UPSTREAM';
-      if (!(e instanceof FreeError)) console.error('[assistant-free] stream failed', e instanceof Error ? e.message : String(e));
+      if (!(e instanceof FreeError)) logError('assistant-free', e, 'stream failed');
     }
     // Free, so not priced or recorded against the cap; the log keeps the size for tuning the prompt.
     const usage = usageFromOai(acc.usage);
     console.log('[assistant-free]', JSON.stringify({ role: auth.role, app: parsed.app, model, ms: Date.now() - started, input: usage.input + usage.cache_read, output: usage.output, error: errorCode }));
     if (errorCode) emit('error', { code: errorCode, message: ERROR_TEXT[errorCode] ?? ERROR_TEXT.UPSTREAM });
     emit('done', { stop_reason: errorCode ?? stopReasonFromOai(acc.finish) });
-    clearInterval(heartbeat);
     clearTimeout(wall);
-    closed = true;
-    try {
-      (controller as ReadableStreamDefaultController<Uint8Array> | null)?.close();
-    } catch {
-      // already closed by the client
-    }
+    sse.close();
   })();
 
-  return new Response(stream, { status: 200, headers: { ...SSE_HEADERS } });
+  return new Response(sse.stream, { status: 200, headers: { ...SSE_HEADERS } });
 }));

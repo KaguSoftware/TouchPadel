@@ -9,8 +9,9 @@
  *     one Batch API request per chunk with custom_id `job:<id>:<chunk>`,
  *     stores batch_id and returns.
  *   POST {action:'tick'}                                   service role (cron tp_assistant_job_tick)
- *     polls every running batch job; when ended, collects results by
- *     custom_id, reduces, finishes.
+ *     claims the running batch jobs no other tick holds (0405
+ *     app.assistant_job_claim_tick) and polls only those; when ended,
+ *     collects results by custom_id, reduces, finishes.
  *   POST {action:'cancel', job_id}                         owner session
  *     app.assistant_job_cancel, and the batch is cancelled when one exists.
  *
@@ -47,7 +48,7 @@
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2';
 import { callerClient, createServiceClient, isServiceRoleRequest } from '../_shared/supabase.ts';
 import { requireStaffRole } from '../_shared/auth.ts';
-import { handle, json, KB, logError, mapPgError, pgErrorBody, readJsonBody } from '../_shared/http.ts';
+import { handle, isUuid, json, KB, logError, pgErrorBody, readJsonBody, safePgMessage } from '../_shared/http.ts';
 import { insertAtNextSeq } from '../_shared/assistant/seq.ts';
 import { clean, CleanError, sourceForTool, type Cleaned } from '../_shared/assistant/clean.ts';
 import { extractCallTokens, isOverEstimate, JOB_EXTRACT_MODEL, JOB_LIVE_CONCURRENCY, LIVE_MAX_CHUNKS, type JobEstimate, type JobPlan } from '../_shared/assistant/estimate.ts';
@@ -57,6 +58,7 @@ import { budgetAllows, liveClock, runPool, serialQueue } from '../_shared/assist
 import { buildChunkExtractPrompt, buildJobSystem, buildReducePrompt, buildReduceSystem } from '../_shared/assistant/prompt.ts';
 import { providerFromEnv, ProviderError, textOf, type BatchRequest, type ContentBlock, type Provider, type ProviderUsage } from '../_shared/assistant/provider.ts';
 import { LIST_ROW_CAP, rpcArgs, toolByName, validateToolInput, type ToolSpec } from '../_shared/assistant/tools.ts';
+import { parseRates, turnEstimateMicros, type ModelRates } from '../_shared/assistant/turnPolicy.ts';
 
 const WALL_MS = 50_000;
 const CHUNK_MAX_TOKENS = 2000;
@@ -147,10 +149,15 @@ const MAX_BODY = 4 * KB;
 function chunksOf(job: JobRow): Chunk[] | string {
   const out: Chunk[] = [];
   let no = 0;
-  for (const call of job.plan.calls) {
+  for (const [i, call] of job.plan.calls.entries()) {
     const spec = toolByName(call.tool);
     if (!spec || spec.kind !== 'list' || !spec.rpc) return `${call.tool} is not a list tool`;
-    const per = job.estimate.per_tool.find((p) => p.tool === call.tool);
+    // per_tool is built per call in plan order (estimate.ts), so call i reads
+    // row i: find() by name handed every call of a repeated tool the FIRST
+    // row's figure (review 2026-11-09). The find() stays as the fallback for
+    // an estimate stored with fewer rows than calls.
+    const byIndex = job.estimate.per_tool[i];
+    const per = byIndex?.tool === call.tool ? byIndex : job.estimate.per_tool.find((p) => p.tool === call.tool);
     if (!per) return `${call.tool} has no estimate row`;
     const args = { ...call.args };
     delete args.limit;
@@ -170,10 +177,10 @@ async function readChunk(asOwner: SupabaseClient, chunk: Chunk, handles: HandleT
   const { data, error } = await asOwner
     .schema('app')
     .rpc('assistant_run_tool', { p_tool: chunk.spec.rpc, p_args: rpcArgs(chunk.spec, { ...chunk.args, limit: chunk.limit, offset: chunk.offset }) });
-  if (error) {
-    const m = mapPgError(error);
-    throw new Error(`${chunk.spec.name} chunk ${chunk.no}: ${m.code}: ${m.message}`);
-  }
+  // The thrown text reaches only the log today (runLive / submitBatch store a
+  // code and our sentence), but it stays our words all the same: safePgMessage
+  // logs the raw Postgres text and hands back the code plus a fixed sentence.
+  if (error) throw new Error(`${chunk.spec.name} chunk ${chunk.no}: ${safePgMessage(error, 'assistant-job')}`);
   const payload = (data as { data?: unknown })?.data;
   const obj = payload && typeof payload === 'object' && !Array.isArray(payload) ? (payload as Record<string, unknown>) : null;
   const columns = Array.isArray(obj?.columns) ? (obj.columns as string[]) : null;
@@ -194,7 +201,9 @@ function parseObject(text: string): Record<string, unknown> {
 
 async function venueTimezone(asOwner: SupabaseClient | null, service: SupabaseClient): Promise<string> {
   const client = asOwner ?? service;
-  const { data } = await client.from('platform_settings').select('timezone').eq('id', true).maybeSingle();
+  const { data, error } = await client.from('platform_settings').select('timezone').eq('id', true).maybeSingle();
+  // Not fatal (DEFAULT_TZ, as before), but said: every chunk's times shift with it.
+  if (error) logError('assistant-job', error, `platform_settings timezone unread; using ${DEFAULT_TZ}`);
   const tz = (data as { timezone?: string } | null)?.timezone;
   return typeof tz === 'string' && tz ? tz : DEFAULT_TZ;
 }
@@ -204,7 +213,7 @@ async function venueTimezone(asOwner: SupabaseClient | null, service: SupabaseCl
 // ---------------------------------------------------------------------------
 class Book {
   /** Progress writes (chunks_done, tokens), one after another in call order; a transition drains it first. */
-  private readonly writes = serialQueue((e) => console.error('[assistant-job] progress write failed', errorText(e)));
+  private readonly writes = serialQueue((e) => logError('assistant-job', errorText(e), 'progress write failed'));
 
   /** `provider` is the job's model (the reduce step); `extract` reads the chunks (JOB_EXTRACT_MODEL). */
   constructor(
@@ -229,7 +238,7 @@ class Book {
 
   async patch(id: string, patch: Record<string, unknown>): Promise<void> {
     const { error } = await this.service.from('assistant_jobs').update(patch).eq('id', id);
-    if (error) console.error('[assistant-job] patch failed', id, error.message);
+    if (error) logError('assistant-job', error, `patch of job ${id} failed`);
   }
 
   /**
@@ -261,11 +270,36 @@ class Book {
       p_cache_read: u.cache_read,
       p_output: u.output,
     });
-    if (error) {
-      console.error('[assistant-job] llm_price_micros', error.message);
-      return 0;
-    }
-    return Number(data ?? 0);
+    const n = Number(data);
+    if (!error && data !== null && data !== undefined && Number.isFinite(n)) return n;
+    logError('assistant-job', error ?? `llm_price_micros answered ${String(data)}`, `${model} priced by the TypeScript estimate`);
+    return await this.estimate(u, model);
+  }
+
+  /** platform_settings' price list, read once per Book and only when a price read fails. */
+  private rates: Promise<{ rates: Record<string, Partial<ModelRates>>; fallback: number }> | null = null;
+
+  /**
+   * What a call cost when app.llm_price_micros cannot say: the chat's own
+   * TypeScript estimate (turnPolicy turnEstimateMicros, assistant-chat's
+   * running total), from the price list, else 0079's blended rate, else
+   * FLOOR_RATES (0312 Opus 5.5, the dearer model); an unread list is logged and
+   * prices at the floor. Never 0 for a call that spent tokens: price() used to
+   * answer 0, so one failed read wrote a free call into assistant_calls and the
+   * job's tokens.cost_micros, and a 0 first reading switched off the live
+   * pool's in-flight cap allowance (perCallMicros; review 2026-11-09). The
+   * monthly cap itself is unaffected: llm_record_usage prices the tokens in SQL.
+   */
+  private async estimate(u: ProviderUsage, model: string): Promise<number> {
+    this.rates ??= (async () => {
+      const { data, error } = await this.service.from('platform_settings').select('llm_pricing, llm_cost_micros_per_mtok').eq('id', true).maybeSingle();
+      if (error) logError('assistant-job', error, 'platform_settings price list unread; estimating at the floor rates');
+      const row = data as { llm_pricing?: unknown; llm_cost_micros_per_mtok?: unknown } | null;
+      const fallback = Number(row?.llm_cost_micros_per_mtok);
+      return { rates: parseRates(row?.llm_pricing), fallback: Number.isFinite(fallback) && fallback >= 0 ? fallback : 0 };
+    })();
+    const { rates, fallback } = await this.rates;
+    return turnEstimateMicros(model, u, rates, fallback);
   }
 
   async record(u: ProviderUsage, calls: number, model: string): Promise<void> {
@@ -278,7 +312,7 @@ class Book {
       p_model_calls: calls,
       p_surface: SURFACE,
     });
-    if (rec.error) console.error('[assistant-job] usage not recorded', rec.error.message);
+    if (rec.error) logError('assistant-job', rec.error, 'usage not recorded');
   }
 
   /** Add one model call's usage, priced at `model` (the call's own), to the running spend and queue it onto the job. Answers the call's cost. */
@@ -362,7 +396,7 @@ class Book {
         stop_reason: c.stop_reason,
       }));
       const r = await this.service.from('assistant_calls').insert(rows);
-      if (r.error) console.error('[assistant-job] calls not stored', r.error.message);
+      if (r.error) logError('assistant-job', r.error, 'calls not stored');
     }
     const convPatch: Record<string, unknown> = { updated_at: new Date().toISOString() };
     if (handles) convPatch.handles = toJson(handles);
@@ -383,7 +417,7 @@ class Book {
     try {
       await this.transition(job.id, 'failed', { error: error.slice(0, 1000), tokens: spend });
     } catch (e) {
-      console.error('[assistant-job] fail transition', errorText(e));
+      logError('assistant-job', errorText(e), 'fail transition');
     }
   }
 }
@@ -531,11 +565,43 @@ function providerOr(model: string | null | undefined, fallback: Provider): Provi
   return model ? (providerFromEnv((n) => Deno.env.get(n), model) ?? fallback) : fallback;
 }
 
+/**
+ * The tick's lease on a job, in seconds (0405 app.assistant_job_claim_tick).
+ * It outlasts this request's WALL_MS abort, so a job is never worked by two
+ * ticks at once; a tick that dies leaves it to lapse and the job is retried.
+ */
+const TICK_CLAIM_SECONDS = 120;
+
+/**
+ * Clears this tick's own claim (matched on the stamp the claim handed back,
+ * so a lapsed claim another tick has since taken stays theirs), letting the
+ * next minute poll a batch still in flight. A job that left 'running' keeps
+ * its stamp: harmless, every reader filters on status first (0405 header).
+ */
+async function releaseClaim(service: SupabaseClient, jobId: string, claimedUntil: string): Promise<void> {
+  const { error } = await service.from('assistant_jobs').update({ tick_claimed_until: null }).eq('id', jobId).eq('tick_claimed_until', claimedUntil);
+  // Not fatal: the claim lapses on its own after TICK_CLAIM_SECONDS.
+  if (error) logError('assistant-job', error, `tick: claim on job ${jobId} not released`);
+}
+
 async function tick(book: Book, signal: AbortSignal) {
-  const { data, error } = await book.service.from('assistant_jobs').select('*').eq('status', 'running').eq('mode', 'batch').not('batch_id', 'is', null);
+  // 0405: claim first. Two overlapping ticks used to work the same batch job,
+  // record every chunk's usage twice (assistant_calls rows and the monthly
+  // spend doubled) and race the reducing / failed transitions (review
+  // 2026-11-09). The claim takes 0113's predicate (running, batch, batch_id
+  // set) FOR UPDATE SKIP LOCKED; only the jobs it hands back are worked.
+  const claim = await book.service.schema('app').rpc('assistant_job_claim_tick', { p_seconds: TICK_CLAIM_SECONDS });
+  if (claim.error) {
+    logError('assistant-job', claim.error, 'tick: claim failed');
+    return json({ ok: false, error: 'INTERNAL', code: 'INTERNAL' });
+  }
+  const claimed = new Map(((claim.data ?? []) as { job_id: string; claimed_until: string }[]).map((c) => [c.job_id, c.claimed_until]));
+  if (claimed.size === 0) return json({ ok: true, jobs: [] }); // nothing due, or another tick holds it
+  // Re-read with the predicate: an owner's cancel may have landed between the claim and this read.
+  const { data, error } = await book.service.from('assistant_jobs').select('*').in('id', [...claimed.keys()]).eq('status', 'running').eq('mode', 'batch').not('batch_id', 'is', null);
   if (error) {
     logError('assistant-job', error, 'tick: running jobs read failed');
-    return json({ ok: false, error: 'INTERNAL' });
+    return json({ ok: false, error: 'INTERNAL', code: 'INTERNAL' });
   }
   const jobs = (data ?? []) as JobRow[];
   const report: Record<string, unknown>[] = [];
@@ -551,6 +617,7 @@ async function tick(book: Book, signal: AbortSignal) {
       const status = await jb.extract.batchStatus(job.batch_id!);
       await jb.patch(job.id, { chunks_done: status.counts.succeeded + status.counts.errored + status.counts.canceled + status.counts.expired });
       if (!status.ended) {
+        await releaseClaim(jb.service, job.id, claimed.get(job.id)!); // still in flight: the next minute polls it
         report.push({ job_id: job.id, status: status.status, counts: status.counts });
         continue;
       }
@@ -592,18 +659,18 @@ async function tick(book: Book, signal: AbortSignal) {
 
 // ---------------------------------------------------------------------------
 Deno.serve(handle('assistant-job', async (req) => {
-  if (req.method !== 'POST') return json({ error: 'POST only' }, 405);
+  if (req.method !== 'POST') return json({ error: 'METHOD_NOT_ALLOWED', code: 'METHOD_NOT_ALLOWED', message: 'POST only' }, 405);
   const started = Date.now();
   const service = createServiceClient();
 
   const read = await readJsonBody<{ action?: string; job_id?: string; mode?: string }>(req, {
     maxBytes: MAX_BODY,
-    badJson: () => json({ error: 'INVALID_REQUEST', message: 'invalid JSON body' }, 400),
+    badJson: () => json({ error: 'INVALID_REQUEST', code: 'INVALID_REQUEST', message: 'invalid JSON body' }, 400),
   });
   if (!read.ok) return read.response;
   const body = read.value;
   const action = body.action;
-  if (action !== 'accept' && action !== 'tick' && action !== 'cancel') return json({ error: 'INVALID_REQUEST', message: 'action must be accept, tick or cancel' }, 400);
+  if (action !== 'accept' && action !== 'tick' && action !== 'cancel') return json({ error: 'INVALID_REQUEST', code: 'INVALID_REQUEST', message: 'action must be accept, tick or cancel' }, 400);
 
   const provider = providerFromEnv((n) => Deno.env.get(n));
   const abort = new AbortController();
@@ -611,28 +678,30 @@ Deno.serve(handle('assistant-job', async (req) => {
 
   try {
     if (action === 'tick') {
-      if (!isServiceRoleRequest(req)) return json({ error: 'forbidden' }, 403);
-      if (!provider) return json({ ok: false, error: 'NOT_CONFIGURED' });
+      if (!isServiceRoleRequest(req)) return json({ error: 'FORBIDDEN', code: 'FORBIDDEN', message: 'tick is for the service role' }, 403);
+      if (!provider) return json({ ok: false, error: 'NOT_CONFIGURED', code: 'NOT_CONFIGURED' });
       return await tick(new Book(service, provider), abort.signal);
     }
 
     const auth = await requireStaffRole(req, service, ['owner']);
     if (auth instanceof Response) return auth;
-    if (!body.job_id) return json({ error: 'INVALID_REQUEST', message: 'job_id is required' }, 400);
+    if (!body.job_id) return json({ error: 'INVALID_REQUEST', code: 'INVALID_REQUEST', message: 'job_id is required' }, 400);
+    // A malformed id is bad input (400), not a Postgres 22P02 from the read below (500 INTERNAL).
+    if (!isUuid(body.job_id)) return json({ error: 'INVALID_REQUEST', code: 'INVALID_REQUEST', message: 'job_id must be a uuid' }, 400);
 
     const { data: jobData, error: jobErr } = await service.from('assistant_jobs').select('*').eq('id', body.job_id).maybeSingle();
     if (jobErr) {
       logError('assistant-job', jobErr, 'job read failed');
-      return json({ error: 'INTERNAL' }, 500);
+      return json({ error: 'INTERNAL', code: 'INTERNAL' }, 500);
     }
     if (!jobData) return json({ error: 'NOT_FOUND', code: 'NOT_FOUND', message: 'job not found' }, 404);
     const job = jobData as JobRow;
     const { data: conv, error: convErr } = await service.from('assistant_conversations').select('owner_id, handles, model').eq('id', job.conversation_id).maybeSingle();
     if (convErr) {
       logError('assistant-job', convErr, 'conversation read failed');
-      return json({ error: 'INTERNAL' }, 500);
+      return json({ error: 'INTERNAL', code: 'INTERNAL' }, 500);
     }
-    if (!conv || (conv as { owner_id: string }).owner_id !== auth.userId) return json({ error: 'FORBIDDEN', message: 'not your job' }, 403);
+    if (!conv || (conv as { owner_id: string }).owner_id !== auth.userId) return json({ error: 'FORBIDDEN', code: 'FORBIDDEN', message: 'not your job' }, 403);
     const asOwner = callerClient(req);
 
     if (action === 'cancel') {
@@ -646,29 +715,32 @@ Deno.serve(handle('assistant-job', async (req) => {
           // Batch ids are account-wide: the default provider (same key) cancels it, whatever model it runs.
           await provider.batchCancel(job.batch_id);
         } catch (e) {
-          console.error('[assistant-job] batch cancel failed', errorText(e));
+          logError('assistant-job', errorText(e), 'batch cancel failed');
         }
       }
       return json({ job_id: job.id, status: 'cancelled' });
     }
 
-    // accept
-    if (!provider) return json({ error: 'NOT_CONFIGURED', code: 'NOT_CONFIGURED', message: 'ANTHROPIC_API_KEY is not set' }, 503);
+    // accept — the request's own problems (mode, state) answer before the
+    // runtime's: a double accept is 409 with or without a model key
+    // (review 2026-11-09; it used to hide behind the 503).
     const mode = body.mode === 'live' || body.mode === 'batch' ? body.mode : null;
-    if (!mode) return json({ error: 'INVALID_REQUEST', message: "mode must be 'live' or 'batch'" }, 400);
+    if (!mode) return json({ error: 'INVALID_REQUEST', code: 'INVALID_REQUEST', message: "mode must be 'live' or 'batch'" }, 400);
     if (job.status !== 'estimated') return json({ error: 'INVALID_TRANSITION', code: 'INVALID_TRANSITION', message: `job is ${job.status}` }, 409);
+    if (!provider) return json({ error: 'NOT_CONFIGURED', code: 'NOT_CONFIGURED', message: 'ANTHROPIC_API_KEY is not set' }, 503);
     if (mode === 'batch' && !extractProviderOr(provider).capabilities.batch) {
-      return json({ error: 'INVALID_REQUEST', message: 'batch jobs are not available on this model; run the job live' }, 400);
+      return json({ error: 'INVALID_REQUEST', code: 'INVALID_REQUEST', message: 'batch jobs are not available on this model; run the job live' }, 400);
     }
     if (mode === 'live' && (!job.estimate.modes.live.allowed || job.estimate.chunks > LIVE_MAX_CHUNKS)) {
-      return json({ error: 'INVALID_REQUEST', message: job.estimate.modes.live.reason ?? `live jobs run at most ${LIVE_MAX_CHUNKS} chunks; choose batch` }, 400);
+      return json({ error: 'INVALID_REQUEST', code: 'INVALID_REQUEST', message: job.estimate.modes.live.reason ?? `live jobs run at most ${LIVE_MAX_CHUNKS} chunks; choose batch` }, 400);
     }
     const chunks = chunksOf(job);
-    if (typeof chunks === 'string') return json({ error: 'INVALID_REQUEST', message: chunks }, 400);
+    if (typeof chunks === 'string') return json({ error: 'INVALID_REQUEST', code: 'INVALID_REQUEST', message: chunks }, 400);
 
     // 0114: the job runs on the chat's model, else the chain default (platform_settings,
     // 0207); the tick rebuilds the same provider from tokens.model, stamped below.
-    const { data: vs } = await service.from('platform_settings').select('llm_default_model').eq('id', true).maybeSingle();
+    const { data: vs, error: vsErr } = await service.from('platform_settings').select('llm_default_model').eq('id', true).maybeSingle();
+    if (vsErr) logError('assistant-job', vsErr, 'platform_settings default model unread; the chat model or the env default runs the job');
     const jobModel = (conv as { model?: string | null }).model ?? (vs as { llm_default_model?: string | null } | null)?.llm_default_model ?? null;
     const jobProvider = providerOr(jobModel, provider);
     const book = new Book(service, jobProvider, extractProviderOr(jobProvider));
@@ -684,7 +756,7 @@ Deno.serve(handle('assistant-job', async (req) => {
     return mode === 'live' ? await runLive(book, asOwner, job, chunks, handles, tz, abort.signal, started) : await submitBatch(book, asOwner, job, chunks, handles, tz);
   } catch (e) {
     // Logged in full; the owner gets the code and our sentence.
-    console.error('[assistant-job] failed', action, errorText(e));
+    logError('assistant-job', errorText(e), `${action} failed`);
     return json({ error: 'UPSTREAM', code: 'UPSTREAM', message: jobErrorText('UPSTREAM') }, 502);
   } finally {
     clearTimeout(wall);

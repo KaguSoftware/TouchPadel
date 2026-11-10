@@ -37,7 +37,7 @@ const plan: JobPlan = {
 const measured: ToolSpec[] = ASSISTANT_TOOLS.map((t) => (t.name === 'payments_list' ? { ...t, tokens_per_row: 23 } : t));
 
 describe('estimateJob — the worked example', () => {
-  const e = estimateJob(plan, { payments_list: 10_000 }, measured);
+  const e = estimateJob(plan, [10_000], measured);
 
   it('10,000 rows at 250 per chunk is 40 chunks', () => {
     expect(e.rows).toBe(10_000);
@@ -80,16 +80,16 @@ describe('estimateJob — the worked example', () => {
 
 describe('estimateJob — edges', () => {
   it('refuses live above 40 chunks and says why; batch stays allowed', () => {
-    const e = estimateJob(plan, { payments_list: 10_250 }, measured); // 41 chunks
+    const e = estimateJob(plan, [10_250], measured); // 41 chunks
     expect(e.chunks).toBe(41);
     expect(e.modes.live.allowed).toBe(false);
     expect(e.modes.live.reason).toContain(`${LIVE_MAX_CHUNKS}`);
     expect(e.modes.batch.allowed).toBe(true);
-    expect(estimateJob(plan, { payments_list: 40 * 250 }, measured).modes.live.allowed).toBe(true);
+    expect(estimateJob(plan, [40 * 250], measured).modes.live.allowed).toBe(true);
   });
 
   it('falls back to TOKENS_PER_ROW_FALLBACK for an unmeasured tool and says so', () => {
-    const e = estimateJob(plan, { payments_list: 500 }, ASSISTANT_TOOLS);
+    const e = estimateJob(plan, [500], ASSISTANT_TOOLS);
     expect(e.per_tool[0]?.measured).toBe(false);
     expect(e.per_tool[0]?.tokens_per_row).toBe(TOKENS_PER_ROW_FALLBACK);
     expect(e.assumptions.some((a) => a.includes('payments_list: tokens per row not measured'))).toBe(true);
@@ -97,27 +97,27 @@ describe('estimateJob — edges', () => {
 
   it('sums several tools and rounds chunks per tool', () => {
     const p: JobPlan = { question: 'q', calls: [{ tool: 'payments_list', args: {} }, { tool: 'audit_page', args: {} }] };
-    const e = estimateJob(p, { payments_list: 251, audit_page: 201 }, measured); // 2 + 2 chunks (audit 200/chunk)
+    const e = estimateJob(p, [251, 201], measured); // 2 + 2 chunks (audit 200/chunk)
     expect(e.rows).toBe(452);
     expect(e.chunks).toBe(4);
     expect(e.modes.aggregate).toBeNull();
   });
 
   it('zero rows is zero everything', () => {
-    const e = estimateJob(plan, {}, measured);
+    const e = estimateJob(plan, [], measured);
     expect(e.chunks).toBe(0);
     expect(e.tokens).toEqual({ input: 0, cache_read: 0, output: 0, total: 0 });
   });
 
   it('isOverEstimate pauses at +25 %', () => {
-    const e = estimateJob(plan, { payments_list: 10_000 }, measured);
+    const e = estimateJob(plan, [10_000], measured);
     expect(isOverEstimate(e.tokens.total * 1.2, e)).toBe(false);
     expect(isOverEstimate(e.tokens.total * 1.26, e)).toBe(true);
   });
 });
 
 describe('estimateJob — by step (extraction on the cheaper model)', () => {
-  const e = estimateJob(plan, { payments_list: 10_000 }, measured);
+  const e = estimateJob(plan, [10_000], measured);
   const steps = e.by_step!;
 
   it('extraction runs on claude-sonnet-5-5, an allowed model; the reduce on the job model (null)', () => {
@@ -175,7 +175,7 @@ describe('estimateJob — by step (extraction on the cheaper model)', () => {
   });
 
   it('zero rows is zero in both steps', () => {
-    const z = estimateJob(plan, {}, measured).by_step!;
+    const z = estimateJob(plan, [], measured).by_step!;
     expect(z.extract.tokens.total).toBe(0);
     expect(z.reduce.tokens).toEqual({ input: 0, cache_read: 0, output: 0, total: 0 });
   });
@@ -186,7 +186,7 @@ describe('estimateJob — by step (extraction on the cheaper model)', () => {
 // live pool's in-flight calls inside the monthly cap (pool.ts budgetAllows).
 // ---------------------------------------------------------------------------
 describe('extractCallTokens', () => {
-  const e = estimateJob(plan, { payments_list: 10_000 }, measured);
+  const e = estimateJob(plan, [10_000], measured);
 
   it('is the extract step high band over the chunks, rounded up', () => {
     const one = extractCallTokens(e);
@@ -207,6 +207,6 @@ describe('extractCallTokens', () => {
   });
 
   it('zero chunks is zeros', () => {
-    expect(extractCallTokens(estimateJob(plan, {}, measured))).toEqual({ input: 0, cache_read: 0, output: 0, total: 0 });
+    expect(extractCallTokens(estimateJob(plan, [], measured))).toEqual({ input: 0, cache_read: 0, output: 0, total: 0 });
   });
 });

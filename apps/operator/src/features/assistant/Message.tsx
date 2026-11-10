@@ -17,6 +17,7 @@
 import { Fragment, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useRouter } from '@tanstack/react-router';
 import type { AssistantScope } from '@touch/core/assistant/tools';
+import { assistantErrorSentence } from '@touch/core/assistant/client';
 import { useLocale } from '../../lib/i18n';
 import { Button, Spinner } from '../../components/ui';
 import type { AssistantErrorCode, GatePayload, RecheckResult, UsagePayload } from './api';
@@ -469,7 +470,7 @@ export function Message(props: MessageProps) {
 
       {error && (
         <p role="alert" style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-danger-fg)' }}>
-          {tr(`ws.owner.assistant.message.errors.${error.code}`)}
+          {tr(`ws.owner.assistant.message.errors.${assistantErrorSentence(error.code)}`)}
         </p>
       )}
 
