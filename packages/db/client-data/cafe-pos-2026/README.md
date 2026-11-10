@@ -1,73 +1,144 @@
 # Café POS exports from before the system (Morabaa)
 
-Eight PDF exports from the café's old till, Morabaa (شركة المربع للحلول البرمجية,
-www.morabaa.com), received from the club over WhatsApp on 2026-10-09/10 — the same delivery
-that brought the padel Word reports (`../padel-monthly-2026/`). Archived here verbatim on
-2026-11-09; `originals/SHA256SUMS` holds each file's hash. Two exports per month, June to
-September 2026:
+Nine PDF exports from the café's old till, Morabaa (شركة المربع للحلول البرمجية,
+www.morabaa.com). Eight arrived over WhatsApp on 2026-10-09/10 with the padel Word reports
+(`../padel-monthly-2026/`); the ninth, a longer items export, arrived on 2026-11-09.
+`originals/SHA256SUMS` holds each file's hash. **The PDFs themselves are not in git**
+(`*.pdf` is gitignored); they exist on the machine that archived them, and the hashes let
+anyone prove a copy is the same file.
 
-| File | What it is | Pages | Rows |
-|---|---|---|---|
-| `2026-0N-orders.pdf` | تقارير مبيعات — one row per order: timestamps, cashier, customer, order type, table, item count, amount, discount, paid, remaining | 413 / 667 / 541 / 681 | 4,122 / 6,665 / 5,403 / 6,806 orders |
-| `2026-0N-items.pdf` | تقارير مبيعات مفصلة — one row per line item: product name, unit price, quantity, line total, order no, timestamp | 396 / 607 / 471 / 605 | 6,333 / 9,708 / 7,525 / 9,680 lines |
+Second pass, 2026-11-10: every figure below was re-derived from the PDFs and checked
+against the till's own printed totals. It replaces the first write-up, which had the
+coverage dates wrong (see "What the files cover").
 
-They are text PDFs, not scans: `pdftotext -layout` extracts every row cleanly (the Arabic
-comes out as presentation-form glyphs, so grep for the `|` separators or digits, not for
-composed Arabic strings). Row counts above were verified against the till's own sequence
-numbers — they match exactly.
+## The files
 
-## The till's own totals (printed on each orders file's last page, IQD)
+| File | What it is | Rows |
+|---|---|---|
+| `2026-0N-orders.pdf` (June to September) | تقارير مبيعات: one row per order with the time, cashier, order type, table, item count, amount, discount and amount received. The last page prints the totals. | 4,122 / 6,665 / 5,403 / 6,806 |
+| `2026-0N-items.pdf` (June to September) | تقارير مبيعات مفصلة: one row per line item with the product, unit price, quantity, line total, ticket number and time. No totals line. | 6,333 / 9,708 / 7,525 / 9,680 |
+| `2026-07-02-to-10-31-items.pdf` | The same items report over a longer range. Received as `تقرير مفصل من شهر 6 الئ شهر 11.pdf`; despite the name it holds 2 July to 31 October. | 35,339 |
 
-| Month | Orders | Gross (المبلغ الكلي) | Discounts (الخصم الكلي) | Paid (المبلغ المدفوع الكلي) |
+They are text PDFs, not scans. `pdftotext -layout` gives one row per line; split on runs of
+two or more spaces after removing the bidi control characters. Two things break a naive
+parse: a long product name can run straight into the row number with no gap, and one
+product name contains a double space. Arabic comes out as presentation forms, so normalise
+with NFKC before comparing names.
+
+## What the files cover
+
+The "monthly" exports are **not full months**. Each stops a day early:
+
+| File set | Days it holds | Trading days |
+|---|---|---|
+| June | 2 to 29 June | 26 |
+| July | 1 to 30 July | 30 |
+| August | 1 to 30 August | 28 |
+| September | 1 to 29 September | 29 |
+
+The longer export holds the days they miss (31 July, 31 August, 30 September) and all of
+October. **30 June is in no file.** 1 June has no rows either; the till's row numbers start
+at 43 on 2 June, so that is most likely the till's first day. Four other days have no rows
+at all: 25 and 26 June, and 3 and 4 August. Those dates fall on Ashura and Arbaeen in 2026,
+so the club was probably closed; that is an inference, the files do not say.
+
+## How well the files agree
+
+- **Orders files against the till's printed totals:** the sum of every order's amount
+  equals the printed المبلغ الكلي exactly in all four months. Discounts and received
+  amounts differ from the print by 1 to 13 IQD a month, which is the till rounding
+  percentage discounts.
+- **Items files against orders files, day by day:** August and September agree exactly on
+  every day. July differs on one day (7 July, 13,250 IQD). June's items file is 827,250 IQD
+  short of its orders file, mostly on 2 to 4 June, the till's first days. For June the
+  orders file is the better figure.
+- **Longer export against the monthly items files:** identical row for row wherever they
+  overlap. The only rows the longer export adds inside a month are the missing last day
+  and one to three late rows on the day the monthly export was cut.
+
+## The figures
+
+The till's own print, for the days each orders file holds (IQD):
+
+| Days | Orders | Gross | Discounts | Received |
 |---|---|---|---|---|
-| June 2026 | 4,122 | 20,946,500 | 611,995 | 20,334,505 |
-| July 2026 | 6,665 | 26,678,750 | 403,888 | 26,274,863 |
-| August 2026 | 5,403 | 20,050,250 | 387,613 | 19,662,638 |
-| September 2026 | 6,806 | 25,205,000 | 568,373 | 24,636,628 |
+| 2 to 29 June | 4,122 | 20,946,500 | 611,995 | 20,334,505 |
+| 1 to 30 July | 6,665 | 26,678,750 | 403,888 | 26,274,863 |
+| 1 to 30 August | 5,403 | 20,050,250 | 387,613 | 19,662,638 |
+| 1 to 29 September | 6,806 | 25,205,000 | 568,373 | 24,636,628 |
 
-Remaining (المبلغ المتبقي الكلي) is 0 in every month. The items files print no totals line.
-Nothing here is computed by us; the four totals rows are the till's own print.
+Whole calendar months, gross before order discounts, built by adding the missing days from
+the longer export. These are our sums, not a till print:
 
-## Owner-stated context (Majed, 2026-11-09 — estimates, not in any document)
+| Month | Gross | Trading days | Per trading day | Note |
+|---|---|---|---|---|
+| June | 20,946,500 | 26 | 805,600 | 30 June missing, so the true month is higher |
+| July | 27,401,500 | 31 | 883,900 | |
+| August | 20,813,500 | 29 | 717,700 | closed 3 and 4 August |
+| September | 26,307,000 | 30 | 876,900 | |
+| October | 23,386,500 | 31 | 754,400 | items export only: no discount figure exists |
 
-These figures complete the picture but are the owner's word, not till or report data. Keep
-them labelled as such wherever they are used; never store them beside the "exactly as
-written" data as if a document said them:
+Discounts ran at 2.1% of gross over the four months that have them, so received money is
+about 98% of each gross figure.
 
-- Padel-gear shop sales average ≈ 1,000,000 IQD a month.
-- Padel stock on hand is worth ≈ 10,000,000 IQD.
-- Women's hours are **not** in Hussein's padel reports; worth ≈ 500,000 IQD a month extra.
-- Operational cost ≈ 15,000,000 IQD a month.
+## What the orders look like (22,996 orders, 2 June to 29 September)
 
-## The combined items export (`2026-07-02-to-10-31-items.pdf`)
+- Every order is recorded against "زبون نقدي" (cash customer). The old till identified
+  nobody.
+- 99.2% are صالة (hall); 185 are سفري (takeaway), nearly all in June. Two users rang
+  everything: مها 87%, admin 13%. One order in five carries a table number.
+- **The average order is 4,039 IQD but the typical one is half that:** median 2,000, a
+  quarter at 1,000 or less, a quarter at 5,000 or more, one in ten at 10,000 or more.
+  Orders under 1,000 IQD are 24% of orders and 2.5% of the money.
+- 4.4% of orders carry a discount, worth 1,971,893 IQD in total. They cluster at three
+  rates: 15% (395 orders), 50% (339 orders, 1,003,875 IQD) and 30% (200 orders).
+- Thursday is the busiest day (944,000 a day on average), then Friday (869,000) and
+  Wednesday (826,000). Saturday (769,000) is level with Monday; Sunday is the quietest
+  (705,000). 89% of the money is taken between 15:00 and 22:00, peaking 17:00 to 20:00.
 
-Received 2026-11-09 as `تقرير مفصل من شهر 6 الئ شهر 11.pdf` (exported from the till that
-same evening; 2,209 pages, 35,339 item lines). **Despite its name it holds no June**: the
-data runs 2026-07-02 07:41 to 2026-10-31 20:59, and nothing for 1–7 November (the club's
-last old-till days before go-live on the 8th). Its value is **October 2026**, which the
-monthly files above do not cover. Parsed per month (our sums of its السعر الكلي lines, not
-a till print — the items reports print no totals):
+## What sells (item lines, 2 June to 31 October)
 
-| Month | Item lines | ~Orders | Items gross (IQD) |
-|---|---|---|---|
-| July (from the 2nd) | 9,645 | 6,608 | 26,530,250 |
-| August | 7,806 | 5,607 | 20,813,500 |
-| September | 10,071 | 7,064 | 26,307,000 |
-| **October** | **7,817** | **5,240** | **23,386,500** |
+`items-2026-06-02-to-10-31.csv` lists all 169 product names with units, gross and the
+prices charged. By share of gross:
 
-Reconciliation caveat: for the overlapping months these sums sit within 1–4% of the orders
-files' till-printed gross (July −148k, explained by the missing July 1; August +763k;
-September +1,102k) and the monthly items files' line counts differ by a few hundred rows.
-The two exports were taken a month apart with — evidently — slightly different range or
-status filters, and the reports do not say which. Where the figures disagree, the
-till-printed totals in the table above remain the quoted numbers; October, which has no
-monthly file, is quoted from this export with that caveat.
+| Group | Share | Units |
+|---|---|---|
+| Desserts and food | 25.3% | 12,420 |
+| Fresh juices | 19.4% | 5,655 |
+| Smoothies, milkshakes, slush | 15.5% | 4,729 |
+| Mojitos | 11.3% | 3,415 |
+| Iced coffee | 7.7% | 2,109 |
+| Water and ice | 6.7% | 31,638 |
+| Hot coffee | 4.4% | 1,391 |
+| Tea, hot chocolate, hibiscus | 4.0% | 2,108 |
+| Espresso shots | 1.7% | 726 |
+| Other | 3.9% | 4,066 |
+
+Water alone is 30,354 bottles. Coffee of every kind is 13.8% of gross. This is a summer
+record (June to October in Karbala); hot coffee and tea were already rising in October
+(413 hot coffees against about 260 in each earlier month), so winter will look different.
+
+## Open questions about completeness
+
+- About 5% of ticket numbers never appear in the orders files, in single skips. Cancelled
+  or voided tickets would explain it; the files do not say.
+- The till's internal order counter advances about 1.8 for every order listed. Whether
+  that is edits and re-saves, or orders the export leaves out, is unknown. Ask whoever
+  ran the export which filters were set.
+- No export covers 30 June or 1 to 7 November.
+
+## Owner-stated context (Majed, 2026-11-09: estimates, not in any document)
+
+Keep these labelled as the owner's word wherever they are used:
+
+- Padel-gear shop sales average about 1,000,000 IQD a month.
+- Padel stock on hand is worth about 10,000,000 IQD.
+- Women's hours are **not** in Hussein's padel reports; worth about 500,000 IQD a month.
+- Operational cost is about 15,000,000 IQD a month.
 
 ## Not ingested
 
-Unlike the padel reports (migration 0331/0348), nothing from these files is in the database
-yet. The 0331 schema cannot take them as-is: its `department` CHECK admits only `padel` and
-its shape is one monthly summary per row, where this data is per-order and per-item. Landing
-it means its own tables (or a widened schema) plus a generated data migration in 0348's
-style: a structured JSON derived from the PDFs, a test proving the JSON against the PDFs,
-and `on conflict do nothing` inserts. Waiting on the owner's decision.
+Nothing from these files is in the database. The 0331 schema cannot take them as it is:
+its `department` CHECK admits only `padel` and it stores one monthly summary per row,
+where this is per-order and per-item data. Landing it means its own tables plus a
+generated data migration in 0348's style. Waiting on the owner's decision.

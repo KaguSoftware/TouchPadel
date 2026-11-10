@@ -1,198 +1,235 @@
-# Loyalty points economy — the studied numbers (2026-11-09)
+# Loyalty points economy (2026-11-09, second pass 2026-11-10)
 
 Majed's brief: "after a fair number of frequent coming, you get a reward that's worth your
-time and would make you happy, while at the same time make it make sense for us." This doc
-turns that into concrete `loyalty_settings`, tier and reward numbers, derived from the
-club's real data, and ends with the DECIDE list. Presented page (same content):
+time and would make you happy, while at the same time make it make sense for us."
+
+This is the second pass. The first was written on 2026-11-09 across several revisions; on
+2026-11-10 every number was re-derived from the till exports and every claim about the
+system was checked against the migrations. Majed's decisions are kept as he made them.
+What changed is listed in section 10. Presented page:
 https://claude.ai/artifact/XS2siZgrz2vkWe5LQaMegL
 
-**Revised three times the same day on Majed's direction; this is the standing version.**
-The 5% first cut read as "not worth the hustle". The final shape is Majed's: **earn stays
-at 1 pt / 1,000 IQD, rewards at menu÷100 (10% felt from points), and the stamp cards ride
-on top** — the cards deliver the fast visible wins (free coffee every 5 cups, 10th court
-hour free), points are the slower bank for the catalog. Combined felt rate ~25% on a
-coffee-heavy basket, ~10% elsewhere. Nothing is applied yet: hosted still carries test
-values.
+Nothing here is applied. Hosted still carries test loyalty values.
 
-Standing rule it respects (0403, Majed 2026-11-05): points buy things you take — a free
-item or a free court hour — never money off like a wallet. `points_off_enabled` stays
-false; no `iqd_off` rewards.
+## 1. Decided by Majed (2026-11-05 and 2026-11-09)
 
-## 1. The data this is built on
+- Points buy things you take (a free item, a free court hour), never money off.
+  `points_off_enabled` stays false; no `iqd_off` rewards. (0403)
+- Earn **1 point per 1,000 IQD paid**.
+- Rewards cost **menu price ÷ 100** in points, so points give back 10% in menu value.
+- Stamp cards ride on top of points: a coffee card and a court card.
+- Court card: **8 paid, played hours, the 9th is free**; the free hour cannot be used on
+  Friday or Saturday; it replaces a court hour in the points catalogue.
+- A plain espresso shot does not stamp the coffee card.
+- The place is sold as one experience: court players should end up in the café and café
+  guests on a court.
 
-- Café till exports, June–Oct 2026 (`packages/db/client-data/cafe-pos-2026/`): paid months
-  20.3 / 26.3 / 19.7 / 24.6 / ~22.9M IQD; **average café order ≈ 4,000 IQD**.
-- Padel desk reports (0348): a court hour ≈ 25–35k, call it **30,000 IQD**.
-- Owner cost sheets (`client-data/item-costs-2026-11.md`): drinks COGS 300–2,000, desserts
-  350–2,500 — **~32% average COGS on the chosen rewards (68–75% margin)**.
-- June–Oct top sellers (by units): water, كبوس, donuts, ice cream, cookies, big orange,
-  big mojitos, lazy cake, San Sebastián — the reward list is drawn from these.
+## 2. What the data says (`packages/db/client-data/cafe-pos-2026/`)
 
-## 2. The anchor
+- Café gross per calendar month: June 20.9M (one day missing), July 27.4M, August 20.8M,
+  September 26.3M, October 23.4M IQD. Discounts take about 2% off.
+- **The average order is 4,039 IQD; the typical order is 2,000.** A quarter of orders are
+  1,000 or less (mostly water). A made-to-order drink costs 4,000 to 5,000, so a guest who
+  buys one drink a visit spends about 4,000 to 4,500.
+- **Coffee is a small part of this café.** Share of gross: desserts and food 25%, fresh
+  juice 19%, smoothies/milkshakes/slush 16%, mojitos 11%, all coffee 14% (iced 7.7%, hot
+  4.4%, espresso shots 1.7%), water 7%. This is a June-to-October record; hot coffee was
+  already climbing in October.
+- Thursday is the café's busiest day, then Friday and Wednesday. Saturday is level with
+  Monday.
+- The old till already gave discounts on 4.4% of orders, at 15%, 30% and 50%, worth about
+  490,000 IQD a month.
+- Padel desk reports (0348): July 9.18M IQD over 263 completed bookings, about 35,000
+  each; August about 5.09M over 203, about 25,000 each. **The real court price is not in
+  the repo** (the only rates are dev fixtures), so every court figure below uses 30,000
+  an hour as a stand-in.
 
-- **Earn: 1 point per 1,000 IQD paid** (`iqd_per_point = 1000`) — an average café visit
-  lands 4 points. A purchase that rounds to zero points still stamps a card, so no visit
-  feels ignored.
-- **Rewards are priced at menu value ÷ 100** (1 pt ≈ 100 IQD of menu value).
-- Felt give-back from points: **10%** — punch-card parity on the whole catalog — with the
-  stamp cards (§7b) stacked on coffee and court. Points real worst case ≈ **3.2% of member
-  spend**; breakage and unidentified walk-ins pull points + coffee cards together to
-  **~1.5% of café revenue expected (300–500k IQD/month)**.
+## 3. How points behave in the system (checked in the migrations)
 
-Earning speed:
+- Points per settled tab = floor(money paid × tier multiplier ÷ 1,000). One floor per
+  tab, multiplier first. Money paid is net of discounts and refunds; a free item or free
+  hour earns nothing. (0305 `loyalty_points_for`, 0308 `trg_loyalty_earn`)
+- The court fee on a booking's tab earns for whoever the tab's customer is. Online
+  booking payments earn separately.
+- At 1 point per 1,000, 94% of the money earns points; 24% of orders (those under 1,000)
+  earn none. At 1 per 500 it would be 98.6% and 10.5%.
+- A tier is decided by points earned in the last rolling 12 months, counted after the
+  multiplier. Spending points does not lower it. (0376 `loyalty_recompute`)
+- Expiry wipes the whole balance after N months with no loyalty activity of any kind;
+  any earn or redemption restarts the clock. (0402 `loyalty_nightly_one`)
+- `min_redeem_points` and `point_value_iqd` only matter for money-off redemption, which is
+  off. They need no value.
+- An item reward frees one exact menu size. "Any mojito" is one reward row per flavour.
+- A court-hour reward exists (0403) with no day-of-week rule.
 
-| Guest | Per visit | Monthly points |
+## 4. How fast points arrive
+
+| Guest | Per visit | A month |
 |---|---|---|
-| Café regular, 2×/week, ~4,000 IQD | 4 | ~35 |
-| Weekly booker (court 30k on their tab + café) | ~34 | ~145 |
-| Core player, books 2×/week | ~34 | ~290 |
+| One made-to-order drink a visit, twice a week | 4 | about 35 |
+| Buys the table's round (10,000), twice a week | 10 | about 85 |
+| Books a court once a week, plus a drink | about 34 | about 145 |
+| Books twice a week | about 34 | about 290 |
 
-## 3. The reward list (proposal)
+Court rows assume 30,000 an hour on the booker's tab.
 
-| Reward | Menu value | Our cost | Points | Café-only regular | Booker |
+## 5. Rewards (proposal, rebuilt from real sales)
+
+Three filters: people already buy it, the club keeps most of its price, and its cost is
+known. Units are June to October.
+
+| Reward | Sold | Price | Cost | Cost share | Points |
 |---|---|---|---|---|---|
-| Free donut | 1,750 | 600 | **18** | ~5 visits (~2 weeks) | days |
-| Free cookies | ~2,300 | 1,250 | **25** | ~6 visits | 1 booking nearly covers it |
-| Free classic latte | 3,000 | 1,000 | **30** | ~7 visits | 1 booking covers it |
-| Free mojito (any, big) | 4,000 | 1,250 | **40** | ~5 weeks | ~1.2 booking weeks |
-| Free tiramisu | 4,000 | 1,600 | **40** | ~5 weeks | ~1.2 booking weeks |
-| Free fresh orange (big) | 4,000 | 1,250 | **40** | ~5 weeks | ~1.2 booking weeks |
-| Free San Sebastián | 5,000 | 1,600 | **50** | ~6 weeks | ~1.5 booking weeks |
-| Free frappuccino | 5,000 | 2,000 | **50** | ~6 weeks | ~1.5 booking weeks |
-| ~~Free court hour (450 pts)~~ | ~30,000 | a slot, not cash | — | superseded | by the court stamp card (§7b) |
+| Donut | 2,606 | 1,750 | 600 | 34% | 18 |
+| Carrot cake | 212 | 3,500 | 1,000 | 29% | 35 |
+| Fresh orange, large | 1,517 | 4,000 | 1,250 | 31% | 40 |
+| Mojito, large (one row per flavour) | 2,846 | 4,000 | 1,250 | 31% | 40 |
+| Tiramisu | 266 | 4,000 | 1,600 | 40% | 40 |
+| Fresh strawberry, large | 698 | 4,500 | 1,300 | 29% | 45 |
+| Milkshake, large (one row per flavour) | 1,426 | 5,000 | 1,600 | 32% | 50 |
+| Smoothie, large (one row per flavour) | 781 | 5,000 | 1,250 to 1,500 | 25 to 30% | 50 |
+| San Sebastián | 802 | 5,000 | 1,600 | 32% | 50 |
 
-Why this list: proven demand (top sellers only — a reward nobody orders changes nobody's
-behaviour), high margin (each returns 1.8–3.2 IQD of felt value per dinar of cost; mojito
-and fresh orange at 3.2× anchor the 40-pt band), and ladder shape (first win inside a
-week, steady 40–50 band, one aspirational prize).
+A one-drink regular reaches the donut in about two weeks and a 40-point drink in about
+five; a weekly booker reaches a 40-point drink in about nine days.
 
-Why the court hour is 450 and not the 300 parity price: it is the only reward with real
-capacity cost. 1.5× over parity keeps it ~13% of a booker's court spend (vs 20% café),
-aims it at the 2×/week core, and keeps "play enough, play free" honest. Each redemption
-represents 225,000 IQD of recorded spend; 0403 guards it (plain booking, once per
-booking, used whole).
+Left out on purpose: cookies and lazy cake (the club keeps only 38% of their price),
+brownies (43%), water, and anything without a cost. The first pass listed a classic hot
+latte and a frappuccino; they sold 80 and 126 in five months, so they are gone. Iced
+Spanish latte (851 sold, the best-selling coffee) and ice cream (2,776 sold) belong on the
+list once the owner gives their costs.
 
-Deliberately not rewards: water (noise), lazy cake (worst margin), ice cream until it has
-a COGS.
+## 6. Tiers (proposal, refitted)
 
-## 4. Tiers (12-month points, `earn_multiplier`)
+The first pass set Silver at 300 points and called it two months of café visits. At 35
+points a month it is closer to nine. Refitted so each tier is reachable by the guest it is
+meant for:
 
-| Tier | Threshold | Multiplier |
+| Tier | Points in 12 months | Earn multiplier | Who reaches it |
+|---|---|---|---|
+| Classic | 0 | ×1.00 | everyone |
+| Silver | 100 | ×1.10 | a one-drink regular in about 3 months; a weekly booker in 3 weeks |
+| Gold | 600 | ×1.25 | a weekly booker in about 4 months |
+| Black | 2,000 | ×1.50 | a twice-a-week booker in about 6 months |
+
+Multipliers are smaller than the first pass's ×1.25 / ×1.5 / ×2. They are the most
+expensive setting in the program, because they raise the give-back on exactly the members
+who spend the most; Starbucks' own tiers run 1 / 1.2 / 1.7.
+
+## 7. Stamp cards
+
+Neither card exists in the system. Both need a migration (card definitions, a counter per
+member, the free item at the Nth), a progress display on the desk and the phone, and a
+weekday rule for the court card.
+
+**Court card (decided): 8 paid hours, the 9th free, not on Friday or Saturday.** That is
+12.5% of a booker's court spend. With 200 to 285 completed bookings a month it tops out
+near 35 free hours a month.
+
+Two things to settle:
+
+- Until the card is built, a court-hour reward in the points catalogue at 240 points does
+  nearly the same job today (8 hours at 30,000 earn 240 points), without the weekday rule.
+- The café's busy days are Thursday and Friday, not Saturday. If the courts follow the
+  café, the blackout that protects paid hours is Thursday and Friday. The new system now
+  records court occupancy by day; check it before fixing the days.
+
+**Coffee card (decided in principle; shape open).** The first pass proposed 5 paid cups,
+the 6th free, with 2 stamps given at the start. Measured against the till:
+
+| Card | Reaches | Free a month at most | Felt give-back |
+|---|---|---|---|
+| Coffee only, espresso shots excluded, 5 then free | 700 cups a month, 12% of sales | 140 cups | 20% of coffee |
+| Any made-to-order drink, 5 then free | 3,200 drinks a month, 57% of sales | 645 drinks | 20% of drinks |
+| Any made-to-order drink, 8 then free | the same 3,200 | 400 drinks | 12.5% of drinks |
+
+A coffee-only card touches one sale in eight. The drink this café's regulars come back for
+is a juice, a mojito or a milkshake. Recommendation: **one rule for the whole club, "buy
+8, the 9th is on us", on any made-to-order drink and on court hours**, shown as 10 slots
+with 2 already stamped. Costa, the nearest real example, gives one free drink per 10 and
+raised that from 8. Majed's espresso rule carries over as "water, tea, espresso shots and
+ice do not stamp".
+
+## 8. One experience: what exists today and what needs building
+
+| Bridge | Today, no build | Needs a build |
 |---|---|---|
-| Classic | 0 | ×1.00 |
-| Silver | 300 | ×1.25 |
-| Gold | 1,200 | ×1.50 |
-| Black | 3,000 | ×2.00 |
+| Court to café | A café promotion limited to tabs attached to a court booking (`scope.courtIds`), with weekdays and hours, e.g. 15% off the café bill after a match. Tier-only café promotions (`limits.tierMin`). | Double points on a café tab linked to a played booking (earn has no bonus window; the tab's `reservation_id` is there to read). A line on the booking confirmation and receipt saying what the court fee earned. |
+| Café to court | Desk staff can give a one-off court discount by hand (`apply_customer_court_discount`). A court-hour reward can sit in the points catalogue. | An automatic "first booking" offer: promotions cannot discount a court fee and nothing detects a first booking. A weekday rule on the court-hour reward. |
 
-Multipliers are the cheapest incentive: they cost nothing until the guest actually comes
-back and spends. Thresholds map to the same personas as before (Silver ≈ 2 months of café
-regularity, Gold ≈ the weekly booker's first year, Black ≈ the 2×/week core). A Black
-member earns a free mojito every ~2–3 café visits.
+The first pass said `loyalty_tiers.promotion_id` could attach "half off your first
+booking" to Silver. That column is deprecated, always null and read by nothing (0309).
 
-## 5. Settings summary (what `set_loyalty_settings` gets)
+Measure it with one number: members who have both a booking and a café tab inside 90
+days. The customer analytics (0369) already holds the pieces.
 
-- `enabled = true` when Majed says go
-- `iqd_per_point = 1000`
-- `point_value_iqd = 100` (documentation value; `points_off_enabled` stays **false**)
-- `min_redeem_points = 18`
-- all five `earn_*` switches on (shop ≈ 1M IQD/month, gear buyers are the committed players)
-- `inactivity_expiry_months = 12`
+## 9. What it costs
 
-## 6. Exposure
+A reward's cost depends on what the member would have done without it. If the free drink
+is one they would not otherwise have had, it costs its ingredients (about 31% of menu
+price). If it replaces a drink they would have paid for, it costs the whole price. The
+truth is between, so both are shown. Monthly, on July-like revenue (café 27M, court 9M,
+shop 1M):
 
-Points absolute worst case (every café dinar earned by a member, every point redeemed):
-~800k IQD on a 25M café month (~3.2%); the coffee card adds its own bounded ~7% of the
-coffee category. Expected for points + coffee cards with unidentified walk-ins and
-20–40% breakage: **300–500k IQD/month, ~1.5% of café revenue**. One extra café visit ≈ 3,000 IQD
-contribution — a reward pays for itself if it causes a single one. Court exposure is
-bounded by the 450 price and 0403's rules.
+| Part | Assumptions | Menu value given | Cost if all extra | Cost if all replaced |
+|---|---|---|---|---|
+| Points | every booker identified, 40% of café money identified, 60% of points spent, tiers as in section 6 | about 1.3M | about 0.4M | about 1.3M |
+| Court card | half of the cards completed | about 0.5M | about 0 on empty weekday hours | about 0.5M |
+| Drinks card, 8 then free | 40% identified, 70% completed | about 0.47M | about 0.15M | about 0.47M |
+| **Total** | | **about 2.3M** | **about 0.55M** | **about 2.3M** |
 
-## 7b. The stamp layer (added later on 2026-11-09, Majed's idea, research-backed)
+That is 1.5% to 6% of roughly 37M revenue. The ceiling, if every dinar came from a
+top-tier member and every point and card were used, is about 7M to 8M of menu value a
+month. The program pays for itself if it lifts members' spending by more than it gives
+away, which at these settings means a lift of a few percent.
 
-On top of points, two stamp cards — the only two habits we most want to build:
+The first pass put the cost at 300,000 to 500,000 a month. It counted café money only,
+left out the points earned on court fees, the multipliers and the court card, and priced
+every reward at its ingredients.
 
-- **Coffee card:** coffee drinks stamp it, but a plain espresso shot (single or double)
-  does NOT count (Majed, 2026-11-09; shots still earn points). 7 slots shown with 2
-  already stamped, so 5 paid cups fill it — **every 6th coffee free**. The 2 endowed
-  stamps are the Kivetz endowed-progress effect (completion ~34% vs ~19% without) and
-  replace a welcome bonus; each new card re-endows them, killing the post-reward dip.
-  Cost: one free cup (COGS 300–1,750) per 5 paid ≈ ~7% real on the coffee category.
-- **Court card (Majed, 2026-11-09): 8 paid, played hours → the 9th free**, and the free
-  hour is **redeemable on weekdays only — never Friday or Saturday** (stamps are earned
-  any day; only the redemption is weekday-bound, so peak capacity stays paid). This
-  REPLACES the 450-pt court reward — one promise ("play 8, the 9th is on us"), no
-  double-dipping with points. 12.5% felt on court spend, paid in weekday capacity;
-  ~every 4 weeks for a 2×/week player.
+Two things the first numbers did not have: the share of café money that will be
+identified, and how many points get spent. Both are assumptions until the live system has
+a month of data.
 
-Why stamps on top of points: Kivetz's café field study — purchases accelerate 2.4× as a
-stamp card fills (12 days between stamps 1–2 → 5 days between 9–10); a visible
-single-product progress bar drives frequency in a way points cannot. Combined ceiling on
-café spend ≈ 26% felt / ~8% real; court spend pays only the card's 10%.
+## 10. What the second pass corrected
 
-Chain benchmarks checked (2026-11-09, web research): Starbucks 1 star/$, redemptions
-25–400 stars ≈ ~5% felt steered to high-margin items, ~$200M/yr breakage; old Gold
-(300 stars → status card + free any-drink per 125) beloved, killed 2019 to backlash,
-tiers reinstated 2026 — status is cheap and loved. McDonald's 100 pts/$, first freebie at
-1,500 pts (~3–4 visits, costs cents), Big Mac 7,000 — felt ~5%, real ~2%, biggest win =
-identification. Costa Club runs Majed's exact mechanic as its whole program: 1 bean per
-drink, 10 beans = any free drink.
+- The "monthly" till files each stop a day early; real months are higher than first
+  reported, and the files agree with each other exactly (the first pass blamed "different
+  export filters").
+- "Average order 4,000" hid a typical order of 2,000.
+- The reward list held items almost nobody buys and a wrong cookie price; rebuilt from
+  the full item ranking.
+- Silver was nine months away for a café regular, not two; tiers refitted.
+- `promotion_id` does not do what the plan said; promotions cannot touch court fees.
+- `min_redeem_points` has no effect on rewards.
+- The cost estimate was too low by a wide margin (section 9).
+- Research: the "2.4 times faster" stamp-card figure came from a blog, not the paper, and
+  is dropped. Kivetz, Urminsky and Zheng (2006) found café card holders buy more often as
+  the card fills, and that a 12-stamp card with 2 bonus stamps is finished faster than a
+  plain 10-stamp card. The 34% against 19% completion figure is Nunes and Drèze's car-wash
+  study (2006), not Kivetz. McDonald's gives back roughly 8 to 15% in menu value by our
+  estimate, not the 5% first written.
+- Rounding at 1 point per 1,000 loses 6% of the money, not the larger share the first
+  pass argued when it pushed for 500.
 
-**Build note:** stamps are new machinery — one migration (card definitions, per-member
-counters, auto-grant at N, zz_branch_guard), desk + phone progress UI, i18n. The points
-config can ship first; cards follow.
+## 11. DECIDE (Majed)
 
-## 7c. One experience — the cross-sell bridges (2026-11-09, Majed: "more people
-reserving courts going to the café, more café people reserving courts")
+1. **The real court price per hour** (by day or time if it varies). Every court number
+   here stands on a 30,000 placeholder.
+2. **Card scope and length:** coffee only, or any made-to-order drink; 5 then free, or 8
+   then free like the courts.
+3. **Free court hour blackout days:** Friday and Saturday as decided, or the days the
+   courts are actually full.
+4. **Tiers:** 100 / 600 / 2,000 at ×1.1 / ×1.25 / ×1.5, or richer multipliers.
+5. **The reward list**, and which flavours get a row.
+6. **Costs still missing:** iced Spanish latte, ice cream, sweet cake, cheesecake,
+   watermelon, slush; and whether karak and lemon tea really cost 1,000.
+7. **A court-hour reward at 240 points now**, until the court card is built.
+8. **Which bridges to build**, and when to switch the program on.
 
-Court → café: (1) **after-match double points** — a café tab on a played booking's
-business day earns ×2 (small build: the earn trigger already sees the tab's booking
-link); (2) the booking confirmation + desk receipt say what the court fee just earned
-("30 points — a free mojito is 40"); (3) a "match round" bundle the desk offers while
-settling the court fee (pure marketing).
+## 12. Apply (after DECIDE)
 
-Café → court: (4) **Silver's tier promotion = half off your first booking ever** — the
-`loyalty_tiers.promotion_id` hook exists; a café regular reaches Silver in ~2 months and
-gets one cheap, one-time reason to try a court — the strongest converter here;
-(5) a **weekday court-hour taster returns to the points catalog at 250 pts** (same
-weekday guard as the court card; bookers ignore it because their stamp card is 3×
-faster, so it reaches exactly the café-heavy crowd it is for); (6) open-match seats
-marketed on café table cards and the screen.
-
-KPI: **cross-active members** (booking + café tab within 90 days), plus café tabs
-attached to bookings, and first bookings by café-first members. 0369 customer analytics
-and the interest tags carry the raw material; baseline in month one.
-
-New DECIDEs: after-match ×2 window (business day vs 2 hours); Silver first-booking promo
-size (50%?); confirm the 250-pt weekday taster.
-
-## 7. The return math
-
-- A point costs ~32 IQD if fully redeemed (100 felt × ~32% COGS) against 1,000 IQD of
-  recorded spend behind it.
-- We pay in our own high-margin inventory, at our prices, after the spend is banked, and
-  only to identified guests — converting the old till's anonymous "زبون نقدي" traffic
-  into named customers.
-- Tuning direction is one-way: if redemption costs run hot, **new rewards are repriced
-  upward; earned points are never devalued** — that is how programs die.
-- **Watch after launch: redemption rate.** Under ~15% means rewards are priced too high;
-  an unredeemed program retains nobody.
-
-## 8. DECIDE (Majed)
-
-1. ~~Court card length~~ **DECIDED 2026-11-09: 8 paid → 9th free, weekday redemption
-   only (no Friday/Saturday), replaces the court points reward.**
-2. **Confirm the reward list** — each item reward binds to an exact `menu_variant_id`
-   (which mojito sizes, which juice sizes).
-3. **Ice cream** — natural ~15-pt reward, but its COGS is missing from the cost sheets.
-4. **Coffee card: confirm the full drink list.** 7 slots / 2 pre-stamped / espresso
-   shots excluded — decided. Open: which drinks stamp (latte family, cappuccino, Turkish,
-   karak? iced coffees? hot chocolate?).
-5. **Tier perks beyond multipliers** — a standing promotion can attach to Gold/Black.
-6. **When to flip `enabled`** — everything can load while off; test values replaced first.
-
-## 9. Apply (after DECIDE)
-
-One config pass: `set_loyalty_settings`, `upsert_loyalty_tier` ×4,
-`upsert_loyalty_reward` ×8 (court hour moves to the stamp card) with variant ids resolved
-from the live menu. Off until the owner enables it. The stamp layer needs its own
-migration + UI before it can load.
+With no build: `set_loyalty_settings` (enabled, 1,000 per point, earn switches on, expiry
+12 months), four tiers, the item rewards with their menu sizes, and any café promotions
+from section 8. The cards, the weekday rule, the after-match bonus and an automatic
+first-booking offer each need their own migration and screens.

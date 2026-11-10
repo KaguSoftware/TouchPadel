@@ -25,10 +25,8 @@ by source), not as till or report output.
 
 Notes:
 - تراميسو came once without "دينار" (just "1600"); assumed IQD like the rest.
-- The names match menu items that appear in the old till's exports
-  (`cafe-pos-2026/`), e.g. selling prices seen there: ليزي كيك 4,000 · تراميسو 4,000 ·
-  دونات 1,750 · كيك جزر 3,500 · انكلش كيك 1,500 — so these costs imply roughly 55–75%
-  gross margin on those five. (Derived observation, not owner data.)
+- The costs are matched to the old till's real selling prices in "Costs against till
+  prices" at the end of this file.
 
 ## Drinks (المشروبات) — received 2026-11-09, later the same day
 
@@ -69,3 +67,54 @@ Notes:
 - تفاح اخضر was written "750. دنيار"; recorded as 750.
 - Grouped lines (امريكانو hot+iced; لاتيه بندق/فانلا/كوكيز; the four smoothies; "موهيتو
   كل أنواعه") mean one cost for every variant in the group, as written.
+
+## Costs against till prices (derived 2026-11-10, not owner data)
+
+Each cost above set beside what the old till actually charged and sold, 2 June to 31
+October 2026 (`cafe-pos-2026/items-2026-06-02-to-10-31.csv`). "Cost share" is cost ÷ price:
+the lower it is, the more the club keeps. The cost sheet names no sizes, so each drink
+cost is set against the large size, the one that sells most.
+
+| Item on the till | Units sold | Price | Cost | Cost share |
+|---|---|---|---|---|
+| تفاح اخضر كبير (green apple) | 102 | 4,000 | 750 | 19% |
+| انكلش كيك (English cake) | 146 | 1,500 | 350 | 23% |
+| مافن كيك (muffin) | 150 | 2,000 | 500 | 25% |
+| سموذي كبير (smoothies, all) | 781 | 5,000 | 1,250 to 1,500 | 25 to 30% |
+| كيك جزر (carrot cake) | 212 | 3,500 | 1,000 | 29% |
+| فراولة كبير (strawberry) | 698 | 4,500 | 1,300 | 29% |
+| بولو كبير (polo) | 191 | 4,500 | 1,300 | 29% |
+| برتقال كبير (orange) | 1,517 | 4,000 | 1,250 | 31% |
+| موهيتو كبير (mojitos, all flavours) | 2,846 | 4,000 | 1,250 | 31% |
+| ليمون كبير (lemon) | 173 | 4,000 | 1,250 | 31% |
+| سان سباستيان (San Sebastián) | 802 | 5,000 | 1,600 | 32% |
+| ميلك … كبير (milkshakes, all) | 1,426 | 5,000 | 1,600 | 32% |
+| مانكا كبير (mango) | 232 | 4,500 | 1,500 | 33% |
+| دونات (donut) | 2,606 | 1,750 | 600 | 34% |
+| برتقال جزر كبير (orange-carrot) | 203 | 4,000 | 1,500 | 38% |
+| ترامسيو (tiramisu) | 266 | 4,000 | 1,600 | 40% |
+| فرابجينو (frappuccino, all) | 126 | 5,000 | 2,000 | 40% |
+| براونيز ساده (brownies) | 438 | 3,500 | 2,000 | 57% |
+| كوكيز (cookies) | 1,483 | 2,000 | 1,250 | 62% |
+| ليزي كيك (lazy cake) | 812 | 4,000 | 2,500 | 62% |
+
+Coffee and tea, where the till name is clear: اسبريسو سنكل 2,000 against 300 (15%),
+اسبريسو دبل 3,000 against 540 (18%), امركانو 3,000 against 750 (25%), لاتيه كلاسك ساخن
+3,000 against 1,000 (33%), تركيه 3,000 against 1,000 (33%), بستاشيو مكياتو كبير 5,000
+against 2,000 (40%), هوت شوكلت 3,000 against 1,300 (43%).
+
+Worth checking with the owner:
+
+- **شاي كرك costs 1,000 and sells for 2,000 (50%); شاي ليمون costs 1,000 and sells for
+  1,500 (67%).** Either tea is the thinnest thing on the menu or those two costs are
+  mistyped.
+- Cookies, lazy cake and brownies keep under half their price. They are also three of the
+  best sellers.
+- The 3,000-IQD cookie (493 sold) is probably كوكيز محشي at 1,750 cost (58%); the till
+  prints both under the same name.
+- رينبو كيك and كيك حليب are on the cost sheet but not on the till under those names.
+  سويت كيك (770 sold at 3,000) may be one of them.
+- Best sellers with **no cost yet**: ايس سبانش لاتيه (851 sold, the top coffee), ايسكريم
+  (2,776), سويت كيك (770), تشيز كيك (467), بطيخ (508), سلاش (1,706), V60 (250), كركديه
+  (400), كبوس (3,475 at 1,000, and unclear what it is), plus the two already marked "not
+  given" above.
