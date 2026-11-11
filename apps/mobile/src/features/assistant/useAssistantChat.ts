@@ -22,6 +22,8 @@ import {
 import { captureException } from '../../lib/telemetry';
 import { assistantKeys, sendMessage } from './api';
 import { AssistantStreamError } from './chat';
+import { NO_END, type LiveEnd } from './thread';
+import { StreamLostError, ownerStopped } from './stream';
 
 export interface UseAssistantChatOptions {
   conversationId: string | null;
@@ -37,15 +39,13 @@ export interface UseAssistantChatOptions {
 
 export interface UseAssistantChat {
   live: LiveTurn | null;
+  /** How the live turn ended beyond the reducer's state: `done`'s stop_reason, a lost stream. */
+  end: LiveEnd;
   streaming: boolean;
   lastQuestion: string | null;
   /** `scopes` overrides the hook's set for this one question (a starter names what it needs). */
   ask: (text: string, scopes?: readonly AssistantScope[]) => Promise<void>;
   stop: () => void;
-}
-
-function isAbort(err: unknown): boolean {
-  return err instanceof Error && err.name === 'AbortError';
 }
 
 function codeOf(err: unknown): AssistantErrorCode {
@@ -55,6 +55,7 @@ function codeOf(err: unknown): AssistantErrorCode {
 export function useAssistantChat(opts: UseAssistantChatOptions): UseAssistantChat {
   const qc = useQueryClient();
   const [live, setLive] = useState<LiveTurn | null>(null);
+  const [end, setEnd] = useState<LiveEnd>(NO_END);
   const [streaming, setStreaming] = useState(false);
   const [lastQuestion, setLastQuestion] = useState<string | null>(null);
   const controller = useRef<AbortController | null>(null);
@@ -83,6 +84,7 @@ export function useAssistantChat(opts: UseAssistantChatOptions): UseAssistantCha
       controller.current = ac;
       setStreaming(true);
       setLastQuestion(question);
+      setEnd(NO_END);
       setLive(emptyTurn(conversationId, question));
 
       let convId = conversationId;
@@ -112,12 +114,18 @@ export function useAssistantChat(opts: UseAssistantChatOptions): UseAssistantCha
                   onConversation(id);
                 }
               }
+              if (name === 'done' && typeof data === 'object' && data !== null) {
+                const reason = (data as { stop_reason?: unknown }).stop_reason;
+                if (typeof reason === 'string') setEnd((e) => ({ ...e, stopReason: reason }));
+              }
               setLive((cur) => (cur ? applyEvent(cur, name, data) : cur));
             },
           },
         );
       } catch (err) {
-        if (isAbort(err)) {
+        // The owner's Stop, read from the controller: expo/fetch reports a request
+        // cancelled before its headers as a plain Error, not an AbortError. Never telemetry.
+        if (ownerStopped(ac.signal)) {
           setLive((cur) =>
             cur
               ? { ...cur, done: true, stopped: true, tools: settleTools(cur.tools) }
@@ -127,6 +135,7 @@ export function useAssistantChat(opts: UseAssistantChatOptions): UseAssistantCha
           // A refusal carries its code; a dropped connection is UNKNOWN, which
           // reads "ask again" and keeps the question on screen to do so.
           if (!(err instanceof AssistantStreamError)) captureException(err, { scope: 'assistant.ask' });
+          if (err instanceof StreamLostError) setEnd((e) => ({ ...e, lost: true }));
           const code = codeOf(err);
           setLive((cur) =>
             cur
@@ -159,5 +168,5 @@ export function useAssistantChat(opts: UseAssistantChatOptions): UseAssistantCha
     [qc],
   );
 
-  return { live, streaming, lastQuestion, ask, stop };
+  return { live, end, streaming, lastQuestion, ask, stop };
 }

@@ -1750,6 +1750,7 @@
     "docs/design/assistant/chat-changelog.md": "excluded: the assistant-chat edge function's historical header changelog, moved out of the source for developers; the owner assistant's own rules and pages are in docs/design/assistant/rules.md and pages.md",
     "docs/design/assistant/e2e-notes.md": "index:doc",
     "docs/design/assistant/owner-assistant-plan-2026-09-20.md": "index:doc",
+    "docs/design/assistant/observability.md": "excluded: runbook for the route/cost report script and the weekly scored eval workflow (2026-11-11); developer instruments, not owner knowledge",
     "docs/design/assistant/pages.md": "index:doc",
     "docs/design/assistant/rules.md": "index:doc",
     "docs/design/cafe-rebuild/context-existing-cafe.md": "index:doc",

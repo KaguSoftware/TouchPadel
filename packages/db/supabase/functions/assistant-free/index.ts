@@ -30,10 +30,16 @@ import { requireStaffRole } from '../_shared/auth.ts';
 import { handle, json, KB, logError, readJsonBody } from '../_shared/http.ts';
 import { mapChunks } from '../_shared/assistant/map.ts';
 import { SSE_HEADERS, sseStream } from '../_shared/assistant/sse.ts';
-import { GROQ_URL, applyChunk, newAccumulator, stopReasonFromOai, supportsReasoningEffort, takeSseData, usageFromOai } from '../_shared/assistant/groqWire.ts';
+import { GROQ_URL, newAccumulator, stopReasonFromOai, supportsReasoningEffort, usageFromOai } from '../_shared/assistant/groqWire.ts';
 import {
   ALL_ROLES,
+  FREE_ERROR_TEXT,
   FREE_MAX_OUTPUT_TOKENS,
+  FreeError,
+  freeFailureReply,
+  postGroq,
+  readGroqStream,
+  type GroqDeps,
   buildFreeSystem,
   createLimiter,
   freeModel,
@@ -49,54 +55,17 @@ const WALL_MS = 25_000;
 const HEARTBEAT_MS = 10_000;
 /** Text, six earlier turns and sixty phone rows: a few KB; 32 KB, then 413. */
 const MAX_BODY = 32 * KB;
-/** A Groq 429 that asks for at most this long is waited out once; longer is RATE_LIMITED. */
-const SHORT_WAIT_MS = 4_000;
 
 const limiter = createLimiter();
 
-const ERROR_TEXT: Record<string, string> = {
-  RATE_LIMITED: 'the free AI is busy right now; try again in a minute',
-  UPSTREAM: 'the free AI did not answer',
-  TIMEOUT: `the free AI did not finish inside ${WALL_MS / 1000} s`,
+const ERROR_TEXT: Record<string, string> = { ...FREE_ERROR_TEXT, TIMEOUT: `the free AI did not finish inside ${WALL_MS / 1000} s` };
+
+const groq: GroqDeps = {
+  fetch: (url, init) => fetch(url, init),
+  url: GROQ_URL,
+  sleep: (ms) => new Promise((r) => setTimeout(r, ms)),
+  log: (e, note) => logError('assistant-free', e, note),
 };
-
-class FreeError extends Error {
-  constructor(readonly code: 'RATE_LIMITED' | 'UPSTREAM' | 'TIMEOUT' | 'NOT_CONFIGURED') {
-    super(code);
-  }
-}
-
-function retryAfter(res: Response, body: string): number | null {
-  const header = res.headers.get('retry-after');
-  if (header && /^\d+(\.\d+)?$/.test(header.trim())) return Math.ceil(Number(header) * 1000);
-  const m = /try again in\s+(?:(\d+)m(?!s))?\s*(\d+(?:\.\d+)?)(ms|s)/i.exec(body);
-  if (!m) return null;
-  return Math.ceil(Number(m[1] ?? 0) * 60_000 + Number(m[2]) * (m[3]!.toLowerCase() === 'ms' ? 1 : 1000));
-}
-
-async function post(apiKey: string, body: unknown, signal: AbortSignal, retried = false): Promise<Response> {
-  let res: Response;
-  try {
-    res = await fetch(GROQ_URL, { method: 'POST', headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal });
-  } catch (e) {
-    if (signal.aborted) throw new FreeError('TIMEOUT');
-    logError('assistant-free', e, 'Groq unreachable');
-    throw new FreeError('UPSTREAM');
-  }
-  if (res.ok) return res;
-  const text = await res.text().catch(() => '');
-  if (res.status === 429 || res.status === 413) {
-    const wait = retryAfter(res, text);
-    if (!retried && res.status === 429 && wait !== null && wait <= SHORT_WAIT_MS && !signal.aborted) {
-      await new Promise((r) => setTimeout(r, wait + 250));
-      return post(apiKey, body, signal, true);
-    }
-    logError('assistant-free', new Error(`Groq refused ${res.status}`), text.slice(0, 300));
-    throw new FreeError('RATE_LIMITED');
-  }
-  logError('assistant-free', new Error(`Groq error ${res.status}`), text.slice(0, 300));
-  throw new FreeError(res.status === 401 || res.status === 403 ? 'NOT_CONFIGURED' : 'UPSTREAM');
-}
 
 function promptFor(parsed: FreeReq, role: string): string {
   const pages = parsed.app === 'mobile' ? mobilePages(parsed.pages) : operatorPages(mapChunks(), role, parsed.lang);
@@ -152,13 +121,11 @@ Deno.serve(handle('assistant-free', async (req) => {
   // club's free tier used up) answers as JSON the clients already map.
   let upstream: Response;
   try {
-    upstream = await post(apiKey, groqBody, abort.signal);
+    upstream = await postGroq(groq, apiKey, groqBody, abort.signal);
   } catch (e) {
     clearTimeout(wall);
-    const code = e instanceof FreeError ? e.code : 'UPSTREAM';
-    if (code === 'RATE_LIMITED') return json({ error: code, code, scope: 'club', message: ERROR_TEXT.RATE_LIMITED }, 429);
-    if (code === 'NOT_CONFIGURED') return json({ error: code, code, message: 'Groq refused the key' }, 503);
-    return json({ error: code, code, message: ERROR_TEXT[code] ?? ERROR_TEXT.UPSTREAM }, 502);
+    const reply = freeFailureReply(e instanceof FreeError ? e.code : 'UPSTREAM');
+    return json(reply.body, reply.status);
   }
 
   // The shared scaffold (sse.ts sseStream): a client that leaves aborts the Groq read.
@@ -171,27 +138,7 @@ Deno.serve(handle('assistant-free', async (req) => {
     let errorCode: string | null = null;
     emit('message_start', { model, free: true });
     try {
-      if (!upstream.body) throw new FreeError('UPSTREAM');
-      const reader = upstream.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
-      for (;;) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        const { payloads, rest } = takeSseData(buffer);
-        buffer = rest;
-        for (const p of payloads) {
-          let chunk: unknown;
-          try {
-            chunk = JSON.parse(p);
-          } catch {
-            continue;
-          }
-          const { textDelta } = applyChunk(acc, chunk);
-          if (textDelta) emit('delta', { text: textDelta });
-        }
-      }
+      await readGroqStream(upstream, acc, (text) => emit('delta', { text }));
     } catch (e) {
       errorCode = e instanceof FreeError ? e.code : abort.signal.aborted ? 'TIMEOUT' : 'UPSTREAM';
       if (!(e instanceof FreeError)) logError('assistant-free', e, 'stream failed');

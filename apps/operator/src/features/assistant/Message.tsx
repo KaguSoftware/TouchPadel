@@ -17,10 +17,10 @@
 import { Fragment, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useRouter } from '@tanstack/react-router';
 import type { AssistantScope } from '@touch/core/assistant/tools';
-import { assistantErrorSentence } from '@touch/core/assistant/client';
 import { useLocale } from '../../lib/i18n';
 import { Button, Spinner } from '../../components/ui';
-import type { AssistantErrorCode, GatePayload, RecheckResult, UsagePayload } from './api';
+import type { GatePayload, RecheckResult, UsagePayload } from './api';
+import { canAskAgain, errorSentenceKey, type ChatErrorCode, type OutcomeView } from './threadLogic';
 import { RecheckControl, hasRecheckableTools, rawsForValues } from './RecheckControl';
 import { PinControl, hasPinnableTools } from './PinControl';
 import { SourcesBox, scopeLabel, type SourceRow } from './Sources';
@@ -221,7 +221,17 @@ export interface MessageProps {
   fallbackMicrosPerMtok?: number;
   streaming?: boolean;
   stopped?: boolean;
-  error?: { code: AssistantErrorCode; message: string } | null;
+  error?: { code: ChatErrorCode; message: string } | null;
+  /**
+   * How the turn ended (threadLogic: storedOutcome / liveOutcome); wins over
+   * `stopped` and `error`. Anything but ok draws its note and hides Pin and
+   * Re-check: neither belongs on an answer that did not finish.
+   */
+  outcome?: OutcomeView;
+  /** "Ask again" under a failed turn: sends the question again, only when pressed. */
+  onAskAgain?: () => void;
+  /** Another question is running: Ask again waits. */
+  askAgainDisabled?: boolean;
   /** Scopes the answer said were off; one button each. */
   turnOn?: readonly AssistantScope[];
   onTurnOn?: (scope: AssistantScope) => void;
@@ -272,6 +282,8 @@ function PageLinks({ text, onNavigate }: { text: string; onNavigate?: () => void
 export function Message(props: MessageProps) {
   const { tr } = useLocale();
   const { role, text, tools = [], gate, usage, streaming, stopped, error, turnOn = [], onTurnOn, compact } = props;
+  const outcome: OutcomeView = props.outcome ?? (error ? { kind: 'error', code: error.code } : stopped ? { kind: 'stopped' } : { kind: 'ok' });
+  const finished = outcome.kind === 'ok';
   // The last re-check of this message; forgotten when the row changes.
   const [recheck, setRecheck] = useState<RecheckResult | null>(null);
   useEffect(() => setRecheck(null), [props.messageId]);
@@ -305,8 +317,8 @@ export function Message(props: MessageProps) {
   const unverifiedCount = unverified.length;
   const pendingTools = tools.filter((t) => t.pending);
   const changedRaws = recheck ? rawsForValues(text, recheck.changed.map((c) => c.value_then)) : [];
-  const canRecheck = !streaming && !!props.messageId && hasRecheckableTools(tools);
-  const canPin = !streaming && !!props.messageId && !!props.question && !props.fromJob && hasPinnableTools(tools);
+  const canRecheck = !streaming && finished && !!props.messageId && hasRecheckableTools(tools);
+  const canPin = !streaming && finished && !!props.messageId && !!props.question && !props.fromJob && hasPinnableTools(tools);
   const billed = !!usage && totalTokens(usage) > 0;
   const hasDetails = !streaming && (tools.length > 0 || billed);
   const costText = billed ? `⁨${formatUsd(usage!.cost_micros ?? priceFor({ model: usage!.model ?? '', ...usage! }, props.pricing, props.fallbackMicrosPerMtok ?? 0))}⁩` : null;
@@ -466,12 +478,33 @@ export function Message(props: MessageProps) {
       )}
       {!showFooter && detailsButton && <div style={{ display: 'flex' }}>{detailsButton}</div>}
 
-      {stopped && <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>{tr('ws.owner.assistant.composer.stopped')}</p>}
-
-      {error && (
-        <p role="alert" style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-danger-fg)' }}>
-          {tr(`ws.owner.assistant.message.errors.${assistantErrorSentence(error.code)}`)}
+      {!streaming && outcome.kind === 'stopped' && (
+        <p data-turn-outcome="stopped" style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>
+          {tr('ws.owner.assistant.composer.stopped')}
         </p>
+      )}
+      {!streaming && outcome.kind === 'cut_short' && (
+        <p data-turn-outcome="cut_short" style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>
+          {tr('ws.owner.assistant.message.outcome.cutShort')}
+        </p>
+      )}
+      {!streaming && outcome.kind === 'refused' && (
+        <p data-turn-outcome="refused" style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>
+          {tr('ws.owner.assistant.message.outcome.refused')}
+        </p>
+      )}
+
+      {outcome.kind === 'error' && (
+        <div data-turn-outcome="error" style={{ display: 'grid', gap: 'var(--tp-sp-1)', justifyItems: 'start' }}>
+          <p role="alert" style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-danger-fg)' }}>
+            {tr(`ws.owner.assistant.message.errors.${errorSentenceKey(outcome.code)}`)}
+          </p>
+          {props.onAskAgain && canAskAgain(outcome.code) && (
+            <Button kind="soft" size="sm" icon="refresh" onClick={props.onAskAgain} disabled={props.askAgainDisabled} title={tr('ws.owner.assistant.message.askAgainHint')}>
+              {tr('ws.owner.assistant.message.askAgain')}
+            </Button>
+          )}
+        </div>
       )}
 
       {turnOn.length > 0 && onTurnOn && (

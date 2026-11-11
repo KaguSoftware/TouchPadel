@@ -10,6 +10,11 @@
  * already proven to own, and the answer reuse's candidates (filtered on
  * owner_id in the query).
  *
+ * `tailToMessages` (moved from assistant-chat/index.ts on 2026-11-11 so it is
+ * tested) turns the stored history `readTail` returns into the text-only
+ * turns the model is sent; it skips a failed turn's empty text and an older
+ * row's "[CODE] sentence" placeholder.
+ *
  * Deno-only (npm:@supabase/supabase-js types).
  */
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2';
@@ -21,6 +26,36 @@ import type { RecheckIo, RerunCtx } from './recheck.ts';
 import type { ReuseReads } from './reuse.ts';
 
 const DEFAULT_TZ = 'Asia/Baghdad';
+
+// ---------------------------------------------------------------------------
+// Stored messages → provider messages, text only: intermediate tool_use blocks
+// are not replayed on later turns (the sources panel has them; plan §11.4
+// forgets old tool results anyway), so a stored turn is always API-valid.
+// A failed turn with no text (one empty block since 2026-11-11) and an older
+// row's "[CODE] sentence" placeholder are skipped: neither is something the
+// model said. Two user turns then follow each other, as when an assistant row
+// was never stored (and as the first user turn and a tail that starts with a
+// user turn always have); the Messages API combines consecutive same-role turns.
+// ---------------------------------------------------------------------------
+const LEGACY_ERROR_TEXT = /^\[(TIMEOUT|UPSTREAM|RATE_LIMITED|NOT_CONFIGURED)\] [^\n]*$/;
+
+/** One replayed turn: a structural slice of provider.ts ProviderMessage (text content only). */
+export type TailMessage = { role: 'user'; content: string } | { role: 'assistant'; content: string };
+
+export function tailToMessages(rows: readonly { role: string; content: unknown }[]): TailMessage[] {
+  const out: TailMessage[] = [];
+  for (const r of rows) {
+    const blocks = Array.isArray(r.content) ? (r.content as { type?: string; text?: string }[]) : [];
+    const text = blocks.filter((b) => b.type === 'text' && typeof b.text === 'string').map((b) => b.text as string).join('\n').trim();
+    if (!text) continue;
+    if (r.role === 'assistant' && LEGACY_ERROR_TEXT.test(text)) continue;
+    if (r.role === 'user') out.push({ role: 'user', content: text });
+    else if (r.role === 'assistant') out.push({ role: 'assistant', content: text });
+  }
+  // The API wants the first entry to be a user turn and the tail to alternate sensibly; drop a leading assistant.
+  while (out.length && out[0]!.role === 'assistant') out.shift();
+  return out;
+}
 
 
 export interface VenueModels {

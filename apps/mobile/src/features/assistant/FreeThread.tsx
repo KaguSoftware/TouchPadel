@@ -11,7 +11,7 @@
  * The logic is `free.ts` (vitest); this file draws it.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, View, type ScrollViewInstance } from 'react-native';
+import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, View } from 'react-native';
 import { router, type Href } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { countPhrase } from '@touch/i18n';
@@ -38,10 +38,10 @@ import {
   type FreeLiveTurn,
 } from './free';
 import { AnswerText, Composer, UserBubble } from './parts';
+import { StreamLostError, ownerStopped } from './stream';
+import { useStickToBottom } from './stickToBottom';
 
-function isAbort(err: unknown): boolean {
-  return err instanceof Error && err.name === 'AbortError';
-}
+const NO_FIGURES: readonly string[] = [];
 
 /** The thread's state machine: one turn per question, streamed, Stop aborts. */
 function useFreeChat({
@@ -55,6 +55,8 @@ function useFreeChat({
 }) {
   const [turns, setTurns] = useState<FreeLiveTurn[]>([]);
   const [streaming, setStreaming] = useState(false);
+  // Turns whose stream was lost (ended without `done`, or went silent): their own sentence.
+  const [lost, setLost] = useState<readonly number[]>([]);
   const controller = useRef<AbortController | null>(null);
   const nextId = useRef(1);
   // The latest thread and arguments, for an ask fired from a press.
@@ -87,10 +89,12 @@ function useFreeChat({
         onEvent: (name, data) => patch((t) => applyFreeEvent(t, name, data)),
       });
     } catch (err) {
-      if (isAbort(err)) {
+      // The owner's Stop, from the controller (see useAssistantChat); never telemetry.
+      if (ownerStopped(ac.signal)) {
         patch((t) => ({ ...t, done: true, stopped: true }));
       } else {
         if (!(err instanceof FreeStreamError)) captureException(err, { scope: 'assistant.free.ask' });
+        if (err instanceof StreamLostError) setLost((cur) => [...cur, id]);
         const info: FreeError = err instanceof FreeStreamError ? err.info : { code: 'UNKNOWN' };
         patch((t) => ({ ...t, done: true, error: t.error ?? info }));
       }
@@ -101,7 +105,7 @@ function useFreeChat({
     }
   }, []);
 
-  return { turns, streaming, ask, stop };
+  return { turns, lost, streaming, ask, stop };
 }
 
 export interface FreeThreadProps {
@@ -132,14 +136,15 @@ export function FreeThread({ testID, from, onUsePaid }: FreeThreadProps) {
     void chat.ask(text);
   };
 
-  const scroller = useRef<ScrollViewInstance>(null);
+  const { ref: scrollRef, onScroll, onContentSizeChange, follow } = useStickToBottom();
   const last = chat.turns[chat.turns.length - 1];
-  const tick = `${chat.turns.length}:${last?.text.length ?? 0}:${last?.done ? 1 : 0}`;
+  const { streaming } = chat;
   useEffect(() => {
-    scroller.current?.scrollToEnd({ animated: true });
-  }, [tick]);
+    if (streaming) follow();
+  }, [streaming, follow]);
 
-  const errorText = (err: FreeError) => {
+  const errorText = (err: FreeError, turnId: number) => {
+    if (chat.lost.includes(turnId)) return t('staff.assistant.errors.CONNECTION');
     const { message } = freeErrorMessage(err);
     return message.kind === 'minute'
       ? countPhrase('staff.assistant.free.errors.minute', message.seconds, locale)
@@ -153,7 +158,10 @@ export function FreeThread({ testID, from, onUsePaid }: FreeThreadProps) {
       keyboardVerticalOffset={Platform.OS === 'ios' ? 56 + insets.top : 0}
     >
       <ScrollView
-        ref={scroller}
+        ref={scrollRef}
+        onScroll={onScroll}
+        onContentSizeChange={onContentSizeChange}
+        scrollEventThrottle={16}
         testID={`${testID}.thread`}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="interactive"
@@ -261,7 +269,7 @@ export function FreeThread({ testID, from, onUsePaid }: FreeThreadProps) {
                         </Text>
                       </View>
                     ) : (
-                      <AnswerText text={turn.text} unverified={[]} />
+                      <AnswerText text={turn.text} unverified={NO_FIGURES} />
                     )}
                   </View>
                 ) : null}
@@ -291,7 +299,7 @@ export function FreeThread({ testID, from, onUsePaid }: FreeThreadProps) {
                       accessibilityRole="alert"
                       style={{ fontFamily: fonts.body600, fontSize: 14.5, lineHeight: 21, color: colors.redtext }}
                     >
-                      {errorText(turn.error)}
+                      {errorText(turn.error, turn.id)}
                     </Text>
                     {failure.retry && turn.id === last?.id ? (
                       <View style={{ alignSelf: 'flex-start' }}>

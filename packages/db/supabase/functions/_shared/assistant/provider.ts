@@ -26,7 +26,18 @@
  *
  * Type wall: the only tool_result a message may carry is a `CleanedToolResult`
  * from clean.ts (§11.0 property 1). Usage comes from `finalMessage().usage`.
- * Errors are mapped to ProviderError codes the chat function streams as-is.
+ * Errors are mapped to ProviderError codes the chat function streams as-is
+ * (an SDK abort, APIUserAbortError, is TIMEOUT 'aborted'; the chat function
+ * itself tells a Stop from its wall).
+ *
+ * A stream cut after the vendor started answering (an abort, a dropped
+ * connection, an overload mid-answer) is billed but never reaches
+ * `finalMessage()`. `stream()` then attaches the usage seen so far to the
+ * thrown ProviderError as `partial` (from the SDK's `currentMessage`, else the
+ * last `streamEvent` snapshot: message_start carries input and cache tokens,
+ * message_delta the output so far; SDK 0.127 BetaMessageStream.d.ts), and
+ * turn.ts records it as a call with stop_reason 'aborted' so persist prices
+ * and records it. No snapshot (cut before message_start) means no partial.
  */
 import Anthropic from 'npm:@anthropic-ai/sdk';
 import type { Cleaned, CleanedToolResult } from './clean.ts';
@@ -35,9 +46,18 @@ import { billedCacheWrite, parseCacheTtl, type CacheTtl } from './turnPolicy.ts'
 
 export type ProviderErrorCode = 'NOT_CONFIGURED' | 'RATE_LIMITED' | 'UPSTREAM' | 'TIMEOUT';
 
+/** What a call cut mid-stream had used when it was cut (turn.ts PartialCall reads the same shape). */
+export interface ProviderPartial {
+  usage: ProviderUsage;
+  ms: number;
+  webSearches: number;
+}
+
 export class ProviderError extends Error {
   readonly code: ProviderErrorCode;
   readonly status?: number;
+  /** Set by stream() when the vendor had started answering: the usage billed so far. */
+  partial?: ProviderPartial;
   constructor(code: ProviderErrorCode, message: string, status?: number) {
     super(message);
     this.name = 'ProviderError';
@@ -213,6 +233,8 @@ function mapError(e: unknown): ProviderError {
   if (e instanceof Anthropic.AuthenticationError) return new ProviderError('NOT_CONFIGURED', 'invalid ANTHROPIC_API_KEY', e.status);
   if (e instanceof Anthropic.RateLimitError) return new ProviderError('RATE_LIMITED', e.message, e.status);
   if (e instanceof Anthropic.APIConnectionTimeoutError) return new ProviderError('TIMEOUT', e.message);
+  // An abort through the call's signal (APIError's subclass; it used to fall through to UPSTREAM).
+  if (e instanceof Anthropic.APIUserAbortError) return new ProviderError('TIMEOUT', 'aborted');
   if (e instanceof Anthropic.APIError) return new ProviderError('UPSTREAM', e.message, e.status);
   if (e instanceof Error && e.name === 'AbortError') return new ProviderError('TIMEOUT', 'aborted');
   return new ProviderError('UPSTREAM', e instanceof Error ? e.message : String(e));
@@ -294,16 +316,24 @@ function anthropicProvider(apiKey: string, model: string, cacheTtl: CacheTtl = '
         messages: wireMessages(call.messages),
         cache_control: { type: 'ephemeral' },
       } as unknown as Parameters<typeof client.beta.messages.stream>[0];
+      // The message as accumulated so far (header): the usage of a call cut mid-stream.
+      let current: () => Anthropic.Beta.BetaMessage | undefined = () => undefined;
+      let seen: Anthropic.Beta.BetaMessage | undefined;
       try {
         const stream = client.beta.messages.stream(params, { signal: call.signal });
+        current = () => stream.currentMessage;
         stream.on('text', (delta) => call.onText(delta));
-        stream.on('streamEvent', (ev) => {
+        stream.on('streamEvent', (ev, snapshot) => {
+          seen = snapshot;
           if (ev.type === 'content_block_start' && ev.content_block.type === 'tool_use') call.onToolStart(ev.content_block.name);
         });
         const msg = await stream.finalMessage();
         return { content: msg.content, stop_reason: msg.stop_reason ?? 'end_turn', usage: usageOf(msg.usage), ms: Date.now() - started, webSearches: webSearchesOf(msg.usage) };
       } catch (e) {
-        throw mapError(e);
+        const err = mapError(e);
+        const snap = current() ?? seen;
+        if (snap?.usage) err.partial = { usage: usageOf(snap.usage), ms: Date.now() - started, webSearches: webSearchesOf(snap.usage) };
+        throw err;
       }
     },
 

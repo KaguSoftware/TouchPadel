@@ -12,6 +12,8 @@
  * Mounted once in the shell. The open paid conversation lives in
  * sessionStorage so a reload lands on the same chat; a new paid chat reads
  * nothing until the owner picks (owner call 2026-10-20, NEW_CHAT_SCOPES).
+ * Closing the sheet unmounts the thread but not a paid answer it is reading:
+ * the stream lives in chatStreams.ts and the reopened sheet shows it again.
  */
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react';
 import { Link } from '@tanstack/react-router';
@@ -24,6 +26,7 @@ import { useOwnsScreen } from '../../lib/screenOwner';
 import { Thread } from './Thread';
 import { FreeThread } from './FreeThread';
 import { useAssistantMode } from './useAssistantMode';
+import { resetChatStreams } from './chatStreams';
 import { NEW_CHAT_SCOPES, loadSessionConversation, saveSessionConversation } from './scopes';
 
 interface DrawerContextValue {
@@ -48,9 +51,13 @@ export function useAssistantDrawerOrNull(): DrawerContextValue | null {
 }
 
 export function AssistantDrawerProvider({ children }: { children: ReactNode }) {
-  const { staff } = useAuth();
+  const { staff, session } = useAuth();
   // Everyone signed in: staff get the free AI, the owner the paid one or the free one.
   const allowed = !!staff;
+  // The streams (chatStreams.ts) outlive the drawer on purpose, but not the
+  // person: when whoever is signed in changes, stop and forget them all.
+  const userId = session?.user.id ?? null;
+  useEffect(() => () => resetChatStreams(), [userId]);
   const [open, setOpen] = useState(false);
   const openDrawer = useCallback(() => setOpen(true), []);
   const closeDrawer = useCallback(() => setOpen(false), []);
@@ -149,14 +156,19 @@ function DrawerSheet({ open, onClose, onExited }: { open: boolean; onClose: () =
     };
   }, [closing]);
 
-  // Focus lands on the sheet; Escape closes; Tab stays inside.
+  // Focus lands in the sheet, on the question box when the thread put it
+  // there (its effect runs first), else on the sheet itself; on close it goes
+  // back to whatever opened it. Escape closes; Tab stays inside. The opener is
+  // read during the first render, before any child effect moves focus.
+  const [opener] = useState(() => (typeof document === 'undefined' ? null : (document.activeElement as HTMLElement | null)));
   useEffect(() => {
     const el = panel.current;
     if (!el) return;
-    const prev = document.activeElement as HTMLElement | null;
-    el.focus();
-    return () => prev?.focus?.();
-  }, []);
+    if (!el.contains(document.activeElement)) el.focus();
+    return () => {
+      if (opener && opener.isConnected) opener.focus?.();
+    };
+  }, [opener]);
 
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     if (e.key === 'Escape') {

@@ -5,7 +5,7 @@
  * left/right. Every interactive element takes a `testID` from its call site
  * (`staff-assistant.<element>`).
  */
-import { useState } from 'react';
+import { memo, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -25,13 +25,16 @@ import { ArrowUpIcon, ChevronIcon, StopIcon } from '../../components/icons';
 import {
   DEFAULT_MODEL_VALUE,
   PHONE_SCOPES,
-  assistantErrorSentence,
   modelName,
-  type AssistantErrorCode,
+  sourcesOf,
+  textOfContent,
   type GatePayload,
+  type MessageRow,
   type SourceItem,
 } from './chat';
+import { outcomeText } from '@touch/core/assistant/outcome';
 import { parseBlocks, splitInline } from './blocks';
+import { endingErrorKey, storedEnding, type Ending } from './thread';
 
 // ── The answer's text ───────────────────────────────────────────────────────
 
@@ -45,9 +48,10 @@ function Inline({
   style: StyleProp<TextStyle>;
 }) {
   const { colors, fonts } = useTheme();
-  const segments = splitInline(text, unverified);
+  const segments = useMemo(() => splitInline(text, unverified), [text, unverified]);
   return (
-    <Text style={style}>
+    // Selectable: the owner copies a figure or a sentence out of an answer.
+    <Text style={style} selectable>
       {segments.map((seg, i) => (
         <Text
           key={i}
@@ -74,7 +78,13 @@ function Inline({
 
 const NUMERIC = /^[\d.,%\s-]+$/;
 
-export function AnswerText({ text, unverified }: { text: string; unverified: readonly string[] }) {
+export const AnswerText = memo(function AnswerText({
+  text,
+  unverified,
+}: {
+  text: string;
+  unverified: readonly string[];
+}) {
   const { colors, fonts } = useTheme();
   const body: TextStyle = {
     fontFamily: fonts.body400,
@@ -82,11 +92,20 @@ export function AnswerText({ text, unverified }: { text: string; unverified: rea
     lineHeight: 24,
     color: colors.ink,
   };
-  const blocks = parseBlocks(text);
+  const blocks = useMemo(() => parseBlocks(text), [text]);
   return (
     <View style={{ gap: space.s }}>
       {blocks.map((b, bi) => {
         switch (b.kind) {
+          case 'h':
+            return (
+              <Inline
+                key={bi}
+                text={b.text}
+                unverified={unverified}
+                style={[body, { fontFamily: fonts.body700 }]}
+              />
+            );
           case 'p':
             return b.lines.map((line, li) => (
               <Inline key={`${bi}-${li}`} text={line} unverified={unverified} style={body} />
@@ -154,7 +173,7 @@ export function AnswerText({ text, unverified }: { text: string; unverified: rea
       })}
     </View>
   );
-}
+});
 
 // ── The owner's bubble ──────────────────────────────────────────────────────
 
@@ -190,23 +209,22 @@ export interface AnswerProps {
   tools: readonly (SourceItem & { pending?: boolean })[];
   gate: GatePayload | null;
   streaming?: boolean;
-  stopped?: boolean;
-  error?: { code: AssistantErrorCode } | null;
+  /** How the turn ended (stored: from its tokens; live: from the stream). Drawn as one note. */
+  ending?: Ending;
   /** The answer said a scope is off; one button each, each re-asks the last question. */
   turnOn?: readonly AssistantScope[];
   onTurnOn?: (scope: AssistantScope) => void;
   turningOn?: boolean;
-  /** The question grew into a job, which runs on the desktop. */
-  jobProposed?: boolean;
-  /** Ask again after an error. */
+  /** Ask again after an error; sends a new message only when pressed. */
   onRetry?: () => void;
 }
 
 export function Answer(props: AnswerProps) {
   const { t } = useLocale();
   const { colors, fonts } = useTheme();
-  const { text, tools, gate, streaming, stopped, error, jobProposed } = props;
-  const unverified = gate?.unverified?.map((u) => u.raw) ?? [];
+  const { text, tools, gate, streaming } = props;
+  const ending: Ending = props.ending ?? { kind: 'ok' };
+  const unverified = useMemo(() => gate?.unverified?.map((u) => u.raw) ?? [], [gate]);
   const reading = !!streaming && text === '';
   const showCard = text !== '' || reading;
 
@@ -254,13 +272,25 @@ export function Answer(props: AnswerProps) {
         </View>
       ) : null}
 
-      {stopped ? (
-        <Text style={{ fontFamily: fonts.body400, fontSize: 14, lineHeight: 20, color: colors.mut }}>
+      {ending.kind === 'stopped' ? (
+        <Text
+          testID={`${props.testID}.note`}
+          style={{ fontFamily: fonts.body400, fontSize: 14, lineHeight: 20, color: colors.mut }}
+        >
           {t('staff.assistant.composer.stopped')}
         </Text>
       ) : null}
 
-      {jobProposed ? (
+      {ending.kind === 'cut_short' || ending.kind === 'refused' ? (
+        <Text
+          testID={`${props.testID}.note`}
+          style={{ fontFamily: fonts.body400, fontSize: 14.5, lineHeight: 21, color: colors.mut }}
+        >
+          {ending.kind === 'cut_short' ? t('staff.assistant.message.cutShort') : t('staff.assistant.message.refused')}
+        </Text>
+      ) : null}
+
+      {ending.kind === 'job_proposed' ? (
         <Text
           testID={`${props.testID}.job`}
           style={{ fontFamily: fonts.body400, fontSize: 14.5, lineHeight: 21, color: colors.mut }}
@@ -269,14 +299,16 @@ export function Answer(props: AnswerProps) {
         </Text>
       ) : null}
 
-      {error ? (
+      {ending.kind === 'error' || ending.kind === 'connection' ? (
         <View style={{ gap: space.xs }}>
           <Text
             testID={`${props.testID}.error`}
             accessibilityRole="alert"
             style={{ fontFamily: fonts.body600, fontSize: 14.5, lineHeight: 21, color: colors.redtext }}
           >
-            {t(`staff.assistant.errors.${assistantErrorSentence(error.code)}`)}
+            {t(
+              `staff.assistant.errors.${endingErrorKey(ending.kind === 'error' ? ending.code : 'CONNECTION')}`,
+            )}
           </Text>
           {props.onRetry ? (
             <View style={{ alignSelf: 'flex-start' }}>
@@ -365,6 +397,49 @@ function SourcesRow({ testID, tools }: { testID: string; tools: readonly SourceI
     </View>
   );
 }
+
+// ── A stored turn ───────────────────────────────────────────────────────────
+
+/**
+ * One stored row. Memoised on the row itself (react-query keeps its identity
+ * between refetches that did not change it), so a token arriving in the live
+ * turn re-renders none of these and re-parses none of their text.
+ */
+export const StoredTurn = memo(function StoredTurn({
+  m,
+  testID,
+  retryText,
+  onAsk,
+}: {
+  m: MessageRow;
+  testID: string;
+  /** The question to ask again, on the last row of a thread that failed; else null. */
+  retryText: string | null;
+  onAsk: (text: string) => void;
+}) {
+  const view = useMemo(() => {
+    const text = textOfContent(m.content);
+    return {
+      text,
+      shown: m.role === 'assistant' ? outcomeText(text) : text,
+      tools: sourcesOf(m.sources).items,
+      ending: m.role === 'assistant' ? storedEnding(m) : ({ kind: 'ok' } as Ending),
+    };
+  }, [m]);
+  if (m.role === 'user') return <UserBubble text={view.text} />;
+  return (
+    <Answer
+      testID={testID}
+      text={view.shown}
+      tools={view.tools}
+      gate={m.gate}
+      ending={view.ending}
+      // A stored answer never offers "turn on": the question it would re-ask is only
+      // known for the turn in front of the owner.
+      onRetry={retryText !== null ? () => onAsk(retryText) : undefined}
+    />
+  );
+});
 
 // ── Scope chips ─────────────────────────────────────────────────────────────
 

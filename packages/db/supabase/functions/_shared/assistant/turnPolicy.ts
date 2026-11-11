@@ -23,7 +23,10 @@
  *                   and the previous answer's figures the gate also accepts
  *                   (only when the chat function signed them, see below);
  *   warm cache      a lookup inside the 5-minute cache window keeps the model
- *                   and effort of the turn before it (review 2026-10-08).
+ *                   and effort of the turn before it (review 2026-10-08);
+ *   turn ending     a turn that threw: a client that left first (Stop) is
+ *                   `stopped`, not a failure; the 50 s wall first is TIMEOUT;
+ *                   otherwise the provider's code (turnEnding, 2026-11-11).
  *
  * Review fixes (2026-10-08, after F1/F2): the frozen context is keyed on the
  * branch in scope (x-venue-scope, 0228) as well, and records the model it was
@@ -155,6 +158,25 @@ export function contextStorable(o: { aborted: boolean; turnFailed: boolean }): b
 }
 
 // ---------------------------------------------------------------------------
+// How a turn that threw ended
+// ---------------------------------------------------------------------------
+
+/**
+ * A turn whose loop threw. `cancelled` is whichever abort came first: the
+ * client leaving (Stop, page closed: `stopped`, no error code, the turn is
+ * stored as stopped with the text that arrived) or the 50 s wall (TIMEOUT,
+ * whatever the provider made of the abort: an SDK abort error used to read as
+ * UPSTREAM). With neither, the provider's own code, else TIMEOUT when the
+ * signal was aborted anyway, else UPSTREAM. Until 2026-11-11 a Stop was stored
+ * and logged as TIMEOUT like the wall.
+ */
+export function turnEnding(o: { cancelled: 'stopped' | 'wall' | null; providerCode: string | null; aborted: boolean }): { stopped: true } | { stopped: false; code: string } {
+  if (o.cancelled === 'stopped') return { stopped: true };
+  if (o.cancelled === 'wall') return { stopped: false, code: 'TIMEOUT' };
+  return { stopped: false, code: o.providerCode ?? (o.aborted ? 'TIMEOUT' : 'UPSTREAM') };
+}
+
+// ---------------------------------------------------------------------------
 // Warm cache: a lookup does not switch model or effort under a live cache
 // ---------------------------------------------------------------------------
 
@@ -202,13 +224,17 @@ export interface PreviousTurn {
  * `tokens` (model, effort; before effort was stored: `route` lookup = low,
  * anything else = medium, the chat's effort before the router) and
  * `created_at`. Null when unknown or malformed: no stickiness, the router
- * decides.
+ * decides. A turn that made no model call (a reused answer, or one that failed
+ * before its first call) warmed no cache, so it is null too; a failed or
+ * stopped turn that did call keeps its model and effort (its prefix was
+ * written either way).
  */
 export function previousTurnOf(row: { tokens?: unknown; created_at?: unknown } | null | undefined): PreviousTurn | null {
   if (!row || !row.tokens || typeof row.tokens !== 'object') return null;
-  const t = row.tokens as { model?: unknown; effort?: unknown; route?: unknown; reused_from?: unknown };
+  const t = row.tokens as { model?: unknown; effort?: unknown; route?: unknown; reused_from?: unknown; calls?: unknown };
   // A reused answer (reuse.ts) made no model call, so it warmed no cache.
   if (t.reused_from) return null;
+  if (t.calls === 0) return null;
   if (typeof t.model !== 'string' || !t.model) return null;
   const effort: Effort | null = t.effort === 'low' || t.effort === 'medium' ? t.effort : t.effort === undefined ? (t.route === 'lookup' ? 'low' : 'medium') : null;
   if (!effort) return null;
@@ -230,10 +256,13 @@ export const WEB_SEARCH_MODELS: ReadonlySet<string> = new Set(['claude-opus-5-5'
  * prefix, written fresh on every cold start, and no Sonnet turn had searched
  * (the prompt keeps the web to ideas, plans and outside facts, which route
  * deep). So: always on a WEB_SEARCH_MODELS model, otherwise only on a deep
- * route (model null: an owner who pinned Sonnet still gets the web for advice).
+ * route (model null: an owner who pinned Sonnet still gets the web for advice),
+ * or when the router asks for it (`route.web`, route.ts: a request for a plan
+ * runs on the cheaper tier but the prompt sends plans to the web, so the tool
+ * must be there; 2026-11-11).
  */
-export function webSearchOn(model: string, route: { kind: string; model: string | null }): boolean {
-  return WEB_SEARCH_MODELS.has(model) || (route.kind === 'analysis' && route.model === null);
+export function webSearchOn(model: string, route: { kind: string; model: string | null; web?: boolean }): boolean {
+  return WEB_SEARCH_MODELS.has(model) || (route.kind === 'analysis' && route.model === null) || route.web === true;
 }
 
 /**

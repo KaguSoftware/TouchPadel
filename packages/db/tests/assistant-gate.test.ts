@@ -68,7 +68,7 @@ describe('gateAnswer', () => {
   });
 
   it('passes bare small counts up to 12 and flags larger bare integers', () => {
-    expect(gateAnswer('Two tools were used, 3 refunds and 12 items.', [], []).status).toBe('ok');
+    expect(gateAnswer('Two tools were used, 3 rounds and 12 items.', [], []).status).toBe('ok');
     const g = gateAnswer('There were 13 refunds.', [], []);
     expect(g.status).toBe('unverified');
     expect(g.unverified).toEqual([{ raw: '13', value: 13 }]);
@@ -322,5 +322,175 @@ describe('shouldRetry', () => {
     expect(shouldRetry(gateAnswer('There were 13 refunds.', [], []))).toBe(false);
     expect(shouldRetry(gateAnswer('You made 1,250,000 today.', [], []))).toBe(true);
     expect(shouldRetry(gateAnswer('Up 55% on last week.', [], []))).toBe(true);
+  });
+});
+
+describe('scaled figures (12.9M, 13k, 12.9 million, ١٢٫٩ مليون)', () => {
+  const allowed = [12450000, 13560000, 37, 228000];
+
+  it('reads a number and its scale as one figure with the scaled value', () => {
+    const v = (t: string) => tokenizeNumbers(t).map((x) => x.value);
+    expect(v('Revenue was 12.9M IQD')).toEqual([12900000]);
+    expect(v('About 13k in refunds')).toEqual([13000]);
+    expect(v('12.9 million and 1.2 billion, 3mn, 2bn, 4.5B, 5K')).toEqual([12900000, 1200000000, 3000000, 2000000000, 4500000000, 5000]);
+    expect(tokenizeNumbers('12.9M')[0]).toMatchObject({ scale: 1e6, base: 12.9, decimals: 1, bare: false });
+  });
+
+  it('flags an invented 12.9M that used to hide behind the bare 12, and 13k', () => {
+    const g = gateAnswer('Revenue was 12.9M IQD.', allowed, []);
+    expect(g.status).toBe('unverified');
+    expect(g.unverified).toEqual([{ raw: '12.9M', value: 12900000, scaled: true }]);
+    expect(gateAnswer('About 13k in refunds.', allowed, []).unverified).toEqual([{ raw: '13k', value: 13000, scaled: true }]);
+  });
+
+  it('a correct "12.9 million" no longer gets a false flag when the tool returned 12,900,000', () => {
+    expect(gateAnswer('Revenue was 12.9 million IQD.', [12900000], []).status).toBe('ok');
+    expect(gateAnswer('Revenue was 12.9M IQD.', [12900000], []).status).toBe('ok');
+    expect(gateAnswer('About 13k in refunds.', [13040], []).status).toBe('ok');
+  });
+
+  it('tolerance is one unit of the last digit shown, scaled: 12.9M is within 100,000, 13k within 1,000', () => {
+    const ok = (t: string, n: number) => gateAnswer(t, [n], []).status === 'ok';
+    expect(ok('12.9M', 12900000)).toBe(true);
+    expect(ok('12.9M', 12860000)).toBe(true);
+    expect(ok('12.9M', 12948000)).toBe(true); // 48,000 away, inside the stated 100,000
+    expect(ok('12.9M', 12999000)).toBe(true);
+    expect(ok('12.9M', 13001000)).toBe(false);
+    expect(ok('12.9M', 12799000)).toBe(false);
+    expect(ok('13k', 13900)).toBe(true);
+    expect(ok('13k', 14100)).toBe(false);
+    expect(ok('13k', 11900)).toBe(false);
+  });
+
+  it('a scaled figure can be a sum of two given figures within its scaled tolerance', () => {
+    expect(gateAnswer('Together 14.0 million', [12450000, 1560000], []).status).toBe('ok');
+  });
+
+  it('does not read the first letter of an ordinary word as a scale', () => {
+    for (const [t, v] of [
+      ['12 months', 12],
+      ['5 km', 5],
+      ['3 meters', 3],
+      ['10 managers', 10],
+      ['2 mins', 2],
+      ['4 kids', 4],
+      ['7 bnb', 7],
+      ['3 Bs', 3],
+    ] as const) {
+      const toks = tokenizeNumbers(`about ${t} here`);
+      expect(toks.map((x) => x.value), t).toEqual([v]);
+      expect(toks[0]?.scale, t).toBeUndefined();
+    }
+    expect(tokenizeNumbers('r12k c3m phone#3k')).toEqual([]);
+    expect(gateAnswer('It ran 12 months.', [], []).status).toBe('ok');
+  });
+
+  it('reads Arabic scale words with Arabic-Indic digits', () => {
+    const t = tokenizeNumbers('١٢٫٩ مليون دينار و ١٣ ألف و٢ مليار و ٣ آلاف و ٤ ملايين و ٥ الف');
+    expect(t.map((x) => x.value)).toEqual([12900000, 13000, 2000000000, 3000, 4000000, 5000]);
+    expect(gateAnswer('الإيراد ١٢٫٩ مليون دينار', [12900000], []).status).toBe('ok');
+    const g = gateAnswer('الإيراد ١٢٫٩ مليون دينار', [12450000], []);
+    expect(g.unverified).toEqual([{ raw: '12٫9 مليون', value: 12900000, scaled: true }]);
+    expect(tokenizeNumbers('٣ مليونير').map((x) => x.value)).toEqual([3]); // not a scale word
+  });
+
+  it('numbersIn keeps the base of a scaled figure too, so a tool line "5 million" still allows 5', () => {
+    expect(numbersIn('about 5 million in sales')).toEqual([5000000, 5]);
+    expect(numbersIn('p1\tcash\t15000')).toEqual([15000]);
+  });
+
+  it('a letter glued to a whole number, or after a space, is a unit or a name, not a scale', () => {
+    const v = (t: string) => tokenizeNumbers(t).map((x) => x.value);
+    expect(v('court 5 m wide')).toEqual([5]);
+    expect(v('a 20m by 10m court, 90m sessions, court 4B')).toEqual([]);
+    expect(v('13 k and 12.9 M')).toEqual([13, 12.9]);
+    expect(v('12.9m in sales, 1.2B lifetime, 13k refunds, 3M, 2mn, 4bn')).toEqual([12900000, 1200000000, 13000, 3000000, 2000000, 4000000000]);
+  });
+
+  it('shouldRetry ignores a figure recognised only through its scale, not the same figure in full', () => {
+    const scaledOnly = gateAnswer('Revenue was 12.9M IQD.', allowed, []);
+    expect(scaledOnly.status).toBe('unverified');
+    expect(shouldRetry(scaledOnly)).toBe(false);
+    expect(shouldRetry(gateAnswer('Revenue was 12.9 million IQD.', allowed, []))).toBe(false);
+    expect(shouldRetry(gateAnswer('About 13k in refunds.', allowed, []))).toBe(false);
+    expect(shouldRetry(gateAnswer('Revenue was 12,900,000 IQD.', allowed, []))).toBe(true);
+    // one scaled and one full figure: the full one still buys the retry
+    expect(shouldRetry(gateAnswer('12.9M and 12,900,000', allowed, []))).toBe(true);
+    expect(shouldRetry({ status: 'unverified', unverified: [{ raw: '9%', value: 9, scaled: true }], checked: 1 })).toBe(false);
+  });
+
+  it('keeps today\'s retry for a spaced or Arabic-scaled base that was already a flagged money figure', () => {
+    // before scales were read, "2,500 million" flagged 2,500 (retry); glued "1,200k" flagged nothing
+    expect(shouldRetry(gateAnswer('Total 2,500 million.', allowed, []))).toBe(true);
+    expect(shouldRetry(gateAnswer('Total 2,500 مليون.', allowed, []))).toBe(true);
+    expect(shouldRetry(gateAnswer('Total 1,200k.', allowed, []))).toBe(false);
+    expect(shouldRetry(gateAnswer('Total 2,500 million.', [2500], []))).toBe(false);
+  });
+});
+
+describe('small counts beside a discipline word', () => {
+  const allowed = [12450000, 13560000, 37, 228000];
+
+  it('an invented count beside a discipline noun is unverified, and never a retry', () => {
+    const g = gateAnswer('Hassan gave 6 discounts with no reason.', allowed, []);
+    expect(g.status).toBe('unverified');
+    expect(g.unverified).toEqual([{ raw: '6', value: 6 }]);
+    expect(shouldRetry(g)).toBe(false);
+    for (const t of [
+      'Hassan voided 4 voids today',
+      'He had 3 refunds',
+      'Two staff, 2 no-shows',
+      'There were 5 no shows',
+      '3 cancellations',
+      '2 breaks',
+      '4 absences',
+      '3 late arrivals',
+      '2 missed shifts',
+      '5 write-offs',
+      '5 comps',
+      '3 unexplained discounts',
+    ]) {
+      const r = gateAnswer(t, allowed, []);
+      expect(r.status, t).toBe('unverified');
+      expect(shouldRetry(r), t).toBe(false);
+    }
+  });
+
+  it('works in Arabic, with prefixes and Arabic-Indic digits', () => {
+    for (const t of ['أعطى حسن ٦ خصومات', 'سجل ٣ غيابات', 'عنده ٢ استراحات', '٤ إلغاءات اليوم', 'هناك 5 مرتجعات', '3 تأخير', '٢ شطب', 'له ٣ الغاء', '٢ استرجاع', '٣ استراحه', '٤ خصم']) {
+      expect(gateAnswer(t, allowed, []).status, t).toBe('unverified');
+    }
+  });
+
+  it('passes the count when it is given or typed by the owner, verbatim only', () => {
+    expect(gateAnswer('Hassan gave 6 discounts.', [...allowed, 6], []).status).toBe('ok');
+    expect(gateAnswer('Hassan gave 6 discounts.', allowed, [6]).status).toBe('ok');
+    expect(gateAnswer('أعطى حسن ٦ خصومات', [6], []).status).toBe('ok');
+    // one off is not verbatim for a count, and a sum of two given counts does not vouch for it
+    expect(gateAnswer('Hassan gave 6 discounts.', [...allowed, 7], []).status).toBe('unverified');
+    expect(gateAnswer('Hassan gave 6 discounts.', [...allowed, 2, 4], []).status).toBe('unverified');
+  });
+
+  it('other small counts stay exempt: tools, ordinals, top N, moves, times, dates, a count past other words', () => {
+    for (const t of [
+      'Two tools were used and 3 tools ran.',
+      '1. Revenue\n2) Costs\n3. Margin',
+      'Top 5 items by revenue',
+      'Top 5 refunds by amount',
+      '3 moves were made',
+      'At 14:30 on 2026-09-20 there were 3 orders',
+      'He covered 12 items, 3 customers had no-shows',
+      '10 customers, refunds were low',
+      '12 items and 3 refunds cost nothing: 3',
+    ]) {
+      const r = gateAnswer(t, [3], []);
+      expect(r.status, t).toBe('ok');
+    }
+    // 13 is past SMALL_COUNT_MAX: flagged as before whatever follows
+    expect(gateAnswer('13 items', [], []).unverified).toEqual([{ raw: '13', value: 13 }]);
+  });
+
+  it('a count beside a discipline noun more than three words away stays exempt', () => {
+    expect(gateAnswer('He logged 5 entries over the week plus refunds', [], []).status).toBe('ok');
   });
 });

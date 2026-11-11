@@ -6,6 +6,7 @@
  * question carries the last few finished turns as `history`.
  */
 import { freeHistory, type FreeTurn } from '@touch/core/assistant/free';
+import { applyFreeEvent as applyCoreFreeEvent, asFreeErrorCode, type FreeError } from '@touch/core/assistant/free-client';
 import { EdgeError } from '../../lib/edge';
 
 /** Why a question got no (whole) answer, in the words FreeThread shows. */
@@ -59,29 +60,39 @@ export function freeErrorOf(err: unknown): FreeErrorInfo {
   return { kind: 'generic' };
 }
 
-/** The stream's own `error {code}` (after it opened). */
-export function freeErrorFromEvent(data: unknown): FreeErrorInfo {
-  const code = isRecord(data) ? data.code : null;
-  if (code === 'RATE_LIMITED') return { kind: 'club' };
-  if (code === 'TIMEOUT') return { kind: 'timeout' };
-  if (code === 'NOT_CONFIGURED') return { kind: 'notConfigured' };
-  return { kind: 'generic' };
+/**
+ * A core refusal code in the operator's stored kinds. A code carries no scope
+ * once the stream is open, so RATE_LIMITED is the club's free tier (the same
+ * word the per-person limits never use mid-stream).
+ */
+function kindOfCode(error: FreeError): FreeErrorInfo {
+  switch (error.code) {
+    case 'RATE_LIMITED':
+      return { kind: 'club' };
+    case 'TIMEOUT':
+      return { kind: 'timeout' };
+    case 'NOT_CONFIGURED':
+      return { kind: 'notConfigured' };
+    default:
+      return { kind: 'generic' };
+  }
 }
 
-/** Apply one SSE event to the exchange being answered. */
+/** The stream's own `error {code}` (after it opened). */
+export function freeErrorFromEvent(data: unknown): FreeErrorInfo {
+  return kindOfCode({ code: asFreeErrorCode(isRecord(data) ? data.code : null) });
+}
+
+/**
+ * Apply one SSE event to the exchange being answered. The folding is core's
+ * (`applyFreeEvent` in free-client); the stored shape (string id, `answer`,
+ * the operator's `FreeErrorInfo`) is converted at the edge and never changes.
+ */
 export function applyFreeEvent(ex: FreeExchange, name: string, data: unknown): FreeExchange {
-  switch (name) {
-    case 'delta': {
-      const text = isRecord(data) && typeof data.text === 'string' ? data.text : '';
-      return text ? { ...ex, answer: ex.answer + text } : ex;
-    }
-    case 'error':
-      return { ...ex, done: true, error: ex.error ?? freeErrorFromEvent(data) };
-    case 'done':
-      return { ...ex, done: true };
-    default:
-      return ex;
-  }
+  // Only whether an error is already set matters to core (the first one wins), so a placeholder stands in for it.
+  const next = applyCoreFreeEvent({ id: 0, question: ex.question, text: ex.answer, done: ex.done, stopped: ex.stopped, error: ex.error ? { code: 'UNKNOWN' } : null }, name, data);
+  if (next.text === ex.answer && next.done === ex.done && (ex.error !== null || next.error === null)) return ex;
+  return { ...ex, answer: next.text, done: next.done, error: ex.error ?? (next.error ? kindOfCode(next.error) : null) };
 }
 
 /** The `history` a new question carries: finished exchanges with an answer, as turns, trimmed by freeHistory. */

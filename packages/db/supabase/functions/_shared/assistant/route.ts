@@ -11,8 +11,8 @@
  * the chat's own default model (model: null) at effort 'medium'.
  *
  * 2026-10-09: ANALYSIS is split by how hard it is (see DEEP_REASONS): advice,
- * a plan, why and long asks stay on the chat's default at medium; comparisons,
- * trends and "what happened" run on LOOKUP_MODEL at medium; plain figure
+ * why and long asks stay on the chat's default at medium; comparisons,
+ * trends, asks for a plan, judgement questions and "what happened" run on LOOKUP_MODEL at medium; plain figure
  * questions run on LOOKUP_MODEL at low. The owner's own model pick still wins.
  *
  * Conservative by construction: a question is a lookup only when a positive
@@ -30,6 +30,15 @@
  *      the sentence also names a figure ("أين أرى كم كلّف المساعد هذا الشهر":
  *      the owner is asking where the page is). "We", "you" and "one", and any
  *      other verb, are not strong: a hard signal beats them;
+ *   2b. (checked with 3, as hard signals) an ASK for a plan ("give me a plan for
+ *      Ramadan", "اريد خطة"): reason plan-signal, MEDIUM tier with web search on
+ *      (route.web), never on a page that merely names a plan ("where is the
+ *      content plan page" stays a lookup: the pattern needs a verb of asking);
+ *      a judgement question ("what is wrong with the cafe", "is it worth ...",
+ *      "how can I make the cafe more profitable", "شنو رايك", "شنو الحل"):
+ *      reason judgement-signal, MEDIUM tier, no web. Both beat the how-to
+ *      lookup patterns, lose to a deep reason (advice, why, outside) and beat a
+ *      cheap reason (a time period);
  *   3. any hard figure signal (how much / many, a period, a number, a
  *      comparison, a trend, why / who / what happened, advice including growth
  *      how-tos such as "how can we attract more players") -> analysis;
@@ -73,6 +82,12 @@ export interface TurnRoute {
    * analysis is never sticky: its model is a quality call.
    */
   sticky?: boolean;
+  /**
+   * Carry web search although this is not the deep tier. Set only for an ask
+   * for a plan (reason 'plan-signal'); the deep tier carries web search by its
+   * own rule (turnPolicy), so it does not need the flag.
+   */
+  web?: boolean;
   /** Retrieve the system map before the first model call. */
   preRetrieve: boolean;
   /** Short machine-readable cause, e.g. 'where-pattern', 'money-signal', 'scopes-howto-only'. */
@@ -170,11 +185,29 @@ const HARD: readonly Signal[] = [
   ['advice-signal', /(?<=\s)(?:شنو|ماذا|شو|ايش|وش) (?:اسوي|افعل|اعمل|الافضل|ينبغي|تنصح|تقترح|لازم اسوي|نسوي|نفعل|نعمل)(?=\s)|(?<=\s)(?:هل يجب|هل الافضل|هل ينبغي|هل يستاهل|يستاهل|انصحني|ننصح|نصيحه|نصائح|اقتراح|اقترح|افكار|فكره|تحسين|احسن|اطور|اوفر|اقلل|ازيد|اربح|اكسب|ارباح اكثر|نزيد|نربح|نكسب|نحسن|نطور|نوفر|نقلل|نكبر|نوسع|نشجع|نجيب|نجذب|نرجع|نملي|نبيع|نزود|نرفع|نخفض|اجيب|اجذب|ارجع|املي|ابيع|ازود|ارفع|اخفض)(?=\s)/],
   // growth asked as a how-to: "how can we attract more players", "how do we fill empty courts"
   ['advice-signal', /\bhow (?:do|can|could|would|should|might) (?:i|we|you|one) (?:attract|fill|grow|retain|encourage|persuade|convince|motivate|win|boost|drive|expand|upsell|sell|bring (?:back|in|more|people|players|customers|guests|them)|get (?:more|new|players|customers|guests|people|members|clients|them)|keep (?:players|customers|guests|people|members|clients|them))\b/],
+  // asks for a plan: an ask (verb + a plan), never the bare word, so a page named plan stays a lookup.
+  // MEDIUM with web search (route.web). "how do I create a plan" is an app how-to, not an ask.
+  ['plan-signal', /(?<!\bhow (?:do|can|could|would|should|might) (?:i|we|you|one) )\b(?:give|make|write|build|draft|prepare|create|put together|come up with|need|want|wanna|would like)(?: me| us)?(?: to have)? (?:a|an|some|one)(?: [\w'-]+){0,2} (?:plan|roadmap)\b/],
+  ['plan-signal', /^ (?:a |an )?(?:[\w'-]+ )?(?:plan|roadmap) (?:for|to) /],
+  ['plan-signal', /(?<=\s)(?:اريد|ابي|ابغي|ابغا|سوي|سويلي|اعطني|اعطيني|عطني|عطيني|انطيني|اكتب|اكتبلي|جهز|جهزلي|حضر|حضرلي|نحتاج|محتاج|احتاج|اعمل|اعملي|اطلب|ارجو) (?:لي |لنا )?(?:\S+ ){0,2}خطه(?= )/],
+  ['plan-signal', /^ خطه (?:ل|حتي|عشان|من)/],
+  // judgement: a verdict on the club, not a figure. MEDIUM, no web.
+  ['judgement-signal', /\bwhat(?:'s| is) wrong with\b/],
+  ['judgement-signal', /\bwhat (?:am i|are we) (?:missing|overlooking)\b/],
+  ['judgement-signal', /\bis it worth\b/],
+  ['judgement-signal', /\bwhat would you do\b/],
+  ['judgement-signal', /\byour (?:opinion|view|take)\b/],
+  ['judgement-signal', /\bwhat do you make of\b/],
+  ['judgement-signal', /\bhow (?:can|do|could|would|should) (?:i|we) make [\w' -]{1,40}? (?:more profitable|profitable|better|busier|cheaper to run)\b/],
+  ['judgement-signal', /\bmore profitable\b/],
+  ['judgement-signal', /(?<=\s)(?:و|ف)?رايك(?:م)?(?=\s)/],
+  ['judgement-signal', /(?<=\s)(?:(?:شنو|ايش|شو|وش|ما|وين) (?:هي |هو )?)(?:ال)?مشكل(?:ه|تنا|تي)(?=\s)/],
+  ['judgement-signal', /(?<=\s)(?:و)?الحل(?=\s)/],
   // the world outside the club (other clubs, competitors, the market): only the
   // deep tier carries web_search (turnPolicy webSearchOn), so these go deep.
   // No city names (a branch may be named after one) and no "online" (app bookings).
-  ['outside-signal', /\b(?:other (?:padel )?(?:clubs?|venues?|courts|places|academies)|competitors?|rival (?:clubs?|venues?)|the market|market (?:prices?|rates?|average)|going rate|industry|benchmarks?|elsewhere|nearby clubs?|on the internet|worldwide|globally|internationally|abroad)\b/],
-  ['outside-signal', ar('نوادي اخري|نوادي الاخري|انديه اخري|انديه الاخري|نادي ثاني|نادي اخر|ملاعب اخري|ملاعب ثانيه|منافس|منافسين|سوق|انترنت|عالميا')],
+  ['outside-signal', /\b(?:other (?:padel )?(?:clubs?|venues?|courts|places|academies)|competitors?|rival (?:clubs?|venues?)|the market|market (?:prices?|rates?|average)|going rate|industry|benchmarks?|elsewhere|nearby clubs?|on the internet|worldwide|globally|internationally|abroad|others? (?:charge|charges|are charging)|everyone else (?:charges?|is charging))\b/],
+  ['outside-signal', ar('نوادي اخري|نوادي الاخري|انديه اخري|انديه الاخري|نادي ثاني|نادي اخر|ملاعب اخري|ملاعب ثانيه|نوادي الثانيه|نوادي ثانيه|باقي النوادي|غير نوادي|ملاعب الثانيه|منافس|منافسين|سوق|انترنت|عالميا')],
   // money nouns are soft: see SOFT
 ];
 
@@ -292,7 +325,7 @@ function classifyPart(padded: string): Part {
 
   // Every hard signal that matches, so the tier follows the hardest one: "why did revenue drop last week" is a why (deep), not just a period.
   let hard: string | null = null;
-  for (const [reason, re] of HARD) if (re.test(padded) && (hard === null || analysisRank(reason) > analysisRank(hard))) hard = reason;
+  for (const [reason, re] of HARD) if (re.test(padded) && (hard === null || hardRank(reason) > hardRank(hard))) hard = reason;
   if (hard !== null) return { kind: 'analysis', reason: hard };
 
   const soft = SOFT.some((re) => re.test(padded));
@@ -345,16 +378,23 @@ function splitParts(normalized: string): string[] {
  * When unsure, MEDIUM on Sonnet, never DEEP by default.
  */
 const DEEP_REASONS: ReadonlySet<string> = new Set(['advice-signal', 'why-signal', 'outside-signal', 'long-question', 'empty']);
-const MEDIUM_REASONS: ReadonlySet<string> = new Set(['compare-signal', 'trend-signal', 'no-lookup-pattern']);
+const MEDIUM_REASONS: ReadonlySet<string> = new Set(['compare-signal', 'trend-signal', 'no-lookup-pattern', 'plan-signal', 'judgement-signal']);
 
 function analysisRank(reason: string): number {
   return DEEP_REASONS.has(reason) ? 2 : MEDIUM_REASONS.has(reason) ? 1 : 0;
 }
 
+/** Within a part, a plan ask outranks the other MEDIUM reasons (it carries web search) but never a deep one. */
+function hardRank(reason: string): number {
+  return analysisRank(reason) + (reason === 'plan-signal' ? 0.5 : 0);
+}
+
 function analysis(reason: string, explicitModel: string | null = null): TurnRoute {
   if (analysisRank(reason) === 2) return { kind: 'analysis', model: null, effort: 'medium', preRetrieve: false, reason };
   const model = explicitModel !== null && explicitModel.length > 0 ? explicitModel : LOOKUP_MODEL;
-  return { kind: 'analysis', model, effort: analysisRank(reason) === 1 ? 'medium' : 'low', sticky: true, preRetrieve: false, reason };
+  const route: TurnRoute = { kind: 'analysis', model, effort: analysisRank(reason) === 1 ? 'medium' : 'low', sticky: true, preRetrieve: false, reason };
+  if (reason === 'plan-signal') route.web = true;
+  return route;
 }
 
 function lookup(explicitModel: string | null, reason: string): TurnRoute {
@@ -376,7 +416,11 @@ export function routeTurn(input: { text: string; scopes: readonly string[]; expl
 
   const parts = splitParts(normalizeText(text)).map((p) => classifyPart(maskDayClose(p)));
   // One analysis part makes the whole message analysis, and the hardest part sets the tier.
-  const bad = parts.filter((p) => p.kind === 'analysis').sort((a, b) => analysisRank(b.reason) - analysisRank(a.reason))[0];
+  // On a tie a plan ask goes first: it is the one that carries web search.
+  const planFirst = (r: string): number => (r === 'plan-signal' ? 1 : 0);
+  const bad = parts
+    .filter((p) => p.kind === 'analysis')
+    .sort((a, b) => analysisRank(b.reason) - analysisRank(a.reason) || planFirst(b.reason) - planFirst(a.reason))[0];
   if (bad) return analysis(bad.reason, input.explicitModel);
   const good = parts.find((p) => p.kind === 'lookup');
   if (good) return lookup(input.explicitModel, good.reason);

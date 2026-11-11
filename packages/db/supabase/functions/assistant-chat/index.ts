@@ -21,7 +21,15 @@
  * every business read goes through `asOwner` (the caller's JWT: the dispatcher's owner
  * check and app.assistant_run_tool's read-only wall apply); the service client touches
  * only bookkeeping. Wall clock 50 s: the abort signal rides on every RPC and fetch,
- * then the stream ends with error TIMEOUT after persisting what exists.
+ * then the stream ends with error TIMEOUT after persisting what exists. A client
+ * that leaves (Stop, page closed) aborts the turn through the same signal but is
+ * NOT a timeout (2026-11-11): the turn is stored with `stop_reason: 'stopped'`,
+ * no error_code, and the text that had arrived (persist.ts header).
+ *
+ * The end of the turn (run, then persist) is handed to the edge runtime's
+ * `EdgeRuntime.waitUntil` when it exists (feature-detected through globalThis),
+ * so a client that disconnects does not let the runtime drop the promise
+ * before the spend is recorded.
  */
 
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2';
@@ -41,6 +49,7 @@ import {
   signedPreviousNumbers,
   TURN_COST_CAP_CHEAP_MICROS,
   TURN_COST_CAP_MICROS,
+  turnEnding,
   turnEstimateMicros,
   webSearchOn,
   type FrozenContext,
@@ -66,7 +75,7 @@ import { defaultRange, isRange, localDate, normaliseScopes, type DateRange } fro
 import { SSE_HEADERS, sseStream, type AssistantEvent } from '../_shared/assistant/sse.ts';
 import { toolByName, toolsForScopes, wireTools, type AssistantScope, type ToolSpec, type WireTool } from '../_shared/assistant/tools.ts';
 import { runFileRead, runKnowledgeOrMeta, runPosthog, runProposeJob, runRpcTool, runSearch, runStoredTool, type DispatchCtx } from '../_shared/assistant/runners.ts';
-import { latestAnswer, readConversation, readTail, recheckReads, reuseReads, venueModels, venueTimezone, type ConvRow } from '../_shared/assistant/reads.ts';
+import { latestAnswer, readConversation, readTail, recheckReads, reuseReads, tailToMessages, venueModels, venueTimezone, type ConvRow } from '../_shared/assistant/reads.ts';
 import { gateSigner, insertMessage, persistTurn, webSearchPricer } from '../_shared/assistant/persist.ts';
 
 // ---------------------------------------------------------------------------
@@ -188,25 +197,6 @@ async function startSize(
     logError('assistant-chat', errorText(e), 'count_tokens failed; estimating');
     return { tokens: estimateTokens(system) + estimateTokens(JSON.stringify(tools)) + estimateTokens(first), exact: false, model: provider.model };
   }
-}
-
-// ---------------------------------------------------------------------------
-// Stored messages → provider messages, text only: intermediate tool_use blocks
-// are not replayed on later turns (the sources panel has them; plan §11.4
-// forgets old tool results anyway), so a stored turn is always API-valid.
-// ---------------------------------------------------------------------------
-function tailToMessages(rows: { role: string; content: unknown }[]): ProviderMessage[] {
-  const out: ProviderMessage[] = [];
-  for (const r of rows) {
-    const blocks = Array.isArray(r.content) ? (r.content as { type?: string; text?: string }[]) : [];
-    const text = blocks.filter((b) => b.type === 'text' && typeof b.text === 'string').map((b) => b.text as string).join('\n').trim();
-    if (!text) continue;
-    if (r.role === 'user') out.push({ role: 'user', content: text });
-    else if (r.role === 'assistant') out.push({ role: 'assistant', content: text });
-  }
-  // The API wants the first entry to be a user turn and the tail to alternate sensibly; drop a leading assistant.
-  while (out.length && out[0]!.role === 'assistant') out.shift();
-  return out;
 }
 
 /**
@@ -400,11 +390,22 @@ Deno.serve(handle('assistant-chat', async (req) => {
   // round trip fewer before the first byte.
 
   // ── The stream ────────────────────────────────────────────────────────────
-  // A client that leaves (Stop) aborts the turn like the wall does.
+  // A client that leaves (Stop) aborts the turn like the wall does; `cancelled`
+  // remembers which came first, so a Stop is stored as stopped, not TIMEOUT.
   const abort = new AbortController();
-  const sse = sseStream<AssistantEvent>({ heartbeatMs: HEARTBEAT_MS, onCancel: () => abort.abort() });
+  let cancelled: 'stopped' | 'wall' | null = null;
+  const sse = sseStream<AssistantEvent>({
+    heartbeatMs: HEARTBEAT_MS,
+    onCancel: () => {
+      cancelled ??= 'stopped';
+      abort.abort();
+    },
+  });
   const emit = sse.emit;
-  const wall = setTimeout(() => abort.abort(), WALL_MS);
+  const wall = setTimeout(() => {
+    cancelled ??= 'wall';
+    abort.abort();
+  }, WALL_MS);
 
   const ctx: DispatchCtx = {
     asOwner,
@@ -430,6 +431,8 @@ Deno.serve(handle('assistant-chat', async (req) => {
   const perSearchMicros = webSearchPricer(service);
   const userNumbers = numbersIn(parsed.text);
   let errorOut: { code: string; message: string } | null = null;
+  /** The client left before the turn ended (Stop, page closed): stored as stopped, not as a failure. */
+  let stopped = false;
 
   /**
    * One checked tool as the owner, injected into the loop's dispatchTool
@@ -591,20 +594,28 @@ Deno.serve(handle('assistant-chat', async (req) => {
       freshContext,
       signal: abort.signal,
       errorOut,
+      stopped,
       reusedFrom,
       gateSign,
       emit,
     });
 
-  (async () => {
+  const finish = (async () => {
     try {
       await run();
     } catch (e) {
-      // The owner sees (and the stored turn keeps) a fixed sentence per code;
-      // the vendor's or the runtime's own text goes to the log only.
-      const code = e instanceof ProviderError ? e.code : abort.signal.aborted ? 'TIMEOUT' : 'UPSTREAM';
-      errorOut = { code, message: turnErrorText(code) };
-      logError('assistant-chat', errorText(e), `turn failed (${code})`);
+      const ending = turnEnding({ cancelled, providerCode: e instanceof ProviderError ? e.code : null, aborted: abort.signal.aborted });
+      if (ending.stopped) {
+        // The owner pressed Stop or left: not a failure (header). Nobody is
+        // listening any more; the stored turn says stopped.
+        stopped = true;
+        console.log(`[assistant-chat] turn stopped by the client (${errorText(e)})`);
+      } else {
+        // The owner sees a fixed sentence per code (the stored turn keeps the
+        // code); the vendor's or the runtime's own text goes to the log only.
+        errorOut = { code: ending.code, message: turnErrorText(ending.code) };
+        logError('assistant-chat', errorText(e), `turn failed (${ending.code})`);
+      }
     }
     try {
       await persist();
@@ -612,10 +623,20 @@ Deno.serve(handle('assistant-chat', async (req) => {
       logError('assistant-chat', errorText(e), 'persist failed');
     }
     if (errorOut) emit('error', errorOut);
-    emit('done', { message_id: assistantMessageId, stop_reason: errorOut ? errorOut.code : turn.stopReason });
+    emit('done', { message_id: assistantMessageId, stop_reason: errorOut ? errorOut.code : stopped ? 'stopped' : turn.stopReason });
     clearTimeout(wall);
     sse.close();
   })();
+  // After a disconnect the runtime may drop a promise nobody awaits; waitUntil
+  // keeps it alive until persist has recorded the spend (header).
+  const edge = (globalThis as { EdgeRuntime?: { waitUntil?: (p: Promise<unknown>) => void } }).EdgeRuntime;
+  if (typeof edge?.waitUntil === 'function') {
+    try {
+      edge.waitUntil(finish);
+    } catch (e) {
+      logError('assistant-chat', errorText(e), 'EdgeRuntime.waitUntil refused the turn');
+    }
+  }
 
   return new Response(sse.stream, { status: 200, headers: { ...SSE_HEADERS } });
 }));

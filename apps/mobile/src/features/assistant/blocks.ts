@@ -1,12 +1,14 @@
 /**
  * The assistant's answer as blocks, no markdown library (the model is told to
  * answer tersely; anything richer is noise): paragraphs, `- ` lists, `1. `
- * lists, `|` pipe tables, `**bold**`. The operator's `parseBlocks` /
+ * lists, `|` pipe tables, `#` headings (a bold line), `**bold**`, `code` (plain
+ * text) and `[text](url)` (the text, then the address in parentheses). The operator's `parseBlocks` /
  * `renderInline`, with the inline step returning plain segments the screen
  * turns into nested Text. PURE (vitest).
  */
 
 export type Block =
+  | { kind: 'h'; text: string }
   | { kind: 'p'; lines: string[] }
   | { kind: 'ul'; items: string[] }
   | { kind: 'ol'; items: string[] }
@@ -14,6 +16,7 @@ export type Block =
 
 const BULLET = /^\s*[-*•]\s+(.*)$/;
 const NUMBERED = /^\s*\d+[.)]\s+(.*)$/;
+const HEADING = /^\s{0,3}#{1,6}\s+(.*?)\s*#*\s*$/;
 const TABLE_ROW = /^\s*\|.*\|\s*$/;
 const TABLE_SEP = /^\s*\|?[\s:|-]+\|?\s*$/;
 
@@ -27,10 +30,19 @@ export function parseBlocks(text: string): Block[] {
       i += 1;
       continue;
     }
+    const heading = HEADING.exec(line);
+    if (heading) {
+      blocks.push({ kind: 'h', text: heading[1]! });
+      i += 1;
+      continue;
+    }
     if (TABLE_ROW.test(line)) {
       const rows: string[][] = [];
+      let n = 0;
       while (i < lines.length && TABLE_ROW.test(lines[i]!)) {
-        if (!TABLE_SEP.test(lines[i]!)) rows.push(splitRow(lines[i]!));
+        // Only the row directly under the header is a separator; `| - | - |` further down is data.
+        if (!(n === 1 && TABLE_SEP.test(lines[i]!))) rows.push(splitRow(lines[i]!));
+        n += 1;
         i += 1;
       }
       if (rows.length > 0) blocks.push({ kind: 'table', header: rows[0]!, rows: rows.slice(1) });
@@ -47,9 +59,13 @@ export function parseBlocks(text: string): Block[] {
     }
     if (NUMBERED.test(line)) {
       const items: string[] = [];
-      while (i < lines.length && NUMBERED.test(lines[i]!)) {
-        items.push(NUMBERED.exec(lines[i]!)![1]!);
-        i += 1;
+      while (i < lines.length) {
+        // Blank lines between items do not end the list: the next non-blank line decides.
+        let j = i;
+        while (j < lines.length && lines[j]!.trim() === '') j += 1;
+        if (j >= lines.length || !NUMBERED.test(lines[j]!)) break;
+        items.push(NUMBERED.exec(lines[j]!)![1]!);
+        i = j + 1;
       }
       blocks.push({ kind: 'ol', items });
       continue;
@@ -58,6 +74,7 @@ export function parseBlocks(text: string): Block[] {
     while (
       i < lines.length &&
       lines[i]!.trim() !== '' &&
+      !HEADING.test(lines[i]!) &&
       !TABLE_ROW.test(lines[i]!) &&
       !BULLET.test(lines[i]!) &&
       !NUMBERED.test(lines[i]!)
@@ -93,7 +110,15 @@ export interface Segment {
  * gate reported them (`raw`), longest first so `1,250` is not eaten by `250`,
  * and only on a digit boundary so `12` does not mark the `12` in `120`.
  */
-export function splitInline(text: string, unverified: readonly string[]): Segment[] {
+/** `[text](url)` → `text (url)`, `` `code` `` → code: the phone shows both as plain text, nothing tappable. */
+export function plainInline(text: string): string {
+  return text
+    .replace(/\[([^\]\n]+)\]\(\s*([^)\s]+)\s*\)/g, '$1 ($2)')
+    .replace(/`([^`\n]+)`/g, '$1');
+}
+
+export function splitInline(source: string, unverified: readonly string[]): Segment[] {
+  const text = plainInline(source);
   const raws = [...new Set(unverified.filter((r) => r !== ''))].sort((a, b) => b.length - a.length);
   // A digit, or a separator followed by a digit, on either side means the match
   // is part of a longer number; a sentence's trailing comma or full stop is not.

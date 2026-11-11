@@ -51,7 +51,9 @@ export function freeRefusal(status: number, body: unknown): FreeError {
     if (status === 401) code = 'AUTH_REQUIRED';
     else if (status === 403) code = 'FORBIDDEN';
     else if (status === 429) code = 'RATE_LIMITED';
-    else if (status === 503) code = 'NOT_CONFIGURED';
+    // A bare 503 is the platform failing, not a missing key: assistant-free
+    // always says NOT_CONFIGURED in the body when the key is the problem, and
+    // the body code is read first (operator parity, 2026-11-11).
     else if (status >= 500) code = 'UPSTREAM';
     else if (status === 400 || status === 413) code = 'INVALID_REQUEST';
   }

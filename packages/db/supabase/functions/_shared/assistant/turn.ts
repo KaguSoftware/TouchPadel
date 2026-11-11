@@ -40,7 +40,23 @@
  *                   regenerated answer only for an invented money-sized figure
  *                   or percentage (turnPolicy shouldGateRetry), and not past the
  *                   ceiling or on the last call (the figures stay marked). Every retry emits
- *                   `delta {text:'', reset:true}` so the UI drops the first draft.
+ *                   `delta {text:'', reset:true}` so the UI drops the first draft;
+ *   cut short       a call that ends `max_tokens` (the output limit) or
+ *                   `refusal` ends the loop with that stop reason (2026-11-11;
+ *                   it used to fall through as a normal answer): the text it
+ *                   wrote is kept and gated (marks only), no tool it started
+ *                   is dispatched (a max_tokens tool_use block may be half
+ *                   written), and neither the false-refusal nor the gate retry
+ *                   runs (a regenerated answer would be cut again and costs a
+ *                   full call). No limit is raised and no continuation sent;
+ *   cut mid-stream  a call that throws (the 50 s wall, a Stop, a dropped
+ *                   connection) after the vendor started answering is billed:
+ *                   when the error carries `partial` usage (provider.ts
+ *                   ProviderError.partial, read structurally here) it is
+ *                   recorded as a call with stop reason `aborted` and priced
+ *                   like any other; text it had streamed becomes the turn's
+ *                   text, gated (marks only), so the stored turn holds what
+ *                   the owner saw. The error then propagates.
  *
  * Every operator instruction goes through `pushSystem`, which folds a second
  * one into a trailing system entry (the API takes a system message after a
@@ -92,6 +108,31 @@ export interface TurnRound<B extends TurnBlock> {
   ms: number;
   webSearches?: number;
 }
+
+/** provider.ts ProviderPartial: what a call cut mid-stream had used (on the thrown error as `partial`). */
+export interface PartialCall {
+  usage: TokenCounts;
+  ms: number;
+  webSearches: number;
+}
+
+/** The usage a thrown stream error carries, when the vendor had started answering; null otherwise. */
+export function partialCallOf(e: unknown): PartialCall | null {
+  const p = e && typeof e === 'object' ? (e as { partial?: unknown }).partial : null;
+  if (!p || typeof p !== 'object') return null;
+  const { usage, ms, webSearches } = p as { usage?: unknown; ms?: unknown; webSearches?: unknown };
+  if (!usage || typeof usage !== 'object') return null;
+  const u = usage as Record<string, unknown>;
+  const n = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : 0);
+  return {
+    usage: { input: n(u.input), cache_write: n(u.cache_write), cache_read: n(u.cache_read), output: n(u.output) },
+    ms: n(ms),
+    webSearches: n(webSearches),
+  };
+}
+
+/** Stop reasons that end the loop with the text as it stands: no tools, no retry (header, "cut short"). */
+export const CUT_SHORT_STOPS: ReadonlySet<string> = new Set(['max_tokens', 'refusal']);
 
 export interface ToolUse {
   id: string;
@@ -394,6 +435,45 @@ function endEarly<B extends TurnBlock>(
   state.gate = gateAnswer(state.finalText, [...state.allowed, ...state.webNumbers, ...input.previousNumbers], input.userNumbers);
 }
 
+/**
+ * One model call into `state.calls`: the tokens estimated here, priced
+ * exactly at persist (F1 item 9); the searches priced as before (0324), the
+ * per-search price read once and only if one ran.
+ */
+async function recordCall<B extends TurnBlock>(
+  state: TurnState<B>,
+  deps: Pick<TurnDeps<B>, 'model' | 'estimateMicros' | 'perSearchMicros'>,
+  usage: TokenCounts,
+  ms: number,
+  stopReason: string,
+  searched: number,
+): Promise<void> {
+  state.webSearches += searched;
+  const search_micros = searched ? searched * (await deps.perSearchMicros()) : 0;
+  const cost = deps.estimateMicros(usage) + search_micros;
+  state.spentMicros += cost;
+  state.calls.push({ call_no: state.calls.length + 1, model: deps.model, usage, ms, stop_reason: stopReason, cost_micros: cost, web_searches: searched, search_micros });
+}
+
+/**
+ * A call that threw (header, "cut mid-stream"): its partial usage, when the
+ * error carries one, becomes a call with stop reason `aborted`; text it had
+ * streamed becomes the turn's text, gated for marks only. Never throws: the
+ * caller rethrows the original error.
+ */
+async function recordCutCall<B extends TurnBlock>(state: TurnState<B>, input: TurnInput<B>, deps: TurnDeps<B>, e: unknown, streamed: string): Promise<void> {
+  try {
+    const partial = partialCallOf(e);
+    if (partial) await recordCall(state, deps, partial.usage, partial.ms, 'aborted', partial.webSearches);
+  } catch (err) {
+    console.error('[assistant-chat] cut call not recorded', errorText(err));
+  }
+  if (!streamed.trim()) return;
+  state.finalText = streamed;
+  state.finalContent = [];
+  state.gate = gateAnswer(streamed, [...state.allowed, ...state.webNumbers, ...input.previousNumbers], input.userNumbers);
+}
+
 /** Once a message has run its searches, say so through the operator channel (after a user turn or a server-tool pause). */
 function noteSearchCap<B extends TurnBlock>(state: TurnState<B>, maxUses: number, messages: TurnMessage<B>[]): void {
   if (state.webCapNoted || state.webSearches < maxUses) return;
@@ -413,18 +493,17 @@ export async function runTurnLoop<B extends TurnBlock>(state: TurnState<B>, inpu
   while (rounds <= MAX_TOOL_ROUNDS + 1) {
     rounds++;
     let streamed = '';
-    const turn = await deps.stream(messages, (delta) => {
-      streamed += delta;
-      deps.emit('delta', { text: delta });
-    });
-    const searched = turn.webSearches ?? 0;
-    state.webSearches += searched;
-    // The tokens are estimated here, priced exactly at persist (F1 item 9);
-    // the searches are priced as before (0324), read once and only if one ran.
-    const search_micros = searched ? searched * (await deps.perSearchMicros()) : 0;
-    const cost = deps.estimateMicros(turn.usage) + search_micros;
-    state.spentMicros += cost;
-    state.calls.push({ call_no: state.calls.length + 1, model: deps.model, usage: turn.usage, ms: turn.ms, stop_reason: turn.stop_reason, cost_micros: cost, web_searches: searched, search_micros });
+    let turn: TurnRound<B>;
+    try {
+      turn = await deps.stream(messages, (delta) => {
+        streamed += delta;
+        deps.emit('delta', { text: delta });
+      });
+    } catch (e) {
+      await recordCutCall(state, input, deps, e, streamed);
+      throw e;
+    }
+    await recordCall(state, deps, turn.usage, turn.ms, turn.stop_reason, turn.webSearches ?? 0);
     for (const item of webSearchSources(turn.content)) {
       deps.emit('tool_start', { call_id: item.call_id, name: item.name, args: item.args });
       state.sources.push(item);
@@ -434,6 +513,14 @@ export async function runTurnLoop<B extends TurnBlock>(state: TurnState<B>, inpu
     state.stopReason = turn.stop_reason;
     state.finalContent = turn.content;
     state.finalText = textOf(turn.content) || streamed;
+
+    // Cut at the output limit, or refused (header, "cut short"): the text
+    // stands, gated for marks only; a max_tokens tool_use may be half
+    // written, so nothing is dispatched, and no retry is paid for.
+    if (CUT_SHORT_STOPS.has(turn.stop_reason)) {
+      state.gate = gateAnswer(state.finalText, [...state.allowed, ...state.webNumbers, ...input.previousNumbers], input.userNumbers);
+      break;
+    }
 
     const uses = toolUsesOf(turn.content);
     const overCap = costCapReached(state.spentMicros, deps.capMicros);

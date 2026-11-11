@@ -10,7 +10,8 @@
  *   - The limits match the client contract in @touch/core.
  */
 import { readFileSync } from 'node:fs';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import { newAccumulator, stopReasonFromOai } from '../supabase/functions/_shared/assistant/groqWire.ts';
 import * as core from '../../core/src/assistant/free';
 import * as catalog from '../../core/src/assistant/tools';
 import { STAFF_ROLES } from '../../core/src/staff/roles';
@@ -23,7 +24,12 @@ import {
   FREE_PAGES_MAX,
   FREE_PER_DAY,
   FREE_PER_MINUTE,
+  FREE_SHORT_WAIT_MS,
   FREE_TEXT_MAX,
+  FreeError,
+  freeFailureReply,
+  postGroq,
+  readGroqStream,
   aboutLine,
   buildFreeSystem,
   createLimiter,
@@ -269,5 +275,139 @@ describe('aboutLine keeps ordinary words', () => {
   it('drops a stranded verb only where a name was cut', () => {
     expect(aboutLine('The report with Waiter calls, Day closes and Till shifts.')).toBe('The report with Waiter calls, Day closes and Till shifts.');
     expect(aboutLine('A dialog that calls (app.decide_request), and a decision is final.')).toBe('A dialog that, and a decision is final.');
+  });
+});
+
+describe('postGroq: the Groq call with fetch, clock and logger injected', () => {
+  const reply = (status: number, body = '', headers: Record<string, string> = {}) => new Response(body, { status, headers });
+  const setup = (...responses: (Response | Error)[]) => {
+    const queue = [...responses];
+    const fetch = vi.fn(async (_url: string, _init: RequestInit) => {
+      const next = queue.shift()!;
+      if (next instanceof Error) throw next;
+      return next;
+    });
+    const sleep = vi.fn(async (_ms: number) => {});
+    const log = vi.fn();
+    return { deps: { fetch, url: 'https://groq.test/x', sleep, log }, fetch, sleep, log };
+  };
+  const run = (deps: ReturnType<typeof setup>['deps'], signal = new AbortController().signal) => postGroq(deps, 'k', { a: 1 }, signal);
+
+  it('sends the key, the body and the signal to the injected URL', async () => {
+    const t = setup(reply(200, 'ok'));
+    const ac = new AbortController();
+    expect(await (await run(t.deps, ac.signal)).text()).toBe('ok');
+    const [url, init] = t.fetch.mock.calls[0]!;
+    expect(url).toBe('https://groq.test/x');
+    expect((init.headers as Record<string, string>).Authorization).toBe('Bearer k');
+    expect(init.body).toBe('{"a":1}');
+    expect(init.signal).toBe(ac.signal);
+  });
+
+  it('waits out a short retry-after header once, plus 250 ms, then succeeds', async () => {
+    const t = setup(reply(429, '', { 'retry-after': '2' }), reply(200, 'ok'));
+    expect((await run(t.deps)).ok).toBe(true);
+    expect(t.fetch).toHaveBeenCalledTimes(2);
+    expect(t.sleep).toHaveBeenCalledWith(2_250);
+  });
+
+  it('honours the body hint when there is no header (ms form retried, minutes form refused)', async () => {
+    const a = setup(reply(429, 'Rate limit. Please try again in 194.5ms.'), reply(200));
+    await run(a.deps);
+    expect(a.sleep).toHaveBeenCalledWith(195 + 250);
+    const b = setup(reply(429, 'try again in 1m2.5s'));
+    await expect(run(b.deps)).rejects.toMatchObject({ code: 'RATE_LIMITED' });
+    expect(b.sleep).not.toHaveBeenCalled();
+  });
+
+  it('a wait exactly at the short limit is retried, one second over is not', async () => {
+    const at = setup(reply(429, '', { 'retry-after': String(FREE_SHORT_WAIT_MS / 1000) }), reply(200));
+    expect((await run(at.deps)).ok).toBe(true);
+    const over = setup(reply(429, '', { 'retry-after': String(FREE_SHORT_WAIT_MS / 1000 + 1) }));
+    await expect(run(over.deps)).rejects.toMatchObject({ code: 'RATE_LIMITED' });
+    expect(over.fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('retries only once: a second short 429 is the club-wide RATE_LIMITED', async () => {
+    const t = setup(reply(429, '', { 'retry-after': '1' }), reply(429, '', { 'retry-after': '1' }));
+    const err = await run(t.deps).catch((e) => e);
+    expect(err).toBeInstanceOf(FreeError);
+    expect(err.code).toBe('RATE_LIMITED');
+    expect(t.fetch).toHaveBeenCalledTimes(2);
+    expect(t.sleep).toHaveBeenCalledTimes(1);
+    expect(t.log).toHaveBeenCalled();
+  });
+
+  it('a 429 without a hint, and a 413, are RATE_LIMITED with no retry', async () => {
+    for (const status of [429, 413]) {
+      const t = setup(reply(status, 'nope'));
+      await expect(run(t.deps)).rejects.toMatchObject({ code: 'RATE_LIMITED' });
+      expect(t.fetch).toHaveBeenCalledTimes(1);
+    }
+  });
+
+  it('does not wait when the wall clock has already aborted', async () => {
+    const ac = new AbortController();
+    ac.abort();
+    const t = setup(reply(429, '', { 'retry-after': '1' }));
+    await expect(run(t.deps, ac.signal)).rejects.toMatchObject({ code: 'RATE_LIMITED' });
+    expect(t.sleep).not.toHaveBeenCalled();
+  });
+
+  it('maps 401/403 to NOT_CONFIGURED, other statuses to UPSTREAM, network errors to UPSTREAM or TIMEOUT', async () => {
+    await expect(run(setup(reply(401)).deps)).rejects.toMatchObject({ code: 'NOT_CONFIGURED' });
+    await expect(run(setup(reply(403)).deps)).rejects.toMatchObject({ code: 'NOT_CONFIGURED' });
+    await expect(run(setup(reply(500)).deps)).rejects.toMatchObject({ code: 'UPSTREAM' });
+    await expect(run(setup(new Error('down')).deps)).rejects.toMatchObject({ code: 'UPSTREAM' });
+    const ac = new AbortController();
+    ac.abort();
+    await expect(run(setup(new Error('aborted')).deps, ac.signal)).rejects.toMatchObject({ code: 'TIMEOUT' });
+  });
+});
+
+describe('freeFailureReply: the refusal before the stream opens', () => {
+  it('club-wide 429 carries scope club; a refused key is 503; the rest are 502', () => {
+    const club = freeFailureReply('RATE_LIMITED');
+    expect(club.status).toBe(429);
+    expect(club.body).toMatchObject({ code: 'RATE_LIMITED', scope: 'club' });
+    expect(freeFailureReply('NOT_CONFIGURED').status).toBe(503);
+    expect(freeFailureReply('UPSTREAM').status).toBe(502);
+    expect(freeFailureReply('TIMEOUT')).toMatchObject({ status: 502, body: { code: 'TIMEOUT' } });
+  });
+});
+
+describe('readGroqStream: a streamed answer from a fake Groq', () => {
+  const frame = (o: unknown) => `data: ${JSON.stringify(o)}\n\n`;
+  it('emits each text delta in order and ends with finish reason and usage', async () => {
+    const frames = [
+      frame({ choices: [{ delta: { role: 'assistant', content: '' } }] }),
+      frame({ choices: [{ delta: { content: 'Open ' } }] }),
+      frame({ choices: [{ delta: { content: 'Orders.' } }] }),
+      frame({ choices: [{ delta: {}, finish_reason: 'stop' }], usage: { prompt_tokens: 100, completion_tokens: 7 } }),
+      'data: [DONE]\n\n',
+    ].join('');
+    const enc = new TextEncoder().encode(frames);
+    // Split mid-frame to exercise the buffer.
+    const stream = new ReadableStream<Uint8Array>({
+      start(c) {
+        c.enqueue(enc.slice(0, 37));
+        c.enqueue(enc.slice(37));
+        c.close();
+      },
+    });
+    const acc = newAccumulator();
+    const deltas: string[] = [];
+    await readGroqStream(new Response(stream), acc, (t) => deltas.push(t));
+    expect(deltas.join('')).toBe('Open Orders.');
+    expect(stopReasonFromOai(acc.finish)).toBe('end_turn');
+    expect(acc.usage).toBeTruthy();
+  });
+
+  it('skips a malformed frame, and a body-less response is UPSTREAM', async () => {
+    const acc = newAccumulator();
+    const deltas: string[] = [];
+    await readGroqStream(new Response('data: {oops\n\n' + frame({ choices: [{ delta: { content: 'ok' } }] })), acc, (t) => deltas.push(t));
+    expect(deltas).toEqual(['ok']);
+    await expect(readGroqStream(new Response(null), newAccumulator(), () => {})).rejects.toMatchObject({ code: 'UPSTREAM' });
   });
 });

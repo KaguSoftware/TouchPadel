@@ -14,14 +14,14 @@
  *    the same stream for any staff role; it reads no data and stores nothing.
  *
  * No deadline: the Stop button is the deadline, and the function itself ends a
- * runaway turn at 50 s with an `error` event.
+ * runaway turn at 50 s with an `error` event. A stream that ends without
+ * `done`/`error`, or sends nothing for 45 s, is a lost connection (stream.ts).
  */
 import { fetch as streamingFetch } from 'expo/fetch';
 import type { AssistantScope } from '@touch/core/assistant/tools';
 import { FREE_ASSISTANT_FN, type FreeAskBody } from '@touch/core/assistant/free';
 import { asModelsPayload, refusalCode, type ModelsPayload } from '@touch/core/assistant/client';
 import { freeRefusal } from '@touch/core/assistant/free-client';
-import { parseSseChunk, parseSseData } from '@touch/core/assistant/sse';
 import { supabase } from '../../lib/supabase';
 import {
   AssistantStreamError,
@@ -31,6 +31,7 @@ import {
   type MessageRow,
 } from './chat';
 import { FreeStreamError } from './free';
+import { linkedController, readEvents, textReader } from './stream';
 
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL ?? '';
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? '';
@@ -70,7 +71,7 @@ export async function fetchConversation(id: string): Promise<ConversationRow | n
 export async function fetchMessages(conversationId: string): Promise<MessageRow[]> {
   const { data, error } = await supabase
     .from('assistant_messages')
-    .select('id, conversation_id, seq, role, content, sources, gate, created_at')
+    .select('id, conversation_id, seq, role, content, sources, gate, tokens, created_at')
     .eq('conversation_id', conversationId)
     .order('seq', { ascending: true });
   if (error) throw error;
@@ -126,7 +127,7 @@ export interface ChatRequest {
 export interface StreamOptions {
   /** Called once per SSE event, in order, with the JSON-parsed `data`. */
   onEvent: (name: string, data: unknown) => void;
-  /** The Stop button: aborting rejects the fetch with an AbortError. */
+  /** The Stop button. Whether it was pressed is read from `signal.aborted`, not from the error. */
   signal?: AbortSignal;
 }
 
@@ -146,6 +147,7 @@ export async function sendMessage(req: ChatRequest, opts: StreamOptions): Promis
   const token = data.session?.access_token;
   if (!token) throw new AssistantStreamError('AUTH_REQUIRED', 'no session');
 
+  const link = linkedController(opts.signal);
   const res = await streamingFetch(`${supabaseUrl}/functions/v1/assistant-chat`, {
     method: 'POST',
     headers: {
@@ -155,14 +157,14 @@ export async function sendMessage(req: ChatRequest, opts: StreamOptions): Promis
       Accept: 'text/event-stream',
     },
     body: JSON.stringify(req),
-    signal: opts.signal,
+    signal: link.signal,
   });
 
   if (!res.ok) {
     // Auth and quota refuse as plain JSON before the stream starts.
     throw new AssistantStreamError(refusalCode(res.status, await readJson(res)));
   }
-  await readStream(res, opts);
+  await readStream(res, opts, link);
 }
 
 /**
@@ -176,6 +178,7 @@ export async function sendFreeQuestion(body: FreeAskBody, opts: StreamOptions): 
   const token = data.session?.access_token;
   if (!token) throw new FreeStreamError({ code: 'AUTH_REQUIRED' }, 'no session');
 
+  const link = linkedController(opts.signal);
   const res = await streamingFetch(`${supabaseUrl}/functions/v1/${FREE_ASSISTANT_FN}`, {
     method: 'POST',
     headers: {
@@ -185,39 +188,21 @@ export async function sendFreeQuestion(body: FreeAskBody, opts: StreamOptions): 
       Accept: 'text/event-stream',
     },
     body: JSON.stringify(body),
-    signal: opts.signal,
+    signal: link.signal,
   });
 
   if (!res.ok) throw new FreeStreamError(freeRefusal(res.status, await readJson(res)));
-  await readStream(res, opts);
+  await readStream(res, opts, link);
 }
 
 type StreamResponse = Awaited<ReturnType<typeof streamingFetch>>;
 
-/** Hand every SSE event of a 2xx answer to `onEvent`, in order, until the stream ends. */
-async function readStream(res: StreamResponse, opts: StreamOptions): Promise<void> {
-  const emit = (events: readonly { event: string; data: string }[]) => {
-    for (const ev of events) opts.onEvent(ev.event, parseSseData(ev.data));
-  };
-
-  if (!res.body) {
-    const text = await res.text();
-    emit(parseSseChunk(text.endsWith('\n\n') ? text : `${text}\n\n`).events);
-    return;
-  }
-
-  const reader = res.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = '';
-  for (;;) {
-    const { value, done } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-    const parsed = parseSseChunk(buffer);
-    buffer = parsed.rest;
-    emit(parsed.events);
-  }
-  // A last event the server did not end with a blank line.
-  buffer += decoder.decode();
-  if (buffer.trim() !== '') emit(parseSseChunk(`${buffer}\n\n`).events);
+/**
+ * Hand every SSE event of a 2xx answer to `onEvent`, in order. A body that ends
+ * without `done`/`error`, or goes 45 s without a byte, throws StreamLostError
+ * (stream.ts); `link` is the request's own controller, which the watchdog aborts.
+ */
+async function readStream(res: StreamResponse, opts: StreamOptions, link: AbortController): Promise<void> {
+  const reader = res.body ? res.body.getReader() : textReader(await res.text());
+  await readEvents(reader, opts.onEvent, { abort: () => link.abort() });
 }

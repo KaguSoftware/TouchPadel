@@ -17,6 +17,18 @@ is a line in that file.
 
 ## Migrations
 
+- **0406 (2026-11-11, assistant_branch_scope; evaluation 2026-11-11):** the six SECURITY DEFINER
+  assistant list tools had no branch predicate (RLS does not apply inside them), so with one
+  branch on the rail an answer mixed that branch's report figures with chain-wide rows. Each now
+  reads `venue_id = any(app.report_venues())`, the reports' own rule (0219), on its count and its
+  rows: **0406 holds `assistant_bookings_list`** (0147 no longer), **`assistant_tabs_list`,
+  `assistant_payments_list`, `assistant_break_history`, `assistant_audit_page` and
+  `assistant_table_read`** (0109 no longer). `assistant_table_read` adds
+  `(venue_id is null or venue_id = any(...))` only for a relation that has a `venue_id` column
+  (looked up in `pg_attribute`; NULL stays in because a promotion with NULL is every branch,
+  0212); a table without one is read as before. `assistant_count` goes through the same bodies.
+  Signatures, STABLE, definer, guards and grants unchanged; no new function;
+  `tests/assistant-branch-scope.test.ts` (one rolled-back psql transaction).
 - **0405 (2026-11-09, assistant_concurrency; review 2026-11-09):** `assistant_conversations` loses
   its client UPDATE (`revoke update, delete … from authenticated, anon`, policy
   `assistant_conversations_update_owner` dropped: an owner session could rewrite `tokens` or
@@ -128,8 +140,8 @@ is a line in that file.
   `tests/sweeps-report.test.ts` counts handlers against `app.monitor` calls in each latest body.
   `app.monitor_scrub_text` masks any run of eight digits, dashes included, so a digit-heavy uuid
   in a message or detail is stored as `[number]`.
-- Ordinal strictly greater than the current max, never a reused one. Latest is `0405`
-  (0380–0391 and 0402–0405 are at the top of this list; 0392–0401 are in their own headers, and
+- Ordinal strictly greater than the current max, never a reused one. Latest is `0406`
+  (0380–0391 and 0402–0406 are at the top of this list; 0392–0401 are in their own headers, and
   0377–0379 have no file). Before them: (0376 loyalty_tier_colors, 2026-10-31 (Ameen: a tier made "from 100 points" never reached a
   gifted account, and the owner picks each tier's card colour): `loyalty_tiers.color` (classic |
   bronze | silver | gold | platinum | black, default classic, `loyalty_tiers_color`; the same keys
@@ -439,7 +451,7 @@ is a line in that file.
   0149 assistant-cap, 0150 move-not-into-past, 0151 out-of-stock-alert, 0152 my-reservations,
   0153 terms-consent, 0154 analytics-returning-guest, 0155–0157 six new staff roles, 0158–0206
   protocols and the staff phone (change-order line 10), 0207–0227 multi-venue slices 2–4); the next is
-  `0406`. **Check the directory, not this line** — it said 0146 while 0147–0149 were already on
+  `0407`. **Check the directory, not this line** — it said 0146 while 0147–0149 were already on
   disk, and later 0150 while 0154 was, and a reused ordinal fails `check-migrations.mjs` after the
   file is written.
 - `0069` and `0071` are already doubled; `0023`, `0040` and `0101` have no file, so leave the gaps.

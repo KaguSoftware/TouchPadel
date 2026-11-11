@@ -99,7 +99,7 @@ export const opErrorsCodesEn = {
   OWNER_NOT_FOUND: 'No active owner account was found.',
   LLM_DAILY_QUOTA: 'Today’s AI limit is reached. Try again tomorrow.',
   LLM_MONTHLY_CAP:
-    'This month’s AI spending cap is reached. The owner can raise it in Venue settings.',
+    'This month’s AI spending cap is reached. The owner can raise it on the assistant’s Usage and limits page.',
   // Wages (0271–0272).
   WAGE_NOT_SET: 'This person has no salary for that month. Set their salary first.',
   WAGE_ALREADY_PAID:

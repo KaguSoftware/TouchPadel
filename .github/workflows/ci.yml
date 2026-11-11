@@ -414,7 +414,35 @@ jobs:
       - name: DB tests (RLS + concurrency)
         # Verbose so a hang names the file that is running, not just the last one done.
         # The JSON report feeds the skip check below.
-        run: pnpm --filter @touch/db test -- --reporter=verbose --reporter=json --outputFile.json=vitest-report.json
+        # The streamed-turn file needs a serve with a (dummy) key, which would skip
+        # assistant-edge-http's 503 NOT_CONFIGURED case here; it runs in its own step below.
+        run: pnpm --filter @touch/db test -- --exclude tests/assistant-edge-stream.test.ts --reporter=verbose --reporter=json --outputFile.json=vitest-report.json
+
+      # A real streamed assistant-chat turn against the FAKE Anthropic the test
+      # starts on port 54380 (tests/assistant-fake-anthropic.ts). The runtime's env
+      # is fixed when `functions serve` starts, so the serve is restarted with
+      # ANTHROPIC_BASE_URL pointed at the fake and a dummy key, written to a
+      # runner-temp env file (never the repo; hosted secrets are `supabase
+      # secrets set` only). The test runs nothing unless its probe sees the fake;
+      # a skip fails here like any other.
+      - name: Streamed assistant turn against a fake Anthropic
+        working-directory: packages/db
+        run: |
+          pkill -f 'supabase functions serve' || true
+          for _ in $(seq 1 30); do pgrep -f 'supabase functions serve' > /dev/null || break; sleep 1; done
+          { cat supabase/functions/.env; printf '\nANTHROPIC_BASE_URL=http://host.docker.internal:54380\nANTHROPIC_API_KEY=fake-key-not-a-secret\n'; } > "$RUNNER_TEMP/functions-fake-anthropic.env"
+          nohup supabase functions serve --env-file "$RUNNER_TEMP/functions-fake-anthropic.env" > /tmp/functions-fake.log 2>&1 &
+          ok=0
+          for _ in $(seq 1 90); do
+            fn=$(curl -s -o /dev/null -w '%{http_code}' --max-time 2 -X POST "http://127.0.0.1:54321/functions/v1/replay" || true)
+            au=$(curl -s -o /dev/null -w '%{http_code}' --max-time 2 "http://127.0.0.1:54321/auth/v1/health" || true)
+            if [ "$fn" = "401" ] && [ "$au" = "200" ]; then ok=$((ok+1)); else ok=0; fi
+            [ "$ok" -ge 3 ] && break
+            sleep 2
+          done
+          if [ "$ok" -lt 3 ]; then cat /tmp/functions-fake.log; echo "::error::the edge runtime never became ready"; exit 1; fi
+          pnpm exec vitest run tests/assistant-edge-stream.test.ts --reporter=verbose --reporter=json --outputFile.json=vitest-stream-report.json || { cat /tmp/functions-fake.log; exit 1; }
+          node scripts/check-no-skips.mjs vitest-stream-report.json
 
       # With the stack up and the functions served, a skipped test is a probe
       # that failed, not a laptop without Docker. Only the by-design skips in

@@ -3,7 +3,10 @@
  * running tokens by kind with the calculator's price, and Cancel. Polls the
  * `assistant_jobs` row every 2 s while the status is not terminal; the row is
  * written by the edge function, so the poll is the truth, not this screen.
+ * When it reaches a finished state the chat's messages are read again, so
+ * "Finished. The answer is in the chat" is true when it says so.
  */
+import { useEffect, useRef } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { formatNumber } from '@touch/i18n';
 import { useLocale } from '../../lib/i18n';
@@ -46,6 +49,20 @@ export function JobProgress({ jobId, initial, model, pricing, fallbackMicrosPerM
     refetchInterval: (query) => (isTerminal(query.state.data?.status) ? false : JOB_POLL_MS),
   });
   const job = q.data ?? initial ?? null;
+
+  // The answer a job writes is a new message: read the chat again once it ends.
+  const finishedSeen = useRef(false);
+  const finished = isTerminal(job?.status);
+  const jobConversation = job?.conversation_id ?? null;
+  useEffect(() => {
+    if (!finished || finishedSeen.current) return;
+    finishedSeen.current = true;
+    if (jobConversation) {
+      void qc.invalidateQueries({ queryKey: QK.messages(jobConversation) });
+      void qc.invalidateQueries({ queryKey: QK.jobs(jobConversation) });
+    }
+    void qc.invalidateQueries({ queryKey: ['assistant', 'usage'] });
+  }, [finished, jobConversation, qc]);
 
   const cancel = useMutation({
     mutationFn: () => cancelJob(jobId),
