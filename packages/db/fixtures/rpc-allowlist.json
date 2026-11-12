@@ -634,6 +634,13 @@
     "queued_rpc_finish",
     "recall_ticket",
     "monitoring_events_page",
-    "monitoring_summary"
+    "monitoring_summary",
+    "delete_loyalty_tier_perk",
+    "loyalty_perks_refresh",
+    "loyalty_tab_benefits",
+    "my_deals",
+    "pick_deal",
+    "set_promotion_app",
+    "upsert_loyalty_tier_perk"
   ]
 }

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, View } from 'react-native';
+import { Pressable, ScrollView, View } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -8,6 +8,7 @@ import { Text } from '../../src/i18n/text';
 import { useLocale } from '../../src/i18n/LocaleProvider';
 import { radius, space, useTheme } from '../../src/theme';
 import { Hint, MicroLabel, Screen } from '../../src/components/ui';
+import { KeyboardAvoid } from '../../src/components/KeyboardAvoid';
 import { ErrorState, SkeletonList } from '../../src/components/states';
 import { ClockIcon, PlusIcon, SlidersIcon, SparkIcon } from '../../src/components/icons';
 import { useToast } from '../../src/components/overlays';
@@ -207,7 +208,7 @@ function AssistantThread({
   const onAsk = useCallback((text: string) => void askQuestion(text), [askQuestion]);
 
   // Follow the newest thing only while the owner is at the bottom.
-  const { ref: scrollRef, onScroll, onContentSizeChange, follow } = useStickToBottom();
+  const { ref: scrollRef, onScroll, onContentSizeChange, onLayout, follow } = useStickToBottom();
   useEffect(() => {
     if (streaming) follow();
   }, [streaming, follow]);
@@ -216,15 +217,13 @@ function AssistantThread({
   const missing = conversationId !== null && conversation.isSuccess && conversation.data === null;
 
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1 }}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 56 + insets.top : 0}
-    >
+    // The composer's bottom padding (space.s + home indicator) tucks under the keys.
+    <KeyboardAvoid footerPad={space.s + insets.bottom}>
       <ScrollView
         ref={scrollRef}
         onScroll={onScroll}
         onContentSizeChange={onContentSizeChange}
+        onLayout={onLayout}
         scrollEventThrottle={16}
         testID={`${T}.thread`}
         keyboardShouldPersistTaps="handled"
@@ -392,7 +391,7 @@ function AssistantThread({
         }}
         onChooseFree={onChooseFree}
       />
-    </KeyboardAvoidingView>
+    </KeyboardAvoid>
   );
 }
 

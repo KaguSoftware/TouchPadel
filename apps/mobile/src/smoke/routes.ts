@@ -53,15 +53,19 @@ export const SMOKE_ROUTES: readonly SmokeRoute[] = [
   // ── tabs ──────────────────────────────────────────────────────────────────
   { file: '(tabs)/_layout.tsx', route: 'tabs', primary: 'tabs.book' },
   { file: '(tabs)/index.tsx', route: 'book', primary: 'book.view-availability' },
-  { file: '(tabs)/bookings.tsx', route: 'bookings', primary: 'bookings.filter.upcoming' },
+  // Rankings, the leaderboard (in My reservations' slot since 2026-11-12), cased by
+  // ranks.smoke.test.tsx: signed out, the sign-in under the public board.
+  { file: '(tabs)/ranks.tsx', route: 'ranks', primary: 'ranks.sign-in' },
   // Open matches and tournaments together (play-coaches contracts §7), cased by
   // play.smoke.test.tsx: its one action, "Start a match", beside the title.
   { file: '(tabs)/play.tsx', route: 'play', primary: 'play.start' },
-  // The Club tab (2026-10-19): member card, Ranks (the leaderboard, 0364; 2026-10-25) or café menu,
-  // cased by cafe.smoke.test.tsx and ranks.smoke.test.tsx. Its primary is the switch between them.
+  // The Club tab (2026-10-19): member card or café menu, cased by cafe.smoke.test.tsx. Its
+  // primary is the switch between them.
   { file: '(tabs)/club.tsx', route: 'club', primary: 'club.view' },
   { file: 'ranks-report.tsx', route: 'ranks-report', primary: 'ranks-report.submit' },
   // ── booking ───────────────────────────────────────────────────────────────
+  // My reservations, a page off Profile since 2026-11-12 (it was the bar's first tab).
+  { file: 'bookings.tsx', route: 'bookings', primary: 'bookings.filter.upcoming' },
   { file: 'booking/[id].tsx', route: 'booking-detail', primary: 'booking-detail.cancel' },
   { file: 'booking-history.tsx', route: 'booking-history', primary: 'booking-history.clear' },
   { file: 'review.tsx', route: 'review', primary: 'review.reserve' },

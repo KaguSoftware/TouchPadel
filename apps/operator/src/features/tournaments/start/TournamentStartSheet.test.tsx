@@ -110,8 +110,8 @@ describe('TournamentStartSheet', () => {
     await user.click(menu().getByRole('button', { name: /^Name/ }));
     await user.type(screen.getByLabelText(/Name in English/), 'Friday Night Americano');
     await user.type(screen.getByLabelText(/Name in Arabic/), 'أمريكانو');
-    await user.click(screen.getByRole('button', { name: /^Class B Intermediate/ }));
-    await user.click(screen.getByRole('button', { name: /^Class A Advanced/ }));
+    await user.click(screen.getByRole('button', { name: /^Type B Regular players/ }));
+    await user.click(screen.getByRole('button', { name: /^Type A Competitive/ }));
     // The years played are no longer asked (2026-10-22).
     expect(screen.queryByRole('radio', { name: /^1 to 3 years/ })).toBeNull();
     await user.click(screen.getByRole('radio', { name: /^Americano Runs in the app/ }));
@@ -210,7 +210,7 @@ describe('TournamentStartSheet', () => {
     const user = userEvent.setup();
     mount();
     await user.click(menu().getByRole('button', { name: /^Name/ }));
-    const group = screen.getByRole('group', { name: 'Classes' });
+    const group = screen.getByRole('group', { name: 'Types' });
     const cards = within(group).getAllByRole('button');
     expect(cards.map((c) => c.getAttribute('aria-pressed'))).toEqual(['false', 'false', 'false']);
     await user.click(cards[0]!);

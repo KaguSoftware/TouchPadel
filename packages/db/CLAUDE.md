@@ -17,6 +17,32 @@ is a line in that file.
 
 ## Migrations
 
+- **0410 (2026-11-12, loyalty_deals_perks; Majed: deals in the app beside the points, and cards
+  that give privileges, not only extra points):** a deal is a promotion the owner lists in the app
+  (`promotions.in_app`, guest line `app_blurb_en`/`_ar`, written by `set_promotion_app`, owner only;
+  `upsert_promotion` and the price and promo protocol are untouched). A guest reads `my_deals` and
+  picks one with `pick_deal` (`DEAL_UNAVAILABLE`, `DEAL_LOCKED`, `DEAL_USED`); the pick sits on
+  `loyalty_cards` (`deal_promotion_id`, `deal_picked_at`, `deal_uses_before`) for 24 hours or until
+  a bill carrying it settles (`app.loyalty_picked_deal`: one pick is one use, counted on settled
+  redemptions, never on timestamps). `eligible_promotions` takes a listed promotion the tab's
+  customer picked with no code and sorts it first, so the unchanged `apply_best_promotion` applies
+  it: a listed promotion that is not automatic and has no code is an "in the app only" deal.
+  Table `loyalty_tier_perks` (no client grant): what a tier gives, kind `free_addons`
+  (`modifier_group_ids`, empty = every add-on) or `custom` (honoured by hand), written by
+  `upsert_loyalty_tier_perk` / `delete_loyalty_tier_perk` (owner). A card holds its tier's
+  privileges and those of every tier below (`app.loyalty_tier_floor`). Free add-ons reach a bill
+  as LINE discounts (`tab_adjustments.order_item_id` set, `reason_code = 'loyalty_tier_perk'`,
+  authorized_by the privilege's maker), planned by `app.loyalty_perks_plan` and written by
+  `loyalty_perks_refresh` (desk roles, no PIN, state-idempotent, 0037 guard answered as data),
+  which the operator calls whenever a bill with a member changes, like 0342's customer discount;
+  no trigger writes them, so a bill nobody opened at a till carries none. A reader that groups
+  discounts by `reason_code` must know `loyalty_tier_perk`. `loyalty_tab_benefits` is the till's
+  read (tier, privileges, the picked deal, whether a refresh is due). **0410 holds
+  `eligible_promotions`** (0382 no longer), **`loyalty_tier_json`, `loyalty_admin`** (0376 no
+  longer; the tier answer gains `min_points_12m`, the admin tiers `perks`) and **`my_loyalty`**
+  (0403 no longer; it gains `tiers`, the whole ladder with each tier's privileges and listed
+  deals). No index is created (the gate refuses a non-concurrent one; both tables are small).
+  `tests/loyalty-deals-perks.test.ts`.
 - **0406 (2026-11-11, assistant_branch_scope; evaluation 2026-11-11):** the six SECURITY DEFINER
   assistant list tools had no branch predicate (RLS does not apply inside them), so with one
   branch on the rail an answer mixed that branch's report figures with chain-wide rows. Each now

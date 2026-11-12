@@ -80,6 +80,8 @@ export async function readMyLoyalty(client: Client): Promise<MyLoyalty | null> {
     ...loyalty,
     history: Array.isArray(loyalty.history) ? loyalty.history : [],
     rewards: Array.isArray(loyalty.rewards) ? loyalty.rewards : [],
+    // 0410: the tier ladder; a server before it sends none.
+    tiers: Array.isArray(loyalty.tiers) ? loyalty.tiers : [],
   };
 }
 
@@ -94,6 +96,25 @@ export function pointsToNextTier(
 ): number | null {
   if (!loyalty.next_tier) return null;
   return Math.max(0, loyalty.next_tier.min_points_12m - loyalty.points_12m);
+}
+
+/**
+ * What the next tier adds (0410): its own privileges by name, and its points multiplier when it
+ * beats the current one. Null at the top tier or when the server sent no ladder; an empty list
+ * of privileges with no better multiplier is null too, so the page never draws an empty block.
+ */
+export function nextTierGives(
+  loyalty: Pick<MyLoyalty, 'tier' | 'next_tier' | 'tiers'>,
+): { perks: Array<{ id: string; name_en: string; name_ar: string }>; multiplier: number | null } | null {
+  const next = loyalty.next_tier;
+  if (!next) return null;
+  const rung = (loyalty.tiers ?? []).find((t) => t.id === next.id);
+  const perks = Array.isArray(rung?.perks) ? rung.perks : [];
+  const now = Number(loyalty.tier?.multiplier ?? 1);
+  const then = Number(next.multiplier ?? 1);
+  const multiplier = Number.isFinite(then) && then > now ? then : null;
+  if (perks.length === 0 && multiplier === null) return null;
+  return { perks: perks.map((p) => ({ id: p.id, name_en: p.name_en, name_ar: p.name_ar })), multiplier };
 }
 
 const HISTORY_KINDS: readonly LedgerKind[] = [

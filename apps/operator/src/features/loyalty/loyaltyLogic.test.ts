@@ -30,12 +30,31 @@ import {
   tierPayload,
   type RewardDraft,
 } from './loyaltyLogic';
+import {
+  PERK_NAME_MAX,
+  benefitsShown,
+  defaultPerkNames,
+  isTierPerkAdjustment,
+  liveGroupIds,
+  perkDraft,
+  perkErrors,
+  perkGives,
+  perkPayload,
+  perksRefreshSignature,
+  perksSupported,
+  readTabBenefits,
+  sortedPerks,
+  withAutoNames,
+  type AddonGroup,
+} from './loyaltyLogic';
 import { BarcodeWedge } from '../till/barcodeWedge';
 import type {
   CourtRewardState,
   IdentifiedMember,
+  LoyaltyAdminPerk,
   LoyaltyAdminTier,
   LoyaltySettings,
+  TabBenefits,
 } from '@touch/core/loyalty';
 
 const TOKEN = 'TP-8F3K2QXM-482913';
@@ -434,5 +453,190 @@ describe('rewards only (0403)', () => {
     }
     expect(courtRewardFits(state({ plain_booking: false }))).toBe(false);
     expect(courtRewardFits(state({ value_iqd: 0 }))).toBe(false);
+  });
+});
+
+// 0410: what the member's card gives on a bill (app.loyalty_tab_benefits, loyalty_perks_refresh).
+describe("what the member's card gives on a bill (0410)", () => {
+  const answer = {
+    tab_id: 't1',
+    customer_id: 'p1',
+    enabled: true,
+    tier: { id: 'g', name_en: 'Gold', name_ar: 'ذهبي', multiplier: 1.5, color: 'gold', min_points_12m: 1500 },
+    perks: [
+      { id: 'k1', kind: 'free_addons', name_en: 'Free add-ons', name_ar: 'إضافات مجانية', tier_id: 'g', tier_name_en: 'Gold', tier_name_ar: 'ذهبي', tier_color: 'gold' },
+    ],
+    addons: { on_bill_iqd: 500, due_iqd: 1500, needs_refresh: true },
+    deal: { promotion_id: 'pr1', name_en: 'Happy hour', name_ar: 'ساعة السعادة', type: 'percent', value: 20, applied: false },
+  };
+  const read = (over: Record<string, unknown> = {}) => readTabBenefits({ ...answer, ...over }) as TabBenefits;
+
+  it('reads the answer as it comes', () => {
+    expect(readTabBenefits(answer)).toEqual(answer);
+  });
+
+  it('reads a thin or odd answer without breaking: lists are lists, figures are numbers', () => {
+    expect(readTabBenefits(null)).toBeNull();
+    expect(readTabBenefits({})).toBeNull();
+    expect(readTabBenefits({ tab_id: 't1' })).toEqual({
+      tab_id: 't1',
+      customer_id: null,
+      enabled: false,
+      tier: null,
+      perks: [],
+      addons: { on_bill_iqd: 0, due_iqd: 0, needs_refresh: false },
+      deal: null,
+    });
+    expect(read({ addons: { on_bill_iqd: '500', due_iqd: null, needs_refresh: 'yes' } }).addons).toEqual({ on_bill_iqd: 500, due_iqd: 0, needs_refresh: false });
+    expect(read({ deal: { name_en: 'No id' } }).deal).toBeNull();
+  });
+
+  it('a free add-on row is the server’s own: not a redemption, so it is never listed for Undo', () => {
+    const rows = [
+      { id: 'a1', kind: 'discount_amount', amount_iqd: 1500, reason_code: 'loyalty_tier_perk' },
+      { id: 'a2', kind: 'discount_amount', amount_iqd: 1000, reason_code: 'loyalty_points' },
+    ];
+    expect(isTierPerkAdjustment(rows[0]!)).toBe(true);
+    expect(isTierPerkAdjustment(rows[1]!)).toBe(false);
+    expect(loyaltyAdjustments(rows).map((r) => r.id)).toEqual(['a2']);
+    expect(loyaltyDiscountIqd(rows)).toBe(1000);
+  });
+
+  it('the refresh signature is the same for the same state and figures, and moves with either', () => {
+    const base = perksRefreshSignature(read(), 'v1');
+    expect(perksRefreshSignature(read(), 'v1')).toBe(base);
+    expect(perksRefreshSignature(read(), 'v2')).not.toBe(base);
+    expect(perksRefreshSignature(read({ customer_id: null }), 'v1')).not.toBe(base);
+    expect(perksRefreshSignature(read({ addons: { on_bill_iqd: 1500, due_iqd: 1500, needs_refresh: false } }), 'v1')).not.toBe(base);
+    expect(perksRefreshSignature(read({ tier: { ...answer.tier, id: 'p' } }), 'v1')).not.toBe(base);
+    expect(perksRefreshSignature(read({ perks: [] }), 'v1')).not.toBe(base);
+    // The deal is the promotion's business, not the add-ons'.
+    expect(perksRefreshSignature(read({ deal: null }), 'v1')).toBe(base);
+  });
+
+  it('shows the card only with loyalty on, a customer, and a privilege or a picked deal', () => {
+    expect(benefitsShown(read())).toBe(true);
+    expect(benefitsShown(read({ perks: [] }))).toBe(true);
+    expect(benefitsShown(read({ perks: [], deal: null }))).toBe(false);
+    expect(benefitsShown(read({ enabled: false }))).toBe(false);
+    expect(benefitsShown(read({ customer_id: null }))).toBe(false);
+    expect(benefitsShown(null)).toBe(false);
+  });
+});
+
+// 0410: Setup › Loyalty, what each card gives.
+describe('a tier privilege in Setup › Loyalty (0410)', () => {
+  const groups: AddonGroup[] = [
+    { id: 'g-milk', name_en: 'Milk', name_ar: 'الحليب' },
+    { id: 'g-syrup', name_en: 'Syrups', name_ar: 'السيروب' },
+  ];
+  const known = new Set(groups.map((g) => g.id));
+  const perk: LoyaltyAdminPerk = {
+    id: 'k1',
+    tier_id: 't2',
+    kind: 'free_addons',
+    name_en: 'Free milk',
+    name_ar: 'حليب مجاني',
+    modifier_group_ids: ['g-milk'],
+    active: true,
+    sort: 3,
+  };
+
+  it('a new privilege starts as free add-ons on every add-on, named in both languages, on', () => {
+    expect(perkDraft(null, 't2')).toEqual({
+      id: null,
+      tier_id: 't2',
+      kind: 'free_addons',
+      name_en: 'Free add-ons on every drink',
+      name_ar: 'كل إضافات المشروبات مجانًا',
+      autoName: true,
+      scope: 'all',
+      modifier_group_ids: [],
+      active: true,
+      sort: null,
+    });
+  });
+
+  it('an existing one keeps its names and reads its groups as "only some groups"', () => {
+    expect(perkDraft(perk, 't2')).toMatchObject({ id: 'k1', scope: 'groups', modifier_group_ids: ['g-milk'], autoName: false, name_en: 'Free milk', sort: 3 });
+    expect(perkDraft({ ...perk, modifier_group_ids: [] }, 't2').scope).toBe('all');
+    expect(perkDraft({ ...perk, kind: 'custom', modifier_group_ids: [] }, 't2').kind).toBe('custom');
+  });
+
+  it('the default names follow the chosen groups until a name is typed', () => {
+    expect(defaultPerkNames('groups', groups)).toEqual({ name_en: 'Free add-ons: Milk, Syrups', name_ar: 'إضافات مجانية: الحليب، السيروب' });
+    expect(defaultPerkNames('groups', [])).toEqual({ name_en: 'Free add-ons', name_ar: 'إضافات مجانية' });
+    // Too long for the 80 characters a name may have: the plain line instead.
+    const many = Array.from({ length: 12 }, (_, i) => ({ id: `g${i}`, name_en: `Add-on group ${i}`, name_ar: `مجموعة إضافات ${i}` }));
+    expect(defaultPerkNames('groups', many).name_en).toBe('Free add-ons');
+    const d = perkDraft(null, 't2');
+    const picked = withAutoNames({ ...d, scope: 'groups', modifier_group_ids: ['g-syrup'] }, groups);
+    expect(picked.name_en).toBe('Free add-ons: Syrups');
+    // Something else: the owner names it; nothing is guessed.
+    expect(withAutoNames({ ...picked, kind: 'custom' }, groups)).toMatchObject({ name_en: '', name_ar: '' });
+    // A typed name is the owner's: it stays.
+    expect(withAutoNames({ ...picked, autoName: false, name_en: 'Milk on us', scope: 'all' }, groups).name_en).toBe('Milk on us');
+  });
+
+  it('needs both names within 80 characters', () => {
+    const d = perkDraft(perk, 't2');
+    expect(perkErrors(d, known)).toEqual({});
+    expect(perkErrors({ ...d, name_ar: '  ' }, known)).toEqual({ names: true });
+    expect(perkErrors({ ...d, name_en: 'x'.repeat(PERK_NAME_MAX + 1) }, known)).toEqual({ names: true });
+  });
+
+  it('never saves "only some groups" with none left, which the server would read as every add-on', () => {
+    const d = perkDraft(perk, 't2');
+    expect(perkErrors({ ...d, modifier_group_ids: [] }, known)).toEqual({ groups: true });
+    // The one group it named is gone from the menu.
+    expect(perkErrors({ ...d, modifier_group_ids: ['g-gone'] }, known)).toEqual({ groups: true });
+    // The menu was not read: nothing can be told apart, so the ids stand.
+    expect(perkErrors({ ...d, modifier_group_ids: ['g-gone'] }, null)).toEqual({});
+    expect(perkErrors({ ...d, scope: 'all', modifier_group_ids: [] }, known)).toEqual({});
+    expect(perkErrors({ ...d, kind: 'custom', modifier_group_ids: [] }, known)).toEqual({});
+  });
+
+  it('builds the payload: trimmed names, groups only for "only some groups", a lost group left out', () => {
+    const d = perkDraft(perk, 't2');
+    expect(perkPayload({ ...d, name_en: ' Free milk ', modifier_group_ids: ['g-milk', 'g-gone'] }, known)).toEqual({
+      id: 'k1',
+      tier_id: 't2',
+      kind: 'free_addons',
+      name_en: 'Free milk',
+      name_ar: 'حليب مجاني',
+      modifier_group_ids: ['g-milk'],
+      active: true,
+      sort: 3,
+    });
+    expect(perkPayload({ ...d, scope: 'all' }, known).modifier_group_ids).toEqual([]);
+    expect(perkPayload({ ...d, kind: 'custom' }, known).modifier_group_ids).toEqual([]);
+    // A new one: no id, and no sort (the server puts it last).
+    const fresh = perkPayload({ ...perkDraft(null, 't2'), active: false }, known);
+    expect(fresh).not.toHaveProperty('id');
+    expect(fresh).not.toHaveProperty('sort');
+    expect(fresh).toMatchObject({ tier_id: 't2', kind: 'free_addons', modifier_group_ids: [], active: false });
+    expect(liveGroupIds(['g-milk', 'g-gone'], null)).toEqual(['g-milk', 'g-gone']);
+  });
+
+  it('says what a privilege gives, and a group the menu has lost does not break it', () => {
+    expect(perkGives({ kind: 'custom', modifier_group_ids: [] }, groups)).toEqual({ kind: 'custom' });
+    expect(perkGives({ kind: 'free_addons', modifier_group_ids: [] }, groups)).toEqual({ kind: 'all' });
+    expect(perkGives({ kind: 'free_addons', modifier_group_ids: ['g-syrup', 'g-gone'] }, groups)).toEqual({
+      kind: 'groups',
+      groups: [groups[1]],
+      missing: 1,
+      count: 2,
+    });
+    // The menu unread: only the count is known.
+    expect(perkGives({ kind: 'free_addons', modifier_group_ids: ['g-syrup', 'g-gone'] }, null)).toEqual({ kind: 'groups', groups: [], missing: 0, count: 2 });
+    // An answer with no list at all.
+    expect(perkGives({ kind: 'free_addons' } as unknown as LoyaltyAdminPerk, groups)).toEqual({ kind: 'all' });
+  });
+
+  it('lists a tier’s privileges in order, and knows a server that sends none', () => {
+    expect(sortedPerks([{ ...perk, id: 'b', sort: 2 }, { ...perk, id: 'a', sort: 0 }]).map((p) => p.id)).toEqual(['a', 'b']);
+    expect(sortedPerks(undefined)).toEqual([]);
+    expect(perksSupported([{ perks: [] }, { perks: [perk] }])).toBe(true);
+    expect(perksSupported([{}, {}])).toBe(false);
   });
 });

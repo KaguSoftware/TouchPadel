@@ -12,10 +12,12 @@ export const playProfileEn = {
     progress: 'Question {n} of {total}',
     level: {
       question: "What's your level?",
-      new: { title: 'Just starting', body: "I haven't played, or only a few times" },
-      beginner: { title: 'Beginner', body: "I can keep a rally going and I'm still learning" },
-      intermediate: { title: 'Intermediate', body: 'I play regularly and use the walls' },
-      advanced: { title: 'Advanced', body: 'I play fast, with solid technique, and compete' },
+      // Levels read as padel types (Majed, 2026-11-12): advanced A, intermediate B,
+      // beginner and new C. The survey offers A, B and C; `new` is kept for older answers.
+      new: { title: 'Type C', body: "New to padel, or still learning to keep a rally going" },
+      beginner: { title: 'Type C', body: "New to padel, or still learning to keep a rally going" },
+      intermediate: { title: 'Type B', body: 'I play regularly and use the walls' },
+      advanced: { title: 'Type A', body: 'I play fast, with solid technique, and compete' },
     },
     // 0368 (customers contracts §4): asked while the profile has no band, so
     // an older account and a social sign-in answer it here.
@@ -60,9 +62,9 @@ export const playProfileEn = {
   },
   why: {
     starting: 'An easy first step',
-    beginner: 'Picked for beginners',
+    beginner: 'Picked for Type C players',
     intermediate: 'Right for your level',
-    advanced: 'A real test at the top level',
+    advanced: 'A real test for Type A players',
     seasoned: 'For players with a few years in',
     wantsLessons: 'You said lessons interest you',
     wantsMatches: 'You said matches interest you',

@@ -185,10 +185,10 @@ describe('steps', () => {
 });
 
 describe('level and years agree', () => {
-  it('"Not yet" fits only Just starting, or no level', () => {
+  it('"Not yet" fits only Type C (new or beginner), or no level', () => {
     expect(yearsFitLevel('new', 'never')).toBe(true);
     expect(yearsFitLevel(null, 'never')).toBe(true);
-    expect(yearsFitLevel('beginner', 'never')).toBe(false);
+    expect(yearsFitLevel('beginner', 'never')).toBe(true);
     expect(yearsFitLevel('intermediate', 'never')).toBe(false);
     expect(yearsFitLevel('advanced', 'never')).toBe(false);
   });

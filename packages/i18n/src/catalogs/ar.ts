@@ -710,7 +710,7 @@ export const ar: Messages = {
     profile: 'حسابي',
     // The centre tab (2026-10-19): the member card and the café menu (app/(tabs)/club.tsx).
     club: 'النادي',
-    // The leaderboard, in Join's place while a build leaves tournaments out (2026-10-22).
+    // The leaderboard, the bar's first tab since 2026-11-12 (app/(tabs)/ranks.tsx).
     ranks: 'الترتيب',
   },
   // The leaderboard (app/(tabs)/ranks.tsx, app/ranks-report.tsx; migration 0364, Majed 2026-10-22).
@@ -1263,6 +1263,56 @@ export const ar: Messages = {
         top: 'أنت في أعلى مستوى.',
         window: 'تُحتسب المستويات من نقاط آخر 12 شهرًا.',
       },
+      // 0410: the way to the next card. "Card" (بطاقة) is a tier's member card.
+      next: {
+        label: 'البطاقة التالية',
+        toGo: 'النقاط المتبقية',
+        counted: 'نقاطك في آخر 12 شهرًا',
+        gives: 'ما تحصل عليه مع {tier}',
+        keeps: 'وكل ما تمنحه لك بطاقتك الحالية.',
+        topLabel: 'بطاقتك',
+        top: 'أنت تحمل أعلى بطاقة.',
+        holds: 'ما تمنحه لك بطاقتك',
+      },
+      gives: {
+        multiplier: 'نقاط مضاعفة {times} على كل ما تدفعه',
+        deal: 'عرض: {name}',
+      },
+      // 0410: deals.
+      deals: {
+        title: 'العروض',
+        hint: 'اختر عرضًا، ثم اعرض بطاقة العضوية عند الكاشير.',
+        percentOff: 'خصم {percent}',
+        amountOff: 'خصم {amount}',
+        wholeBill: 'على كامل فاتورة الكافيه',
+        covers: 'على {names}',
+        coversMore: 'على {names} وغيرها',
+        withCourt: 'مع حجز ملعب',
+        days: 'الأيام',
+        hours: 'الوقت',
+        until: 'ينتهي في',
+        minSpend: 'الحد الأدنى للفاتورة',
+        usesLeft: 'مرات الاستخدام المتبقية',
+        heldUntil: 'يبقى على بطاقتك حتى',
+        notNow: 'غير متاح الآن',
+        use: 'استخدمه عند الكاشير',
+        picked: 'على بطاقتك',
+        showCard: 'اعرض بطاقتي',
+        clear: 'أزِله من بطاقتي',
+        cleared: 'أُزيل العرض من بطاقتك',
+        needs: 'لبطاقة {tier} وما فوقها',
+        used: 'استُخدم',
+        cardLabel: 'عرضك',
+        cardLine: 'يطبّقه الكاشير عند مسح هذا الرمز.',
+      },
+      // 0410: every card from the base up.
+      ladder: {
+        title: 'البطاقات',
+        from: 'ابتداءً من {points} نقطة',
+        base: 'بطاقة البداية للجميع',
+        yours: 'بطاقتك',
+        included: 'مشمولة في بطاقتك',
+      },
       off: 'النقاط والمكافآت غير مفعّلة بعد. ستتوفر قريبًا.',
     },
     web: {
@@ -1287,6 +1337,9 @@ export const ar: Messages = {
         tier: '{tier}',
         nextTier: 'تحتاج {points} نقطة إضافية خلال 12 شهرًا لتصل إلى {tier}',
         topTier: 'أنت في أعلى مستوى.',
+        // 0410: what the next tier adds, under the points still to earn.
+        nextGives: 'ما تحصل عليه مع {tier}',
+        nextMultiplier: 'نقاط مضاعفة {times} مرة على كل ما تدفعه',
         rewardsTitle: 'المكافآت',
         rewardsHint: 'اطلب من الكاشير استخدام نقاطك أو مكافأة.',
         rewardsEmpty: 'لا توجد مكافآت لعرضها بعد.',

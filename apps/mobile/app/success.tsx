@@ -243,7 +243,7 @@ function SuccessScreen() {
           label={t('common.done')}
           variant="secondary"
           size="medium"
-          onPress={() => returnTo('/(tabs)/bookings', '(tabs)')}
+          onPress={() => returnTo('/bookings', '(tabs)', 'push')}
           style={{ backgroundColor: 'transparent', borderColor: brand.navyLine, borderWidth: 1 }}
           labelColor={brand.navyText}
         />

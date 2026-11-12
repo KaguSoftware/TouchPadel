@@ -1,5 +1,5 @@
 {
-  "generated_from": "03e52d3e4c073b0b0eaf46d3413b5cf6ad2afefc",
+  "generated_from": "2ad48606203f36cda618b84b37c1c2658b410fad",
   "chunks": [
     {
       "kind": "page",
@@ -4547,6 +4547,14 @@
     },
     {
       "kind": "action",
+      "ref": "action:app.delete_loyalty_tier_perk",
+      "lang": "en",
+      "title": "app.delete_loyalty_tier_perk",
+      "body": "0410. Owner: removes one tier privilege (INVALID_ARGUMENT for an unknown id). Free add-ons already on open bills go at their next refresh; settled bills keep what they carried. Audited loyalty.perk_delete.\nSignature: app.delete_loyalty_tier_perk(p_perk_id uuid) returns void.\nGranted to: authenticated. Guard: staff role in (owner).\nAudit actions written: loyalty.perk_delete.\nError codes: FORBIDDEN, INVALID_ARGUMENT.\nCalled from: apps/operator/src/features/loyalty/useLoyalty.ts.\nDefined in migration 0410 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
       "ref": "action:app.delete_my_account",
       "lang": "en",
       "title": "app.delete_my_account (part 1 of 4)",
@@ -5261,16 +5269,24 @@
       "kind": "action",
       "ref": "action:app.eligible_promotions",
       "lang": "en",
-      "title": "app.eligible_promotions (part 1 of 2)",
-      "body": "0067, 0212 (MV2), loyalty 0306, 0309. Cashier, manager, owner: the promotions a tab is eligible for now, best first ({promotionId, name_en, name_ar, type, value, amountIqd}). The customer (perCustomer, tierMin) is app.tab_customer. limits.tierMin (a loyalty tier id, 0309) needs loyalty on, a customer, and the customer's tier at least that tier by min_points_12m (app.promotion_tier_ok). amountIqd is capped at app.promotion_room_iqd (0309, c14: the goods less the other discounts), and a candidate below 1 is left out. CODE_INVALID for an unknown code.",
+      "title": "app.eligible_promotions (part 1 of 3)",
+      "body": "0067, 0212, 0306, 0309, 0382, 0410. Cashier, manager, owner at the tab's branch (VENUE_MISMATCH): the promotions that could apply to the tab right now, [{promotionId, name_en, name_ar, type, value, amountIqd, picked}]: enabled, of this branch or every branch, inside its dates, days and hours, automatic or named by p_code (CODE_INVALID for an unknown code) or, since 0410, a listed deal (in_app) the tab's customer picked in the app (app.loyalty_picked_deal; no code needed), on its courts, within its total and per-customer limits (redemptions on other tabs), its tier (app.promotion_tier_ok) and its minimum spend; amountIqd is the",
       "route": null
     },
     {
       "kind": "action",
       "ref": "action:app.eligible_promotions~2",
       "lang": "en",
-      "title": "app.eligible_promotions (part 2 of 2)",
-      "body": "0067, 0212 (MV2), loyalty 0306, 0309. Cashier, manager, owner: the promotions a tab is eligible for now, best first ({promotionId, name_en, name_ar, type, value\nSignature: app.eligible_promotions(p_tab_id uuid, p_code text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (cashier,manager,owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, TAB_NOT_FOUND, VENUE_MISMATCH, CODE_INVALID.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0382 (last definition). The assistant cannot call this; it only explains it.",
+      "title": "app.eligible_promotions (part 2 of 3)",
+      "body": "0067, 0212, 0306, 0309, 0382, 0410. Cashier, manager, owner at the tab's branch (VENUE_MISMATCH): the promotions that could apply to the tab right now, [{promot\ndiscount on its base, at most what the other discounts leave (app.promotion_room_iqd), and a candidate below 1 is dropped. The picked deal sorts first, then the largest amount: app.apply_best_promotion takes the first.\nSignature: app.eligible_promotions(p_tab_id uuid, p_code text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (cashier,manager,owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, TAB_NOT_FOUND, VENUE_MISMATCH, CODE_INVALID.\nNot called directly by the operator app (edge function, guest app, queue or internal).",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.eligible_promotions~3",
+      "lang": "en",
+      "title": "app.eligible_promotions (part 3 of 3)",
+      "body": "0067, 0212, 0306, 0309, 0382, 0410. Cashier, manager, owner at the tab's branch (VENUE_MISMATCH): the promotions that could apply to the tab right now, [{promot\nError codes: FORBIDDEN, TAB_NOT_FOUND, VENUE_MISMATCH, CODE_INVALID.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0410 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -5942,7 +5958,7 @@
       "ref": "action:app.loyalty_admin",
       "lang": "en",
       "title": "app.loyalty_admin",
-      "body": "Loyalty (M3, contracts §1.3; 0376). Manager or owner: {settings (LoyaltySettings + updated_at), tiers (by sort, each with its color), rewards (active first)} for Setup > Loyalty.\nSignature: app.loyalty_admin() returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager, owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0376 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "Loyalty (M3, contracts §1.3; 0376, 0410). Manager or owner: {settings (LoyaltySettings + updated_at), tiers (by sort, each with its color and, since 0410, perks: every privilege of the tier {id, tier_id, kind, name_en, name_ar, modifier_group_ids, active, sort}), rewards (active first)} for Setup > Loyalty.\nSignature: app.loyalty_admin() returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager, owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0410 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -5991,6 +6007,30 @@
       "lang": "en",
       "title": "app.loyalty_identify (part 3 of 3)",
       "body": "Loyalty (M3, contracts §1.3, L-4; 0308). Cashier, shop_staff, court_desk, manager, owner; p_venue_id (when sent) one the caller can see (VENUE_MISMATCH). p_code\nError codes: FORBIDDEN, VENUE_MISMATCH, MEMBER_CODE_INVALID, MEMBER_NOT_FOUND.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0308 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.loyalty_perks_refresh",
+      "lang": "en",
+      "title": "app.loyalty_perks_refresh (part 1 of 3)",
+      "body": "0410. court_desk, cashier, shop_staff, manager, owner at the tab's branch, the tab's kind for the role (TAB_KIND_FORBIDDEN), no PIN: brings the free add-ons of the tab customer's card in line with the bill (TAB_NOT_FOUND, VENUE_MISMATCH). One tab_adjustments line discount per live line with freed paid add-ons (app.loyalty_perks_plan): kind discount_amount, reason_code loyalty_tier_perk, applied_by the caller, authorized_by the owner who made the privilege; rows that no longer match (the member taken off, their tier changed, a privilege switched off, a line voided) go. State-idempotent: a refresh that changes nothing writes",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.loyalty_perks_refresh~2",
+      "lang": "en",
+      "title": "app.loyalty_perks_refresh (part 2 of 3)",
+      "body": "0410. court_desk, cashier, shop_staff, manager, owner at the tab's branch, the tab's kind for the role (TAB_KIND_FORBIDDEN), no PIN: brings the free add-ons of \nnothing, and a settled, void or merged bill is left as it is. 0037 guard: on a part-paid bill a change that would take the total below what was paid is not made and is answered {refused: DISCOUNT_REQUIRES_REFUND}. Returns {changed, amount_iqd, lines, refused?}. Audited loyalty.perks_apply when it changes something.\nSignature: app.loyalty_perks_refresh(p_tab_id uuid, p_device_id text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (court_desk, cashier, shop_staff, manager, owner).\nAudit actions written: loyalty.perks_apply.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.loyalty_perks_refresh~3",
+      "lang": "en",
+      "title": "app.loyalty_perks_refresh (part 3 of 3)",
+      "body": "0410. court_desk, cashier, shop_staff, manager, owner at the tab's branch, the tab's kind for the role (TAB_KIND_FORBIDDEN), no PIN: brings the free add-ons of \nGranted to: authenticated. Guard: staff role in (court_desk, cashier, shop_staff, manager, owner).\nAudit actions written: loyalty.perks_apply.\nError codes: FORBIDDEN, VENUE_MISMATCH, TAB_NOT_FOUND, DISCOUNT_REQUIRES_REFUND.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0410 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -6063,6 +6103,30 @@
       "lang": "en",
       "title": "app.loyalty_redeem (part 8 of 8)",
       "body": "Loyalty (M3, contracts §1.3, L-5; 0308, 0350, 0403). Cashier, shop_staff, court_desk, manager, owner at the tab's branch, the tab's kind for the role. Exactly o\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0403 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.loyalty_tab_benefits",
+      "lang": "en",
+      "title": "app.loyalty_tab_benefits (part 1 of 3)",
+      "body": "0410. court_desk, cashier, shop_staff, manager, owner at the tab's branch (TAB_NOT_FOUND, VENUE_MISMATCH): what the tab customer's card gives on this bill. {tab_id, customer_id (app.tab_customer) | null, enabled (the loyalty switch), tier {id, name_en, name_ar, multiplier, color, min_points_12m} | null, perks (every active privilege of their tier and the tiers below, highest tier first: {id, kind free_addons | custom, name_en, name_ar, tier_id, tier_name_en, tier_name_ar, tier_color}; empty while loyalty is off), addons {on_bill_iqd (the free add-ons on the bill's live lines now), due_iqd (what they should come to,",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.loyalty_tab_benefits~2",
+      "lang": "en",
+      "title": "app.loyalty_tab_benefits (part 2 of 3)",
+      "body": "0410. court_desk, cashier, shop_staff, manager, owner at the tab's branch (TAB_NOT_FOUND, VENUE_MISMATCH): what the tab customer's card gives on this bill. {tab\napp.loyalty_perks_plan), needs_refresh (an open bill whose rows differ from the plan: app.loyalty_perks_refresh would change something)}, deal (the listed deal the member picked in the app, when it runs at this branch: {promotion_id, name_en, name_ar, type, value, applied (it is the promotion on this bill)}) | null}. Read-only.\nSignature: app.loyalty_tab_benefits(p_tab_id uuid) returns jsonb.\nGranted to: authenticated. Guard: staff role in (court_desk, cashier, shop_staff, manager, owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, TAB_NOT_FOUND, VENUE_MISMATCH.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.loyalty_tab_benefits~3",
+      "lang": "en",
+      "title": "app.loyalty_tab_benefits (part 3 of 3)",
+      "body": "0410. court_desk, cashier, shop_staff, manager, owner at the tab's branch (TAB_NOT_FOUND, VENUE_MISMATCH): what the tab customer's card gives on this bill. {tab\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, TAB_NOT_FOUND, VENUE_MISMATCH.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0410 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -6955,6 +7019,30 @@
     },
     {
       "kind": "action",
+      "ref": "action:app.my_deals",
+      "lang": "en",
+      "title": "app.my_deals (part 1 of 3)",
+      "body": "0410. The signed-in guest's deals: {picked_id (the deal they picked to use next, while the pick is live) | null, picked_until, deals [{id, name_en, name_ar, blurb_en, blurb_ar (the owner's line, or null), type percent | amount, value, ends_at, weekdays (0 = Sunday; empty = every day), hour_from, hour_to (HH:MM or null), live_now (inside its days and hours in the branch's time), min_spend_iqd, per_customer, used (their own redemptions), tier {id, name_en, name_ar, color, min_points_12m} | null (the card it needs), state open | locked (their card is below its tier) | used (their uses are spent), picked, venue_id (null = every",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.my_deals~2",
+      "lang": "en",
+      "title": "app.my_deals (part 2 of 3)",
+      "body": "0410. The signed-in guest's deals: {picked_id (the deal they picked to use next, while the pick is live) | null, picked_until, deals [{id, name_en, name_ar, blu\nbranch), on {items, categories ([{name_en, name_ar}]; both empty = the whole café bill), courts}}]}: every enabled promotion listed in the app (promotions.in_app) that has started, has not ended, is not a single-use code and has total uses left; the picked one first, then open, locked, used. AUTH_REQUIRED without a session, ACCOUNT_REQUIRED for an anonymous session or a deleted account. Read-only.\nSignature: app.my_deals() returns jsonb.\nGranted to: authenticated. Guard: not detected by pattern — read the migration.\nWrites no audit row of its own (or via a helper).",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.my_deals~3",
+      "lang": "en",
+      "title": "app.my_deals (part 3 of 3)",
+      "body": "0410. The signed-in guest's deals: {picked_id (the deal they picked to use next, while the pick is live) | null, picked_until, deals [{id, name_en, name_ar, blu\nSignature: app.my_deals() returns jsonb.\nGranted to: authenticated. Guard: not detected by pattern — read the migration.\nWrites no audit row of its own (or via a helper).\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0410 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
       "ref": "action:app.my_deduction_proposals",
       "lang": "en",
       "title": "app.my_deduction_proposals",
@@ -7053,16 +7141,24 @@
       "kind": "action",
       "ref": "action:app.my_loyalty",
       "lang": "en",
-      "title": "app.my_loyalty (part 1 of 2)",
-      "body": "Loyalty (M3, contracts §1.3; 0308, 0376, 0403). The signed-in guest's points: {enabled, balance, lifetime, points_12m, tier {id, name_en, name_ar, multiplier, color} (the base tier without an account), next_tier (+ min_points_12m, color) | null, point_value_iqd, min_redeem_points, points_off_enabled (0403: false = points are not spent as money off; rewards only), history (50 newest LedgerRow; since 0308 the note only on reward and expire rows), rewards (every active one, any branch; kind iqd_off | item | court_hour)}. AUTH_REQUIRED without a session, ACCOUNT_REQUIRED for an anonymous session or a deleted account.",
+      "title": "app.my_loyalty (part 1 of 3)",
+      "body": "Loyalty (M3, contracts §1.3; 0308, 0376, 0403, 0410). The signed-in guest's points: {enabled, balance, lifetime, points_12m, tier {id, name_en, name_ar, multiplier, color, min_points_12m} (the base tier without an account), next_tier (the same keys) | null, tiers (0410: every tier from the base up with what it gives, {id, name_en, name_ar, multiplier, min_points_12m, color, perks [{id, kind free_addons | custom, name_en, name_ar}], deals [{id, name_en, name_ar}] (listed deals that open at that tier)}; a card also holds what the tiers below it give), point_value_iqd, min_redeem_points, points_off_enabled (0403: false = points are",
       "route": null
     },
     {
       "kind": "action",
       "ref": "action:app.my_loyalty~2",
       "lang": "en",
-      "title": "app.my_loyalty (part 2 of 2)",
-      "body": "Loyalty (M3, contracts §1.3; 0308, 0376, 0403). The signed-in guest's points: {enabled, balance, lifetime, points_12m, tier {id, name_en, name_ar, multiplier, c\nSignature: app.my_loyalty() returns jsonb.\nGranted to: authenticated. Guard: not detected by pattern — read the migration.\nWrites no audit row of its own (or via a helper).\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0403 (last definition). The assistant cannot call this; it only explains it.",
+      "title": "app.my_loyalty (part 2 of 3)",
+      "body": "Loyalty (M3, contracts §1.3; 0308, 0376, 0403, 0410). The signed-in guest's points: {enabled, balance, lifetime, points_12m, tier {id, name_en, name_ar, multipl\nnot spent as money off; rewards only), history (50 newest LedgerRow; since 0308 the note only on reward and expire rows), rewards (every active one, any branch; kind iqd_off | item | court_hour)}. AUTH_REQUIRED without a session, ACCOUNT_REQUIRED for an anonymous session or a deleted account.\nSignature: app.my_loyalty() returns jsonb.\nGranted to: authenticated. Guard: not detected by pattern — read the migration.\nWrites no audit row of its own (or via a helper).\nNot called directly by the operator app (edge function, guest app, queue or internal).",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.my_loyalty~3",
+      "lang": "en",
+      "title": "app.my_loyalty (part 3 of 3)",
+      "body": "Loyalty (M3, contracts §1.3; 0308, 0376, 0403, 0410). The signed-in guest's points: {enabled, balance, lifetime, points_12m, tier {id, name_en, name_ar, multipl\nWrites no audit row of its own (or via a helper).\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0410 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -7375,6 +7471,22 @@
       "lang": "en",
       "title": "app.override_price",
       "body": "0119: the 0049 body (claim_replay) with the 0115 PIN grant; the only live signature.\nSignature: app.override_price(p_order_item_id uuid, p_new_unit_price_iqd bigint, p_pin text, p_reason_code text, p_device_id text default null, p_idempotency_key text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (cashier,manager,owner,shop_staff).\nAudit actions written: price.override.\nError codes: FORBIDDEN, VENUE_MISMATCH, REASON_REQUIRED, INVALID_PRICE, ITEM_NOT_FOUND, TAB_MOVED, ITEM_VOIDED, TAB_NOT_OPEN, OVERRIDE_REQUIRES_REFUND.\nCalled from: apps/operator/src/lib/mutate.ts (till queue).\nDefined in migration 0244 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.pick_deal",
+      "lang": "en",
+      "title": "app.pick_deal (part 1 of 2)",
+      "body": "0410. The signed-in guest picks the listed deal to use next (one at a time; picking another replaces it; null clears it). The pick sits on their member card for 24 hours or until a bill that carries it settles: the cashier scans the card and Apply promotion takes it first (app.eligible_promotions). DEAL_UNAVAILABLE (unknown, switched off, not listed, not started, ended, or its total uses spent), DEAL_LOCKED (their card is below the deal's tier), DEAL_USED (their own uses are spent). Creates the member card when there is none. Returns app.my_deals(). AUTH_REQUIRED, ACCOUNT_REQUIRED as app.my_loyalty.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.pick_deal~2",
+      "lang": "en",
+      "title": "app.pick_deal (part 2 of 2)",
+      "body": "0410. The signed-in guest picks the listed deal to use next (one at a time; picking another replaces it; null clears it). The pick sits on their member card for\nSignature: app.pick_deal(p_promotion_id uuid) returns jsonb.\nGranted to: authenticated. Guard: not detected by pattern — read the migration.\nWrites no audit row of its own (or via a helper).\nError codes: DEAL_UNAVAILABLE, DEAL_LOCKED, DEAL_USED.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0410 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -8947,6 +9059,22 @@
     },
     {
       "kind": "action",
+      "ref": "action:app.set_promotion_app",
+      "lang": "en",
+      "title": "app.set_promotion_app (part 1 of 2)",
+      "body": "0410. Owner: lists a promotion as a deal in the guests' app, or takes it off (p_in_app), with the line guests read under it (p_blurb_en and p_blurb_ar, both or neither, up to 160 characters; NAME_REQUIRED, TEXT_TOO_LONG). PROMOTION_NOT_FOUND; a promotion whose code is single-use cannot be listed (INVALID_VALUE detail code_single_use). A listed promotion that is not automatic applies, with no code, for the member who picked it (app.pick_deal). Returns {id, in_app, app_blurb_en, app_blurb_ar}. Audited promotion.app.",
+      "route": "/admin"
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.set_promotion_app~2",
+      "lang": "en",
+      "title": "app.set_promotion_app (part 2 of 2)",
+      "body": "0410. Owner: lists a promotion as a deal in the guests' app, or takes it off (p_in_app), with the line guests read under it (p_blurb_en and p_blurb_ar, both or \nSignature: app.set_promotion_app(p_id uuid, p_in_app boolean, p_blurb_en text default null, p_blurb_ar text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (owner).\nAudit actions written: promotion.app.\nError codes: FORBIDDEN, INVALID_ARGUMENT, NAME_REQUIRED, TEXT_TOO_LONG, PROMOTION_NOT_FOUND, INVALID_VALUE.\nCalled from: apps/operator/src/features/admin/promotions/PromotionEditor.tsx (pages /admin).\nDefined in migration 0410 (last definition). The assistant cannot call this; it only explains it.",
+      "route": "/admin"
+    },
+    {
+      "kind": "action",
       "ref": "action:app.set_promotion_enabled",
       "lang": "en",
       "title": "app.set_promotion_enabled",
@@ -10455,6 +10583,22 @@
       "lang": "en",
       "title": "app.upsert_loyalty_tier (part 1 of 2)",
       "body": "Loyalty (M3, contracts §1.3; 0309, 0376). Owner: creates a tier (no id) or updates one (id; absent keys kept) from {name_en, name_ar, min_points_12m, earn_multiplier (1-5), sort, color (0376: classic | bronze | silver | gold | platinum | black, default classic)}. The sort-0 tier is the base (from 0 points) and keeps sort 0. 0309: promotion_id is ignored (always null; a tier promotion names the tier in limits.tierMin), and the sorts are renumbered to follow min_points_12m (c16), so the sort returned may differ from the one sent. INVALID_ARGUMENT (unknown id, the base's sort), INVALID_VALUE (what the table refuses: a duplicate",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.upsert_loyalty_tier_perk",
+      "lang": "en",
+      "title": "app.upsert_loyalty_tier_perk (part 1 of 2)",
+      "body": "0410. Owner: creates a tier privilege (no id; tier_id, kind and both names needed) or updates one (id; absent keys kept) from {id?, tier_id, kind (free_addons | custom), name_en, name_ar (1 to 80 characters, what guests read), modifier_group_ids (free_addons only: the modifier groups whose paid add-ons are free; empty or absent = every add-on; a custom privilege carries none), active, sort}. INVALID_ARGUMENT (p_perk, an unknown id, tier_id or modifier group), INVALID_VALUE (what the table refuses: an unknown kind, a missing or too long name). Bills pick the change up at their next refresh (app.loyalty_perks_refresh). Returns the",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.upsert_loyalty_tier_perk~2",
+      "lang": "en",
+      "title": "app.upsert_loyalty_tier_perk (part 2 of 2)",
+      "body": "0410. Owner: creates a tier privilege (no id; tier_id, kind and both names needed) or updates one (id; absent keys kept) from {id?, tier_id, kind (free_addons |\nprivilege {id, tier_id, kind, name_en, name_ar, modifier_group_ids, active, sort}. Audited loyalty.perk.\nSignature: app.upsert_loyalty_tier_perk(p_perk jsonb) returns jsonb.\nGranted to: authenticated. Guard: staff role in (owner).\nAudit actions written: loyalty.perk.\nError codes: FORBIDDEN, INVALID_ARGUMENT, INVALID_VALUE.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0410 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -12333,8 +12477,24 @@
       "kind": "table",
       "ref": "table:loyalty_cards",
       "lang": "en",
-      "title": "table loyalty_cards",
-      "body": "Loyalty (M3, L-4). One member card per profile: member_code (8 Crockford base32 characters, printed under the QR) and the 20-byte TOTP secret the phone or browser computes the rotating token from. Created lazily by app.my_member_card; the secret is rotated by app.rotate_member_card. Read only through those two RPCs. No client grant.\nCreated in migration 0305.\nColumns:\n  profile_id uuid primary key references profiles(id) on delete cascade\n  member_code text not null\n  secret bytea not null\n  created_at timestamptz not null default now()\n  rotated_at timestamptz\n  last_counter bigint — Loyalty (0308, c3). The TOTP counter of the last member token spent (a redemption or a café link): a token is single use, only a later counter is accepted.",
+      "title": "table loyalty_cards (part 1 of 3)",
+      "body": "Loyalty (M3, L-4). One member card per profile: member_code (8 Crockford base32 characters, printed under the QR) and the 20-byte TOTP secret the phone or browser computes the rotating token from. Created lazily by app.my_member_card; the secret is rotated by app.rotate_member_card. Read only through those two RPCs. No client grant.\nCreated in migration 0305.\nColumns:\n  profile_id uuid primary key references profiles(id) on delete cascade\n  member_code text not null\n  secret bytea not null\n  created_at timestamptz not null default now()\n  rotated_at timestamptz",
+      "route": null
+    },
+    {
+      "kind": "table",
+      "ref": "table:loyalty_cards~2",
+      "lang": "en",
+      "title": "table loyalty_cards (part 2 of 3)",
+      "body": "Loyalty (M3, L-4). One member card per profile: member_code (8 Crockford base32 characters, printed under the QR) and the 20-byte TOTP secret the phone or brows\n  profile_id uuid primary key references profiles(id) on delete cascade\n  member_code text not null\n  secret bytea not null\n  created_at timestamptz not null default now()\n  rotated_at timestamptz\n  last_counter bigint — Loyalty (0308, c3). The TOTP counter of the last member token spent (a redemption or a café link): a token is single use, only a later counter is accepted.\n  deal_promotion_id uuid — 0410. The listed deal (promotions.in_app) the member picked to use next (app.pick_deal), or null. Live for 24 hours from deal_picked_at or until a bill of theirs that carries it settles (app.loyalty_picked_deal).",
+      "route": null
+    },
+    {
+      "kind": "table",
+      "ref": "table:loyalty_cards~3",
+      "lang": "en",
+      "title": "table loyalty_cards (part 3 of 3)",
+      "body": "Loyalty (M3, L-4). One member card per profile: member_code (8 Crockford base32 characters, printed under the QR) and the 20-byte TOTP secret the phone or brows\n  deal_picked_at timestamptz — 0410. When the member picked deal_promotion_id.\n  deal_uses_before int not null default 0 — 0410. How many settled bills of the member carried deal_promotion_id when they picked it. The pick is spent once that count has grown (app.loyalty_picked_deal), so one pick is one use.",
       "route": null
     },
     {
@@ -12407,6 +12567,22 @@
       "lang": "en",
       "title": "table loyalty_settings (part 5 of 5)",
       "body": "Loyalty (Phase 2 M3, contracts §1.3; 0403). The one business-wide row (points are shared across branches, L-7). enabled ships false until the client gives the p\n  points_off_enabled boolean not null default false — 0403 (Majed 2026-11-05: rewards are things you take, not a wallet). True: the till offers \"Use points\", points spent as money off a bill at point_value_iqd (app.loyalty_redeem with p_points). False (the default): POINTS_OFF; points are spent on rewards only. Owner-written through app.set_loyalty_settings.",
+      "route": null
+    },
+    {
+      "kind": "table",
+      "ref": "table:loyalty_tier_perks",
+      "lang": "en",
+      "title": "table loyalty_tier_perks (part 1 of 2)",
+      "body": "0410. What a loyalty tier gives beside its earn multiplier, in the owner's words (name_en, name_ar, 1 to 80 characters, read by guests). kind free_addons: paid add-ons are free on the member's bills (modifier_group_ids: the modifier groups it frees, any branch; empty = every add-on), applied by app.loyalty_perks_refresh as line discounts with reason_code loyalty_tier_perk; kind custom: a privilege the staff honour by hand. A card holds its own tier's privileges and those of every tier below (by min_points_12m). active false hides and stops one without deleting it. Owner-written through app.upsert_loyalty_tier_perk and",
+      "route": null
+    },
+    {
+      "kind": "table",
+      "ref": "table:loyalty_tier_perks~2",
+      "lang": "en",
+      "title": "table loyalty_tier_perks (part 2 of 2)",
+      "body": "0410. What a loyalty tier gives beside its earn multiplier, in the owner's words (name_en, name_ar, 1 to 80 characters, read by guests). kind free_addons: paid \napp.delete_loyalty_tier_perk; read through app.loyalty_admin, app.my_loyalty and app.loyalty_tab_benefits. No client grant.\nCreated in migration 0410.\nColumns:\n  id uuid primary key default gen_random_uuid()\n  tier_id uuid not null references loyalty_tiers(id) on delete cascade\n  kind text not null\n  name_en text not null\n  name_ar text not null\n  modifier_group_ids uuid[] not null default '{}'\n  active boolean not null default true\n  sort smallint not null default 0\n  created_by uuid not null references staff(id)\n  created_at timestamptz not null default now()\n  updated_at timestamptz not null default now()",
       "route": null
     },
     {
@@ -13325,7 +13501,7 @@
       "kind": "table",
       "ref": "table:promotions",
       "lang": "en",
-      "title": "table promotions (part 1 of 4)",
+      "title": "table promotions (part 1 of 5)",
       "body": "0067: promotion configuration (spec 06.26/06.27). Written only through app.upsert_promotion / set_promotion_enabled / generate_promo_code; never deleted.\nCreated in migration 0067.\nColumns:\n  id uuid primary key default gen_random_uuid()\n  name_en text not null\n  name_ar text not null\n  type text not null check (type in ('percent','amount'))\n  value int not null — percent 1..99 | IQD > 0\n  starts_at timestamptz\n  ends_at timestamptz\n  weekdays int[] not null default '{}' — 0 = Sunday .. 6 = Saturday (extract(dow)); empty = any day.\n  hour_from time\n  hour_to time — null = any; from > to crosses midnight",
       "route": null
     },
@@ -13333,7 +13509,7 @@
       "kind": "table",
       "ref": "table:promotions~2",
       "lang": "en",
-      "title": "table promotions (part 2 of 4)",
+      "title": "table promotions (part 2 of 5)",
       "body": "0067: promotion configuration (spec 06.26/06.27). Written only through app.upsert_promotion / set_promotion_enabled / generate_promo_code; never deleted.\n  ends_at timestamptz\n  weekdays int[] not null default '{}' — 0 = Sunday .. 6 = Saturday (extract(dow)); empty = any day.\n  hour_from time\n  hour_to time — null = any; from > to crosses midnight\n  scope jsonb not null default '{}'::jsonb — {courtIds:[uuid], categoryIds:[uuid], itemIds:[uuid]} — empty/absent = whole bill. courtIds filters eligibility (tab reservation court); item/category ids restrict the discount base.\n  limits jsonb not null default '{}'::jsonb — {total:int, perCustomer:int, minSpendIqd:int} — absent = unlimited / no minimum.\n  auto boolean not null default true — applied automatically vs by code",
       "route": null
     },
@@ -13341,7 +13517,7 @@
       "kind": "table",
       "ref": "table:promotions~3",
       "lang": "en",
-      "title": "table promotions (part 3 of 4)",
+      "title": "table promotions (part 3 of 5)",
       "body": "0067: promotion configuration (spec 06.26/06.27). Written only through app.upsert_promotion / set_promotion_enabled / generate_promo_code; never deleted.\n  limits jsonb not null default '{}'::jsonb — {total:int, perCustomer:int, minSpendIqd:int} — absent = unlimited / no minimum.\n  auto boolean not null default true — applied automatically vs by code\n  public_code text unique\n  code_single_use boolean not null default false\n  enabled boolean not null default true\n  created_by uuid not null references staff(id)\n  created_at timestamptz not null default now()\n  updated_at timestamptz not null default now()",
       "route": null
     },
@@ -13349,8 +13525,16 @@
       "kind": "table",
       "ref": "table:promotions~4",
       "lang": "en",
-      "title": "table promotions (part 4 of 4)",
+      "title": "table promotions (part 4 of 5)",
       "body": "0067: promotion configuration (spec 06.26/06.27). Written only through app.upsert_promotion / set_promotion_enabled / generate_promo_code; never deleted.\n  enabled boolean not null default true\n  created_by uuid not null references staff(id)\n  created_at timestamptz not null default now()\n  updated_at timestamptz not null default now()\n  venue_id uuid — 0212 (MV2). The branch the promotion runs at; NULL = every branch (set only by app.set_promotion_venue, and only with a scope that names no court, category or item). Existing promotions were backfilled to the default branch.",
+      "route": null
+    },
+    {
+      "kind": "table",
+      "ref": "table:promotions~5",
+      "lang": "en",
+      "title": "table promotions (part 5 of 5)",
+      "body": "0067: promotion configuration (spec 06.26/06.27). Written only through app.upsert_promotion / set_promotion_enabled / generate_promo_code; never deleted.\n  in_app boolean not null default false — 0410. Listed as a deal in the guests' app (app.my_deals). A listed promotion that is not automatic is also eligible, with no code, for the member who picked it (app.pick_deal). Written by app.set_promotion_app.\n  app_blurb_en text — 0410. The line guests read under a listed deal, English (1 to 160 characters; null with app_blurb_ar: the app shows what the promotion covers instead).\n  app_blurb_ar text — 0410. The line guests read under a listed deal, Arabic (set and cleared together with app_blurb_en).",
       "route": null
     },
     {
@@ -17715,6 +17899,30 @@
     },
     {
       "kind": "column",
+      "ref": "column:loyalty_cards.deal_picked_at",
+      "lang": "en",
+      "title": "loyalty_cards.deal_picked_at",
+      "body": "timestamptz\n0410. When the member picked deal_promotion_id.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:loyalty_cards.deal_promotion_id",
+      "lang": "en",
+      "title": "loyalty_cards.deal_promotion_id",
+      "body": "uuid\n0410. The listed deal (promotions.in_app) the member picked to use next (app.pick_deal), or null. Live for 24 hours from deal_picked_at or until a bill of theirs that carries it settles (app.loyalty_picked_deal).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:loyalty_cards.deal_uses_before",
+      "lang": "en",
+      "title": "loyalty_cards.deal_uses_before",
+      "body": "int not null default 0\n0410. How many settled bills of the member carried deal_promotion_id when they picked it. The pick is spent once that count has grown (app.loyalty_picked_deal), so one pick is one use.",
+      "route": null
+    },
+    {
+      "kind": "column",
       "ref": "column:loyalty_cards.last_counter",
       "lang": "en",
       "title": "loyalty_cards.last_counter",
@@ -19555,6 +19763,22 @@
     },
     {
       "kind": "column",
+      "ref": "column:promotions.app_blurb_ar",
+      "lang": "en",
+      "title": "promotions.app_blurb_ar",
+      "body": "text\n0410. The line guests read under a listed deal, Arabic (set and cleared together with app_blurb_en).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:promotions.app_blurb_en",
+      "lang": "en",
+      "title": "promotions.app_blurb_en",
+      "body": "text\n0410. The line guests read under a listed deal, English (1 to 160 characters; null with app_blurb_ar: the app shows what the promotion covers instead).",
+      "route": null
+    },
+    {
+      "kind": "column",
       "ref": "column:promotions.auto",
       "lang": "en",
       "title": "promotions.auto",
@@ -19567,6 +19791,14 @@
       "lang": "en",
       "title": "promotions.hour_to",
       "body": "time\nnull = any; from > to crosses midnight",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:promotions.in_app",
+      "lang": "en",
+      "title": "promotions.in_app",
+      "body": "boolean not null default false\n0410. Listed as a deal in the guests' app (app.my_deals). A listed promotion that is not automatic is also eligible, with no code, for the member who picked it (app.pick_deal). Written by app.set_promotion_app.",
       "route": null
     },
     {
@@ -26230,7 +26462,7 @@
       "ref": "label:ws.analytics.people#2~2",
       "lang": "ar",
       "title": "ws.analytics.people (packages/i18n/src/catalogs/ws/analytics.ar.ts) (part 2 of 4)",
-      "body": "cards.checkedSub: {n} مستوى مؤكَّد حتى الآن\ntips.interests: لا نسأل أحداً عنها. تخرج من الحجوزات والمباريات والدروس والبطولات وفواتير المقهى والمتجر وساعات اللعب والعروض المستخدمة والنتائج المسجّلة.\ntips.groups: الإنفاق هو ما سُدّد على فواتيرهم وفواتير حجوزاتهم. لا تُوزّع إيرادات الملاعب بالتخمين.\ntips.judged: تأكيد المستوى لمسة واحدة في سجل العميل، أو في قائمة المستويات في صفحة ترتيب اللاعبين.\ntable.who: الجنس\ntable.band: العمر\ntable.level: المستوى\ntable.guests: أشخاص\ntable.plays: مرات اللعب\ntable.spend: الإنفاق\nslot: {day} {hour}\nfreshLine: {returning} عائد · {fresh} جديد\ngender.female: نساء\ngender.male: رجال\ngender.unknown: لم يخبرونا\ngender.other: الباقي\nage.u18: أقل من 18\nage.unknown: لم يخبرونا\nage.other: الباقي\nlevel.new: مبتدئ تماماً\nlevel.beginner: مبتدئ",
+      "body": "cards.checkedSub: {n} مستوى مؤكَّد حتى الآن\ntips.interests: لا نسأل أحداً عنها. تخرج من الحجوزات والمباريات والدروس والبطولات وفواتير المقهى والمتجر وساعات اللعب والعروض المستخدمة والنتائج المسجّلة.\ntips.groups: الإنفاق هو ما سُدّد على فواتيرهم وفواتير حجوزاتهم. لا تُوزّع إيرادات الملاعب بالتخمين.\ntips.judged: تأكيد المستوى لمسة واحدة في سجل العميل، أو في قائمة المستويات في صفحة ترتيب اللاعبين.\ntable.who: الجنس\ntable.band: العمر\ntable.level: المستوى\ntable.guests: أشخاص\ntable.plays: مرات اللعب\ntable.spend: الإنفاق\nslot: {day} {hour}\nfreshLine: {returning} عائد · {fresh} جديد\ngender.female: نساء\ngender.male: رجال\ngender.unknown: لم يخبرونا\ngender.other: الباقي\nage.u18: أقل من 18\nage.unknown: لم يخبرونا\nage.other: الباقي\nlevel.new: فئة C\nlevel.beginner: فئة C\nlevel.intermediate: فئة B",
       "route": "/analytics"
     },
     {
@@ -26246,7 +26478,7 @@
       "ref": "label:ws.analytics.people#2~3",
       "lang": "ar",
       "title": "ws.analytics.people (packages/i18n/src/catalogs/ws/analytics.ar.ts) (part 3 of 4)",
-      "body": "cards.checkedSub: {n} مستوى مؤكَّد حتى الآن\ngender.female: نساء\ngender.male: رجال\ngender.unknown: لم يخبرونا\ngender.other: الباقي\nage.u18: أقل من 18\nage.unknown: لم يخبرونا\nage.other: الباقي\nlevel.new: مبتدئ تماماً\nlevel.beginner: مبتدئ\nlevel.intermediate: متوسط\nlevel.advanced: متقدّم\nlevel.unknown: لم يخبرونا\nlevel.other: الباقي\ninterest.courts: يحجز ملاعب\ninterest.matches: مباريات مفتوحة\ninterest.tournaments: بطولات\ninterest.lessons: دروس\ninterest.cafe: يأكل في المقهى\ninterest.shop: يشتري من المتجر\ninterest.regular: يلعب كثيراً\ninterest.weekend: لاعبو نهاية الأسبوع\ninterest.evenings: لاعبو المساء\ninterest.daytime: لاعبو النهار\ninterest.late: لاعبو وقت متأخر\ninterest.group: يأتي بمجموعة\ninterest.offers: يستفيد من العروض\ninterest.ranked: يسجّل النتائج",
+      "body": "cards.checkedSub: {n} مستوى مؤكَّد حتى الآن\ngender.male: رجال\ngender.unknown: لم يخبرونا\ngender.other: الباقي\nage.u18: أقل من 18\nage.unknown: لم يخبرونا\nage.other: الباقي\nlevel.new: فئة C\nlevel.beginner: فئة C\nlevel.intermediate: فئة B\nlevel.advanced: فئة A\nlevel.unknown: لم يخبرونا\nlevel.other: الباقي\ninterest.courts: يحجز ملاعب\ninterest.matches: مباريات مفتوحة\ninterest.tournaments: بطولات\ninterest.lessons: دروس\ninterest.cafe: يأكل في المقهى\ninterest.shop: يشتري من المتجر\ninterest.regular: يلعب كثيراً\ninterest.weekend: لاعبو نهاية الأسبوع\ninterest.evenings: لاعبو المساء\ninterest.daytime: لاعبو النهار\ninterest.late: لاعبو وقت متأخر\ninterest.group: يأتي بمجموعة\ninterest.offers: يستفيد من العروض\ninterest.ranked: يسجّل النتائج",
       "route": "/analytics"
     },
     {
@@ -26270,7 +26502,7 @@
       "ref": "label:ws.analytics.people#2~4",
       "lang": "en",
       "title": "ws.analytics.people (packages/i18n/src/catalogs/ws/analytics.en.ts) (part 4 of 4)",
-      "body": "cards.judgedSub: {n} confirmed by the club\ngender.female: Women\ngender.male: Men\ngender.unknown: Not told us\ngender.other: Everyone else\nage.u18: Under 18\nage.unknown: Not told us\nage.other: Everyone else\nlevel.new: Just starting\nlevel.beginner: Beginner\nlevel.intermediate: Intermediate\nlevel.advanced: Advanced\nlevel.unknown: Not told us\nlevel.other: Everyone else\ninterest.courts: Books courts\ninterest.matches: Open matches\ninterest.tournaments: Tournaments\ninterest.lessons: Lessons",
+      "body": "cards.judgedSub: {n} confirmed by the club\ngender.female: Women\ngender.male: Men\ngender.unknown: Not told us\ngender.other: Everyone else\nage.u18: Under 18\nage.unknown: Not told us\nage.other: Everyone else\nlevel.new: Type C\nlevel.beginner: Type C\nlevel.intermediate: Type B\nlevel.advanced: Type A\nlevel.unknown: Not told us\nlevel.other: Everyone else\ninterest.courts: Books courts\ninterest.matches: Open matches\ninterest.tournaments: Tournaments\ninterest.lessons: Lessons",
       "route": "/analytics"
     },
     {
@@ -26278,7 +26510,7 @@
       "ref": "label:ws.analytics.people#3",
       "lang": "ar",
       "title": "ws.analytics.people (packages/i18n/src/catalogs/ws/analytics.ar.ts) (part 1 of 2)",
-      "body": "leads.level: يلعبون بمستوى {level}\nleads.coverage: هذا يصف {pct} الذين أجابوا عن الثلاثة.\nleads.interests: {tag}: {share} من الجمهور. هذه هي المجموعة التي يمكن توجيه عرض إليها.\nleads.interestsThin: الجميع تقريباً يحجزون ملاعب فقط حتى الآن، ولا شيء آخر يبرز.\nleads.groups: أكبر مجموعة هي {group}: {guests} شخصاً.\nleads.groupsThin: لا توجد مجموعة كبيرة بما يكفي لتسميتها بعد.\nleads.when: لكل مجموعة ساعتها: {list}.\nleads.whenSlot: {who} يوم {day} الساعة {hour}\nleads.whenThin: اللعب أقل من أن يميّز المجموعات بالساعات.\nleads.judgedAgree: من {checked} مستوى مؤكَّد، طابق {n} ما ذكره اللاعب. ما يُذكر صحيح في الغالب.\nleads.judgedOver: من {checked} مستوى مؤكَّد، ذُكر {n} أعلى من الواقع. توقّع تصحيح المستوى بعد أول مباراة.",
+      "body": "leads.level: أغلبهم من لاعبي {level}\nleads.coverage: هذا يصف {pct} الذين أجابوا عن الثلاثة.\nleads.interests: {tag}: {share} من الجمهور. هذه هي المجموعة التي يمكن توجيه عرض إليها.\nleads.interestsThin: الجميع تقريباً يحجزون ملاعب فقط حتى الآن، ولا شيء آخر يبرز.\nleads.groups: أكبر مجموعة هي {group}: {guests} شخصاً.\nleads.groupsThin: لا توجد مجموعة كبيرة بما يكفي لتسميتها بعد.\nleads.when: لكل مجموعة ساعتها: {list}.\nleads.whenSlot: {who} يوم {day} الساعة {hour}\nleads.whenThin: اللعب أقل من أن يميّز المجموعات بالساعات.\nleads.judgedAgree: من {checked} مستوى مؤكَّد، طابق {n} ما ذكره اللاعب. ما يُذكر صحيح في الغالب.\nleads.judgedOver: من {checked} مستوى مؤكَّد، ذُكر {n} أعلى من الواقع. توقّع تصحيح المستوى بعد أول مباراة.",
       "route": "/analytics"
     },
     {
@@ -26286,7 +26518,7 @@
       "ref": "label:ws.analytics.people#3",
       "lang": "en",
       "title": "ws.analytics.people (packages/i18n/src/catalogs/ws/analytics.en.ts) (part 1 of 3)",
-      "body": "interest.cafe: Eats at the café\ninterest.shop: Buys from the shop\ninterest.regular: Plays often\ninterest.weekend: Weekend players\ninterest.evenings: Evening players\ninterest.daytime: Daytime players\ninterest.late: Late-night players\ninterest.group: Brings a group\ninterest.offers: Uses offers\ninterest.ranked: Reports scores\nleads.thin: Too few people have told us who they are. Ask at sign-up, and let the desk fill a walk-in's record in.\nleads.gender: Mostly {who} ({share})\nleads.age: aged {band}\nleads.level: playing at {level}\nleads.coverage: That describes the {pct} who answered all three.\nleads.interests: {tag}: {share} of the crowd. That is the group an offer can be aimed at.",
+      "body": "interest.cafe: Eats at the café\ninterest.shop: Buys from the shop\ninterest.regular: Plays often\ninterest.weekend: Weekend players\ninterest.evenings: Evening players\ninterest.daytime: Daytime players\ninterest.late: Late-night players\ninterest.group: Brings a group\ninterest.offers: Uses offers\ninterest.ranked: Reports scores\nleads.thin: Too few people have told us who they are. Ask at sign-up, and let the desk fill a walk-in's record in.\nleads.gender: Mostly {who} ({share})\nleads.age: aged {band}\nleads.level: mostly {level} players\nleads.coverage: That describes the {pct} who answered all three.\nleads.interests: {tag}: {share} of the crowd. That is the group an offer can be aimed at.",
       "route": "/analytics"
     },
     {
@@ -26294,7 +26526,7 @@
       "ref": "label:ws.analytics.people#3~2",
       "lang": "ar",
       "title": "ws.analytics.people (packages/i18n/src/catalogs/ws/analytics.ar.ts) (part 2 of 2)",
-      "body": "leads.level: يلعبون بمستوى {level}\nleads.judgedOver: من {checked} مستوى مؤكَّد، ذُكر {n} أعلى من الواقع. توقّع تصحيح المستوى بعد أول مباراة.\nleads.judgedUnder: من {checked} مستوى مؤكَّد، كان {n} أفضل من المذكور. اللاعبون هنا يبخسون أنفسهم.\nleads.judgedThin: {n} لاعب لم يؤكّد أحد مستواهم بعد. يؤكّده مدرّب أو موظف الاستقبال بلمسة.",
+      "body": "leads.level: أغلبهم من لاعبي {level}\nleads.judgedOver: من {checked} مستوى مؤكَّد، ذُكر {n} أعلى من الواقع. توقّع تصحيح المستوى بعد أول مباراة.\nleads.judgedUnder: من {checked} مستوى مؤكَّد، كان {n} أفضل من المذكور. اللاعبون هنا يبخسون أنفسهم.\nleads.judgedThin: {n} لاعب لم يؤكّد أحد مستواهم بعد. يؤكّده مدرّب أو موظف الاستقبال بلمسة.",
       "route": "/analytics"
     },
     {
@@ -26302,7 +26534,7 @@
       "ref": "label:ws.analytics.people#3~2",
       "lang": "en",
       "title": "ws.analytics.people (packages/i18n/src/catalogs/ws/analytics.en.ts) (part 2 of 3)",
-      "body": "interest.cafe: Eats at the café\nleads.level: playing at {level}\nleads.coverage: That describes the {pct} who answered all three.\nleads.interests: {tag}: {share} of the crowd. That is the group an offer can be aimed at.\nleads.interestsThin: Almost everyone here just books courts so far; nothing else stands out yet.\nleads.groups: The biggest group is {group}: {guests} people.\nleads.groupsThin: No group is large enough to name yet.\nleads.when: Each group has its hour: {list}.\nleads.whenSlot: {who} on {day} at {hour}\nleads.whenThin: Not enough play yet to tell the groups apart by hour.\nleads.judgedAgree: Of {checked} levels confirmed, {n} matched what the player said. The claims are holding up.",
+      "body": "interest.cafe: Eats at the café\nleads.level: mostly {level} players\nleads.coverage: That describes the {pct} who answered all three.\nleads.interests: {tag}: {share} of the crowd. That is the group an offer can be aimed at.\nleads.interestsThin: Almost everyone here just books courts so far; nothing else stands out yet.\nleads.groups: The biggest group is {group}: {guests} people.\nleads.groupsThin: No group is large enough to name yet.\nleads.when: Each group has its hour: {list}.\nleads.whenSlot: {who} on {day} at {hour}\nleads.whenThin: Not enough play yet to tell the groups apart by hour.\nleads.judgedAgree: Of {checked} levels confirmed, {n} matched what the player said. The claims are holding up.",
       "route": "/analytics"
     },
     {
@@ -27638,7 +27870,7 @@
       "ref": "label:ws.coaching.coachesAdmin#2~3",
       "lang": "ar",
       "title": "ws.coaching.coachesAdmin (packages/i18n/src/catalogs/ws/coachingAdmin.ar.ts) (part 3 of 4)",
-      "body": "promote.teaching: الفروع والحصص\neditor.orderHint: يرى الزبائن المدرّبين بهذا الترتيب في كل فرع يدرّبون فيه.\neditor.slug: اسم الرابط\neditor.slugHint: رابط المشاركة الخاص به: {link}. تغييره يوقف الرابط القديم.\neditor.slugBad: استخدم من 2 إلى 48 حرفًا إنجليزيًا صغيرًا أو رقمًا أو شرطة، يبدأ بحرف أو رقم.\neditor.levels: المستويات التي يدرّبها\neditor.level.beginner: مبتدئ\neditor.level.intermediate: متوسط\neditor.level.advanced: متقدّم\neditor.notHere: لا يدرّب في هذا الفرع. لا تتغيّر أنواع حصصه وأسعاره هنا حتى يُحدَّد هذا الفرع من جديد ضمن الفروع.\neditor.save: حفظ الملف\neditor.saved: حُفظ الملف.\neditor.discard: تجاهل التغييرات\neditor.branches: الفروع\neditor.branchesHint: الفروع التي يدرّب فيها هذا المدرّب.\neditor.saveBranches: حفظ الفروع\neditor.branchesSaved: حُفظت الفروع.",
+      "body": "promote.teaching: الفروع والحصص\neditor.orderHint: يرى الزبائن المدرّبين بهذا الترتيب في كل فرع يدرّبون فيه.\neditor.slug: اسم الرابط\neditor.slugHint: رابط المشاركة الخاص به: {link}. تغييره يوقف الرابط القديم.\neditor.slugBad: استخدم من 2 إلى 48 حرفًا إنجليزيًا صغيرًا أو رقمًا أو شرطة، يبدأ بحرف أو رقم.\neditor.levels: المستويات التي يدرّبها\neditor.level.beginner: فئة C\neditor.level.intermediate: فئة B\neditor.level.advanced: فئة A\neditor.notHere: لا يدرّب في هذا الفرع. لا تتغيّر أنواع حصصه وأسعاره هنا حتى يُحدَّد هذا الفرع من جديد ضمن الفروع.\neditor.save: حفظ الملف\neditor.saved: حُفظ الملف.\neditor.discard: تجاهل التغييرات\neditor.branches: الفروع\neditor.branchesHint: الفروع التي يدرّب فيها هذا المدرّب.\neditor.saveBranches: حفظ الفروع\neditor.branchesSaved: حُفظت الفروع.",
       "route": "/admin/coaches"
     },
     {
@@ -27646,7 +27878,7 @@
       "ref": "label:ws.coaching.coachesAdmin#2~3",
       "lang": "en",
       "title": "ws.coaching.coachesAdmin (packages/i18n/src/catalogs/ws/coachingAdmin.en.ts) (part 3 of 4)",
-      "body": "promote.lead: Turn a guest account into a coach.\neditor.profile: Public profile\neditor.order: Place in the list\neditor.orderHint: Guests see coaches in this order, at every branch they teach at.\neditor.slug: Link name\neditor.slugHint: Their share link: {link}. Changing it stops the old link working.\neditor.slugBad: Use 2 to 48 lowercase letters, numbers and dashes, starting with a letter or number.\neditor.levels: Levels they coach\neditor.level.beginner: Beginner\neditor.level.intermediate: Intermediate\neditor.level.advanced: Advanced\neditor.notHere: Not teaching at this branch. Their lesson types and prices here can't change until this branch is ticked again under Branches.\neditor.save: Save profile\neditor.saved: Profile saved.\neditor.discard: Discard\neditor.branches: Branches",
+      "body": "promote.lead: Turn a guest account into a coach.\neditor.profile: Public profile\neditor.order: Place in the list\neditor.orderHint: Guests see coaches in this order, at every branch they teach at.\neditor.slug: Link name\neditor.slugHint: Their share link: {link}. Changing it stops the old link working.\neditor.slugBad: Use 2 to 48 lowercase letters, numbers and dashes, starting with a letter or number.\neditor.levels: Levels they coach\neditor.level.beginner: Type C\neditor.level.intermediate: Type B\neditor.level.advanced: Type A\neditor.notHere: Not teaching at this branch. Their lesson types and prices here can't change until this branch is ticked again under Branches.\neditor.save: Save profile\neditor.saved: Profile saved.\neditor.discard: Discard\neditor.branches: Branches",
       "route": "/admin/coaches"
     },
     {
@@ -29798,7 +30030,7 @@
       "ref": "label:ws.events.block",
       "lang": "en",
       "title": "ws.events.block (packages/i18n/src/catalogs/ws/events.en.ts) (part 1 of 3)",
-      "body": "title: Block courts for a tournament\nlead: The courts and times come from the tournament plan. Blocking them holds the courts for the tournament, and the calendar shows them as blocks.\nloadFailed: The tournament could not be loaded.\ncapacity.players: {count} players\ncapacity.pairs: {count} pairs\nclassLabel: Class {class}\nwindows: Courts and times\nnoWindows: The plan names no courts yet. Ask the manager to check the plan.\ncolumns.court: Court\ncolumns.when: When\ncolumns.state: State\nstate.blocked: Blocked\nstate.toBlock: To block\nblockAll: Block all ({count})\nblockRest: Block the rest ({count})\nallBlocked: Every court and time in the plan is blocked.\nblockedDone: Blocked. The calendar shows them now.",
+      "body": "title: Block courts for a tournament\nlead: The courts and times come from the tournament plan. Blocking them holds the courts for the tournament, and the calendar shows them as blocks.\nloadFailed: The tournament could not be loaded.\ncapacity.players: {count} players\ncapacity.pairs: {count} pairs\nclassLabel: Type {class}\nwindows: Courts and times\nnoWindows: The plan names no courts yet. Ask the manager to check the plan.\ncolumns.court: Court\ncolumns.when: When\ncolumns.state: State\nstate.blocked: Blocked\nstate.toBlock: To block\nblockAll: Block all ({count})\nblockRest: Block the rest ({count})\nallBlocked: Every court and time in the plan is blocked.\nblockedDone: Blocked. The calendar shows them now.",
       "route": "/desk/block"
     },
     {
@@ -30870,7 +31102,7 @@
       "ref": "label:ws.insights.leads",
       "lang": "ar",
       "title": "ws.insights.leads (packages/i18n/src/catalogs/ws/insights.ar.ts) (part 1 of 3)",
-      "body": "peopleThin: عدد من أخبرونا بمعلوماتهم أقل من أن يرسم صورة. اسأل عند التسجيل، ويمكن لموظف الاستقبال إكمال سجل الزائر.\npeopleGender: الغالبية {who} ({share})\npeopleAge: بأعمار {band}\npeopleLevel: يلعبون بمستوى {level}\npeopleCoverage: هذا مبني على {pct} من الجمهور الذين أخبرونا بالثلاثة كاملة.\nfillQuiet: أهدأ الساعات: {slots}. هناك أكبر مساحة لأن تنجح العروض والمنشورات.\nprotectFull: أكثر الساعات امتلاءً: {slots}. هذه تمتلئ وحدها، فاصرف الجهد إلى غيرها.\nboth: روّج لساعات {quiet}، واترك {full} فهي تمتلئ وحدها.\nnone: لا ساعة تبرز بعد: الملاعب على المستوى نفسه تقريبًا طوال الأسبوع.\nglance: الملاعب: {level}. اللاعبون: {players}. الكافيه: {crossover} من لاعبي الملاعب يشترون منه.",
+      "body": "peopleThin: عدد من أخبرونا بمعلوماتهم أقل من أن يرسم صورة. اسأل عند التسجيل، ويمكن لموظف الاستقبال إكمال سجل الزائر.\npeopleGender: الغالبية {who} ({share})\npeopleAge: بأعمار {band}\npeopleLevel: أغلبهم من لاعبي {level}\npeopleCoverage: هذا مبني على {pct} من الجمهور الذين أخبرونا بالثلاثة كاملة.\nfillQuiet: أهدأ الساعات: {slots}. هناك أكبر مساحة لأن تنجح العروض والمنشورات.\nprotectFull: أكثر الساعات امتلاءً: {slots}. هذه تمتلئ وحدها، فاصرف الجهد إلى غيرها.\nboth: روّج لساعات {quiet}، واترك {full} فهي تمتلئ وحدها.\nnone: لا ساعة تبرز بعد: الملاعب على المستوى نفسه تقريبًا طوال الأسبوع.\nglance: الملاعب: {level}. اللاعبون: {players}. الكافيه: {crossover} من لاعبي الملاعب يشترون منه.",
       "route": null
     },
     {
@@ -30878,7 +31110,7 @@
       "ref": "label:ws.insights.leads",
       "lang": "en",
       "title": "ws.insights.leads (packages/i18n/src/catalogs/ws/insights.en.ts) (part 1 of 4)",
-      "body": "peopleThin: Too few people have told us who they are for a picture to form. Ask at sign-up, and the desk can fill a walk-in's record in.\npeopleGender: Mostly {who} ({share})\npeopleAge: aged {band}\npeopleLevel: playing at {level}\npeopleCoverage: That is from the {pct} of the crowd who told us all three.\nfillQuiet: The quietest hours are {slots}. Offers and posts there have the most room to work.\nprotectFull: The fullest hours are {slots}. They sell themselves; spend the effort elsewhere.\nboth: Push {quiet}; leave {full} alone, it fills by itself.\nnone: No hour stands out yet: the courts run at about the same level all week.",
+      "body": "peopleThin: Too few people have told us who they are for a picture to form. Ask at sign-up, and the desk can fill a walk-in's record in.\npeopleGender: Mostly {who} ({share})\npeopleAge: aged {band}\npeopleLevel: mostly {level} players\npeopleCoverage: That is from the {pct} of the crowd who told us all three.\nfillQuiet: The quietest hours are {slots}. Offers and posts there have the most room to work.\nprotectFull: The fullest hours are {slots}. They sell themselves; spend the effort elsewhere.\nboth: Push {quiet}; leave {full} alone, it fills by itself.\nnone: No hour stands out yet: the courts run at about the same level all week.",
       "route": null
     },
     {
@@ -30957,8 +31189,8 @@
       "kind": "label",
       "ref": "label:ws.insights.people",
       "lang": "ar",
-      "title": "ws.insights.people (packages/i18n/src/catalogs/ws/insights.ar.ts) (part 1 of 2)",
-      "body": "gender.female: نساء\ngender.male: رجال\ngender.unknown: لم يخبرونا\ngender.other: الباقي\nage.u18: أقل من 18\nage.unknown: لم يخبرونا\nage.other: الباقي\nlevel.new: مبتدئ تماماً\nlevel.beginner: مبتدئ\nlevel.intermediate: متوسط\nlevel.advanced: متقدّم\nlevel.unknown: لم يخبرونا\nlevel.other: الباقي\ninterest.courts: يحجز ملاعب\ninterest.matches: مباريات مفتوحة\ninterest.tournaments: بطولات\ninterest.lessons: دروس\ninterest.cafe: يأكل في المقهى\ninterest.shop: يشتري من المتجر\ninterest.regular: يلعب كثيراً\ninterest.weekend: لاعبو نهاية الأسبوع\ninterest.evenings: لاعبو المساء\ninterest.daytime: لاعبو النهار\ninterest.late: لاعبو وقت متأخر\ninterest.group: يأتي بمجموعة\ninterest.offers: يستفيد من العروض\ninterest.ranked: يسجّل النتائج\nsegment: {who}، {band}، {level}",
+      "title": "ws.insights.people (packages/i18n/src/catalogs/ws/insights.ar.ts)",
+      "body": "gender.female: نساء\ngender.male: رجال\ngender.unknown: لم يخبرونا\ngender.other: الباقي\nage.u18: أقل من 18\nage.unknown: لم يخبرونا\nage.other: الباقي\nlevel.new: فئة C\nlevel.beginner: فئة C\nlevel.intermediate: فئة B\nlevel.advanced: فئة A\nlevel.unknown: لم يخبرونا\nlevel.other: الباقي\ninterest.courts: يحجز ملاعب\ninterest.matches: مباريات مفتوحة\ninterest.tournaments: بطولات\ninterest.lessons: دروس\ninterest.cafe: يأكل في المقهى\ninterest.shop: يشتري من المتجر\ninterest.regular: يلعب كثيراً\ninterest.weekend: لاعبو نهاية الأسبوع\ninterest.evenings: لاعبو المساء\ninterest.daytime: لاعبو النهار\ninterest.late: لاعبو وقت متأخر\ninterest.group: يأتي بمجموعة\ninterest.offers: يستفيد من العروض\ninterest.ranked: يسجّل النتائج\nsegment: {who}، {band}، {level}\ngrowing: في ارتفاع مقارنةً بالفترة السابقة: {list}.",
       "route": null
     },
     {
@@ -30966,15 +31198,7 @@
       "ref": "label:ws.insights.people",
       "lang": "en",
       "title": "ws.insights.people (packages/i18n/src/catalogs/ws/insights.en.ts) (part 1 of 2)",
-      "body": "gender.female: Women\ngender.male: Men\ngender.unknown: Not told us\ngender.other: Everyone else\nage.u18: Under 18\nage.unknown: Not told us\nage.other: Everyone else\nlevel.new: Just starting\nlevel.beginner: Beginner\nlevel.intermediate: Intermediate\nlevel.advanced: Advanced\nlevel.unknown: Not told us\nlevel.other: Everyone else\ninterest.courts: Books courts\ninterest.matches: Open matches\ninterest.tournaments: Tournaments\ninterest.lessons: Lessons\ninterest.cafe: Eats at the café\ninterest.shop: Buys from the shop\ninterest.regular: Plays often\ninterest.weekend: Weekend players\ninterest.evenings: Evening players\ninterest.daytime: Daytime players\ninterest.late: Late-night players\ninterest.group: Brings a group\ninterest.offers: Uses offers\ninterest.ranked: Reports scores",
-      "route": null
-    },
-    {
-      "kind": "label",
-      "ref": "label:ws.insights.people~2",
-      "lang": "ar",
-      "title": "ws.insights.people (packages/i18n/src/catalogs/ws/insights.ar.ts) (part 2 of 2)",
-      "body": "gender.female: نساء\ninterest.daytime: لاعبو النهار\ninterest.late: لاعبو وقت متأخر\ninterest.group: يأتي بمجموعة\ninterest.offers: يستفيد من العروض\ninterest.ranked: يسجّل النتائج\nsegment: {who}، {band}، {level}\ngrowing: في ارتفاع مقارنةً بالفترة السابقة: {list}.",
+      "body": "gender.female: Women\ngender.male: Men\ngender.unknown: Not told us\ngender.other: Everyone else\nage.u18: Under 18\nage.unknown: Not told us\nage.other: Everyone else\nlevel.new: Type C\nlevel.beginner: Type C\nlevel.intermediate: Type B\nlevel.advanced: Type A\nlevel.unknown: Not told us\nlevel.other: Everyone else\ninterest.courts: Books courts\ninterest.matches: Open matches\ninterest.tournaments: Tournaments\ninterest.lessons: Lessons\ninterest.cafe: Eats at the café\ninterest.shop: Buys from the shop\ninterest.regular: Plays often\ninterest.weekend: Weekend players\ninterest.evenings: Evening players\ninterest.daytime: Daytime players\ninterest.late: Late-night players\ninterest.group: Brings a group\ninterest.offers: Uses offers\ninterest.ranked: Reports scores",
       "route": null
     },
     {
@@ -31683,6 +31907,22 @@
     },
     {
       "kind": "label",
+      "ref": "label:ws.loyalty.benefits",
+      "lang": "ar",
+      "title": "ws.loyalty.benefits (packages/i18n/src/catalogs/ws/loyalty.ar.ts)",
+      "body": "cardGives: ما تمنحه بطاقة «{tier}»\ncardGivesPlain: ما تمنحه بطاقة العضو\nauto: تُخصم تلقائيًا\nbyHand: تُمنح يدويًا\nonBill: إضافات مجانية على هذه الفاتورة: خصم {amount}.\nbillRow: امتيازات البطاقة: إضافات مجانية\ndealTitle: عرض اختاره العضو في التطبيق\ndealPercent: خصم {value}%\ndealApply: تطبيق\ndealApplied: على هذه الفاتورة\ndealElsewhere: للعلم فقط. تُطبَّق العروض عند كاشير الكافيه.",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.loyalty.benefits",
+      "lang": "en",
+      "title": "ws.loyalty.benefits (packages/i18n/src/catalogs/ws/loyalty.en.ts)",
+      "body": "cardGives: {tier} card gives\ncardGivesPlain: Their card gives\nauto: Taken off by the till\nbyHand: Give by hand\nonBill: Free add-ons on this bill: {amount} off.\nbillRow: Card privileges: free add-ons\ndealTitle: Deal picked in the app\ndealPercent: {value}% off\ndealApply: Apply\ndealApplied: On this bill\ndealElsewhere: For your information. Deals are applied at the café cashier.",
+      "route": null
+    },
+    {
+      "kind": "label",
       "ref": "label:ws.loyalty.member",
       "lang": "ar",
       "title": "ws.loyalty.member (packages/i18n/src/catalogs/ws/loyalty.ar.ts) (part 1 of 2)",
@@ -31814,7 +32054,7 @@
       "ref": "label:ws.loyalty.setup#2~2",
       "lang": "ar",
       "title": "ws.loyalty.setup (packages/i18n/src/catalogs/ws/loyalty.ar.ts) (part 2 of 4)",
-      "body": "tiers.colorHint: تأخذ بطاقة نقاط الضيف هذا اللون في هذه الفئة: خطوطها واسم الفئة واسم الضيف. الأسود يجعل البطاقة كلها سوداء.\ntiers.columns.minPoints: ابتداءً من\ntiers.columns.multiplier: الكسب\ntiers.columns.color: البطاقة\ntiers.multiplierValue: ×{value}\ntiers.steps.name: الاسم\ntiers.steps.points: النقاط والمضاعف\ntiers.steps.color: لون البطاقة\ntiers.placeNote: تأتي {name} بعد {below}. ينتقل الضيف إليها حين يكسب {points} نقطة خلال 12 شهرًا.\ntiers.review.name: الاسم\ntiers.review.from: ابتداءً من\ntiers.review.fromValue: {points} نقطة خلال 12 شهرًا\ntiers.review.earns: الكسب\ntiers.review.earnsValue: {value}× النقاط\ntiers.review.color: لون البطاقة\ntiers.errors.names: الاسمان مطلوبان.\ntiers.errors.minPoints: اكتب عددًا صحيحًا، 0 أو أكثر.\ntiers.errors.multiplier: بين 1 و5.\nrewards.title: المكافآت",
+      "body": "tiers.colorHint: تأخذ بطاقة نقاط الضيف هذا اللون في هذه الفئة: خطوطها واسم الفئة واسم الضيف. الأسود يجعل البطاقة كلها سوداء.\ntiers.columns.minPoints: ابتداءً من\ntiers.columns.multiplier: الكسب\ntiers.columns.color: البطاقة\ntiers.multiplierValue: ×{value}\ntiers.steps.name: الاسم\ntiers.steps.points: النقاط والمضاعف\ntiers.steps.color: لون البطاقة\ntiers.placeNote: تأتي {name} بعد {below}. ينتقل الضيف إليها حين يكسب {points} نقطة خلال 12 شهرًا.\ntiers.review.name: الاسم\ntiers.review.from: ابتداءً من\ntiers.review.fromValue: {points} نقطة خلال 12 شهرًا\ntiers.review.earns: الكسب\ntiers.review.earnsValue: {value}× النقاط\ntiers.review.color: لون البطاقة\ntiers.errors.names: الاسمان مطلوبان.\ntiers.errors.minPoints: اكتب عددًا صحيحًا، 0 أو أكثر.\ntiers.errors.multiplier: بين 1 و5.",
       "route": "/setup"
     },
     {
@@ -31822,7 +32062,7 @@
       "ref": "label:ws.loyalty.setup#2~2",
       "lang": "en",
       "title": "ws.loyalty.setup (packages/i18n/src/catalogs/ws/loyalty.en.ts) (part 2 of 4)",
-      "body": "tiers.color: Card colour\ntiers.columns.multiplier: Earns\ntiers.columns.color: Card\ntiers.multiplierValue: ×{value}\ntiers.steps.name: Name\ntiers.steps.points: Points & multiplier\ntiers.steps.color: Card colour\ntiers.placeNote: {name} sits after {below}. A guest moves up once they earn {points} points in 12 months.\ntiers.review.name: Name\ntiers.review.from: From\ntiers.review.fromValue: {points} points in 12 months\ntiers.review.earns: Earns\ntiers.review.earnsValue: {value}× points\ntiers.review.color: Card colour\ntiers.errors.names: Both names are needed.\ntiers.errors.minPoints: Type a whole number, 0 or more.\ntiers.errors.multiplier: Between 1 and 5.\nrewards.title: Rewards\nrewards.lead: What a guest can take for points at the café cashier. Switch a reward off to stop offering it.",
+      "body": "tiers.color: Card colour\ntiers.columns.multiplier: Earns\ntiers.columns.color: Card\ntiers.multiplierValue: ×{value}\ntiers.steps.name: Name\ntiers.steps.points: Points & multiplier\ntiers.steps.color: Card colour\ntiers.placeNote: {name} sits after {below}. A guest moves up once they earn {points} points in 12 months.\ntiers.review.name: Name\ntiers.review.from: From\ntiers.review.fromValue: {points} points in 12 months\ntiers.review.earns: Earns\ntiers.review.earnsValue: {value}× points\ntiers.review.color: Card colour\ntiers.errors.names: Both names are needed.\ntiers.errors.minPoints: Type a whole number, 0 or more.\ntiers.errors.multiplier: Between 1 and 5.\nperks.title: Card privileges",
       "route": "/setup"
     },
     {
@@ -31830,7 +32070,7 @@
       "ref": "label:ws.loyalty.setup#2~3",
       "lang": "ar",
       "title": "ws.loyalty.setup (packages/i18n/src/catalogs/ws/loyalty.ar.ts) (part 3 of 4)",
-      "body": "tiers.colorHint: تأخذ بطاقة نقاط الضيف هذا اللون في هذه الفئة: خطوطها واسم الفئة واسم الضيف. الأسود يجعل البطاقة كلها سوداء.\ntiers.review.color: لون البطاقة\ntiers.errors.names: الاسمان مطلوبان.\ntiers.errors.minPoints: اكتب عددًا صحيحًا، 0 أو أكثر.\ntiers.errors.multiplier: بين 1 و5.\nrewards.title: المكافآت\nrewards.lead: ما يأخذه الضيف مقابل النقاط عند الكاشير. أوقف المكافأة لتتوقف عن عرضها.\nrewards.add: إضافة مكافأة\nrewards.edit: تعديل المكافأة\nrewards.empty: لا توجد مكافآت بعد.\nrewards.nameEn: الاسم (بالإنجليزية)\nrewards.nameAr: الاسم (بالعربية)\nrewards.cost: الكلفة\nrewards.kind: تمنح\nrewards.kindIqdOff: خصم مبلغ من الفاتورة\nrewards.kindItem: صنف مجاني من القائمة (واحد، بهذا الحجم)\nrewards.kindCourt: ساعة ملعب مجانية\nrewards.courtHour: ساعة ملعب مجانية واحدة\nrewards.iqdOff: مبلغ الخصم",
+      "body": "tiers.colorHint: تأخذ بطاقة نقاط الضيف هذا اللون في هذه الفئة: خطوطها واسم الفئة واسم الضيف. الأسود يجعل البطاقة كلها سوداء.\ntiers.review.earnsValue: {value}× النقاط\ntiers.review.color: لون البطاقة\ntiers.errors.names: الاسمان مطلوبان.\ntiers.errors.minPoints: اكتب عددًا صحيحًا، 0 أو أكثر.\ntiers.errors.multiplier: بين 1 و5.\nperks.title: امتيازات البطاقات\nperks.lead: ما تمنحه كل بطاقة غير النقاط. تحمل البطاقة أيضًا كل ما تمنحه البطاقات الأدنى منها، فأضف الامتياز مرة واحدة إلى أدنى بطاقة تستحقه.\nperks.add: إضافة امتياز\nperks.addFor: إضافة امتياز إلى {tier}\nperks.edit: تعديل\nperks.editFor: تعديل {name}\nperks.editTitle: تعديل الامتياز\nperks.remove: إزالة\nperks.removeFor: إزالة {name}\nperks.removeTitle: إزالة «{name}»؟",
       "route": "/setup"
     },
     {
@@ -31838,7 +32078,7 @@
       "ref": "label:ws.loyalty.setup#2~3",
       "lang": "en",
       "title": "ws.loyalty.setup (packages/i18n/src/catalogs/ws/loyalty.en.ts) (part 3 of 4)",
-      "body": "tiers.color: Card colour\ntiers.errors.multiplier: Between 1 and 5.\nrewards.title: Rewards\nrewards.lead: What a guest can take for points at the café cashier. Switch a reward off to stop offering it.\nrewards.add: Add a reward\nrewards.edit: Edit reward\nrewards.empty: No rewards yet.\nrewards.nameEn: Name (English)\nrewards.nameAr: Name (Arabic)\nrewards.cost: Cost\nrewards.kind: Gives\nrewards.kindIqdOff: An amount off the bill\nrewards.kindItem: A free menu item (one, that size)\nrewards.kindCourt: A free hour of court\nrewards.courtHour: One free hour of court\nrewards.iqdOff: Amount off\nrewards.variant: Menu item\nrewards.variantPlaceholder: Choose an item\nrewards.active: On offer\nrewards.steps.name: Name\nrewards.steps.gives: What it gives\nrewards.steps.cost: Cost",
+      "body": "tiers.color: Card colour\ntiers.errors.names: Both names are needed.\ntiers.errors.minPoints: Type a whole number, 0 or more.\ntiers.errors.multiplier: Between 1 and 5.\nperks.title: Card privileges\nperks.lead: What each card gives besides points. A card also holds everything the cards below it give, so add a privilege once, to the lowest card that should have it.\nperks.add: Add a privilege\nperks.addFor: Add a privilege to {tier}\nperks.edit: Edit\nperks.editFor: Edit {name}\nperks.editTitle: Edit privilege\nperks.remove: Remove\nperks.removeFor: Remove {name}\nperks.removeTitle: Remove “{name}”?\nperks.removeBody: Guests with this card stop getting it. Free add-ons already on an open bill come off the next time that bill changes.\nperks.empty: Nothing yet for this card.\nperks.active: On",
       "route": "/setup"
     },
     {
@@ -31846,7 +32086,7 @@
       "ref": "label:ws.loyalty.setup#2~4",
       "lang": "ar",
       "title": "ws.loyalty.setup (packages/i18n/src/catalogs/ws/loyalty.ar.ts) (part 4 of 4)",
-      "body": "tiers.colorHint: تأخذ بطاقة نقاط الضيف هذا اللون في هذه الفئة: خطوطها واسم الفئة واسم الضيف. الأسود يجعل البطاقة كلها سوداء.\nrewards.kindItem: صنف مجاني من القائمة (واحد، بهذا الحجم)\nrewards.kindCourt: ساعة ملعب مجانية\nrewards.courtHour: ساعة ملعب مجانية واحدة\nrewards.iqdOff: مبلغ الخصم\nrewards.variant: صنف القائمة\nrewards.variantPlaceholder: اختر صنفًا\nrewards.active: معروضة\nrewards.steps.name: الاسم\nrewards.steps.gives: ما تمنحه\nrewards.steps.cost: الكلفة\nrewards.kindIqdOffBody: يُخصم عند الكاشير.\nrewards.kindItemTitle: صنف مجاني من القائمة\nrewards.kindItemBody: صنف واحد بهذا الحجم.\nrewards.kindCourtTitle: ساعة ملعب مجانية",
+      "body": "tiers.colorHint: تأخذ بطاقة نقاط الضيف هذا اللون في هذه الفئة: خطوطها واسم الفئة واسم الضيف. الأسود يجعل البطاقة كلها سوداء.\nperks.edit: تعديل\nperks.editFor: تعديل {name}\nperks.editTitle: تعديل الامتياز\nperks.remove: إزالة\nperks.removeFor: إزالة {name}\nperks.removeTitle: إزالة «{name}»؟\nperks.removeBody: لن يحصل عليه حاملو هذه البطاقة بعد الآن. الإضافات المجانية الموجودة على فاتورة مفتوحة تُرفع عنها عند أول تغيير فيها.\nperks.empty: لا امتيازات لهذه البطاقة بعد.\nperks.active: مفعّل\nperks.activeOnHint: يحصل عليه حاملو هذه البطاقة الآن.\nperks.activeOffHint: محفوظ هنا، ولا يحصل عليه أحد حتى تفعّله.\nperks.kind: ما يمنحه\nperks.kindAddons: إضافات مجانية",
       "route": "/setup"
     },
     {
@@ -31854,23 +32094,103 @@
       "ref": "label:ws.loyalty.setup#2~4",
       "lang": "en",
       "title": "ws.loyalty.setup (packages/i18n/src/catalogs/ws/loyalty.en.ts) (part 4 of 4)",
-      "body": "tiers.color: Card colour\nrewards.variant: Menu item\nrewards.variantPlaceholder: Choose an item\nrewards.active: On offer\nrewards.steps.name: Name\nrewards.steps.gives: What it gives\nrewards.steps.cost: Cost\nrewards.kindIqdOffBody: Taken off at the till.\nrewards.kindItemTitle: A free menu item",
+      "body": "tiers.color: Card colour\nperks.removeBody: Guests with this card stop getting it. Free add-ons already on an open bill come off the next time that bill changes.\nperks.empty: Nothing yet for this card.\nperks.active: On\nperks.activeOnHint: Guests with this card get it now.\nperks.activeOffHint: Kept here, but nobody gets it until you switch it on.\nperks.kind: What it gives",
       "route": "/setup"
     },
     {
       "kind": "label",
       "ref": "label:ws.loyalty.setup#3",
       "lang": "ar",
-      "title": "ws.loyalty.setup (packages/i18n/src/catalogs/ws/loyalty.ar.ts)",
-      "body": "rewards.kindCourtBody: ساعة واحدة من الحجز، على فاتورة حجز ملعب.\nrewards.activeOnHint: يستطيع الضيوف استبدالها الآن.\nrewards.activeOffHint: مخفية عن الضيوف حتى تشغّلها.\nrewards.review.name: الاسم\nrewards.review.gives: تمنح\nrewards.review.offValue: خصم {amount} من الفاتورة\nrewards.review.cost: الكلفة\nrewards.columns.name: المكافأة\nrewards.columns.cost: الكلفة\nrewards.columns.gives: تمنح\nrewards.columns.active: معروضة\nrewards.errors.names: الاسمان مطلوبان.\nrewards.errors.cost: اكتب عددًا صحيحًا أكبر من 0.\nrewards.errors.iqdOff: اكتب مبلغًا أكبر من 0.\nrewards.errors.variant: اختر صنف القائمة.\nsave: حفظ\ncancel: إلغاء",
+      "title": "ws.loyalty.setup (packages/i18n/src/catalogs/ws/loyalty.ar.ts) (part 1 of 4)",
+      "body": "perks.kindAddonsBody: الإضافات المدفوعة على المشروب، مثل جرعة إسبريسو إضافية أو سيروب أو حليب مختلف، تصبح مجانية. تُخصم من الفاتورة تلقائيًا عند الكاشير.\nperks.kindCustom: شيء آخر\nperks.kindCustomBody: امتياز يقدّمه الموظفون بأنفسهم.\nperks.customHint: مثلًا: أولوية الحجز، أو مضرب للاستعارة.\nperks.scope: أي الإضافات\nperks.scopeAll: كل الإضافات\nperks.scopeGroups: مجموعات محددة\nperks.groups: مجموعات الإضافات\nperks.groupsHint: الخيارات المدفوعة في هذه المجموعات فقط تصبح مجانية.\nperks.groupsEmpty: لا مجموعات إضافات في القائمة بعد.\nperks.groupGone: لم تعد في القائمة\nperks.nameEn: ما يقرؤه الضيوف (بالإنجليزية)",
       "route": "/setup"
     },
     {
       "kind": "label",
       "ref": "label:ws.loyalty.setup#3",
       "lang": "en",
-      "title": "ws.loyalty.setup (packages/i18n/src/catalogs/ws/loyalty.en.ts)",
-      "body": "rewards.kindItemBody: One, that size.\nrewards.kindCourtTitle: A free hour of court\nrewards.kindCourtBody: One hour of the booking, on a court booking’s bill.\nrewards.activeOnHint: Guests can redeem it now.\nrewards.activeOffHint: Hidden from guests until you turn it on.\nrewards.review.name: Name\nrewards.review.gives: Gives\nrewards.review.offValue: {amount} off the bill\nrewards.review.cost: Cost\nrewards.columns.name: Reward\nrewards.columns.cost: Cost\nrewards.columns.gives: Gives\nrewards.columns.active: On offer\nrewards.errors.names: Both names are needed.\nrewards.errors.cost: Type a whole number above 0.\nrewards.errors.iqdOff: Type an amount above 0.\nrewards.errors.variant: Choose the menu item.\nsave: Save\ncancel: Cancel",
+      "title": "ws.loyalty.setup (packages/i18n/src/catalogs/ws/loyalty.en.ts) (part 1 of 4)",
+      "body": "perks.kindAddons: Free add-ons\nperks.kindAddonsBody: Paid add-ons on a drink, such as an extra shot, a syrup or a different milk, cost nothing. The till takes them off the bill by itself.\nperks.kindCustom: Something else\nperks.kindCustomBody: A privilege your staff give by hand.\nperks.customHint: For example: priority booking, or a racket to borrow.\nperks.scope: Which add-ons\nperks.scopeAll: Every add-on\nperks.scopeGroups: Only some groups\nperks.groups: Add-on groups\nperks.groupsHint: Only the paid options in these groups become free.\nperks.groupsEmpty: The menu has no add-on groups yet.\nperks.groupGone: No longer on the menu\nperks.nameEn: What guests read (English)\nperks.nameAr: What guests read (Arabic)",
+      "route": "/setup"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.loyalty.setup#3~2",
+      "lang": "ar",
+      "title": "ws.loyalty.setup (packages/i18n/src/catalogs/ws/loyalty.ar.ts) (part 2 of 4)",
+      "body": "perks.kindAddonsBody: الإضافات المدفوعة على المشروب، مثل جرعة إسبريسو إضافية أو سيروب أو حليب مختلف، تصبح مجانية. تُخصم من الفاتورة تلقائيًا عند الكاشير.\nperks.groupsEmpty: لا مجموعات إضافات في القائمة بعد.\nperks.groupGone: لم تعد في القائمة\nperks.nameEn: ما يقرؤه الضيوف (بالإنجليزية)\nperks.nameAr: ما يقرؤه الضيوف (بالعربية)\nperks.nameAutoHint: كُتب الاسم تلقائيًا. غيّره إن شئت.\nperks.nameHint: يقرؤه الضيوف على بطاقتهم في التطبيق.\nperks.example: أولوية الحجز\nperks.gives.custom: يقدّمه الموظفون بأنفسهم\nperks.gives.all: إضافات مجانية: كل الإضافات\nperks.gives.groups: إضافات مجانية: {groups}\nperks.gives.count: إضافات مجانية، عدد المجموعات المختارة: {n}\nperks.gives.missing: مجموعات لم تعد في القائمة: {n}\nperks.gives.none: لم تعد مجموعات إضافاته في القائمة، فلا يمنح شيئًا. عدّله.",
+      "route": "/setup"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.loyalty.setup#3~2",
+      "lang": "en",
+      "title": "ws.loyalty.setup (packages/i18n/src/catalogs/ws/loyalty.en.ts) (part 2 of 4)",
+      "body": "perks.kindAddons: Free add-ons\nperks.groupsEmpty: The menu has no add-on groups yet.\nperks.groupGone: No longer on the menu\nperks.nameEn: What guests read (English)\nperks.nameAr: What guests read (Arabic)\nperks.nameAutoHint: Filled in for you. Change it if you like.\nperks.nameHint: Guests read this on their card in the app.\nperks.example: Priority booking\nperks.gives.custom: Given by staff, by hand\nperks.gives.all: Free add-ons: every add-on\nperks.gives.groups: Free add-ons: {groups}\nperks.gives.count: Free add-ons, groups chosen: {n}\nperks.gives.missing: Groups no longer on the menu: {n}\nperks.gives.none: Its add-on groups are no longer on the menu, so it frees nothing. Edit it.\nperks.errors.names: Both names are needed, 80 characters at most each.",
+      "route": "/setup"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.loyalty.setup#3~3",
+      "lang": "ar",
+      "title": "ws.loyalty.setup (packages/i18n/src/catalogs/ws/loyalty.ar.ts) (part 3 of 4)",
+      "body": "perks.kindAddonsBody: الإضافات المدفوعة على المشروب، مثل جرعة إسبريسو إضافية أو سيروب أو حليب مختلف، تصبح مجانية. تُخصم من الفاتورة تلقائيًا عند الكاشير.\nperks.gives.count: إضافات مجانية، عدد المجموعات المختارة: {n}\nperks.gives.missing: مجموعات لم تعد في القائمة: {n}\nperks.gives.none: لم تعد مجموعات إضافاته في القائمة، فلا يمنح شيئًا. عدّله.\nperks.errors.names: الاسمان مطلوبان، بحد أقصى 80 حرفًا لكل منهما.\nperks.errors.groups: اختر مجموعة إضافات واحدة على الأقل، أو اختر كل الإضافات.\nperks.defaults.all: كل إضافات المشروبات مجانًا\nperks.defaults.groups: إضافات مجانية: {groups}\nperks.defaults.some: إضافات مجانية\nperks.defaults.sep: ، \nrewards.title: المكافآت\nrewards.lead: ما يأخذه الضيف مقابل النقاط عند الكاشير. أوقف المكافأة لتتوقف عن عرضها.\nrewards.add: إضافة مكافأة",
+      "route": "/setup"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.loyalty.setup#3~3",
+      "lang": "en",
+      "title": "ws.loyalty.setup (packages/i18n/src/catalogs/ws/loyalty.en.ts) (part 3 of 4)",
+      "body": "perks.kindAddons: Free add-ons\nperks.gives.none: Its add-on groups are no longer on the menu, so it frees nothing. Edit it.\nperks.errors.names: Both names are needed, 80 characters at most each.\nperks.errors.groups: Choose at least one add-on group, or choose every add-on.\nperks.defaults.all: Free add-ons on every drink\nperks.defaults.groups: Free add-ons: {groups}\nperks.defaults.some: Free add-ons\nperks.defaults.sep: , \nrewards.title: Rewards\nrewards.lead: What a guest can take for points at the café cashier. Switch a reward off to stop offering it.\nrewards.add: Add a reward\nrewards.edit: Edit reward\nrewards.empty: No rewards yet.\nrewards.nameEn: Name (English)\nrewards.nameAr: Name (Arabic)\nrewards.cost: Cost\nrewards.kind: Gives\nrewards.kindIqdOff: An amount off the bill",
+      "route": "/setup"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.loyalty.setup#3~4",
+      "lang": "ar",
+      "title": "ws.loyalty.setup (packages/i18n/src/catalogs/ws/loyalty.ar.ts) (part 4 of 4)",
+      "body": "perks.kindAddonsBody: الإضافات المدفوعة على المشروب، مثل جرعة إسبريسو إضافية أو سيروب أو حليب مختلف، تصبح مجانية. تُخصم من الفاتورة تلقائيًا عند الكاشير.\nperks.defaults.some: إضافات مجانية\nperks.defaults.sep: ، \nrewards.title: المكافآت\nrewards.lead: ما يأخذه الضيف مقابل النقاط عند الكاشير. أوقف المكافأة لتتوقف عن عرضها.\nrewards.add: إضافة مكافأة\nrewards.edit: تعديل المكافأة\nrewards.empty: لا توجد مكافآت بعد.\nrewards.nameEn: الاسم (بالإنجليزية)\nrewards.nameAr: الاسم (بالعربية)\nrewards.cost: الكلفة\nrewards.kind: تمنح\nrewards.kindIqdOff: خصم مبلغ من الفاتورة\nrewards.kindItem: صنف مجاني من القائمة (واحد، بهذا الحجم)\nrewards.kindCourt: ساعة ملعب مجانية\nrewards.courtHour: ساعة ملعب مجانية واحدة\nrewards.iqdOff: مبلغ الخصم\nrewards.variant: صنف القائمة\nrewards.variantPlaceholder: اختر صنفًا",
+      "route": "/setup"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.loyalty.setup#3~4",
+      "lang": "en",
+      "title": "ws.loyalty.setup (packages/i18n/src/catalogs/ws/loyalty.en.ts) (part 4 of 4)",
+      "body": "perks.kindAddons: Free add-ons\nrewards.edit: Edit reward\nrewards.empty: No rewards yet.\nrewards.nameEn: Name (English)\nrewards.nameAr: Name (Arabic)\nrewards.cost: Cost\nrewards.kind: Gives\nrewards.kindIqdOff: An amount off the bill\nrewards.kindItem: A free menu item (one, that size)\nrewards.kindCourt: A free hour of court\nrewards.courtHour: One free hour of court",
+      "route": "/setup"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.loyalty.setup#4",
+      "lang": "ar",
+      "title": "ws.loyalty.setup (packages/i18n/src/catalogs/ws/loyalty.ar.ts) (part 1 of 2)",
+      "body": "rewards.active: معروضة\nrewards.steps.name: الاسم\nrewards.steps.gives: ما تمنحه\nrewards.steps.cost: الكلفة\nrewards.kindIqdOffBody: يُخصم عند الكاشير.\nrewards.kindItemTitle: صنف مجاني من القائمة\nrewards.kindItemBody: صنف واحد بهذا الحجم.\nrewards.kindCourtTitle: ساعة ملعب مجانية\nrewards.kindCourtBody: ساعة واحدة من الحجز، على فاتورة حجز ملعب.\nrewards.activeOnHint: يستطيع الضيوف استبدالها الآن.\nrewards.activeOffHint: مخفية عن الضيوف حتى تشغّلها.\nrewards.review.name: الاسم\nrewards.review.gives: تمنح\nrewards.review.offValue: خصم {amount} من الفاتورة\nrewards.review.cost: الكلفة\nrewards.columns.name: المكافأة\nrewards.columns.cost: الكلفة\nrewards.columns.gives: تمنح\nrewards.columns.active: معروضة\nrewards.errors.names: الاسمان مطلوبان.",
+      "route": "/setup"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.loyalty.setup#4",
+      "lang": "en",
+      "title": "ws.loyalty.setup (packages/i18n/src/catalogs/ws/loyalty.en.ts) (part 1 of 2)",
+      "body": "rewards.iqdOff: Amount off\nrewards.variant: Menu item\nrewards.variantPlaceholder: Choose an item\nrewards.active: On offer\nrewards.steps.name: Name\nrewards.steps.gives: What it gives\nrewards.steps.cost: Cost\nrewards.kindIqdOffBody: Taken off at the till.\nrewards.kindItemTitle: A free menu item\nrewards.kindItemBody: One, that size.\nrewards.kindCourtTitle: A free hour of court\nrewards.kindCourtBody: One hour of the booking, on a court booking’s bill.\nrewards.activeOnHint: Guests can redeem it now.\nrewards.activeOffHint: Hidden from guests until you turn it on.\nrewards.review.name: Name\nrewards.review.gives: Gives\nrewards.review.offValue: {amount} off the bill\nrewards.review.cost: Cost\nrewards.columns.name: Reward\nrewards.columns.cost: Cost",
+      "route": "/setup"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.loyalty.setup#4~2",
+      "lang": "ar",
+      "title": "ws.loyalty.setup (packages/i18n/src/catalogs/ws/loyalty.ar.ts) (part 2 of 2)",
+      "body": "rewards.active: معروضة\nrewards.review.cost: الكلفة\nrewards.columns.name: المكافأة\nrewards.columns.cost: الكلفة\nrewards.columns.gives: تمنح\nrewards.columns.active: معروضة\nrewards.errors.names: الاسمان مطلوبان.\nrewards.errors.cost: اكتب عددًا صحيحًا أكبر من 0.\nrewards.errors.iqdOff: اكتب مبلغًا أكبر من 0.\nrewards.errors.variant: اختر صنف القائمة.\nsave: حفظ\ncancel: إلغاء",
+      "route": "/setup"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.loyalty.setup#4~2",
+      "lang": "en",
+      "title": "ws.loyalty.setup (packages/i18n/src/catalogs/ws/loyalty.en.ts) (part 2 of 2)",
+      "body": "rewards.iqdOff: Amount off\nrewards.review.name: Name\nrewards.review.gives: Gives\nrewards.review.offValue: {amount} off the bill\nrewards.review.cost: Cost\nrewards.columns.name: Reward\nrewards.columns.cost: Cost\nrewards.columns.gives: Gives\nrewards.columns.active: On offer\nrewards.errors.names: Both names are needed.\nrewards.errors.cost: Type a whole number above 0.\nrewards.errors.iqdOff: Type an amount above 0.\nrewards.errors.variant: Choose the menu item.\nsave: Save\ncancel: Cancel",
       "route": "/setup"
     },
     {
@@ -32326,7 +32646,7 @@
       "ref": "label:ws.manager.dayClose#2~3",
       "lang": "ar",
       "title": "ws.manager.dayClose (packages/i18n/src/catalogs/ws/manager.ar.ts) (part 3 of 4)",
-      "body": "cardBatchHint: الإجمالي المطبوع على إيصال نهاية اليوم من الجهاز. اتركه فارغًا إن لم يدفع أحد بالبطاقة.\nrecorded: المسجَّل: {count}\ndiscounts: الخصومات وتعديلات السعر\nvoids: الأسطر الملغاة\nrefunds: المبالغ المستردة\nwaste: الهدر\nauthorisers: من أدخل الرقم السري\nnoAuthoriser: لا أحد بعد\nadjustmentsTitle: كل خصم وتعديل سعر\nadjustmentsLead: احتاج كل منها إلى الرقم السري للمدير.\ntime: الوقت\nwhat: الإجراء\namount: المبلغ\nreason: السبب\nwho: الموظف\nkind.percent: خصم {percent}%\nkind.amount: خصم بمبلغ ثابت\nkind.override: تعديل السعر\nkind.other: تعديل\nscopeBill: الفاتورة كاملة\nscopeItem: صنف واحد\npinBy: الرقم السري: {name}\nreasonPromotion: عرض\nnoAdjustments: لا خصومات أو تعديلات سعر في يوم العمل هذا.\nexport: تصدير أرقام اليوم\nopenDayTitle: فتح اليوم",
+      "body": "cardBatchHint: الإجمالي المطبوع على إيصال نهاية اليوم من الجهاز. اتركه فارغًا إن لم يدفع أحد بالبطاقة.\nrecorded: المسجَّل: {count}\ndiscounts: الخصومات وتعديلات السعر\nvoids: الأسطر الملغاة\nrefunds: المبالغ المستردة\nwaste: الهدر\nauthorisers: من أدخل الرقم السري\nnoAuthoriser: لا أحد بعد\nadjustmentsTitle: كل خصم وتعديل سعر\nadjustmentsLead: احتاج كل منها إلى الرقم السري للمدير.\ntime: الوقت\nwhat: الإجراء\namount: المبلغ\nreason: السبب\nwho: الموظف\nkind.percent: خصم {percent}%\nkind.amount: خصم بمبلغ ثابت\nkind.override: تعديل السعر\nkind.other: تعديل\nscopeBill: الفاتورة كاملة\nscopeItem: صنف واحد\npinBy: الرقم السري: {name}\nreasonPromotion: عرض\nreasonCardPerk: امتياز البطاقة: إضافات مجانية\nnoAdjustments: لا خصومات أو تعديلات سعر في يوم العمل هذا.\nexport: تصدير أرقام اليوم\nopenDayTitle: فتح اليوم",
       "route": "/admin/day-close"
     },
     {
@@ -32334,7 +32654,7 @@
       "ref": "label:ws.manager.dayClose#2~3",
       "lang": "en",
       "title": "ws.manager.dayClose (packages/i18n/src/catalogs/ws/manager.en.ts) (part 3 of 4)",
-      "body": "cardBatchHint: The total on the terminal’s end-of-day slip. Leave it blank if nobody paid by card.\nrecorded: {count} recorded\ndiscounts: Discounts and price overrides\nvoids: Voided lines\nrefunds: Refunds\nwaste: Waste\nauthorisers: PINs entered by\nnoAuthoriser: Nobody yet\nadjustmentsTitle: Each discount and price override\nadjustmentsLead: Every one needed a manager PIN.\ntime: Time\nwhat: What\namount: Amount\nreason: Reason\nwho: Who\nkind.percent: {percent}% off\nkind.amount: Amount off\nkind.override: Price override\nkind.other: Adjustment\nscopeBill: whole bill\nscopeItem: one item\npinBy: PIN: {name}\nreasonPromotion: Promotion\nnoAdjustments: No discounts or price overrides this business day.\nexport: Export the day’s figures\nopenDayTitle: Open the day",
+      "body": "cardBatchHint: The total on the terminal’s end-of-day slip. Leave it blank if nobody paid by card.\nrecorded: {count} recorded\ndiscounts: Discounts and price overrides\nvoids: Voided lines\nrefunds: Refunds\nwaste: Waste\nauthorisers: PINs entered by\nnoAuthoriser: Nobody yet\nadjustmentsTitle: Each discount and price override\nadjustmentsLead: Every one needed a manager PIN.\ntime: Time\nwhat: What\namount: Amount\nreason: Reason\nwho: Who\nkind.percent: {percent}% off\nkind.amount: Amount off\nkind.override: Price override\nkind.other: Adjustment\nscopeBill: whole bill\nscopeItem: one item\npinBy: PIN: {name}\nreasonPromotion: Promotion\nreasonCardPerk: Card privilege: free add-ons\nnoAdjustments: No discounts or price overrides this business day.\nexport: Export the day’s figures\nopenDayTitle: Open the day",
       "route": "/admin/day-close"
     },
     {
@@ -32342,7 +32662,7 @@
       "ref": "label:ws.manager.dayClose#2~4",
       "lang": "ar",
       "title": "ws.manager.dayClose (packages/i18n/src/catalogs/ws/manager.ar.ts) (part 4 of 4)",
-      "body": "cardBatchHint: الإجمالي المطبوع على إيصال نهاية اليوم من الجهاز. اتركه فارغًا إن لم يدفع أحد بالبطاقة.\nscopeItem: صنف واحد\npinBy: الرقم السري: {name}\nreasonPromotion: عرض\nnoAdjustments: لا خصومات أو تعديلات سعر في يوم العمل هذا.\nexport: تصدير أرقام اليوم\nopenDayTitle: فتح اليوم\nopenDayLead: لا يوجد يوم عمل مفتوح، لذا لا يستطيع كاشير الكافيه استقبال الطلبات. عُدّ الرصيد الافتتاحي في الدرج ثم افتح اليوم.\nopeningFloatInput: الرصيد الافتتاحي في الدرج (د.ع)\nopenDayBtn: فتح اليوم\nlastClose: آخر إغلاق\nlastCloseLine: يوم العمل {date}\nlastCloseNone: لم يُغلق أي يوم بعد.",
+      "body": "cardBatchHint: الإجمالي المطبوع على إيصال نهاية اليوم من الجهاز. اتركه فارغًا إن لم يدفع أحد بالبطاقة.\nreasonPromotion: عرض\nreasonCardPerk: امتياز البطاقة: إضافات مجانية\nnoAdjustments: لا خصومات أو تعديلات سعر في يوم العمل هذا.\nexport: تصدير أرقام اليوم\nopenDayTitle: فتح اليوم\nopenDayLead: لا يوجد يوم عمل مفتوح، لذا لا يستطيع كاشير الكافيه استقبال الطلبات. عُدّ الرصيد الافتتاحي في الدرج ثم افتح اليوم.\nopeningFloatInput: الرصيد الافتتاحي في الدرج (د.ع)\nopenDayBtn: فتح اليوم\nlastClose: آخر إغلاق",
       "route": "/admin/day-close"
     },
     {
@@ -32350,7 +32670,7 @@
       "ref": "label:ws.manager.dayClose#2~4",
       "lang": "en",
       "title": "ws.manager.dayClose (packages/i18n/src/catalogs/ws/manager.en.ts) (part 4 of 4)",
-      "body": "cardBatchHint: The total on the terminal’s end-of-day slip. Leave it blank if nobody paid by card.\nscopeItem: one item\npinBy: PIN: {name}\nreasonPromotion: Promotion\nnoAdjustments: No discounts or price overrides this business day.\nexport: Export the day’s figures\nopenDayTitle: Open the day\nopenDayLead: No business day is open, so the café cashier cannot take orders. Count the float in the drawer, then open the day.\nopeningFloatInput: Cash float in the drawer (IQD)\nopenDayBtn: Open the day\nlastClose: Last close",
+      "body": "cardBatchHint: The total on the terminal’s end-of-day slip. Leave it blank if nobody paid by card.\nreasonPromotion: Promotion\nreasonCardPerk: Card privilege: free add-ons\nnoAdjustments: No discounts or price overrides this business day.\nexport: Export the day’s figures\nopenDayTitle: Open the day\nopenDayLead: No business day is open, so the café cashier cannot take orders. Count the float in the drawer, then open the day.\nopeningFloatInput: Cash float in the drawer (IQD)",
       "route": "/admin/day-close"
     },
     {
@@ -32358,7 +32678,7 @@
       "ref": "label:ws.manager.dayClose#3",
       "lang": "ar",
       "title": "ws.manager.dayClose (packages/i18n/src/catalogs/ws/manager.ar.ts) (part 1 of 3)",
-      "body": "csv.tabFigures: إغلاق اليوم\ncsv.figure: البند\ncsv.value: القيمة (د.ع)\ncsv.count: العدد\ncsv.authorisers: بتفويض من\ncsv.note: ملاحظة\ncsv.partOf: سبق احتسابه في السطر أعلاه\ncsv.adjustments: التعديلات\ncsv.date: التاريخ\ncsv.time: الوقت\ncsv.what: الإجراء\ncsv.appliesTo: ينطبق على\ncsv.reason: السبب\ncsv.amount: المبلغ (د.ع)\ncsv.appliedBy: الموظف\ncsv.authorisedBy: بتفويض من\ncsv.tab: معرّف الفاتورة\nhandIn.title: تسليم النقد إلى القاصة\nhandIn.lead: يُسلَّم نقد كل درج من هذا اليوم إلى القاصة، ويبقى الرصيد الافتتاحي في الدرج.\nhandIn.pendingLead: أُغلق يوم العمل {date}، لكن نقده لم يصل إلى القاصة بعد.\nhandIn.boxes.cafe: كاشير الكافيه\nhandIn.boxes.desk: مكتب الملاعب\nhandIn.boxes.shop: مكتب المتجر\nhandIn.took: استلم {amount} نقدًا",
+      "body": "lastCloseLine: يوم العمل {date}\nlastCloseNone: لم يُغلق أي يوم بعد.\ncsv.tabFigures: إغلاق اليوم\ncsv.figure: البند\ncsv.value: القيمة (د.ع)\ncsv.count: العدد\ncsv.authorisers: بتفويض من\ncsv.note: ملاحظة\ncsv.partOf: سبق احتسابه في السطر أعلاه\ncsv.adjustments: التعديلات\ncsv.date: التاريخ\ncsv.time: الوقت\ncsv.what: الإجراء\ncsv.appliesTo: ينطبق على\ncsv.reason: السبب\ncsv.amount: المبلغ (د.ع)\ncsv.appliedBy: الموظف\ncsv.authorisedBy: بتفويض من\ncsv.tab: معرّف الفاتورة\nhandIn.title: تسليم النقد إلى القاصة\nhandIn.lead: يُسلَّم نقد كل درج من هذا اليوم إلى القاصة، ويبقى الرصيد الافتتاحي في الدرج.\nhandIn.pendingLead: أُغلق يوم العمل {date}، لكن نقده لم يصل إلى القاصة بعد.\nhandIn.boxes.cafe: كاشير الكافيه\nhandIn.boxes.desk: مكتب الملاعب\nhandIn.boxes.shop: مكتب المتجر",
       "route": "/admin/day-close"
     },
     {
@@ -32366,7 +32686,7 @@
       "ref": "label:ws.manager.dayClose#3",
       "lang": "en",
       "title": "ws.manager.dayClose (packages/i18n/src/catalogs/ws/manager.en.ts) (part 1 of 3)",
-      "body": "lastCloseLine: Business day {date}\nlastCloseNone: No day has been closed yet.\ncsv.tabFigures: Day close\ncsv.figure: Figure\ncsv.value: Value (IQD)\ncsv.count: Count\ncsv.authorisers: Authorised by\ncsv.note: Note\ncsv.partOf: Already counted in the line above\ncsv.adjustments: Adjustments\ncsv.date: Date\ncsv.time: Time\ncsv.what: What\ncsv.appliesTo: Applies to\ncsv.reason: Reason\ncsv.amount: Amount (IQD)\ncsv.appliedBy: Applied by\ncsv.authorisedBy: Authorised by\ncsv.tab: Tab id\nhandIn.title: Hand cash to the safe\nhandIn.lead: Each drawer’s cash from this day goes to the safe. The opening float stays in the drawer.\nhandIn.pendingLead: Business day {date} is closed, but its cash has not reached the safe yet.\nhandIn.boxes.cafe: Café cashier",
+      "body": "openDayBtn: Open the day\nlastClose: Last close\nlastCloseLine: Business day {date}\nlastCloseNone: No day has been closed yet.\ncsv.tabFigures: Day close\ncsv.figure: Figure\ncsv.value: Value (IQD)\ncsv.count: Count\ncsv.authorisers: Authorised by\ncsv.note: Note\ncsv.partOf: Already counted in the line above\ncsv.adjustments: Adjustments\ncsv.date: Date\ncsv.time: Time\ncsv.what: What\ncsv.appliesTo: Applies to\ncsv.reason: Reason\ncsv.amount: Amount (IQD)\ncsv.appliedBy: Applied by\ncsv.authorisedBy: Authorised by\ncsv.tab: Tab id\nhandIn.title: Hand cash to the safe\nhandIn.lead: Each drawer’s cash from this day goes to the safe. The opening float stays in the drawer.\nhandIn.pendingLead: Business day {date} is closed, but its cash has not reached the safe yet.",
       "route": "/admin/day-close"
     },
     {
@@ -32374,7 +32694,7 @@
       "ref": "label:ws.manager.dayClose#3~2",
       "lang": "ar",
       "title": "ws.manager.dayClose (packages/i18n/src/catalogs/ws/manager.ar.ts) (part 2 of 3)",
-      "body": "csv.tabFigures: إغلاق اليوم\nhandIn.boxes.cafe: كاشير الكافيه\nhandIn.boxes.desk: مكتب الملاعب\nhandIn.boxes.shop: مكتب المتجر\nhandIn.took: استلم {amount} نقدًا\nhandIn.tookLessRefunds: استلم {amount} نقدًا، رُدّ منه {refunds}\nhandIn.noCash: لم يستلم نقدًا\nhandIn.amountLabel: {box}: النقد المُسلَّم إلى القاصة\nhandIn.overNet: أكثر مما استلمه هذا الدرج. الزيادة تُؤخذ من الرصيد الافتتاحي.\nhandIn.handedIn: سُلِّم {amount}\nhandIn.kept: بقي في الدرج\nhandIn.move: نقل {amount} إلى القاصة\nhandIn.zero: كل المبالغ صفر، فلا شيء يُنقل.\nhandIn.notNow: ليس الآن\nhandIn.later: لم يُسلَّم النقد بعد. يمكنك تسليمه من صفحة القاصة.\nhandIn.keptHint: ما بقي في الدرج يمكن تسليمه لاحقًا من صفحة القاصة.\nhandIn.allIn: وصل نقد هذا اليوم إلى القاصة.\nhandIn.openSafe: فتح صفحة القاصة\nhandIn.toast: نُقل {amount} إلى القاصة.",
+      "body": "lastCloseLine: يوم العمل {date}\nhandIn.pendingLead: أُغلق يوم العمل {date}، لكن نقده لم يصل إلى القاصة بعد.\nhandIn.boxes.cafe: كاشير الكافيه\nhandIn.boxes.desk: مكتب الملاعب\nhandIn.boxes.shop: مكتب المتجر\nhandIn.took: استلم {amount} نقدًا\nhandIn.tookLessRefunds: استلم {amount} نقدًا، رُدّ منه {refunds}\nhandIn.noCash: لم يستلم نقدًا\nhandIn.amountLabel: {box}: النقد المُسلَّم إلى القاصة\nhandIn.overNet: أكثر مما استلمه هذا الدرج. الزيادة تُؤخذ من الرصيد الافتتاحي.\nhandIn.handedIn: سُلِّم {amount}\nhandIn.kept: بقي في الدرج\nhandIn.move: نقل {amount} إلى القاصة\nhandIn.zero: كل المبالغ صفر، فلا شيء يُنقل.\nhandIn.notNow: ليس الآن\nhandIn.later: لم يُسلَّم النقد بعد. يمكنك تسليمه من صفحة القاصة.\nhandIn.keptHint: ما بقي في الدرج يمكن تسليمه لاحقًا من صفحة القاصة.",
       "route": "/admin/day-close"
     },
     {
@@ -32382,7 +32702,7 @@
       "ref": "label:ws.manager.dayClose#3~2",
       "lang": "en",
       "title": "ws.manager.dayClose (packages/i18n/src/catalogs/ws/manager.en.ts) (part 2 of 3)",
-      "body": "lastCloseLine: Business day {date}\nhandIn.pendingLead: Business day {date} is closed, but its cash has not reached the safe yet.\nhandIn.boxes.cafe: Café cashier\nhandIn.boxes.desk: Court desk\nhandIn.boxes.shop: Shop desk\nhandIn.took: Took {amount} in cash\nhandIn.tookLessRefunds: Took {amount} in cash, less {refunds} refunded\nhandIn.noCash: No cash taken\nhandIn.amountLabel: {box}: cash to the safe\nhandIn.overNet: More than this drawer took. The extra comes out of the float.\nhandIn.handedIn: Handed in {amount}\nhandIn.kept: Kept in the drawer\nhandIn.move: Move {amount} to the safe\nhandIn.zero: Every amount is 0, so there is nothing to move.\nhandIn.notNow: Not now\nhandIn.later: Not handed in. You can do it from the Safe page.",
+      "body": "openDayBtn: Open the day\nhandIn.lead: Each drawer’s cash from this day goes to the safe. The opening float stays in the drawer.\nhandIn.pendingLead: Business day {date} is closed, but its cash has not reached the safe yet.\nhandIn.boxes.cafe: Café cashier\nhandIn.boxes.desk: Court desk\nhandIn.boxes.shop: Shop desk\nhandIn.took: Took {amount} in cash\nhandIn.tookLessRefunds: Took {amount} in cash, less {refunds} refunded\nhandIn.noCash: No cash taken\nhandIn.amountLabel: {box}: cash to the safe\nhandIn.overNet: More than this drawer took. The extra comes out of the float.\nhandIn.handedIn: Handed in {amount}\nhandIn.kept: Kept in the drawer\nhandIn.move: Move {amount} to the safe\nhandIn.zero: Every amount is 0, so there is nothing to move.\nhandIn.notNow: Not now",
       "route": "/admin/day-close"
     },
     {
@@ -32390,7 +32710,7 @@
       "ref": "label:ws.manager.dayClose#3~3",
       "lang": "ar",
       "title": "ws.manager.dayClose (packages/i18n/src/catalogs/ws/manager.ar.ts) (part 3 of 3)",
-      "body": "csv.tabFigures: إغلاق اليوم\nhandIn.keptHint: ما بقي في الدرج يمكن تسليمه لاحقًا من صفحة القاصة.\nhandIn.allIn: وصل نقد هذا اليوم إلى القاصة.\nhandIn.openSafe: فتح صفحة القاصة\nhandIn.toast: نُقل {amount} إلى القاصة.\nhandIn.empty: لا نقد يُسلَّم من هذا اليوم.\nhandIn.error: تعذّر تحميل الأدراج.",
+      "body": "lastCloseLine: يوم العمل {date}\nhandIn.notNow: ليس الآن\nhandIn.later: لم يُسلَّم النقد بعد. يمكنك تسليمه من صفحة القاصة.\nhandIn.keptHint: ما بقي في الدرج يمكن تسليمه لاحقًا من صفحة القاصة.\nhandIn.allIn: وصل نقد هذا اليوم إلى القاصة.\nhandIn.openSafe: فتح صفحة القاصة\nhandIn.toast: نُقل {amount} إلى القاصة.\nhandIn.empty: لا نقد يُسلَّم من هذا اليوم.\nhandIn.error: تعذّر تحميل الأدراج.",
       "route": "/admin/day-close"
     },
     {
@@ -32398,7 +32718,7 @@
       "ref": "label:ws.manager.dayClose#3~3",
       "lang": "en",
       "title": "ws.manager.dayClose (packages/i18n/src/catalogs/ws/manager.en.ts) (part 3 of 3)",
-      "body": "lastCloseLine: Business day {date}\nhandIn.move: Move {amount} to the safe\nhandIn.zero: Every amount is 0, so there is nothing to move.\nhandIn.notNow: Not now\nhandIn.later: Not handed in. You can do it from the Safe page.\nhandIn.keptHint: What stayed in a drawer can be handed in later from the Safe page.\nhandIn.allIn: This day’s cash is in the safe.\nhandIn.openSafe: Open the Safe page\nhandIn.toast: Moved {amount} to the safe.\nhandIn.empty: No cash to hand in for this day.\nhandIn.error: The drawers could not be loaded.",
+      "body": "openDayBtn: Open the day\nhandIn.handedIn: Handed in {amount}\nhandIn.kept: Kept in the drawer\nhandIn.move: Move {amount} to the safe\nhandIn.zero: Every amount is 0, so there is nothing to move.\nhandIn.notNow: Not now\nhandIn.later: Not handed in. You can do it from the Safe page.\nhandIn.keptHint: What stayed in a drawer can be handed in later from the Safe page.\nhandIn.allIn: This day’s cash is in the safe.\nhandIn.openSafe: Open the Safe page\nhandIn.toast: Moved {amount} to the safe.\nhandIn.empty: No cash to hand in for this day.\nhandIn.error: The drawers could not be loaded.",
       "route": "/admin/day-close"
     },
     {
@@ -32854,7 +33174,7 @@
       "ref": "label:ws.manager.promotions",
       "lang": "ar",
       "title": "ws.manager.promotions (packages/i18n/src/catalogs/ws/manager.ar.ts) (part 1 of 4)",
-      "body": "title: الخصومات والعروض\nlead: تحصل الفاتورة على عرض واحد على الأكثر: العرض صاحب الخصم الأكبر. لإيقاف عرض، أوقف تشغيله. لا يُحذف شيء، ويبقى سجله محفوظًا.\ncreate: عرض جديد\nname: الاسم\ndiscount: الخصم\nwhen: التوقيت\nappliesTo: ينطبق على\nstatus: الحالة\nswitchFor: تشغيل أو إيقاف: {name}\nlive: فعّال\nstartsOn: يبدأ {date}\nendedOn: انتهى {date}\ndisabled: متوقف\nfilterLabel: إظهار\nfilter.all: الكل\nfilter.live: فعّالة\nfilter.scheduled: تبدأ لاحقًا\nfilter.disabled: متوقفة\nfilter.expired: منتهية\nsearch: ابحث بالاسم أو الرمز\nnoMatch: لا عروض تطابق البحث.\ncode: الرمز {code}\nsingleUse: لمرة واحدة\ncodeMissing: يحتاج إلى رمز، ولا رمز له بعد\nallCafe: كل أصناف الكافيه\nscopeCourts: الملاعب: {n}\nscopeCategories: الفئات: {n}\nscopeItems: الأصناف: {n}\nanyTime: أي يوم وأي وقت",
+      "body": "title: الخصومات والعروض\nlead: تحصل الفاتورة على عرض واحد على الأكثر: العرض صاحب الخصم الأكبر. لإيقاف عرض، أوقف تشغيله. لا يُحذف شيء، ويبقى سجله محفوظًا.\ncreate: عرض جديد\nname: الاسم\ndiscount: الخصم\nwhen: التوقيت\nappliesTo: ينطبق على\nstatus: الحالة\nswitchFor: تشغيل أو إيقاف: {name}\nlive: فعّال\nstartsOn: يبدأ {date}\nendedOn: انتهى {date}\ndisabled: متوقف\nfilterLabel: إظهار\nfilter.all: الكل\nfilter.live: فعّالة\nfilter.scheduled: تبدأ لاحقًا\nfilter.disabled: متوقفة\nfilter.expired: منتهية\nsearch: ابحث بالاسم أو الرمز\nnoMatch: لا عروض تطابق البحث.\ncode: الرمز {code}\nsingleUse: لمرة واحدة\ncodeMissing: يحتاج إلى رمز، ولا رمز له بعد\ninApp: في التطبيق\nappOnly: في التطبيق فقط\nallCafe: كل أصناف الكافيه\nscopeCourts: الملاعب: {n}\nscopeCategories: الفئات: {n}",
       "route": "/admin/promotions"
     },
     {
@@ -32862,7 +33182,7 @@
       "ref": "label:ws.manager.promotions",
       "lang": "en",
       "title": "ws.manager.promotions (packages/i18n/src/catalogs/ws/manager.en.ts) (part 1 of 4)",
-      "body": "title: Discounts & offers\nlead: A bill gets one promotion at most: the one that takes the most off. To stop a promotion, switch it off. Nothing is deleted, so its history stays.\ncreate: New promotion\nname: Name\ndiscount: Discount\nwhen: When\nappliesTo: Applies to\nstatus: Status\nswitchFor: On or off: {name}\nlive: Live\nstartsOn: Starts {date}\nendedOn: Ended {date}\ndisabled: Off\nfilterLabel: Show\nfilter.all: All\nfilter.live: Live\nfilter.scheduled: Starting later\nfilter.disabled: Off\nfilter.expired: Ended\nsearch: Search by name or code\nnoMatch: No promotion matches.\ncode: Code {code}\nsingleUse: single use\ncodeMissing: Needs a code, none yet\nallCafe: All cafe items\nscopeCourts: Courts: {n}\nscopeCategories: Categories: {n}\nscopeItems: Items: {n}",
+      "body": "title: Discounts & offers\nlead: A bill gets one promotion at most: the one that takes the most off. To stop a promotion, switch it off. Nothing is deleted, so its history stays.\ncreate: New promotion\nname: Name\ndiscount: Discount\nwhen: When\nappliesTo: Applies to\nstatus: Status\nswitchFor: On or off: {name}\nlive: Live\nstartsOn: Starts {date}\nendedOn: Ended {date}\ndisabled: Off\nfilterLabel: Show\nfilter.all: All\nfilter.live: Live\nfilter.scheduled: Starting later\nfilter.disabled: Off\nfilter.expired: Ended\nsearch: Search by name or code\nnoMatch: No promotion matches.\ncode: Code {code}\nsingleUse: single use\ncodeMissing: Needs a code, none yet\ninApp: In the app\nappOnly: In the app only\nallCafe: All cafe items\nscopeCourts: Courts: {n}\nscopeCategories: Categories: {n}",
       "route": "/admin/promotions"
     },
     {
@@ -32870,7 +33190,7 @@
       "ref": "label:ws.manager.promotions#2",
       "lang": "ar",
       "title": "ws.manager.promotions (packages/i18n/src/catalogs/ws/manager.ar.ts) (part 1 of 4)",
-      "body": "editor.expiredOn: انتهى في {date}. لم يعد ينطبق على أي فاتورة.\neditor.weekdays: أيام الأسبوع\neditor.weekdaysHint: عدم اختيار أي يوم يعني كل الأيام.\neditor.hours: الساعات\neditor.hourFrom: من\neditor.hourTo: إلى\neditor.hoursHint: اترك الحقلين فارغين ليشمل العرض اليوم كله. إن كانت النهاية قبل البداية، يمتد العرض إلى ما بعد منتصف الليل.\neditor.scopeHint: اترك الاختيار فارغًا ليشمل الخصم كل أصناف الكافيه في الفاتورة. لا يُخصم من رسوم الملاعب أبدًا.\neditor.courts: الملاعب\neditor.courtsHint: لا يشمل العرض إلا فواتير حجوزات هذه الملاعب.\neditor.categories: فئات المنيو\neditor.items: أصناف المنيو\neditor.chosen: المختار: {n}\neditor.searchToAdd: اكتب اسمًا لتجده وتضيفه.\neditor.moreResults: تظهر أول {shown} نتيجة. تابع الكتابة لتضييق البحث.",
+      "body": "editor.endsHint: اتركه فارغًا لعرض بلا نهاية. يتوقف من تلقاء نفسه بعد هذا اليوم.\neditor.expiredOn: انتهى في {date}. لم يعد ينطبق على أي فاتورة.\neditor.weekdays: أيام الأسبوع\neditor.weekdaysHint: عدم اختيار أي يوم يعني كل الأيام.\neditor.hours: الساعات\neditor.hourFrom: من\neditor.hourTo: إلى\neditor.hoursHint: اترك الحقلين فارغين ليشمل العرض اليوم كله. إن كانت النهاية قبل البداية، يمتد العرض إلى ما بعد منتصف الليل.\neditor.scopeHint: اترك الاختيار فارغًا ليشمل الخصم كل أصناف الكافيه في الفاتورة. لا يُخصم من رسوم الملاعب أبدًا.\neditor.courts: الملاعب\neditor.courtsHint: لا يشمل العرض إلا فواتير حجوزات هذه الملاعب.\neditor.categories: فئات المنيو\neditor.items: أصناف المنيو\neditor.chosen: المختار: {n}",
       "route": "/admin/promotions"
     },
     {
@@ -32886,7 +33206,7 @@
       "ref": "label:ws.manager.promotions#2~2",
       "lang": "ar",
       "title": "ws.manager.promotions (packages/i18n/src/catalogs/ws/manager.ar.ts) (part 2 of 4)",
-      "body": "editor.expiredOn: انتهى في {date}. لم يعد ينطبق على أي فاتورة.\neditor.items: أصناف المنيو\neditor.chosen: المختار: {n}\neditor.searchToAdd: اكتب اسمًا لتجده وتضيفه.\neditor.moreResults: تظهر أول {shown} نتيجة. تابع الكتابة لتضييق البحث.\neditor.noResults: لا شيء يطابق هذا البحث.\neditor.limitTotal: إجمالي مرات الاستخدام\neditor.limitPerCustomer: مرات الاستخدام لكل ضيف\neditor.minSpend: الحد الأدنى للفاتورة (د.ع)\neditor.limitHint: الحقل الفارغ يعني بلا حد. عند تحديد حدّ لكل ضيف، لا تحصل الفاتورة التي لا ضيف مسمّى فيها على هذا العرض.\neditor.howAuto: تلقائيًا\neditor.howCode: برمز فقط\neditor.autoHint: تحصل عليه كل فاتورة تستوفي شروطه عندما يطبّق الموظف عرضًا في كاشير الكافيه.\neditor.codeHint: يذكر الضيف الرمز ويدخله الموظف في كاشير الكافيه.",
+      "body": "editor.endsHint: اتركه فارغًا لعرض بلا نهاية. يتوقف من تلقاء نفسه بعد هذا اليوم.\neditor.courts: الملاعب\neditor.courtsHint: لا يشمل العرض إلا فواتير حجوزات هذه الملاعب.\neditor.categories: فئات المنيو\neditor.items: أصناف المنيو\neditor.chosen: المختار: {n}\neditor.searchToAdd: اكتب اسمًا لتجده وتضيفه.\neditor.moreResults: تظهر أول {shown} نتيجة. تابع الكتابة لتضييق البحث.\neditor.noResults: لا شيء يطابق هذا البحث.\neditor.limitTotal: إجمالي مرات الاستخدام\neditor.limitPerCustomer: مرات الاستخدام لكل ضيف\neditor.minSpend: الحد الأدنى للفاتورة (د.ع)\neditor.limitHint: الحقل الفارغ يعني بلا حد. عند تحديد حدّ لكل ضيف، لا تحصل الفاتورة التي لا ضيف مسمّى فيها على هذا العرض.\neditor.howAuto: تلقائيًا\neditor.howCode: برمز فقط\neditor.howApp: في التطبيق فقط",
       "route": "/admin/promotions"
     },
     {
@@ -32894,7 +33214,7 @@
       "ref": "label:ws.manager.promotions#2~2",
       "lang": "en",
       "title": "ws.manager.promotions (packages/i18n/src/catalogs/ws/manager.en.ts) (part 2 of 4)",
-      "body": "editor.endsHint: Leave blank for no end. It stops by itself after this day.\neditor.courts: Courts\neditor.courtsHint: Only bills for bookings on these courts qualify.\neditor.categories: Menu categories\neditor.items: Menu items\neditor.chosen: Chosen: {n}\neditor.searchToAdd: Type a name to find one and add it.\neditor.moreResults: Showing the first {shown}. Keep typing to narrow it down.\neditor.noResults: Nothing matches that search.\neditor.limitTotal: Total uses\neditor.limitPerCustomer: Uses per guest\neditor.minSpend: Minimum bill (IQD)\neditor.limitHint: Blank means no limit. With a per-guest limit, a bill with no named guest does not get this promotion.\neditor.howAuto: Automatically\neditor.howCode: Only with a code",
+      "body": "editor.endsHint: Leave blank for no end. It stops by itself after this day.\neditor.courts: Courts\neditor.courtsHint: Only bills for bookings on these courts qualify.\neditor.categories: Menu categories\neditor.items: Menu items\neditor.chosen: Chosen: {n}\neditor.searchToAdd: Type a name to find one and add it.\neditor.moreResults: Showing the first {shown}. Keep typing to narrow it down.\neditor.noResults: Nothing matches that search.\neditor.limitTotal: Total uses\neditor.limitPerCustomer: Uses per guest\neditor.minSpend: Minimum bill (IQD)\neditor.limitHint: Blank means no limit. With a per-guest limit, a bill with no named guest does not get this promotion.\neditor.howAuto: Automatically\neditor.howCode: Only with a code\neditor.howApp: In the app only",
       "route": "/admin/promotions"
     },
     {
@@ -32902,7 +33222,7 @@
       "ref": "label:ws.manager.promotions#2~3",
       "lang": "ar",
       "title": "ws.manager.promotions (packages/i18n/src/catalogs/ws/manager.ar.ts) (part 3 of 4)",
-      "body": "editor.expiredOn: انتهى في {date}. لم يعد ينطبق على أي فاتورة.\neditor.howCode: برمز فقط\neditor.autoHint: تحصل عليه كل فاتورة تستوفي شروطه عندما يطبّق الموظف عرضًا في كاشير الكافيه.\neditor.codeHint: يذكر الضيف الرمز ويدخله الموظف في كاشير الكافيه.\neditor.bestOnly: إذا انطبق أكثر من عرض على فاتورة واحدة، يُطبَّق العرض صاحب الخصم الأكبر فقط.\neditor.publicCode: الرمز\neditor.noCode: لا رمز بعد.\neditor.codeMissing: بلا رمز لن ينطبق هذا العرض أبدًا.\neditor.generate: إنشاء رمز\neditor.generateHint: احفظ العرض أولًا ثم أنشئ الرمز.\neditor.codeSingleUse: يُستخدم كل رمز مرة واحدة فقط\neditor.enabledLabel: مُشغَّل\neditor.enabledHint: العرض المتوقف لا ينطبق أبدًا. إيقافه يُبقي سجله، ولا يُحذف شيء.\neditor.dirty: تغييرات غير محفوظة\neditor.saved: حُفظ العرض.\neditor.notFound: تعذّر العثور على هذا العرض.",
+      "body": "editor.endsHint: اتركه فارغًا لعرض بلا نهاية. يتوقف من تلقاء نفسه بعد هذا اليوم.\neditor.howAuto: تلقائيًا\neditor.howCode: برمز فقط\neditor.howApp: في التطبيق فقط\neditor.autoHint: تحصل عليه كل فاتورة تستوفي شروطه عندما يطبّق الموظف عرضًا في كاشير الكافيه.\neditor.codeHint: يذكر الضيف الرمز ويدخله الموظف في كاشير الكافيه.\neditor.appHint: يختاره الأعضاء في التطبيق ثم يُظهرون بطاقة العضوية عند كاشير الكافيه. لا يحصل عليه غيرهم.\neditor.bestOnly: إذا انطبق أكثر من عرض على فاتورة واحدة، يُطبَّق العرض صاحب الخصم الأكبر فقط.\neditor.publicCode: الرمز\neditor.noCode: لا رمز بعد.\neditor.codeMissing: بلا رمز وبلا إدراج في التطبيق لن ينطبق هذا العرض أبدًا.\neditor.codeMissingNoApp: بلا رمز لن ينطبق هذا العرض أبدًا.",
       "route": "/admin/promotions"
     },
     {
@@ -32910,7 +33230,7 @@
       "ref": "label:ws.manager.promotions#2~3",
       "lang": "en",
       "title": "ws.manager.promotions (packages/i18n/src/catalogs/ws/manager.en.ts) (part 3 of 4)",
-      "body": "editor.endsHint: Leave blank for no end. It stops by itself after this day.\neditor.limitHint: Blank means no limit. With a per-guest limit, a bill with no named guest does not get this promotion.\neditor.howAuto: Automatically\neditor.howCode: Only with a code\neditor.autoHint: Any bill that qualifies gets it when staff apply a promotion at the café cashier.\neditor.codeHint: The guest gives the code and staff type it at the café cashier.\neditor.bestOnly: If several promotions fit one bill, only the one that takes the most off applies.\neditor.publicCode: Code\neditor.noCode: No code yet.\neditor.codeMissing: Without a code this promotion can never apply.\neditor.generate: Generate code\neditor.generateHint: Save the promotion first, then generate a code.",
+      "body": "editor.endsHint: Leave blank for no end. It stops by itself after this day.\neditor.howAuto: Automatically\neditor.howCode: Only with a code\neditor.howApp: In the app only\neditor.autoHint: Any bill that qualifies gets it when staff apply a promotion at the café cashier.\neditor.codeHint: The guest gives the code and staff type it at the café cashier.\neditor.appHint: Members pick it in the app, then show their member card at the café cashier. Nobody else gets it.\neditor.bestOnly: If several promotions fit one bill, only the one that takes the most off applies.\neditor.publicCode: Code\neditor.noCode: No code yet.\neditor.codeMissing: With no code, and not listed in the app, this promotion can never apply.\neditor.codeMissingNoApp: Without a code this promotion can never apply.",
       "route": "/admin/promotions"
     },
     {
@@ -32918,7 +33238,7 @@
       "ref": "label:ws.manager.promotions#2~4",
       "lang": "ar",
       "title": "ws.manager.promotions (packages/i18n/src/catalogs/ws/manager.ar.ts) (part 4 of 4)",
-      "body": "editor.expiredOn: انتهى في {date}. لم يعد ينطبق على أي فاتورة.\neditor.enabledHint: العرض المتوقف لا ينطبق أبدًا. إيقافه يُبقي سجله، ولا يُحذف شيء.\neditor.dirty: تغييرات غير محفوظة\neditor.saved: حُفظ العرض.\neditor.notFound: تعذّر العثور على هذا العرض.\neditor.errors.name: الاسم مطلوب بالإنجليزية والعربية.\neditor.errors.value: يجب أن تكون القيمة أكبر من صفر.\neditor.errors.percent: يجب أن تكون النسبة بين 1 و99.",
+      "body": "editor.endsHint: اتركه فارغًا لعرض بلا نهاية. يتوقف من تلقاء نفسه بعد هذا اليوم.\neditor.publicCode: الرمز\neditor.noCode: لا رمز بعد.\neditor.codeMissing: بلا رمز وبلا إدراج في التطبيق لن ينطبق هذا العرض أبدًا.\neditor.codeMissingNoApp: بلا رمز لن ينطبق هذا العرض أبدًا.\neditor.codeMissingListed: لا رمز له بعد. إلى أن يُنشأ الرمز، يستطيع الأعضاء اختياره في التطبيق.\neditor.codeLost: يتوقف الرمز {code} عن العمل عند الحفظ.\neditor.generate: إنشاء رمز\neditor.generateHint: احفظ العرض أولًا ثم أنشئ الرمز.",
       "route": "/admin/promotions"
     },
     {
@@ -32926,23 +33246,95 @@
       "ref": "label:ws.manager.promotions#2~4",
       "lang": "en",
       "title": "ws.manager.promotions (packages/i18n/src/catalogs/ws/manager.en.ts) (part 4 of 4)",
-      "body": "editor.endsHint: Leave blank for no end. It stops by itself after this day.\neditor.noCode: No code yet.\neditor.codeMissing: Without a code this promotion can never apply.\neditor.generate: Generate code\neditor.generateHint: Save the promotion first, then generate a code.\neditor.codeSingleUse: Each code works once\neditor.enabledLabel: Switched on\neditor.enabledHint: Off means it never applies. Switching it off keeps its history; nothing is deleted.\neditor.dirty: Unsaved changes\neditor.saved: Promotion saved.\neditor.notFound: This promotion could not be found.\neditor.errors.name: Enter both the English and the Arabic name.",
+      "body": "editor.endsHint: Leave blank for no end. It stops by itself after this day.\neditor.noCode: No code yet.\neditor.codeMissing: With no code, and not listed in the app, this promotion can never apply.\neditor.codeMissingNoApp: Without a code this promotion can never apply.\neditor.codeMissingListed: It has no code yet. Until it does, members can still pick it in the app.\neditor.codeLost: The code {code} stops working when you save.\neditor.generate: Generate code",
       "route": "/admin/promotions"
     },
     {
       "kind": "label",
       "ref": "label:ws.manager.promotions#3",
       "lang": "ar",
-      "title": "ws.manager.promotions (packages/i18n/src/catalogs/ws/manager.ar.ts)",
-      "body": "editor.errors.startsPast: لا يمكن أن تكون البداية في الماضي.\neditor.errors.endsPast: لا يمكن أن تكون النهاية في الماضي.\neditor.errors.dates: يجب أن تكون النهاية في يوم البداية أو بعده.\neditor.errors.hours: يجب تحديد وقتين مختلفين.\neditor.saveNeeds.value: أدخل الخصم ليُتاح الحفظ.\neditor.saveNeeds.startsPast: انقل البداية إلى اليوم أو بعده ليُتاح الحفظ.\neditor.saveNeeds.endsPast: انقل النهاية إلى اليوم أو بعده ليُتاح الحفظ.\neditor.saveNeeds.percent: حدّد نسبة من 1 إلى 99 ليُتاح الحفظ.\neditor.saveNeeds.dates: صحّح التواريخ ليُتاح الحفظ.\neditor.saveNeeds.hours: صحّح الساعات ليُتاح الحفظ.",
+      "title": "ws.manager.promotions (packages/i18n/src/catalogs/ws/manager.ar.ts) (part 1 of 4)",
+      "body": "editor.codeSingleUse: يُستخدم كل رمز مرة واحدة فقط\neditor.enabledLabel: مُشغَّل\neditor.enabledHint: العرض المتوقف لا ينطبق أبدًا. إيقافه يُبقي سجله، ولا يُحذف شيء.\neditor.dirty: تغييرات غير محفوظة\neditor.saved: حُفظ العرض.\neditor.notFound: تعذّر العثور على هذا العرض.\neditor.errors.name: الاسم مطلوب بالإنجليزية والعربية.\neditor.errors.value: يجب أن تكون القيمة أكبر من صفر.\neditor.errors.percent: يجب أن تكون النسبة بين 1 و99.\neditor.errors.startsPast: لا يمكن أن تكون البداية في الماضي.\neditor.errors.endsPast: لا يمكن أن تكون النهاية في الماضي.\neditor.errors.dates: يجب أن تكون النهاية في يوم البداية أو بعده.\neditor.errors.hours: يجب تحديد وقتين مختلفين.\neditor.errors.blurbPair: اكتب السطر باللغتين، أو اترك الحقلين فارغين.",
       "route": "/admin/promotions"
     },
     {
       "kind": "label",
       "ref": "label:ws.manager.promotions#3",
       "lang": "en",
-      "title": "ws.manager.promotions (packages/i18n/src/catalogs/ws/manager.en.ts)",
-      "body": "editor.errors.value: Enter a value greater than zero.\neditor.errors.percent: Percent must be between 1 and 99.\neditor.errors.startsPast: The start cannot be in the past.\neditor.errors.endsPast: The end cannot be in the past.\neditor.errors.dates: The end must be on or after the start.\neditor.errors.hours: Set both times, and make them different.\neditor.saveNeeds.value: Enter a discount to save.\neditor.saveNeeds.startsPast: Move the start to today or later to save.\neditor.saveNeeds.endsPast: Move the end to today or later to save.\neditor.saveNeeds.percent: Set a percent from 1 to 99 to save.\neditor.saveNeeds.dates: Fix the dates to save.\neditor.saveNeeds.hours: Fix the hours to save.",
+      "title": "ws.manager.promotions (packages/i18n/src/catalogs/ws/manager.en.ts) (part 1 of 4)",
+      "body": "editor.generateHint: Save the promotion first, then generate a code.\neditor.codeSingleUse: Each code works once\neditor.enabledLabel: Switched on\neditor.enabledHint: Off means it never applies. Switching it off keeps its history; nothing is deleted.\neditor.dirty: Unsaved changes\neditor.saved: Promotion saved.\neditor.notFound: This promotion could not be found.\neditor.errors.name: Enter both the English and the Arabic name.\neditor.errors.value: Enter a value greater than zero.\neditor.errors.percent: Percent must be between 1 and 99.\neditor.errors.startsPast: The start cannot be in the past.\neditor.errors.endsPast: The end cannot be in the past.\neditor.errors.dates: The end must be on or after the start.",
+      "route": "/admin/promotions"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.manager.promotions#3~2",
+      "lang": "ar",
+      "title": "ws.manager.promotions (packages/i18n/src/catalogs/ws/manager.ar.ts) (part 2 of 4)",
+      "body": "editor.codeSingleUse: يُستخدم كل رمز مرة واحدة فقط\neditor.errors.dates: يجب أن تكون النهاية في يوم البداية أو بعده.\neditor.errors.hours: يجب تحديد وقتين مختلفين.\neditor.errors.blurbPair: اكتب السطر باللغتين، أو اترك الحقلين فارغين.\neditor.errors.blurbLong: لا يتجاوز السطر الواحد 160 حرفًا.\neditor.errors.appSingleUse: العرض المُدرج في التطبيق لا يكون برمز يُستخدم مرة واحدة. أخرجه من التطبيق، أو أوقف «يُستخدم كل رمز مرة واحدة فقط».\neditor.saveNeeds.value: أدخل الخصم ليُتاح الحفظ.\neditor.saveNeeds.startsPast: انقل البداية إلى اليوم أو بعده ليُتاح الحفظ.\neditor.saveNeeds.endsPast: انقل النهاية إلى اليوم أو بعده ليُتاح الحفظ.\neditor.saveNeeds.percent: حدّد نسبة من 1 إلى 99 ليُتاح الحفظ.\neditor.saveNeeds.dates: صحّح التواريخ ليُتاح الحفظ.\neditor.saveNeeds.hours: صحّح الساعات ليُتاح الحفظ.",
+      "route": "/admin/promotions"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.manager.promotions#3~2",
+      "lang": "en",
+      "title": "ws.manager.promotions (packages/i18n/src/catalogs/ws/manager.en.ts) (part 2 of 4)",
+      "body": "editor.generateHint: Save the promotion first, then generate a code.\neditor.errors.startsPast: The start cannot be in the past.\neditor.errors.endsPast: The end cannot be in the past.\neditor.errors.dates: The end must be on or after the start.\neditor.errors.hours: Set both times, and make them different.\neditor.errors.blurbPair: Write the line in both languages, or leave both empty.\neditor.errors.blurbLong: Keep each line to 160 characters.\neditor.errors.appSingleUse: A deal listed in the app cannot have a code that works once. Take it off the app, or switch off “Each code works once”.\neditor.saveNeeds.value: Enter a discount to save.\neditor.saveNeeds.startsPast: Move the start to today or later to save.\neditor.saveNeeds.endsPast: Move the end to today or later to save.",
+      "route": "/admin/promotions"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.manager.promotions#3~3",
+      "lang": "ar",
+      "title": "ws.manager.promotions (packages/i18n/src/catalogs/ws/manager.ar.ts) (part 3 of 4)",
+      "body": "editor.codeSingleUse: يُستخدم كل رمز مرة واحدة فقط\neditor.saveNeeds.percent: حدّد نسبة من 1 إلى 99 ليُتاح الحفظ.\neditor.saveNeeds.dates: صحّح التواريخ ليُتاح الحفظ.\neditor.saveNeeds.hours: صحّح الساعات ليُتاح الحفظ.\neditor.saveNeeds.blurbPair: أكمل سطر الضيوف باللغتين ليُتاح الحفظ.\neditor.saveNeeds.blurbLong: اختصر سطر الضيوف ليُتاح الحفظ.\neditor.saveNeeds.appSingleUse: أخرجه من التطبيق، أو اجعل رمزه يُستخدم أكثر من مرة، ليُتاح الحفظ.\neditor.app.title: في تطبيق الضيوف\neditor.app.switch: إدراجه عرضًا في التطبيق\neditor.app.switchHint: يراه الضيوف ضمن العروض في التطبيق، فيختارونه ويُظهرون بطاقة العضوية عند كاشير الكافيه.\neditor.app.lockedAppOnly: العرض في التطبيق فقط، لذا يبقى مُدرجًا. لإخراجه من التطبيق، اختر أولًا طريقة أخرى لتطبيقه.",
+      "route": "/admin/promotions"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.manager.promotions#3~3",
+      "lang": "en",
+      "title": "ws.manager.promotions (packages/i18n/src/catalogs/ws/manager.en.ts) (part 3 of 4)",
+      "body": "editor.generateHint: Save the promotion first, then generate a code.\neditor.saveNeeds.value: Enter a discount to save.\neditor.saveNeeds.startsPast: Move the start to today or later to save.\neditor.saveNeeds.endsPast: Move the end to today or later to save.\neditor.saveNeeds.percent: Set a percent from 1 to 99 to save.\neditor.saveNeeds.dates: Fix the dates to save.\neditor.saveNeeds.hours: Fix the hours to save.\neditor.saveNeeds.blurbPair: Finish the line for guests in both languages to save.\neditor.saveNeeds.blurbLong: Shorten the line for guests to save.\neditor.saveNeeds.appSingleUse: Take it off the app, or let its code work more than once, to save.\neditor.app.title: In the guests’ app\neditor.app.switch: List it as a deal in the app",
+      "route": "/admin/promotions"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.manager.promotions#3~4",
+      "lang": "ar",
+      "title": "ws.manager.promotions (packages/i18n/src/catalogs/ws/manager.ar.ts) (part 4 of 4)",
+      "body": "editor.codeSingleUse: يُستخدم كل رمز مرة واحدة فقط\neditor.app.lockedAppOnly: العرض في التطبيق فقط، لذا يبقى مُدرجًا. لإخراجه من التطبيق، اختر أولًا طريقة أخرى لتطبيقه.\neditor.app.lockedSingleUse: الرمز الذي يُستخدم مرة واحدة قسيمة لفاتورة واحدة، فلا يمكن إدراج هذا العرض. أوقف «يُستخدم كل رمز مرة واحدة فقط» أولًا.",
+      "route": "/admin/promotions"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.manager.promotions#3~4",
+      "lang": "en",
+      "title": "ws.manager.promotions (packages/i18n/src/catalogs/ws/manager.en.ts) (part 4 of 4)",
+      "body": "editor.generateHint: Save the promotion first, then generate a code.\neditor.saveNeeds.appSingleUse: Take it off the app, or let its code work more than once, to save.\neditor.app.title: In the guests’ app\neditor.app.switch: List it as a deal in the app\neditor.app.switchHint: Guests see it with the deals in the app, pick it, and show their member card at the café cashier.\neditor.app.lockedAppOnly: It is in the app only, so it stays listed. To take it off the app, first choose another way to apply it.",
+      "route": "/admin/promotions"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.manager.promotions#4",
+      "lang": "ar",
+      "title": "ws.manager.promotions (packages/i18n/src/catalogs/ws/manager.ar.ts)",
+      "body": "editor.app.offNote: العرض متوقف، فلا يراه الضيوف بعد.\neditor.app.blurbEn: السطر الذي يقرؤه الضيوف (بالإنجليزية)\neditor.app.blurbAr: السطر الذي يقرؤه الضيوف (بالعربية)\neditor.app.blurbHint: اختياري. اكتب السطرين معًا، أو اتركهما فارغين فيذكر التطبيق ما يشمله العرض.\neditor.app.count: {n} / {max}\neditor.app.failed: حُفظ العرض، لكن إدراجه في التطبيق لم يُحفظ. اضغط «حفظ» للمحاولة مرة أخرى.\neditor.app.failedNew: حُفظ العرض، لكنه لم يُدرج في التطبيق. شغّل الإدراج من جديد ثم احفظ.\neditor.app.listed: مُدرج في تطبيق الضيوف\neditor.app.notListed: غير مُدرج في تطبيق الضيوف\neditor.app.ownerOnly: المالك وحده يُدرج العروض في التطبيق.",
+      "route": "/admin/promotions"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.manager.promotions#4",
+      "lang": "en",
+      "title": "ws.manager.promotions (packages/i18n/src/catalogs/ws/manager.en.ts) (part 1 of 2)",
+      "body": "editor.app.lockedSingleUse: A code that works once is one voucher for one bill, so this promotion cannot be listed. Switch off “Each code works once” first.\neditor.app.offNote: The promotion is switched off, so guests do not see it yet.\neditor.app.blurbEn: Line guests read (English)\neditor.app.blurbAr: Line guests read (Arabic)\neditor.app.blurbHint: Optional. Write both, or leave both empty and the app says what the deal covers.\neditor.app.count: {n} / {max}\neditor.app.failed: The promotion was saved, but its listing in the app was not. Press Save to try again.",
+      "route": "/admin/promotions"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.manager.promotions#4~2",
+      "lang": "en",
+      "title": "ws.manager.promotions (packages/i18n/src/catalogs/ws/manager.en.ts) (part 2 of 2)",
+      "body": "editor.app.lockedSingleUse: A code that works once is one voucher for one bill, so this promotion cannot be listed. Switch off “Each code works once” first.\neditor.app.count: {n} / {max}\neditor.app.failed: The promotion was saved, but its listing in the app was not. Press Save to try again.\neditor.app.failedNew: The promotion was saved, but it was not listed in the app. Switch the listing on again and save.\neditor.app.listed: Listed in the guests’ app\neditor.app.notListed: Not in the guests’ app\neditor.app.ownerOnly: Only the owner lists a promotion in the app.",
       "route": "/admin/promotions"
     },
     {
@@ -32950,7 +33342,7 @@
       "ref": "label:ws.manager.promotions~2",
       "lang": "ar",
       "title": "ws.manager.promotions (packages/i18n/src/catalogs/ws/manager.ar.ts) (part 2 of 4)",
-      "body": "title: الخصومات والعروض\nsingleUse: لمرة واحدة\ncodeMissing: يحتاج إلى رمز، ولا رمز له بعد\nallCafe: كل أصناف الكافيه\nscopeCourts: الملاعب: {n}\nscopeCategories: الفئات: {n}\nscopeItems: الأصناف: {n}\nanyTime: أي يوم وأي وقت\nfrom: من {date}\nuntil: حتى {date}\ndateRange: {from} – {to}\ndayRange: {from}–{to}\nlistSep: ، \nhoursRange: {from}–{to}\nhoursOvernight: {from}–{to} (يمتد بعد منتصف الليل)\nempty: لا عروض بعد.\nemptyBody: أنشئ عرضًا بخصم بنسبة مئوية أو بمبلغ ثابت، وقيّده بتاريخ أو يوم أو ساعة أو ملعب أو فئة أو صنف.\nsummary.percentOff: خصم {value}%\nsummary.amountOff: خصم {amount}\nsummary.offWhat: {off} على {what}\nsummary.allCafe: كل أصناف الكافيه\nsummary.categories: الفئات المختارة من المنيو\nsummary.items: الأصناف المختارة من المنيو\nsummary.categoriesAndItems: الفئات والأصناف المختارة من المنيو",
+      "body": "title: الخصومات والعروض\nsingleUse: لمرة واحدة\ncodeMissing: يحتاج إلى رمز، ولا رمز له بعد\ninApp: في التطبيق\nappOnly: في التطبيق فقط\nallCafe: كل أصناف الكافيه\nscopeCourts: الملاعب: {n}\nscopeCategories: الفئات: {n}\nscopeItems: الأصناف: {n}\nanyTime: أي يوم وأي وقت\nfrom: من {date}\nuntil: حتى {date}\ndateRange: {from} – {to}\ndayRange: {from}–{to}\nlistSep: ، \nhoursRange: {from}–{to}\nhoursOvernight: {from}–{to} (يمتد بعد منتصف الليل)\nempty: لا عروض بعد.\nemptyBody: أنشئ عرضًا بخصم بنسبة مئوية أو بمبلغ ثابت، وقيّده بتاريخ أو يوم أو ساعة أو ملعب أو فئة أو صنف.\nsummary.percentOff: خصم {value}%\nsummary.amountOff: خصم {amount}\nsummary.offWhat: {off} على {what}\nsummary.allCafe: كل أصناف الكافيه\nsummary.categories: الفئات المختارة من المنيو\nsummary.items: الأصناف المختارة من المنيو",
       "route": "/admin/promotions"
     },
     {
@@ -32958,7 +33350,7 @@
       "ref": "label:ws.manager.promotions~2",
       "lang": "en",
       "title": "ws.manager.promotions (packages/i18n/src/catalogs/ws/manager.en.ts) (part 2 of 4)",
-      "body": "title: Discounts & offers\ncode: Code {code}\nsingleUse: single use\ncodeMissing: Needs a code, none yet\nallCafe: All cafe items\nscopeCourts: Courts: {n}\nscopeCategories: Categories: {n}\nscopeItems: Items: {n}\nanyTime: Any day, any time\nfrom: From {date}\nuntil: Until {date}\ndateRange: {from} – {to}\ndayRange: {from}–{to}\nlistSep: , \nhoursRange: {from}–{to}\nhoursOvernight: {from}–{to} (overnight)\nempty: No promotions yet.\nemptyBody: Create one to offer a percentage or fixed amount off, limited by date, weekday, hour, court, category or item.\nsummary.percentOff: {value}% off\nsummary.amountOff: {amount} off\nsummary.offWhat: {off} {what}\nsummary.allCafe: everything from the cafe\nsummary.categories: the chosen menu categories\nsummary.items: the chosen menu items",
+      "body": "title: Discounts & offers\nsingleUse: single use\ncodeMissing: Needs a code, none yet\ninApp: In the app\nappOnly: In the app only\nallCafe: All cafe items\nscopeCourts: Courts: {n}\nscopeCategories: Categories: {n}\nscopeItems: Items: {n}\nanyTime: Any day, any time\nfrom: From {date}\nuntil: Until {date}\ndateRange: {from} – {to}\ndayRange: {from}–{to}\nlistSep: , \nhoursRange: {from}–{to}\nhoursOvernight: {from}–{to} (overnight)\nempty: No promotions yet.\nemptyBody: Create one to offer a percentage or fixed amount off, limited by date, weekday, hour, court, category or item.\nsummary.percentOff: {value}% off\nsummary.amountOff: {amount} off\nsummary.offWhat: {off} {what}\nsummary.allCafe: everything from the cafe\nsummary.categories: the chosen menu categories\nsummary.items: the chosen menu items",
       "route": "/admin/promotions"
     },
     {
@@ -32966,7 +33358,7 @@
       "ref": "label:ws.manager.promotions~3",
       "lang": "ar",
       "title": "ws.manager.promotions (packages/i18n/src/catalogs/ws/manager.ar.ts) (part 3 of 4)",
-      "body": "title: الخصومات والعروض\nsummary.allCafe: كل أصناف الكافيه\nsummary.categories: الفئات المختارة من المنيو\nsummary.items: الأصناف المختارة من المنيو\nsummary.categoriesAndItems: الفئات والأصناف المختارة من المنيو\nsummary.courts: لفواتير حجوزات الملاعب المختارة فقط\nsummary.minSpend: للفواتير من {amount} فأكثر\nsummary.total: إجمالي مرات الاستخدام: {n}\nsummary.perCustomer: مرات الاستخدام لكل ضيف: {n}\neditor.newTitle: عرض جديد\neditor.basics: ما يقدّمه\neditor.whenTitle: متى ينطبق\neditor.scopeTitle: على ماذا ينطبق\neditor.limitsTitle: الحدود\neditor.howTitle: كيف يُطبَّق\neditor.type: النوع\neditor.percent: خصم بنسبة مئوية\neditor.amount: خصم بمبلغ ثابت\neditor.percentValue: النسبة (%)\neditor.amountValue: المبلغ (د.ع)\neditor.starts: يبدأ\neditor.ends: ينتهي",
+      "body": "title: الخصومات والعروض\nsummary.amountOff: خصم {amount}\nsummary.offWhat: {off} على {what}\nsummary.allCafe: كل أصناف الكافيه\nsummary.categories: الفئات المختارة من المنيو\nsummary.items: الأصناف المختارة من المنيو\nsummary.categoriesAndItems: الفئات والأصناف المختارة من المنيو\nsummary.courts: لفواتير حجوزات الملاعب المختارة فقط\nsummary.minSpend: للفواتير من {amount} فأكثر\nsummary.total: إجمالي مرات الاستخدام: {n}\nsummary.perCustomer: مرات الاستخدام لكل ضيف: {n}\neditor.newTitle: عرض جديد\neditor.basics: ما يقدّمه\neditor.whenTitle: متى ينطبق\neditor.scopeTitle: على ماذا ينطبق\neditor.limitsTitle: الحدود\neditor.howTitle: كيف يُطبَّق\neditor.type: النوع\neditor.percent: خصم بنسبة مئوية\neditor.amount: خصم بمبلغ ثابت\neditor.percentValue: النسبة (%)\neditor.amountValue: المبلغ (د.ع)\neditor.starts: يبدأ",
       "route": "/admin/promotions"
     },
     {
@@ -32982,7 +33374,7 @@
       "ref": "label:ws.manager.promotions~4",
       "lang": "ar",
       "title": "ws.manager.promotions (packages/i18n/src/catalogs/ws/manager.ar.ts) (part 4 of 4)",
-      "body": "title: الخصومات والعروض\neditor.type: النوع\neditor.percent: خصم بنسبة مئوية\neditor.amount: خصم بمبلغ ثابت\neditor.percentValue: النسبة (%)\neditor.amountValue: المبلغ (د.ع)\neditor.starts: يبدأ\neditor.ends: ينتهي\neditor.endsHint: اتركه فارغًا لعرض بلا نهاية. يتوقف من تلقاء نفسه بعد هذا اليوم.",
+      "body": "title: الخصومات والعروض\neditor.howTitle: كيف يُطبَّق\neditor.type: النوع\neditor.percent: خصم بنسبة مئوية\neditor.amount: خصم بمبلغ ثابت\neditor.percentValue: النسبة (%)\neditor.amountValue: المبلغ (د.ع)\neditor.starts: يبدأ\neditor.ends: ينتهي",
       "route": "/admin/promotions"
     },
     {
@@ -37230,7 +37622,7 @@
       "ref": "label:ws.players.level",
       "lang": "ar",
       "title": "ws.players.level (packages/i18n/src/catalogs/ws/players.ar.ts)",
-      "body": "new: مبتدئ تماماً\nbeginner: مبتدئ\nintermediate: متوسط\nadvanced: متقدّم",
+      "body": "new: فئة C\nbeginner: فئة C\nintermediate: فئة B\nadvanced: فئة A",
       "route": null
     },
     {
@@ -37238,7 +37630,7 @@
       "ref": "label:ws.players.level",
       "lang": "en",
       "title": "ws.players.level (packages/i18n/src/catalogs/ws/players.en.ts)",
-      "body": "new: Just starting\nbeginner: Beginner\nintermediate: Intermediate\nadvanced: Advanced",
+      "body": "new: Type C\nbeginner: Type C\nintermediate: Type B\nadvanced: Type A",
       "route": null
     },
     {
@@ -37590,7 +37982,7 @@
       "ref": "label:ws.protocols.context~2",
       "lang": "en",
       "title": "ws.protocols.context (packages/i18n/src/catalogs/ws/protocols.en.ts) (part 2 of 4)",
-      "body": "test.title: The recipe to make\nreadiness.notReady: Not ready yet\nfeasibility.title: Bookings in the way\nfeasibility.none: The plan names no courts yet.\nfeasibility.row: {court}, {when}: {bookings} bookings, {guests} guests\nfeasibility.rowLessons: {court}, {when}: {bookings} bookings, {guests} guests, {lessons} lessons, {students} students\ntournament.title: The plan: {name}\ntournament.class: Class {class}\ntournament.capacity_players: {count} players\ntournament.capacity_pairs: {count} pairs\ntournament.blocked: Blocks made so far: {count}\nnumbers.title: The figures\nnumbers.cols.size: Size\nnumbers.cols.now: Now\nnumbers.cols.new: New\nnumbers.cols.cost: Cost\nnumbers.cols.marginNow: Margin now\nnumbers.cols.marginNew: Margin after\nnumbers.cols.sold: Sold (30 days)\nnumbers.newSize: new",
+      "body": "test.title: The recipe to make\nreadiness.notReady: Not ready yet\nfeasibility.title: Bookings in the way\nfeasibility.none: The plan names no courts yet.\nfeasibility.row: {court}, {when}: {bookings} bookings, {guests} guests\nfeasibility.rowLessons: {court}, {when}: {bookings} bookings, {guests} guests, {lessons} lessons, {students} students\ntournament.title: The plan: {name}\ntournament.class: Type {class}\ntournament.capacity_players: {count} players\ntournament.capacity_pairs: {count} pairs\ntournament.blocked: Blocks made so far: {count}\nnumbers.title: The figures\nnumbers.cols.size: Size\nnumbers.cols.now: Now\nnumbers.cols.new: New\nnumbers.cols.cost: Cost\nnumbers.cols.marginNow: Margin now\nnumbers.cols.marginNew: Margin after\nnumbers.cols.sold: Sold (30 days)\nnumbers.newSize: new",
       "route": null
     },
     {
@@ -37726,7 +38118,7 @@
       "ref": "label:ws.protocols.fields#2",
       "lang": "en",
       "title": "ws.protocols.fields (packages/i18n/src/catalogs/ws/protocols.en.ts) (part 1 of 2)",
-      "body": "promotion: Promotion\npromotion_name_en: Promotion name (English)\npromotion_name_ar: Promotion name (Arabic)\npromotion_type: Discount\npromotion_value: Discount value\npromotion_starts_at: Starts\npromotion_ends_at: Ends\npromotion_weekdays: Days\npromotion_hour_from: From\npromotion_hour_to: To\npromotion_scope: Applies to\npromotion_scope_courtIds: Courts\npromotion_scope_categoryIds: Menu categories\npromotion_scope_itemIds: Items\npromotion_limits: Limits\npromotion_limits_total: Uses in total\npromotion_limits_perCustomer: Uses per guest\npromotion_limits_minSpendIqd: Minimum spend\npromotion_limits_tierMin: Lowest loyalty tier\npromotion_auto: Applies by itself\npromotion_public_code: Code\npromotion_code_single_use: Each code works once\nrule_id: Court rate\nrule: Court rate",
+      "body": "promotion_name_en: Promotion name (English)\npromotion_name_ar: Promotion name (Arabic)\npromotion_type: Discount\npromotion_value: Discount value\npromotion_starts_at: Starts\npromotion_ends_at: Ends\npromotion_weekdays: Days\npromotion_hour_from: From\npromotion_hour_to: To\npromotion_scope: Applies to\npromotion_scope_courtIds: Courts\npromotion_scope_categoryIds: Menu categories\npromotion_scope_itemIds: Items\npromotion_limits: Limits\npromotion_limits_total: Uses in total\npromotion_limits_perCustomer: Uses per guest\npromotion_limits_minSpendIqd: Minimum spend\npromotion_limits_tierMin: Lowest loyalty tier\npromotion_auto: Applies by itself\npromotion_public_code: Code\npromotion_code_single_use: Each code works once\nrule_id: Court rate\nrule: Court rate",
       "route": null
     },
     {
@@ -37742,7 +38134,7 @@
       "ref": "label:ws.protocols.fields#2~2",
       "lang": "en",
       "title": "ws.protocols.fields (packages/i18n/src/catalogs/ws/protocols.en.ts) (part 2 of 2)",
-      "body": "promotion: Promotion\npromotion_limits_tierMin: Lowest loyalty tier\npromotion_auto: Applies by itself\npromotion_public_code: Code\npromotion_code_single_use: Each code works once\nrule_id: Court rate\nrule: Court rate\nrule_name: Name\nrule_court_id: Court\nrule_days_of_week: Days\nrule_start_time: From\nrule_end_time: To\nrule_prices: Prices by booking length\nrule_priority: Priority\nrule_valid_from: Valid from\nrule_valid_to: Valid until\nrule_is_active: Switched on\ndiscount_pct: Discount (%)\nrecommendation: Recommendation\nlesson_type_id: Lesson type\ncoach_id: Coach\ncourt_share_iqd: Court share per session",
+      "body": "promotion_name_en: Promotion name (English)\npromotion_limits_tierMin: Lowest loyalty tier\npromotion_auto: Applies by itself\npromotion_public_code: Code\npromotion_code_single_use: Each code works once\nrule_id: Court rate\nrule: Court rate\nrule_name: Name\nrule_court_id: Court\nrule_days_of_week: Days\nrule_start_time: From\nrule_end_time: To\nrule_prices: Prices by booking length\nrule_priority: Priority\nrule_valid_from: Valid from\nrule_valid_to: Valid until\nrule_is_active: Switched on\ndiscount_pct: Discount (%)\nrecommendation: Recommendation\nlesson_type_id: Lesson type\ncoach_id: Coach\ncourt_share_iqd: Court share per session",
       "route": null
     },
     {
@@ -37758,7 +38150,7 @@
       "ref": "label:ws.protocols.fields~2",
       "lang": "en",
       "title": "ws.protocols.fields (packages/i18n/src/catalogs/ws/protocols.en.ts) (part 2 of 4)",
-      "body": "notes: Notes\nhero_en: Hero line (English)\nhero_ar: Hero line (Arabic)\nticker: Ticker line\nticker_en: Ticker line (English)\nticker_ar: Ticker line (Arabic)\ncampaign_id: Campaign\nwhen: When\nat: Date and time\nphoto_path: Menu photo\nclass: Class\nclasses: Classes\nplay_years: Years played\nformat: Format\nranges: Courts and times\nranges_court_ids: Courts\nranges_from: From\nranges_to: To\ncapacity: Capacity\ncapacity_unit: Counted in\ncapacity_count: How many\nentry_fee_iqd: Entry fee\nprize: Prize\nprize_text: What they win\nprize_iqd: Prize money\nbudget_iqd: Budget\nexpected_entries: Expected entries\nrisks: Risks\nsponsor: Sponsor or client\nsponsor_name: Name\nsponsor_contact: Contact\nsponsor_contribution_iqd: Contribution\nsponsor_branding: Branding\nsponsor_invoice: Needs an invoice\nstaffing: Staffing",
+      "body": "notes: Notes\nhero_en: Hero line (English)\nhero_ar: Hero line (Arabic)\nticker: Ticker line\nticker_en: Ticker line (English)\nticker_ar: Ticker line (Arabic)\ncampaign_id: Campaign\nwhen: When\nat: Date and time\nphoto_path: Menu photo\nclass: Type\nclasses: Types\nplay_years: Years played\nformat: Format\nranges: Courts and times\nranges_court_ids: Courts\nranges_from: From\nranges_to: To\ncapacity: Capacity\ncapacity_unit: Counted in\ncapacity_count: How many\nentry_fee_iqd: Entry fee\nprize: Prize\nprize_text: What they win\nprize_iqd: Prize money\nbudget_iqd: Budget\nexpected_entries: Expected entries\nrisks: Risks\nsponsor: Sponsor or client\nsponsor_name: Name\nsponsor_contact: Contact\nsponsor_contribution_iqd: Contribution\nsponsor_branding: Branding\nsponsor_invoice: Needs an invoice\nstaffing: Staffing",
       "route": null
     },
     {
@@ -37790,7 +38182,7 @@
       "ref": "label:ws.protocols.fields~4",
       "lang": "en",
       "title": "ws.protocols.fields (packages/i18n/src/catalogs/ws/protocols.en.ts) (part 4 of 4)",
-      "body": "notes: Notes\nnew_sizes_name_en: New size (English)\nnew_sizes_name_ar: New size (Arabic)\nrenames: New names\nrenames_name_en: New name (English)\nrenames_name_ar: New name (Arabic)\naddons: Add-ons\naddons_price_delta_iqd: Price\npromotion_id: Promotion",
+      "body": "notes: Notes\nnew_sizes_name_en: New size (English)\nnew_sizes_name_ar: New size (Arabic)\nrenames: New names\nrenames_name_en: New name (English)\nrenames_name_ar: New name (Arabic)\naddons: Add-ons\naddons_price_delta_iqd: Price\npromotion_id: Promotion\npromotion: Promotion",
       "route": null
     },
     {
@@ -37934,7 +38326,7 @@
       "ref": "label:ws.protocols.options",
       "lang": "ar",
       "title": "ws.protocols.options (packages/i18n/src/catalogs/ws/protocols.ar.ts)",
-      "body": "unit.g: غ\nunit.ml: مل\nunit.pc: قطعة\ncapacity_unit.players: لاعبون\ncapacity_unit.pairs: أزواج\nclass.A: A\nclass.B: B\nclass.C: C\nclasses.A: A\nclasses.B: B\nclasses.C: C\nplay_years.under_one: أقل من سنة\nplay_years.one_to_three: من سنة إلى ثلاث سنوات\nplay_years.three_plus: أكثر من ثلاث سنوات\nformat.americano: أمريكانو\nformat.mexicano: مكسيكانو\nformat.knockout: خروج المغلوب\nformat.league: دوري\nwhen.now: الآن\nwhen.date: في تاريخ محدد\nrecommendation.go: المضي فيه\nrecommendation.change: تغيير الأرقام\nrecommendation.drop: التخلي عنه\ntype.percent: نسبة مئوية\ntype.amount: مبلغ ثابت",
+      "body": "unit.g: غ\nunit.ml: مل\nunit.pc: قطعة\ncapacity_unit.players: لاعبون\ncapacity_unit.pairs: أزواج\nclass.A: فئة A\nclass.B: فئة B\nclass.C: فئة C\nclasses.A: فئة A\nclasses.B: فئة B\nclasses.C: فئة C\nplay_years.under_one: أقل من سنة\nplay_years.one_to_three: من سنة إلى ثلاث سنوات\nplay_years.three_plus: أكثر من ثلاث سنوات\nformat.americano: أمريكانو\nformat.mexicano: مكسيكانو\nformat.knockout: خروج المغلوب\nformat.league: دوري\nwhen.now: الآن\nwhen.date: في تاريخ محدد\nrecommendation.go: المضي فيه\nrecommendation.change: تغيير الأرقام\nrecommendation.drop: التخلي عنه\ntype.percent: نسبة مئوية\ntype.amount: مبلغ ثابت",
       "route": null
     },
     {
@@ -37942,7 +38334,7 @@
       "ref": "label:ws.protocols.options",
       "lang": "en",
       "title": "ws.protocols.options (packages/i18n/src/catalogs/ws/protocols.en.ts)",
-      "body": "unit.g: g\nunit.ml: ml\nunit.pc: pieces\ncapacity_unit.players: Players\ncapacity_unit.pairs: Pairs\nclass.A: A\nclass.B: B\nclass.C: C\nclasses.A: A\nclasses.B: B\nclasses.C: C\nplay_years.under_one: Less than a year\nplay_years.one_to_three: 1 to 3 years\nplay_years.three_plus: More than 3 years\nformat.americano: Americano\nformat.mexicano: Mexicano\nformat.knockout: Knockout\nformat.league: League\nwhen.now: Now\nwhen.date: On a date\nrecommendation.go: Go ahead\nrecommendation.change: Change the figures\nrecommendation.drop: Drop it\ntype.percent: Percent off\ntype.amount: Amount off",
+      "body": "unit.g: g\nunit.ml: ml\nunit.pc: pieces\ncapacity_unit.players: Players\ncapacity_unit.pairs: Pairs\nclass.A: Type A\nclass.B: Type B\nclass.C: Type C\nclasses.A: Type A\nclasses.B: Type B\nclasses.C: Type C\nplay_years.under_one: Less than a year\nplay_years.one_to_three: 1 to 3 years\nplay_years.three_plus: More than 3 years\nformat.americano: Americano\nformat.mexicano: Mexicano\nformat.knockout: Knockout\nformat.league: League\nwhen.now: Now\nwhen.date: On a date\nrecommendation.go: Go ahead\nrecommendation.change: Change the figures\nrecommendation.drop: Drop it\ntype.percent: Percent off\ntype.amount: Amount off",
       "route": null
     },
     {
@@ -38678,7 +39070,7 @@
       "ref": "label:ws.reports.drill~2",
       "lang": "ar",
       "title": "ws.reports.drill (packages/i18n/src/catalogs/ws/reports.ar.ts) (part 2 of 2)",
-      "body": "figure: عرض\nsubs.line: مُباع\ntable: طاولة {table}\nlineQty: {item} × {qty}\nmethods.cash: نقدًا\nmethods.card: بطاقة\nmethods.online: إلكترونيًا\nmethods.outside: خارج الكاشير\nsources.till: من كاشير الكافيه\nsources.guest_web: طلب عبر رمز QR\nadjKinds.discount_percent: خصم بنسبة مئوية\nadjKinds.discount_amount: خصم بمبلغ\nadjKinds.price_override: تعديل السعر\nreasons.promotion: عرض ترويجي\nkinds.reservation: حجز\nkinds.tab: الكافيه\nkinds.payment: دفعة\nkinds.refund: استرداد\nkinds.adjustment: خصم أو إلغاء\nkinds.waste: شطب",
+      "body": "figure: عرض\nsubs.line: مُباع\ntable: طاولة {table}\nlineQty: {item} × {qty}\nmethods.cash: نقدًا\nmethods.card: بطاقة\nmethods.online: إلكترونيًا\nmethods.outside: خارج الكاشير\nsources.till: من كاشير الكافيه\nsources.guest_web: طلب عبر رمز QR\nadjKinds.discount_percent: خصم بنسبة مئوية\nadjKinds.discount_amount: خصم بمبلغ\nadjKinds.price_override: تعديل السعر\nreasons.promotion: عرض ترويجي\nreasons.loyalty_tier_perk: امتياز البطاقة: إضافات مجانية\nkinds.reservation: حجز\nkinds.tab: الكافيه\nkinds.payment: دفعة\nkinds.refund: استرداد\nkinds.adjustment: خصم أو إلغاء\nkinds.waste: شطب",
       "route": "/reports"
     },
     {
@@ -38686,7 +39078,7 @@
       "ref": "label:ws.reports.drill~2",
       "lang": "en",
       "title": "ws.reports.drill (packages/i18n/src/catalogs/ws/reports.en.ts) (part 2 of 2)",
-      "body": "figure: Show\nsubs.line: Sold\ntable: Table {table}\nlineQty: {item} × {qty}\nmethods.cash: Cash\nmethods.card: Card\nmethods.online: Online\nmethods.outside: Outside the cashier\nsources.till: At the café cashier\nsources.guest_web: QR order\nadjKinds.discount_percent: Percentage off\nadjKinds.discount_amount: Amount off\nadjKinds.price_override: Price changed\nreasons.promotion: Promotion\nkinds.reservation: Booking\nkinds.tab: Cafe\nkinds.payment: Payment\nkinds.refund: Refund\nkinds.adjustment: Discount or void\nkinds.waste: Write-off",
+      "body": "figure: Show\nsubs.line: Sold\ntable: Table {table}\nlineQty: {item} × {qty}\nmethods.cash: Cash\nmethods.card: Card\nmethods.online: Online\nmethods.outside: Outside the cashier\nsources.till: At the café cashier\nsources.guest_web: QR order\nadjKinds.discount_percent: Percentage off\nadjKinds.discount_amount: Amount off\nadjKinds.price_override: Price changed\nreasons.promotion: Promotion\nreasons.loyalty_tier_perk: Card privilege: free add-ons\nkinds.reservation: Booking\nkinds.tab: Cafe\nkinds.payment: Payment\nkinds.refund: Refund\nkinds.adjustment: Discount or void\nkinds.waste: Write-off",
       "route": "/reports"
     },
     {
@@ -40918,7 +41310,7 @@
       "ref": "label:ws.team.tasks#3",
       "lang": "ar",
       "title": "ws.team.tasks (packages/i18n/src/catalogs/ws/team.ar.ts) (part 1 of 4)",
-      "body": "form.hint.promotionValue: نسبة مئوية (99 كحد أقصى) أو مبلغ بالدينار، بحسب النوع.\nform.hint.publicCode: من أربعة إلى ستة عشر حرفًا أو رقمًا. اتركه فارغًا إن لم يكن هناك رمز.\nform.hint.rulePrices: سعر لكل مدة حجز بالدقائق (من 15 إلى 480، بزيادة 5 في كل مرة).\nform.hint.renames: يحتفظ الحجم بعد تغيير اسمه بوصفته وبسعره ما لم تغيّر السعر أعلاه.\nform.hint.addonRenames: تظهر هنا الخيارات المعروضة للبيع فقط. يحتفظ الخيار بعد تغيير اسمه بسعره ما لم تغيّر السعر أعلاه.\nform.option.classA: الفئة A\nform.option.classB: الفئة B\nform.option.classC: الفئة C\nform.option.yearsUnderOne: أقل من سنة\nform.option.yearsOneToThree: من سنة إلى ثلاث سنوات\nform.option.yearsThreePlus: أكثر من ثلاث سنوات\nform.option.americano: أمريكانو",
+      "body": "form.hint.promotionValue: نسبة مئوية (99 كحد أقصى) أو مبلغ بالدينار، بحسب النوع.\nform.hint.publicCode: من أربعة إلى ستة عشر حرفًا أو رقمًا. اتركه فارغًا إن لم يكن هناك رمز.\nform.hint.rulePrices: سعر لكل مدة حجز بالدقائق (من 15 إلى 480، بزيادة 5 في كل مرة).\nform.hint.renames: يحتفظ الحجم بعد تغيير اسمه بوصفته وبسعره ما لم تغيّر السعر أعلاه.\nform.hint.addonRenames: تظهر هنا الخيارات المعروضة للبيع فقط. يحتفظ الخيار بعد تغيير اسمه بسعره ما لم تغيّر السعر أعلاه.\nform.option.classA: فئة A\nform.option.classB: فئة B\nform.option.classC: فئة C\nform.option.yearsUnderOne: أقل من سنة\nform.option.yearsOneToThree: من سنة إلى ثلاث سنوات\nform.option.yearsThreePlus: أكثر من ثلاث سنوات\nform.option.americano: أمريكانو",
       "route": "/tasks"
     },
     {
@@ -40934,7 +41326,7 @@
       "ref": "label:ws.team.tasks#3~2",
       "lang": "ar",
       "title": "ws.team.tasks (packages/i18n/src/catalogs/ws/team.ar.ts) (part 2 of 4)",
-      "body": "form.hint.promotionValue: نسبة مئوية (99 كحد أقصى) أو مبلغ بالدينار، بحسب النوع.\nform.option.classC: الفئة C\nform.option.yearsUnderOne: أقل من سنة\nform.option.yearsOneToThree: من سنة إلى ثلاث سنوات\nform.option.yearsThreePlus: أكثر من ثلاث سنوات\nform.option.americano: أمريكانو\nform.option.mexicano: مكسيكانو\nform.option.knockout: خروج المغلوب\nform.option.league: دوري\nform.option.players: لاعبون\nform.option.pairs: أزواج\nform.option.percent: نسبة مئوية\nform.option.amount: مبلغ (د.ع)\nform.field.name_en: الاسم بالإنجليزية\nform.field.name_ar: الاسم بالعربية\nform.field.notes: ملاحظات\nform.field.note: ملاحظة\nform.field.en: بالإنجليزية\nform.field.ar: بالعربية\nform.field.item_kind: النوع\nform.field.lines: الوصفة\nform.field.ingredient_id: المكوّن\nform.field.label: أو اكتبه\nform.field.qty: الكمية",
+      "body": "form.hint.promotionValue: نسبة مئوية (99 كحد أقصى) أو مبلغ بالدينار، بحسب النوع.\nform.option.classC: فئة C\nform.option.yearsUnderOne: أقل من سنة\nform.option.yearsOneToThree: من سنة إلى ثلاث سنوات\nform.option.yearsThreePlus: أكثر من ثلاث سنوات\nform.option.americano: أمريكانو\nform.option.mexicano: مكسيكانو\nform.option.knockout: خروج المغلوب\nform.option.league: دوري\nform.option.players: لاعبون\nform.option.pairs: أزواج\nform.option.percent: نسبة مئوية\nform.option.amount: مبلغ (د.ع)\nform.field.name_en: الاسم بالإنجليزية\nform.field.name_ar: الاسم بالعربية\nform.field.notes: ملاحظات\nform.field.note: ملاحظة\nform.field.en: بالإنجليزية\nform.field.ar: بالعربية\nform.field.item_kind: النوع\nform.field.lines: الوصفة\nform.field.ingredient_id: المكوّن\nform.field.label: أو اكتبه\nform.field.qty: الكمية",
       "route": "/tasks"
     },
     {
@@ -40942,7 +41334,7 @@
       "ref": "label:ws.team.tasks#3~2",
       "lang": "en",
       "title": "ws.team.tasks (packages/i18n/src/catalogs/ws/team.en.ts) (part 2 of 4)",
-      "body": "form.randomCode: Make a code\nform.hint.publicCode: Four to sixteen letters or digits. Leave empty for no code.\nform.hint.rulePrices: A price for each booking length, in minutes (15 to 480, in steps of 5).\nform.hint.renames: A renamed size keeps its recipe and, unless you change it above, its price.\nform.hint.addonRenames: Only options on sale are listed here. A renamed option keeps its price unless you change it above.\nform.option.classA: Class A\nform.option.classB: Class B\nform.option.classC: Class C\nform.option.yearsUnderOne: Less than a year\nform.option.yearsOneToThree: 1 to 3 years\nform.option.yearsThreePlus: More than 3 years\nform.option.americano: Americano\nform.option.mexicano: Mexicano\nform.option.knockout: Knockout\nform.option.league: League\nform.option.players: Players",
+      "body": "form.randomCode: Make a code\nform.hint.publicCode: Four to sixteen letters or digits. Leave empty for no code.\nform.hint.rulePrices: A price for each booking length, in minutes (15 to 480, in steps of 5).\nform.hint.renames: A renamed size keeps its recipe and, unless you change it above, its price.\nform.hint.addonRenames: Only options on sale are listed here. A renamed option keeps its price unless you change it above.\nform.option.classA: Type A\nform.option.classB: Type B\nform.option.classC: Type C\nform.option.yearsUnderOne: Less than a year\nform.option.yearsOneToThree: 1 to 3 years\nform.option.yearsThreePlus: More than 3 years\nform.option.americano: Americano\nform.option.mexicano: Mexicano\nform.option.knockout: Knockout\nform.option.league: League\nform.option.players: Players",
       "route": "/tasks"
     },
     {
@@ -40966,7 +41358,7 @@
       "ref": "label:ws.team.tasks#3~4",
       "lang": "ar",
       "title": "ws.team.tasks (packages/i18n/src/catalogs/ws/team.ar.ts) (part 4 of 4)",
-      "body": "form.hint.promotionValue: نسبة مئوية (99 كحد أقصى) أو مبلغ بالدينار، بحسب النوع.\nform.field.highlights_ar: ما نقوله عنه (بالعربية)\nform.field.hero: سطر الواجهة\nform.field.ticker: سطر الشريط المتحرك\nform.field.campaign_id: مسودة حملة\nform.field.class: الفئة\nform.field.classes: الفئات\nform.field.play_years: سنوات اللعب\nform.field.format: نظام اللعب\nform.field.ranges: الملاعب والأوقات\nform.field.court_ids: الملاعب\nform.field.from: من\nform.field.to: إلى\nform.field.capacity: السعة",
+      "body": "form.hint.promotionValue: نسبة مئوية (99 كحد أقصى) أو مبلغ بالدينار، بحسب النوع.\nform.field.highlights_ar: ما نقوله عنه (بالعربية)\nform.field.hero: سطر الواجهة\nform.field.ticker: سطر الشريط المتحرك\nform.field.campaign_id: مسودة حملة\nform.field.class: الفئة\nform.field.classes: الفئات\nform.field.play_years: سنوات اللعب\nform.field.format: نظام اللعب\nform.field.ranges: الملاعب والأوقات\nform.field.court_ids: الملاعب\nform.field.from: من\nform.field.to: إلى\nform.field.capacity: السعة\nform.field.capacityUnit: وحدة العد",
       "route": "/tasks"
     },
     {
@@ -40982,7 +41374,7 @@
       "ref": "label:ws.team.tasks#4",
       "lang": "ar",
       "title": "ws.team.tasks (packages/i18n/src/catalogs/ws/team.ar.ts) (part 1 of 4)",
-      "body": "form.field.capacityUnit: وحدة العد\nform.field.capacityCount: العدد\nform.field.entry_fee_iqd: رسم المشاركة\nform.field.prize: الجائزة\nform.field.prizeText: وصف الجائزة\nform.field.prizeIqd: قيمة الجائزة\nform.field.budget_iqd: الميزانية\nform.field.expected_entries: المشاركات المتوقعة\nform.field.risks: المخاطر\nform.field.sponsor: الراعي أو العميل\nform.field.sponsorName: الاسم\nform.field.contact: وسيلة التواصل\nform.field.contribution_iqd: المساهمة\nform.field.branding: العلامة التجارية\nform.field.invoice: يحتاج إلى فاتورة\nform.field.change: ما المراد تغييره\nform.field.reason: السبب\nform.field.expected_effect: ما تتوقع أن يحققه\nform.field.menu_item_id: الصنف\nform.field.prices: الأسعار الجديدة\nform.field.price_iqd: السعر\nform.field.new_sizes: أحجام جديدة",
+      "body": "form.field.capacityCount: العدد\nform.field.entry_fee_iqd: رسم المشاركة\nform.field.prize: الجائزة\nform.field.prizeText: وصف الجائزة\nform.field.prizeIqd: قيمة الجائزة\nform.field.budget_iqd: الميزانية\nform.field.expected_entries: المشاركات المتوقعة\nform.field.risks: المخاطر\nform.field.sponsor: الراعي أو العميل\nform.field.sponsorName: الاسم\nform.field.contact: وسيلة التواصل\nform.field.contribution_iqd: المساهمة\nform.field.branding: العلامة التجارية\nform.field.invoice: يحتاج إلى فاتورة\nform.field.change: ما المراد تغييره\nform.field.reason: السبب\nform.field.expected_effect: ما تتوقع أن يحققه\nform.field.menu_item_id: الصنف\nform.field.prices: الأسعار الجديدة\nform.field.price_iqd: السعر\nform.field.new_sizes: أحجام جديدة\nform.field.renames: أسماء جديدة",
       "route": "/tasks"
     },
     {
@@ -40990,7 +41382,7 @@
       "ref": "label:ws.team.tasks#4",
       "lang": "en",
       "title": "ws.team.tasks (packages/i18n/src/catalogs/ws/team.en.ts) (part 1 of 4)",
-      "body": "form.field.highlights_en: What to say about it (English)\nform.field.highlights_ar: What to say about it (Arabic)\nform.field.hero: Hero line\nform.field.ticker: Ticker line\nform.field.campaign_id: Campaign draft\nform.field.class: Class\nform.field.classes: Classes\nform.field.play_years: Years played\nform.field.format: Format\nform.field.ranges: Courts and times\nform.field.court_ids: Courts\nform.field.from: From\nform.field.to: To\nform.field.capacity: Capacity\nform.field.capacityUnit: Counted in\nform.field.capacityCount: How many\nform.field.entry_fee_iqd: Entry fee\nform.field.prize: Prize\nform.field.prizeText: Prize, in words\nform.field.prizeIqd: Prize money\nform.field.budget_iqd: Budget\nform.field.expected_entries: Expected entries",
+      "body": "form.field.highlights_en: What to say about it (English)\nform.field.highlights_ar: What to say about it (Arabic)\nform.field.hero: Hero line\nform.field.ticker: Ticker line\nform.field.campaign_id: Campaign draft\nform.field.class: Type\nform.field.classes: Types\nform.field.play_years: Years played\nform.field.format: Format\nform.field.ranges: Courts and times\nform.field.court_ids: Courts\nform.field.from: From\nform.field.to: To\nform.field.capacity: Capacity\nform.field.capacityUnit: Counted in\nform.field.capacityCount: How many\nform.field.entry_fee_iqd: Entry fee\nform.field.prize: Prize\nform.field.prizeText: Prize, in words\nform.field.prizeIqd: Prize money\nform.field.budget_iqd: Budget\nform.field.expected_entries: Expected entries",
       "route": "/tasks"
     },
     {
@@ -40998,7 +41390,7 @@
       "ref": "label:ws.team.tasks#4~2",
       "lang": "ar",
       "title": "ws.team.tasks (packages/i18n/src/catalogs/ws/team.ar.ts) (part 2 of 4)",
-      "body": "form.field.capacityUnit: وحدة العد\nform.field.reason: السبب\nform.field.expected_effect: ما تتوقع أن يحققه\nform.field.menu_item_id: الصنف\nform.field.prices: الأسعار الجديدة\nform.field.price_iqd: السعر\nform.field.new_sizes: أحجام جديدة\nform.field.renames: أسماء جديدة\nform.field.renames_name_en: الاسم الجديد (بالإنجليزية)\nform.field.renames_name_ar: الاسم الجديد (بالعربية)\nform.field.addons: الإضافات\nform.field.modifier_id: الإضافة\nform.field.price_delta_iqd: السعر الإضافي\nform.field.promotion: العرض\nform.field.type: النوع\nform.field.value: الخصم\nform.field.starts_at: يبدأ\nform.field.ends_at: ينتهي\nform.field.weekdays: الأيام (عدم الاختيار يعني كل الأيام)\nform.field.hour_from: من\nform.field.hour_to: حتى\nform.field.scope: يسري على\nform.field.courtIds: الملاعب",
+      "body": "form.field.capacityCount: العدد\nform.field.menu_item_id: الصنف\nform.field.prices: الأسعار الجديدة\nform.field.price_iqd: السعر\nform.field.new_sizes: أحجام جديدة\nform.field.renames: أسماء جديدة\nform.field.renames_name_en: الاسم الجديد (بالإنجليزية)\nform.field.renames_name_ar: الاسم الجديد (بالعربية)\nform.field.addons: الإضافات\nform.field.modifier_id: الإضافة\nform.field.price_delta_iqd: السعر الإضافي\nform.field.promotion: العرض\nform.field.type: النوع\nform.field.value: الخصم\nform.field.starts_at: يبدأ\nform.field.ends_at: ينتهي\nform.field.weekdays: الأيام (عدم الاختيار يعني كل الأيام)\nform.field.hour_from: من\nform.field.hour_to: حتى\nform.field.scope: يسري على\nform.field.courtIds: الملاعب\nform.field.categoryIds: فئات المنيو\nform.field.itemIds: أصناف المنيو\nform.field.limits: الحدود",
       "route": "/tasks"
     },
     {
@@ -41014,7 +41406,7 @@
       "ref": "label:ws.team.tasks#4~3",
       "lang": "ar",
       "title": "ws.team.tasks (packages/i18n/src/catalogs/ws/team.ar.ts) (part 3 of 4)",
-      "body": "form.field.capacityUnit: وحدة العد\nform.field.ends_at: ينتهي\nform.field.weekdays: الأيام (عدم الاختيار يعني كل الأيام)\nform.field.hour_from: من\nform.field.hour_to: حتى\nform.field.scope: يسري على\nform.field.courtIds: الملاعب\nform.field.categoryIds: فئات المنيو\nform.field.itemIds: أصناف المنيو\nform.field.limits: الحدود\nform.field.total: إجمالي مرات الاستخدام\nform.field.perCustomer: مرات الاستخدام لكل ضيف\nform.field.minSpendIqd: الحد الأدنى للإنفاق\nform.field.auto: يُطبَّق تلقائيًا\nform.field.public_code: الرمز\nform.field.code_single_use: كل رمز يُستعمل مرة واحدة\nform.field.promotion_id: العرض\nform.field.rule_id: السعر\nform.field.rule: سعر الملعب\nform.field.ruleName: اسم السعر\nform.field.rulePrices: الأسعار حسب المدة\nform.field.court_id: الملعب (عدم الاختيار يعني كل الملاعب)",
+      "body": "form.field.capacityCount: العدد\nform.field.hour_from: من\nform.field.hour_to: حتى\nform.field.scope: يسري على\nform.field.courtIds: الملاعب\nform.field.categoryIds: فئات المنيو\nform.field.itemIds: أصناف المنيو\nform.field.limits: الحدود\nform.field.total: إجمالي مرات الاستخدام\nform.field.perCustomer: مرات الاستخدام لكل ضيف\nform.field.minSpendIqd: الحد الأدنى للإنفاق\nform.field.auto: يُطبَّق تلقائيًا\nform.field.public_code: الرمز\nform.field.code_single_use: كل رمز يُستعمل مرة واحدة\nform.field.promotion_id: العرض\nform.field.rule_id: السعر\nform.field.rule: سعر الملعب\nform.field.ruleName: اسم السعر\nform.field.rulePrices: الأسعار حسب المدة\nform.field.court_id: الملعب (عدم الاختيار يعني كل الملاعب)\nform.field.days_of_week: الأيام\nform.field.start_time: من\nform.field.end_time: حتى",
       "route": "/tasks"
     },
     {
@@ -41030,7 +41422,7 @@
       "ref": "label:ws.team.tasks#4~4",
       "lang": "ar",
       "title": "ws.team.tasks (packages/i18n/src/catalogs/ws/team.ar.ts) (part 4 of 4)",
-      "body": "form.field.capacityUnit: وحدة العد\nform.field.rule_id: السعر\nform.field.rule: سعر الملعب\nform.field.ruleName: اسم السعر\nform.field.rulePrices: الأسعار حسب المدة\nform.field.court_id: الملعب (عدم الاختيار يعني كل الملاعب)\nform.field.days_of_week: الأيام\nform.field.start_time: من\nform.field.end_time: حتى\nform.field.priority: الأولوية\nform.field.valid_from: ساري من",
+      "body": "form.field.capacityCount: العدد\nform.field.rulePrices: الأسعار حسب المدة\nform.field.court_id: الملعب (عدم الاختيار يعني كل الملاعب)\nform.field.days_of_week: الأيام\nform.field.start_time: من\nform.field.end_time: حتى\nform.field.priority: الأولوية\nform.field.valid_from: ساري من\nform.field.valid_to: ساري حتى",
       "route": "/tasks"
     },
     {
@@ -41046,7 +41438,7 @@
       "ref": "label:ws.team.tasks#5",
       "lang": "ar",
       "title": "ws.team.tasks (packages/i18n/src/catalogs/ws/team.ar.ts)",
-      "body": "form.field.valid_to: ساري حتى\nform.field.is_active: مُفعّل\nform.field.discount_pct: الخصم (%)\nform.field.reservation_ids: إيقافات الملاعب\nform.field.moved_note: ما الذي نُقل",
+      "body": "form.field.is_active: مُفعّل\nform.field.discount_pct: الخصم (%)\nform.field.reservation_ids: إيقافات الملاعب\nform.field.moved_note: ما الذي نُقل",
       "route": "/tasks"
     },
     {
@@ -41709,7 +42101,7 @@
       "kind": "label",
       "ref": "label:ws.tournaments.start",
       "lang": "ar",
-      "title": "ws.tournaments.start (packages/i18n/src/catalogs/ws/tournaments.ar.ts) (part 1 of 4)",
+      "title": "ws.tournaments.start (packages/i18n/src/catalogs/ws/tournaments.ar.ts) (part 1 of 3)",
       "body": "title: بدء: بطولة\nlead: املأ أي قسم بأي ترتيب.\nmenu: أقسام الخطة\nsectionOf: القسم {n} من {total}\nprogress: اكتمل {done} من {total}\noptional: اختياري\nslots.zero: {count} فترة\nslots.one: فترة واحدة\nslots.two: فترتان\nslots.few: {count} فترات\nslots.many: {count} فترة\nslots.other: {count} فترة\nneedsLook: يحتاج إلى مراجعة\nsections.type: النوع\nsections.name: الاسم\nsections.courts: الملاعب والوقت\nsections.players: اللاعبون والمال\nsections.playersShort: اللاعبون\nsections.notes: المخاطر والملاحظات\nsections.notesShort: الملاحظات\nsections.sponsor: الراعي\ntypeName.type1: النوع 1\ntypeName.type2: النوع 2\ntypeName.type3: النوع 3\ntypeTag.type1: نادٍ\ntypeTag.type2: مجتمعي\ntypeTag.type3: راعٍ أو زبون\ncourts.day: اليوم\ncourts.prevDay: اليوم السابق\ncourts.nextDay: اليوم التالي",
       "route": null
     },
@@ -41741,8 +42133,8 @@
       "kind": "label",
       "ref": "label:ws.tournaments.start~2",
       "lang": "ar",
-      "title": "ws.tournaments.start (packages/i18n/src/catalogs/ws/tournaments.ar.ts) (part 2 of 4)",
-      "body": "title: بدء: بطولة\ntypeName.type2: النوع 2\ntypeName.type3: النوع 3\ntypeTag.type1: نادٍ\ntypeTag.type2: مجتمعي\ntypeTag.type3: راعٍ أو زبون\ncourts.day: اليوم\ncourts.prevDay: اليوم السابق\ncourts.nextDay: اليوم التالي\ncourts.picked: مختار\ncourts.booked: محجوز مسبقًا\ncourts.hint: اسحب عبر الساعات لاختيار فترة. غيّر اليوم لإضافة فترة أخرى.\ncourts.cell: {court}، {time}\ncourts.slots: الفترات المختارة\ncourts.none: لم تُختر أي فترة بعد.\ncourts.remove: إزالة {slot}\ncourts.closed: المكان مغلق في ذلك اليوم. اختر يومًا آخر.\ncourts.loading: جارٍ تحميل الملاعب…\nclasses.A.tag: متقدّم\nclasses.A.body: للاعبين الأقوياء وأصحاب الخبرة. مباريات سريعة وتنافسية.\nclasses.B.tag: متوسط\nclasses.B.body: للاعبين الذين يلعبون بانتظام ويعرفون القواعد والمراكز.\nclasses.C.tag: مبتدئ",
+      "title": "ws.tournaments.start (packages/i18n/src/catalogs/ws/tournaments.ar.ts) (part 2 of 3)",
+      "body": "title: بدء: بطولة\ntypeName.type2: النوع 2\ntypeName.type3: النوع 3\ntypeTag.type1: نادٍ\ntypeTag.type2: مجتمعي\ntypeTag.type3: راعٍ أو زبون\ncourts.day: اليوم\ncourts.prevDay: اليوم السابق\ncourts.nextDay: اليوم التالي\ncourts.picked: مختار\ncourts.booked: محجوز مسبقًا\ncourts.hint: اسحب عبر الساعات لاختيار فترة. غيّر اليوم لإضافة فترة أخرى.\ncourts.cell: {court}، {time}\ncourts.slots: الفترات المختارة\ncourts.none: لم تُختر أي فترة بعد.\ncourts.remove: إزالة {slot}\ncourts.closed: المكان مغلق في ذلك اليوم. اختر يومًا آخر.\ncourts.loading: جارٍ تحميل الملاعب…\nclasses.A.tag: تنافسية\nclasses.A.body: للاعبين الأقوياء وأصحاب الخبرة. مباريات سريعة وتنافسية.\nclasses.B.tag: لاعبون منتظمون\nclasses.B.body: للاعبين الذين يلعبون بانتظام ويعرفون القواعد والمراكز.\nclasses.C.tag: مفتوحة للجميع",
       "route": null
     },
     {
@@ -41750,15 +42142,15 @@
       "ref": "label:ws.tournaments.start~2",
       "lang": "en",
       "title": "ws.tournaments.start (packages/i18n/src/catalogs/ws/tournaments.en.ts) (part 2 of 4)",
-      "body": "title: Start: Tournament\ntypeName.type2: Type 2\ntypeName.type3: Type 3\ntypeTag.type1: Club\ntypeTag.type2: Community\ntypeTag.type3: Sponsor or client\ncourts.day: Day\ncourts.prevDay: Previous day\ncourts.nextDay: Next day\ncourts.picked: Picked\ncourts.booked: Already booked\ncourts.hint: Drag across the hours to pick a slot. Change the day to add another one.\ncourts.cell: {court}, {time}\ncourts.slots: Picked slots\ncourts.none: No slots picked yet.\ncourts.remove: Remove {slot}\ncourts.closed: The venue is closed that day. Pick another day.\ncourts.loading: Loading the courts…\nclasses.A.tag: Advanced\nclasses.A.body: For strong, experienced players. Fast, competitive games.\nclasses.B.tag: Intermediate\nclasses.B.body: For players who play regularly and know the rules and positions.",
+      "body": "title: Start: Tournament\ntypeName.type2: Type 2\ntypeName.type3: Type 3\ntypeTag.type1: Club\ntypeTag.type2: Community\ntypeTag.type3: Sponsor or client\ncourts.day: Day\ncourts.prevDay: Previous day\ncourts.nextDay: Next day\ncourts.picked: Picked\ncourts.booked: Already booked\ncourts.hint: Drag across the hours to pick a slot. Change the day to add another one.\ncourts.cell: {court}, {time}\ncourts.slots: Picked slots\ncourts.none: No slots picked yet.\ncourts.remove: Remove {slot}\ncourts.closed: The venue is closed that day. Pick another day.\ncourts.loading: Loading the courts…\nclasses.A.tag: Competitive\nclasses.A.body: For strong, experienced players. Fast, competitive games.\nclasses.B.tag: Regular players\nclasses.B.body: For players who play regularly and know the rules and positions.",
       "route": null
     },
     {
       "kind": "label",
       "ref": "label:ws.tournaments.start~3",
       "lang": "ar",
-      "title": "ws.tournaments.start (packages/i18n/src/catalogs/ws/tournaments.ar.ts) (part 3 of 4)",
-      "body": "title: بدء: بطولة\nclasses.A.body: للاعبين الأقوياء وأصحاب الخبرة. مباريات سريعة وتنافسية.\nclasses.B.tag: متوسط\nclasses.B.body: للاعبين الذين يلعبون بانتظام ويعرفون القواعد والمراكز.\nclasses.C.tag: مبتدئ\nclasses.C.body: للاعبين الجدد ولمن يلعب للمتعة. مباريات ودّية ومفتوحة لكل من يتعلّم.\nclassesHint: اختر فئة أو أكثر.\nformats.americano.tag: يُدار في التطبيق\nformats.americano.body: يتغيّر الشريك في كل جولة، وتُلعب كل مباراة حتى مجموع نقاط محدد. ويحتفظ كل لاعب بنقاطه.\nformats.mexicano.tag: يُدار في التطبيق\nformats.mexicano.body: مثل الأمريكانو، لكن الترتيب بعد كل جولة يحدد الشركاء والخصوم التاليين، فيتقابل المتقاربون في المستوى.\nformats.knockout.tag: للتخطيط فقط\nformats.knockout.body: تلعب الأزواج مباريات محددة ويخرج الخاسر في كل منها حتى يبقى زوج واحد. لا يديرها التطبيق بعد.",
+      "title": "ws.tournaments.start (packages/i18n/src/catalogs/ws/tournaments.ar.ts) (part 3 of 3)",
+      "body": "title: بدء: بطولة\nclasses.B.tag: لاعبون منتظمون\nclasses.B.body: للاعبين الذين يلعبون بانتظام ويعرفون القواعد والمراكز.\nclasses.C.tag: مفتوحة للجميع\nclasses.C.body: للاعبين الجدد ولمن يلعب للمتعة. مباريات ودّية ومفتوحة لكل من يتعلّم.\nclassesHint: اختر فئة أو أكثر.\nformats.americano.tag: يُدار في التطبيق\nformats.americano.body: يتغيّر الشريك في كل جولة، وتُلعب كل مباراة حتى مجموع نقاط محدد. ويحتفظ كل لاعب بنقاطه.\nformats.mexicano.tag: يُدار في التطبيق\nformats.mexicano.body: مثل الأمريكانو، لكن الترتيب بعد كل جولة يحدد الشركاء والخصوم التاليين، فيتقابل المتقاربون في المستوى.\nformats.knockout.tag: للتخطيط فقط\nformats.knockout.body: تلعب الأزواج مباريات محددة ويخرج الخاسر في كل منها حتى يبقى زوج واحد. لا يديرها التطبيق بعد.\nformats.league.tag: للتخطيط فقط",
       "route": null
     },
     {
@@ -41766,15 +42158,7 @@
       "ref": "label:ws.tournaments.start~3",
       "lang": "en",
       "title": "ws.tournaments.start (packages/i18n/src/catalogs/ws/tournaments.en.ts) (part 3 of 4)",
-      "body": "title: Start: Tournament\nclasses.A.body: For strong, experienced players. Fast, competitive games.\nclasses.B.tag: Intermediate\nclasses.B.body: For players who play regularly and know the rules and positions.\nclasses.C.tag: Beginners\nclasses.C.body: For new and social players. Friendly games, open to anyone learning.\nclassesHint: Pick one or more.\nformats.americano.tag: Runs in the app\nformats.americano.body: Partners change every round and each game is played to a points total. Every player keeps their own points.\nformats.mexicano.tag: Runs in the app\nformats.mexicano.body: Like Americano, but after each round the standings pick the next partners and opponents, so close levels meet.\nformats.knockout.tag: Plan only",
-      "route": null
-    },
-    {
-      "kind": "label",
-      "ref": "label:ws.tournaments.start~4",
-      "lang": "ar",
-      "title": "ws.tournaments.start (packages/i18n/src/catalogs/ws/tournaments.ar.ts) (part 4 of 4)",
-      "body": "title: بدء: بطولة\nformats.knockout.tag: للتخطيط فقط\nformats.knockout.body: تلعب الأزواج مباريات محددة ويخرج الخاسر في كل منها حتى يبقى زوج واحد. لا يديرها التطبيق بعد.\nformats.league.tag: للتخطيط فقط",
+      "body": "title: Start: Tournament\nclasses.A.body: For strong, experienced players. Fast, competitive games.\nclasses.B.tag: Regular players\nclasses.B.body: For players who play regularly and know the rules and positions.\nclasses.C.tag: Open to all\nclasses.C.body: For new and social players. Friendly games, open to anyone learning.\nclassesHint: Pick one or more.\nformats.americano.tag: Runs in the app\nformats.americano.body: Partners change every round and each game is played to a points total. Every player keeps their own points.\nformats.mexicano.tag: Runs in the app\nformats.mexicano.body: Like Americano, but after each round the standings pick the next partners and opponents, so close levels meet.\nformats.knockout.tag: Plan only",
       "route": null
     },
     {

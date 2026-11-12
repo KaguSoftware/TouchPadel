@@ -38,7 +38,7 @@ export default function NotFoundScreen() {
               testID="not-found.bookings"
               label={t('booking.myBookings')}
               variant="cta"
-              onPress={() => router.dismissTo('/(tabs)/bookings')}
+              onPress={() => router.replace('/bookings')}
             />
             <Button
               testID="not-found.book"

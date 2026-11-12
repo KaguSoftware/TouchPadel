@@ -16,10 +16,10 @@ export const playProfileAr: DeepMessages<typeof playProfileEn> = {
     progress: 'السؤال {n} من {total}',
     level: {
       question: 'ما مستواك في البادل؟',
-      new: { title: 'ما زلت في البداية', body: 'لم ألعب بعد، أو لعبت مرات قليلة' },
-      beginner: { title: 'مستوى المبتدئين', body: 'أستطيع تبادل الكرة وما زلت أتعلّم' },
-      intermediate: { title: 'مستوى متوسط', body: 'ألعب بانتظام وأستخدم الجدران' },
-      advanced: { title: 'مستوى متقدّم', body: 'ألعب بسرعة وتقنية متينة، وأشارك في المنافسات' },
+      new: { title: 'فئة C', body: 'جديد على البادل، أو ما زلت أتعلّم تبادل الكرة' },
+      beginner: { title: 'فئة C', body: 'جديد على البادل، أو ما زلت أتعلّم تبادل الكرة' },
+      intermediate: { title: 'فئة B', body: 'ألعب بانتظام وأستخدم الجدران' },
+      advanced: { title: 'فئة A', body: 'ألعب بسرعة وتقنية متينة، وأشارك في المنافسات' },
     },
     age: {
       question: 'كم عمرك؟',
@@ -60,9 +60,9 @@ export const playProfileAr: DeepMessages<typeof playProfileEn> = {
   },
   why: {
     starting: 'خطوة أولى سهلة',
-    beginner: 'اختيار يناسب المبتدئين',
+    beginner: 'اختيار يناسب لاعبي الفئة C',
     intermediate: 'على قدر مستواك',
-    advanced: 'تحدٍّ يليق بالمستوى المتقدّم',
+    advanced: 'تحدٍّ يليق بلاعبي الفئة A',
     seasoned: 'لأصحاب الخبرة في اللعب',
     wantsLessons: 'لاهتمامك بالحصص',
     wantsMatches: 'لاهتمامك بالمباريات',

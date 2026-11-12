@@ -1689,6 +1689,7 @@ describe.skipIf(!docker)('loyalty identify (contracts §1.3, L-4)', () => {
         'points_off_enabled',
         'rewards',
         'tier',
+        'tiers',   // 0410: the ladder
       ].sort(),
     );
     expect(mine).toMatchObject({

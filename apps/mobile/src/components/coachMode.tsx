@@ -37,7 +37,8 @@ import {
   startingLevel,
   type StudentLevel,
 } from '../features/coach/level';
-import { PLAY_LEVELS, type PlayLevel } from '../features/playProfile/logic';
+import { PICKABLE_LEVELS, levelForPick, sameType } from '@touch/core';
+import { type PlayLevel } from '../features/playProfile/logic';
 import {
   belowMinimum,
   branchesOff,
@@ -1218,7 +1219,7 @@ export function StudentLevelLine({
 }
 
 /**
- * The level sheet: the four levels, an optional one-line note (at most 120 characters), Save,
+ * The level sheet: Type A, B and C, an optional one-line note (at most 120 characters), Save,
  * and Clear while a level is confirmed. The write is the screen's (coach_set_student_level).
  */
 export function StudentLevelSheet({
@@ -1293,8 +1294,9 @@ export function StudentLevelSheet({
             {t('coaching.coach.level.pick')}
           </Text>
           <View style={{ gap: space.s }}>
-            {PLAY_LEVELS.map((value) => {
-              const on = picked === value;
+            {/* One choice per player type (A, B, C); a stored `new` lights Type C and is kept. */}
+            {PICKABLE_LEVELS.map((value) => {
+              const on = sameType(picked, value);
               return (
                 <Pressable
                   key={value}
@@ -1302,7 +1304,7 @@ export function StudentLevelSheet({
                   accessibilityRole="radio"
                   accessibilityState={{ checked: on }}
                   onPress={() => {
-                    setPicked(value);
+                    setPicked(levelForPick(value, picked));
                     setIssue(null);
                   }}
                   style={{

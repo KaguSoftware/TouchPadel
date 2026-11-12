@@ -308,8 +308,8 @@ export const protocolsEn = {
     at: 'Date and time',
     photo_path: 'Menu photo',
     // Tournament
-    class: 'Class',
-    classes: 'Classes',
+    class: 'Type',
+    classes: 'Types',
     play_years: 'Years played',
     format: 'Format',
     ranges: 'Courts and times',
@@ -421,8 +421,8 @@ export const protocolsEn = {
   options: {
     unit: { g: 'g', ml: 'ml', pc: 'pieces' },
     capacity_unit: { players: 'Players', pairs: 'Pairs' },
-    class: { A: 'A', B: 'B', C: 'C' },
-    classes: { A: 'A', B: 'B', C: 'C' },
+    class: { A: 'Type A', B: 'Type B', C: 'Type C' },
+    classes: { A: 'Type A', B: 'Type B', C: 'Type C' },
     play_years: { under_one: 'Less than a year', one_to_three: '1 to 3 years', three_plus: 'More than 3 years' },
     format: { americano: 'Americano', mexicano: 'Mexicano', knockout: 'Knockout', league: 'League' },
     when: { now: 'Now', date: 'On a date' },
@@ -460,7 +460,7 @@ export const protocolsEn = {
     },
     tournament: {
       title: 'The plan: {name}',
-      class: 'Class {class}',
+      class: 'Type {class}',
       capacity_players: '{count} players',
       capacity_pairs: '{count} pairs',
       blocked: 'Blocks made so far: {count}',

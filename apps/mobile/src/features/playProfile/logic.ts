@@ -157,13 +157,14 @@ export function hasAnswers(a: PlayAnswers | null | undefined): boolean {
 }
 
 /**
- * Does a "how long have you played" answer fit the level? Every level past
- * "Just starting" says the guest has played (a rally, the walls, competing),
- * so "Not yet" fits only `new`, or no level. Every other pairing is possible
- * (a tennis player can be Advanced within a year), so nothing else is refused.
+ * Does a "how long have you played" answer fit the level? Type A and Type B
+ * say the guest has played (the walls, competing), so "Not yet" fits only
+ * Type C (`new` or `beginner`: the survey's Type C covers a first-timer), or no
+ * level. Every other pairing is possible (a tennis player can be Type A within
+ * a year), so nothing else is refused.
  */
 export function yearsFitLevel(level: PlayLevel | null, years: PlayYears): boolean {
-  return years !== 'never' || level === null || level === 'new';
+  return years !== 'never' || level === null || level === 'new' || level === 'beginner';
 }
 
 /** The answers with a new level; a years answer it contradicts is dropped, to be asked again. */

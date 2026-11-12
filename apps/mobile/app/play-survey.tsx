@@ -4,6 +4,7 @@ import { useLocalSearchParams } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { formatNumber, type MessageKey } from '@touch/i18n';
+import { PICKABLE_LEVELS, levelForPick, sameType } from '@touch/core';
 import { Text } from '../src/i18n/text';
 import { useLocale } from '../src/i18n/LocaleProvider';
 import { radius, space, useTheme } from '../src/theme';
@@ -29,7 +30,6 @@ import {
   AGE_BANDS,
   EMPTY_ANSWERS,
   GENDER_CHOICES,
-  PLAY_LEVELS,
   PLAY_WANTS,
   PLAY_YEARS,
   genderToSave,
@@ -562,16 +562,17 @@ function PlaySurvey() {
             </>
           ) : (
             <>
+              {/* One tile per player type (A, B, C); Type C lights for a stored `new` too. */}
               {phase === 'level'
-                ? PLAY_LEVELS.map((v, i) => (
+                ? PICKABLE_LEVELS.map((v, i) => (
                     <Tile
                       key={v}
                       testID={`play-survey.level.${kebab(v)}`}
                       title={t(`playProfile.survey.level.${v}.title`)}
                       body={t(`playProfile.survey.level.${v}.body`)}
-                      selected={answers.level === v}
+                      selected={sameType(answers.level, v)}
                       index={i + 1}
-                      onPress={() => choose('level', v)}
+                      onPress={() => choose('level', levelForPick(v, answers.level))}
                     />
                   ))
                 : phase === 'age'

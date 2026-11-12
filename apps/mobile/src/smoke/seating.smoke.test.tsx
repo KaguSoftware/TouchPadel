@@ -39,7 +39,7 @@ import { profileKeys } from '../features/profile/hooks';
 import { tournamentKeys } from '../features/tournaments/keys';
 import { parseTournamentPublic, parseTournamentsPublic } from '../features/tournaments/logic';
 import TournamentDetailScreen from '../../app/(tournaments)/tournament/[id]';
-import BookingsScreen from '../../app/(tabs)/bookings';
+import BookingsScreen from '../../app/bookings';
 
 // Tournaments ship in this file's build (features/tournaments/shipped.ts); the store build leaves them out.
 

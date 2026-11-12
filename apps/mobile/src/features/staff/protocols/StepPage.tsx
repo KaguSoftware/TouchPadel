@@ -7,7 +7,7 @@
  * stack, so the native back goes back a step.
  */
 import { type ReactNode, type RefObject } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, View, type ScrollViewInstance } from 'react-native';
+import { ScrollView, View, type ScrollViewInstance } from 'react-native';
 import { Stack } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { formatNumber } from '@touch/i18n';
@@ -15,6 +15,7 @@ import { Text } from '../../../i18n/text';
 import { useLocale } from '../../../i18n/LocaleProvider';
 import { brand, space, useTheme } from '../../../theme';
 import { Button, ErrorText, MicroLabel, Screen } from '../../../components/ui';
+import { KeyboardAvoid } from '../../../components/KeyboardAvoid';
 
 export interface StepAction {
   testID: string;
@@ -59,11 +60,7 @@ export function StepPage({
   return (
     <Screen edges={[]}>
       <Stack.Screen options={{ title }} />
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 0}
-      >
+      <KeyboardAvoid footerPad={Math.max(insets.bottom, space.m)}>
         <ScrollView
           ref={scrollRef}
           contentContainerStyle={{ paddingTop: space.m, paddingBottom: space.xl, gap: space.sm }}
@@ -113,7 +110,7 @@ export function StepPage({
             onPress={action.onPress}
           />
         </View>
-      </KeyboardAvoidingView>
+      </KeyboardAvoid>
     </Screen>
   );
 }

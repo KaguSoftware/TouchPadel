@@ -31,10 +31,16 @@ export function useStickToBottom() {
   const onContentSizeChange = useCallback(() => {
     if (atBottom.current) ref.current?.scrollToEnd({ animated: false });
   }, []);
+  /**
+   * The thread got shorter or taller: the keyboard rising or falling under the
+   * composer (KeyboardAvoid), once a frame. Keeps the last message riding on the
+   * composer instead of sliding under it.
+   */
+  const onLayout = onContentSizeChange;
   /** A question was just asked: show it, and follow its answer. */
   const follow = useCallback(() => {
     atBottom.current = true;
     ref.current?.scrollToEnd({ animated: false });
   }, []);
-  return { ref, onScroll, onContentSizeChange, follow };
+  return { ref, onScroll, onContentSizeChange, onLayout, follow };
 }

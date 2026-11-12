@@ -16,7 +16,7 @@ export const opErrorsTournamentsEn = {
   TOURNAMENT_FULL: 'This tournament and its waitlist are full.',
   TOURNAMENT_CATEGORY_MISMATCH: "This tournament's category doesn't match the player.",
   TOURNAMENT_PROFILE_REQUIRED: 'Answer the level and years questions to register for this tournament.',
-  TOURNAMENT_LEVEL_MISMATCH: "This tournament is for players of another level or experience.",
+  TOURNAMENT_LEVEL_MISMATCH: 'This tournament is for another player type or experience.',
   TOURNAMENT_ENTRY_NOT_FOUND: 'That entry changed. The list has been refreshed.',
   TOURNAMENT_SEAT_TAKEN: 'That chair was just taken. Pick another open one.',
   TOURNAMENT_ROUNDS_INVALID: "These rounds can't be saved. Refresh and generate them again.",

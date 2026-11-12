@@ -788,9 +788,10 @@ export const en = {
     profile: 'Profile',
     // The centre tab (2026-10-19): the member card and the café menu (app/(tabs)/club.tsx).
     club: 'Club',
-    // The leaderboard, in Join's place while a build leaves tournaments out (2026-10-22). Short on
-    // purpose: the width of Club across the bar from it, so Book stays in the middle.
-    ranks: 'Ranks',
+    // The leaderboard, the bar's first tab since 2026-11-12 (app/(tabs)/ranks.tsx, in My
+    // reservations' slot). 'Rankings', not 'Ranks' (Majed): about the width of Coaches at the other
+    // end of the bar, so Book stays in the middle.
+    ranks: 'Rankings',
   },
   // The leaderboard (app/(tabs)/ranks.tsx, app/ranks-report.tsx; migration 0364, Majed 2026-10-22).
   ranks: {
@@ -1384,6 +1385,58 @@ export const en = {
         top: 'You are on the top tier.',
         window: 'Tiers count the points from the last 12 months.',
       },
+      // 0410: the way to the next card, on the loyalty screen. "Card" is a tier's member card.
+      next: {
+        label: 'Next card',
+        toGo: 'Points to go',
+        counted: 'Earned in the last 12 months',
+        gives: 'What you get with {tier}',
+        keeps: 'And everything your card gives you now.',
+        topLabel: 'Your card',
+        top: 'You hold the top card.',
+        holds: 'What your card gives you',
+      },
+      // What a card gives, line by line. {times} is a figure with its sign ("1.5×").
+      gives: {
+        multiplier: '{times} points on everything you pay for',
+        deal: 'Deal: {name}',
+      },
+      // 0410: deals. The guest picks one, then the cashier applies it when they scan the card.
+      deals: {
+        title: 'Deals',
+        hint: 'Pick one, then show your member card at the cashier.',
+        percentOff: '{percent} off',
+        amountOff: '{amount} off',
+        wholeBill: 'On your whole café bill',
+        covers: 'On {names}',
+        coversMore: 'On {names} and more',
+        withCourt: 'With a court booking',
+        days: 'Days',
+        hours: 'Hours',
+        until: 'Until',
+        minSpend: 'Minimum bill',
+        usesLeft: 'Uses left',
+        heldUntil: 'On your card until',
+        notNow: 'Not right now',
+        use: 'Use at the cashier',
+        picked: 'On your card',
+        showCard: 'Show my card',
+        clear: 'Remove from my card',
+        cleared: 'Deal removed from your card',
+        needs: '{tier} card and above',
+        used: 'Used',
+        // On the member card, by the code.
+        cardLabel: 'Your deal',
+        cardLine: 'The cashier applies it when they scan this code.',
+      },
+      // 0410: every card from the base up.
+      ladder: {
+        title: 'The cards',
+        from: 'From {points} points',
+        base: 'Where everyone starts',
+        yours: 'Your card',
+        included: 'Included in yours',
+      },
       off: 'Points and rewards are not running yet. Check back soon.',
     },
     // The web: /{locale}/account and the café's "earn points" chip (plan §5.2).
@@ -1411,6 +1464,9 @@ export const en = {
         tier: '{tier}',
         nextTier: '{points} more points in the next 12 months to reach {tier}',
         topTier: 'You’re at the top tier.',
+        // 0410: what the next tier adds, under the points still to earn.
+        nextGives: '{tier} gives you',
+        nextMultiplier: '{times}× points on everything you pay for',
         rewardsTitle: 'Rewards',
         rewardsHint: 'Ask at the cashier to use your points or a reward.',
         rewardsEmpty: 'No rewards to show yet.',

@@ -27,7 +27,8 @@ import { useToast } from '../../../components/toast';
 import { useLocale } from '../../../lib/i18n';
 import { Button, ErrorText, Field, Select, inputStyle } from '../../../components/ui';
 import { MessagePresenter, PageHeader, Panel, SegmentedControl } from '../../../components/kit';
-import { AGE_BANDS, PLAY_LEVELS, type AgeBand, type PlayLevel } from '../../players/playerLogic';
+import { PICKABLE_LEVELS } from '@touch/core';
+import { AGE_BANDS, type AgeBand, type PlayLevel } from '../../players/playerLogic';
 
 type Lang = 'en' | 'ar';
 type FieldError = 'DUPLICATE_PHONE' | 'DUPLICATE_EMAIL' | 'INVALID_PHONE';
@@ -195,7 +196,7 @@ export function CustomerCreateScreen() {
                 value={playLevel}
                 onChange={setPlayLevel}
                 size="sm"
-                options={PLAY_LEVELS.map((l) => ({ value: l, label: tr(`ws.players.level.${l}`), disabled: busy, testId: `customer-level-${l}` }))}
+                options={PICKABLE_LEVELS.map((l) => ({ value: l, label: tr(`ws.players.level.${l}`), disabled: busy, testId: `customer-level-${l}` }))}
               />
             </Field>
             <Field label={tr('ws.courtDesk.createCustomer.language')}>

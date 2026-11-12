@@ -129,9 +129,9 @@ export const teamAr: DeepMessages<typeof teamEn> = {
         addonRenames: 'تظهر هنا الخيارات المعروضة للبيع فقط. يحتفظ الخيار بعد تغيير اسمه بسعره ما لم تغيّر السعر أعلاه.',
       },
       option: {
-        classA: 'الفئة A',
-        classB: 'الفئة B',
-        classC: 'الفئة C',
+        classA: 'فئة A',
+        classB: 'فئة B',
+        classC: 'فئة C',
         yearsUnderOne: 'أقل من سنة',
         yearsOneToThree: 'من سنة إلى ثلاث سنوات',
         yearsThreePlus: 'أكثر من ثلاث سنوات',

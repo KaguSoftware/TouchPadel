@@ -24,6 +24,7 @@ import { createContext, useContext, useEffect, useState, type ReactElement } fro
 import { Platform, Pressable, View, type ViewStyle } from 'react-native';
 import { router, usePathname } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useKeyboardShown } from '../../components/KeyboardAvoid';
 import { useLocale } from '../../i18n/LocaleProvider';
 import { Text } from '../../i18n/text';
 import { brand, radius, space, useTheme } from '../../theme';
@@ -125,7 +126,9 @@ export function withAssistantFab({
 export function AssistantFab({ path, lifted = false }: { path?: string; lifted?: boolean }) {
   const pathname = usePathname();
   const insets = useSafeAreaInsets();
-  if (fabHidden(path ?? pathname)) return null;
+  // It stays at the page's foot, so a rising keyboard left its top peeking over the keys.
+  const typing = useKeyboardShown();
+  if (typing || fabHidden(path ?? pathname)) return null;
   return (
     <AssistantButton
       testID="staff.assistant.fab"

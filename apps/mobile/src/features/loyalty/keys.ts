@@ -9,8 +9,14 @@
  * `mine` IS persisted: it is the guest's own balance and history, the same class of read as the
  * own profile, and Profile decides from it whether to offer the member card, which has to work
  * on a cold start with no signal at the till. Sign-out wipes the persister (auth/context.tsx).
+ *
+ * `deals` is NOT persisted (0410): a deal's state is live (open, used, the one picked, inside its
+ * hours or not), and a pick read back from disk would put "the cashier applies this deal" on the
+ * member card for a deal that was used or lapsed since. With no signal on a cold start the card
+ * shows its QR and no deal line; the pick itself lives on the server, so the cashier still
+ * applies it.
  */
-export type LoyaltyMutation = 'rotate';
+export type LoyaltyMutation = 'rotate' | 'pick-deal';
 
 export const loyaltyKeys = {
   /** Every loyalty read and write. */
@@ -19,6 +25,8 @@ export const loyaltyKeys = {
   mine: ['loyalty', 'mine'] as const,
   /** app.my_member_card(): the member code and the TOTP secret. Never written to disk. */
   card: ['loyalty', 'card'] as const,
+  /** app.my_deals(): the listed deals and the one picked. Live state, never written to disk. */
+  deals: ['loyalty', 'deals'] as const,
   /** Mutation keys: queryClient.ts gives this prefix "run now or fail now". */
   mutation: (name: LoyaltyMutation) => ['loyalty', 'mutation', name] as const,
 };

@@ -512,9 +512,9 @@ describe('CoachesAdmin ▸ Coaches', () => {
         .getAllByRole('checkbox')
         .map((b) => [b.closest('label')?.textContent, (b as HTMLInputElement).checked]),
     ).toEqual([
-      ['Beginner', false],
-      ['Intermediate', false],
-      ['Advanced', true],
+      ['Type A', true],
+      ['Type B', false],
+      ['Type C', false],
     ]);
     expect(
       editor.getByRole('group', { name: 'Levels they coach' }).getAttribute('aria-describedby'),
@@ -522,7 +522,7 @@ describe('CoachesAdmin ▸ Coaches', () => {
     expect(plain(editor.getByText(/Leave all three unticked/).textContent)).toBe(
       "Guests pick a level on the app's Coaches page. Leave all three unticked and this coach shows under every level.",
     );
-    await user.click(levels.getByRole('checkbox', { name: 'Beginner' }));
+    await user.click(levels.getByRole('checkbox', { name: 'Type C' }));
     await user.click(editor.getByRole('button', { name: 'Save profile' }));
     await waitFor(() => expect(calls('coach_update')).toHaveLength(1));
     expect(calls('coach_update')[0]![1]).toEqual({
@@ -544,7 +544,7 @@ describe('CoachesAdmin ▸ Coaches', () => {
     mount();
     const editor = within(await screen.findByTestId('coach-editor'));
     const levels = within(editor.getByRole('group', { name: 'Levels they coach' }));
-    await user.click(levels.getByRole('checkbox', { name: 'Intermediate' }));
+    await user.click(levels.getByRole('checkbox', { name: 'Type B' }));
     await user.click(editor.getByRole('button', { name: 'Save profile' }));
     await waitFor(() => expect(calls('coach_update')).toHaveLength(1));
     expect(calls('coach_update')[0]![1]).toEqual({ p_coach_id: 'c1', p_patch: { levels: [] } });

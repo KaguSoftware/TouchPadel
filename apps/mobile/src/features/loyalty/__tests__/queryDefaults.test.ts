@@ -28,6 +28,12 @@ describe('loyalty writes', () => {
     expect(d.networkMode).toBe('always');
     expect(d.retry).toBe(false);
   });
+
+  it('"Use at the cashier" (0410, pick_deal) runs now or fails now too', () => {
+    const d = queryClient.getMutationDefaults(loyaltyKeys.mutation('pick-deal'));
+    expect(d.networkMode).toBe('always');
+    expect(d.retry).toBe(false);
+  });
 });
 
 describe('the disk cache', () => {
@@ -39,6 +45,10 @@ describe('the disk cache', () => {
 
   it('never writes the member card (its TOTP secret lives in SecureStore)', () => {
     expect(dehydrates(loyaltyKeys.card)).toBe(false);
+  });
+
+  it('never writes the deals (0410): a pick read back from disk could be used or lapsed', () => {
+    expect(dehydrates(loyaltyKeys.deals)).toBe(false);
   });
 
   it('keeps the balance read, so Profile offers the card on an offline cold start', () => {

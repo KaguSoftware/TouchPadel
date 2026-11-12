@@ -78,7 +78,7 @@ export const reportsAr: DeepMessages<typeof reportsEn> = {
     methods: { cash: 'نقدًا', card: 'بطاقة', online: 'إلكترونيًا', outside: 'خارج الكاشير' },
     sources: { till: 'من كاشير الكافيه', guest_web: 'طلب عبر رمز QR' },
     adjKinds: { discount_percent: 'خصم بنسبة مئوية', discount_amount: 'خصم بمبلغ', price_override: 'تعديل السعر' },
-    reasons: { promotion: 'عرض ترويجي' },
+    reasons: { promotion: 'عرض ترويجي', loyalty_tier_perk: 'امتياز البطاقة: إضافات مجانية' },
     kinds: {
       reservation: 'حجز',
       tab: 'الكافيه',

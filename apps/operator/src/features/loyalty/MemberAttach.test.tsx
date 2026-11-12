@@ -64,6 +64,8 @@ vi.mock('../../lib/appRpc', async (importOriginal) => ({
   appRpc: vi.fn(),
 }));
 
+import type { ComponentProps } from 'react';
+import type { TabBenefits } from '@touch/core/loyalty';
 import { AppRpcError, appRpc } from '../../lib/appRpc';
 import { MemberAttach } from './MemberAttach';
 
@@ -79,7 +81,11 @@ const MEMBER = {
   enabled: true,
 };
 
-function mount(tabId = TAB, remainingIqd: number | null = 12_340) {
+function mount(
+  tabId = TAB,
+  remainingIqd: number | null = 12_340,
+  extra: Partial<ComponentProps<typeof MemberAttach>> = {},
+) {
   let grants = 0;
   rpc.mockImplementation(async (fn: string, args?: Record<string, unknown>) => {
     switch (fn) {
@@ -153,7 +159,7 @@ function mount(tabId = TAB, remainingIqd: number | null = 12_340) {
   render(
     <QueryClientProvider client={qc}>
       <LocaleProvider>
-        <MemberAttach tabId={tabId} remainingIqd={remainingIqd} />
+        <MemberAttach tabId={tabId} remainingIqd={remainingIqd} {...extra} />
       </LocaleProvider>
     </QueryClientProvider>,
   );
@@ -370,5 +376,88 @@ describe('MemberAttach', () => {
     mount();
     await new Promise((r) => setTimeout(r, 50));
     expect(screen.queryByTestId('member-button')).toBeNull();
+  });
+
+  // 0410: what the bill customer's card gives, read by the host (app.loyalty_tab_benefits).
+  describe('what the card gives (0410)', () => {
+    const benefits: TabBenefits = {
+      tab_id: TAB,
+      customer_id: 'p1',
+      enabled: true,
+      tier: { id: 't2', name_en: 'Gold', name_ar: 'ذهبي', multiplier: 1.5, color: 'gold' },
+      perks: [
+        { id: 'k1', kind: 'free_addons', name_en: 'Free add-ons on every drink', name_ar: 'كل إضافات المشروبات مجانًا', tier_id: 't2', tier_name_en: 'Gold', tier_name_ar: 'ذهبي', tier_color: 'gold' },
+        { id: 'k2', kind: 'custom', name_en: 'Priority booking', name_ar: 'أولوية الحجز', tier_id: 't1', tier_name_en: 'Silver', tier_name_ar: 'فضي', tier_color: 'silver' },
+      ],
+      addons: { on_bill_iqd: 1500, due_iqd: 1500, needs_refresh: false },
+      deal: null,
+    };
+
+    it('names the card in its colour and lists its privileges: free add-ons the till takes off, the rest by hand', async () => {
+      tabRow = { ...tabRow, customer_id: 'p1' };
+      mount(TAB, 12_340, { benefits });
+      const block = within(await screen.findByTestId('member-benefits'));
+      expect(block.getByTestId('member-card-name').textContent).toBe('Gold card gives');
+      expect(screen.getByTestId('member-benefits').querySelector('[data-tier-color="gold"]')).toBeTruthy();
+      const perks = block.getAllByTestId('member-perk');
+      expect(perks.map((p) => p.textContent)).toEqual(['Free add-ons on every drinkTaken off by the till', 'Priority bookingGive by hand']);
+      expect(block.getByTestId('member-perk-on-bill').textContent).toContain('1,500');
+      expect(block.queryByTestId('member-deal')).toBeNull();
+    });
+
+    it('never offers Undo for the free add-ons the server put on the bill', async () => {
+      tabRow = {
+        ...tabRow,
+        customer_id: 'p1',
+        tab_adjustments: [{ id: 'a9', kind: 'discount_amount', amount_iqd: 1500, value: 1500, reason_code: 'loyalty_tier_perk' }],
+      };
+      mount(TAB, 12_340, { benefits });
+      await screen.findByTestId('member-benefits');
+      expect(screen.queryByTestId('member-undo')).toBeNull();
+      expect(screen.queryByText('Points used on this bill')).toBeNull();
+    });
+
+    it('shows the card of a bill whose customer the server knows without anyone attached (a booking, an app order)', async () => {
+      mount(TAB, 12_340, { benefits });
+      expect(await screen.findByTestId('member-benefits')).toBeTruthy();
+      expect(screen.getByTestId('member-button')).toBeTruthy();
+    });
+
+    it('the deal picked in the app runs the host’s promotion apply, and says so once it is on the bill', async () => {
+      const user = userEvent.setup();
+      const apply = vi.fn();
+      tabRow = { ...tabRow, customer_id: 'p1' };
+      const deal = { promotion_id: 'pr1', name_en: 'Happy hour', name_ar: 'ساعة السعادة', type: 'percent' as const, value: 20, applied: false };
+      mount(TAB, 12_340, { benefits: { ...benefits, deal }, deal: { apply } });
+      const block = within(await screen.findByTestId('member-deal'));
+      expect(block.getByText('Happy hour')).toBeTruthy();
+      expect(block.getByText('20% off')).toBeTruthy();
+      // Apply waits for the bill to be known open.
+      await user.click(await block.findByTestId('member-deal-apply'));
+      expect(apply).toHaveBeenCalledTimes(1);
+    });
+
+    it('a deal already on the bill has no Apply; a host with no promotion apply only names it', async () => {
+      tabRow = { ...tabRow, customer_id: 'p1' };
+      const deal = { promotion_id: 'pr1', name_en: 'Happy hour', name_ar: 'ساعة السعادة', type: 'amount' as const, value: 2000, applied: false };
+      mount(TAB, 12_340, { benefits: { ...benefits, perks: [], deal } });
+      const block = within(await screen.findByTestId('member-deal'));
+      expect(block.queryByTestId('member-deal-apply')).toBeNull();
+      expect(block.getByText('For your information. Deals are applied at the café cashier.')).toBeTruthy();
+      // No privileges: the card heading is left out, the deal stays.
+      expect(screen.queryByTestId('member-card-name')).toBeNull();
+    });
+
+    it.each([
+      ['loyalty is off', { ...benefits, enabled: false }],
+      ['the answer is another bill’s', { ...benefits, tab_id: 'other' }],
+      ['the card gives nothing and no deal was picked', { ...benefits, perks: [] }],
+      ['the server has no such answer', null],
+    ])('shows nothing new when %s', async (_why, given) => {
+      tabRow = { ...tabRow, customer_id: 'p1' };
+      mount(TAB, 12_340, { benefits: given });
+      await screen.findByTestId('member-chip');
+      expect(screen.queryByTestId('member-benefits')).toBeNull();
+    });
   });
 });

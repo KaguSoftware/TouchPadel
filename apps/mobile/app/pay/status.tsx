@@ -213,7 +213,7 @@ function PayStatusScreen() {
   });
   const go = (to: () => void) => leave(to);
 
-  const toBookings = () => go(() => returnTo('/(tabs)/bookings', '(tabs)'));
+  const toBookings = () => go(() => returnTo('/bookings', '(tabs)', 'push'));
   const toTickets = () => go(() => router.replace('/tickets'));
   const toLesson = () =>
     go(() =>

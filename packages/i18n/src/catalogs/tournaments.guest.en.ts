@@ -80,7 +80,7 @@ export const tournamentsGuestEn = {
       categoryMismatch: 'This tournament is for another category of players.',
       // 0339: who it is for (class and years bracket).
       profileRequired: 'Tell us your level and how long you have played to register.',
-      levelMismatch: 'This tournament is for players of another level.',
+      levelMismatch: 'This tournament is for another player type.',
       yearsMismatch: 'This tournament is for players with a different number of years played.',
       answer: 'Answer now',
       full: 'This tournament and its waitlist are full.',

@@ -30,7 +30,7 @@
 import { useEffect, useId, useState, type ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
-import { COACH_LEVELS } from '@touch/core';
+import { COACH_LEVELS_BY_TYPE } from '@touch/core';
 import { formatIQD, formatNumber, isolate, isolateLtr } from '@touch/i18n';
 import { AppRpcError, appRpc } from '../../../lib/appRpc';
 import { pickName, useLocale } from '../../../lib/i18n';
@@ -476,7 +476,7 @@ function ProfileSection({
           {tr(`${E}.levels`)}
         </legend>
         <div style={{ display: 'flex', gap: 'var(--tp-sp-3)', flexWrap: 'wrap' }}>
-          {COACH_LEVELS.map((level) => (
+          {COACH_LEVELS_BY_TYPE.map((level) => (
             <label
               key={level}
               style={{

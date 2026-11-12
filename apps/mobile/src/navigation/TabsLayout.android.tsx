@@ -8,7 +8,7 @@ import { useLocale } from '../i18n/LocaleProvider';
 import { brand, radius, useTheme } from '../theme';
 import {
   TabBookIcon,
-  TabBookingsIcon,
+  TabRanksIcon,
   TabCoachesIcon,
   TabClubIcon,
   TabPlayIcon,
@@ -162,8 +162,9 @@ const StableOrderScreen = forwardRef<ViewInstance, ScreenProps>(function StableO
 });
 
 /**
- * Bottom tabs per the design: Bookings / Play / Book / Club / Coaches, Play only while tournaments
- * ship. Ranks (the leaderboard) is a segment of Club, not a tab (2026-10-25). Profile
+ * Bottom tabs per the design: Rankings / Play / Book / Club / Coaches, Play only while tournaments
+ * or open matches are on. Rankings (the leaderboard) took My reservations' slot on 2026-11-12
+ * (Majed); My reservations is a page off Profile (app/bookings.tsx). Profile
  * left the bar on 2026-10-17 for the avatar on each tab's title row
  * (components/AccountButton.tsx, Majed); Club (the member card's QR and the
  * café menu) took the centre on 2026-10-19, and Book took it back on
@@ -298,27 +299,27 @@ function AndroidTabs() {
        * `tabBarButton` is declared PER SCREEN rather than once in
        * `screenOptions`, where it used to live, for one reason: the testID.
        * screenOptions is shared by all five tabs, so a button built there
-       * cannot say WHICH tab it is, and `tabs.bookings` / `tabs.play` /
+       * cannot say WHICH tab it is, and `tabs.ranks` / `tabs.play` /
        * `tabs.book` / `tabs.club` / `tabs.coaches` have to differ — they
        * are what the smoke tests press. The ripple override below is unchanged
        * and is repeated with it, and so is `tabButton`, which also needs to
        * know whether the tab sits on the screen's edge.
        */}
       <Tabs.Screen
-        name="bookings"
+        name="ranks"
         options={{
           tabBarButton: ({ href: _href, ref: _ref, ...props }) => (
             <Pressable
               {...props}
-              testID="tabs.bookings"
+              testID="tabs.ranks"
               android_ripple={RIPPLE(colors.line)}
               style={[props.style, tabButton('first')]}
             />
           ),
           tabBarIcon: ({ focused, color }) => (
-            <TabBookingsIcon color={focused ? brand.green : color} />
+            <TabRanksIcon color={focused ? brand.green : color} />
           ),
-          tabBarLabel: ({ focused }) => <TabLabel text={t('tabs.bookings')} focused={focused} />,
+          tabBarLabel: ({ focused }) => <TabLabel text={t('tabs.ranks')} focused={focused} />,
         }}
       />
       {/* `href: null` drops Play from the bar (expo-router refuses it beside a tabBarButton, so

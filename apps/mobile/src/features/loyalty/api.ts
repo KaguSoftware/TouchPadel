@@ -3,13 +3,17 @@
  * tournaments/api.ts does, so the call shapes are tested with a stub under plain node; hooks.ts
  * binds the app singleton.
  *
- * None of the three takes an argument. Reads return the PARSED shapes of logic.ts; a refusal is
- * thrown as it came, so `mapErrorToKey` and the query client's retry policy read it the same
- * way. Every loyalty write is online-only (L-6): nothing here is queued.
+ * The card and balance calls take no argument. Reads return the PARSED shapes of logic.ts and
+ * deals.ts; a refusal is thrown as it came, so `mapErrorToKey` and the query client's retry
+ * policy read it the same way. Every loyalty write is online-only (L-6): nothing here is queued.
+ *
+ * Deals (0410): `my_deals` on a server that does not have it yet answers PGRST202, which reads
+ * as "no deals", never as an error (the screens then show nothing new).
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@touch/db';
-import type { MemberCard, MyLoyalty } from '@touch/core/loyalty';
+import type { MemberCard, MyDeals, MyLoyalty } from '@touch/core/loyalty';
+import { NO_DEALS, isMissingRpc, parseMyDeals } from './deals';
 import { parseMemberCard, parseMyLoyalty } from './logic';
 
 type Client = SupabaseClient<Database>;
@@ -40,4 +44,31 @@ export async function rotateMemberCard(client: Client): Promise<MemberCard> {
   const { data, error } = await client.schema('app').rpc('rotate_member_card');
   if (error) throw error;
   return cardOrThrow(data);
+}
+
+/**
+ * app.my_deals (0410): the listed deals, the picked one first, then open, locked, used. A server
+ * without the function reads as no deals.
+ */
+export async function fetchMyDeals(client: Client): Promise<MyDeals> {
+  const { data, error } = await client.schema('app').rpc('my_deals');
+  if (error) {
+    if (isMissingRpc(error)) return NO_DEALS;
+    throw error;
+  }
+  return parseMyDeals(data);
+}
+
+/**
+ * app.pick_deal (0410): the deal to use next at the cashier; null clears the pick. Answers the
+ * deals again. Refusals DEAL_UNAVAILABLE, DEAL_LOCKED and DEAL_USED are thrown as they came.
+ */
+export async function pickDeal(client: Client, promotionId: string | null): Promise<MyDeals> {
+  // The generated types call the argument a string, as they call every argument; null is the
+  // documented "clear the pick", and it is still sent (PostgREST matches by argument names).
+  const { data, error } = await client
+    .schema('app')
+    .rpc('pick_deal', { p_promotion_id: promotionId as unknown as string });
+  if (error) throw error;
+  return parseMyDeals(data);
 }

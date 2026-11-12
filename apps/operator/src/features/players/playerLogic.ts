@@ -17,6 +17,8 @@
  * PURE (no React, no network): vitest runs it under node.
  */
 
+import { sameType } from '@touch/core';
+
 export const AGE_BANDS = ['u18', '18_24', '25_34', '35_44', '45_54', '55_plus'] as const;
 export const PLAY_LEVELS = ['new', 'beginner', 'intermediate', 'advanced'] as const;
 /** The closed, ordered tag list of app.customer_interest_tags. */
@@ -156,12 +158,14 @@ export function parseLevelReviews(json: unknown): LevelReview[] {
         lastPlayedAt: str(o.last_played_at),
       };
     })
-    .filter((r): r is LevelReview => r !== null);
+    // A row whose record already reads as the suggested type (a stored `new`
+    // against a suggested `beginner`: Type C both) has nothing to check.
+    .filter((r): r is LevelReview => r !== null && !sameType(r.confirmed ?? r.claimed, r.suggested));
 }
 
-/** Does the club's record already agree with what the games suggest? */
+/** Does the club's record already agree with what the games suggest? The same player type agrees. */
 export function agreesWithGames(facts: PlayerFacts): boolean {
-  return facts.suggested !== null && facts.effectiveLevel === facts.suggested.level;
+  return facts.suggested !== null && sameType(facts.effectiveLevel, facts.suggested.level);
 }
 
 /**
@@ -169,7 +173,8 @@ export function agreesWithGames(facts: PlayerFacts): boolean {
  * down as right. A row with no claim offers only the suggestion.
  */
 export function reviewChoices(row: LevelReview): { confirm: PlayLevel; keep: PlayLevel | null } {
-  return { confirm: row.suggested, keep: row.claimed ?? null };
+  // A claim that reads as the suggested type offers only the one choice.
+  return { confirm: row.suggested, keep: row.claimed && !sameType(row.claimed, row.suggested) ? row.claimed : null };
 }
 
 // ── The dialog ──────────────────────────────────────────────────────────────

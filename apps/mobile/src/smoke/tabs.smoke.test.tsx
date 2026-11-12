@@ -7,7 +7,7 @@
  *
  * The hardest three renders in the app live here: `(tabs)/index` builds the
  * court's GL stage and a glass sheet, `(tabs)/_layout` is UIKit's own tab bar,
- * and `(tabs)/bookings` has four states (signed out, empty, error, populated)
+ * and `bookings` (My reservations, a page off Profile since 2026-11-12) has four states (signed out, empty, error, populated)
  * that used to share one branch. See `src/smoke/auth.smoke.test.tsx` for what
  * a case asserts and `src/test/smokeCase.tsx` for how.
  *
@@ -51,11 +51,12 @@ import TabsLayout from '../../app/(tabs)/_layout';
 import { isGuestPreview, setGuestPreview } from '../features/staff/guestPreview';
 // The `.android` file BY NAME, past the preset's platform resolution: this is
 // the navigator whose tab buttons are the app's own Pressables, and the only
-// place `tabs.book` / `tabs.bookings` / `tabs.coaches` are minted by app code.
+// place `tabs.book` / `tabs.ranks` / `tabs.coaches` are minted by app code.
 import TabsLayoutAndroid from '../navigation/TabsLayout.android';
 import BookScreen from '../../app/(tabs)/index';
-import BookingsScreen from '../../app/(tabs)/bookings';
+import BookingsScreen from '../../app/bookings';
 import ProfileScreen from '../../app/profile';
+import RanksTab from '../../app/(tabs)/ranks';
 
 const CASES: SmokeCase[] = [
   {
@@ -119,6 +120,44 @@ const CASES: SmokeCase[] = [
 ];
 
 runSmokeCases('tab screens', CASES);
+
+/**
+ * My reservations left the bar for Rankings (Majed, 2026-11-12): Profile's Activity group opens
+ * it, and Rankings is the tab in its slot.
+ */
+describe.each<Locale>(['en', 'ar'])('My reservations from Profile in %s', (locale) => {
+  const t = makeT(locale);
+
+  it('offers My reservations on Profile and pushes the page', () => {
+    const screen = renderRoute(ProfileScreen, {
+      locale,
+      session: 'in',
+      queryData: [
+        [profileKeys.own, profileFixture()],
+        [availabilityKeys.branches, [branchFixture()]],
+        [availabilityKeys.settings(TEST_VENUE_ID), null],
+      ],
+    });
+    try {
+      const row = screen.getByTestId('profile.bookings');
+      expect(within(row).getByText(t('booking.myBookings'))).toBeTruthy();
+      fireEvent.press(row);
+      expect(routerState.calls).toContainEqual({ method: 'push', arg: '/bookings' });
+    } finally {
+      screen.unmount();
+    }
+  });
+
+  it('puts Rankings in the bar where My reservations was', () => {
+    const screen = renderRoute(TabsLayoutAndroid, { locale });
+    try {
+      expect(within(screen.getByTestId('tabs.ranks')).getByText(t('tabs.ranks'))).toBeTruthy();
+      expect(screen.queryByTestId('tabs.bookings')).toBeNull();
+    } finally {
+      screen.unmount();
+    }
+  });
+});
 
 /**
  * The Android bar, rendered directly. expo-router's `Tabs` is a stand-in in
@@ -185,15 +224,15 @@ describe.each(LOCALES)('book branch picker in %s', (locale) => {
 
 /**
  * The tabs on both bars, in this order, each with its own id and the locale's label. Profile left
- * the bar on 2026-10-17 for the avatar on each title row; Club (the member card, Ranks and the
+ * the bar on 2026-10-17 for the avatar on each title row; Club (the member card and the
  * café menu) took the centre on 2026-10-19, and Book took it back on 2026-10-22, swapping places
  * with Club. Play is second while some branch has tournaments or open matches on: the branch
- * decides, not the build (F-71, features/tournaments/shipped.ts); Ranks is a segment of Club,
- * never a tab (2026-10-25).
+ * decides, not the build (F-71, features/tournaments/shipped.ts). Rankings (the leaderboard) is
+ * first since 2026-11-12, in the slot My reservations left for Profile (Majed).
  */
 const tabOrder = (withPlay: boolean) =>
   [
-    'bookings',
+    'ranks',
     ...(withPlay ? (['play'] as const) : []),
     'book',
     'club',
@@ -211,7 +250,7 @@ describe.each(LOCALES)('the tabs in %s', (locale) => {
     it.each<[string, typeof TabsLayout]>([
       ['iOS', TabsLayout],
       ['Android', TabsLayoutAndroid],
-    ])('the %s bar declares its tabs, no Profile tab and no Ranks tab', (_name, Layout) => {
+    ])('the %s bar declares its tabs and no Profile or Bookings tab', (_name, Layout) => {
       const screen = renderRoute(Layout, {
         locale,
         queryData: [[availabilityKeys.branches, [branchFixture(switches)]]],
@@ -309,19 +348,7 @@ describe.each(LOCALES)('the account button in %s', (locale) => {
 
   it.each<[string, typeof BookScreen, 'in' | 'out', [readonly unknown[], unknown][]]>([
     ['book', BookScreen, 'out', bookSeeds([branchFixture()])],
-    [
-      'bookings',
-      BookingsScreen,
-      'in',
-      [
-        [bookingKeys.mine, [bookingFixture()]],
-        [matchKeys.mine('upcoming'), myMatchesFixture()],
-        [matchKeys.tickets, myTicketsFixture()],
-        [availabilityKeys.branches, [branchFixture()]],
-        [availabilityKeys.allCourts, [courtFixture()]],
-        [profileKeys.own, profileFixture()],
-      ],
-    ],
+    ['ranks', RanksTab, 'in', [[profileKeys.own, profileFixture()]]],
   ])('the %s tab opens the account page', (route, Screen, session, queryData) => {
     const screen = renderRoute(Screen, { locale, session, queryData });
     try {

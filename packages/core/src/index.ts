@@ -22,6 +22,7 @@ export * from './staff/access';
 export * from './staff/requests';
 export * from './protocols';
 export * from './coaching';
+export * from './players/playerType';
 export * from './net/retry';
 export * from './net/timeout';
 export * from './net/resilientChannel';

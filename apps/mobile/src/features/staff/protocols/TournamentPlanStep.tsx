@@ -12,11 +12,12 @@
  * are the operator's (`@touch/core/protocols` tournamentPlan.ts).
  */
 import { useEffect, useRef, useState, type ComponentType, type ReactNode } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Switch, View, type ScrollViewInstance } from 'react-native';
+import { Pressable, ScrollView, Switch, View, type ScrollViewInstance } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
+import { KeyboardAvoid } from '../../../components/KeyboardAvoid';
 import {
   cellKey,
   hourColumns,
@@ -535,7 +536,7 @@ export function TournamentPlanStep({
   return (
     <Screen edges={[]}>
       <Stack.Screen options={{ title: t('work.protocol.kind.tournament') }} />
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 0}>
+      <KeyboardAvoid footerPad={Math.max(insets.bottom, space.m)}>
         <ScrollView
           ref={scroll}
           contentContainerStyle={{ paddingTop: space.m, paddingBottom: space.xl, gap: space.l }}
@@ -603,7 +604,7 @@ export function TournamentPlanStep({
             />
           )}
         </View>
-      </KeyboardAvoidingView>
+      </KeyboardAvoid>
     </Screen>
   );
 }

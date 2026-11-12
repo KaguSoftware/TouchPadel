@@ -6,6 +6,8 @@
  * print, a money figure or an exact count.
  */
 
+import { foldTypeRows, typeBucketOf } from '@touch/core';
+
 export type TrendDir = 'up' | 'steady' | 'down' | 'unknown';
 /**
  * Which way a figure moved against the comparison, and how far (0365, Majed:
@@ -241,19 +243,24 @@ export function parseInsights(json: unknown): Insights {
       coverageTrend: trend(pe, 'coverageTrend', 'pts'),
       genders: buckets(pe.genders),
       ages: buckets(pe.ages),
-      levels: buckets(pe.levels),
+      // A stored `new` and `beginner` are both Type C: one row (players/playerType).
+      levels: foldTypeRows(buckets(pe.levels), (b) => b.bucket, ['share'], (b) => ({ ...b, bucket: typeBucketOf(b.bucket) })),
       interests: buckets(pe.interests),
       judgedShare: share(pe.judgedShare),
       overClaimedShare: share(pe.overClaimedShare),
       growing: arr(pe.growing)
-        .map((r) => ({ bucket: str(obj(r).bucket), trend: trend(obj(r), 'trend') }))
-        .filter((g) => g.bucket !== ''),
-      top: arr(pe.top)
-        .map((r) => {
-          const x = obj(r);
-          return { who: str(x.who), band: str(x.band), level: str(x.level), share: share(x.share) };
-        })
-        .filter((t) => t.who !== '' || t.band !== '' || t.level !== ''),
+        .map((r) => ({ bucket: typeBucketOf(str(obj(r).bucket)), trend: trend(obj(r), 'trend') }))
+        .filter((g, i, all) => g.bucket !== '' && all.findIndex((x) => x.bucket === g.bucket) === i),
+      top: foldTypeRows(
+        arr(pe.top)
+          .map((r) => {
+            const x = obj(r);
+            return { who: str(x.who), band: str(x.band), level: typeBucketOf(str(x.level)), share: share(x.share) };
+          })
+          .filter((t) => t.who !== '' || t.band !== '' || t.level !== ''),
+        (t) => `${t.who}|${t.band}|${t.level}`,
+        ['share'],
+      ),
     },
     offers: arr(o.offers)
       .map((r) => {

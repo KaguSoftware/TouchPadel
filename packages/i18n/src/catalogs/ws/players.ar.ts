@@ -62,10 +62,10 @@ export const playersAr: DeepMessages<typeof playersEn> = {
     '55_plus': '55 وأكثر',
   },
   level: {
-    new: 'مبتدئ تماماً',
-    beginner: 'مبتدئ',
-    intermediate: 'متوسط',
-    advanced: 'متقدّم',
+    new: 'فئة C',
+    beginner: 'فئة C',
+    intermediate: 'فئة B',
+    advanced: 'فئة A',
   },
   role: {
     coach: 'مدرّب',

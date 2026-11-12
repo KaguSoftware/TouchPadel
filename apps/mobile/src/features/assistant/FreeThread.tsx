@@ -11,7 +11,7 @@
  * The logic is `free.ts` (vitest); this file draws it.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, View } from 'react-native';
 import { router, type Href } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { countPhrase } from '@touch/i18n';
@@ -19,6 +19,7 @@ import { Text } from '../../i18n/text';
 import { useLocale } from '../../i18n/LocaleProvider';
 import { radius, space, useTheme } from '../../theme';
 import { Button, MicroLabel } from '../../components/ui';
+import { KeyboardAvoid } from '../../components/KeyboardAvoid';
 import { SparkIcon } from '../../components/icons';
 import { captureException } from '../../lib/telemetry';
 import { useStaffStatus } from '../staff/StaffStatusProvider';
@@ -136,7 +137,7 @@ export function FreeThread({ testID, from, onUsePaid }: FreeThreadProps) {
     void chat.ask(text);
   };
 
-  const { ref: scrollRef, onScroll, onContentSizeChange, follow } = useStickToBottom();
+  const { ref: scrollRef, onScroll, onContentSizeChange, onLayout, follow } = useStickToBottom();
   const last = chat.turns[chat.turns.length - 1];
   const { streaming } = chat;
   useEffect(() => {
@@ -152,15 +153,13 @@ export function FreeThread({ testID, from, onUsePaid }: FreeThreadProps) {
   };
 
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1 }}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 56 + insets.top : 0}
-    >
+    // The composer's bottom padding (space.s + home indicator) tucks under the keys.
+    <KeyboardAvoid footerPad={space.s + insets.bottom}>
       <ScrollView
         ref={scrollRef}
         onScroll={onScroll}
         onContentSizeChange={onContentSizeChange}
+        onLayout={onLayout}
         scrollEventThrottle={16}
         testID={`${testID}.thread`}
         keyboardShouldPersistTaps="handled"
@@ -362,6 +361,6 @@ export function FreeThread({ testID, from, onUsePaid }: FreeThreadProps) {
           streaming={chat.streaming}
         />
       </View>
-    </KeyboardAvoidingView>
+    </KeyboardAvoid>
   );
 }

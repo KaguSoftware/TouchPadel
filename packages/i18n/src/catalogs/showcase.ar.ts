@@ -3,9 +3,9 @@
  */
 export const coachShowcaseAr = {
   levels: {
-    beginner: 'مبتدئ',
-    intermediate: 'متوسط',
-    advanced: 'متقدّم',
+    beginner: 'فئة C',
+    intermediate: 'فئة B',
+    advanced: 'فئة A',
   },
   classesTitle: 'الحصص الجماعية',
   classesSub: 'انضمّ إلى مجموعة دون الحاجة إلى شريك',

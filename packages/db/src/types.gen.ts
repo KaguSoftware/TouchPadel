@@ -1842,6 +1842,10 @@ export type Database = {
       delete_court: { Args: { p_id: string }; Returns: Json }
       delete_hiring_candidate: { Args: { p_id: string }; Returns: undefined }
       delete_loyalty_tier: { Args: { p_tier_id: string }; Returns: undefined }
+      delete_loyalty_tier_perk: {
+        Args: { p_perk_id: string }
+        Returns: undefined
+      }
       delete_my_account: { Args: { p_confirm?: string }; Returns: Json }
       deposit_amount: {
         Args: { p_price_iqd: number; p_venue_id: string }
@@ -2908,6 +2912,10 @@ export type Database = {
       }
       loyalty_court_reward: { Args: { p_tab_id: string }; Returns: Json }
       loyalty_customer: { Args: { p_profile_id: string }; Returns: Json }
+      loyalty_deal_uses: {
+        Args: { p_profile: string; p_promotion: string }
+        Returns: number
+      }
       loyalty_display_name: { Args: { p_profile: string }; Returns: string }
       loyalty_history: {
         Args: { p_limit: number; p_profile: string }
@@ -2921,6 +2929,7 @@ export type Database = {
         Args: { p_code: string; p_venue_id: string }
         Returns: Json
       }
+      loyalty_ladder_json: { Args: never; Returns: Json }
       loyalty_me: { Args: never; Returns: string }
       loyalty_member_code: { Args: never; Returns: string }
       loyalty_multiplier: { Args: { p_profile: string }; Returns: number }
@@ -2929,7 +2938,24 @@ export type Database = {
         Args: { p_expire_months: number; p_profile: string; p_since: string }
         Returns: string
       }
+      loyalty_perks_json: {
+        Args: { p_all?: boolean; p_tier: string }
+        Returns: Json
+      }
+      loyalty_perks_plan: {
+        Args: { p_tab_id: string }
+        Returns: {
+          amount_iqd: number
+          authorized_by: string
+          order_item_id: string
+        }[]
+      }
+      loyalty_perks_refresh: {
+        Args: { p_device_id?: string; p_tab_id: string }
+        Returns: Json
+      }
       loyalty_phone_masked: { Args: { p_phone: string }; Returns: string }
+      loyalty_picked_deal: { Args: { p_profile: string }; Returns: string }
       loyalty_points_for: {
         Args: {
           p_cafe: boolean
@@ -2959,6 +2985,7 @@ export type Database = {
       }
       loyalty_retier: { Args: never; Returns: undefined }
       loyalty_settings_json: { Args: never; Returns: Json }
+      loyalty_tab_benefits: { Args: { p_tab_id: string }; Returns: Json }
       loyalty_tab_paid_at_settle: {
         Args: { p_tab_id: string }
         Returns: number
@@ -2967,6 +2994,7 @@ export type Database = {
         Args: { p_code: string; p_uid: string; p_user_limit: number }
         Returns: undefined
       }
+      loyalty_tier_floor: { Args: { p_profile: string }; Returns: number }
       loyalty_tier_json: { Args: { p_tier: string }; Returns: Json }
       loyalty_tiers_renumber: { Args: never; Returns: undefined }
       loyalty_till_terms: { Args: { p_venue_id: string }; Returns: Json }
@@ -3558,6 +3586,7 @@ export type Database = {
       }
       my_checklists_today: { Args: { p_venue_id?: string }; Returns: Json }
       my_coach_statements: { Args: { p_month?: string }; Returns: Json }
+      my_deals: { Args: never; Returns: Json }
       my_deduction_proposals: {
         Args: { p_limit?: number; p_venue_id?: string }
         Returns: Json
@@ -3737,6 +3766,7 @@ export type Database = {
         Args: { p_key: string; p_profile: string }
         Returns: boolean
       }
+      pick_deal: { Args: { p_promotion_id: string }; Returns: Json }
       pin_delay_floor: { Args: never; Returns: string }
       pin_grant_ttl: { Args: never; Returns: string }
       pin_is_weak: { Args: { p_pin: string }; Returns: boolean }
@@ -5041,6 +5071,15 @@ export type Database = {
         }
         Returns: Json
       }
+      set_promotion_app: {
+        Args: {
+          p_blurb_ar?: string
+          p_blurb_en?: string
+          p_id: string
+          p_in_app: boolean
+        }
+        Returns: Json
+      }
       set_promotion_enabled: {
         Args: { p_enabled: boolean; p_id: string }
         Returns: Json
@@ -5945,6 +5984,7 @@ export type Database = {
       }
       upsert_loyalty_reward: { Args: { p_reward: Json }; Returns: Json }
       upsert_loyalty_tier: { Args: { p_tier: Json }; Returns: Json }
+      upsert_loyalty_tier_perk: { Args: { p_perk: Json }; Returns: Json }
       upsert_menu_category: {
         Args: {
           p_id?: string
@@ -10372,6 +10412,9 @@ export type Database = {
       loyalty_cards: {
         Row: {
           created_at: string
+          deal_picked_at: string | null
+          deal_promotion_id: string | null
+          deal_uses_before: number
           last_counter: number | null
           member_code: string
           profile_id: string
@@ -10380,6 +10423,9 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          deal_picked_at?: string | null
+          deal_promotion_id?: string | null
+          deal_uses_before?: number
           last_counter?: number | null
           member_code: string
           profile_id: string
@@ -10388,6 +10434,9 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          deal_picked_at?: string | null
+          deal_promotion_id?: string | null
+          deal_uses_before?: number
           last_counter?: number | null
           member_code?: string
           profile_id?: string
@@ -10395,6 +10444,13 @@ export type Database = {
           secret?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "loyalty_cards_deal_promotion_id_fkey"
+            columns: ["deal_promotion_id"]
+            isOneToOne: false
+            referencedRelation: "promotions"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "loyalty_cards_profile_id_fkey"
             columns: ["profile_id"]
@@ -10603,6 +10659,63 @@ export type Database = {
             columns: ["updated_by"]
             isOneToOne: false
             referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      loyalty_tier_perks: {
+        Row: {
+          active: boolean
+          created_at: string
+          created_by: string
+          id: string
+          kind: string
+          modifier_group_ids: string[]
+          name_ar: string
+          name_en: string
+          sort: number
+          tier_id: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          created_by: string
+          id?: string
+          kind: string
+          modifier_group_ids?: string[]
+          name_ar: string
+          name_en: string
+          sort?: number
+          tier_id: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          created_by?: string
+          id?: string
+          kind?: string
+          modifier_group_ids?: string[]
+          name_ar?: string
+          name_en?: string
+          sort?: number
+          tier_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "loyalty_tier_perks_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "loyalty_tier_perks_tier_id_fkey"
+            columns: ["tier_id"]
+            isOneToOne: false
+            referencedRelation: "loyalty_tiers"
             referencedColumns: ["id"]
           },
         ]
@@ -13609,6 +13722,8 @@ export type Database = {
       }
       promotions: {
         Row: {
+          app_blurb_ar: string | null
+          app_blurb_en: string | null
           auto: boolean
           code_single_use: boolean
           created_at: string
@@ -13618,6 +13733,7 @@ export type Database = {
           hour_from: string | null
           hour_to: string | null
           id: string
+          in_app: boolean
           limits: Json
           name_ar: string
           name_en: string
@@ -13631,6 +13747,8 @@ export type Database = {
           weekdays: number[]
         }
         Insert: {
+          app_blurb_ar?: string | null
+          app_blurb_en?: string | null
           auto?: boolean
           code_single_use?: boolean
           created_at?: string
@@ -13640,6 +13758,7 @@ export type Database = {
           hour_from?: string | null
           hour_to?: string | null
           id?: string
+          in_app?: boolean
           limits?: Json
           name_ar: string
           name_en: string
@@ -13653,6 +13772,8 @@ export type Database = {
           weekdays?: number[]
         }
         Update: {
+          app_blurb_ar?: string | null
+          app_blurb_en?: string | null
           auto?: boolean
           code_single_use?: boolean
           created_at?: string
@@ -13662,6 +13783,7 @@ export type Database = {
           hour_from?: string | null
           hour_to?: string | null
           id?: string
+          in_app?: boolean
           limits?: Json
           name_ar?: string
           name_en?: string

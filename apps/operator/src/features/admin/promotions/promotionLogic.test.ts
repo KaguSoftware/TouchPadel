@@ -1,20 +1,28 @@
 import { describe, it, expect } from 'vitest';
 import { formatDate, makeT } from '@touch/i18n';
 import {
+  APP_BLURB_MAX,
   EMPTY_DRAFT,
+  appColumnsMissing,
+  appListingArgs,
+  appListingChanged,
+  appListingKnown,
   countByLifecycle,
   describePromotion,
   filterPromotions,
   fromRow,
   hasScope,
   hoursText,
+  howItApplies,
   howText,
+  isAppOnly,
   isDirty,
   isPromotionFilter,
   isoToDateInput,
   lifecycle,
   minEndOn,
   minStartOn,
+  promotionChanged,
   saveBlocker,
   scheduleText,
   scopeText,
@@ -294,6 +302,15 @@ describe('plain-language pieces', () => {
     expect(howText({ auto: false, publicCode: null, codeSingleUse: false }, en)).toBe('Needs a code, none yet');
   });
 
+  // 0410: a promotion listed as a deal in the guests' app.
+  it('a listed promotion says so, and one with no code that is not automatic is in the app only', () => {
+    expect(howItApplies({ auto: false, publicCode: null, codeSingleUse: false, inApp: true })).toEqual({ kind: 'app' });
+    expect(howItApplies({ auto: false, publicCode: null, codeSingleUse: false, inApp: false })).toEqual({ kind: 'missing' });
+    expect(howText({ auto: false, publicCode: null, codeSingleUse: false, inApp: true }, en)).toBe('In the app only');
+    expect(howText({ auto: true, publicCode: null, codeSingleUse: false, inApp: true }, en)).toBe('In the app');
+    expect(howText({ auto: false, publicCode: 'SUMMER5', codeSingleUse: false, inApp: true }, en)).toBe('Code SUMMER5 · In the app');
+  });
+
   it('says what it covers with a label and a number, never a plural', () => {
     expect(scopeText({ courtIds: [], categoryIds: [], itemIds: [] }, en, 'en')).toBe('All cafe items');
     expect(scopeText({ courtIds: ['a', 'b'], categoryIds: ['c'], itemIds: ['x', 'y', 'z'] }, en, 'en')).toBe('Courts: 2 · Categories: 1 · Items: 3');
@@ -327,5 +344,63 @@ describe('describePromotion', () => {
     const text = describePromotion(EMPTY_DRAFT, ar, 'ar');
     expect(text).toContain('خصم');
     expect(text).not.toMatch(/off|cafe/);
+  });
+});
+
+// 0410: the listing in the guests' app, saved by app.set_promotion_app after the upsert.
+describe("the listing in the guests' app (0410)", () => {
+  const listed = { ...row, auto: false, in_app: true, app_blurb_en: 'A latte on us', app_blurb_ar: 'لاتيه على حسابنا' };
+
+  it('reads the three columns, and a row without them as not listed', () => {
+    expect(fromRow(listed)).toMatchObject({ inApp: true, appBlurb: { en: 'A latte on us', ar: 'لاتيه على حسابنا' } });
+    expect(fromRow(row)).toMatchObject({ inApp: false, appBlurb: { en: '', ar: '' } });
+    expect(appListingKnown(listed)).toBe(true);
+    expect(appListingKnown(row)).toBe(false);
+  });
+
+  it('sends set_promotion_app the listing and both lines, an empty line as null', () => {
+    expect(appListingArgs(fromRow(listed), 'p1')).toEqual({ p_id: 'p1', p_in_app: true, p_blurb_en: 'A latte on us', p_blurb_ar: 'لاتيه على حسابنا' });
+    expect(appListingArgs({ inApp: false, appBlurb: { en: '  ', ar: '' } }, 'p1')).toEqual({ p_id: 'p1', p_in_app: false, p_blurb_en: null, p_blurb_ar: null });
+  });
+
+  it('tells a change of the listing from a change of the promotion', () => {
+    const saved = fromRow(listed);
+    expect(appListingChanged(saved, saved)).toBe(false);
+    expect(appListingChanged({ ...saved, inApp: false }, saved)).toBe(true);
+    expect(appListingChanged({ ...saved, appBlurb: { ...saved.appBlurb, en: 'Two for one' } }, saved)).toBe(true);
+    // A trailing space is not a change: the server trims it.
+    expect(appListingChanged({ ...saved, appBlurb: { ...saved.appBlurb, en: 'A latte on us ' } }, saved)).toBe(false);
+    expect(promotionChanged({ ...saved, inApp: false, appBlurb: { en: '', ar: '' } }, saved)).toBe(false);
+    expect(promotionChanged({ ...saved, value: 25 }, saved)).toBe(true);
+  });
+
+  it('"in the app only" clears a code through the upsert; anything else keeps the code as it is', () => {
+    const saved = fromRow(listed);
+    expect(isAppOnly(saved)).toBe(true);
+    expect(toRpcArgs(saved, 'p1').p_public_code).toBe('');
+    expect(toRpcArgs({ ...saved, publicCode: 'SUMMER5' }, 'p1').p_public_code).toBe('SUMMER5');
+    // Not listed and no code: null, which keeps whatever the server has.
+    expect(toRpcArgs({ ...saved, inApp: false }, 'p1').p_public_code).toBeNull();
+    expect(toRpcArgs(saved, 'p1')).not.toHaveProperty('p_in_app');
+  });
+
+  it('refuses one line without the other, a line over 160 characters, and a listed single-use code', () => {
+    // No dates: the row's own are in the past by now, which is another rule's business.
+    const ok = { ...fromRow(listed), startsOn: '', endsOn: '' };
+    expect(validateDraft(ok)).toEqual([]);
+    expect(validateDraft({ ...ok, appBlurb: { en: 'A latte on us', ar: ' ' } })).toEqual(['blurbPair']);
+    expect(validateDraft({ ...ok, appBlurb: { en: '', ar: '' } })).toEqual([]);
+    expect(validateDraft({ ...ok, appBlurb: { en: 'x'.repeat(APP_BLURB_MAX + 1), ar: 'س' } })).toEqual(['blurbLong']);
+    expect(validateDraft({ ...ok, publicCode: 'ONCE1', codeSingleUse: true })).toEqual(['appSingleUse']);
+    // Not listed: a single-use code is fine.
+    expect(validateDraft({ ...ok, inApp: false, publicCode: 'ONCE1', codeSingleUse: true })).toEqual([]);
+    expect(saveBlocker(['blurbPair', 'appSingleUse'])).toBe('blurbPair');
+  });
+
+  it('falls back to the old columns only when the read failed on the new ones', () => {
+    expect(appColumnsMissing({ message: 'column promotions.in_app does not exist', code: '42703' })).toBe(true);
+    expect(appColumnsMissing({ message: "Could not find the 'app_blurb_en' column" })).toBe(true);
+    expect(appColumnsMissing({ message: 'JWT expired', code: 'PGRST301' })).toBe(false);
+    expect(appColumnsMissing(null)).toBe(false);
   });
 });

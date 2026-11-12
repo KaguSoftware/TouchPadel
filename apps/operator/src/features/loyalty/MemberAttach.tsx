@@ -22,6 +22,12 @@
  * the tab lists, a booking's bill and the member are re-read (invalidateTabLoyalty), so the
  * totals beside this block move with it.
  *
+ * What the customer's card gives (0410): a host that reads app.loyalty_tab_benefits
+ * (useMemberBenefits, mounted beside the customer discount's automatic refresh) passes it as
+ * `benefits`, and the card, its privileges and the deal picked in the app show here
+ * (MemberBenefits). They show for the bill's customer as the server knows them, which is also a
+ * booking's or an app order's own guest when nobody was attached by hand.
+ *
  * Hosts: the café TabDetailPanel, the shop till (MemberIdentifyDialog before the sale exists,
  * this block before payment) and the desk's booking bill. A host that wants scanner bursts
  * routed here passes `listenScans`; TillScreen's wedge dispatches MEMBER_SCAN_EVENT.
@@ -29,7 +35,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { formatIQD, formatNumber } from '@touch/i18n';
-import type { IdentifiedMember, LoyaltyAdminReward } from '@touch/core/loyalty';
+import type { IdentifiedMember, LoyaltyAdminReward, TabBenefits } from '@touch/core/loyalty';
 import { useLocale } from '../../lib/i18n';
 import { can, useAuth } from '../../lib/auth';
 import { useStationReach } from '../../lib/stationReach';
@@ -37,6 +43,7 @@ import { LOCAL_TAB_PREFIX } from '../../lib/offlineTabs';
 import { Button, ErrorText, Field, Modal, inputStyle } from '../../components/ui';
 import { MessagePresenter, ViewMore, useListCap } from '../../components/kit';
 import {
+  benefitsShown,
   defaultRedeemPoints,
   identifyCode,
   loyaltyAdjustments,
@@ -66,6 +73,7 @@ import {
   type StaffLoyaltyTerms,
 } from './useLoyalty';
 import { PIN_MAX, PIN_MIN } from '../../lib/pinRules';
+import { MemberBenefits, type DealAction } from './MemberBenefits';
 
 const K = 'ws.loyalty';
 
@@ -317,12 +325,18 @@ export function MemberAttach({
   tabId,
   remainingIqd,
   listenScans = false,
+  benefits = null,
+  deal,
 }: {
   tabId: string;
   /** What is still to pay, as the host shows it; null while it is not known (a court fee loading). */
   remainingIqd: number | null;
   /** Open on MEMBER_SCAN_EVENT (the café till's wedge). */
   listenScans?: boolean;
+  /** 0410: what the bill customer's card gives (useMemberBenefits); null shows nothing new. */
+  benefits?: TabBenefits | null;
+  /** 0410: the host's promotion apply for the deal picked in the app; without it the deal is named only. */
+  deal?: DealAction;
 }) {
   const { tr, locale } = useLocale();
   const { staff } = useAuth();
@@ -509,6 +523,11 @@ export function MemberAttach({
         <span style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>
           {tr(`${K}.member.attached`)}…
         </span>
+      )}
+
+      {/* 0410: the card and what it gives; only for the bill it was read for. */}
+      {benefitsShown(benefits) && benefits.tab_id === tabId && (
+        <MemberBenefits benefits={benefits} open={open} deal={deal} />
       )}
 
       {(used.length > 0 || courtUsed) && (

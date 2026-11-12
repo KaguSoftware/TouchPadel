@@ -27,7 +27,7 @@ import { useCoachIdForSlug, useCoachProfile } from '../../../src/features/coachi
 import { lessonErrorCode, lessonErrorText } from '../../../src/features/coaching/errors';
 import { coachShareUrl, isCoachId, isCoachSlug } from '../../../src/features/coaching/links';
 import {
-  COACH_LEVELS,
+  COACH_LEVELS_BY_TYPE,
   coachBranch,
   displayCoachName,
   pick,
@@ -477,7 +477,7 @@ function CoachDetailScreen() {
             {coach ? (
               <LevelMeter
                 title={t('coachShowcase.levelsTitle')}
-                levels={COACH_LEVELS.map((l) => ({
+                levels={COACH_LEVELS_BY_TYPE.map((l) => ({
                   label: t(`coachShowcase.levels.${l}`),
                   on: coach.levels.length === 0 || coach.levels.includes(l),
                 }))}

@@ -226,4 +226,18 @@ describe('PromotionsListScreen', () => {
     expect(screen.queryByRole('button', { name: /^Switch on/ })).toBeNull();
     expect((screen.getByRole('switch', { name: 'On or off: Aardvark' }) as HTMLButtonElement).disabled).toBe(true);
   });
+
+  // 0410: a promotion listed as a deal in the guests' app is marked where the row says how a bill gets it.
+  it('marks the promotions listed in the app, and one with no code as in the app only', async () => {
+    api.fetchPromotions.mockResolvedValue([
+      { ...rows[0], in_app: true, app_blurb_en: null, app_blurb_ar: null },
+      { ...rows[1], in_app: false, app_blurb_en: null, app_blurb_ar: null },
+      { ...rows[2], in_app: true, app_blurb_en: null, app_blurb_ar: null },
+    ]);
+    renderScreen();
+    const marks = await screen.findAllByTestId('promotion-in-app');
+    expect(marks.map((m) => m.textContent)).toEqual(['In the app', 'In the app only']);
+    // The one that is not automatic, has no code and is listed no longer reads as needing a code.
+    expect(screen.queryByText('Needs a code, none yet')).toBeNull();
+  });
 });

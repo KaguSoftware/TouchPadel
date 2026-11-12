@@ -14,7 +14,9 @@ import { Text } from '../../i18n/text';
 import { useLocale } from '../../i18n/LocaleProvider';
 import { useAuth } from '../auth/context';
 import { mapErrorToKey } from '../booking/errors';
-import { useMemberCard, useRotateMemberCard } from './hooks';
+import { DealNote } from './DealNote';
+import { pickedDeal } from './deals';
+import { useMemberCard, useMyDeals, useRotateMemberCard } from './hooks';
 import { msToNextTick, stepFraction } from './logic';
 import { brand, palettes, radius, space, useTheme } from '../../theme';
 import { Button, Hint } from '../../components/ui';
@@ -144,6 +146,11 @@ function MemberQr({ token, size }: { token: string; size: number }) {
  * The QR and the member code are LTR in both languages: they are marks and numbers,
  * not prose. No brightness change: expo-brightness is not a dependency (plan §5.1).
  *
+ * A deal the guest picked in Points & rewards (0410) is named on the paper, over the code: this
+ * is what the cashier's scan applies. It is drawn only from a live read of `my_deals` in this
+ * run of the app (never from disk, and not past the pick's 24 hours), so with no signal the card
+ * is the code alone, exactly as before; the pick itself is the server's and still applies.
+ *
  * A panel since 2026-10-19, so the Club tab (app/(tabs)/club.tsx) shows the same card the
  * pushed screen (app/member-card.tsx) does. Signed-in only: the caller gates the session.
  */
@@ -152,7 +159,7 @@ export function MemberCardPanel({
   bottomPad,
   children,
 }: {
-  /** `<route>.<element>`; the parts take `${testID}.qr`, `.code`, `.progress`, `.new-code`, `.error`. */
+  /** `<route>.<element>`; the parts take `${testID}.qr`, `.code`, `.progress`, `.new-code`, `.error`, `.deal`. */
   testID: string;
   /** Space under the last thing: the home indicator on a pushed screen, the tab bar on a tab. */
   bottomPad: number;
@@ -166,8 +173,11 @@ export function MemberCardPanel({
   const userId = session?.user.id ?? null;
   const { card, cached, query } = useMemberCard(userId);
   const rotate = useRotateMemberCard(userId);
+  // 0410. Members only, as `my_loyalty` is read; a failed read is simply no deal line.
+  const deals = useMyDeals(!!session && !session.user.is_anonymous);
   const toast = useToast();
   const now = useNow();
+  const deal = pickedDeal(deals.data, now);
 
   const live = card ? memberToken(card, now) : null;
   const qrSize = Math.min(QR_MAX, width - space.l * 2 - space.m * 2);
@@ -243,6 +253,8 @@ export function MemberCardPanel({
             paddingEnd: space.m,
           }}
         >
+          {/* The deal this scan applies (0410), first on the paper. */}
+          {deal ? <DealNote testID={`${testID}.deal`} deal={deal} /> : null}
           {/* What to do with it, on the white above the code (Sait, 2026-10-20). */}
           <Text
             style={{

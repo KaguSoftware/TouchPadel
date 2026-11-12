@@ -40,6 +40,15 @@ They amend §1 where they differ; the migration headers carry the detail.
   once per booking (`reservation_loyalty_rewards`, read through `loyalty_court_reward`, undone with
   `loyalty_unredeem`). `iqd_off` rewards stay in the schema; the owner simply need not offer any.
 
+- **2026-11-12 (0410, Majed: "nice deals additionally to the points", and cards that give
+  privileges):** a promotion the owner lists in the app is a deal (`promotions.in_app`,
+  `set_promotion_app`); a guest reads `my_deals`, picks one with `pick_deal`, shows the member card,
+  and "Apply promotion" at the till takes the picked deal first. A tier now gives privileges
+  (`loyalty_tier_perks`: free add-ons on named add-on groups or on all of them, applied to the bill
+  by `loyalty_perks_refresh` as line discounts, or a line the staff honour by hand); a card holds
+  its tier's privileges and those of every tier below. `my_loyalty` answers the whole ladder
+  (`tiers`) so the phone shows the points left to the next card and what that card gives.
+
 ## 1. Migrations (staged in `packages/db/.loyalty-staging/`, numbered at landing)
 
 Saeed's `0302_profile_avatar_birth_date` lands first. The loyalty files are:

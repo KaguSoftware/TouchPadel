@@ -1630,6 +1630,12 @@ export type CoachingShapeName = keyof typeof shapes;
 export const COACH_LEVELS = ['beginner', 'intermediate', 'advanced'] as const;
 export type CoachLevel = (typeof COACH_LEVELS)[number];
 
+/**
+ * The same levels in the order screens SHOW them: Type A, Type B, Type C (advanced, intermediate,
+ * beginner; players/playerType.ts). Storage and comparison keep COACH_LEVELS' order.
+ */
+export const COACH_LEVELS_BY_TYPE = ['advanced', 'intermediate', 'beginner'] as const satisfies readonly CoachLevel[];
+
 /** Every coaching answer's key list, by name (R41, R72). */
 export const COACHING_SHAPES: Readonly<Record<CoachingShapeName, CoachingShape>> = shapes;
 
