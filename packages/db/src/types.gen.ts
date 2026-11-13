@@ -442,6 +442,10 @@ export type Database = {
         Args: { p_from: string; p_to: string }
         Returns: Record<string, unknown>
       }
+      analytics_cafe_history: {
+        Args: { p_from: string; p_to: string }
+        Returns: Json
+      }
       analytics_compare_basis_ok: {
         Args: { p_basis: string }
         Returns: boolean
@@ -2342,6 +2346,14 @@ export type Database = {
       kitchen_reach: { Args: { p_since?: string }; Returns: Json }
       legacy_add_to_figures: {
         Args: { p_fig: Json; p_lg: Json }
+        Returns: Json
+      }
+      legacy_cafe_add_to_figures: {
+        Args: { p_fig: Json; p_lc: Json }
+        Returns: Json
+      }
+      legacy_cafe_totals: {
+        Args: { p_from: string; p_to: string; p_venues: string[] }
         Returns: Json
       }
       legacy_report_totals: {
@@ -9588,6 +9600,123 @@ export type Database = {
           },
           {
             foreignKeyName: "ingredients_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      legacy_cafe_hours: {
+        Row: {
+          day: string
+          discount_iqd: number | null
+          hour: number
+          item_lines: number
+          items_gross_iqd: number
+          orders: number | null
+          orders_gross_iqd: number | null
+          received_iqd: number | null
+          tickets: number
+          units: number
+          venue_id: string
+        }
+        Insert: {
+          day: string
+          discount_iqd?: number | null
+          hour: number
+          item_lines: number
+          items_gross_iqd: number
+          orders?: number | null
+          orders_gross_iqd?: number | null
+          received_iqd?: number | null
+          tickets: number
+          units: number
+          venue_id: string
+        }
+        Update: {
+          day?: string
+          discount_iqd?: number | null
+          hour?: number
+          item_lines?: number
+          items_gross_iqd?: number
+          orders?: number | null
+          orders_gross_iqd?: number | null
+          received_iqd?: number | null
+          tickets?: number
+          units?: number
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "legacy_cafe_hours_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      legacy_cafe_item_days: {
+        Row: {
+          day: string
+          product: string
+          unit_price_iqd: number
+          units: number
+          venue_id: string
+        }
+        Insert: {
+          day: string
+          product: string
+          unit_price_iqd: number
+          units: number
+          venue_id: string
+        }
+        Update: {
+          day?: string
+          product?: string
+          unit_price_iqd?: number
+          units?: number
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "legacy_cafe_item_days_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      legacy_cafe_products: {
+        Row: {
+          cost_iqd: number | null
+          cost_stated: string | null
+          group_key: string
+          product: string
+          unit_price_iqd: number
+          venue_id: string
+        }
+        Insert: {
+          cost_iqd?: number | null
+          cost_stated?: string | null
+          group_key: string
+          product: string
+          unit_price_iqd: number
+          venue_id: string
+        }
+        Update: {
+          cost_iqd?: number | null
+          cost_stated?: string | null
+          group_key?: string
+          product?: string
+          unit_price_iqd?: number
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "legacy_cafe_products_venue_id_fkey"
             columns: ["venue_id"]
             isOneToOne: false
             referencedRelation: "venues"
@@ -19233,6 +19362,27 @@ export type Database = {
             columns: ["court_id"]
             isOneToOne: false
             referencedRelation: "courts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      legacy_cafe_days: {
+        Row: {
+          day: string | null
+          discount_iqd: number | null
+          gross_iqd: number | null
+          has_orders_export: boolean | null
+          net_iqd: number | null
+          orders: number | null
+          units: number | null
+          venue_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "legacy_cafe_hours_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
             referencedColumns: ["id"]
           },
         ]

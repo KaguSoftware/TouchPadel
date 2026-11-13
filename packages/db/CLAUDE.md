@@ -17,6 +17,34 @@ is a line in that file.
 
 ## Migrations
 
+- **0412–0413 (2026-11-13, legacy_cafe_history; Majed: the old till's sales in analytics, and the
+  assistant must see them):** tables `legacy_cafe_hours` (per calendar day and clock hour of the
+  old Morabaa till, 2 June to 31 October 2026: the items reports' lines, units, money and tickets,
+  and the orders reports' orders, money, discounts and money received, NULL on a day no orders
+  report covers), `legacy_cafe_item_days` (day, product name, unit price: units) and
+  `legacy_cafe_products` (OUR grouping and the owner's stated cost per product and price), owner
+  read only, no client write, `zz_branch_guard`, all in `app.assistant_readable_columns`; the
+  `security_invoker` view `legacy_cafe_days` (one figure per day: the larger gross of the two
+  reports, net = received + the items money the orders report lacks, NULL discounts where
+  unknown). The internal `app.legacy_cafe_totals(p_venues, p_from, p_to)` and
+  `app.legacy_cafe_add_to_figures(p_fig, p_lc)` are the café's twins of the padel helpers, day by
+  day (a range may cut a month). **0412 holds `analytics_daily_sales`** (0346 no longer: an
+  old-till day is a row, its money in revenue_iqd / cafe_gross_iqd / cafe_net_iqd / goods_iqd, its
+  orders in tabs_settled / orders / visits / till_orders, plus `old_till_iqd` and
+  `old_till_discount_known`; cash, card, refunds and waste get nothing), **`analytics_hourly`**
+  (0095 no longer) **and `panel_headline`** (0349 no longer: cafeRevenue, cafeNet, revenue, orders,
+  discounts and a recomputed avgOrderValue include the old till, `history.period.cafe` /
+  `history.comparison.cafe` say how much). `reports_figures`, `legacy_report_totals` and
+  `legacy_add_to_figures` are untouched. New owner RPC `analytics_cafe_history(p_from, p_to)`
+  (months, groups, products of the old till; product names are the till's, never menu items).
+  0413 is GENERATED (`scripts/lib/legacy-cafe.mjs` from `client-data/cafe-pos-2026/history-*.csv`,
+  written by `extract.py` from the PDFs) except its first section, which writes the owner's cost
+  sheet onto `menu_item_costs` by menu item id AND English name (a no-op on any database whose
+  menu differs, never over an existing cost). Because the rows load on EVERY database at venue A,
+  a test that reads `analytics_daily_sales`, `analytics_hourly` or `panel_headline` over days up
+  to 31 October 2026 sees them: assert the system's own part (subtract `legacy_cafe_days`, as
+  `cafe-stock-analytics.test.ts` does) or use later days. `tests/legacy-cafe.test.ts`,
+  `tests/legacy-cafe-source.test.ts`.
 - **0410 (2026-11-12, loyalty_deals_perks; Majed: deals in the app beside the points, and cards
   that give privileges, not only extra points):** a deal is a promotion the owner lists in the app
   (`promotions.in_app`, guest line `app_blurb_en`/`_ar`, written by `set_promotion_app`, owner only;

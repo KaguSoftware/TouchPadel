@@ -158,6 +158,8 @@ export const analyticsRpc = {
   hourly: (from: string, to: string) => appRpc<Json>('analytics_hourly', { p_from: from, p_to: to }),
   promo: (from: string, to: string) => appRpc<Json>('analytics_promo', { p_from: from, p_to: to }),
   menuSnapshot: () => appRpc<Json>('analytics_menu_snapshot', {}),
+  /** 0412: the old café till's months, groups and products inside the range. */
+  cafeHistory: (from: string, to: string) => appRpc<Json>('analytics_cafe_history', { p_from: from, p_to: to }),
 
   /** `courtId` (0098): the Courts tab's filter; null = the venue-wide set. Only with scope 'courts'. */
   saveInsights: (args: {

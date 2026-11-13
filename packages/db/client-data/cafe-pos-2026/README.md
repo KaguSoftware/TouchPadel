@@ -103,16 +103,20 @@ prices charged. By share of gross:
 
 | Group | Share | Units |
 |---|---|---|
-| Desserts and food | 25.3% | 12,420 |
-| Fresh juices | 19.4% | 5,655 |
-| Smoothies, milkshakes, slush | 15.5% | 4,729 |
+| Desserts and food | 25.4% | 12,694 |
+| Fresh juices | 19.4% | 5,645 |
+| Smoothies, milkshakes, slush | 15.7% | 4,779 |
 | Mojitos | 11.3% | 3,415 |
 | Iced coffee | 7.7% | 2,109 |
-| Water and ice | 6.7% | 31,638 |
-| Hot coffee | 4.4% | 1,391 |
-| Tea, hot chocolate, hibiscus | 4.0% | 2,108 |
+| Water and ice | 6.7% | 31,647 |
+| Hot coffee | 4.4% | 1,386 |
+| Tea, chocolate, hibiscus | 4.0% | 2,108 |
+| Other | 3.6% | 3,748 |
 | Espresso shots | 1.7% | 726 |
-| Other | 3.9% | 4,066 |
+
+The grouping is ours, read from each product's name by `group()` in `extract.py`
+(`history-products.csv` holds the result per product). The 2026-11-10 table differed by a
+few products that had been grouped by accident; this one is the code's.
 
 Water alone is 30,354 bottles. Coffee of every kind is 13.8% of gross. This is a summer
 record (June to October in Karbala); hot coffee and tea were already rising in October
@@ -136,9 +140,30 @@ Keep these labelled as the owner's word wherever they are used:
 - Women's hours are **not** in Hussein's padel reports; worth about 500,000 IQD a month.
 - Operational cost is about 15,000,000 IQD a month.
 
-## Not ingested
+## In the database (2026-11-13, migrations 0412 and 0413)
 
-Nothing from these files is in the database. The 0331 schema cannot take them as it is:
-its `department` CHECK admits only `padel` and it stores one monthly summary per row,
-where this is per-order and per-item data. Landing it means its own tables plus a
-generated data migration in 0348's style. Waiting on the owner's decision.
+`extract.py` reads the nine PDFs and writes three files next to it; nothing in them is
+estimated, every figure is a sum of printed rows:
+
+| File | Rows | What |
+|---|---|---|
+| `history-hours.csv` | 1,866 | per calendar day and clock hour: item lines, units, their money and distinct tickets from the items reports; orders, their money, discounts and money received from the orders reports (empty on a day no orders report covers) |
+| `history-items.csv` | 8,479 | per day, product name and unit price: units sold |
+| `history-products.csv` | 183 | per product name and unit price: our group, and the owner's cost where his sheet names the item |
+
+`scripts/lib/legacy-cafe.mjs` turns them into migration 0413, which loads the tables
+`legacy_cafe_hours`, `legacy_cafe_item_days` and `legacy_cafe_products` (0412) on every
+database. `tests/legacy-cafe-source.test.ts` holds the files to the till's printed totals
+and the migration to the files; `python3 extract.py --check` re-reads the PDFs on a machine
+that has them.
+
+One figure per day (the view `legacy_cafe_days`): where both reports hold a day the larger
+gross is the more complete one (the items report misses lines on the till's first days; the
+monthly orders reports were cut before the last orders of their final day), and the money
+taken is what the orders report says was received plus any items money that report lacks.
+Where only the items report holds the day, the money taken is its gross and the discounts
+are unknown.
+
+These days count in Analytics > Café (daily sales, busy hours, and their own "Before the
+system" section) and in the management panel's café figures. The owner's summary for the
+assistant is `docs/client/cafe-before-the-system-2026.md`.

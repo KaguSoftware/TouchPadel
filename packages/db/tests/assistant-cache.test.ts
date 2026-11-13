@@ -147,14 +147,18 @@ describe.skipIf(!up)('0330 assistant stored-days cache', () => {
           'fromCache',  (select (r->'cache'->>'days_from_cache')::int from kept),
           'live',       (select (r->'cache'->>'days_read_live')::int from kept),
           'panel',      (select (e->>'value')::bigint from jsonb_array_elements(app.panel_headline('${FROM}','${TO}','none')->'figures') e where e->>'key' = 'revenue'),
+          'oldTill',    coalesce((app.panel_headline('${FROM}','${TO}','none')->'history'->'period'->'cafe'->>'net')::bigint, 0),
           'revenue',    (select (r->'totals'->>'revenue')::bigint from kept))::text;`);
-      const r = JSON.parse(line) as { sameRows: boolean; sameTotals: boolean; fromCache: number; live: number; panel: number; revenue: number };
+      const r = JSON.parse(line) as { sameRows: boolean; sameTotals: boolean; fromCache: number; live: number; panel: number; oldTill: number; revenue: number };
       expect(r.sameRows).toBe(true);
       expect(r.sameTotals).toBe(true);
       expect(r.fromCache).toBeGreaterThan(0);
       // The newest days (inside the freeze lag) are always live.
       expect(r.live).toBeGreaterThanOrEqual(3);
-      expect(r.revenue).toBe(r.panel);
+      // 0412: the panel also counts the old café till's days in the range
+      // (history.period.cafe.net). The assistant's history tool does not until
+      // its own migration adds them, so the two are equal with or without that part.
+      expect([r.panel, r.panel - r.oldTill]).toContain(r.revenue);
     });
 
     it('items, courts and staff: kept days give the same answer as all-live', () => {

@@ -293,7 +293,11 @@ describe.skipIf(!up)('stock reversal + analytics visits (0043)', () => {
     const rows = res.data as { business_date: string; orders: number; visits: number }[];
     const row = rows.find((r) => r.business_date === day);
     expect(row, `no analytics row for ${day}`).toBeDefined();
-    expect(row!.orders).toBe(2); // two orders...
-    expect(row!.visits).toBe(1); // ...but one tab, one bill, one party. Pre-0047: 2.
+    // 0412: 15 July 2026 is also a day of the old café till, whose orders are
+    // in the same row (legacy_cafe_days); the system's own part is the rest.
+    const { data: old } = await svc.from('legacy_cafe_days').select('orders').eq('day', day);
+    const oldOrders = (old ?? []).reduce((s, r) => s + Number(r.orders), 0);
+    expect(row!.orders - oldOrders).toBe(2); // two orders...
+    expect(row!.visits - oldOrders).toBe(1); // ...but one tab, one bill, one party. Pre-0047: 2.
   });
 });

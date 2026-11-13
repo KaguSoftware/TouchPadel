@@ -1,5 +1,5 @@
 {
-  "generated_from": "2ad48606203f36cda618b84b37c1c2658b410fad",
+  "generated_from": "971c13bf3502f9220222dd22a2d59df635a9d1b3",
   "chunks": [
     {
       "kind": "page",
@@ -2887,6 +2887,30 @@
       "lang": "en",
       "title": "app.add_suggestion",
       "body": "suggestions (§2.24.4). Any active staff member at the venue: posts a signed suggestion (1 to 1000 characters). Returns {id}. Idempotent by key. FORBIDDEN, TEXT_REQUIRED, TEXT_TOO_LONG (hint body). Not audited; no push.\nSignature: app.add_suggestion(p_body text, p_venue_id uuid default null, p_idempotency_key text default null) returns jsonb.\nGranted to: authenticated. Guard: any active staff row.\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, TEXT_REQUIRED, TEXT_TOO_LONG.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0180 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.analytics_cafe_history",
+      "lang": "en",
+      "title": "app.analytics_cafe_history (part 1 of 3)",
+      "body": "0412. Owner (analytics_guard): the café's sales from the old till (Morabaa, 2 June to 31 October 2026) inside [p_from, p_to], for the branches in report scope. {totals (app.legacy_cafe_totals: days, from, to, gross, discounts, net, orders, units, discountUnknownDays), months [{month, days, gross_iqd, discount_iqd, net_iqd, orders, units, discount_unknown_days}], groups [{key, units, gross_iqd, cost_known_gross_iqd, cost_iqd}], products [{product, unit_price_iqd, group, units, gross_iqd, unit_cost_iqd, cost_iqd}] by gross, items {gross_iqd, cost_known_gross_iqd, cost_iqd}}. Item money is before order discounts, from the items",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.analytics_cafe_history~2",
+      "lang": "en",
+      "title": "app.analytics_cafe_history (part 2 of 3)",
+      "body": "0412. Owner (analytics_guard): the café's sales from the old till (Morabaa, 2 June to 31 October 2026) inside [p_from, p_to], for the branches in report scope. \nreports; product names are the till's own and are not menu items; the grouping is ours; a cost is the owner's stated cost per unit (null where his sheet does not name the item) and cost_iqd is that cost times the units. These days are already inside analytics_daily_sales and analytics_hourly. INVALID_RANGE, FORBIDDEN.\nSignature: app.analytics_cafe_history(p_from date, p_to date) returns jsonb.\nGranted to: authenticated. Guard: owner only (app.analytics_guard).\nWrites no audit row of its own (or via a helper).\nNot called directly by the operator app (edge function, guest app, queue or internal).",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.analytics_cafe_history~3",
+      "lang": "en",
+      "title": "app.analytics_cafe_history (part 3 of 3)",
+      "body": "0412. Owner (analytics_guard): the café's sales from the old till (Morabaa, 2 June to 31 October 2026) inside [p_from, p_to], for the branches in report scope. \nWrites no audit row of its own (or via a helper).\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0412 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -12227,6 +12251,78 @@
     },
     {
       "kind": "table",
+      "ref": "table:legacy_cafe_hours",
+      "lang": "en",
+      "title": "table legacy_cafe_hours (part 1 of 4)",
+      "body": "legacy_cafe_hours (0412): the café's sales from before the system, 2 June to 31 October 2026, as the old till (Morabaa) printed them; one row per calendar day and clock hour. Sums of printed rows only, nothing estimated. The items columns come from the till's items reports, the orders columns from its orders reports; the orders columns are null on a day no orders report covers (31 July, 31 August, 30 September, all of October), which means unknown, not zero. 30 June is in no report. For one figure per day read the view legacy_cafe_days. Read by the owner; written only by migration (client-data/cafe-pos-2026).",
+      "route": null
+    },
+    {
+      "kind": "table",
+      "ref": "table:legacy_cafe_hours~2",
+      "lang": "en",
+      "title": "table legacy_cafe_hours (part 2 of 4)",
+      "body": "legacy_cafe_hours (0412): the café's sales from before the system, 2 June to 31 October 2026, as the old till (Morabaa) printed them; one row per calendar day a\nCreated in migration 0412.\nColumns:\n  venue_id uuid not null references venues(id) — The branch the till stood in.\n  day date not null — The till's own calendar day (not the 04:00 business day the system uses).\n  hour smallint not null — The clock hour, 0 to 23, the till printed on the row.\n  item_lines int not null — Item lines the items report holds in this hour.\n  units int not null — Units sold on those lines (water bottles included, so it is large).\n  items_gross_iqd bigint not null — Money of those lines at the price charged, before any order discount, IQD.",
+      "route": null
+    },
+    {
+      "kind": "table",
+      "ref": "table:legacy_cafe_hours~3",
+      "lang": "en",
+      "title": "table legacy_cafe_hours (part 3 of 4)",
+      "body": "legacy_cafe_hours (0412): the café's sales from before the system, 2 June to 31 October 2026, as the old till (Morabaa) printed them; one row per calendar day a\n  items_gross_iqd bigint not null — Money of those lines at the price charged, before any order discount, IQD.\n  tickets int not null — Distinct orders among those lines, by the till's own order counter; an order belongs to the hour of its first line.\n  orders int — Orders the orders report holds in this hour; null when no orders report covers the day.\n  orders_gross_iqd bigint — Their amount before discount, IQD; null when no orders report covers the day.\n  discount_iqd bigint — Discounts given on them, IQD; null (unknown) when no orders report covers the day.",
+      "route": null
+    },
+    {
+      "kind": "table",
+      "ref": "table:legacy_cafe_hours~4",
+      "lang": "en",
+      "title": "table legacy_cafe_hours (part 4 of 4)",
+      "body": "legacy_cafe_hours (0412): the café's sales from before the system, 2 June to 31 October 2026, as the old till (Morabaa) printed them; one row per calendar day a\n  discount_iqd bigint — Discounts given on them, IQD; null (unknown) when no orders report covers the day.\n  received_iqd bigint — Money received for them, IQD; null when no orders report covers the day.",
+      "route": null
+    },
+    {
+      "kind": "table",
+      "ref": "table:legacy_cafe_item_days",
+      "lang": "en",
+      "title": "table legacy_cafe_item_days (part 1 of 2)",
+      "body": "legacy_cafe_item_days (0412): what the café sold before the system, from the old till's items reports, 2 June to 31 October 2026; one row per calendar day, product name and unit price. The money of a row is units x unit_price_iqd, before any order discount. The product is the till's own name (Arabic, with the size in the name: كبير large, وسط medium) and is not linked to a menu item. Its group and the owner's cost are in legacy_cafe_products. Read by the owner; written only by migration.\nCreated in migration 0412.\nColumns:\n  venue_id uuid not null references venues(id) — The branch the till stood in.",
+      "route": null
+    },
+    {
+      "kind": "table",
+      "ref": "table:legacy_cafe_item_days~2",
+      "lang": "en",
+      "title": "table legacy_cafe_item_days (part 2 of 2)",
+      "body": "legacy_cafe_item_days (0412): what the café sold before the system, from the old till's items reports, 2 June to 31 October 2026; one row per calendar day, prod\nCreated in migration 0412.\nColumns:\n  venue_id uuid not null references venues(id) — The branch the till stood in.\n  day date not null — The till's own calendar day.\n  product text not null — The product name exactly as the till printed it (Unicode-normalised).\n  unit_price_iqd bigint not null — The price charged for one unit, IQD. One name can carry two prices (كوكيز at 2,000 is the plain cookie, at 3,000 the stuffed one).\n  units int not null — Units sold that day at that price.",
+      "route": null
+    },
+    {
+      "kind": "table",
+      "ref": "table:legacy_cafe_products",
+      "lang": "en",
+      "title": "table legacy_cafe_products (part 1 of 3)",
+      "body": "legacy_cafe_products (0412): one row per product name and unit price of legacy_cafe_item_days. NOT till data: group_key is our grouping, read from the name; cost_iqd is what the owner said one unit costs the club (Majed, 2026-11-09, client-data/item-costs-2026-11.md), matched to the till's name by us. The cost sheet names no sizes, so one cost stands for every size of an item. cost_iqd is null where the sheet does not name the item (about 39% of the money, among them ice cream, the Spanish latte, slush, cheesecake, watermelon and water). Read by the owner; written only by migration.\nCreated in migration 0412.\nColumns:",
+      "route": null
+    },
+    {
+      "kind": "table",
+      "ref": "table:legacy_cafe_products~2",
+      "lang": "en",
+      "title": "table legacy_cafe_products (part 2 of 3)",
+      "body": "legacy_cafe_products (0412): one row per product name and unit price of legacy_cafe_item_days. NOT till data: group_key is our grouping, read from the name; cos\nCreated in migration 0412.\nColumns:\n  venue_id uuid not null references venues(id) — The branch.\n  product text not null — The till's product name (legacy_cafe_item_days.product).\n  unit_price_iqd bigint not null — The unit price the name was sold at, IQD.\n  group_key text not null — Our grouping, from the name: dessert_food, juice, smoothie_shake (smoothies, milkshakes, slush, frappuccino), mojito, iced_coffee, water_ice, hot_coffee, tea_chocolate (tea, hibiscus, hot and iced chocolate), espresso, other.",
+      "route": null
+    },
+    {
+      "kind": "table",
+      "ref": "table:legacy_cafe_products~3",
+      "lang": "en",
+      "title": "table legacy_cafe_products (part 3 of 3)",
+      "body": "legacy_cafe_products (0412): one row per product name and unit price of legacy_cafe_item_days. NOT till data: group_key is our grouping, read from the name; cos\n  cost_iqd bigint — What one unit costs the club, IQD, as the owner stated it; null when his sheet does not name the item. An owner's figure, not a till or invoice figure.\n  cost_stated text — The line of the owner's cost sheet the cost was taken from, as he wrote it.",
+      "route": null
+    },
+    {
+      "kind": "table",
       "ref": "table:legacy_report_figures",
       "lang": "en",
       "title": "table legacy_report_figures (part 1 of 4)",
@@ -15219,6 +15315,22 @@
     },
     {
       "kind": "table",
+      "ref": "view:legacy_cafe_days",
+      "lang": "en",
+      "title": "view legacy_cafe_days (part 1 of 2)",
+      "body": "legacy_cafe_days (0412): the café's sales from before the system, one row per calendar day of the old till, 2 June to 31 October 2026 (147 trading days; 30 June is in no report; closed 25 and 26 June, 3 and 4 August). Built from legacy_cafe_hours. These days are already inside analytics_daily_sales and the management panel's café figures, so never add them to those a second time. The padel desk's reports for June to September are in legacy_reports. Read by the owner.\nView, defined in migration 0412.",
+      "route": null
+    },
+    {
+      "kind": "table",
+      "ref": "view:legacy_cafe_days~2",
+      "lang": "en",
+      "title": "view legacy_cafe_days (part 2 of 2)",
+      "body": "legacy_cafe_days (0412): the café's sales from before the system, one row per calendar day of the old till, 2 June to 31 October 2026 (147 trading days; 30 June\nView, defined in migration 0412.\nDefinition: with (security_invoker = on) as select h.venue_id, h.day, greatest(coalesce(sum(h.orders_gross_iqd), 0), sum(h.items_gross_iqd))::bigint as gross_iqd, sum(h.discount_iqd)::bigint as discount_iqd, (coalesce(sum(h.received_iqd), 0) + greatest(sum(h.items_gross_iqd) - coalesce(sum(h.orders_gross_iqd), 0), 0))::bigint as net_iqd, greatest(coalesce(sum(h.orders), 0), sum(h.tickets))::int as orders, sum(h.units)::int as units, bool_or(h.orders is not null) as has_orders_export from legacy_cafe_hours h group by h.venue_id, h.day",
+      "route": null
+    },
+    {
+      "kind": "table",
       "ref": "view:menu_item_availability",
       "lang": "en",
       "title": "view menu_item_availability",
@@ -17439,6 +17551,174 @@
       "lang": "en",
       "title": "ingredients.unit",
       "body": "stock_unit not null\nbase unit: g / ml / pc",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:legacy_cafe_hours.day",
+      "lang": "en",
+      "title": "legacy_cafe_hours.day",
+      "body": "date not null\nThe till's own calendar day (not the 04:00 business day the system uses).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:legacy_cafe_hours.discount_iqd",
+      "lang": "en",
+      "title": "legacy_cafe_hours.discount_iqd",
+      "body": "bigint\nDiscounts given on them, IQD; null (unknown) when no orders report covers the day.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:legacy_cafe_hours.hour",
+      "lang": "en",
+      "title": "legacy_cafe_hours.hour",
+      "body": "smallint not null\nThe clock hour, 0 to 23, the till printed on the row.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:legacy_cafe_hours.item_lines",
+      "lang": "en",
+      "title": "legacy_cafe_hours.item_lines",
+      "body": "int not null\nItem lines the items report holds in this hour.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:legacy_cafe_hours.items_gross_iqd",
+      "lang": "en",
+      "title": "legacy_cafe_hours.items_gross_iqd",
+      "body": "bigint not null\nMoney of those lines at the price charged, before any order discount, IQD.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:legacy_cafe_hours.orders",
+      "lang": "en",
+      "title": "legacy_cafe_hours.orders",
+      "body": "int\nOrders the orders report holds in this hour; null when no orders report covers the day.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:legacy_cafe_hours.orders_gross_iqd",
+      "lang": "en",
+      "title": "legacy_cafe_hours.orders_gross_iqd",
+      "body": "bigint\nTheir amount before discount, IQD; null when no orders report covers the day.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:legacy_cafe_hours.received_iqd",
+      "lang": "en",
+      "title": "legacy_cafe_hours.received_iqd",
+      "body": "bigint\nMoney received for them, IQD; null when no orders report covers the day.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:legacy_cafe_hours.tickets",
+      "lang": "en",
+      "title": "legacy_cafe_hours.tickets",
+      "body": "int not null\nDistinct orders among those lines, by the till's own order counter; an order belongs to the hour of its first line.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:legacy_cafe_hours.units",
+      "lang": "en",
+      "title": "legacy_cafe_hours.units",
+      "body": "int not null\nUnits sold on those lines (water bottles included, so it is large).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:legacy_cafe_hours.venue_id",
+      "lang": "en",
+      "title": "legacy_cafe_hours.venue_id",
+      "body": "uuid not null references venues(id)\nThe branch the till stood in.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:legacy_cafe_item_days.day",
+      "lang": "en",
+      "title": "legacy_cafe_item_days.day",
+      "body": "date not null\nThe till's own calendar day.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:legacy_cafe_item_days.product",
+      "lang": "en",
+      "title": "legacy_cafe_item_days.product",
+      "body": "text not null\nThe product name exactly as the till printed it (Unicode-normalised).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:legacy_cafe_item_days.unit_price_iqd",
+      "lang": "en",
+      "title": "legacy_cafe_item_days.unit_price_iqd",
+      "body": "bigint not null\nThe price charged for one unit, IQD. One name can carry two prices (كوكيز at 2,000 is the plain cookie, at 3,000 the stuffed one).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:legacy_cafe_item_days.units",
+      "lang": "en",
+      "title": "legacy_cafe_item_days.units",
+      "body": "int not null\nUnits sold that day at that price.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:legacy_cafe_item_days.venue_id",
+      "lang": "en",
+      "title": "legacy_cafe_item_days.venue_id",
+      "body": "uuid not null references venues(id)\nThe branch the till stood in.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:legacy_cafe_products.cost_iqd",
+      "lang": "en",
+      "title": "legacy_cafe_products.cost_iqd",
+      "body": "bigint\nWhat one unit costs the club, IQD, as the owner stated it; null when his sheet does not name the item. An owner's figure, not a till or invoice figure.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:legacy_cafe_products.cost_stated",
+      "lang": "en",
+      "title": "legacy_cafe_products.cost_stated",
+      "body": "text\nThe line of the owner's cost sheet the cost was taken from, as he wrote it.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:legacy_cafe_products.group_key",
+      "lang": "en",
+      "title": "legacy_cafe_products.group_key",
+      "body": "text not null\nOur grouping, from the name: dessert_food, juice, smoothie_shake (smoothies, milkshakes, slush, frappuccino), mojito, iced_coffee, water_ice, hot_coffee, tea_chocolate (tea, hibiscus, hot and iced chocolate), espresso, other.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:legacy_cafe_products.product",
+      "lang": "en",
+      "title": "legacy_cafe_products.product",
+      "body": "text not null\nThe till's product name (legacy_cafe_item_days.product).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:legacy_cafe_products.unit_price_iqd",
+      "lang": "en",
+      "title": "legacy_cafe_products.unit_price_iqd",
+      "body": "bigint not null\nThe unit price the name was sold at, IQD.",
       "route": null
     },
     {
@@ -26413,7 +26693,7 @@
       "kind": "label",
       "ref": "label:ws.analytics.notices",
       "lang": "ar",
-      "title": "ws.analytics.notices (packages/i18n/src/catalogs/ws/analytics.ar.ts)",
+      "title": "ws.analytics.notices (packages/i18n/src/catalogs/ws/analytics.ar.ts) (part 1 of 2)",
       "body": "title: قبل القراءة\nsomeFailed: تعذّر تحميل بعض الأرقام.\nsettingsFailed: تعذّر تحميل إعدادات المكان، لذا يبدأ يوم العمل عند الساعة الافتراضية 04:00.\nhistory.panel: تشمل الأرقام التقارير الشهرية لقسم البادل من قبل النظام عن {months}: الحجوزات وعدم الحضور وإيرادات البادل، كما وردت فيها.\nhistory.courts: تشمل الأرقام التقارير الشهرية لقسم البادل من قبل النظام عن {months}: الحجوزات والإلغاءات وعدم الحضور والتدريب والإيرادات، كما وردت فيها. لا تذكر هذه التقارير ساعات، لذا تُركت نسبة الإشغال وأرقام الساعة فارغة.\nhistory.approximate: {months}: المبلغ تقريبي كما يذكر التقرير نفسه.\nhistory.partial: {months}: لا يُحتسب التقرير الشهري إلا إذا كان الشهر كاملاً ضمن الفترة، لذا لم يُحتسب هنا.",
       "route": "/analytics"
     },
@@ -26421,8 +26701,72 @@
       "kind": "label",
       "ref": "label:ws.analytics.notices",
       "lang": "en",
-      "title": "ws.analytics.notices (packages/i18n/src/catalogs/ws/analytics.en.ts)",
+      "title": "ws.analytics.notices (packages/i18n/src/catalogs/ws/analytics.en.ts) (part 1 of 2)",
       "body": "title: Before you read\nsomeFailed: Some figures could not be loaded.\nsettingsFailed: The venue settings could not be loaded, so the business day starts at the default 04:00.\nhistory.panel: Includes the padel desk's monthly reports from before the system for {months}: bookings, no-shows and padel revenue, as written in them.\nhistory.courts: Includes the padel desk's monthly reports from before the system for {months}: bookings, cancellations, no-shows, lessons and revenue, as written in them. They have no hours, so occupancy and the per-hour figures are blank.\nhistory.approximate: {months}: the report itself calls its money approximate.\nhistory.partial: {months}: a monthly report counts only when the whole month is in the range, so it is left out here.",
+      "route": "/analytics"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.analytics.notices~2",
+      "lang": "ar",
+      "title": "ws.analytics.notices (packages/i18n/src/catalogs/ws/analytics.ar.ts) (part 2 of 2)",
+      "body": "title: قبل القراءة\nhistory.approximate: {months}: المبلغ تقريبي كما يذكر التقرير نفسه.\nhistory.partial: {months}: لا يُحتسب التقرير الشهري إلا إذا كان الشهر كاملاً ضمن الفترة، لذا لم يُحتسب هنا.\nhistory.cafe: تشمل الأرقام مبيعات كاشير الكافيه القديم، من قبل النظام، من {from} إلى {to}: {amount} من المبيعات هنا. تقاريره لا تفصل النقد عن البطاقة ولا تذكر المرتجعات أو الهدر، وبطاقات الأصناف تحسب مبيعات النظام فقط.\nhistory.cafeNoDiscount: تقارير الكاشير القديم لا تذكر الخصومات في {n} من هذه الأيام، لذا تُحتسب مبيعاتها كاملة.\nhistory.cafePanel: إيراد الكافيه يشمل مبيعات كاشير الكافيه القديم، من قبل النظام، من {from} إلى {to}: {amount}. النقد والبطاقة لا يشملانها لأن تقاريره لا تفصل بينهما.",
+      "route": "/analytics"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.analytics.notices~2",
+      "lang": "en",
+      "title": "ws.analytics.notices (packages/i18n/src/catalogs/ws/analytics.en.ts) (part 2 of 2)",
+      "body": "title: Before you read\nhistory.approximate: {months}: the report itself calls its money approximate.\nhistory.partial: {months}: a monthly report counts only when the whole month is in the range, so it is left out here.\nhistory.cafe: Includes the old café till, from before the system, for {from} to {to}: {amount} of the sales here. Its reports give no cash or card split, refunds or waste, and the item cards count sales in the system only.\nhistory.cafeNoDiscount: The old till's reports give no discounts for {n} of those days, so their sales count in full.\nhistory.cafePanel: Café revenue includes the old café till, from before the system, for {from} to {to}: {amount}. Cash and card do not, because its reports have no split.",
+      "route": "/analytics"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.analytics.oldTill",
+      "lang": "ar",
+      "title": "ws.analytics.oldTill (packages/i18n/src/catalogs/ws/analytics.ar.ts) (part 1 of 3)",
+      "body": "zone: قبل النظام\nzoneNav: الكاشير القديم\nzoneDesc: ما باعه الكافيه على الكاشير القديم من 2 حزيران إلى 31 تشرين الأول 2026، كما ورد في تقاريره. أسماء المنتجات هي أسماء الكاشير القديم وليست مرتبطة بالمنيو. التصنيف من عندنا، والتكلفة هي ما ذكره المالك لكلفة القطعة الواحدة.\nlead: قبض الكاشير القديم {amount} خلال {days} يوم عمل. الأكثر مبيعاً: {group}، بنسبة {pct} من مبيعات الأصناف.\nleadCost: التكلفة معروفة لـ {coverage} من مبيعات الأصناف، وفيها احتفظ الكافيه بـ {kept} من السعر.\nunknown: غير معروف\ncards.months: حسب الشهر\ncards.groups: ما الذي بيع\ncards.products: أكثر المنتجات مبيعاً\ntips.months: المبالغ المقبوضة في كل شهر: ما قبضه الكاشير القديم، مع مبيعات الأيام التي لا تذكر تقاريره خصوماتها.",
+      "route": "/analytics"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.analytics.oldTill",
+      "lang": "en",
+      "title": "ws.analytics.oldTill (packages/i18n/src/catalogs/ws/analytics.en.ts) (part 1 of 3)",
+      "body": "zone: Before the system\nzoneNav: Old till\nzoneDesc: What the café sold on the old till, 2 June to 31 October 2026, as its reports print it. Product names are the old till's own and are not linked to the menu. The grouping is ours, and a cost is what the owner said one unit costs.\nlead: The old till took {amount} over {days} trading days. {group} sold most, {pct} of item sales.\nleadCost: A cost is known for {coverage} of item sales, and on those the café kept {kept} of the price.\nunknown: not known\ncards.months: By month\ncards.groups: What sold\ncards.products: Top products\ntips.months: Money taken each month: what the old till received, plus the sales of days whose discounts its reports do not give.",
+      "route": "/analytics"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.analytics.oldTill~2",
+      "lang": "ar",
+      "title": "ws.analytics.oldTill (packages/i18n/src/catalogs/ws/analytics.ar.ts) (part 2 of 3)",
+      "body": "zone: قبل النظام\ncards.months: حسب الشهر\ncards.groups: ما الذي بيع\ncards.products: أكثر المنتجات مبيعاً\ntips.months: المبالغ المقبوضة في كل شهر: ما قبضه الكاشير القديم، مع مبيعات الأيام التي لا تذكر تقاريره خصوماتها.\ntips.groups: مبيعات الأصناف قبل الخصومات، حسب تصنيفنا لمنتجات الكاشير القديم. المحتفَظ به هو ما يبقى من السعر بعد التكلفة التي ذكرها المالك، ويُحسب فقط على الأصناف التي لها تكلفة.\ntips.products: المنتجات العشرة الأعلى مبيعاً بأسماء الكاشير القديم. الجدول يعرض كل المنتجات مع السعر والتكلفة.\ncols.month: الشهر\ncols.days: أيام العمل\ncols.gross: المبيعات قبل الخصومات\ncols.discounts: الخصومات\ncols.net: المقبوض\ncols.orders: الطلبات\ncols.avg: متوسط الطلب\ncols.group: المجموعة\ncols.units: القطع\ncols.sales: مبيعات الأصناف\ncols.share: الحصة\ncols.costKnown: مبيعات لها تكلفة",
+      "route": "/analytics"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.analytics.oldTill~2",
+      "lang": "en",
+      "title": "ws.analytics.oldTill (packages/i18n/src/catalogs/ws/analytics.en.ts) (part 2 of 3)",
+      "body": "zone: Before the system\ncards.groups: What sold\ncards.products: Top products\ntips.months: Money taken each month: what the old till received, plus the sales of days whose discounts its reports do not give.\ntips.groups: Item sales before discounts, by our grouping of the old till's products. Kept is the share of the price left after the owner's stated cost, counted only on the items that have one.\ntips.products: The ten products that brought in the most, under the old till's own names. The table lists every product with its price and cost.\ncols.month: Month\ncols.days: Trading days\ncols.gross: Sales before discounts\ncols.discounts: Discounts\ncols.net: Taken\ncols.orders: Orders\ncols.avg: Average order\ncols.group: Group\ncols.units: Units\ncols.sales: Item sales\ncols.share: Share",
+      "route": "/analytics"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.analytics.oldTill~3",
+      "lang": "ar",
+      "title": "ws.analytics.oldTill (packages/i18n/src/catalogs/ws/analytics.ar.ts) (part 3 of 3)",
+      "body": "zone: قبل النظام\ncols.net: المقبوض\ncols.orders: الطلبات\ncols.avg: متوسط الطلب\ncols.group: المجموعة\ncols.units: القطع\ncols.sales: مبيعات الأصناف\ncols.share: الحصة\ncols.costKnown: مبيعات لها تكلفة\ncols.kept: المحتفَظ به\ncols.product: المنتج\ncols.price: السعر\ncols.unitCost: تكلفة القطعة\ngroups.dessertFood: الحلويات والمأكولات\ngroups.juice: العصائر الطازجة\ngroups.smoothieShake: السموذي والميلك شيك والسلاش\ngroups.mojito: الموهيتو\ngroups.icedCoffee: القهوة المثلجة\ngroups.waterIce: الماء والثلج\ngroups.hotCoffee: القهوة الساخنة\ngroups.teaChocolate: الشاي والشوكولاتة والكركديه\ngroups.espresso: الإسبريسو\ngroups.other: أخرى",
+      "route": "/analytics"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.analytics.oldTill~3",
+      "lang": "en",
+      "title": "ws.analytics.oldTill (packages/i18n/src/catalogs/ws/analytics.en.ts) (part 3 of 3)",
+      "body": "zone: Before the system\ncols.gross: Sales before discounts\ncols.discounts: Discounts\ncols.net: Taken\ncols.orders: Orders\ncols.avg: Average order\ncols.group: Group\ncols.units: Units\ncols.sales: Item sales\ncols.share: Share\ncols.costKnown: Sales with a cost\ncols.kept: Kept\ncols.product: Product\ncols.price: Price\ncols.unitCost: Cost each\ngroups.dessertFood: Desserts and food\ngroups.juice: Fresh juices\ngroups.smoothieShake: Smoothies, milkshakes and slush\ngroups.mojito: Mojitos\ngroups.icedCoffee: Iced coffee\ngroups.waterIce: Water and ice\ngroups.hotCoffee: Hot coffee\ngroups.teaChocolate: Tea, chocolate and hibiscus\ngroups.espresso: Espresso shots\ngroups.other: Other",
       "route": "/analytics"
     },
     {
@@ -45927,6 +46271,190 @@
       "lang": "en",
       "title": "docs/client/07-outstanding-2026-08-30.md › 4. Decisions and paperwork",
       "body": "icence** for Next Art and Frutiger LT Arabic (a receipt or licence PDF), because we cannot ship a commercial font without it. |\n| **Logo, colours, photos** / الشعار والألوان والصور | Same route: they were sent on WhatsApp, but they are **not yet in the build**. Please re-send to the project email or a Drive link so they are on the record. |\n| **Training** / التدريب | Agreed — thank you. We will schedule it for Week 5–6 by role (till, kitchen, manager), in Arabic, recorded. |\n| **Static IP question** / السؤال عن العنوان الثابت | You answered \"who?\" — fair. See \"The router\" above: we handle it on install day; you only provide the router password. Closed. |",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/client/cafe-before-the-system-2026.md#1",
+      "lang": "en",
+      "title": "docs/client/cafe-before-the-system-2026.md › The café before the system: sales, costs, margins and what was decided (2026) (part 1 of 2)",
+      "body": "# The café before the system: sales, costs, margins and what was decided (2026)\n\nWhat the club knows about its café from before the system went live on 8 November 2026,\ngathered with the owner (Majed) between 9 and 13 November 2026. Every figure says where it\ncomes from. Three kinds of source are kept apart:\n\n- **The old till.** The café ran on a Morabaa till from 2 June to 31 October 2026. Its\n  printed reports are the record. Figures marked \"old till\" are sums of rows it printed.\n- **The owner's word.** Costs and a few monthly figures the owner stated in chat. They are\n  his estimates, not documents.\n- **Our working.** Margins, targets, proposed prices and the loyalty plan. Analysis and",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/client/cafe-before-the-system-2026.md#1~2",
+      "lang": "en",
+      "title": "docs/client/cafe-before-the-system-2026.md › The café before the system: sales, costs, margins and what was decided (2026) (part 2 of 2)",
+      "body": "# The café before the system: sales, costs, margins and what was decided (2026)\n  his estimates, not documents.\n- **Our working.** Margins, targets, proposed prices and the loyalty plan. Analysis and\n  proposals, not decisions, unless the line says the owner decided it.\n\nThe club is in Karbala (Durrat Karbala residential complex). The brand on the menu is\n\"Just One Touch\".",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/client/cafe-before-the-system-2026.md#10",
+      "lang": "en",
+      "title": "docs/client/cafe-before-the-system-2026.md › Other figures the owner stated (9 November 2026, estimates)",
+      "body": "## Other figures the owner stated (9 November 2026, estimates)\n\n- The padel gear shop sells about 1,000,000 IQD a month.\n- Padel stock on hand is worth about 10,000,000 IQD.\n- Women's hours are not in the padel desk's monthly reports; they bring about 500,000 IQD\n  a month.\n- Running the club costs about 15,000,000 IQD a month.\n- Padel elsewhere in Iraq charges about 40,000 IQD an hour (Baghdad, Duhok). The desk's\n  own reports work out to 25,000 to 35,000 per booking.",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/client/cafe-before-the-system-2026.md#11",
+      "lang": "en",
+      "title": "docs/client/cafe-before-the-system-2026.md › The loyalty plan (a plan; the live rules are the loyalty settings in the system) (part 1 of 2)",
+      "body": "## The loyalty plan (a plan; the live rules are the loyalty settings in the system)\n\nDecided by the owner:\n\n- Points buy things you take, never money off.\n- One point for every 1,000 IQD paid.\n- A reward costs its menu price divided by 100, so about 10% comes back.\n- Stamp cards on top of points. The court card: eight paid hours, the ninth is free, not\n  on Friday or Saturday, and it replaces the court hour in the points list.\n- A plain espresso shot does not stamp a drinks card.\n- The club is sold as one experience: court guests should use the café and café guests\n  should book courts.\n\nProposed and still waiting for his answer: nine rewards from real sales (a donut at 18",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/client/cafe-before-the-system-2026.md#11~2",
+      "lang": "en",
+      "title": "docs/client/cafe-before-the-system-2026.md › The loyalty plan (a plan; the live rules are the loyalty settings in the system) (part 2 of 2)",
+      "body": "## The loyalty plan (a plan; the live rules are the loyalty settings in the system)\n- The club is sold as one experience: court guests should use the café and café guests\n  should book courts.\n\nProposed and still waiting for his answer: nine rewards from real sales (a donut at 18\npoints up to a milkshake, smoothie or San Sebastián at 50); tiers Silver from 100 points,\nGold from 600, Black from 2,000, earning 1.1, 1.25 and 1.5 times the points; a second card\ngiving the ninth made-to-order drink free; a court hour for 240 points until the cards are\nbuilt. The stamp cards do not exist in the system yet. Expected cost: between 0.55 and 2.3\nmillion IQD a month in menu value. The full working is in\n`docs/design/loyalty/points-economy-2026-11-09.md`.",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/client/cafe-before-the-system-2026.md#2",
+      "lang": "en",
+      "title": "docs/client/cafe-before-the-system-2026.md › Where the data lives (part 1 of 2)",
+      "body": "## Where the data lives\n\n| What | Where |\n| --- | --- |\n| The old till's sales, by day and hour | table `legacy_cafe_hours`, view `legacy_cafe_days` |\n| What sold, by day, product and price | table `legacy_cafe_item_days` |\n| Our product grouping and the owner's costs | table `legacy_cafe_products` |\n| The same days inside the live figures | Analytics > Café, and the management panel's café figures |\n| The till's own view (months, groups, products) | Analytics > Café, section \"Before the system\" |\n| The padel desk's monthly reports, June to September | tables `legacy_reports`, `legacy_report_figures` |\n| The original PDF exports and how they were read | `packages/db/client-data/cafe-pos-2026/` |\n",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/client/cafe-before-the-system-2026.md#2~2",
+      "lang": "en",
+      "title": "docs/client/cafe-before-the-system-2026.md › Where the data lives (part 2 of 2)",
+      "body": "## Where the data lives\n| The original PDF exports and how they were read | `packages/db/client-data/cafe-pos-2026/` |\n\nThe old till's days are already inside the café revenue shown on Analytics and the\nmanagement panel. Never add them a second time.",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/client/cafe-before-the-system-2026.md#3",
+      "lang": "en",
+      "title": "docs/client/cafe-before-the-system-2026.md › What the old till's reports cover (part 1 of 2)",
+      "body": "## What the old till's reports cover\n\n- 2 June to 31 October 2026: 147 trading days. 1 June has no rows (the till most likely\n  started on 2 June). 30 June is in no report. The café was closed on 25 and 26 June and on\n  3 and 4 August (Ashura and Arbaeen fall on those dates; an inference, the reports do not\n  say).\n- Two kinds of report: orders (one row per order, with discount and money received) and\n  items (one row per item line). Orders reports exist for 2 June to 29 September except\n  31 July and 31 August. For 31 July, 31 August, 30 September and all of October only the\n  items report exists, so **discounts are unknown for those 34 days** and their sales count\n  in full.",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/client/cafe-before-the-system-2026.md#3~2",
+      "lang": "en",
+      "title": "docs/client/cafe-before-the-system-2026.md › What the old till's reports cover (part 2 of 2)",
+      "body": "## What the old till's reports cover\n  31 July and 31 August. For 31 July, 31 August, 30 September and all of October only the\n  items report exists, so **discounts are unknown for those 34 days** and their sales count\n  in full.\n- The reports give no cash or card split, no refunds and no waste. Every order is recorded\n  against \"cash customer\": the old till identified nobody.\n- A day is the till's own calendar day, not the 04:00 business day the system uses.",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/client/cafe-before-the-system-2026.md#4",
+      "lang": "en",
+      "title": "docs/client/cafe-before-the-system-2026.md › Sales by month (old till) (part 1 of 2)",
+      "body": "## Sales by month (old till)\n\nSales before order discounts, IQD.\n\n| Month | Trading days | Sales | Discounts | Taken | Orders |\n| --- | --- | --- | --- | --- | --- |\n| June (from the 2nd, 30th missing) | 26 | 20,946,500 | 612,000 | 20,334,510 | 4,122 |\n| July | 31 | 27,401,500 | 403,893 | 26,997,618 | 6,814 |\n| August | 29 | 20,813,500 | 387,614 | 20,425,889 | 5,607 |\n| September | 30 | 26,307,000 | 568,386 | 25,738,641 | 7,064 |\n| October | 31 | 23,386,500 | not known | 23,386,500 | 5,240 |\n| All five months | 147 | 118,855,000 | 1,971,893 known | 116,883,158 | 28,847 |\n\n- Discounts ran at about 2.1% of sales in the months that have them, on 4.4% of orders,\n  at three rates: 15%, 30% and 50%.",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/client/cafe-before-the-system-2026.md#4~2",
+      "lang": "en",
+      "title": "docs/client/cafe-before-the-system-2026.md › Sales by month (old till) (part 2 of 2)",
+      "body": "## Sales by month (old till)\n\n- Discounts ran at about 2.1% of sales in the months that have them, on 4.4% of orders,\n  at three rates: 15%, 30% and 50%.\n- The average order is about 4,000 IQD, but the typical order is 2,000: a quarter of orders\n  are 1,000 or less (mostly water), a quarter 5,000 or more, one in ten 10,000 or more.\n- Thursday is the busiest day, then Friday and Wednesday; Sunday is the quietest. About 89%\n  of the money is taken between 15:00 and 22:00, peaking 17:00 to 20:00.\n- This is a summer record. Hot coffee and tea were already rising in October, so winter\n  will look different.",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/client/cafe-before-the-system-2026.md#5",
+      "lang": "en",
+      "title": "docs/client/cafe-before-the-system-2026.md › What sold (old till, item sales before discounts) (part 1 of 2)",
+      "body": "## What sold (old till, item sales before discounts)\n\nThe grouping is ours, read from the product names.\n\n| Group | Share of item sales | Units |\n| --- | --- | --- |\n| Desserts and food | 25.4% | 12,694 |\n| Fresh juices | 19.4% | 5,645 |\n| Smoothies, milkshakes and slush | 15.7% | 4,779 |\n| Mojitos | 11.3% | 3,415 |\n| Iced coffee | 7.7% | 2,109 |\n| Water and ice | 6.7% | 31,647 |\n| Hot coffee | 4.4% | 1,386 |\n| Tea, chocolate and hibiscus | 4.0% | 2,108 |\n| Other | 3.6% | 3,748 |\n| Espresso shots | 1.7% | 726 |\n\nCoffee of every kind is under 14% of sales. Water alone is about 30,000 bottles. The best\nsellers by money: water, large orange juice, cookies, donuts, ice cream, San Sebastián",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/client/cafe-before-the-system-2026.md#5~2",
+      "lang": "en",
+      "title": "docs/client/cafe-before-the-system-2026.md › What sold (old till, item sales before discounts) (part 2 of 2)",
+      "body": "## What sold (old till, item sales before discounts)\n\nCoffee of every kind is under 14% of sales. Water alone is about 30,000 bottles. The best\nsellers by money: water, large orange juice, cookies, donuts, ice cream, San Sebastián\ncheesecake, the 1,000 IQD item printed as كبوس (unclear what it is), blue mojito, mosaic\n(lazy) cake, strawberry mojito.",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/client/cafe-before-the-system-2026.md#6",
+      "lang": "en",
+      "title": "docs/client/cafe-before-the-system-2026.md › What each item costs the club (the owner's word, 9 November 2026) (part 1 of 3)",
+      "body": "## What each item costs the club (the owner's word, 9 November 2026)\n\nOne unit's cost in IQD. The owner's sheet names no sizes, so one cost stands for every\nsize.\n\n- Desserts: rainbow cake 625, milk cake 750, San Sebastián 1,600, muffin 500, donut 600,\n  mosaic (lazy) cake 2,500, cookies 1,250, stuffed cookies 1,750, carrot cake 1,000,\n  brownies 2,000, tiramisu 1,600, English cake 350.\n- Coffee and tea: espresso single 300, espresso double 540, americano (hot or iced) 750,\n  flat white 1,000, cortado 1,000, Turkish coffee 1,000, hazelnut coffee 1,000, karak tea\n  1,000, lemon tea 1,000, classic hot latte 1,000, caramel or mocha latte 1,500, hazelnut,",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/client/cafe-before-the-system-2026.md#6~2",
+      "lang": "en",
+      "title": "docs/client/cafe-before-the-system-2026.md › What each item costs the club (the owner's word, 9 November 2026) (part 2 of 3)",
+      "body": "## What each item costs the club (the owner's word, 9 November 2026)\n  flat white 1,000, cortado 1,000, Turkish coffee 1,000, hazelnut coffee 1,000, karak tea\n  1,000, lemon tea 1,000, classic hot latte 1,000, caramel or mocha latte 1,500, hazelnut,\n  vanilla or cookies latte 1,750, hot chocolate 1,300, pistachio macchiato 2,000.\n- Cold drinks: mojito (every flavour, Red Bull too) 1,250, smoothie (mango, strawberry,\n  peach, pineapple) 1,250, passion fruit smoothie 1,500, orange juice 1,250, strawberry\n  juice 1,300, mango juice 1,500, lemon juice 1,250, polo 1,300, green apple 750, orange\n  and carrot 1,500, milkshake 1,600, frappuccino 2,000.\n- **No cost given yet:** watermelon juice, the immunity shot, Spanish latte, ice cream,",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/client/cafe-before-the-system-2026.md#6~3",
+      "lang": "en",
+      "title": "docs/client/cafe-before-the-system-2026.md › What each item costs the club (the owner's word, 9 November 2026) (part 3 of 3)",
+      "body": "## What each item costs the club (the owner's word, 9 November 2026)\n  and carrot 1,500, milkshake 1,600, frappuccino 2,000.\n- **No cost given yet:** watermelon juice, the immunity shot, Spanish latte, ice cream,\n  slush, sweet cake, cheesecake, V60, cold brew, hibiscus, Iraqi tea, the item printed as\n  كبوس, water, and the house drinks (Touch Blue, Touch Special, Court Energy, Padel Fresh).\n- Worth checking with the owner: karak tea costs 1,000 and sells for 2,000, and lemon tea\n  costs 1,000 and sells for 1,500. Either those teas are the thinnest items on the menu or\n  the two costs are mistyped.",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/client/cafe-before-the-system-2026.md#7",
+      "lang": "en",
+      "title": "docs/client/cafe-before-the-system-2026.md › Margins (our working, on the old till's sales) (part 1 of 2)",
+      "body": "## Margins (our working, on the old till's sales)\n\n\"Kept\" means the menu price less the item's own cost. It does not include wages, rent or\nanything else.\n\n- A cost is known for 61% of item sales. On those, the café kept **64%** of the price.\n- By group, on the costed items: smoothies about 73%, coffee 70%, fresh juices 68%, mojitos\n  68%, milkshakes 67%, frappuccino 59%, desserts 54%, tea and hot chocolate 50%.\n- Three best-selling desserts keep under half: cookies 38%, mosaic (lazy) cake 38%,\n  brownies 43% (stuffed cookies 42%). The gap to the rest of the menu is worth roughly\n  530,000 IQD a month.\n- The whole café probably keeps 14 to 16 million IQD a month after ingredients, if the\n  items with no cost keep between 50% and 75%.",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/client/cafe-before-the-system-2026.md#7~2",
+      "lang": "en",
+      "title": "docs/client/cafe-before-the-system-2026.md › Margins (our working, on the old till's sales) (part 2 of 2)",
+      "body": "## Margins (our working, on the old till's sales)\n  530,000 IQD a month.\n- The whole café probably keeps 14 to 16 million IQD a month after ingredients, if the\n  items with no cost keep between 50% and 75%.\n- Open question for the owner: does his 15 million a month running cost already include\n  the café's ingredients? The answer moves the bottom line by 7 to 10 million a month.",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/client/cafe-before-the-system-2026.md#8",
+      "lang": "en",
+      "title": "docs/client/cafe-before-the-system-2026.md › Target margins and proposed prices (proposed on 10 November 2026, NOT approved, NOT applied) (part 1 of 4)",
+      "body": "## Target margins and proposed prices (proposed on 10 November 2026, NOT approved, NOT applied)\n\nTargets we set: coffee 75%, fresh juices, mojitos, smoothies and milkshakes 70%, desserts\n60%, the whole café 70% (it is 64% now). What cafés generally aim for: drink ingredients at\n15 to 25% of the price, fresh juices 20 to 30%, smoothies 25 to 35%, a whole café 28 to\n35%. No Karbala café publishes prices online, so the check that matters is to visit three\nnearby cafés and note their latte, fresh juice and mojito prices.\n\nProposed changes (IQD, medium / large where there are two sizes). Everything not listed\nstays as it is.\n\n| Item | Now | Proposed |\n| --- | --- | --- |",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/client/cafe-before-the-system-2026.md#8~2",
+      "lang": "en",
+      "title": "docs/client/cafe-before-the-system-2026.md › Target margins and proposed prices (proposed on 10 November 2026, NOT approved, NOT applied) (part 2 of 4)",
+      "body": "## Target margins and proposed prices (proposed on 10 November 2026, NOT approved, NOT applied)\n\nProposed changes (IQD, medium / large where there are two sizes). Everything not listed\nstays as it is.\n\n| Item | Now | Proposed |\n| --- | --- | --- |\n| Vanilla or hazelnut latte | 4,000 / 5,000 | 4,500 / 5,500 |\n| Cortado, flat white, Turkish coffee | 3,000 | 3,500 |\n| Pistachio macchiato (large) | 5,000 | 5,500 |\n| Karak tea | 2,000 | 2,500 |\n| Lemon tea | 1,500 | 2,000 |\n| Hot chocolate | 3,000 / 3,500 | 3,500 / 4,000 |\n| Orange juice, lemonade, orange and carrot | 3,000 / 4,000 | 3,500 / 4,500 |\n| Mango juice | 3,500 / 4,500 | 4,000 / 5,000 |\n| Mojito, every flavour | 3,500 / 4,000 | 4,000 / 4,500 |\n| Milkshake, every flavour | 4,000 / 5,000 | 4,500 / 5,500 |",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/client/cafe-before-the-system-2026.md#8~3",
+      "lang": "en",
+      "title": "docs/client/cafe-before-the-system-2026.md › Target margins and proposed prices (proposed on 10 November 2026, NOT approved, NOT applied) (part 3 of 4)",
+      "body": "## Target margins and proposed prices (proposed on 10 November 2026, NOT approved, NOT applied)\n| Mango juice | 3,500 / 4,500 | 4,000 / 5,000 |\n| Mojito, every flavour | 3,500 / 4,000 | 4,000 / 4,500 |\n| Milkshake, every flavour | 4,000 / 5,000 | 4,500 / 5,500 |\n| Frappuccino, if any stay | 4,000 / 5,000 | 5,000 / 6,000 |\n| Cookies | 2,000 | 2,500 |\n| Stuffed cookies | 3,000 | 3,500 |\n| Mosaic (lazy) cake | 4,000 | 5,000 |\n| Brownies | 3,500 | 4,000 |\n\n- These take the costed items from 64% to about 67% kept and add up to about 1.4 million\n  IQD a month if nobody stops buying. That is a ceiling, not a forecast.\n- Suggested order: first desserts and teas (about 600,000 a month, low risk); then the\n  small lines (about 170,000); last mojitos, orange juice and milkshakes (about 610,000,",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/client/cafe-before-the-system-2026.md#8~4",
+      "lang": "en",
+      "title": "docs/client/cafe-before-the-system-2026.md › Target margins and proposed prices (proposed on 10 November 2026, NOT approved, NOT applied) (part 4 of 4)",
+      "body": "## Target margins and proposed prices (proposed on 10 November 2026, NOT approved, NOT applied)\n- Suggested order: first desserts and teas (about 600,000 a month, low risk); then the\n  small lines (about 170,000); last mojitos, orange juice and milkshakes (about 610,000,\n  the most money and the least room: the rise stops paying if 13 to 15% of buyers leave).\n- The last three points to 70% have to come from what cookies, mosaic cake and brownies\n  cost to buy or make, not from price.",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/client/cafe-before-the-system-2026.md#9",
+      "lang": "en",
+      "title": "docs/client/cafe-before-the-system-2026.md › Menu lines suggested for removal (our suggestion, not decided)",
+      "body": "## Menu lines suggested for removal (our suggestion, not decided)\n\nThirteen of the 72 menu lines brought in 1.7% of sales over the five months: Court Energy,\nthe immunity shot, piña colada, the banana, Snickers and KitKat milkshakes, protein, all\nfive frappuccinos, and the pineapple smoothie. Also discussed: Touch Special (suggested\ncut), Touch Blue (one more push before deciding), hot chocolate (keep: a winter item\nmeasured in summer).",
       "route": null
     },
     {

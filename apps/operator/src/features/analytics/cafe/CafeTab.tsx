@@ -19,6 +19,7 @@
  * refinements behind "Show more".
  */
 import { useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { MIN_RATE_DENOM, describeBasis, isThinPeriod, pctDelta, pickLocale } from '@touch/core';
 import { useLocale } from '../../../lib/i18n';
@@ -34,12 +35,15 @@ import { mineCafeCandidates, toPatternWire } from '../patterns';
 import { buildInsightsData } from '../payload';
 import { avgOrderValue, sumBy } from '../derive';
 import { makeFormatters } from '../format';
-import { useAnalyticsData, type SqlKey } from '../useAnalyticsData';
+import { ANALYTICS_KEY, useAnalyticsData, type SqlKey } from '../useAnalyticsData';
+import { analyticsRpc } from '../../../lib/analyticsApi';
 import { useVenueRevenue } from '../useVenueRevenue';
 import type { AnalyticsSearch } from '../search';
 import { CardShell, type CardState } from '../cards/CardShell';
 import { FigureGroup, FigureLine, Kpi } from '../cards/Kpi';
 import { menuTakeaway, salesTakeaway, timeTakeaway } from './takeaways';
+import { oldTillNotices, parseOldTill } from './history';
+import { HistorySection, OLD_TILL_ZONE } from './HistorySection';
 import { AiInsightsCard } from '../cards/AiInsightsCard';
 import { AssistantComponentCard } from '../components/AssistantComponentCard';
 import { PinnedComponents } from '../components/PinnedComponents';
@@ -96,6 +100,17 @@ export function CafeTab() {
   const data = useAnalyticsData(search, locale);
   const { raw, derived, state, stateFor, errorFor } = data;
   const venue = useVenueRevenue(data.range, data.compareRange);
+  // 0412: the old café till's own view of the range (its days are already in
+  // the daily sales rows). A failed read costs the section and its notice,
+  // never the page; it waits for the same settings the other queries do.
+  const oldTillQ = useQuery({
+    queryKey: [ANALYTICS_KEY, 'cafeHistory', data.range.from, data.range.to],
+    queryFn: () => analyticsRpc.cafeHistory(data.range.from, data.range.to),
+    enabled: !state.settingsLoading,
+    staleTime: 30_000,
+  });
+  const oldTill = useMemo(() => parseOldTill(oldTillQ.data), [oldTillQ.data]);
+  const zones = useMemo(() => (oldTill ? [...CAFE_ZONES, OLD_TILL_ZONE] : CAFE_ZONES), [oldTill]);
   const [tillMeasure, setTillMeasure] = useState<'orders' | 'revenue'>('orders');
   const tillHeat = useHeatView();
   const viewsHeat = useHeatView();
@@ -134,7 +149,9 @@ export function CafeTab() {
   /** Guest-menu cards: a feed that is off or down is one notice, and a short muted line in the card. */
   const engState = (st: CardState): CardState => (st === 'error' && engBroken && engOnly === 'error' ? 'unavailable' : st);
   const cashTotal = (k?.cashIqd ?? 0) + (k?.cardIqd ?? 0);
-  const cashShare = cashTotal > 0 ? ((k?.cashIqd ?? 0) / cashTotal) * 100 : null;
+  // 0412: the old till's reports have no cash or card split, so with its days in
+  // the range the split covers only part of the sales figure and is not drawn beside it.
+  const cashShare = cashTotal > 0 && !oldTill ? ((k?.cashIqd ?? 0) / cashTotal) * 100 : null;
   const venueDelta = venue.current && venue.previous && reliable ? pctDelta(venue.current.venueIqd, venue.previous.venueIqd) : null;
 
   const bestSellerRows = (raw?.bestSellers ?? [])
@@ -218,6 +235,8 @@ export function CafeTab() {
   const ready = (st: CardState) => st === 'ready' && raw && derived;
 
   const notices: Notice[] = [];
+  // 0412: which days are the old till's, and what its reports do not have.
+  notices.push(...oldTillNotices(oldTill?.totals ?? null, 'cafe', tr, f));
   if (derived && hasDaily && hasPrev && smallSample && derived.salesDeltaReliable) {
     notices.push({ key: 'small', text: tr('ws.analytics.cafe.smallSample', { n: MIN_RATE_DENOM }) });
   } else if (derived && hasDaily && hasPrev && !reliable) {
@@ -249,7 +268,7 @@ export function CafeTab() {
         tab="cafe"
         search={search}
         setSearch={setSearch}
-        zones={CAFE_ZONES}
+        zones={zones}
         compareBasis={data.compareBasis}
         compareRange={data.compareRange}
         deck={{
@@ -720,6 +739,9 @@ export function CafeTab() {
           </ChartCard>
         </MoreCharts>
       </Zone>
+
+      {/* ---------------- Before the system: the old till's own view (0412) ---------------- */}
+      {oldTill && <HistorySection history={oldTill} f={f} rangeLabel={rangeLabel} />}
       {drill.layer}
     </AnalyticsFrame>
   );
