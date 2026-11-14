@@ -17,6 +17,38 @@ is a line in that file.
 
 ## Migrations
 
+- **0416 (2026-11-13, loyalty_card_colors; Majed: the cards are white (the starter card), Touch
+  Padel green, Touch Padel blue, then black):** `loyalty_tiers_color` also takes `white`, `green`,
+  `blue`; the 0376 metals stay valid but the operator offers only `CARD_LADDER`
+  (`@touch/core/loyalty`), plus a tier's own legacy colour. No tier is recoloured and no function
+  re-issued. `tests/loyalty-tier-colors.test.ts` ("the club cards (0416)").
+- **0415 (2026-11-13, loyalty_reward_vouchers; Majed: the guest redeems a reward in the app and
+  gets a QR for that reward that the till scans):** table `loyalty_reward_vouchers` (no client
+  grant; fixed single-use code `TPV-` + 12 Crockford base32, lives 15 minutes, status active |
+  used | cancelled | expired). Guest RPCs `redeem_reward` (points leave at once, held by the
+  voucher; five active at most), `cancel_reward_voucher`, `my_reward_vouchers` (active + ended in
+  the last 30 minutes, expires the caller's late ones). Till RPC `use_reward_voucher(p_tab_id,
+  p_code, key)`: the code is the proof (no member card, PIN or customer on the tab; a screenshot
+  works by Majed's call), then the reward exactly as `loyalty_redeem` gives it (item, court_hour,
+  iqd_off: that body is copied, not called, so change both). Points: redeem `(reward,
+  reward_voucher, id)`; cancel/expiry `(redeem_void, reward_voucher, id)`; use hands over with
+  `(redeem_void, reward_voucher, id)` + the bill's own `(reward, tab_adjustment |
+  reservation_reward, id)`, so Undo, the settle cap and the booking-cancel refund work unchanged
+  and pay the voucher's member. One `redeem_void` per voucher (`loyalty_ledger_once`) means
+  never both used and refunded. `loyalty_history_guest` hides the hand-over pair. Cron
+  `tp_reward_voucher_sweep` every minute (expires_at + 1 minute of grace). Lock rank
+  `loyalty_reward_vouchers` before `loyalty_gift_advisory`. Tests: `tests/loyalty.test.ts`
+  ("loyalty reward vouchers (0415)").
+- **0414 (2026-11-13, phone_sign_up_status; Majed: Create account must say "this number already
+  has an account" before a code is paid for):** the anon `phone_sign_up_status(p_phone)` answers
+  `taken` (an `auth.users.phone` match whose profile has a phone, a name and a gender and no
+  `deleted_at`: the phone's `needsProfileCompletion` three), `free` (nobody, or an unfinished
+  sign-up) or `unknown` (unreadable, or throttled); `00…` reads as `+…`; never raises. Throttle:
+  table `app.phone_sign_up_lookups` (md5 of `cf-connecting-ip`, or `none`; rows live an hour; no
+  client grant, no index), 20 a caller per 10 minutes, 300 shared without the header.
+  `x-forwarded-for` / `x-real-ip` are deliberately ignored: a caller can forge them. The local
+  stack sends no `cf-connecting-ip`, so locally every call shares the 300 bucket. Publicly callable by
+  design (`rpc-allowlist.json`); `tests/phone-sign-up-status.test.ts`.
 - **0412–0413 (2026-11-13, legacy_cafe_history; Majed: the old till's sales in analytics, and the
   assistant must see them):** tables `legacy_cafe_hours` (per calendar day and clock hour of the
   old Morabaa till, 2 June to 31 October 2026: the items reports' lines, units, money and tickets,
@@ -906,7 +938,7 @@ is a line in that file.
   (`WEB_OVERRIDES`, `MOBILE_OVERRIDES`).
 - No WHERE-less write (`scripts/check-safe-update.mjs`). `app.lock_court` (0042) before any
   reservation write. Lock order
-  `day_sessions → match_money_advisory → coach_advisory → tournaments → tournament_entries → tabs → promotions → loyalty_attempts_advisory → orders → order_items → tickets → payments → till_shifts → refunds → stock_batches → court_advisory → venues → reservations → match_venue_advisory → match_tickets → loyalty_gift_advisory → loyalty_accounts`
+  `day_sessions → match_money_advisory → coach_advisory → tournaments → tournament_entries → tabs → promotions → loyalty_attempts_advisory → orders → order_items → tickets → payments → till_shifts → refunds → stock_batches → court_advisory → venues → reservations → match_venue_advisory → match_tickets → loyalty_reward_vouchers → loyalty_gift_advisory → loyalty_accounts`
   (`coach_advisory` since coaching, `app.lock_coach`, once per sequence; a `FOR UPDATE … SKIP
   LOCKED` on reservations never waits and is not ranked, like `pg_try_advisory_xact_lock`;
   `venues` since 0291: a lesson body's branch row FOR KEY SHARE, once per sequence, the one share

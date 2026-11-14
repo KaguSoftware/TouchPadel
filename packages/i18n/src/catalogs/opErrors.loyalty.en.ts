@@ -31,4 +31,10 @@ export const opErrorsLoyaltyEn = {
   DEAL_UNAVAILABLE: 'That deal has ended. Pull down to see the deals running now.',
   DEAL_LOCKED: 'That deal is for a higher card. Keep earning points to unlock it.',
   DEAL_USED: 'You have already used that deal as many times as it allows.',
+  VOUCHER_NOT_FOUND: "That isn't a reward code. Scan the reward QR again.",
+  VOUCHER_USED: 'This reward code was already used or cancelled.',
+  VOUCHER_EXPIRED:
+    'This reward code has expired. The points went back to the balance; redeem the reward again in the app.',
+  VOUCHER_WRONG_BRANCH: 'This reward belongs to another branch.',
+  VOUCHER_LIMIT: 'Five rewards are already waiting. Use or cancel one first.',
 };

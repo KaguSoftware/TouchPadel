@@ -17,6 +17,17 @@ const api = vi.hoisted(() => ({ fetchPromotion: vi.fn() }));
 const rpc = vi.hoisted(() => ({ appRpc: vi.fn() }));
 const router = vi.hoisted(() => ({ navigate: vi.fn(), params: { id: 'new' } as { id: string } }));
 const perms = vi.hoisted(() => ({ editPromotions: true, role: 'owner' }));
+// 0416: the loyalty cards "Who can use it" offers (loyalty_admin through useLoyaltyAdmin).
+const loyalty = vi.hoisted(() => ({
+  data: {
+    settings: { enabled: true },
+    tiers: [
+      { id: 't-green', name_en: 'Green', name_ar: 'الخضراء', sort: 1, color: 'green' },
+      { id: 't-white', name_en: 'White', name_ar: 'البيضاء', sort: 0, color: 'white' },
+    ],
+    rewards: [],
+  } as { settings: { enabled: boolean }; tiers: Array<Record<string, unknown>>; rewards: unknown[] },
+}));
 
 vi.mock('./promotionsApi', async (importOriginal) => {
   const mod = await importOriginal<typeof PromotionsApi>();
@@ -34,6 +45,7 @@ vi.mock('../../../lib/auth', async (importOriginal) => {
     usePermissions: () => ({ editPromotions: perms.editPromotions }),
   };
 });
+vi.mock('../../loyalty/useLoyalty', () => ({ useLoyaltyAdmin: () => ({ data: loyalty.data }) }));
 vi.mock('../../../lib/queries', () => ({ QK: { courts: ['courts'] }, fetchActiveCourts: async () => [] }));
 vi.mock('../menu/useAdminMenu', () => ({ useAdminMenu: () => ({ data: { categories: [], items: [] } }) }));
 vi.mock('../../../components/ConfirmDialog', () => ({ useConfirm: () => async () => true }));
@@ -65,6 +77,7 @@ beforeEach(() => {
   router.params = { id: 'new' };
   perms.editPromotions = true;
   perms.role = 'owner';
+  loyalty.data.settings.enabled = true;
 });
 
 describe('PromotionEditorScreen', () => {
@@ -127,6 +140,36 @@ describe('PromotionEditorScreen', () => {
       expect(rpc.appRpc).toHaveBeenCalledWith('upsert_promotion', expect.objectContaining({ p_id: null, p_name_en: 'Happy hour', p_name_ar: 'ساعة السعادة', p_auto: true })),
     );
     expect(screen.queryByRole('button', { name: /delete|remove/i })).toBeNull();
+  });
+
+  // 0416: every card privilege must be something the owner sets up here, so a deal can be held
+  // to a loyalty card and every card above it (limits.tierMin).
+  it('holds a promotion to a card and up, says so in the summary, and saves the tier id', async () => {
+    const user = userEvent.setup();
+    rpc.appRpc.mockResolvedValue('new-id');
+    renderScreen();
+    const who = screen.getByTestId('promo-who');
+    // Everyone first, then the cards from the starter card up.
+    expect([...who.querySelectorAll('button')].map((b) => b.textContent)).toEqual(['Everyone', 'From White', 'From Green']);
+    expect(screen.getByTestId('promo-who-everyone').getAttribute('aria-pressed')).toBe('true');
+    await user.click(screen.getByTestId('promo-who-t-green'));
+    expect(screen.getByTestId('promo-who-t-green').getAttribute('aria-pressed')).toBe('true');
+    expect(screen.getByText('10% off everything from the cafe · Any day, any time · From the Green card up')).toBeTruthy();
+    await user.type(screen.getByLabelText('English'), 'Green latte');
+    await user.type(screen.getByLabelText('Arabic'), 'لاتيه الخضراء');
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() =>
+      expect(rpc.appRpc).toHaveBeenCalledWith('upsert_promotion', expect.objectContaining({ p_limits: expect.objectContaining({ tierMin: 't-green' }) })),
+    );
+  });
+
+  it('says nobody gets a card promotion while loyalty is off', async () => {
+    const user = userEvent.setup();
+    loyalty.data.settings.enabled = false;
+    renderScreen();
+    expect(screen.queryByText('Loyalty is switched off, so nobody gets a promotion held to a card.')).toBeNull();
+    await user.click(screen.getByTestId('promo-who-t-green'));
+    expect(screen.getByText('Loyalty is switched off, so nobody gets a promotion held to a card.')).toBeTruthy();
   });
 
   // 0410: a promotion listed as a deal in the guests' app.

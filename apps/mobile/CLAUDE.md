@@ -77,16 +77,32 @@ reported at `app/ranks-report.tsx` by username (exact lookup, `ranks_find_player
 once an opponent confirms. Everything under `['ranks']` stays off disk.
 
 Deals and the cards (Majed, 2026-11-12; migration 0410): `app/loyalty.tsx` shows, in this order,
-the points card, the way to the next card with what that card gives (`NextCardBlock.tsx`), the
+the points, the way to the next card with what that card gives (`NextCardBlock.tsx`), the
 deals (`DealCards.tsx`), rewards, every card with its privileges (`TierLadder.tsx`) and the
 history. A deal is picked with `pick_deal` ("Use at the cashier") and the guest lands on the
 member card, which names the picked deal beside the QR (`DealNote.tsx` in `MemberCardPanel`): the
-cashier scans the card and applies it, nothing is redeemed on the phone. Everything is the
+cashier scans the card and applies it, nothing is redeemed on the phone. The Club tab lists the
+deals the guest can use under the QR (`CardDeals.tsx`, `usableDeals`: open ones, picked first;
+locked and used stay on Points & rewards), and picking one there scrolls back to the code instead
+of leaving the tab (Majed, 2026-11-13). Points & rewards opens on the points as a plain number
+with the tier beside it: the card is the Club tab's and is not drawn again there, and there is no
+"Show my member card" button (a picked deal's "Show my card" still goes to it).
+Everything is the
 server's (`my_loyalty.tiers`, `my_deals`); the phone never works out who holds which privilege
 beyond reading the ladder (`ladderPosition`, `cardHolds` in `logic.ts`; deal parsing in
 `deals.ts`). `['loyalty','deals']` stays off disk (a pick restored from disk could promise a deal
 already used), the pick runs now or fails now, and a server without 0410 (`PGRST202`) reads as no
 deals and no ladder, never as an error.
+
+Reward vouchers (Majed, 2026-11-13; migration 0415): a READY reward on Points & rewards has
+Redeem. The phone's own alert confirms, `redeem_reward` takes the points at once, and
+`app/reward-voucher.tsx` shows a fixed single-use QR for that one reward (`TPV-` code, grouped
+under the QR for typing), a 15-minute countdown (large time + a bar that empties, amber in the
+last 2 minutes) on the server's clock (`voucherMsLeft`), and Cancel (points back). The screen
+polls `my_reward_vouchers` every 4 s and turns to Collected when the till scans the code; expired
+and cancelled say the points are back and offer Redeem again. Codes not yet collected head Points &
+rewards ("Ready to collect"). A screenshot works by Majed's call (whoever holds the code collects).
+`['loyalty','vouchers']` stays off disk; pure logic is `features/loyalty/vouchers.ts`.
 
 ## Commits
 

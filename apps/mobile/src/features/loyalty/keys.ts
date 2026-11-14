@@ -15,8 +15,11 @@
  * member card for a deal that was used or lapsed since. With no signal on a cold start the card
  * shows its QR and no deal line; the pick itself lives on the server, so the cashier still
  * applies it.
+ *
+ * `vouchers` is NOT persisted (0415): each holds a fixed code that is worth a reward to whoever
+ * shows it, and lives 15 minutes; the server answers again on every open.
  */
-export type LoyaltyMutation = 'rotate' | 'pick-deal';
+export type LoyaltyMutation = 'rotate' | 'pick-deal' | 'redeem' | 'cancel-voucher';
 
 export const loyaltyKeys = {
   /** Every loyalty read and write. */
@@ -27,6 +30,11 @@ export const loyaltyKeys = {
   card: ['loyalty', 'card'] as const,
   /** app.my_deals(): the listed deals and the one picked. Live state, never written to disk. */
   deals: ['loyalty', 'deals'] as const,
+  /**
+   * app.my_reward_vouchers() (0415): the rewards redeemed in the app and their codes. A code is
+   * a bearer voucher (whoever shows it collects), so it never reaches the disk cache either.
+   */
+  vouchers: ['loyalty', 'vouchers'] as const,
   /** Mutation keys: queryClient.ts gives this prefix "run now or fail now". */
   mutation: (name: LoyaltyMutation) => ['loyalty', 'mutation', name] as const,
 };

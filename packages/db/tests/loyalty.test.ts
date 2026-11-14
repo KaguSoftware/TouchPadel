@@ -2468,3 +2468,219 @@ commit;`);
     expect(out).toEqual({ balance: 15, sum: 15 });
   });
 });
+
+// ── 0415: a reward redeemed in the app is a QR the till scans ────────────────
+
+/** The guest redeems a reward in the app; `name` keeps the voucher's code, `name`_id its id. */
+const VOUCHER = (name: string, guest: string, reward: string) => [
+  T(name, guest, `select app.redeem_reward({{${reward}}}, ${KEY('v')})`),
+  KEEP(name, `select res #>> '{data,code}' from pg_temp.out where label = '${name}'`),
+  KEEP(`${name}_id`, `select res #>> '{data,id}' from pg_temp.out where label = '${name}'`),
+];
+const USE = (tab: string, code: string, key: string | null = KEY('u')) =>
+  `select app.use_reward_voucher({{${tab}}}, ${code.startsWith('{{') || code.startsWith("'") || code.includes('(') ? code : `{{${code}}}`}, ${key ?? 'null'})`;
+/** A voucher's status and what it became. */
+const VSTATE = (label: string, v: string) =>
+  Q(
+    label,
+    `select jsonb_build_object('status', status, 'used_by', used_by, 'tab', tab_id is not null,
+                               'adj', tab_adjustment_id is not null, 'court', reservation_reward_id is not null)
+       from loyalty_reward_vouchers where id = {{${v}_id}}::uuid`,
+  );
+
+describe.skipIf(!docker)('loyalty reward vouchers (0415)', () => {
+  it('redeem holds the points on a voucher; cancel gives them back once; limits and refusals', () => {
+    const r = run('loy-voucher-redeem', [
+      GUEST('g1'),
+      GUEST('g2'),
+      PTS('g1', 1000),
+      PTS('g2', 150),
+      ...MENU,
+      ...VOUCHER('v1', 'g1', 'rw'),
+      BALANCE('after_redeem', 'g1'),
+      T('mine', 'g1', `select app.my_reward_vouchers()`),
+      T('history', 'g1', `select app.my_loyalty() -> 'history'`),
+      T('cancel', 'g1', `select app.cancel_reward_voucher({{v1_id}})`),
+      T('cancel_again', 'g1', `select app.cancel_reward_voucher({{v1_id}})`),
+      T('cancel_other', 'g2', `select app.cancel_reward_voucher({{v1_id}})`),
+      VSTATE('v1_state', 'v1'),
+      T('mine_after', 'g1', `select app.my_reward_vouchers()`),
+      // five active at once, then VOUCHER_LIMIT
+      ...VOUCHER('a1', 'g1', 'rw'),
+      ...VOUCHER('a2', 'g1', 'rw'),
+      ...VOUCHER('a3', 'g1', 'rw'),
+      ...VOUCHER('a4', 'g1', 'rw'),
+      ...VOUCHER('a5', 'g1', 'rw'),
+      T('sixth', 'g1', `select app.redeem_reward({{rw}}, ${KEY('v')})`),
+      // the same key twice is one voucher
+      T('k1', 'g2', `select app.redeem_reward({{rw}}, 'loy-voucher-same-key')`),
+      T('poor', 'g2', `select app.redeem_reward({{rw}}, ${KEY('v')})`),
+      T('k2', 'g2', `select app.redeem_reward({{rw}}, 'loy-voucher-same-key')`),
+      X(`update loyalty_rewards set active = false where id = {{rw}}::uuid`),
+      T('inactive', 'g2', `select app.redeem_reward({{rw}}, ${KEY('v')})`),
+      X(`update loyalty_rewards set active = true where id = {{rw}}::uuid`),
+      SET('enabled = false'),
+      T('off', 'g2', `select app.redeem_reward({{rw}}, ${KEY('v')})`),
+    ]);
+
+    const v1 = ok<{ code: string; status: string; points: number; balance: number; name_en: string }>(r, 'v1');
+    expect(v1.code).toMatch(/^TPV-[0-9A-HJKMNP-TV-Z]{12}$/);
+    expect(v1).toMatchObject({ status: 'active', points: 150, balance: 850, name_en: 'Free small latte' });
+    expect(ok<number>(r, 'after_redeem')).toBe(850);
+    const mine = ok<{ vouchers: Array<{ id: string; status: string; expires_at: string; created_at: string }> }>(r, 'mine');
+    expect(mine.vouchers).toHaveLength(1);
+    expect(Date.parse(mine.vouchers[0]!.expires_at) - Date.parse(mine.vouchers[0]!.created_at)).toBe(15 * 60 * 1000);
+    expect(ok<Array<{ kind: string; delta: number; note: string }>>(r, 'history')[0]).toMatchObject({
+      kind: 'reward',
+      delta: -150,
+      note: 'Free small latte',
+    });
+    expect(ok(r, 'cancel')).toEqual({ balance: 1000 });
+    expect(refused(r, 'cancel_again')).toBe('VOUCHER_USED');
+    expect(refused(r, 'cancel_other')).toBe('VOUCHER_NOT_FOUND');
+    expect(ok(r, 'v1_state')).toMatchObject({ status: 'cancelled', used_by: null });
+    expect(ok<{ vouchers: Array<{ status: string }> }>(r, 'mine_after').vouchers[0]).toMatchObject({ status: 'cancelled' });
+    expect(refused(r, 'sixth')).toBe('VOUCHER_LIMIT');
+    expect(ok(r, 'k1')).toMatchObject({ balance: 0 });
+    expect(refused(r, 'poor')).toBe('POINTS_INSUFFICIENT');
+    expect(ok(r, 'k2')).toMatchObject({ duplicate: true });
+    expect(refused(r, 'inactive')).toBe('REWARD_NOT_FOUND');
+    expect(refused(r, 'off')).toBe('LOYALTY_OFF');
+  });
+
+  it('the till scans it: the item is freed or added, once, for anyone holding the code, with undo', () => {
+    const r = run('loy-voucher-use', [
+      GUEST('g1'),
+      PTS('g1', 1000),
+      STALE('cashier'),
+      STALE('desk'),
+      ...MENU,
+      ...VOUCHER('v1', 'g1', 'rw'),
+      ...VOUCHER('v2', 'g1', 'rw'),
+      ...VOUCHER('v3', 'g1', 'rw'),
+      // a friend's tab with no customer and a small latte on it: the voucher frees it
+      TAB('t1', 'cafe'),
+      T('order', 'cashier', ORDER('t1', 'small', 1)),
+      T('use1', 'cashier', USE('t1', 'v1')),
+      T('again', 'cashier', USE('t1', 'v1')),
+      VSTATE('v1_state', 'v1'),
+      // lower case and the display's dashes are the same code; no small latte left: it is added
+      T('use2', 'cashier', USE('t1', `lower(substr({{v2}}, 1, 8) || '-' || substr({{v2}}, 9))`)),
+      REWARDS_ON('on_t1', 't1'),
+      Q('totals', `select to_jsonb(t) from app.compute_tab_totals({{t1}}) t`),
+      BALANCE('after_use', 'g1'),
+      T('history', 'g1', `select app.my_loyalty() -> 'history'`),
+      // Undo at the till: the points go back to the voucher's member, not the tab's
+      KEEP('adj2', `select res #>> '{data,adjustment_id}' from pg_temp.out where label = 'use2'`),
+      T('undo', 'cashier', `select app.loyalty_unredeem({{adj2}})`),
+      BALANCE('after_undo', 'g1'),
+      VSTATE('v2_state', 'v2'),
+      // a code that names nothing is answered, not raised; a malformed one is refused
+      T('unknown', 'cashier', USE('t1', `'TPV-000000000000'`)),
+      T('malformed', 'cashier', USE('t1', `'TP-ABC'`)),
+      // the court desk cannot order a latte onto a tab
+      TAB('t2', 'cafe'),
+      T('desk', 'desk', USE('t2', 'v3')),
+      VSTATE('v3_state', 'v3'),
+    ]);
+
+    expect(ok(r, 'use1')).toMatchObject({ points: 150, amount_iqd: 4000, item_added: false, kind: 'item' });
+    expect(ok<{ member_name: string | null }>(r, 'use1').member_name).toBeTruthy();
+    expect(refused(r, 'again')).toBe('VOUCHER_USED');
+    expect(ok(r, 'v1_state')).toMatchObject({ status: 'used', tab: true, adj: true, court: false });
+    expect(ok(r, 'use2')).toMatchObject({ amount_iqd: 4000, item_added: true });
+    expect(ok(r, 'on_t1')).toEqual([
+      { line: 'Small', amount: 4000 },
+      { line: 'Small', amount: 4000 },
+    ]);
+    expect(ok(r, 'totals')).toMatchObject({ subtotal_iqd: 8000, discount_iqd: 8000 });
+    // 1,000 - 3 x 150 held; using two moved nothing
+    expect(ok<number>(r, 'after_use')).toBe(550);
+    // three redeem rows, nothing of the hand-over
+    const h = ok<Array<{ kind: string; delta: number }>>(r, 'history');
+    expect(h.filter((x) => x.kind === 'reward')).toHaveLength(3);
+    expect(h.filter((x) => x.kind === 'redeem_void')).toHaveLength(0);
+    expect(ok(r, 'undo')).toMatchObject({ balance: 700 });
+    expect(ok<number>(r, 'after_undo')).toBe(700);
+    expect(ok(r, 'v2_state')).toMatchObject({ status: 'used' });
+    expect(ok(r, 'unknown')).toEqual({ error: 'VOUCHER_NOT_FOUND' });
+    expect(refused(r, 'malformed')).toBe('INVALID_ARGUMENT');
+    expect(refused(r, 'desk')).toBe('REWARD_ITEM_NOT_ON_TAB');
+    expect(ok(r, 'v3_state')).toMatchObject({ status: 'active' });
+  });
+
+  it('expires after 15 minutes and a minute of grace, the points back once; no self-dealing', () => {
+    const r = run('loy-voucher-expire', [
+      GUEST('g1'),
+      PTS('g1', 1000),
+      PTS('cashier', 500),
+      ...MENU,
+      ...VOUCHER('late', 'g1', 'rw'),
+      ...VOUCHER('grace', 'g1', 'rw'),
+      ...VOUCHER('swept', 'g1', 'rw'),
+      ...VOUCHER('lazy', 'g1', 'rw'),
+      X(`update loyalty_reward_vouchers set expires_at = now() - interval '2 minutes'
+          where id in ({{late_id}}::uuid, {{swept_id}}::uuid, {{lazy_id}}::uuid)`),
+      X(`update loyalty_reward_vouchers set expires_at = now() - interval '30 seconds' where id = {{grace_id}}::uuid`),
+      TAB('t1', 'cafe'),
+      T('late_use', 'cashier', USE('t1', 'late')),
+      T('grace_use', 'cashier', USE('t1', 'grace')),
+      // the guest's own read expires their late vouchers (here all three left)
+      T('mine', 'g1', `select app.my_reward_vouchers()`),
+      Q('sweep', `select to_jsonb(app.loyalty_voucher_sweep())`),
+      VSTATE('swept_state', 'swept'),
+      Q(
+        'voids',
+        `select to_jsonb(count(*)) from loyalty_ledger
+          where kind = 'redeem_void' and source_kind = 'reward_voucher'
+            and source_id in ({{late_id}}::uuid, {{swept_id}}::uuid, {{lazy_id}}::uuid)`,
+      ),
+      BALANCE('balance', 'g1'),
+      // staff scanning their own voucher
+      ...VOUCHER('own', 'cashier', 'rw'),
+      T('self', 'cashier', USE('t1', 'own')),
+    ]);
+
+    expect(refused(r, 'late_use')).toBe('VOUCHER_EXPIRED');
+    expect(ok(r, 'grace_use')).toMatchObject({ amount_iqd: 4000 });
+    const mine = ok<{ vouchers: Array<{ status: string }> }>(r, 'mine').vouchers.map((v) => v.status).sort();
+    expect(mine).toEqual(['expired', 'expired', 'expired', 'used']);
+    expect(ok<number>(r, 'sweep')).toBe(0);
+    expect(ok(r, 'swept_state')).toMatchObject({ status: 'expired' });
+    expect(ok<number>(r, 'voids')).toBe(3);
+    // 1,000 - 4 x 150 + 3 x 150 back
+    expect(ok<number>(r, 'balance')).toBe(850);
+    expect(refused(r, 'self')).toBe('FORBIDDEN');
+  });
+
+  it('a free court hour voucher at the desk: one hour of the booking, back on a cancel', () => {
+    const r = run('loy-voucher-court', [
+      GUEST('g1'),
+      GUEST('g2'),
+      PTS('g1', 2000),
+      ...COURT_REWARD,
+      ...VOUCHER('v1', 'g1', 'court'),
+      ...VOUCHER('v2', 'g1', 'court'),
+      // g2's booking: the voucher holder may give the hour to a friend
+      BOOKING('res60', 'g2', 420, 1, 40000),
+      TAB('t60', 'cafe', { customer: 'g2', res: 'res60' }),
+      T('free', 'desk', USE('t60', 'v1')),
+      FEE_LEFT('left', 'res60'),
+      Q('proof', `select to_jsonb(proof) from reservation_loyalty_rewards where reservation_id = {{res60}}::uuid`),
+      T('second', 'desk', USE('t60', 'v2')),
+      BALANCE('before_cancel', 'g1'),
+      X(`update reservations set status = 'cancelled' where id = {{res60}}::uuid`),
+      BALANCE('after_cancel', 'g1'),
+      BALANCE('friend', 'g2'),
+    ]);
+
+    expect(ok(r, 'free')).toMatchObject({ kind: 'court_hour', points: 800, amount_iqd: 40000, adjustment_id: null });
+    expect(ok<number>(r, 'left')).toBe(0);
+    expect(ok(r, 'proof')).toBe('voucher');
+    expect(refused(r, 'second')).toBe('REWARD_ALREADY_ON_BOOKING');
+    // 2,000 - 2 x 800 held (v2 still active)
+    expect(ok<number>(r, 'before_cancel')).toBe(400);
+    expect(ok<number>(r, 'after_cancel')).toBe(1200);
+    expect(ok<number>(r, 'friend')).toBe(0);
+  });
+});

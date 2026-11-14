@@ -1,29 +1,41 @@
 /**
- * A loyalty tier's card colour (0376): the owner picks one of the closed list (TIER_COLORS,
- * @touch/core/loyalty), and the guest's points card on the phone takes it in that tier: its court
- * lines, the tier's name, the guest's raised name; black is a black card.
+ * A loyalty tier's card colour (0376, 0416): the owner picks one of the club's four cards (white,
+ * Touch Padel green, Touch Padel blue, black: CARD_LADDER, @touch/core/loyalty), and the guest's
+ * points card on the phone takes it in that tier: its court lines, the tier's name, the guest's
+ * raised name; black is a black card. A tier saved in a pre-0416 metal still shows it as a choice
+ * until the owner moves it onto a card.
  *
- * Each choice shows a small card, so the owner sees roughly what the guest will: the brand blue
- * with lines in the tier's colour, or the black card. The phone draws the real one
- * (apps/mobile/src/theme/tokens.ts `tierFinish`).
+ * Each choice shows a small card in its colour, so the owner sees roughly what the guest will.
+ * The phone draws the real one (apps/mobile/src/theme/tokens.ts `tierFinish`).
  */
 import type { CSSProperties } from 'react';
-import { TIER_COLORS, TIER_SWATCH, type TierColor } from '@touch/core/loyalty';
+import { TIER_SWATCH, offeredTierColors, type TierColor } from '@touch/core/loyalty';
 import { useLocale } from '../../lib/i18n';
 import { WizardChoice, WizardChoices } from '../../components/StepWizard';
 
 const K = 'ws.loyalty.setup.tiers';
 
-/** The points card's own blue (brand #3360AB), the ground of every tier but black. */
+/** The points card's own blue (brand #3360AB): the blue card, and the ground of the legacy metals. */
 const CARD_BLUE = '#3360AB';
 /** The black card's charcoal lines (the phone's `tierFinish.black.lines`). */
 const BLACK_LINES = '#6B6E76';
 
+/**
+ * The club's four cards (0416) drawn as themselves: the card's ground in its colour, lines a step
+ * off it, the tier word in the ink that reads on it. The metals keep the 0376 look (the brand blue
+ * with lines in the metal).
+ */
+const CARD_CHIP: Partial<Record<TierColor, { ground: string; lines: string; word: string }>> = {
+  white: { ground: '#F4F6FA', lines: '#D5DAE3', word: '#9AA3B2' },
+  green: { ground: TIER_SWATCH.green, lines: '#8DBB55', word: '#3D5622' },
+  blue: { ground: CARD_BLUE, lines: '#5A82C6', word: '#DCE7F8' },
+  black: { ground: TIER_SWATCH.black, lines: BLACK_LINES, word: '#D4D6DB' },
+};
+
 /** A card a few dozen pixels wide in the tier's colour. */
 export function TierCardChip({ color, width = 56 }: { color: TierColor; width?: number }) {
-  const black = color === 'black';
-  const lines = black ? BLACK_LINES : TIER_SWATCH[color];
-  const ground = black ? TIER_SWATCH.black : CARD_BLUE;
+  const card = CARD_CHIP[color] ?? { ground: CARD_BLUE, lines: TIER_SWATCH[color], word: TIER_SWATCH[color] };
+  const { lines, ground } = card;
   const style: CSSProperties = {
     display: 'inline-block',
     inlineSize: width,
@@ -32,7 +44,8 @@ export function TierCardChip({ color, width = 56 }: { color: TierColor; width?: 
     borderRadius: Math.round(width / 9),
     flexShrink: 0,
     background: `repeating-linear-gradient(118deg, transparent 0 9px, ${lines} 9px 11px), ${ground}`,
-    boxShadow: `inset 0 0 0 1px rgba(255, 255, 255, 0.14)`,
+    // A hairline that holds on the white card as well as the dark ones.
+    boxShadow: `inset 0 0 0 1px ${color === 'white' ? 'rgba(20, 20, 22, 0.16)' : 'rgba(255, 255, 255, 0.14)'}`,
     // The lines are the tier's colour at full strength here, so a small card still shows it.
     position: 'relative',
   };
@@ -47,14 +60,14 @@ export function TierCardChip({ color, width = 56 }: { color: TierColor; width?: 
           inlineSize: '28%',
           blockSize: '10%',
           borderRadius: 2,
-          background: black ? '#D4D6DB' : TIER_SWATCH[color],
+          background: card.word,
         }}
       />
     </span>
   );
 }
 
-/** The six colours as choice cards; the picked one ticked. */
+/** The four cards as choice cards (and a legacy colour the tier still has); the picked one ticked. */
 export function TierColorPicker({
   value,
   onChange,
@@ -67,7 +80,7 @@ export function TierColorPicker({
   const { tr } = useLocale();
   return (
     <WizardChoices small label={tr(`${K}.color`)}>
-      {TIER_COLORS.map((c) => (
+      {offeredTierColors(value).map((c) => (
         <WizardChoice
           key={c}
           on={value === c}

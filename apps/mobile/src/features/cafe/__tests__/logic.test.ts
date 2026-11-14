@@ -1,5 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { assembleMenu, menuPhotoUrl, pickText, type ItemRow } from '../logic';
+import {
+  assembleMenu,
+  menuPhotoUrl,
+  menuRowCount,
+  MENU_MORE_ROWS,
+  pickText,
+  rowsToShow,
+  shownSections,
+  type ItemRow,
+  type MenuViewSection,
+} from '../logic';
 
 const item = (over: Partial<ItemRow> & Pick<ItemRow, 'id' | 'category_id'>): ItemRow => ({
   name_en: over.id,
@@ -92,5 +102,38 @@ describe('menuPhotoUrl', () => {
     expect(menuPhotoUrl('', base)).toBeNull();
     expect(menuPhotoUrl('items/../secrets.jpg', base)).toBeNull();
     expect(menuPhotoUrl('items/a.jpg', undefined)).toBeNull();
+  });
+});
+
+describe('progressive menu rows', () => {
+  const row = (id: string) => ({ id }) as unknown as MenuViewSection['items'][number];
+  const sections: MenuViewSection[] = [
+    { id: 'a', name_en: 'A', name_ar: 'A', items: [row('a1'), row('a2'), row('a3')] },
+    { id: 'b', name_en: 'B', name_ar: 'B', items: [row('b1'), row('b2')] },
+    { id: 'c', name_en: 'C', name_ar: 'C', items: [row('c1')] },
+  ];
+
+  it('counts every row', () => {
+    expect(menuRowCount(sections)).toBe(6);
+    expect(menuRowCount([])).toBe(0);
+  });
+
+  it('cuts the menu to the first rows, in order', () => {
+    expect(shownSections(sections, 4).map((s) => [s.id, s.items.map((i) => i.id)])).toEqual([
+      ['a', ['a1', 'a2', 'a3']],
+      ['b', ['b1']],
+    ]);
+    expect(shownSections(sections, 3).map((s) => s.id)).toEqual(['a']);
+    expect(shownSections(sections, 0)).toEqual([]);
+    expect(shownSections(sections, 99)).toEqual(sections);
+  });
+
+  it('keeps a whole section as the same object, so rows do not rebuild', () => {
+    expect(shownSections(sections, 4)[0]).toBe(sections[0]);
+  });
+
+  it('asks for every row through a section plus one batch', () => {
+    expect(rowsToShow(sections, 'b')).toBe(5 + MENU_MORE_ROWS);
+    expect(rowsToShow(sections, 'zz')).toBe(0);
   });
 });

@@ -317,16 +317,16 @@ describe('Setup › Loyalty drafts', () => {
     });
   });
 
-  it('starts a new tier on the first ladder colour no tier has (0376)', () => {
-    // Gold is taken: bronze comes first.
-    expect(tierDraft(null, tiers).color).toBe('bronze');
-    expect(suggestTierColor([{ color: 'classic' }])).toBe('bronze');
-    expect(suggestTierColor([{ color: 'bronze' }, { color: 'silver' }])).toBe('gold');
+  it('starts a new tier on the first of the club cards no tier has (0416)', () => {
+    // The fixture's tiers are classic and gold, neither one of the four cards: white comes first.
+    expect(tierDraft(null, tiers).color).toBe('white');
+    expect(suggestTierColor([])).toBe('white');
+    expect(suggestTierColor([{ color: 'white' }])).toBe('green');
+    expect(suggestTierColor([{ color: 'white' }, { color: 'green' }])).toBe('blue');
+    expect(suggestTierColor([{ color: 'white' }, { color: 'green' }, { color: 'blue' }])).toBe('black');
     expect(
-      suggestTierColor(
-        (['bronze', 'silver', 'gold', 'platinum', 'black'] as const).map((color) => ({ color })),
-      ),
-    ).toBe('classic');
+      suggestTierColor((['white', 'green', 'blue', 'black'] as const).map((color) => ({ color }))),
+    ).toBe('black');
   });
 
   it('asks a reward for what it gives and nulls the other kind', () => {

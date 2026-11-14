@@ -9,6 +9,7 @@ import type { AgeBand } from '../playProfile/logic';
 
 import { clearPushToken } from '../profile/api';
 import { isValidEmail } from './emailAuth';
+import { parsePhoneSignUpStatus, type PhoneSignUpStatus } from './phoneOtp';
 
 type Client = SupabaseClient<Database>;
 
@@ -296,6 +297,22 @@ export async function verifyPhoneOtp(client: Client, phoneE164: string, code: st
 export async function resendSignUpCode(client: Client, phoneE164: string) {
   const { error } = await client.auth.resend({ type: 'sms', phone: phoneE164 });
   if (error) throw error;
+}
+
+/**
+ * Create-account step 1, before any code is paid for: does a whole account
+ * already own this number (0414)? Never throws: a transport failure, a server
+ * without 0414 (PGRST202) or a throttled caller is 'unknown', and the screen
+ * then goes on as it did before the check existed.
+ */
+export async function phoneSignUpStatus(client: Client, phoneE164: string): Promise<PhoneSignUpStatus> {
+  try {
+    const { data, error } = await client.schema('app').rpc('phone_sign_up_status', { p_phone: phoneE164 });
+    if (error) return 'unknown';
+    return parsePhoneSignUpStatus(data);
+  } catch {
+    return 'unknown';
+  }
 }
 
 /**

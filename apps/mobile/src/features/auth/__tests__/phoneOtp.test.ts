@@ -4,9 +4,11 @@ import {
   OTP_LENGTH,
   hasRealEmail,
   isNoAccountForPhone,
+  isPhoneFieldError,
   isPhoneTaken,
   mapOtpError,
   parseLinkReturnTo,
+  parsePhoneSignUpStatus,
   parsePhoneOtpFlag,
   sanitizeOtpInput,
   validatePhoneInput,
@@ -99,9 +101,9 @@ describe('mapOtpError', () => {
 
   it('maps the refusal reasons the send-sms-otp hook relays as the message', () => {
     expect(mapOtpError(new Error('SMS_DISABLED'))).toBe('auth.phoneSignInUnavailable');
-    expect(mapOtpError(new Error('PHONE_NOT_ALLOWED'))).toBe('auth.phoneOtpInvalid');
+    expect(mapOtpError(new Error('PHONE_NOT_ALLOWED'))).toBe('auth.phoneCountryUnavailable');
     expect(mapOtpError(new Error('PHONE_RATE'))).toBe('auth.otpTooMany');
-    expect(mapOtpError(new Error('DAILY_CAP'))).toBe('auth.otpSendFailed');
+    expect(mapOtpError(new Error('DAILY_CAP'))).toBe('auth.otpBusy');
     expect(mapOtpError(new Error('SMS_SEND_FAILED'))).toBe('auth.otpSendFailed');
     expect(mapOtpError(new Error('UNAUTHORIZED'))).toBe('auth.phoneSignInUnavailable');
   });
@@ -146,5 +148,32 @@ describe('parseLinkReturnTo', () => {
     expect(parseLinkReturnTo('')).toBeNull();
     expect(parseLinkReturnTo(undefined)).toBeNull();
     expect(parseLinkReturnTo(['continue'])).toBeNull();
+  });
+});
+
+describe('isPhoneFieldError (what goes under the phone field, not in the alert)', () => {
+  it('keeps the number\'s own problems on the field', () => {
+    expect(isPhoneFieldError('auth.phoneOtpInvalid')).toBe(true);
+    expect(isPhoneFieldError('auth.phoneCountryUnavailable')).toBe(true);
+    expect(isPhoneFieldError('auth.phoneTakenSignUp')).toBe(true);
+  });
+  it('leaves limits, the vendor and the network to the alert', () => {
+    expect(isPhoneFieldError('auth.otpTooMany')).toBe(false);
+    expect(isPhoneFieldError('auth.otpBusy')).toBe(false);
+    expect(isPhoneFieldError('auth.otpSendFailed')).toBe(false);
+    expect(isPhoneFieldError('errors.network')).toBe(false);
+  });
+});
+
+describe('parsePhoneSignUpStatus (0414)', () => {
+  it('reads taken and free', () => {
+    expect(parsePhoneSignUpStatus('taken')).toBe('taken');
+    expect(parsePhoneSignUpStatus('free')).toBe('free');
+  });
+  it('reads anything else as unknown, so the old flow runs', () => {
+    expect(parsePhoneSignUpStatus('unknown')).toBe('unknown');
+    expect(parsePhoneSignUpStatus(null)).toBe('unknown');
+    expect(parsePhoneSignUpStatus(true)).toBe('unknown');
+    expect(parsePhoneSignUpStatus('TAKEN')).toBe('unknown');
   });
 });

@@ -80,6 +80,18 @@ export const loyaltyEn = {
     court: 'One free hour of court on this booking ({amount})',
     doneCourt: 'Reward used: one free hour of court, {amount} off the court fee.',
   },
+  // 0415: a reward the guest redeemed in the app, scanned (or typed) at the till.
+  voucher: {
+    button: 'Reward code',
+    title: 'Reward code',
+    lead: 'Scan the reward QR on the guest’s phone, or type the code under it.',
+    field: 'Code',
+    placeholder: 'TPV-XXXX-XXXX-XXXX',
+    apply: 'Give reward',
+    invalid: 'That isn’t a reward code. It starts with TPV.',
+    from: '{who}’s reward. {done}',
+    ringUpFirst: 'Ring up the sale first, then scan the reward on the payment step.',
+  },
   // 0410: what the bill customer's card gives, in the member block of a bill.
   benefits: {
     cardGives: '{tier} card gives',
@@ -196,8 +208,11 @@ export const loyaltyEn = {
       multiplier: 'Earn multiplier',
       multiplierHint: 'Between 1 and 5, for example 1.5.',
       color: 'Card colour',
-      colorHint: 'The guest’s points card takes this colour in this tier: its lines, the tier’s name and the guest’s name. Black makes the whole card black.',
+      colorHint: 'The guest’s points card takes this colour in this tier. The club’s cards go White (the starter card), Green, Blue, then Black.',
       colors: {
+        white: 'White',
+        green: 'Touch Padel green',
+        blue: 'Touch Padel blue',
         classic: 'Classic',
         bronze: 'Bronze',
         silver: 'Silver',

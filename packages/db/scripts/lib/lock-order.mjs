@@ -113,6 +113,7 @@ export const ORDER = [
   'reservations',
   'match_venue_advisory', // app.lock_match_venue() -- 0260: the branch mutex of open matches
   'match_tickets', // 0260: open-match tickets, FOR UPDATE, always in id order
+  'loyalty_reward_vouchers', // 0415: a reward voucher, FOR UPDATE, after the bill's rows and before the member's account
   'loyalty_gift_advisory', // app.lock_loyalty_gifts() -- 0308 (c17): a manager's 24-hour gift sums, manager then profile
   'loyalty_accounts', // 0305: a member's cached balance, FOR UPDATE, last (earn/clawback run deferred, at commit)
 ];

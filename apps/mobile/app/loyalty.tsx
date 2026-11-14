@@ -1,7 +1,7 @@
-import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { useEffect, useState } from 'react';
+import { Pressable, RefreshControl, ScrollView, View } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
-import { Stack, useLocalSearchParams } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TIER_SWATCH } from '@touch/core/loyalty';
 import { formatDate, formatNumber, isolateLtr } from '@touch/i18n';
@@ -12,7 +12,14 @@ import { useAuth } from '../src/features/auth/context';
 import { mapErrorToKey } from '../src/features/booking/errors';
 import { useVenueSettings } from '../src/features/availability/hooks';
 import { DEFAULT_TZ } from '../src/features/availability/assemble';
-import { useMyDeals, useMyLoyalty, usePickDeal } from '../src/features/loyalty/hooks';
+import {
+  useMyDeals,
+  useMyLoyalty,
+  useMyRewardVouchers,
+  usePickDeal,
+  useRedeemReward,
+} from '../src/features/loyalty/hooks';
+import { activeVouchers, formatCountdown } from '../src/features/loyalty/vouchers';
 import { DealsSection } from '../src/features/loyalty/DealCards';
 import { NextCardBlock } from '../src/features/loyalty/NextCardBlock';
 import { TierLadder } from '../src/features/loyalty/TierLadder';
@@ -24,20 +31,21 @@ import {
   tierName,
 } from '../src/features/loyalty/logic';
 import { usePullRefresh } from '../src/lib/usePullRefresh';
-import { brand, radius, space, useTheme, withAlpha } from '../src/theme';
-import { BrandPattern } from '../src/components/BrandPattern';
+import { radius, space, useTheme } from '../src/theme';
 import { Button, Card, Hint, MicroLabel, Screen } from '../src/components/ui';
 import { EmptyState, ErrorState, SkeletonList } from '../src/components/states';
-import { useToast } from '../src/components/overlays';
+import { ConfirmAlert, useToast } from '../src/components/overlays';
 
 /**
  * Points and rewards (loyalty plan §5.1; build contracts §1.3 `my_loyalty`; 0410 `my_deals`), in
- * the order a guest asks about them: the balance, the way to the next card and what that card
- * gives, the deals to use at the cashier, the rewards the points reach, every card from the base
- * up, and the last 50 ledger rows.
+ * the order a guest asks about them: the balance (a number: the card is the Club tab's), the way to
+ * the next card and what that card gives, the deals to use at the cashier, the rewards the points
+ * reach, every card from the base up, and the last 50 ledger rows.
  *
- * Points and rewards are not spent here: the cashier does that against the member card (L-5), so
- * every reward reads "show at the cashier". A DEAL is the one thing the guest does here (0410):
+ * A ready reward is redeemed here (0415, Majed 2026-11-13): Redeem, the phone's own alert to
+ * confirm, and the points leave at once for a QR of that one reward (app/reward-voucher.tsx) that
+ * the cashier scans within 15 minutes. Codes not yet collected head the screen ("Ready to
+ * collect"), so a guest who closed one finds it again. A DEAL (0410) is picked here too:
  * "Use at the cashier" picks it (`pick_deal`) and takes them to their member card, where the
  * cashier's scan applies it. While the owner has loyalty switched off (`enabled` false, L-1) the
  * screen says so and offers nothing.
@@ -60,12 +68,38 @@ function LoyaltyScreen() {
   const mine = useMyLoyalty(member);
   // 0410. A server without deals, or a read that failed, is simply no deals to show.
   const deals = useMyDeals(member);
+  // 0415: the rewards redeemed here and not yet collected.
+  const vouchers = useMyRewardVouchers(member);
   const pick = usePickDeal();
   const toast = useToast();
   const refetchMine = mine.refetch;
   const refetchDeals = deals.refetch;
-  const pull = usePullRefresh(() => Promise.all([refetchMine(), refetchDeals()]));
+  const refetchVouchers = vouchers.refetch;
+  const pull = usePullRefresh(() => Promise.all([refetchMine(), refetchDeals(), refetchVouchers()]));
   const tz = useVenueSettings().data?.timezone ?? DEFAULT_TZ;
+  // 0415: rewards redeemed here, and the one being confirmed.
+  const router = useRouter();
+  const redeem = useRedeemReward();
+  const [confirming, setConfirming] = useState<{ id: string; name: string; points: number } | null>(null);
+  const [now, setNow] = useState(() => Date.now());
+  const waiting = vouchers.data ? activeVouchers(vouchers.data, vouchers.dataUpdatedAt || now, now) : [];
+  // The strip's minutes move only while it has something to count.
+  const counting = waiting.length > 0;
+  useEffect(() => {
+    if (!counting) return;
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [counting]);
+  const openVoucher = (id: string) => router.push({ pathname: '/reward-voucher', params: { id } });
+  const confirmRedeem = () => {
+    const c = confirming;
+    setConfirming(null);
+    if (!c || redeem.isPending) return;
+    redeem.mutate(c.id, {
+      onSuccess: (v) => openVoucher(v.id),
+      onError: (err) => toast(t(mapErrorToKey(err)), 'error'),
+    });
+  };
 
   // "Use at the cashier": the pick lands on the member card, so that is where the guest goes.
   const pickForCashier = (id: string) => {
@@ -120,7 +154,6 @@ function LoyaltyScreen() {
     // rewards only (the default), the reward rings below show what the balance reaches.
     const min = l.points_off_enabled ? l.min_redeem_points : 0;
     const usable = min > 0 ? Math.min(1, l.balance / min) : 1;
-    const onCard = brand.navyText;
     return (
       <ScrollView
         contentContainerStyle={{ paddingTop: 4, paddingBottom: 40 + insets.bottom, gap: space.sm }}
@@ -133,33 +166,68 @@ function LoyaltyScreen() {
           />
         }
       >
-        {/* 1. The points, the tier, and the one action: the card the till scans. It wears the
-            member card's own navy, so the two read as one thing. */}
-        <View
-          style={{
-            borderRadius: 22,
-            overflow: 'hidden',
-            padding: space.l,
-            gap: space.sm,
-            backgroundColor: brand.navy,
-          }}
-        >
-          <LinearGradient
-            colors={[brand.navy, brand.navyCard, brand.navyLine]}
-            locations={[0, 0.55, 1]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={StyleSheet.absoluteFill}
-          />
-          <BrandPattern opacity={0.16} />
-          <LinearGradient
-            colors={[withAlpha(brand.white, 0.1), withAlpha(brand.white, 0)]}
-            locations={[0, 0.5]}
-            pointerEvents="none"
-            style={StyleSheet.absoluteFill}
-          />
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-            <MicroLabel style={{ color: onCard }}>{t('loyalty.guest.home.balance')}</MicroLabel>
+        {/* 0. Ready to collect (0415): rewards redeemed here and not yet scanned, soonest to end
+            first. Green, as everything ready on this screen is. */}
+        {waiting.length > 0 ? (
+          <View testID="loyalty.vouchers" style={{ gap: 7 }}>
+            <MicroLabel>{t('loyalty.guest.voucher.readyTitle')}</MicroLabel>
+            {waiting.map((v) => (
+              <Pressable
+                key={v.id}
+                testID={`loyalty.voucher.${v.id}`}
+                accessibilityRole="button"
+                onPress={() => openVoucher(v.id)}
+                style={({ pressed }) => ({
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: space.sm,
+                  paddingVertical: 12,
+                  paddingHorizontal: space.m,
+                  borderRadius: radius.card,
+                  borderWidth: 1,
+                  borderColor: colors.gstrong,
+                  backgroundColor: colors.gtint,
+                  opacity: pressed ? 0.85 : 1,
+                })}
+              >
+                <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+                  <Path
+                    d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h2v2h-2zM18 18h2v2h-2zM14 18h2v2h-2zM18 14h2v2h-2z"
+                    stroke={colors.ink}
+                    strokeWidth={1.6}
+                    strokeLinejoin="round"
+                  />
+                </Svg>
+                <Text style={{ flex: 1, fontFamily: fonts.body700, fontSize: 14, color: colors.ink }}>
+                  {locale === 'ar' ? v.name_ar : v.name_en}
+                </Text>
+                <Text
+                  style={{
+                    fontFamily: fonts.display800,
+                    fontSize: 13,
+                    color: colors.gtext,
+                    fontVariant: ['tabular-nums'],
+                  }}
+                >
+                  {t('loyalty.guest.voucher.readyRow', { time: isolateLtr(formatCountdown(v.msLeft)) })}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        ) : null}
+
+        {/* 1. The points, as a number (Majed, 2026-11-13): the card itself is the Club tab's, and
+            this screen does not draw it again. The tier beside it, in its own colour (0376). */}
+        <View testID="loyalty.points" style={{ gap: 2 }}>
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: space.sm,
+            }}
+          >
+            <MicroLabel>{t('loyalty.guest.home.balance')}</MicroLabel>
             {l.tier ? (
               <View
                 testID="loyalty.tier"
@@ -168,13 +236,13 @@ function LoyaltyScreen() {
                   alignItems: 'center',
                   gap: 7,
                   borderRadius: radius.pill,
-                  backgroundColor: withAlpha(brand.white, 0.14),
+                  backgroundColor: colors.tint,
                   paddingVertical: 5,
                   paddingStart: 7,
                   paddingEnd: 11,
                 }}
               >
-                {/* The tier's own colour (0376), ringed so a black card's dot holds on the navy. */}
+                {/* Ringed, so a black or white tier's dot holds on either page. */}
                 <View
                   style={{
                     width: 14,
@@ -182,10 +250,10 @@ function LoyaltyScreen() {
                     borderRadius: 7,
                     backgroundColor: TIER_SWATCH[l.tier.color],
                     borderWidth: 1,
-                    borderColor: withAlpha(brand.white, 0.45),
+                    borderColor: colors.line,
                   }}
                 />
-                <Text style={{ fontFamily: fonts.body700, fontSize: 12, color: brand.white }}>
+                <Text style={{ fontFamily: fonts.body700, fontSize: 12, color: colors.ink }}>
                   {tierName(l.tier, locale)}
                 </Text>
               </View>
@@ -195,70 +263,61 @@ function LoyaltyScreen() {
             testID="loyalty.balance"
             style={{
               fontFamily: fonts.display900,
-              fontSize: 68,
-              lineHeight: 76,
-              color: brand.white,
+              fontSize: 56,
+              lineHeight: 64,
+              color: colors.ink,
               fontVariant: ['tabular-nums'],
             }}
           >
             {points(l.balance)}
           </Text>
-          <View>
-            <View
-              style={{
-                flexDirection: 'row',
-                alignItems: 'baseline',
-                justifyContent: 'space-between',
-                gap: space.s,
-                marginBottom: 6,
-              }}
-            >
-              <Text style={{ flexShrink: 1, fontFamily: fonts.body600, fontSize: 12, color: onCard }}>
-                {t(l.points_off_enabled ? 'loyalty.guest.home.useAtCashier' : 'loyalty.guest.home.rewardsAtCashier')}
-              </Text>
-              {min > 0 ? (
-                <Text
-                  style={{
-                    fontFamily: fonts.display800,
-                    fontSize: 12,
-                    color: onCard,
-                    fontVariant: ['tabular-nums'],
-                  }}
-                >
-                  {points(Math.min(l.balance, min))} / {points(min)}
-                </Text>
-              ) : null}
-            </View>
+        </View>
+        <View>
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'baseline',
+              justifyContent: 'space-between',
+              gap: space.s,
+              marginBottom: min > 0 ? 6 : 0,
+            }}
+          >
+            <Text style={{ flexShrink: 1, fontFamily: fonts.body600, fontSize: 12, color: colors.mut }}>
+              {t(l.points_off_enabled ? 'loyalty.guest.home.useAtCashier' : 'loyalty.guest.home.rewardsAtCashier')}
+            </Text>
             {min > 0 ? (
-              <View
+              <Text
                 style={{
-                  height: 9,
-                  borderRadius: 5,
-                  backgroundColor: withAlpha(brand.white, 0.18),
-                  overflow: 'hidden',
+                  fontFamily: fonts.display800,
+                  fontSize: 12,
+                  color: colors.ink,
+                  fontVariant: ['tabular-nums'],
                 }}
               >
-                <View
-                  testID="loyalty.use-progress"
-                  style={{
-                    height: 9,
-                    width: `${Math.round(usable * 100)}%`,
-                    borderRadius: 5,
-                    backgroundColor: brand.green,
-                  }}
-                />
-              </View>
+                {points(Math.min(l.balance, min))} / {points(min)}
+              </Text>
             ) : null}
           </View>
-          <Button
-            testID="loyalty.show-card"
-            label={t('loyalty.guest.home.showCard')}
-            variant="primary"
-            onPress={showCard}
-            style={{ backgroundColor: brand.white }}
-            labelColor={brand.navy}
-            pressedBg="#E6E9F0"
-          />
+          {min > 0 ? (
+            <View
+              style={{
+                height: 9,
+                borderRadius: 5,
+                backgroundColor: colors.line,
+                overflow: 'hidden',
+              }}
+            >
+              <View
+                testID="loyalty.use-progress"
+                style={{
+                  height: 9,
+                  width: `${Math.round(usable * 100)}%`,
+                  borderRadius: 5,
+                  backgroundColor: colors.gstrong,
+                }}
+              />
+            </View>
+          ) : null}
         </View>
 
         {/* 2. The way to the next card and what it gives (0410), in that card's own colour. */}
@@ -276,7 +335,7 @@ function LoyaltyScreen() {
           onClear={unpick}
         />
 
-        {/* 4. Rewards: shown, never redeemed here; the cashier does that against the card. */}
+        {/* 4. Rewards: a ready one is redeemed here for a code the cashier scans (0415). */}
         <View style={{ gap: 7, marginTop: space.s }}>
           <MicroLabel>{t('loyalty.guest.rewards.title')}</MicroLabel>
           <View
@@ -401,11 +460,32 @@ function LoyaltyScreen() {
                               points: points(r.cost_points - l.balance),
                             })}
                       </Text>
+                      {ready ? (
+                        <Button
+                          testID={`loyalty.reward.${r.id}.redeem`}
+                          size="compact"
+                          label={t('loyalty.guest.rewards.redeem')}
+                          busy={redeem.isPending && redeem.variables === r.id}
+                          disabled={redeem.isPending}
+                          style={{ alignSelf: 'stretch', marginTop: 2 }}
+                          onPress={() =>
+                            setConfirming({ id: r.id, name: rewardName(r, locale), points: r.cost_points })
+                          }
+                        />
+                      ) : null}
                     </View>
                   );
                 })}
           </View>
           {l.rewards.length > 0 ? <Hint>{t('loyalty.guest.rewards.note')}</Hint> : null}
+          <ConfirmAlert
+            visible={confirming !== null}
+            title={t('loyalty.guest.voucher.confirmTitle', { reward: confirming?.name ?? '' })}
+            body={t('loyalty.guest.voucher.confirmBody', { points: points(confirming?.points ?? 0) })}
+            confirmLabel={t('loyalty.guest.voucher.confirm')}
+            onConfirm={confirmRedeem}
+            onDismiss={() => setConfirming(null)}
+          />
         </View>
 
         {/* 5. The cards (0410): every tier from the base up, the member's own marked. */}

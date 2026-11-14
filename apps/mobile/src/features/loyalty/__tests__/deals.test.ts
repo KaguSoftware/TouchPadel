@@ -13,6 +13,7 @@ import {
   isMissingRpc,
   parseMyDeals,
   pickedDeal,
+  usableDeals,
   usesLeft,
   weekdayInstant,
 } from '../deals';
@@ -292,5 +293,28 @@ describe('what a deal card says', () => {
     expect(dealPointsNeeded({ state: 'locked', tier }, 2000)).toBe(0);
     expect(dealPointsNeeded({ state: 'open', tier }, 900)).toBeNull();
     expect(dealPointsNeeded({ state: 'locked', tier: null }, 900)).toBeNull();
+  });
+
+  it('lists the usable deals for the Club tab: open only, the picked one first', () => {
+    const deals = parseMyDeals({
+      picked_id: 'd-b',
+      picked_until: '2099-01-01T00:00:00.000Z',
+      deals: [
+        { ...RAW_DEAL, id: 'd-a', state: 'open' },
+        { ...RAW_DEAL, id: 'd-l', state: 'locked' },
+        { ...RAW_DEAL, id: 'd-b', state: 'open' },
+        { ...RAW_DEAL, id: 'd-u', state: 'used' },
+      ],
+    });
+    const usable = usableDeals(deals);
+    expect(usable?.deals.map((d) => d.id)).toEqual(['d-b', 'd-a']);
+    expect(usable?.picked_id).toBe('d-b');
+    expect(usable?.picked_until).toBe('2099-01-01T00:00:00.000Z');
+    // Nothing to use, or nothing read: nothing to list.
+    expect(
+      usableDeals(parseMyDeals({ deals: [{ ...RAW_DEAL, id: 'd-l', state: 'locked' }] })),
+    ).toBeNull();
+    expect(usableDeals(NO_DEALS)).toBeNull();
+    expect(usableDeals(undefined)).toBeNull();
   });
 });

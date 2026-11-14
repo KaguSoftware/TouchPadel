@@ -371,10 +371,12 @@ export const persistOptions = {
       // SecureStore (features/loyalty/cardStore.ts), never in this plain file.
       // The deals (0410) are live state: a pick read back from disk would
       // promise at the cashier a deal that was used or lapsed since.
+      // A reward voucher's code (0415) is worth the reward to whoever shows
+      // it: never written to disk.
       // The balance read (`['loyalty', 'mine']`) is kept.
       !(
         query.queryKey[0] === 'loyalty' &&
-        (query.queryKey[1] === 'card' || query.queryKey[1] === 'deals')
+        (query.queryKey[1] === 'card' || query.queryKey[1] === 'deals' || query.queryKey[1] === 'vouchers')
       ),
   },
 } as const;

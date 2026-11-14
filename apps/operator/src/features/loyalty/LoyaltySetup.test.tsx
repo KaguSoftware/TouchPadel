@@ -142,10 +142,12 @@ describe('LoyaltySetupScreen, adding', () => {
     await user.type(within(wiz).getByRole('textbox', { name: /^Earn multiplier/ }), '1.5');
     expect(within(wiz).getByText('Gold sits after Silver. A guest moves up once they earn 1,500 points in 12 months.')).toBeTruthy();
     await forward('Card colour');
-    // 0376: Silver is taken, so a new tier starts on Bronze; the owner picks Gold.
-    expect(within(wiz).getByTestId('loyalty-tier-color-bronze').getAttribute('aria-pressed')).toBe('true');
-    await user.click(within(wiz).getByTestId('loyalty-tier-color-gold'));
-    expect(within(wiz).getByTestId('loyalty-tier-color-gold').getAttribute('aria-pressed')).toBe('true');
+    // 0416: the club's four cards are offered, the metals are not; no tier holds one of the four
+    // yet, so a new tier starts on White; the owner picks Blue.
+    expect(within(wiz).getByTestId('loyalty-tier-color-white').getAttribute('aria-pressed')).toBe('true');
+    expect(within(wiz).queryByTestId('loyalty-tier-color-gold')).toBeNull();
+    await user.click(within(wiz).getByTestId('loyalty-tier-color-blue'));
+    expect(within(wiz).getByTestId('loyalty-tier-color-blue').getAttribute('aria-pressed')).toBe('true');
     await forward('Review');
     expect(within(wiz).getByText('All 3 steps done')).toBeTruthy();
     expect(within(wiz).getByText('1,500 points in 12 months')).toBeTruthy();
@@ -153,7 +155,7 @@ describe('LoyaltySetupScreen, adding', () => {
     await user.click(within(wiz).getByTestId('loyalty-tier-wizard.submit'));
     await waitFor(() => expect(calls.find((c) => c.fn === 'upsert_loyalty_tier')).toBeTruthy());
     expect(calls.find((c) => c.fn === 'upsert_loyalty_tier')?.args).toEqual({
-      p_tier: { name_en: 'Gold', name_ar: 'ذهبي', min_points_12m: 1500, earn_multiplier: 1.5, promotion_id: null, sort: 2, color: 'gold' },
+      p_tier: { name_en: 'Gold', name_ar: 'ذهبي', min_points_12m: 1500, earn_multiplier: 1.5, promotion_id: null, sort: 2, color: 'blue' },
     });
     expect(toasts).toEqual(['Saved.']);
   });

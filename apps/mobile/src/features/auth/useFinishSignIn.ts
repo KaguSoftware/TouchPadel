@@ -10,6 +10,7 @@ import { fetchOwnProfile } from '../profile/api';
 import { profileKeys } from '../profile/hooks';
 import { useLocale } from '../../i18n/LocaleProvider';
 import { useToast } from '../../components/overlays';
+import type { MessageKey } from '@touch/i18n';
 import { postSignInStep } from './social';
 
 /**
@@ -31,7 +32,8 @@ export function useFinishSignIn(continueAfterAuth: () => void) {
   const queryClient = useQueryClient();
 
   return useCallback(
-    async (user: User | null) => {
+    /** `welcome`: the toast's line, `auth.welcomeBack` unless the caller knows better. */
+    async (user: User | null, welcome: MessageKey = 'auth.welcomeBack') => {
       const staffRead = user ? readOwnStaffRow(queryClient, user.id).catch(() => null) : Promise.resolve(null);
       // Same cache entry RequireNoSession's useOwnProfile observes: one request.
       const profile = await queryClient.fetchQuery({
@@ -47,7 +49,7 @@ export function useFinishSignIn(continueAfterAuth: () => void) {
           // A staff account books nothing: the slot or match a guest tapped is dropped.
           clearPendingIntents();
           if (user) await writeStaffHint(user.id);
-          toast(t('auth.welcomeBack'), 'info');
+          toast(t(welcome), 'info');
           router.replace('/staff');
           return;
         case 'complete-profile':
@@ -57,7 +59,7 @@ export function useFinishSignIn(continueAfterAuth: () => void) {
           // RequireNoSession routes the incomplete profile there itself.
           return;
         default:
-          toast(t('auth.welcomeBack'), 'info');
+          toast(t(welcome), 'info');
           continueAfterAuth();
       }
     },

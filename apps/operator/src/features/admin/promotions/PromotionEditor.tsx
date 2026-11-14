@@ -28,6 +28,12 @@
  *    when that second call fails the promotion itself WAS saved, and the
  *    panel says exactly that. A promotion whose code works once cannot be
  *    listed. Only the owner lists; a manager reads the listing.
+ *  - "Who can use it" (0416, Majed: every card privilege must be something the
+ *    owner can set up here) picks everyone or a loyalty card and up
+ *    (limits.tierMin, a loyalty_tiers id; app.promotion_tier_ok holds it): a
+ *    deal "from Green" also reaches Blue and Black. The form used to keep a
+ *    tierMin it was given but had no way to set one. A removed card, or
+ *    loyalty switched off, means nobody gets it, and the panel says so.
  *  - Long pickers (menu items) start from what is chosen plus a search, rather
  *    than ~190 chips in a clipped scroll box.
  *
@@ -46,6 +52,9 @@ import { appRpc } from '../../../lib/appRpc';
 import { useLocale, pickName } from '../../../lib/i18n';
 import { usePermissions, requiredRoleFor } from '../../../lib/auth';
 import { QK, fetchActiveCourts } from '../../../lib/queries';
+import { useLoyaltyAdmin } from '../../loyalty/useLoyalty';
+import { TierCardChip } from '../../loyalty/TierColorPicker';
+import { tierColor } from '@touch/core/loyalty';
 import { Button, ErrorText, Field, inputStyle } from '../../../components/ui';
 import {
   AsyncStateWrapper,
@@ -194,6 +203,10 @@ function Editor({ id, row }: { id: string | null; row: PromotionRow | null }) {
   });
 
   const courtsQ = useQuery({ queryKey: QK.courts, queryFn: fetchActiveCourts });
+  // 0416: the loyalty cards a promotion can be held to (manager and owner read loyalty_admin).
+  const loyaltyQ = useLoyaltyAdmin();
+  const cards = [...(loyaltyQ.data?.tiers ?? [])].sort((a, b) => a.sort - b.sort);
+  const tierMinCard = draft.limits.tierMin ? cards.find((t) => t.id === draft.limits.tierMin) ?? null : null;
   const menu = useAdminMenu();
 
   const patch = (part: Partial<PromotionDraft>) => setDraft((d) => ({ ...d, ...part }));
@@ -343,7 +356,7 @@ function Editor({ id, row }: { id: string | null; row: PromotionRow | null }) {
         {!nothingToRead && (
           <p style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--tp-sp-2)', margin: 0, fontSize: 'var(--tp-fs-lg)', fontWeight: 600 }}>
             <Icon name="tag" size={16} style={{ color: 'var(--tp-accent)', flex: '0 0 auto', marginBlockStart: '0.2rem' }} />
-            <bdi>{describePromotion(draft, tr, locale)}</bdi>
+            <bdi>{describePromotion(draft, tr, locale, tierMinCard ? pickName(locale, tierMinCard) : null)}</bdi>
           </p>
         )}
         {proposes ? (
@@ -504,6 +517,46 @@ function Editor({ id, row }: { id: string | null; row: PromotionRow | null }) {
           <Field label={tr('ws.manager.promotions.editor.minSpend')}>
             <MoneyInput value={draft.limits.minSpendIqd} allowEmpty disabled={readOnly} onChange={(minSpendIqd) => patch({ limits: { ...draft.limits, minSpendIqd } })} />
           </Field>
+          {/* 0416: everyone, or one loyalty card and every card above it. */}
+          <Field label={tr('ws.manager.promotions.editor.whoTitle')} hint={tr('ws.manager.promotions.editor.whoHint')} group>
+            <div style={{ display: 'flex', gap: 'var(--tp-sp-1)', flexWrap: 'wrap' }} data-testid="promo-who">
+              <Button
+                size="sm"
+                kind={draft.limits.tierMin === null ? 'primary' : 'default'}
+                aria-pressed={draft.limits.tierMin === null}
+                disabled={readOnly}
+                onClick={() => patch({ limits: { ...draft.limits, tierMin: null } })}
+                data-testid="promo-who-everyone"
+              >
+                {tr('ws.manager.promotions.editor.whoEveryone')}
+              </Button>
+              {cards.map((t) => {
+                const on = draft.limits.tierMin === t.id;
+                return (
+                  <Button
+                    key={t.id}
+                    size="sm"
+                    kind={on ? 'primary' : 'default'}
+                    aria-pressed={on}
+                    disabled={readOnly}
+                    onClick={() => patch({ limits: { ...draft.limits, tierMin: t.id } })}
+                    data-testid={`promo-who-${t.id}`}
+                  >
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-1-5)' }}>
+                      <TierCardChip color={tierColor(t.color)} width={22} />
+                      {tr('ws.manager.promotions.editor.whoFrom', { card: pickName(locale, t) })}
+                    </span>
+                  </Button>
+                );
+              })}
+            </div>
+          </Field>
+          {draft.limits.tierMin !== null && loyaltyQ.data && !tierMinCard && (
+            <MessagePresenter tone="error" style={{ marginBlockStart: 'var(--tp-sp-2)' }} message={tr('ws.manager.promotions.editor.whoGone')} />
+          )}
+          {draft.limits.tierMin !== null && loyaltyQ.data && !loyaltyQ.data.settings.enabled && (
+            <MessagePresenter tone="error" style={{ marginBlockStart: 'var(--tp-sp-2)' }} message={tr('ws.manager.promotions.editor.whoLoyaltyOff')} />
+          )}
         </Panel>
 
         {/* How */}

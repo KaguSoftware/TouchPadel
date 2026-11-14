@@ -465,7 +465,13 @@ export function scheduleText(d: Schedule, tr: Translate, locale: Locale): string
  * item chosen the discount is on the cafe goods, never the court fee; courts
  * only decide which bills qualify; a minimum spend counts the whole bill.
  */
-export function describePromotion(d: PromotionDraft, tr: Translate, locale: Locale): string {
+export function describePromotion(
+  d: PromotionDraft,
+  tr: Translate,
+  locale: Locale,
+  /** 0416: the name of the card limits.tierMin names; null when it is gone or not loaded. */
+  tierName: string | null = null,
+): string {
   const off =
     d.type === 'percent'
       ? tr('ws.manager.promotions.summary.percentOff', { value: formatNumber(d.value, locale) })
@@ -489,6 +495,13 @@ export function describePromotion(d: PromotionDraft, tr: Translate, locale: Loca
   }
   if (d.limits.total !== null) parts.push(tr('ws.manager.promotions.summary.total', { n: formatNumber(d.limits.total, locale) }));
   if (d.limits.perCustomer !== null) parts.push(tr('ws.manager.promotions.summary.perCustomer', { n: formatNumber(d.limits.perCustomer, locale) }));
+  if (d.limits.tierMin !== null) {
+    parts.push(
+      tierName
+        ? tr('ws.manager.promotions.summary.fromCard', { card: tierName })
+        : tr('ws.manager.promotions.summary.cardOnly'),
+    );
+  }
   const how = howText(d, tr);
   if (how) parts.push(how);
   return parts.join(' · ');

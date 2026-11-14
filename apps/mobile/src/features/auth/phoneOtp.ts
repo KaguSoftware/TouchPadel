@@ -100,9 +100,11 @@ export function hasRealEmail(user: { email?: string | null } | null | undefined)
 /** Refusal reasons the send-sms-otp hook relays through GoTrue as the error message. */
 const HOOK_REASON_KEY: Record<string, MessageKey> = {
   SMS_DISABLED: 'auth.phoneSignInUnavailable',
-  PHONE_NOT_ALLOWED: 'auth.phoneOtpInvalid',
+  // The country is not on the gate's allow-list: nothing the guest typed is wrong.
+  PHONE_NOT_ALLOWED: 'auth.phoneCountryUnavailable',
   PHONE_RATE: 'auth.otpTooMany',
-  DAILY_CAP: 'auth.otpSendFailed',
+  // The project-wide daily cap, not this number: "check the number" would send them hunting.
+  DAILY_CAP: 'auth.otpBusy',
   SMS_SEND_FAILED: 'auth.otpSendFailed',
   UNAUTHORIZED: 'auth.phoneSignInUnavailable',
 };
@@ -159,6 +161,29 @@ function isCodeOrMessage(err: unknown, codes: string[], pattern: RegExp): boolea
   const code = codeOf(err);
   if (code && codes.includes(code)) return true;
   return pattern.test(errorMessageOf(err) ?? '');
+}
+
+/**
+ * Copy that is about the NUMBER the guest typed, so it belongs under the phone
+ * field, not in the shared "Something went wrong" alert. The rest (a code
+ * limit, the vendor, the network) is not the number's fault and stays an alert.
+ */
+const PHONE_FIELD_KEYS: readonly string[] = [
+  'auth.phoneOtpInvalid',
+  'auth.phoneCountryUnavailable',
+  'auth.phoneTakenSignUp',
+];
+
+export function isPhoneFieldError(key: MessageKey): boolean {
+  return PHONE_FIELD_KEYS.includes(key);
+}
+
+/** app.phone_sign_up_status (0414): what Create account knows about a number before a code. */
+export type PhoneSignUpStatus = 'taken' | 'free' | 'unknown';
+
+/** Anything but a clear 'taken' or 'free' (an old server, a throttled caller, junk) is 'unknown'. */
+export function parsePhoneSignUpStatus(value: unknown): PhoneSignUpStatus {
+  return value === 'taken' || value === 'free' ? value : 'unknown';
 }
 
 /** Sign-up refused because a CONFIRMED account already owns the number. */

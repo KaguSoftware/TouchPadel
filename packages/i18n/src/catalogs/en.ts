@@ -116,7 +116,8 @@ export const en = {
     checkEmailTail: 'Open it to activate your account.',
     // Reset-password invalidLink state (spec 05.8).
     invalidResetLinkTitle: "This reset link can't be used",
-    invalidResetLinkBody: 'It may have expired or already been used. Request a new one and open it on this phone.',
+    invalidResetLinkBody:
+      'It may have expired or already been used. Request a new one and open it on this phone.',
     requestNewLink: 'Request a new link',
     verifyEmailTitle: 'Verify your email',
     resendEmail: 'Resend verification email',
@@ -145,7 +146,8 @@ export const en = {
     welcomeHeadline: 'Your court is waiting.',
     pendingSlotBanner: "Sign in to finish booking {label} — we'll hold it while you check out.",
     keepBrowsing: 'Keep browsing',
-    signedOutPitch: 'Sign in to book courts, manage your reservations and get reminders before your slot.',
+    signedOutPitch:
+      'Sign in to book courts, manage your reservations and get reminders before your slot.',
     checkEmailTitle: 'Check your email',
     checkEmailBody: 'We sent a verification link to {email}. Open it to activate your account.',
     resendIn: 'Resend link in {seconds}s',
@@ -155,12 +157,14 @@ export const en = {
     verifiedBody: "You're all set, {name}.",
     verifiedPending: "Let's finish booking {label}.",
     continueCta: 'Continue',
-    forgotIntro: "Enter your account's phone number and we'll send a code to it on WhatsApp or by SMS.",
+    forgotIntro:
+      "Enter your account's phone number and we'll send a code to it on WhatsApp or by SMS.",
     resetNoAccount: 'No account uses this number. Check the country code, or create an account.',
     forgotIntroEmail: "Enter your account's email and we'll send a reset link.",
     // The emailed reset deliberately does not disclose whether the account exists (spec 05.7);
     // the phone reset can (resetNoAccount), because sign-up already refuses a taken number.
-    resetSubmitted: 'If an account exists for that email, a reset link is on its way. Check your inbox.',
+    resetSubmitted:
+      'If an account exists for that email, a reset link is on its way. Check your inbox.',
     welcomeBack: 'Welcome back',
     welcomeToApp: 'Welcome to Touch Padel',
     // Social sign-in (vendor addition 2026-09-01; SOW L259-260 lists it as not
@@ -173,12 +177,15 @@ export const en = {
     continueWithGoogleInBrowser: 'Trouble with Google? Continue in your browser',
     signingIn: 'Signing you in…',
     completeProfileTitle: 'Complete profile',
-    completeProfileBody: 'One last step before you book. We need a phone number the desk can reach you on.',
+    completeProfileBody:
+      'One last step before you book. We need a phone number the desk can reach you on.',
     phoneRationale: 'The desk calls this number about your booking.',
     completeProfileCta: 'Save and continue',
-    profileIncompleteNotice: 'Add your phone number to reserve — the desk needs it to confirm your booking.',
+    profileIncompleteNotice:
+      'Add your phone number to reserve — the desk needs it to confirm your booking.',
     addPhoneLink: 'Add phone number',
-    googlePlayServices: 'Google Play services are not available on this device. Sign in with your phone number instead.',
+    googlePlayServices:
+      'Google Play services are not available on this device. Sign in with your phone number instead.',
     socialFailed: "Couldn't sign you in with {provider}. Try again or use your phone number.",
     appleUnavailable: 'Sign in with Apple is not available on this device.',
     // Phone codes (OTPIQ, WhatsApp first and SMS when the number cannot receive
@@ -192,11 +199,13 @@ export const en = {
     orContinueWithPhoneOrEmail: 'or continue with your phone or email',
     signInCodeHint: "We'll send a sign-in code to this number by WhatsApp or SMS.",
     phoneSignInTitle: 'Your phone number',
-    phoneLinkBody: "We'll send a 6-digit code to this number — on WhatsApp, or by SMS — to confirm it's yours.",
+    phoneLinkBody:
+      "We'll send a 6-digit code to this number — on WhatsApp, or by SMS — to confirm it's yours.",
     phoneOtpInvalid: 'Enter a valid phone number, and check the country code.',
     sendCode: 'Send code',
     otpTitle: 'Enter the code',
-    otpBody: 'We sent a 6-digit code to {phone} on WhatsApp — if that number has no WhatsApp, check your SMS.',
+    otpBody:
+      'We sent a 6-digit code to {phone} on WhatsApp — if that number has no WhatsApp, check your SMS.',
     otpLabel: 'Verification code',
     // GoTrue answers otp_expired for BOTH a wrong and a stale code, so one message covers both.
     otpInvalid: "That code isn't right or has expired. Check it, or send a new one.",
@@ -204,6 +213,15 @@ export const en = {
     // WhatsApp with an SMS fallback (2026-09-16), so a failure is no longer "no WhatsApp": it is the number, the gate or the vendor.
     otpSendFailed: "We couldn't send the code. Check the number, then try again.",
     phoneSignInUnavailable: "Phone codes aren't available right now. Try again in a little while.",
+    // The SMS gate's PHONE_NOT_ALLOWED: the country is not on app.sms_limits.allowed_prefixes. Not a typo, so not phoneOtpInvalid.
+    phoneCountryUnavailable:
+      "We can't send codes to numbers from this country yet. Try another number.",
+    // The gate's project-wide DAILY_CAP: nothing the guest typed is wrong.
+    otpBusy: "We can't send more codes right now. Try again later.",
+    // 0414 phone_sign_up_status 'taken': Create account stops before a code is sent.
+    phoneTakenSignUp: 'This number already has an account. Sign in instead.',
+    // Create account's code opened an account the number already had (the check above could not tell in time).
+    signedInExisting: 'You already had an account with this number, so we signed you in.',
     resendCode: 'Resend code',
     resendCodeIn: 'Resend code in {seconds}s',
     codeSentAgain: 'We sent a new code to that number.',
@@ -212,7 +230,8 @@ export const en = {
     phoneVerified: 'Phone number verified',
     phoneVerifyToBookBody:
       "Verify your phone number to reserve. We'll send a 6-digit code — on WhatsApp, or by SMS — and the desk will call this number about your booking.",
-    phoneUnverifiedNotice: 'Verify your phone number to reserve — the desk needs a number confirmed to be yours.',
+    phoneUnverifiedNotice:
+      'Verify your phone number to reserve — the desk needs a number confirmed to be yours.',
     phoneLinkTaken: 'This number belongs to another account. Use a different number.',
     addNameLink: 'Add your name',
   },
@@ -267,10 +286,12 @@ export const en = {
     },
     zones: {
       pulse: 'Summary',
-      pulseDesc: 'The cafe figures that matter for this period, each against the comparison window.',
+      pulseDesc:
+        'The cafe figures that matter for this period, each against the comparison window.',
       ai: 'What stands out',
       aiNav: 'Stands out',
-      aiDesc: 'Patterns mined from the sales with sample floors, and the AI reading of them when it is on.',
+      aiDesc:
+        'Patterns mined from the sales with sample floors, and the AI reading of them when it is on.',
       menu: 'Menu',
       menuNav: 'Menu',
       menuDesc: 'Which items earn, which items only look good.',
@@ -297,7 +318,8 @@ export const en = {
       median: 'Median session',
       calls: 'Waiter calls',
       basketToCall: 'Basket → call / order',
-      mutedReason: 'Changes are not shown: the comparison window ({range}) has too many days without sales for a change to mean anything. The earlier figures are still printed.',
+      mutedReason:
+        'Changes are not shown: the comparison window ({range}) has too many days without sales for a change to mean anything. The earlier figures are still printed.',
       tabs: 'Tabs',
     },
     notices: {
@@ -325,7 +347,8 @@ export const en = {
       ongoing: 'Ongoing',
       generatedAt: 'Generated {date}',
       empty: 'No findings for this period yet. Ask for findings to have the numbers read for you.',
-      degraded: 'The AI model is not available, so these findings are written from templates over the same numbers.',
+      degraded:
+        'The AI model is not available, so these findings are written from templates over the same numbers.',
       source: 'Source: café cashier sales + guest menu analytics, judged by AI',
       replacing: 'Looking for a replacement finding…',
       basisCopy: {
@@ -375,8 +398,10 @@ export const en = {
       noCost: '{count} sold items have no cost',
       setupLink: 'Add costs in Menu items',
       unreliable: 'Too few costs entered for a reliable matrix.',
-      belowCostOne: '{name} sells below cost ({money} per unit) — {lost} lost over the period; fix the price or the portion cost.',
-      belowCostMany: '{count} items sell below cost ({names}…) — {lost} lost over the period; fix the prices or the portion costs.',
+      belowCostOne:
+        '{name} sells below cost ({money} per unit) — {lost} lost over the period; fix the price or the portion cost.',
+      belowCostMany:
+        '{count} items sell below cost ({names}…) — {lost} lost over the period; fix the prices or the portion costs.',
     },
     position: {
       title: 'Menu position',
@@ -425,10 +450,12 @@ export const en = {
       notComparable: 'Periods not comparable',
       boughtTogether: 'Bought together',
       withX: 'with {pct}% of orders',
-      pairLine: '{pct}% of orders with the first also had the second · {lift}× more than chance · {n} orders',
+      pairLine:
+        '{pct}% of orders with the first also had the second · {lift}× more than chance · {n} orders',
       pairLineNoLift: '{pct}% of orders with the first also had the second · {n} orders',
       topProfitLine: '{money} profit · {margin} margin · {qty} sold',
-      promoSales: 'Featured item: {qty} sold for {money}, of which {discount} was given as discount.',
+      promoSales:
+        'Featured item: {qty} sold for {money}, of which {discount} was given as discount.',
       promo: 'Promo performance',
       featured: 'Featured item',
       suggested: 'Suggested items',
@@ -483,7 +510,8 @@ export const en = {
       conversion: 'No items viewed or sold.',
       boughtTogether: 'No item pairs ordered together yet.',
       promo: 'No promo activity — set up the home screen in Admin.',
-      patterns: 'Nothing stands out in this period yet. Include weaker patterns to look again with lower sample floors.',
+      patterns:
+        'Nothing stands out in this period yet. Include weaker patterns to look again with lower sample floors.',
       insights: 'No insights stored for this period.',
       heatmap: 'No sessions to plot.',
     },
@@ -517,9 +545,11 @@ export const en = {
     cancellationWindow: 'Too close to the start time to cancel online. Please contact the venue.',
     notCancellable: 'This booking can no longer be cancelled.',
     noRate: 'This slot cannot be booked online.',
-    priceChanged: 'The price of this slot changed while you were booking. Hold it again to see the new price.',
+    priceChanged:
+      'The price of this slot changed while you were booking. Hold it again to see the new price.',
     // F-21: Review warns before the guest confirms when the price moved since they picked the slot.
-    priceMovedNotice: 'The price of this slot changed after you picked it: it was {from}, it is now {to}. Reserving books it at {to}.',
+    priceMovedNotice:
+      'The price of this slot changed after you picked it: it was {from}, it is now {to}. Reserving books it at {to}.',
     priceMovedTitle: 'The price changed',
     priceMovedBody: 'This slot now costs {price}. Pick it again to book it at the new price.',
     slotInPast: 'That time has already passed.',
@@ -561,35 +591,44 @@ export const en = {
     slotUnavailableTitle: 'Slot unavailable',
     blockedBody: "This slot can't be booked in the app right now. The desk can help.",
     deskOnlyTitle: 'Desk-only right now',
-    deskOnlyBody: 'The venue lost its connection, so bookings for today and tomorrow are taken at the desk only. Call to reserve this slot.',
+    deskOnlyBody:
+      'The venue lost its connection, so bookings for today and tomorrow are taken at the desk only. Call to reserve this slot.',
     callVenue: 'Call the venue',
     callPhone: 'Call {phone}',
     reviewTitle: 'Review & confirm',
     heldForYou: 'Slot held for you',
-    holdExplainer: 'Nobody else can take this slot while you check out. If the timer runs out, it goes back on the grid.',
+    holdExplainer:
+      'Nobody else can take this slot while you check out. If the timer runs out, it goes back on the grid.',
     price: 'Price',
     payAtDeskTitle: 'Pay at the desk',
     // Shown in the SAME card once the desk has settled the court fee (0150
     // finally tells the guest app that it has). The sign-off follows the
     // VENUE's clock, so it reads right to someone in another timezone.
     paidTitle: 'Payment received',
-    paidDay: 'The court fee on this booking is settled — nothing to pay at reception. Have a good day.',
-    paidEvening: 'The court fee on this booking is settled — nothing to pay at reception. Have a good evening.',
-    payAtDeskBody: 'Your court is reserved now. Anything left to pay is settled at reception when you arrive.',
-    policyLine: 'Free cancellation until {hours} hours before your slot. Inside that window, changes are handled by the desk. Repeated no-shows may limit app booking.',
+    paidDay:
+      'The court fee on this booking is settled — nothing to pay at reception. Have a good day.',
+    paidEvening:
+      'The court fee on this booking is settled — nothing to pay at reception. Have a good evening.',
+    payAtDeskBody:
+      'Your court is reserved now. Anything left to pay is settled at reception when you arrive.',
+    policyLine:
+      'Free cancellation until {hours} hours before your slot. Inside that window, changes are handled by the desk. Repeated no-shows may limit app booking.',
     reserveCta: 'Reserve court',
     reserveDialogTitle: 'Reserve this court?',
     reserveDialogBody: '{court} · {when} · {price}. You pay at the desk on arrival.',
     reserving: 'Reserving…',
     cancelling: 'Cancelling…',
     holdExpiredTitle: 'Hold expired',
-    holdExpiredBody: 'Your time ran out and the slot went back on the grid. It may still be free — pick it again.',
+    holdExpiredBody:
+      'Your time ran out and the slot went back on the grid. It may still be free — pick it again.',
     backToAvailability: 'Back to availability',
     slotTakenTitle: 'Slot just taken',
-    slotTakenBody: 'Someone at the desk got there first. The grid has been refreshed — pick another slot.',
+    slotTakenBody:
+      'Someone at the desk got there first. The grid has been refreshed — pick another slot.',
     successTitle: 'Court reserved',
     refLabel: 'REF {ref}',
-    successPayBody: "Show up, check in at reception and settle anything still owed there. We'll send a reminder before your slot.",
+    successPayBody:
+      "Show up, check in at reception and settle anything still owed there. We'll send a reminder before your slot.",
     viewBooking: 'View booking',
     noBookingsTitle: 'No bookings yet',
     noBookingsBody: 'Your court reservations will show up here.',
@@ -601,10 +640,10 @@ export const en = {
     viewAllPast: 'View all {count} past games →',
     clearHistory: 'Clear history',
     clearHistoryHint:
-        'Clears the list on this device only. The venue keeps its records, and nothing is cancelled.',
+      'Clears the list on this device only. The venue keeps its records, and nothing is cancelled.',
     clearHistoryPrompt: 'Clear booking history?',
     clearHistoryBody:
-        'Past games stop showing on this device. Nothing is cancelled or deleted, and upcoming bookings are untouched.',
+      'Past games stop showing on this device. Nothing is cancelled or deleted, and upcoming bookings are untouched.',
     historyClearedToast: 'Booking history cleared',
     noHistoryTitle: 'No past games',
     noHistoryBody: 'Games you have played will be listed here once they are over.',
@@ -626,7 +665,8 @@ export const en = {
     weeklySeries: 'Weekly series',
     bookingRef: 'Booking {ref}',
     priceAtDesk: 'Price · at desk',
-    seriesNotice: 'Part of a weekly series created by the venue. You can cancel this occurrence only — the desk manages the series.',
+    seriesNotice:
+      'Part of a weekly series created by the venue. You can cancel this occurrence only — the desk manages the series.',
     freeCancelUntil: 'Free cancellation until {when}.',
     windowClosedTitle: 'Cancellation window closed',
     windowClosedBody: 'The free window ended at {when}. The desk can still help with changes.',
@@ -1006,7 +1046,8 @@ export const en = {
     levelSection: 'Your level',
     levelClaimed: 'What you told us',
     levelConfirmed: 'Confirmed by the club',
-    levelConfirmedBody: 'A coach or the front desk has seen you play, so this is the level we match you at.',
+    levelConfirmedBody:
+      'A coach or the front desk has seen you play, so this is the level we match you at.',
     genderConfirmTitle: 'Set gender to {value}?',
     genderConfirmBody: "You won't be able to change this yourself. The front desk can correct it.",
     genderConfirm: 'Set',
@@ -1017,7 +1058,8 @@ export const en = {
     birthSaved: 'Date of birth saved',
     birthRemoved: 'Date of birth removed',
     name: 'Name',
-    emailLocked: "Email {email} can't be changed here — it requires re-verification through support.",
+    emailLocked:
+      "Email {email} can't be changed here — it requires re-verification through support.",
     saveChanges: 'Save changes',
     updated: 'Profile updated',
     // Edit profile > Save, once the 6-digit code for a CHANGED number comes
@@ -1028,8 +1070,10 @@ export const en = {
     // A phone sign-up (dormant OTP scaffold) has a verified phone but no name yet.
     completeNameNudge: 'Add your name so the desk knows who booked.',
     // Profile tab's one nudge card when the username is missing too.
-    completeProfileUsernameNudge: 'Add your phone number and pick a username to book courts and join open matches.',
-    completeNameUsernameNudge: 'Add your name and pick a username to book courts and join open matches.',
+    completeProfileUsernameNudge:
+      'Add your phone number and pick a username to book courts and join open matches.',
+    completeNameUsernameNudge:
+      'Add your name and pick a username to book courts and join open matches.',
     currentPassword: 'Current password',
     newPasswordMin: 'New password (min 8 characters)',
     confirmNewPassword: 'Confirm new password',
@@ -1098,7 +1142,8 @@ export const en = {
     automatic: 'System',
     automaticNote: 'System follows your device\u2019s appearance setting.',
     languageNote: 'Switching to العربية flips the whole app right-to-left, instantly.',
-    notifBody: 'Get a confirmation when you book, a reminder before your slot, and a heads-up if anything is cancelled.',
+    notifBody:
+      'Get a confirmation when you book, a reminder before your slot, and a heads-up if anything is cancelled.',
     notifGranted: 'Enabled — booking confirmations, reminders and cancellations.',
     notifDenied: 'Notifications are turned off for this app. Enable them in system settings.',
     openSystemSettings: 'Open system settings',
@@ -1214,8 +1259,10 @@ export const en = {
     basketEmptyTitle: 'Nothing here yet',
     qrRequired: {
       title: 'Scan the QR on your table',
-      bodyOrder: 'To send an order, scan the QR code printed on your table so we know where to bring it.',
-      bodyWaiter: 'To call a waiter, scan the QR code printed on your table so we know where to come.',
+      bodyOrder:
+        'To send an order, scan the QR code printed on your table so we know where to bring it.',
+      bodyWaiter:
+        'To call a waiter, scan the QR code printed on your table so we know where to come.',
       keepBasket: 'Your basket is saved — it will be waiting after you scan.',
     },
     bellTutorial: {
@@ -1283,9 +1330,11 @@ export const en = {
     macWhichNote:
       'Not sure which Mac? Apple menu → About This Mac: a chip named "Apple M1/M2/M3/M4" is Apple silicon; a processor named "Intel" is Intel.',
     installTitle: 'Install with PowerShell',
-    installSteps: 'Right-click the Start button and choose Windows PowerShell (or press Win+X). Paste the line below and press Enter.',
+    installSteps:
+      'Right-click the Start button and choose Windows PowerShell (or press Win+X). Paste the line below and press Enter.',
     installCommandLabel: 'Install command',
-    installNote: 'No browser warning and no administrator needed. It downloads, checks and installs the latest version, then opens it.',
+    installNote:
+      'No browser warning and no administrator needed. It downloads, checks and installs the latest version, then opens it.',
     copy: 'Copy',
     copied: 'Copied',
     orDownload: 'Or download the installer',
@@ -1370,13 +1419,43 @@ export const en = {
       },
       rewards: {
         title: 'Rewards',
-        note: 'Show your member card at the cashier to use a reward.',
+        note: 'Tap Redeem on a reward to get its code, then show the code at the cashier.',
         cost: 'Points: {points}',
         empty: 'No rewards right now.',
         soon: 'Coming soon',
         pts: '{points} pts',
         ready: 'Ready',
         toGo: '{points} to go',
+        redeem: 'Redeem',
+      },
+      // 0415: a reward redeemed in the app is a QR for that reward, scanned at the cashier.
+      voucher: {
+        confirmTitle: 'Redeem {reward}?',
+        confirmBody: '{points} points leave your balance now. You get a code that works for 15 minutes. Show it at the cashier.',
+        confirm: 'Redeem',
+        title: 'Your reward',
+        pts: '{points} points',
+        show: 'Show this code at the cashier.',
+        bearer: 'Anyone who has this code can collect the reward.',
+        left: 'Time left',
+        a11yLeft: '{time} left',
+        cancel: 'Cancel and get my points back',
+        cancelTitle: 'Cancel this reward?',
+        cancelBody: 'Your {points} points come back now and the code stops working.',
+        cancelConfirm: 'Cancel reward',
+        keep: 'Keep it',
+        cancelled: 'Reward cancelled. {points} points are back.',
+        collectedTitle: 'Collected',
+        collectedBody: 'Enjoy your {reward}.',
+        expiredTitle: 'This code has expired',
+        expiredBody: 'Your {points} points are back. Redeem it again when you are at the counter.',
+        cancelledTitle: 'Reward cancelled',
+        cancelledBody: 'Your {points} points are back.',
+        again: 'Redeem again',
+        done: 'Done',
+        readyTitle: 'Ready to collect',
+        readyRow: '{time} left',
+        missing: 'This reward code is no longer here. Your points are on Points & rewards.',
       },
       tier: {
         label: 'Tier',
@@ -1608,7 +1687,8 @@ export const en = {
       details: 'Technical details',
       again: 'Keeps happening? Report it below and tell the manager.',
       notFoundTitle: 'Screen not found',
-      notFoundBody: 'There is no screen at this address. Your home screen has everything your role can open.',
+      notFoundBody:
+        'There is no screen at this address. Your home screen has everything your role can open.',
     },
     signIn: {
       title: 'Staff sign-in',
@@ -1622,7 +1702,8 @@ export const en = {
     // did-not-sync counts were removed from the strip entirely (see
     // components/VenueStatusBanner).
     status: {
-      degraded: 'Venue offline mode: guests cannot book the coming days or order online. Take bookings and orders at the desk.',
+      degraded:
+        'Venue offline mode: guests cannot book the coming days or order online. Take bookings and orders at the desk.',
       // This station reads the server but its queued writes are not getting
       // out (replay failing, or its staff token refused).
       uploadBlocked:
@@ -1813,7 +1894,8 @@ export const en = {
       ageTarget: 'Target {minutes} min',
       // The strip only unlocks audio; "Start shift" read as clocking in.
       startShift: 'Turn on sound',
-      startShiftHint: 'Sound is off on this screen. Turn it on so new orders and late tickets chime.',
+      startShiftHint:
+        'Sound is off on this screen. Turn it on so new orders and late tickets chime.',
       // The count is printed beside this, as its own figure (no plurals).
       staleBanner: 'tickets need attention — not started in time',
       stale: 'Waiting too long',
@@ -1830,7 +1912,8 @@ export const en = {
       byName: 'Name on the tab',
       forReservation: 'Reservation',
       openTabBtn: 'Open tab',
-      noOpenDay: 'No business day is open. A manager must open the day first (Cash → End of day count).',
+      noOpenDay:
+        'No business day is open. A manager must open the day first (Cash → End of day count).',
       filterPlaceholder: 'Type to filter items… (1-9 selects a category)',
       basket: 'Basket',
       emptyBasket: 'Basket is empty — pick items from the grid.',
@@ -1882,7 +1965,8 @@ export const en = {
       refundAmount: 'Amount to refund',
       refundMax: 'At most {amount}.',
       refundItems: 'Items going back',
-      refundItemsHint: 'Naming the items returns them to stock. Leave at zero for a money-only refund.',
+      refundItemsHint:
+        'Naming the items returns them to stock. Leave at zero for a money-only refund.',
       refundNoPayments: 'Nothing has been paid on this tab yet.',
       // SOW L450-451 — discounts were wired, price overrides never were.
       override: 'Change price',
@@ -1893,7 +1977,8 @@ export const en = {
       mergeInto: 'Everything moves into {name}.',
       mergeDonor: 'Tab to merge in',
       mergeNone: 'No other open tabs to merge.',
-      mergeHint: 'The other tab is closed and its items, orders and payments move here. This cannot be undone.',
+      mergeHint:
+        'The other tab is closed and its items, orders and payments move here. This cannot be undone.',
       voidTitle: 'Void a sent item',
       voided: 'Item voided.',
       settledAt: 'Settled',
@@ -1923,7 +2008,8 @@ export const en = {
       hideOld: 'Hide them',
       clearOld: 'Clear old',
       clearOldTitle: 'Clear old waiter calls?',
-      clearOldBody: 'Calls more than 2 hours old: {count}. They are marked done and leave this list; nothing else changes.',
+      clearOldBody:
+        'Calls more than 2 hours old: {count}. They are marked done and leave this list; nothing else changes.',
       clearOldConfirm: 'Clear them',
       reasons: {
         order: 'Wants to order',
@@ -1991,7 +2077,13 @@ export const en = {
       unit: { g: 'g', ml: 'ml', pc: 'pcs' },
       // One of a unit: "1 pc", "cost per pc".
       unitOne: { g: 'g', ml: 'ml', pc: 'pc' },
-      status: { out: 'Out of stock', low: 'Running low', belowPar: 'Below par', countNeeded: 'Count needed', ok: 'OK' },
+      status: {
+        out: 'Out of stock',
+        low: 'Running low',
+        belowPar: 'Below par',
+        countNeeded: 'Count needed',
+        ok: 'OK',
+      },
       movement: {
         goods_in: 'Delivery',
         production_in: 'Made in the kitchen',
@@ -2225,7 +2317,8 @@ export const en = {
       badge: 'Badge',
       badgeHint: 'A word or two on the photo, like “New”.',
       discount: 'Discount (%)',
-      discountHint: 'Guests really pay this much less for the item while it is featured. 0 means no discount.',
+      discountHint:
+        'Guests really pay this much less for the item while it is featured. 0 means no discount.',
       ticker: 'Scrolling lines',
       tickerHint: 'Short lines that scroll under the header, in both languages. Up to {max}.',
       addPhrase: 'Add a line',
@@ -2302,15 +2395,18 @@ export const en = {
     },
     settings: {
       businessDay: 'Business day starts at',
-      businessDayHint: 'A sale after midnight counts towards the previous day until this hour, on the panel, in analytics and in reports.',
+      businessDayHint:
+        'A sale after midnight counts towards the previous day until this hour, on the panel, in analytics and in reports.',
       calendarDay: '00:00 (midnight)',
       hour: '{hour}:00',
       cooldown: 'Wait between waiter calls (seconds)',
-      cooldownHint: 'After a table calls a waiter, it cannot call again until this many seconds have passed.',
+      cooldownHint:
+        'After a table calls a waiter, it cannot call again until this many seconds have passed.',
       cooldownRange: 'From 30 to 600.',
       excludedHint: 'Left out of analytics only. The item is still sold as normal.',
       engagementFloor: 'Count guest-app visits from',
-      engagementFloorHint: 'Visits recorded before this date are ignored, so testing before launch does not count.',
+      engagementFloorHint:
+        'Visits recorded before this date are ignored, so testing before launch does not count.',
       clear: 'Remove the date',
     },
     staff: {
@@ -2331,10 +2427,12 @@ export const en = {
       resetPassword: 'Set a new password',
       resetPasswordFor: 'New password for {name}',
       openingPassword: 'Password',
-      passwordHint: 'At least {min} characters. Tell them in person; they can change it afterwards.',
+      passwordHint:
+        'At least {min} characters. Tell them in person; they can change it afterwards.',
       created: 'Account created.',
       passwordReset: 'Password changed.',
-      oneOwner: 'There is only one owner account, and nobody can remove or re-role their own. Add a second owner as a safeguard.',
+      oneOwner:
+        'There is only one owner account, and nobody can remove or re-role their own. Add a second owner as a safeguard.',
     },
     rates: {
       rules: 'Rate rules',
@@ -2356,14 +2454,16 @@ export const en = {
     hours: {
       title: 'Opening hours',
       lead: 'When courts can be booked and the cafe takes orders, and the days the venue stays shut.',
-      overnightHint: 'A closing time earlier than the opening time means the venue closes after midnight, marked “next day”.',
+      overnightHint:
+        'A closing time earlier than the opening time means the venue closes after midnight, marked “next day”.',
       open: 'Opens',
       close: 'Closes',
       closedDay: 'Closed',
       saved: 'Opening hours saved.',
       // SOW L319 — the column has existed since 0006 and nothing could write it.
       closedDatesTitle: 'Closed days',
-      closedDatesHint: 'Days the venue does not open at all. Bookings are refused on these dates in the app, on the website and at the desk.',
+      closedDatesHint:
+        'Days the venue does not open at all. Bookings are refused on these dates in the app, on the website and at the desk.',
       closedDateAdd: 'Add closed day',
       closedDatesNone: 'No closed days coming up.',
       closedDatesPast: 'Past closed days ({count})',
@@ -2374,7 +2474,8 @@ export const en = {
         'This day has more than one opening period, which this screen cannot edit. Change it in the database, or it will be flattened.',
       // 0390 (F-51): a new closed day cannot be saved while bookings on it are unresolved.
       bookingsTitle: 'Bookings on the new closed days',
-      bookingsLead: 'Each booking must be cancelled, marked no-show or paid before these days can be closed.',
+      bookingsLead:
+        'Each booking must be cancelled, marked no-show or paid before these days can be closed.',
       bookingsChecking: 'Checking the bookings on the new closed days…',
       bookingsError: 'Could not check the bookings on the new closed days.',
       bookingsRetry: 'Try again',
@@ -2386,7 +2487,8 @@ export const en = {
       pay: 'Take payment',
       noShowNotYet: 'It has not started yet, so it cannot be a no-show.',
       cancelTitle: 'Cancel this booking?',
-      cancelBody: '{who} · {court} · {when}. The booking is cancelled because the venue is closed that day.',
+      cancelBody:
+        '{who} · {court} · {when}. The booking is cancelled because the venue is closed that day.',
       cancelReason: 'Venue closed that day',
       cancelKeep: 'Keep it',
       noShowTitle: 'Mark this booking no-show?',
@@ -2407,10 +2509,12 @@ export const en = {
       closeBtn: 'Close day',
       blockedTabs: 'These tabs must be settled or voided first:',
       unsyncedTitle: 'Waiting to sync',
-      unsyncedHint: 'Anything waiting or sending will sync by itself once the station is online. Anything the server refused will never sync: check that tab at the café cashier, then dismiss it here with a manager PIN.',
+      unsyncedHint:
+        'Anything waiting or sending will sync by itself once the station is online. Anything the server refused will never sync: check that tab at the café cashier, then dismiss it here with a manager PIN.',
       dismissRow: 'Dismiss',
       dismissTitle: 'Dismiss a change the server refused',
-      dismissLead: 'The server refused this change and trying again will not help. Dismissing it stops it holding up the day close. What it carried — an order, a payment — is NOT recorded, so check the tab at the café cashier first.',
+      dismissLead:
+        'The server refused this change and trying again will not help. Dismissing it stops it holding up the day close. What it carried — an order, a payment — is NOT recorded, so check the tab at the café cashier first.',
       cashExpected: 'Cash expected',
       cashCounted: 'Cash counted',
       variance: 'Variance',
@@ -2432,7 +2536,8 @@ export const en = {
       // Renderer-minted from PostgREST PGRST202 (lib/appRpc.ts, open matches §5.20).
       RPC_MISSING: "This needs a server update that isn't there yet.",
       SAVED_OFFLINE: 'Saved on this station. It will be sent when the connection is back.',
-      RPC_NOT_QUEUEABLE: 'This change could not be sent from the offline queue. Make it again while connected.',
+      RPC_NOT_QUEUEABLE:
+        'This change could not be sent from the offline queue. Make it again while connected.',
       PIN_GRANT_REQUIRED: 'Manager authorisation expired — enter the PIN again.',
       FORBIDDEN: 'You do not have permission for that.',
       AUTH_REQUIRED: 'You must be signed in.',
@@ -2444,8 +2549,9 @@ export const en = {
       INVALID_DURATIONS: 'Duration options must be 30–300 minutes in 15-minute steps.',
       COURT_HAS_FUTURE_RESERVATIONS:
         'This court still has upcoming bookings — move or cancel them at the desk first.',
-      INVALID_ACTIVE_WINDOW: 'The court\'s last active day cannot be before its first.',
-      COURT_IN_USE: 'That court still has bookings or price rules. Deactivate it instead — it leaves the calendar and the guest app, and the reports keep its name.',
+      INVALID_ACTIVE_WINDOW: "The court's last active day cannot be before its first.",
+      COURT_IN_USE:
+        'That court still has bookings or price rules. Deactivate it instead — it leaves the calendar and the guest app, and the reports keep its name.',
       NAME_REQUIRED: 'Both the English and Arabic names are required.',
       UNIT_LOCKED: 'The unit is locked — the ledger already holds quantities in it.',
       KIND_LOCKED: 'The kind is locked — the ledger already classifies this ingredient.',
@@ -2464,11 +2570,13 @@ export const en = {
       TAB_NOT_OPEN: 'This tab is not open.',
       TAB_NOT_FOUND: 'Tab not found.',
       TAB_MERGED: 'This tab was merged into another tab.',
-      TAB_NOT_EMPTY: 'There is a payment to be made on this tab, so it cannot be removed. Settle it instead.',
+      TAB_NOT_EMPTY:
+        'There is a payment to be made on this tab, so it cannot be removed. Settle it instead.',
       TAB_DAY_MISMATCH: 'This tab belongs to a different business day.',
       TENDER_SHORT: 'Tendered amount is less than the amount due.',
       ALREADY_PAID: 'This tab is already fully paid.',
-      QUEUE_ROW_NOT_RESOLVABLE: 'This write cannot be dismissed: it is still travelling or has already synced.',
+      QUEUE_ROW_NOT_RESOLVABLE:
+        'This write cannot be dismissed: it is still travelling or has already synced.',
       INVALID_AMOUNT: 'Invalid amount.',
       ITEM_UNAVAILABLE: 'An item in the order is unavailable right now.',
       EMPTY_ORDER: 'The order is empty.',
@@ -2481,7 +2589,8 @@ export const en = {
       // opening hours and closed days made them everyday errors.
       CLOSED_DATE: 'The venue is closed on that date.',
       OUTSIDE_HOURS: 'That time is outside opening hours.',
-      INVALID_TIME_RANGE: 'Start must be before end. Split a rule that runs past midnight into two.',
+      INVALID_TIME_RANGE:
+        'Start must be before end. Split a rule that runs past midnight into two.',
       GUEST_REQUIRED: 'A booking needs a guest name or a linked account.',
       INVALID_RANGE: 'The end time must be after the start time.',
       CANCELLATION_WINDOW: 'Inside the cancellation window.',
@@ -2514,22 +2623,28 @@ export const en = {
         'This station is not registered to a venue. A manager registers it in Settings → Devices.',
       // Multi-venue (0212, 0217).
       VENUE_MISMATCH: 'This belongs to another branch. Switch to that branch to do this.',
-      PROMOTION_SCOPE_BRANCH: 'A promotion for every branch can’t name courts, categories or items.',
+      PROMOTION_SCOPE_BRANCH:
+        'A promotion for every branch can’t name courts, categories or items.',
       STAFF_VENUE_REQUIRED: 'A staff member has to work at one branch at least.',
       STAFF_NOT_FOUND: 'This staff member no longer exists.',
       VENUE_NOT_FOUND: 'This branch no longer exists.',
-      STATION_OTHER_BRANCH: 'This station name is in use at another branch. Retire it there first, or pick another name.',
+      STATION_OTHER_BRANCH:
+        'This station name is in use at another branch. Retire it there first, or pick another name.',
       SLUG_TAKEN: 'Another branch already uses this short name. Pick another.',
       BRANCH_NOT_READY: 'This branch isn’t ready to open yet. Finish the checklist first.',
       LAST_OPEN_BRANCH: 'This is the only open branch. Open another branch before closing it.',
       BRANCH_DAY_OPEN: 'Close this branch’s day before closing the branch.',
-      STATION_RETIRED: 'This station was retired. Register it again in Settings → Venue details → Stations.',
-      STATION_HAS_HISTORY: 'This station name has cashier shifts at another branch. Pick another name.',
-      BRANCH_HAS_BOOKINGS: 'This branch still has bookings, lessons, holds or series to come. Cancel or move them first.',
+      STATION_RETIRED:
+        'This station was retired. Register it again in Settings → Venue details → Stations.',
+      STATION_HAS_HISTORY:
+        'This station name has cashier shifts at another branch. Pick another name.',
+      BRANCH_HAS_BOOKINGS:
+        'This branch still has bookings, lessons, holds or series to come. Cancel or move them first.',
       VENUE_CLOSED: 'This branch is closed.',
       NO_PIN_SET: 'This account has no PIN yet. Ask the owner to set one.',
       BOOKING_TAB_OPEN: 'This booking already has an open bill. Add to that bill instead.',
-      BOOKING_TAB_DONOR: 'A booking’s bill can’t be moved onto another bill. Move the other bill onto the booking instead.',
+      BOOKING_TAB_DONOR:
+        'A booking’s bill can’t be moved onto another bill. Move the other bill onto the booking instead.',
       RESERVATION_NOT_LIVE: 'This booking was cancelled or not played, so it can’t take a bill.',
       TOTAL_CHANGED: 'The bill changed while you were paying. Check the new total and try again.',
       NOT_ZERO: 'Money is still owed on this bill. Take the payment instead of closing it.',
@@ -2556,19 +2671,23 @@ export const en = {
       TABLE_NOT_FOUND: 'Table not found.',
       TAB_ANCHOR_REQUIRED: 'A tab needs a table or a booking. A name on its own is not enough.',
       // Touch Shop (0145/0146).
-      CATEGORY_NOT_EMPTY: 'A section changes between café and shop only while it is empty. Move its items first.',
+      CATEGORY_NOT_EMPTY:
+        'A section changes between café and shop only while it is empty. Move its items first.',
       NOT_SHOP_CATEGORY: 'Only items in a shop section carry stock of their own.',
       BARCODE_TAKEN: 'That barcode is already on another product.',
       SKU_TAKEN: 'That SKU is already on another product.',
       SUPPLIER_EXISTS: 'A supplier with that name already exists.',
       SUPPLIER_NOT_FOUND: 'Supplier not found.',
-      SUPPLIER_URL_INVALID: 'Paste the full https:// link of the product page on the supplier’s website.',
+      SUPPLIER_URL_INVALID:
+        'Paste the full https:// link of the product page on the supplier’s website.',
       LABEL_REQUIRED: 'A counter sale needs a name or a number.',
       MIXED_BASKET: 'Café items and shop items go out as two orders. Send again.',
       SHOP_ITEM_NOT_ORDERABLE: 'Shop items are sold at the counter, not from the table.',
-      TAB_KIND_FORBIDDEN: 'This sale belongs to the other cashier: shop sales are rung up at the shop desk, café bills at the café cashier.',
+      TAB_KIND_FORBIDDEN:
+        'This sale belongs to the other cashier: shop sales are rung up at the shop desk, café bills at the café cashier.',
       TAB_KIND_MISMATCH: 'Shop items and café items never go on the same bill.',
-      SHOP_TAB_NO_ANCHOR: 'A shop sale is paid at the shop desk; it never goes on a table or a booking.',
+      SHOP_TAB_NO_ANCHOR:
+        'A shop sale is paid at the shop desk; it never goes on a table or a booking.',
       DAY_NOT_FOUND: 'That day could not be found at this branch.',
       NOT_MOVABLE: 'This reservation can no longer be moved.',
       RESERVATION_IN_PAST: 'A booking cannot be moved to a time that has already passed.',
@@ -2621,11 +2740,13 @@ export const en = {
       REFUND_EXCEEDS_PAYMENT: 'The refund is more than what is left on this payment.',
       PAYMENT_NOT_FOUND: 'That payment could not be found.',
       // Online deposits (build-contracts-2026-09-27 §2.5).
-      PAYMENT_STATE: 'This payment has changed since you opened it. The list now shows where it is.',
+      PAYMENT_STATE:
+        'This payment has changed since you opened it. The list now shows where it is.',
       REFUND_TOO_LARGE: 'The refund is more than the guest paid online.',
       HOLD_STANDING_NOT_FOUND: 'This guest’s record has changed or is gone. Refresh the list.',
       ITEM_NOT_ON_TAB: 'That line is not on this tab.',
-      IDEMPOTENCY_CONFLICT: 'This was already saved from another session. Refresh to see the latest.',
+      IDEMPOTENCY_CONFLICT:
+        'This was already saved from another session. Refresh to see the latest.',
       // Protocols and the staff phone (build-contracts-2026-09-23 §3), one file pair:
       // opErrors.protocols.*.ts.
       ...opErrorsProtocolsEn,

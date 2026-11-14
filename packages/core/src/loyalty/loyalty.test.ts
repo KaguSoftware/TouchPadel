@@ -132,3 +132,20 @@ describe('qr', () => {
     expect(d.startsWith('M0 0h7')).toBe(true); // the top-left finder pattern
   });
 });
+
+describe('reward voucher codes (0415)', () => {
+  it('reads any case, spaces and dashes; refuses anything else', async () => {
+    const { parseVoucherCode, formatVoucherCode, isVoucherCode, voucherMsLeft } = await import('./voucher');
+    expect(parseVoucherCode('TPV-8F3K2QXM9ABC')).toBe('TPV-8F3K2QXM9ABC');
+    expect(parseVoucherCode(' tpv-8f3k-2qxm-9abc ')).toBe('TPV-8F3K2QXM9ABC');
+    expect(parseVoucherCode('TPV8F3K2QXM9ABC')).toBe('TPV-8F3K2QXM9ABC');
+    expect(parseVoucherCode('TPV-8F3K2QXI9ABC')).toBeNull(); // I is not Crockford
+    expect(parseVoucherCode('TP-8F3K2QXM-287082')).toBeNull();
+    expect(isVoucherCode('TP-8F3K2QXM-287082')).toBe(false);
+    expect(formatVoucherCode('TPV-8F3K2QXM9ABC')).toBe('TPV-8F3K-2QXM-9ABC');
+    // the server says it is 12:00:00 when the phone thinks 11:59:00: the minute is the server's
+    const left = voucherMsLeft('2026-11-13T12:15:00Z', '2026-11-13T12:00:00Z', Date.parse('2026-11-13T11:59:00Z'), Date.parse('2026-11-13T11:59:00Z'));
+    expect(left).toBe(15 * 60 * 1000);
+    expect(voucherMsLeft('2026-11-13T12:15:00Z', '2026-11-13T12:20:00Z', 0, 0)).toBe(0);
+  });
+});

@@ -380,6 +380,9 @@ function RootStack() {
           with the native back item, each with its own RequireSession. */}
           <Stack.Screen name="loyalty" />
           <Stack.Screen name="member-card" />
+          {/* 0415: a reward redeemed on Points & rewards, its QR for the cashier. Singular: a double
+          tap on Redeem must never stack two. */}
+          <Stack.Screen name="reward-voucher" dangerouslySingular />
           {/* The leaderboard's score report (0364), pushed from the Ranks tab's played bookings. */}
           <Stack.Screen name="ranks-report" />
           {/* The view-only café menu, opened from the account page. */}

@@ -55,7 +55,7 @@ import { mergeQuickLine, quickVariant } from './quickAdd';
 import { resolveTillKey, type TillAction } from './keymap';
 import { BarcodeWedge } from './barcodeWedge';
 import { MemberAttach, dispatchMemberScan } from '../loyalty/MemberAttach';
-import { isMemberScan } from '../loyalty/loyaltyLogic';
+import { isLoyaltyScan } from '../loyalty/loyaltyLogic';
 import { deriveTileState, tileInteractive } from './tileState';
 import { useTillClock } from './useTillClock';
 import { useCafeSettings } from '../../lib/settings';
@@ -376,7 +376,8 @@ export function TillScreen() {
 
   useEffect(() => {
     let flushTimer: number | undefined;
-    // A member card scanned at the till (loyalty build contracts §5): the USB scanner types
+    // A member card scanned at the till (loyalty build contracts §5), or a reward voucher (0415,
+    // TPV-…, the same route: the member block gives the reward): the USB scanner types
     // TP-<code>-<otp> and Enter (barcodeWedge.ts). In 'idle' a leading digit is held while it
     // may start a burst and replayed when it does not; a burst that starts with T goes through
     // the filter as typing does, and its Enter opens the member field on the selected tab
@@ -469,7 +470,7 @@ export function TillScreen() {
           return;
         }
         window.clearTimeout(flushTimer);
-        if (w.kind === 'scan' && isMemberScan(w.code)) {
+        if (w.kind === 'scan' && isLoyaltyScan(w.code)) {
           // The burst typed itself into the filter on its way: clear it, never quick-add it.
           e.preventDefault();
           setFilter('');

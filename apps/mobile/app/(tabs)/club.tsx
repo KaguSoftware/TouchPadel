@@ -12,6 +12,7 @@ import { useMemberCard, useMyLoyalty } from '../../src/features/loyalty/hooks';
 import { loyaltyOn } from '../../src/features/loyalty/logic';
 import { MemberCardPanel } from '../../src/features/loyalty/MemberCardPanel';
 import { PointsCard } from '../../src/features/loyalty/PointsCard';
+import { CardDeals } from '../../src/features/loyalty/CardDeals';
 import { useOwnProfile } from '../../src/features/profile/hooks';
 import { nameFieldsOf } from '../../src/features/profile/names';
 import { CafeMenuView } from '../../src/features/cafe/CafeMenuView';
@@ -28,6 +29,9 @@ type ClubView = 'card' | 'menu';
  * Signed in with loyalty on, it opens on the card, which is what the cashier asks for. Signed
  * out, the card view asks the guest to sign in. With loyalty switched off by the owner there is
  * no card to show (build contracts L-1), so the card segment goes and the menu stays alone.
+ *
+ * Under the code, the deals the guest can use (Majed, 2026-11-13; CardDeals): picked there, they
+ * land on the paper above for the cashier's scan, without leaving the tab.
  *
  * `show=card` (Profile's member card, Points & rewards' "Show my member card") opens it on the
  * card whatever was picked last: there is one member card screen, and it is this one.
@@ -81,7 +85,15 @@ export default function ClubScreen() {
     if (!member) return null;
     if (loyalty.isPending) return <SkeletonList rows={1} height={300} />;
     return (
-      <MemberCardPanel testID="club.card" bottomPad={bottomPad}>
+      <MemberCardPanel
+        testID="club.card"
+        bottomPad={bottomPad}
+        below={(toCode) =>
+          loyalty.data && loyaltyOn(loyalty.data) ? (
+            <CardDeals testID="club" points12m={loyalty.data.points_12m} onShowCard={toCode} />
+          ) : null
+        }
+      >
         {/* The points this card has earned, as a card of their own, and the way to what they buy. */}
         {loyalty.data ? (
           <PointsCard
