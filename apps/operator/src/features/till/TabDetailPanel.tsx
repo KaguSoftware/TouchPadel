@@ -42,6 +42,13 @@
  * open the customer's standing discount is brought onto it automatically and
  * re-worked as lines are added (useAutoCustomerDiscount); a court discount
  * shows as a note under the court fee, which the server already reduced.
+ *
+ * What the member's card gives (0410, features/loyalty): the free add-ons of
+ * their card land on the bill by themselves (useMemberBenefits, beside the
+ * customer discount's refresh) and have their own totals row, out of the
+ * manager figure. The card, its privileges and the deal the member picked in
+ * the app show in the member block; the deal's Apply is this panel's own
+ * applyPromotion with no code (the server takes the picked deal first).
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -74,7 +81,7 @@ import { actionButton, kvRow, muted, numeric, sectionTitle } from './tillStyles'
 import { DRAWER_REASONS } from './drawerReasons';
 import { useTillShiftOptional } from '../tillShift/shiftContext';
 import { MemberAttach } from '../loyalty/MemberAttach';
-import { useCourtReward } from '../loyalty/useLoyalty';
+import { useCourtReward, useMemberBenefits } from '../loyalty/useLoyalty';
 import { loyaltyDiscountIqd } from '../loyalty/loyaltyLogic';
 import { LOCAL_TAB_PREFIX } from '../../lib/offlineTabs';
 import { BillDiscountDialog } from '../discounts/BillDiscountDialog';
@@ -133,6 +140,8 @@ export function TabDetailPanel({
   const [discountValue, setDiscountValue] = useState(10);
   const [promoCode, setPromoCode] = useState('');
   const [promoNotice, setPromoNotice] = useState<{ tone: 'success' | 'refused'; text: string } | null>(null);
+  /** Where the last promotion press came from: its answer shows there (the promotion box, or the member's deal). */
+  const [promoFrom, setPromoFrom] = useState<'box' | 'deal'>('box');
   const [drawerNoted, setDrawerNoted] = useState(false);
   const [voidRefused, setVoidRefused] = useState(false);
   /**
@@ -229,12 +238,15 @@ export function TabDetailPanel({
   // percent is re-worked.
   const discountAllowed = canDiscount(staff);
   const discountLive = tab !== undefined && !settled && !tabId.startsWith(LOCAL_TAB_PREFIX) && (tab.status === 'open' || tab.status === 'awaiting_payment');
-  const discountVersion = `${totals.subtotal}|${liveLines(tab?.orders).length}|${discounts.manager}|${discounts.promotion}|${discounts.customer}|${totals.paid}`;
+  const discountVersion = `${totals.subtotal}|${liveLines(tab?.orders).length}|${discounts.manager}|${discounts.promotion}|${discounts.customer}|${discounts.perks}|${totals.paid}`;
   const billDiscQ = useBillDiscount({ tabId, reservationId, version: discountVersion, enabled: discountAllowed && discountLive });
   const billDisc = billDiscQ.data;
   useAutoCustomerDiscount({ tabId, reservationId, state: billDisc, version: discountVersion, enabled: discountAllowed && discountLive });
   const discountWords = useDiscountWords();
   const customerDiscountShown = discountAllowed && discountLive && billDisc !== undefined && !rpcMissing(billDiscQ.error);
+  // What the member's card gives (0410): read with the same version, and its free add-ons
+  // brought onto the bill by themselves, as the customer's discount is just above.
+  const benefits = useMemberBenefits({ tabId, version: discountVersion, enabled: discountAllowed && discountLive });
 
   // F4/F5 from anywhere on the till OPEN the pane (TillScreen dispatches);
   // money is confirmed by click only. Registered before any early return.
@@ -386,14 +398,19 @@ export function TabDetailPanel({
     }
   }
 
-  async function applyPromotion() {
+  /**
+   * `code` null: the best promotion that applies, which is the deal the member picked in the
+   * app when there is one (0410: the picked deal goes first). `from` is where the answer shows.
+   */
+  async function applyPromotion(code: string | null = promoCode.trim() || null, from: 'box' | 'deal' = 'box') {
     setBusy(true);
     setActionError(null);
     setPromoNotice(null);
+    setPromoFrom(from);
     try {
       const res = await appRpc<{ promotionId: string | null; amountIqd: number; refused?: string }>('apply_best_promotion', {
         p_tab_id: tabId,
-        p_code: promoCode.trim() || null,
+        p_code: code,
         p_idempotency_key: crypto.randomUUID(),
         p_device_id: deviceId(),
       });
@@ -625,6 +642,17 @@ export function TabDetailPanel({
               {tr('ws.discounts.bill.cafeWaived')}
             </span>
           )}
+          {/* 0410: the free add-ons of the member's card, the server's own rows: no button undoes them. */}
+          {discounts.perks > 0 && (
+            <Row
+              label={
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-1)' }} data-testid="card-perks-row">
+                  <Icon name="star" size={13} /> {tr('ws.loyalty.benefits.billRow')}
+                </span>
+              }
+              amount={-discounts.perks}
+            />
+          )}
           {discounts.promotion > 0 && (
             <Row
               label={
@@ -675,7 +703,19 @@ export function TabDetailPanel({
 
         {/* The member on this bill (loyalty build contracts §5): scan or phone, Use points,
             Rewards. A scan at the till (TillScreen's wedge) opens it pre-filled. */}
-        {!settled && <MemberAttach tabId={tabId} remainingIqd={courtPending ? null : due} listenScans />}
+        {!settled && (
+          <MemberAttach
+            tabId={tabId}
+            remainingIqd={courtPending ? null : due}
+            listenScans
+            benefits={benefits}
+            deal={{
+              apply: () => void applyPromotion(null, 'deal'),
+              busy,
+              notice: promoFrom === 'deal' ? promoNotice : null,
+            }}
+          />
+        )}
 
         {courtPending && billQ.isError && (
           <div style={{ display: 'grid', gap: 'var(--tp-sp-1-5)', justifyItems: 'start' }}>
@@ -755,6 +795,7 @@ export function TabDetailPanel({
                     disabled={busy}
                     onClick={() => {
                       setPromoNotice(null);
+                      setPromoFrom('box');
                       setPromoOpen((v) => !v);
                     }}
                   >
@@ -815,7 +856,7 @@ export function TabDetailPanel({
                 {tr('ws.cashier.detail.promoApply')}
               </Button>
             </div>
-            {promoNotice && <MessagePresenter tone={promoNotice.tone} message={promoNotice.text} />}
+            {promoNotice && promoFrom === 'box' && <MessagePresenter tone={promoNotice.tone} message={promoNotice.text} />}
             <p style={{ ...muted, fontSize: 'var(--tp-fs-xs)' }}>{tr('ws.cashier.detail.promoHint')}</p>
           </div>
         )}

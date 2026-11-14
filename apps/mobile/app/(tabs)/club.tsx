@@ -14,21 +14,20 @@ import { MemberCardPanel } from '../../src/features/loyalty/MemberCardPanel';
 import { PointsCard } from '../../src/features/loyalty/PointsCard';
 import { useOwnProfile } from '../../src/features/profile/hooks';
 import { nameFieldsOf } from '../../src/features/profile/names';
-import { RanksView } from '../../src/features/ranks/RanksView';
 import { CafeMenuView } from '../../src/features/cafe/CafeMenuView';
 
-type ClubView = 'card' | 'ranks' | 'menu';
+type ClubView = 'card' | 'menu';
 
 /**
  * The Club tab, the bar's centre (Majed, 2026-10-19): the two things a guest reaches for at the
  * café counter, one tap from anywhere. The member card's live QR (with the points it has earned,
  * opening Points & rewards) and the café menu, to look at; ordering stays at the table's QR and
- * the counter. Ranks, the players' leaderboard, sits between them (Sait, 2026-10-25: it was a tab
- * of its own); it stays whatever the owner does with loyalty.
+ * the counter. Ranks, the players' leaderboard, sat between them from 2026-10-25 and is a tab of
+ * its own again since 2026-11-12 (Rankings, app/(tabs)/ranks.tsx; Majed).
  *
  * Signed in with loyalty on, it opens on the card, which is what the cashier asks for. Signed
  * out, the card view asks the guest to sign in. With loyalty switched off by the owner there is
- * no card to show (build contracts L-1), so the card segment goes and Ranks and the menu stay.
+ * no card to show (build contracts L-1), so the card segment goes and the menu stays alone.
  *
  * `show=card` (Profile's member card, Points & rewards' "Show my member card") opens it on the
  * card whatever was picked last: there is one member card screen, and it is this one.
@@ -55,7 +54,7 @@ export default function ClubScreen() {
   const [showSeen, setShowSeen] = useState<string | undefined>(undefined);
   if (show !== showSeen) {
     setShowSeen(show);
-    if (show === 'card' || show === 'ranks' || show === 'menu') setPicked(show);
+    if (show === 'card' || show === 'menu') setPicked(show);
   }
   const pick = (v: ClubView) => {
     setPicked(v);
@@ -71,19 +70,12 @@ export default function ClubScreen() {
   const prompt =
     member || view === 'menu'
       ? null
-      : view === 'card'
-        ? {
-            testID: 'club.signed-out',
-            actionTestID: 'club.sign-in',
-            title: t('loyalty.guest.card.title'),
-            message: t('loyalty.guest.card.signInPitch'),
-          }
-        : {
-            testID: 'club.ranks.signed-out',
-            actionTestID: 'club.ranks.sign-in',
-            title: t('ranks.signIn.title'),
-            message: t('ranks.signIn.message'),
-          };
+      : {
+          testID: 'club.signed-out',
+          actionTestID: 'club.sign-in',
+          title: t('loyalty.guest.card.title'),
+          message: t('loyalty.guest.card.signInPitch'),
+        };
 
   const card = () => {
     if (!member) return null;
@@ -119,23 +111,21 @@ export default function ClubScreen() {
         </View>
         <AccountButton testID="club.account" />
       </View>
-      <SegmentedControl
-        testID="club.view"
-        options={[
-          ...(offersCard ? [{ value: 'card' as const, label: t('loyalty.guest.card.title') }] : []),
-          { value: 'ranks' as const, label: t('tabs.ranks') },
-          { value: 'menu' as const, label: t('profile.cafeMenu') },
-        ]}
-        value={view}
-        onChange={pick}
-      />
+      {/* A switch of one is no switch: without a card the menu stands alone. */}
+      {offersCard ? (
+        <SegmentedControl
+          testID="club.view"
+          options={[
+            { value: 'card' as const, label: t('loyalty.guest.card.title') },
+            { value: 'menu' as const, label: t('profile.cafeMenu') },
+          ]}
+          value={view}
+          onChange={pick}
+        />
+      ) : null}
       <View style={{ flex: 1, marginTop: space.s }}>
         {view === 'card' ? (
           card()
-        ) : view === 'ranks' ? (
-          member ? (
-            <RanksView testID="club.ranks" bottomPad={bottomPad} />
-          ) : null
         ) : (
           <CafeMenuView testID="club.menu" bottomPad={bottomPad} />
         )}

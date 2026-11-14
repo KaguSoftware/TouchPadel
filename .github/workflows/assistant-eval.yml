@@ -1,0 +1,169 @@
+name: Assistant eval (scored, weekly)
+
+# Runs the owner-assistant eval set (packages/db/tests/assistant-eval/cases.json,
+# 40 questions, scored by packages/db/scripts/assistant-eval.mjs) against the
+# LOCAL stack with a REAL model key, then keeps the scored JSON as an artifact.
+#
+# Safety:
+#   * Local only. The stack is `supabase start` on the runner; nothing here is
+#     linked to the hosted project and no hosted secret is read
+#     (no SUPABASE_DB_PASSWORD, no SUPABASE_ACCESS_TOKEN, no `supabase link`).
+#     The eval script defaults to http://127.0.0.1:54321 and talks to the
+#     stack's container through `docker exec`.
+#   * The only secret is ASSISTANT_EVAL_ANTHROPIC_KEY (repository secret).
+#     Without it the run logs a notice and ends green (exit 0), so this file can
+#     merge before the secret exists.
+#   * Spend is capped twice. The server-side monthly cap of the throwaway local
+#     stack is set to USD 6 (platform_settings.llm_monthly_cost_cap_micros) and
+#     the daily request limit to 80 before the run: past it assistant-chat
+#     answers 429 and the eval stops with its "state" exit (2), so a run cannot
+#     spend more than about USD 6. Each turn also has the function's own
+#     ceiling (USD 0.25 cheap tier, USD 0.60 deep). Give the key its own low
+#     monthly limit at the vendor as the third guard.
+#   * EXPECTED COST per run: about USD 2 to 4 for the 40 questions (lookup and
+#     figure questions run on Sonnet at USD 0.02 to 0.10 a message, the few deep
+#     ones on Opus at up to USD 0.30). Weekly, that is roughly USD 10 to 16 a
+#     month. The eval has no question-count budget flag; to run fewer, start it
+#     by hand (workflow_dispatch) with `kind` or `only`.
+#
+# Previous-run comparison: assistant-eval.mjs has no history feature, so each run
+# uploads assistant-eval-<run id> (90 days) and writes the headline to the job
+# summary; compare two artifacts by hand. The script's scope is not grown here.
+#
+# Doc: docs/design/assistant/observability.md
+
+on:
+  schedule:
+    - cron: '0 3 * * 1' # Mondays 03:00 UTC
+  workflow_dispatch:
+    inputs:
+      kind:
+        description: 'Only this kind (numeric, where, audit); empty = all 40'
+        required: false
+        default: ''
+      only:
+        description: 'Only case ids containing this text; empty = all'
+        required: false
+        default: ''
+
+concurrency:
+  group: assistant-eval
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  eval:
+    name: scored eval (local stack, real model key)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      SUPABASE_AUTH_SMS_TEST_OTP_CODE: ${{ vars.SUPABASE_AUTH_SMS_TEST_OTP_CODE }}
+      # The value is only ever written to the runner's local functions .env file below.
+      EVAL_KEY: ${{ secrets.ASSISTANT_EVAL_ANTHROPIC_KEY }}
+    steps:
+      - name: Secret present?
+        id: gate
+        run: |
+          if [ -z "$EVAL_KEY" ]; then
+            echo "::notice title=Assistant eval skipped::Repository secret ASSISTANT_EVAL_ANTHROPIC_KEY is not set. Nothing was run and nothing was spent. Add the secret to enable the weekly scored eval."
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.gate.outputs.run == 'true'
+
+      - uses: pnpm/action-setup@v4
+        if: steps.gate.outputs.run == 'true'
+
+      - uses: actions/setup-node@v4
+        if: steps.gate.outputs.run == 'true'
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        if: steps.gate.outputs.run == 'true'
+        run: pnpm install --frozen-lockfile
+
+      - uses: supabase/setup-cli@v1
+        if: steps.gate.outputs.run == 'true'
+        with:
+          version: 2.116.0
+
+      - name: Start local Supabase stack
+        if: steps.gate.outputs.run == 'true'
+        working-directory: packages/db
+        run: supabase start
+
+      - name: Apply migrations from a clean slate
+        if: steps.gate.outputs.run == 'true'
+        working-directory: packages/db
+        run: supabase db reset
+
+      # The hard spend cap. The local stack is throwaway, so this row exists
+      # only for this run.
+      - name: Cap the local assistant budget
+        if: steps.gate.outputs.run == 'true'
+        run: |
+          docker exec -i supabase_db_touchpadel psql -U postgres -d postgres -v ON_ERROR_STOP=1 -c \
+            "update platform_settings set llm_monthly_cost_cap_micros = 6000000, llm_daily_request_limit = 80 where id;"
+
+      - name: Serve edge functions with the eval key
+        if: steps.gate.outputs.run == 'true'
+        working-directory: packages/db
+        run: |
+          echo "::add-mask::$EVAL_KEY"
+          printf 'ANTHROPIC_API_KEY=%s\n' "$EVAL_KEY" >> supabase/functions/.env
+          nohup supabase functions serve > /tmp/functions.log 2>&1 &
+          ok=0
+          for _ in $(seq 1 90); do
+            fn=$(curl -s -o /dev/null -w '%{http_code}' --max-time 2 -X POST "http://127.0.0.1:54321/functions/v1/replay" || true)
+            au=$(curl -s -o /dev/null -w '%{http_code}' --max-time 2 "http://127.0.0.1:54321/auth/v1/health" || true)
+            if [ "$fn" = "401" ] && [ "$au" = "200" ]; then ok=$((ok+1)); else ok=0; fi
+            [ "$ok" -ge 3 ] && break
+            sleep 2
+          done
+          if [ "$ok" -lt 3 ]; then cat /tmp/functions.log; echo "::error::the edge runtime never became ready"; exit 1; fi
+
+      - name: Run the scored eval
+        if: steps.gate.outputs.run == 'true'
+        working-directory: packages/db
+        env:
+          EVAL_KIND: ${{ inputs.kind }}
+          EVAL_ONLY: ${{ inputs.only }}
+        run: |
+          set -- "--json=$RUNNER_TEMP/assistant-eval.json"
+          [ -n "$EVAL_KIND" ] && set -- "$@" "--kind=$EVAL_KIND"
+          [ -n "$EVAL_ONLY" ] && set -- "$@" "--only=$EVAL_ONLY"
+          node --experimental-strip-types scripts/assistant-eval.mjs "$@"
+
+      - name: Summary
+        if: always() && steps.gate.outputs.run == 'true'
+        run: |
+          f="$RUNNER_TEMP/assistant-eval.json"
+          if [ -f "$f" ]; then
+            node -e '
+              const r = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"));
+              const cost = r.results.reduce((n, x) => n + (x.cost_micros ?? 0), 0) / 1e6;
+              console.log(`### Assistant eval ${r.ran_at}\n\n- passed: ${r.passed}/${r.total}\n- unverified figures on numeric: ${r.unverified}\n- median tokens per answer: ${r.median_tokens}\n- cost: about $${cost.toFixed(2)}`);
+            ' "$f" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "No scored file was written (the run could not happen; see the log)." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload scored results
+        if: always() && steps.gate.outputs.run == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: assistant-eval-${{ github.run_id }}
+          path: ${{ runner.temp }}/assistant-eval.json
+          if-no-files-found: ignore
+          retention-days: 90
+
+      - name: Functions log on failure
+        if: failure() && steps.gate.outputs.run == 'true'
+        run: tail -n 200 /tmp/functions.log || true

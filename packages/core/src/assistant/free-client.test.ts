@@ -63,7 +63,8 @@ describe('freeRefusal', () => {
     expect(freeRefusal(401, null).code).toBe('AUTH_REQUIRED');
     expect(freeRefusal(403, 'no').code).toBe('FORBIDDEN');
     expect(freeRefusal(429, {}).code).toBe('RATE_LIMITED');
-    expect(freeRefusal(503, {}).code).toBe('NOT_CONFIGURED');
+    // A bare 503 (no body code) is the platform, not a missing key (2026-11-11).
+    expect(freeRefusal(503, {}).code).toBe('UPSTREAM');
     expect(freeRefusal(502, {}).code).toBe('UPSTREAM');
     expect(freeRefusal(400, {}).code).toBe('INVALID_REQUEST');
     expect(freeRefusal(418, {}).code).toBe('UNKNOWN');

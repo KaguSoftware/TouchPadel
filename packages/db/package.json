@@ -49,7 +49,8 @@
     "assistant:measure": "node --experimental-strip-types scripts/measure-assistant-tokens.mjs",
     "lint": "eslint .",
     "assistant:index-map": "node --experimental-strip-types scripts/assistant-index-map.mjs",
-    "assistant:eval": "node --experimental-strip-types scripts/assistant-eval.mjs"
+    "assistant:eval": "node --experimental-strip-types scripts/assistant-eval.mjs",
+    "assistant:route-report": "node scripts/assistant-route-report.mjs"
   },
   "devDependencies": {
     "@huggingface/transformers": "^4.3.0",

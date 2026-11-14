@@ -27,6 +27,7 @@ import {
   blocksFromOai,
   newAccumulator,
   orderedCalls,
+  retryAfterMs,
   stopReasonFromOai,
   supportsReasoningEffort,
   supportsStrictJsonSchema,
@@ -57,20 +58,7 @@ const RETRY_ATTEMPTS = 3;
 const RETRY_FLOOR_MS = 3_000;
 const RETRY_MAX_MS = 12_000;
 
-/**
- * `retry-after` header (seconds), or the phrase Groq writes in the body:
- * "try again in 194.999999ms", "try again in 4.23s", "try again in 1m2.5s".
- */
-export function retryAfterMs(res: Response, bodyText: string): number | null {
-  const header = res.headers.get('retry-after');
-  if (header && /^\d+(\.\d+)?$/.test(header.trim())) return Math.ceil(Number(header) * 1000) + 250;
-  const m = /try again in\s+(?:(\d+)m(?![s]))?\s*(\d+(?:\.\d+)?)(ms|s)/i.exec(bodyText);
-  if (!m) return null;
-  const minutes = Number(m[1] ?? 0);
-  const n = Number(m[2]);
-  const ms = m[3].toLowerCase() === 'ms' ? n : n * 1000;
-  return Math.ceil(minutes * 60_000 + ms) + 250;
-}
+export { retryAfterMs };
 
 function baseBody(model: string, effort: 'low' | 'medium' | 'high', maxTokens: number): Record<string, unknown> {
   const body: Record<string, unknown> = { model, max_completion_tokens: maxTokens };

@@ -298,6 +298,13 @@ export interface LiveTurn {
   done: boolean;
   stopped: boolean;
   error: { code: AssistantErrorCode; message: string } | null;
+  /**
+   * The `done` event's `stop_reason` (end_turn | job_proposed | max_tokens |
+   * refusal | stopped | cost_capped | rounds_exhausted, or the error code of a
+   * failed turn), the same value the stored row keeps in `tokens.stop_reason`
+   * (outcome.ts). Null until `done`; absent on turns built before it existed.
+   */
+  stopReason?: string | null;
 }
 
 export function emptyTurn(conversationId: string | null, userText: string): LiveTurn {
@@ -316,6 +323,7 @@ export function emptyTurn(conversationId: string | null, userText: string): Live
     done: false,
     stopped: false,
     error: null,
+    stopReason: null,
   };
 }
 
@@ -398,7 +406,13 @@ export function applyEvent(turn: LiveTurn, name: string, data: unknown): LiveTur
     case 'job_estimate':
       return { ...turn, jobEstimate: d as unknown as JobEstimate };
     case 'done':
-      return { ...turn, done: true, assistantMessageId: str(d.message_id) ?? turn.assistantMessageId, tools: settleTools(turn.tools) };
+      return {
+        ...turn,
+        done: true,
+        assistantMessageId: str(d.message_id) ?? turn.assistantMessageId,
+        stopReason: str(d.stop_reason) ?? turn.stopReason ?? null,
+        tools: settleTools(turn.tools),
+      };
     case 'error':
       return {
         ...turn,

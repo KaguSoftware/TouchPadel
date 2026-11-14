@@ -7,9 +7,9 @@
  */
 export const coachShowcaseEn = {
   levels: {
-    beginner: 'Beginner',
-    intermediate: 'Intermediate',
-    advanced: 'Advanced',
+    beginner: 'Type C',
+    intermediate: 'Type B',
+    advanced: 'Type A',
   },
   // The two ways on from the page.
   classesTitle: 'Group sessions',

@@ -92,6 +92,8 @@ export type CoachStatusValue = (typeof COACH_STATUSES)[number];
  */
 export const COACH_LEVELS = ['beginner', 'intermediate', 'advanced'] as const;
 export type CoachLevel = (typeof COACH_LEVELS)[number];
+/** The same levels in the order screens show them: Type A, Type B, Type C (advanced, intermediate, beginner). */
+export const COACH_LEVELS_BY_TYPE = ['advanced', 'intermediate', 'beginner'] as const satisfies readonly CoachLevel[];
 
 /** Desk and coach cancel reasons (§1.3); sent as `<code>` or `<code>: <note>`. */
 export const CANCEL_REASONS = [

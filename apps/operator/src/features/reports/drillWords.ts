@@ -32,6 +32,8 @@ const text_ = (v: unknown): string | null => (typeof v === 'string' && v.trim() 
 function reasonWords(v: unknown, tr: Tr): string | null {
   if (has(KNOWN_REASONS, v)) return tr(`op.reasons.${v}`);
   if (v === 'promotion') return tr('ws.reports.drill.reasons.promotion');
+  // 0410: the free add-ons of a member's card.
+  if (v === 'loyalty_tier_perk') return tr('ws.reports.drill.reasons.loyalty_tier_perk');
   // Free text a person typed; the underscores of an unknown code read better as spaces.
   const t = text_(v);
   return t ? t.replace(/_/g, ' ') : null;

@@ -19,7 +19,9 @@
  *    Status badge and an Enabled switch side by side, which said "Off" twice.
  *  - "When" prints dates, weekdays and hours together, so a Fri–Sat
  *    16:00–19:00 happy hour no longer reads as "No end date" (always on).
- *  - "Applies to" says how a bill gets it (no code / its code) and what it
+ *  - "Applies to" says how a bill gets it (no code / its code / in the app,
+ *    0410: a promotion listed as a deal for guests reads "In the app", and one
+ *    with no code that members pick there "In the app only") and what it
  *    covers, in words. The old chip literally read "What it applies to".
  *  - A row opens the editor, and has a chevron that says so.
  *
@@ -157,8 +159,15 @@ export function PromotionsListScreen() {
                 fontWeight: how.kind === 'missing' ? 600 : 400,
               }}
             >
-              {how.kind !== 'auto' && <Icon name={how.kind === 'missing' ? 'alert' : 'tag'} size={13} />}
-              <bdi>{howText(draft, tr)}</bdi>
+              {how.kind === 'missing' ? (
+                <Icon name="alert" size={13} />
+              ) : how.kind === 'code' ? (
+                <Icon name="tag" size={13} />
+              ) : draft.inApp ? (
+                // 0410: listed as a deal in the guests' app, and no code to show.
+                <Icon name="phone" size={13} />
+              ) : null}
+              <bdi data-testid={draft.inApp ? 'promotion-in-app' : undefined}>{howText(draft, tr)}</bdi>
             </span>
             <span style={muted}>{scopeText(draft.scope, tr, locale)}</span>
           </span>

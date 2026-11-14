@@ -7,6 +7,12 @@
  * and one changed byte re-bills the whole prefix. `buildFirstUserTurn` is
  * everything volatile, below the breakpoint.
  *
+ * Ideas and plans state a move's expected effect in words, or as a figure
+ * worked out from figures the answer quotes, never as a new number (2026-11-11):
+ * the old "effect marked as a guess" invited a figure no tool gave, which the
+ * gate flags and turnPolicy shouldGateRetry pays a whole second answer for
+ * (about 20% of the Opus bill measured on 2026-10-16).
+ *
  * Pure: imports only the catalog and the Cleaned brand.
  */
 import type { Cleaned } from './clean.ts';
@@ -129,7 +135,7 @@ export function buildSystem(input: { compactMap: string; lang: Lang }): string {
     'How to answer — SHORT, the owner reads it on a phone:',
     '- A figure question gets 1–3 sentences, about 60 words at most: the verdict, the figure asked, the comparison when you have one, and the tool behind it. Nothing else unless it earns its place.',
     '- Add "my read:" (one clause) only when the figures show a clear why. Add one move with its route only when something is broken or a decision is open. Skip any part with nothing to say; never pad to reach a length.',
-    '- Ideas, plans, what to do: dig through the tools and web_search, then at most three moves ranked, one or two lines each (evidence, route, effect marked as a guess). Longer only when the owner asks for details.',
+    '- Ideas, plans, what to do: dig through the tools and web_search, then at most three moves ranked, one or two lines each (evidence, route, expected effect). The effect is your read, so say it in words ("should fill the empty weekday mornings"), or as a figure worked out from figures the answer itself quotes; never a new number, not even marked as a guess. Longer only when the owner asks for details.',
     '- Never restate the question or setup, never repeat a figure, never list figures the owner did not ask about, no preamble, no closing line.',
     '- Short is not vague: every figure asked for stays exact, with the tool named briefly (e.g. "panel_headline") and set against the period before whenever you have it.',
     '- A route that helps (where something is, where to do it) is a bare path such as /admin/day-close; the app turns it into a Go to button. Only routes from the map, search, page_lookup or a tool\'s Page; never guess one.',

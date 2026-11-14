@@ -78,6 +78,8 @@ import { WagesDueCard } from '../wages/WagesDueCard';
 import { BreakdownCard, BreakdownFrame, BreakdownRows, type BreakdownItem } from '../../components/BreakdownCards';
 import { Notices } from '../analytics/Notices';
 import { legacyNotices, parseLegacyHistory } from '../analytics/legacyHistory';
+import { oldTillNotices, parseOldTillTotals } from '../analytics/cafe/history';
+import { makeFormatters } from '../analytics/format';
 
 export const PANEL_QUERY_KEY = ['panel', 'headline'] as const;
 
@@ -201,7 +203,13 @@ export function ManagementPanelScreen() {
       </Toolbar>
       {/* 0349: says when the figures include the padel desk's monthly reports
           from before the system, and why a report month the range cuts is out. */}
-      <Notices notices={legacyNotices(parseLegacyHistory(headlineQ.data?.history?.period), 'panel', tr, locale)} />
+      <Notices
+        notices={[
+          ...legacyNotices(parseLegacyHistory(headlineQ.data?.history?.period), 'panel', tr, locale),
+          // 0412: the café figures also hold the old café till's days in the range.
+          ...oldTillNotices(parseOldTillTotals((headlineQ.data?.history?.period as { cafe?: unknown } | null | undefined)?.cafe), 'panel', tr, makeFormatters(locale)),
+        ]}
+      />
 
       <AsyncStateWrapper
         status={status}

@@ -28,4 +28,7 @@ export const opErrorsLoyaltyEn = {
   POINTS_OFF: 'Points can only be spent on rewards here, not as money off the bill.',
   REWARD_NEEDS_BOOKING: 'A free court hour goes on a court booking’s bill. Open the booking’s bill first.',
   REWARD_ALREADY_ON_BOOKING: 'This booking already has a free court hour.',
+  DEAL_UNAVAILABLE: 'That deal has ended. Pull down to see the deals running now.',
+  DEAL_LOCKED: 'That deal is for a higher card. Keep earning points to unlock it.',
+  DEAL_USED: 'You have already used that deal as many times as it allows.',
 };

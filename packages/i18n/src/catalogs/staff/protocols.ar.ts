@@ -546,9 +546,9 @@ export const staffProtocolsAr: DeepMessages<typeof staffProtocolsEn> = {
       pc: 'قطعة',
     },
     class: {
-      A: 'الفئة A',
-      B: 'الفئة B',
-      C: 'الفئة C',
+      A: 'فئة A',
+      B: 'فئة B',
+      C: 'فئة C',
     },
     playYears: {
       under_one: 'أقل من سنة',

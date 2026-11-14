@@ -1,6 +1,8 @@
 /**
  * Answer reuse (reuse.ts, 2026-10-09): which question matches, which stored
- * reply may be shown again. The I/O (finding the chat, re-running the tools,
+ * reply may be shown again (since 2026-11-11 only one whose stored
+ * `stop_reason` is end_turn, when it has one, and never one with an
+ * `error_code`). The I/O (finding the chat, re-running the tools,
  * comparing figures) is assistant-chat's; these are the pure decisions.
  */
 import { describe, it, expect } from 'vitest';
@@ -45,11 +47,23 @@ describe('planReuse', () => {
     expect(p).not.toBeNull();
     expect(p!.rerun).toEqual([]);
   });
-  it('refuses yesterday, a cost-capped turn, an error placeholder and a scope refusal', () => {
+  it('refuses yesterday, a cost-capped turn, an older "[CODE]" error placeholder and a scope refusal', () => {
     expect(plan(reply({ created_at: '2026-10-08T08:00:00Z' }))).toBeNull();
     expect(plan(reply({ tokens: { cost_capped: true } }))).toBeNull();
     expect(plan(reply({ content: [{ type: 'text', text: '[TIMEOUT] The answer took too long.' }] }))).toBeNull();
     expect(plan(reply({ content: [{ type: 'text', text: 'Money context is off for this chat.' }] }))).toBeNull();
+  });
+  it('a stored outcome (persist.ts, 2026-11-11): only end_turn is reusable; a failed, stopped, cut-short or refused answer never is', () => {
+    expect(plan(reply({ tokens: { cost_micros: 1000, stop_reason: 'end_turn' } }))).not.toBeNull();
+    for (const stop_reason of ['stopped', 'max_tokens', 'refusal', 'cost_capped', 'rounds_exhausted', 'job_proposed', 'TIMEOUT']) {
+      expect(plan(reply({ tokens: { stop_reason } })), stop_reason).toBeNull();
+    }
+    // A failed turn that still has text and an ok gate (it had arrived before the failure).
+    expect(plan(reply({ tokens: { stop_reason: 'UPSTREAM', error_code: 'UPSTREAM' } }))).toBeNull();
+    expect(plan(reply({ tokens: { error_code: 'TIMEOUT' } }))).toBeNull();
+    // A failed turn with no text is stored as one empty block now.
+    expect(plan(reply({ content: [{ type: 'text', text: '' }], tokens: { stop_reason: 'TIMEOUT', error_code: 'TIMEOUT' } }))).toBeNull();
+    expect(plan(reply({ content: [{ type: 'text', text: '' }] }))).toBeNull();
   });
   it('refuses an unverified gate, a missing figure baseline and no tools at all', () => {
     expect(plan(reply({ gate: { status: 'unverified', unverified: [{ raw: '9', value: 9 }], checked: 1, numbers: [1] } }))).toBeNull();
@@ -75,5 +89,11 @@ describe('reuse note and warm cache', () => {
     const t = { model: 'claude-sonnet-5-5', effort: 'low' };
     expect(previousTurnOf({ tokens: t, created_at: '2026-10-09T08:00:00Z' })).not.toBeNull();
     expect(previousTurnOf({ tokens: { ...t, reused_from: 'abc' }, created_at: '2026-10-09T08:00:00Z' })).toBeNull();
+  });
+  it('a turn that made no model call warmed no cache; a failed or stopped turn that did call still did', () => {
+    const t = { model: 'claude-sonnet-5-5', effort: 'low' };
+    expect(previousTurnOf({ tokens: { ...t, calls: 0, stop_reason: 'UPSTREAM', error_code: 'UPSTREAM' }, created_at: '2026-10-09T08:00:00Z' })).toBeNull();
+    expect(previousTurnOf({ tokens: { ...t, calls: 2, stop_reason: 'TIMEOUT', error_code: 'TIMEOUT' }, created_at: '2026-10-09T08:00:00Z' })).not.toBeNull();
+    expect(previousTurnOf({ tokens: { ...t, calls: 1, stop_reason: 'stopped' }, created_at: '2026-10-09T08:00:00Z' })).not.toBeNull();
   });
 });

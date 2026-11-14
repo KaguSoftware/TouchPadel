@@ -107,7 +107,7 @@ export const coachingAdminAr: DeepMessages<typeof coachingAdminEn> = {
       levels: 'المستويات التي يدرّبها',
       levelsHint:
         'يختار الزبائن مستوى من صفحة المدرّبين في التطبيق. إن تركت الخيارات الثلاثة دون تحديد، يظهر هذا المدرّب تحت كل المستويات.',
-      level: { beginner: 'مبتدئ', intermediate: 'متوسط', advanced: 'متقدّم' },
+      level: { beginner: 'فئة C', intermediate: 'فئة B', advanced: 'فئة A' },
       notHere: 'لا يدرّب في هذا الفرع. لا تتغيّر أنواع حصصه وأسعاره هنا حتى يُحدَّد هذا الفرع من جديد ضمن الفروع.',
       save: 'حفظ الملف',
       saved: 'حُفظ الملف.',

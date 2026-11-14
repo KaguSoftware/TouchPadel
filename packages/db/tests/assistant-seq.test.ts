@@ -92,6 +92,10 @@ describe('wiring', () => {
   });
 
   it('assistant-job writes its answer through it', () => {
-    expect(read('../supabase/functions/assistant-job/index.ts')).toMatch(/insertAtNextSeq\(/);
+    // The reduce step (Book.reduce) moved to jobRunner.ts on 2026-11-11; index.ts writes no message.
+    const runner = read('../supabase/functions/_shared/assistant/jobRunner.ts');
+    expect(runner).toMatch(/insertAtNextSeq\(/);
+    expect(runner).not.toMatch(/seq: [a-z]\w* \+ 1/);
+    expect(read('../supabase/functions/assistant-job/index.ts')).not.toMatch(/from\('assistant_messages'\)/);
   });
 });

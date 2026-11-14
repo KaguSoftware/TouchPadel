@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, RefreshControl, SectionList, View } from 'react-native';
-import { Text } from '../../src/i18n/text';
-import { useRouter } from 'expo-router';
-import { useTabBarHeight } from '../../src/components/useTabBarHeight';
+import { Text } from '../src/i18n/text';
+import { Stack, useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { clearBarOptions, useClearBarPad } from '../src/navigation/clearBar';
+import { useDownToTab } from '../src/navigation/back';
 import {
   countPhrase,
   formatDate,
@@ -13,47 +15,47 @@ import {
   isolate,
 } from '@touch/i18n';
 import { pickLocale } from '@touch/core';
-import { useLocale } from '../../src/i18n/LocaleProvider';
-import { useScreenFocused } from '../../src/lib/useScreenFocused';
-import { useMyBookings, useReleaseHold } from '../../src/features/booking/hooks';
-import { usePullRefresh } from '../../src/lib/usePullRefresh';
+import { useLocale } from '../src/i18n/LocaleProvider';
+import { useScreenFocused } from '../src/lib/useScreenFocused';
+import { useMyBookings, useReleaseHold } from '../src/features/booking/hooks';
+import { usePullRefresh } from '../src/lib/usePullRefresh';
 import {
   cancelActorLabel,
   secondsUntil,
   startProximity,
   type BookingRow,
   type StartProximity,
-} from '../../src/features/booking/logic';
-import { useHistoryClearedAt } from '../../src/features/booking/history';
-import { matchLineOf, matchPillStatus, matchShareOf } from '../../src/features/booking/matchRows';
-import { useMyMatches, useMyTickets } from '../../src/features/matches/hooks';
-import { SEATS_TOTAL, type MyMatchRow } from '../../src/features/matches/logic';
+} from '../src/features/booking/logic';
+import { useHistoryClearedAt } from '../src/features/booking/history';
+import { matchLineOf, matchPillStatus, matchShareOf } from '../src/features/booking/matchRows';
+import { useMyMatches, useMyTickets } from '../src/features/matches/hooks';
+import { SEATS_TOTAL, type MyMatchRow } from '../src/features/matches/logic';
 import {
   mergeReservationLists,
   type ReservationItem,
-} from '../../src/features/matches/reservations';
-import type { GuestState } from '../../src/features/matches/state';
-import { MatchRow } from '../../src/components/match';
-import { onlinePaymentOf, openPaymentRef, refundNoteKey } from '../../src/features/deposit/logic';
-import { onlinePaymentsShipped } from '../../src/features/deposit/enabled';
-import { mapErrorToKey } from '../../src/features/booking/errors';
+} from '../src/features/matches/reservations';
+import type { GuestState } from '../src/features/matches/state';
+import { MatchRow } from '../src/components/match';
+import { onlinePaymentOf, openPaymentRef, refundNoteKey } from '../src/features/deposit/logic';
+import { onlinePaymentsShipped } from '../src/features/deposit/enabled';
+import { mapErrorToKey } from '../src/features/booking/errors';
 import {
   useAllCourts,
   useBranches,
   useCourtsBroadcast,
   useGuestVenue,
   useVenueSettings,
-} from '../../src/features/availability/hooks';
-import { useMyLessons } from '../../src/features/coaching/hooks';
+} from '../src/features/availability/hooks';
+import { useMyLessons } from '../src/features/coaching/hooks';
 import {
   anyCoaching,
   displayCoachName,
   holdLive,
   lessonTitle,
-} from '../../src/features/coaching/logic';
-import { lessonStateOf, moneyLineOf, stateLine } from '../../src/features/coaching/state';
-import { LessonRow } from '../../src/components/coaching';
-import { useTournamentsPublic } from '../../src/features/tournaments/hooks';
+} from '../src/features/coaching/logic';
+import { lessonStateOf, moneyLineOf, stateLine } from '../src/features/coaching/state';
+import { LessonRow } from '../src/components/coaching';
+import { useTournamentsPublic } from '../src/features/tournaments/hooks';
 import {
   anyTournaments,
   myTournamentEntries,
@@ -61,14 +63,13 @@ import {
   tournamentName,
   type MyTournamentEntries,
   type TourListItem,
-} from '../../src/features/tournaments/logic';
-import { DEFAULT_TZ } from '../../src/features/availability/assemble';
-import { useAuth } from '../../src/features/auth/context';
-import { requestBookingSheet } from '../../src/features/courtTransition/openIntent';
-import { formatPrice } from '../../src/lib/price';
-import { radius, space, useTheme } from '../../src/theme';
-import { Button, Screen, TAB_TITLE_TOP, Title } from '../../src/components/ui';
-import { AccountButton } from '../../src/components/AccountButton';
+} from '../src/features/tournaments/logic';
+import { DEFAULT_TZ } from '../src/features/availability/assemble';
+import { useAuth } from '../src/features/auth/context';
+import { requestBookingSheet } from '../src/features/courtTransition/openIntent';
+import { formatPrice } from '../src/lib/price';
+import { radius, space, useTheme } from '../src/theme';
+import { Button, Screen } from '../src/components/ui';
 import {
   FilterChip,
   HeldSlotCard,
@@ -76,7 +77,7 @@ import {
   NextUpCard,
   PastBookingRow,
   UpcomingBookingRow,
-} from '../../src/components/booking';
+} from '../src/components/booking';
 import {
   CalendarIcon,
   CheckIcon,
@@ -86,9 +87,9 @@ import {
   PadelBallIcon,
   ReceiptIcon,
   StopwatchIcon,
-} from '../../src/components/icons';
-import { EmptyState, ErrorState, SkeletonList } from '../../src/components/states';
-import { useToast } from '../../src/components/overlays';
+} from '../src/components/icons';
+import { EmptyState, ErrorState, SkeletonList } from '../src/components/states';
+import { useToast } from '../src/components/overlays';
 
 /** Which list the chips under the title are showing. */
 type Tab = 'upcoming' | 'played' | 'cancelled';
@@ -121,7 +122,12 @@ function withTournaments(
 }
 
 /**
- * My reservations tab (design 2026-08-31; "more life" pass 2026-09-05).
+ * My reservations (design 2026-08-31; "more life" pass 2026-09-05).
+ *
+ * A root-stack page opened from Profile's "My reservations" row since 2026-11-12 (Majed): it was
+ * the bar's first tab, and Rankings (the players' leaderboard, app/(tabs)/ranks.tsx) took that
+ * slot. The native bar gives it its title and back; the bar is clear so the page's frosted
+ * ground runs up under it, as Profile's does.
  *
  * Upcoming as date-badge cards, Past as a muted list, both routing into booking
  * detail — cancellation lives THERE now. Signed-out shows the empty state with
@@ -203,7 +209,9 @@ export default function BookingsScreen() {
   const { t, locale } = useLocale();
   const { colors, fonts, appearance } = useTheme();
   const router = useRouter();
-  const tabBarHeight = useTabBarHeight();
+  const downToTab = useDownToTab();
+  const insets = useSafeAreaInsets();
+  const barPad = useClearBarPad();
   const { session } = useAuth();
   const bookings = useMyBookings();
   // `upcoming` is every match not ended, plus the last 24 hours' (my_matches):
@@ -247,7 +255,7 @@ export default function BookingsScreen() {
   const toast = useToast();
   // Desk moves/cancels reflect live, on the guest's branch's topic; a booking
   // at another branch still refreshes on the list's own refetch. Only while the
-  // tab is in front: a tab stays mounted behind the others, and the connection
+  // page is in front: a page stays mounted under the ones pushed over it, and the connection
   // is one of the Free plan's 200 (coming back re-reads what was missed).
   useCourtsBroadcast(useGuestVenue().venueId, useScreenFocused());
 
@@ -260,13 +268,13 @@ export default function BookingsScreen() {
     return () => clearInterval(id);
   }, []);
 
-  // "Book your next game →": the Book tab owns the day picker now, so hand it
-  // the intent and switch tabs — it plays the court → booking transition on
-  // focus instead of stack-pushing the standalone grid over this screen.
+  // "Book your next game →": the Book tab owns the day picker, so hand it the
+  // intent and go down to it — this page closes and the tab plays the court →
+  // booking transition on focus instead of a grid being pushed over this page.
   const bookNext = useCallback(() => {
     requestBookingSheet();
-    router.navigate('/(tabs)');
-  }, [router]);
+    downToTab('/(tabs)');
+  }, [downToTab]);
 
   // Bookings and matches in one split. Everything below counts the VISIBLE
   // past, so a cleared history takes the "N played" chip and the empty state
@@ -629,14 +637,8 @@ export default function BookingsScreen() {
   );
 
   const header = (
-    <View style={{ paddingTop: TAB_TITLE_TOP }}>
-      <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: space.sm }}>
-        <View style={{ flex: 1 }}>
-          <Title>{t('booking.myBookings')}</Title>
-        </View>
-        <AccountButton testID="bookings.account" />
-      </View>
-
+    <View style={{ paddingTop: space.s }}>
+      <Stack.Screen options={{ title: t('booking.myBookings'), ...clearBarOptions }} />
       {tabs}
       {heldSection}
       {openSection}
@@ -644,7 +646,7 @@ export default function BookingsScreen() {
     </View>
   );
 
-  const bottomPad = { paddingBottom: tabBarHeight + 24 };
+  const bottomPad = { paddingBottom: insets.bottom + 24 };
 
   // "Book your next game" in dark mode (owner, 2026-09-08). Light draws it as a
   // dashed placeholder on a white card — a shape waiting to be filled. In blue
@@ -660,7 +662,7 @@ export default function BookingsScreen() {
   // Signed-out: same empty state, with the sign-in path.
   if (!session) {
     return (
-      <Screen pattern="blur">
+      <Screen pattern="blur" edges={[]} style={barPad}>
         {header}
         <View style={[{ flex: 1 }, bottomPad]}>
           <EmptyState
@@ -680,7 +682,7 @@ export default function BookingsScreen() {
 
   if (bookings.isLoading) {
     return (
-      <Screen pattern="blur">
+      <Screen pattern="blur" edges={[]} style={barPad}>
         {header}
         <SkeletonList rows={3} height={78} />
       </Screen>
@@ -690,7 +692,7 @@ export default function BookingsScreen() {
   // An error is never presented as "no bookings" — that lie shipped once.
   if (bookings.isError) {
     return (
-      <Screen pattern="blur">
+      <Screen pattern="blur" edges={[]} style={barPad}>
         {header}
         <View style={[{ flex: 1 }, bottomPad]}>
           <ErrorState
@@ -1072,7 +1074,7 @@ export default function BookingsScreen() {
   };
 
   return (
-    <Screen pattern="blur">
+    <Screen pattern="blur" edges={[]} style={barPad}>
       {noBookings ? (
         <>
           {header}

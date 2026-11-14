@@ -13,6 +13,24 @@
  * so a stored turn is always API-valid on replay. It runs even after the loop
  * threw: a turn that failed still stores what it spent.
  *
+ * How the turn ended (2026-11-11; the clients read it through
+ * packages/core/src/assistant/outcome.ts `turnOutcome`): every stored
+ * assistant row carries `tokens.stop_reason` — `stopped` for a client that
+ * left (Stop, page closed), the failure's code for a failed turn (the same
+ * value the live `done` event carries), otherwise the loop's (end_turn,
+ * job_proposed, max_tokens, refusal, cost_capped, rounds_exhausted) — and
+ * `tokens.error_code` only for a failed turn (TIMEOUT, UPSTREAM,
+ * RATE_LIMITED, NOT_CONFIGURED; a Stop is not a failure). A failed or stopped
+ * turn stores the text that had arrived, or ONE EMPTY text block: the old
+ * literal "[CODE] sentence" text is gone (the code is in `error_code`).
+ *
+ * The spend is never dropped silently: `llm_record_usage` and
+ * `llm_record_web_search` are retried once after `recordRetryMs`, then logged
+ * loudly with the amounts ("SPEND NOT RECORDED") for a reconcile by hand.
+ * Nothing here is cancelled by the turn's abort signal: the service client
+ * carries none, and `signal` is read only to keep a stopped or timed-out
+ * turn's freshly built context out of the conversation (contextStorable).
+ *
  * Deno-only (Deno.env, crypto.subtle, npm:@supabase/supabase-js types).
  */
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2';
@@ -36,6 +54,32 @@ const SURFACE = 'assistant';
  * cap is recorded by `app.llm_record_web_search` from the column itself.
  */
 const WEB_SEARCH_MICROS_FALLBACK = 10_000;
+
+/** The pause before the one retry of a spend record (llm_record_usage, llm_record_web_search). */
+export const RECORD_RETRY_MS = 750;
+
+/**
+ * One spend RPC, retried once after `retryMs` when it fails; a second failure
+ * is logged loudly with its arguments (the amounts), so the spend can be
+ * reconciled by hand. Never throws.
+ */
+async function recordSpend(service: SupabaseClient, fn: string, args: Record<string, unknown>, retryMs: number, messageId: string): Promise<boolean> {
+  const call = async (): Promise<unknown> => {
+    try {
+      return (await service.schema('app').rpc(fn, args)).error ?? null;
+    } catch (e) {
+      return e ?? 'threw';
+    }
+  };
+  const first = await call();
+  if (!first) return true;
+  logError('assistant-chat', first, `${fn} failed; retrying once`);
+  await new Promise((r) => setTimeout(r, retryMs));
+  const second = await call();
+  if (!second) return true;
+  logError('assistant-chat', second, `SPEND NOT RECORDED: ${fn} failed twice for message ${messageId}; reconcile by hand: ${JSON.stringify(args)}`);
+  return false;
+}
 
 /** The highest seq of a conversation, 0 when it has none (assistant/seq.ts ports). */
 async function maxSeq(service: SupabaseClient, conversationId: string): Promise<number> {
@@ -134,7 +178,12 @@ export interface PersistInput {
   freshContext: FrozenContext | null;
   /** The turn's signal, read when the context is written: a Stop or the wall during persist keeps it out, as before. */
   signal: AbortSignal;
+  /** The turn failed (TIMEOUT is the 50 s wall, never a Stop): stored as `error_code` and `stop_reason`. */
   errorOut: { code: string; message: string } | null;
+  /** The client left (Stop, page closed) before the turn ended: `stop_reason: 'stopped'`, no error_code. */
+  stopped?: boolean;
+  /** The pause before a failed spend record's one retry; RECORD_RETRY_MS by default (tests pass 0). */
+  recordRetryMs?: number;
   /** The message a reused answer came from; null for a normal turn. */
   reusedFrom: string | null;
   gateSign: ((input: string) => Promise<string>) | null;
@@ -144,6 +193,8 @@ export interface PersistInput {
 
 export async function persistTurn(d: PersistInput): Promise<void> {
   const { service, model, route, turn, convId, convTitle, assistantMessageId, handles, scopes, ownerText, freshContext, signal, errorOut, reusedFrom, gateSign, emit } = d;
+  const stopped = d.stopped === true && !errorOut;
+  const retryMs = d.recordRetryMs ?? RECORD_RETRY_MS;
   const { calls, sources, allowed } = turn;
   // The loop has ended (or thrown): its state is final from here on.
   const { webSearches, costCapped, finalContent, finalText, gate, gateRetried, jobEstimate } = turn;
@@ -173,11 +224,15 @@ export async function persistTurn(d: PersistInput): Promise<void> {
     effort: route.effort,
     ...(costCapped ? { cost_capped: true } : {}),
     ...(reusedFrom ? { reused_from: reusedFrom } : {}),
+    // How the turn ended (header; outcome.ts turnOutcome reads these two).
+    stop_reason: errorOut ? errorOut.code : stopped ? 'stopped' : turn.stopReason,
+    ...(errorOut ? { error_code: errorOut.code } : {}),
   };
   // A web answer's text blocks carry citations that only make sense beside
   // that turn's search results; the stored turn keeps the text as one block.
   const content = hasCitations(finalContent) ? [{ type: 'text', text: textOf(finalContent) }] : withoutThinking(finalContent).filter((b) => b.type === 'text');
-  const stored = content.length ? content : [{ type: 'text', text: finalText || (errorOut ? `[${errorOut.code}] ${errorOut.message}` : '') }];
+  // No text at all (a failed turn before any answer): one empty block, never a placeholder sentence.
+  const stored = content.length ? content : [{ type: 'text', text: finalText }];
   // The re-check baseline: every number the tools and the pre-search gave this turn,
   // deduped, beside the gate verdict (cited web figures and the previous
   // answer's figures are accepted by the gate but not repeated here).
@@ -223,22 +278,18 @@ export async function persistTurn(d: PersistInput): Promise<void> {
     if (ins.error) logError('assistant-chat', ins.error, 'calls not stored');
   }
   if (calls.length) {
-    // In every path, like analytics-insights: a timed-out turn still spent the money.
-    const rec = await service.schema('app').rpc('llm_record_usage', {
-      p_model: model,
-      p_input: usage.input,
-      p_cache_write: usage.cache_write,
-      p_cache_read: usage.cache_read,
-      p_output: usage.output,
-      p_model_calls: calls.length,
-      p_surface: SURFACE,
-    });
-    if (rec.error) logError('assistant-chat', rec.error, 'usage not recorded');
+    // In every path, like analytics-insights: a timed-out or stopped turn still spent the money.
+    await recordSpend(
+      service,
+      'llm_record_usage',
+      { p_model: model, p_input: usage.input, p_cache_write: usage.cache_write, p_cache_read: usage.cache_read, p_output: usage.output, p_model_calls: calls.length, p_surface: SURFACE },
+      retryMs,
+      assistantMessageId,
+    );
   }
   if (webSearches) {
     // Searches are billed apart from tokens; the cap must see them too (0324).
-    const rec = await service.schema('app').rpc('llm_record_web_search', { p_searches: webSearches });
-    if (rec.error) logError('assistant-chat', rec.error, 'web searches not recorded');
+    await recordSpend(service, 'llm_record_web_search', { p_searches: webSearches }, retryMs, assistantMessageId);
   }
   // 0405: THIS turn's delta, added to the stored tokens in SQL on the locked
   // row. Until 2026-11-09 the edge wrote conv.tokens (read at turn start) +

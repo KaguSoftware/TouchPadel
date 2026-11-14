@@ -64,6 +64,19 @@ describe('applyEvent', () => {
     expect(turn.tools).toEqual([expect.objectContaining({ call_id: 't1', pending: false, row_count: 3, stats: { sum: 9 } })]);
     expect(turn.done).toBe(true);
     expect(turn.assistantMessageId).toBe('m1');
+    expect(turn.stopReason).toBe('end_turn');
+  });
+
+  it('keeps the done event’s stop_reason, and none before done', () => {
+    expect(emptyTurn(null, 'q').stopReason).toBeNull();
+    expect(fold([['done', { message_id: 'm1', stop_reason: 'max_tokens' }]]).stopReason).toBe('max_tokens');
+    expect(fold([['done', { message_id: 'm1' }]]).stopReason).toBeNull();
+    const failed = fold([
+      ['error', { code: 'TIMEOUT', message: 'x' }],
+      ['done', { message_id: 'm1', stop_reason: 'TIMEOUT' }],
+    ]);
+    expect(failed.error?.code).toBe('TIMEOUT');
+    expect(failed.stopReason).toBe('TIMEOUT');
   });
 
   it('adds a row for a tool_end whose start never arrived', () => {

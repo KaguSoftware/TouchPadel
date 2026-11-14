@@ -1,5 +1,5 @@
 import { useState, type ComponentType, type ReactNode } from 'react';
-import { Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, View } from 'react-native';
+import { Image, Pressable, ScrollView, View } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -12,6 +12,7 @@ import { ErrorState, SkeletonList } from '../../src/components/states';
 import { useToast } from '../../src/components/overlays';
 import { DateTimeField } from '../../src/components/DateTimeField';
 import { PhotoButton } from '../../src/components/PhotoButton';
+import { KeyboardAvoid } from '../../src/components/KeyboardAvoid';
 import {
   CheckIcon,
   CourtIcon,
@@ -433,7 +434,7 @@ function IncidentReportScreen() {
   return (
     <Screen pattern="blur" clearBar edges={[]}>
       <Stack.Screen options={{ title: t('ws.incidents.form.title') }} />
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 0}>
+      <KeyboardAvoid footerPad={Math.max(insets.bottom, space.m)}>
         <ScrollView
           contentContainerStyle={{ paddingTop: space.m, paddingBottom: space.xl, gap: space.l }}
           keyboardShouldPersistTaps="handled"
@@ -560,7 +561,7 @@ function IncidentReportScreen() {
             )}
           </View>
         </View>
-      </KeyboardAvoidingView>
+      </KeyboardAvoid>
     </Screen>
   );
 }

@@ -5,7 +5,7 @@ import { LocaleProvider } from '../../lib/i18n';
 import { ToastProvider } from '../../components/toast';
 import { EdgeError } from '../../lib/edge';
 import { resetModeMemory } from './mode';
-import { FREE_CHATS_KEY, resetFreeChatsMemory } from './freeChats';
+import { freeChatsKey, resetFreeChatsMemory } from './freeChats';
 
 // The free thread asks the router which paths are pages, and auth who is asking.
 const h = vi.hoisted(() => ({
@@ -105,7 +105,7 @@ describe('FreeThread', () => {
       { role: 'user', text: 'Where do I see my tasks?' },
       { role: 'assistant', text: 'Open /tasks for your list; the owner sets staff on /admin/staff.' },
     ]);
-    await waitFor(() => expect(JSON.parse(localStorage.getItem(FREE_CHATS_KEY)!).chats[0].exchanges).toHaveLength(2));
+    await waitFor(() => expect(JSON.parse(localStorage.getItem(freeChatsKey('u1'))!).chats[0].exchanges).toHaveLength(2));
   });
 
   it("gives the owner the owner's links, and Free AI is just a pressed model: Sonnet goes back to paid on Sonnet", async () => {

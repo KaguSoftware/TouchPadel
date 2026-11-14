@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import type { ReactNode } from 'react';
 import { makeT, type Locale } from '@touch/i18n';
 import { requireLocale } from '@/lib/locales';
-import { COACH_LEVELS } from '@touch/core/coaching';
+import { COACH_LEVELS_BY_TYPE } from '@touch/core/coaching';
 import { getCachedCoaching } from '@/lib/coaching.server';
 import {
   coachBio,
@@ -216,7 +216,7 @@ function CoachCard({
                 ) : null}
               </p>
               <ul className="tp-clink__level-list">
-                {COACH_LEVELS.map((level) => (
+                {COACH_LEVELS_BY_TYPE.map((level) => (
                   <li
                     key={level}
                     className="tp-clink__level"

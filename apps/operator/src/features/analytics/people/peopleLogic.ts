@@ -10,10 +10,13 @@
  * PURE (no React, no network), so vitest runs it under node.
  */
 
+import { foldTypeRows, typeBucketOf } from '@touch/core';
+
 /** The buckets, in the order every card prints them. `unknown` always last. */
 export const GENDER_ORDER = ['female', 'male', 'unknown'] as const;
 export const AGE_ORDER = ['u18', '18_24', '25_34', '35_44', '45_54', '55_plus', 'unknown'] as const;
-export const LEVEL_ORDER = ['new', 'beginner', 'intermediate', 'advanced', 'unknown'] as const;
+/** Type A, B, C (players/playerType); `new` is folded into `beginner` (both Type C) on parse. */
+export const LEVEL_ORDER = ['advanced', 'intermediate', 'beginner', 'unknown'] as const;
 /** The derived interest tags (0368), in the server's own order. */
 export const INTEREST_ORDER = [
   'courts',
@@ -161,7 +164,15 @@ export function parsePeople(json: unknown): PeopleData {
     },
     genders: ordered(arr(o.genders).map(bucket).filter((b) => b.bucket !== ''), GENDER_ORDER),
     ages: ordered(arr(o.ages).map(bucket).filter((b) => b.bucket !== ''), AGE_ORDER),
-    levels: ordered(arr(o.levels).map(bucket).filter((b) => b.bucket !== ''), LEVEL_ORDER),
+    levels: ordered(
+      foldTypeRows(
+        arr(o.levels).map(bucket).filter((b) => b.bucket !== ''),
+        (b) => b.bucket,
+        ['guests', 'plays', 'bookings', 'spendIqd', 'share', 'judged'],
+        (b) => ({ ...b, bucket: typeBucketOf(b.bucket) }),
+      ),
+      LEVEL_ORDER,
+    ),
     judged: {
       checked: num(j.checked),
       agree: num(j.agree),
@@ -175,19 +186,23 @@ export function parsePeople(json: unknown): PeopleData {
       const guests = num(row.guests);
       return guests > 0 ? [{ bucket: tag as string, guests, share: share(row.share) }] : [];
     }),
-    segments: arr(o.segments)
-      .map((r) => {
-        const s = obj(r);
-        return {
-          who: str(s.who),
-          band: str(s.band),
-          level: str(s.level),
-          guests: num(s.guests),
-          plays: num(s.plays),
-          spendIqd: num(s.spend_iqd),
-        };
-      })
-      .filter((s) => s.who !== ''),
+    segments: foldTypeRows(
+      arr(o.segments)
+        .map((r) => {
+          const s = obj(r);
+          return {
+            who: str(s.who),
+            band: str(s.band),
+            level: typeBucketOf(str(s.level)),
+            guests: num(s.guests),
+            plays: num(s.plays),
+            spendIqd: num(s.spend_iqd),
+          };
+        })
+        .filter((s) => s.who !== ''),
+      (s) => `${s.who}|${s.band}|${s.level}`,
+      ['guests', 'plays', 'spendIqd'],
+    ),
     peak: arr(o.peak)
       .map((r) => {
         const s = obj(r);

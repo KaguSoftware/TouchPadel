@@ -75,7 +75,8 @@ const VISIT_BUCKETS = ['1', '2_3', '4_6', '7_plus'] as const;
 // leaves out any bucket under ten guests, so a row may simply be absent.
 const GENDER_BUCKETS = ['female', 'male', 'unknown'] as const;
 const AGE_BUCKETS = ['u18', '18_24', '25_34', '35_44', '45_54', '55_plus', 'unknown'] as const;
-const LEVEL_BUCKETS = ['new', 'beginner', 'intermediate', 'advanced', 'unknown'] as const;
+// Type A, B, C (players/playerType); the parser folds `new` into `beginner`.
+const LEVEL_BUCKETS = ['advanced', 'intermediate', 'beginner', 'unknown'] as const;
 const INTEREST_BUCKETS = [
   'courts', 'matches', 'tournaments', 'lessons', 'cafe', 'shop', 'regular',
   'weekend', 'evenings', 'daytime', 'late', 'group', 'offers', 'ranked',
@@ -237,7 +238,7 @@ function glanceLead(d: Insights, w: Words): string {
 }
 
 /**
- * "Most of the crowd is women, 25 to 34, playing at an intermediate level" —
+ * "Mostly women (52%), aged 25 to 34, mostly Type B players" —
  * built from the biggest bucket of each kind, and honest when the club knows
  * too little to say (0369, Majed: the marketing team needs this).
  */

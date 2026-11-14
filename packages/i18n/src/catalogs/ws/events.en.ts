@@ -13,7 +13,7 @@ export const eventsEn = {
       players: '{count} players',
       pairs: '{count} pairs',
     },
-    classLabel: 'Class {class}',
+    classLabel: 'Type {class}',
     windows: 'Courts and times',
     noWindows: 'The plan names no courts yet. Ask the manager to check the plan.',
     columns: {

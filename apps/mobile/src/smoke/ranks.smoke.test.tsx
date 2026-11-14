@@ -15,7 +15,7 @@ import { renderRoute } from '../test/smoke';
 import { routerState } from '../test/routerState';
 import { ranksKeys } from '../features/ranks/keys';
 import { parseBoard, parseMyRanks } from '../features/ranks/logic';
-import ClubScreen from '../../app/(tabs)/club';
+import RanksTab from '../../app/(tabs)/ranks';
 import { RanksView } from '../features/ranks/RanksView';
 import RanksReportScreen from '../../app/ranks-report';
 
@@ -108,10 +108,19 @@ const reportParams = {
   courtAr: 'الملعب 2',
 };
 
-// The leaderboard is a segment of Club (2026-10-25); its view is rendered bare here.
+// The states below render the shared view bare; the tab itself is cased in CASES.
 const RanksScreen = () => <RanksView bottomPad={0} />;
 
 const CASES: SmokeCase[] = [
+  // Rankings, the bar's first tab (2026-11-12). Signed out the board is public and the sign-in
+  // sits under it.
+  {
+    route: 'ranks',
+    Component: RanksTab,
+    labelKey: 'auth.signIn',
+    nearbyKey: 'tabs.ranks',
+    options: { session: 'out', queryData: [[ranksKeys.board, boardFixture()]] },
+  },
   {
     route: 'ranks-report',
     Component: RanksReportScreen,
@@ -122,21 +131,16 @@ const CASES: SmokeCase[] = [
 
 runSmokeCases('the leaderboard', CASES);
 
-describe.each<Locale>(['en', 'ar'])('Club carries the leaderboard in %s', (locale) => {
+describe.each<Locale>(['en', 'ar'])('the Rankings tab in %s', (locale) => {
   const t = makeT(locale);
 
-  it('offers Ranks between the member card and the café menu, and opens it on a show=ranks', () => {
-    const screen = renderRoute(ClubScreen, {
-      locale,
-      session: 'in',
-      params: { show: 'ranks' },
-      queryData: signedInSeeds(),
-    });
+  it('titles the tab Rankings and shows the board with the guest on it', () => {
+    const screen = renderRoute(RanksTab, { locale, session: 'in', queryData: signedInSeeds() });
     try {
-      const labels = [t('loyalty.guest.card.title'), t('tabs.ranks'), t('profile.cafeMenu')];
-      const view = screen.getByTestId('club.view');
-      for (const label of labels) expect(within(view).getByText(label)).toBeTruthy();
+      expect(screen.getByText(t('tabs.ranks'))).toBeTruthy();
+      expect(screen.getByTestId('ranks.account')).toBeTruthy();
       expect(screen.getByTestId('ranks.podium')).toBeTruthy();
+      expect(screen.getByTestId('ranks.me')).toBeTruthy();
     } finally {
       screen.unmount();
     }

@@ -457,8 +457,8 @@ export const protocolsAr: DeepMessages<typeof protocolsEn> = {
   options: {
     unit: { g: 'غ', ml: 'مل', pc: 'قطعة' },
     capacity_unit: { players: 'لاعبون', pairs: 'أزواج' },
-    class: { A: 'A', B: 'B', C: 'C' },
-    classes: { A: 'A', B: 'B', C: 'C' },
+    class: { A: 'فئة A', B: 'فئة B', C: 'فئة C' },
+    classes: { A: 'فئة A', B: 'فئة B', C: 'فئة C' },
     play_years: { under_one: 'أقل من سنة', one_to_three: 'من سنة إلى ثلاث سنوات', three_plus: 'أكثر من ثلاث سنوات' },
     format: { americano: 'أمريكانو', mexicano: 'مكسيكانو', knockout: 'خروج المغلوب', league: 'دوري' },
     when: { now: 'الآن', date: 'في تاريخ محدد' },

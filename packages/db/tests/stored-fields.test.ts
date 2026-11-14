@@ -578,6 +578,9 @@ const GUEST_DATA: Record<string, Record<string, Field>> = {
     secret: { category: 'Device or other IDs', why: 'the key the guest’s phone or browser computes the rotating member QR from', onDelete: 'row' },
     created_at: n, rotated_at: n,
     last_counter: n,   // 0308: the last spent token step (a counter, names nobody)
+    // 0410: the listed deal the member picked to use next; it goes with the card's row
+    deal_promotion_id: { category: 'App activity', why: 'the deal the member picked in the app, so the cashier applies it when the card is scanned', onDelete: 'row' },
+    deal_picked_at: n, deal_uses_before: n,
   },
   // The points ledger is append-only and stays on the tombstone for the venue's figures
   // (contracts §1.4): a delta names nobody once the profile is the tombstone.

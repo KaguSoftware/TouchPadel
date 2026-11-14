@@ -17,6 +17,72 @@ is a line in that file.
 
 ## Migrations
 
+- **0412–0413 (2026-11-13, legacy_cafe_history; Majed: the old till's sales in analytics, and the
+  assistant must see them):** tables `legacy_cafe_hours` (per calendar day and clock hour of the
+  old Morabaa till, 2 June to 31 October 2026: the items reports' lines, units, money and tickets,
+  and the orders reports' orders, money, discounts and money received, NULL on a day no orders
+  report covers), `legacy_cafe_item_days` (day, product name, unit price: units) and
+  `legacy_cafe_products` (OUR grouping and the owner's stated cost per product and price), owner
+  read only, no client write, `zz_branch_guard`, all in `app.assistant_readable_columns`; the
+  `security_invoker` view `legacy_cafe_days` (one figure per day: the larger gross of the two
+  reports, net = received + the items money the orders report lacks, NULL discounts where
+  unknown). The internal `app.legacy_cafe_totals(p_venues, p_from, p_to)` and
+  `app.legacy_cafe_add_to_figures(p_fig, p_lc)` are the café's twins of the padel helpers, day by
+  day (a range may cut a month). **0412 holds `analytics_daily_sales`** (0346 no longer: an
+  old-till day is a row, its money in revenue_iqd / cafe_gross_iqd / cafe_net_iqd / goods_iqd, its
+  orders in tabs_settled / orders / visits / till_orders, plus `old_till_iqd` and
+  `old_till_discount_known`; cash, card, refunds and waste get nothing), **`analytics_hourly`**
+  (0095 no longer) **and `panel_headline`** (0349 no longer: cafeRevenue, cafeNet, revenue, orders,
+  discounts and a recomputed avgOrderValue include the old till, `history.period.cafe` /
+  `history.comparison.cafe` say how much). `reports_figures`, `legacy_report_totals` and
+  `legacy_add_to_figures` are untouched. New owner RPC `analytics_cafe_history(p_from, p_to)`
+  (months, groups, products of the old till; product names are the till's, never menu items).
+  0413 is GENERATED (`scripts/lib/legacy-cafe.mjs` from `client-data/cafe-pos-2026/history-*.csv`,
+  written by `extract.py` from the PDFs) except its first section, which writes the owner's cost
+  sheet onto `menu_item_costs` by menu item id AND English name (a no-op on any database whose
+  menu differs, never over an existing cost). Because the rows load on EVERY database at venue A,
+  a test that reads `analytics_daily_sales`, `analytics_hourly` or `panel_headline` over days up
+  to 31 October 2026 sees them: assert the system's own part (subtract `legacy_cafe_days`, as
+  `cafe-stock-analytics.test.ts` does) or use later days. `tests/legacy-cafe.test.ts`,
+  `tests/legacy-cafe-source.test.ts`.
+- **0410 (2026-11-12, loyalty_deals_perks; Majed: deals in the app beside the points, and cards
+  that give privileges, not only extra points):** a deal is a promotion the owner lists in the app
+  (`promotions.in_app`, guest line `app_blurb_en`/`_ar`, written by `set_promotion_app`, owner only;
+  `upsert_promotion` and the price and promo protocol are untouched). A guest reads `my_deals` and
+  picks one with `pick_deal` (`DEAL_UNAVAILABLE`, `DEAL_LOCKED`, `DEAL_USED`); the pick sits on
+  `loyalty_cards` (`deal_promotion_id`, `deal_picked_at`, `deal_uses_before`) for 24 hours or until
+  a bill carrying it settles (`app.loyalty_picked_deal`: one pick is one use, counted on settled
+  redemptions, never on timestamps). `eligible_promotions` takes a listed promotion the tab's
+  customer picked with no code and sorts it first, so the unchanged `apply_best_promotion` applies
+  it: a listed promotion that is not automatic and has no code is an "in the app only" deal.
+  Table `loyalty_tier_perks` (no client grant): what a tier gives, kind `free_addons`
+  (`modifier_group_ids`, empty = every add-on) or `custom` (honoured by hand), written by
+  `upsert_loyalty_tier_perk` / `delete_loyalty_tier_perk` (owner). A card holds its tier's
+  privileges and those of every tier below (`app.loyalty_tier_floor`). Free add-ons reach a bill
+  as LINE discounts (`tab_adjustments.order_item_id` set, `reason_code = 'loyalty_tier_perk'`,
+  authorized_by the privilege's maker), planned by `app.loyalty_perks_plan` and written by
+  `loyalty_perks_refresh` (desk roles, no PIN, state-idempotent, 0037 guard answered as data),
+  which the operator calls whenever a bill with a member changes, like 0342's customer discount;
+  no trigger writes them, so a bill nobody opened at a till carries none. A reader that groups
+  discounts by `reason_code` must know `loyalty_tier_perk`. `loyalty_tab_benefits` is the till's
+  read (tier, privileges, the picked deal, whether a refresh is due). **0410 holds
+  `eligible_promotions`** (0382 no longer), **`loyalty_tier_json`, `loyalty_admin`** (0376 no
+  longer; the tier answer gains `min_points_12m`, the admin tiers `perks`) and **`my_loyalty`**
+  (0403 no longer; it gains `tiers`, the whole ladder with each tier's privileges and listed
+  deals). No index is created (the gate refuses a non-concurrent one; both tables are small).
+  `tests/loyalty-deals-perks.test.ts`.
+- **0406 (2026-11-11, assistant_branch_scope; evaluation 2026-11-11):** the six SECURITY DEFINER
+  assistant list tools had no branch predicate (RLS does not apply inside them), so with one
+  branch on the rail an answer mixed that branch's report figures with chain-wide rows. Each now
+  reads `venue_id = any(app.report_venues())`, the reports' own rule (0219), on its count and its
+  rows: **0406 holds `assistant_bookings_list`** (0147 no longer), **`assistant_tabs_list`,
+  `assistant_payments_list`, `assistant_break_history`, `assistant_audit_page` and
+  `assistant_table_read`** (0109 no longer). `assistant_table_read` adds
+  `(venue_id is null or venue_id = any(...))` only for a relation that has a `venue_id` column
+  (looked up in `pg_attribute`; NULL stays in because a promotion with NULL is every branch,
+  0212); a table without one is read as before. `assistant_count` goes through the same bodies.
+  Signatures, STABLE, definer, guards and grants unchanged; no new function;
+  `tests/assistant-branch-scope.test.ts` (one rolled-back psql transaction).
 - **0405 (2026-11-09, assistant_concurrency; review 2026-11-09):** `assistant_conversations` loses
   its client UPDATE (`revoke update, delete … from authenticated, anon`, policy
   `assistant_conversations_update_owner` dropped: an owner session could rewrite `tokens` or
@@ -128,8 +194,8 @@ is a line in that file.
   `tests/sweeps-report.test.ts` counts handlers against `app.monitor` calls in each latest body.
   `app.monitor_scrub_text` masks any run of eight digits, dashes included, so a digit-heavy uuid
   in a message or detail is stored as `[number]`.
-- Ordinal strictly greater than the current max, never a reused one. Latest is `0405`
-  (0380–0391 and 0402–0405 are at the top of this list; 0392–0401 are in their own headers, and
+- Ordinal strictly greater than the current max, never a reused one. Latest is `0406`
+  (0380–0391 and 0402–0406 are at the top of this list; 0392–0401 are in their own headers, and
   0377–0379 have no file). Before them: (0376 loyalty_tier_colors, 2026-10-31 (Ameen: a tier made "from 100 points" never reached a
   gifted account, and the owner picks each tier's card colour): `loyalty_tiers.color` (classic |
   bronze | silver | gold | platinum | black, default classic, `loyalty_tiers_color`; the same keys
@@ -439,7 +505,7 @@ is a line in that file.
   0149 assistant-cap, 0150 move-not-into-past, 0151 out-of-stock-alert, 0152 my-reservations,
   0153 terms-consent, 0154 analytics-returning-guest, 0155–0157 six new staff roles, 0158–0206
   protocols and the staff phone (change-order line 10), 0207–0227 multi-venue slices 2–4); the next is
-  `0406`. **Check the directory, not this line** — it said 0146 while 0147–0149 were already on
+  `0407`. **Check the directory, not this line** — it said 0146 while 0147–0149 were already on
   disk, and later 0150 while 0154 was, and a reused ordinal fails `check-migrations.mjs` after the
   file is written.
 - `0069` and `0071` are already doubled; `0023`, `0040` and `0101` have no file, so leave the gaps.

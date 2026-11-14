@@ -56,7 +56,7 @@ import ReviewScreen from '../../app/review';
 import LessonReviewScreen from '../../app/(coaching)/lesson-review';
 import PlayScreen from '../../app/(tabs)/play';
 import ProfileScreen from '../../app/profile';
-import BookingsScreen from '../../app/(tabs)/bookings';
+import BookingsScreen from '../../app/bookings';
 import TicketsScreen from '../../app/tickets';
 import PayStatusScreen from '../../app/pay/status';
 import PayReturnScreen from '../../app/pay/return';

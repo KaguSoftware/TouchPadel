@@ -42,6 +42,21 @@ describe('applyFreeEvent', () => {
   });
 });
 
+describe('applyFreeEvent delegates to core and keeps the stored shape', () => {
+  it('keeps the first error, a string id and the operator error kinds', () => {
+    let ex = newExchange('keep-id', 'q');
+    ex = applyFreeEvent(ex, 'error', { code: 'RATE_LIMITED' });
+    ex = applyFreeEvent(ex, 'error', { code: 'TIMEOUT' });
+    expect(ex).toEqual({ id: 'keep-id', question: 'q', answer: '', done: true, stopped: false, error: { kind: 'club' } });
+  });
+
+  it('ignores unknown events and a delta without text', () => {
+    const ex = newExchange('a', 'q');
+    expect(applyFreeEvent(ex, 'message_start', { free: true })).toBe(ex);
+    expect(applyFreeEvent(ex, 'delta', {})).toBe(ex);
+  });
+});
+
 describe('errors', () => {
   it('maps the 429 scopes from the refusal body', () => {
     expect(freeErrorOf(new EdgeError(429, 'RATE_LIMITED', 'x', 'RATE_LIMITED', { code: 'RATE_LIMITED', scope: 'minute', retry_after_s: 37 }))).toEqual({ kind: 'minute', seconds: 37 });

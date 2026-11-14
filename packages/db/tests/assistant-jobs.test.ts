@@ -168,12 +168,17 @@ describe.skipIf(!up)('0112 assistant jobs', () => {
 // `started_at` and done/failed passed `finished_at`; the allowlist (0112)
 // refuses any other key with INVALID_ARGUMENT, so an accepted job stuck in
 // 'accepted' and a finished one never landed. The SQL stamps both columns
-// itself. This reads the source, so the class of bug cannot come back.
+// itself. This reads the source (index.ts plus _shared/assistant/jobRunner.ts,
+// where Book moved on 2026-11-11), so the class of bug cannot come back.
 // ---------------------------------------------------------------------------
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const MIGRATIONS = resolve(HERE, '../supabase/migrations');
 const JOB_INDEX = resolve(HERE, '../supabase/functions/assistant-job/index.ts');
+/** The job's work, moved out of index.ts on 2026-11-11 (tests/assistant-job-runner.test.ts runs it). */
+const JOB_RUNNER = resolve(HERE, '../supabase/functions/_shared/assistant/jobRunner.ts');
+/** The whole function: its request (index.ts) and its work (jobRunner.ts). */
+const jobSource = () => `${readFileSync(JOB_INDEX, 'utf8')}\n${readFileSync(JOB_RUNNER, 'utf8')}`;
 
 /** The keys the LATEST body of app.assistant_job_transition admits. */
 function transitionAllowlist(): string[] {
@@ -282,7 +287,7 @@ function transitionCalls(src: string): Array<{ status: string; keys: string[] }>
 }
 
 describe('assistant-job: transition patches stay inside the 0112 allowlist (stackless)', () => {
-  const src = readFileSync(JOB_INDEX, 'utf8');
+  const src = jobSource();
   const allow = transitionAllowlist();
 
   it('parses the allowlist from the migration', () => {
@@ -321,11 +326,12 @@ describe('assistant-job: transition patches stay inside the 0112 allowlist (stac
 // JOB_EXTRACT_MODEL (live and batch) and the reduce on the job's model, so
 // every price, usage record and assistant_calls row must name the model of
 // THAT call; `this.provider.model` in the bookkeeping would bill Sonnet calls
-// at Opus rates (or the other way round). Reads the source, like the block above.
+// at Opus rates (or the other way round). Reads the source, like the block above
+// (index.ts plus jobRunner.ts, where Book and the paths live since 2026-11-11).
 // ---------------------------------------------------------------------------
 
 describe('assistant-job: every call is priced and recorded at its own model (stackless)', () => {
-  const src = readFileSync(JOB_INDEX, 'utf8');
+  const src = jobSource();
   const body = (name: string) => {
     const at = src.search(new RegExp(`\\n  async ${name}\\(`));
     expect(at, `Book.${name} not found`).toBeGreaterThan(0);
@@ -385,7 +391,8 @@ describe('assistant-job: every call is priced and recorded at its own model (sta
 // tick now works only what app.assistant_job_claim_tick hands it, and the
 // claim selects exactly the jobs 0113's nudge wakes the tick for. Reads the
 // migrations and the source, like the blocks above; the behaviour itself is
-// tests/assistant-concurrency.test.ts.
+// tests/assistant-concurrency.test.ts (SQL) and tests/assistant-job-runner.test.ts
+// (the tick run against a scripted provider).
 // ---------------------------------------------------------------------------
 
 /** The LATEST body of app.<name> across the migrations, up to its closing dollar tag. */
@@ -410,8 +417,10 @@ const predicateOf = (body: string): string[] =>
   [...body.matchAll(/(?:\w+\.)?(status\s*=\s*'running'|mode\s*=\s*'batch'|batch_id\s+is\s+not\s+null)/g)].map((m) => m[1]!.replace(/\s+/g, ' '));
 
 describe('assistant-job: the tick works only the jobs it claimed (0405, stackless)', () => {
-  const src = readFileSync(JOB_INDEX, 'utf8');
-  const tickBody = src.slice(src.indexOf('async function tick('), src.indexOf('Deno.serve('));
+  const src = jobSource();
+  // The tick moved to jobRunner.ts on 2026-11-11 and is its last function.
+  const runner = readFileSync(JOB_RUNNER, 'utf8');
+  const tickBody = runner.slice(runner.indexOf('async function tick('));
 
   it("the claim selects 0113's nudge predicate, unclaimed or lapsed, FOR UPDATE SKIP LOCKED", () => {
     const nudge = predicateOf(latestBody('assistant_job_tick_nudge'));
@@ -424,6 +433,10 @@ describe('assistant-job: the tick works only the jobs it claimed (0405, stackles
   });
 
   it('the tick claims before it reads a job, reads only the claimed ids, and exits quietly on none', () => {
+    expect(tickBody.length, 'tick not found in jobRunner.ts').toBeGreaterThan(0);
+    expect(runner.indexOf('async function tick(')).toBeGreaterThan(0);
+    // index.ts hands the tick its env-built provider chooser (providerOr), nothing else changed
+    expect(readFileSync(JOB_INDEX, 'utf8')).toMatch(/await tick\(new Book\(service, provider\), abort\.signal, providerOr\)/);
     const claimAt = tickBody.indexOf(".rpc('assistant_job_claim_tick'");
     const readAt = tickBody.indexOf(".from('assistant_jobs').select(");
     expect(claimAt).toBeGreaterThan(0);
@@ -435,7 +448,7 @@ describe('assistant-job: the tick works only the jobs it claimed (0405, stackles
   });
 
   it('a batch still in flight releases only its own claim (matched on the stamp the claim returned)', () => {
-    expect(src).toMatch(/\.update\(\{ tick_claimed_until: null \}\)\.eq\('id', jobId\)\.eq\('tick_claimed_until', claimedUntil\)/);
+    expect(runner).toMatch(/\.update\(\{ tick_claimed_until: null \}\)\.eq\('id', jobId\)\.eq\('tick_claimed_until', claimedUntil\)/);
     const notEnded = tickBody.slice(tickBody.indexOf('if (!status.ended) {'), tickBody.indexOf('continue;', tickBody.indexOf('if (!status.ended) {')));
     expect(notEnded).toMatch(/await releaseClaim\(jb\.service, job\.id, claimed\.get\(job\.id\)!\)/);
   });

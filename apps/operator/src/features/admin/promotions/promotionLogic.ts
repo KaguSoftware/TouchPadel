@@ -28,7 +28,14 @@ export interface PromotionDraft {
   publicCode: string | null;
   codeSingleUse: boolean;
   enabled: boolean;
+  /** 0410: listed as a deal in the guests' app (written by app.set_promotion_app, not the upsert). */
+  inApp: boolean;
+  /** 0410: the line guests read under the deal; both languages or neither. */
+  appBlurb: { en: string; ar: string };
 }
+
+/** promotions.app_blurb_en / app_blurb_ar: 1 to 160 characters. */
+export const APP_BLURB_MAX = 160;
 
 export const EMPTY_DRAFT: PromotionDraft = {
   name: { en: '', ar: '' },
@@ -45,6 +52,8 @@ export const EMPTY_DRAFT: PromotionDraft = {
   publicCode: null,
   codeSingleUse: false,
   enabled: true,
+  inApp: false,
+  appBlurb: { en: '', ar: '' },
 };
 
 /*
@@ -121,7 +130,34 @@ export function fromRow(row: PromotionRow): PromotionDraft {
     publicCode: row.public_code,
     codeSingleUse: row.code_single_use,
     enabled: row.enabled,
+    // 0410: absent from a server without the columns, which reads as not listed.
+    inApp: row.in_app === true,
+    appBlurb: { en: row.app_blurb_en ?? '', ar: row.app_blurb_ar ?? '' },
   };
+}
+
+/**
+ * True when a read of `promotions` failed because the server has no 0410 columns (Postgres
+ * 42703, which PostgREST passes on, or its own "column not found" answer), not for any other
+ * reason: promotionsApi then asks once more with the old column list.
+ */
+export function appColumnsMissing(error: { message?: string; code?: string } | null | undefined): boolean {
+  if (!error) return false;
+  if (error.code === '42703' || error.code === 'PGRST204') return true;
+  return /in_app|app_blurb/.test(error.message ?? '');
+}
+
+/** True when the row came from a server that can list a promotion in the app (0410). */
+export function appListingKnown(row: Pick<PromotionRow, 'in_app'> | null | undefined): boolean {
+  return typeof row?.in_app === 'boolean';
+}
+
+/**
+ * "In the app only" (0410): not automatic, no code, listed. It applies for the member who
+ * picked it in the app and showed their card, and for nobody else.
+ */
+export function isAppOnly(d: Pick<PromotionDraft, 'auto' | 'publicCode' | 'inApp'>): boolean {
+  return !d.auto && d.inApp && !d.publicCode;
 }
 
 /**
@@ -155,13 +191,49 @@ export function toRpcArgs(draft: PromotionDraft, id: string | null): Record<stri
       ...(draft.limits.tierMin ? { tierMin: draft.limits.tierMin } : {}),
     },
     p_auto: draft.auto,
-    p_public_code: draft.publicCode,
+    // null keeps the code the promotion has; '' clears it (0067). An "in the app only"
+    // promotion has no code by definition, so a code it had before stops working with the save.
+    p_public_code: isAppOnly(draft) ? '' : draft.publicCode,
     p_code_single_use: draft.codeSingleUse,
     p_enabled: draft.enabled,
   };
 }
 
-export type DraftError = 'name' | 'value' | 'percent' | 'startsPast' | 'endsPast' | 'dates' | 'hours';
+/** The arguments of `app.set_promotion_app` (0410): the listing and its two lines, '' as null. */
+export function appListingArgs(draft: Pick<PromotionDraft, 'inApp' | 'appBlurb'>, id: string): Record<string, unknown> {
+  return {
+    p_id: id,
+    p_in_app: draft.inApp,
+    p_blurb_en: draft.appBlurb.en.trim() || null,
+    p_blurb_ar: draft.appBlurb.ar.trim() || null,
+  };
+}
+
+type Listing = Pick<PromotionDraft, 'inApp' | 'appBlurb'>;
+
+/** True when the listing or its lines differ, so set_promotion_app has something to write. */
+export function appListingChanged(a: Listing, b: Listing): boolean {
+  return a.inApp !== b.inApp || a.appBlurb.en.trim() !== b.appBlurb.en.trim() || a.appBlurb.ar.trim() !== b.appBlurb.ar.trim();
+}
+
+/** True when anything upsert_promotion writes differs: everything but the listing. */
+export function promotionChanged(a: PromotionDraft, b: PromotionDraft): boolean {
+  return isDirty({ ...a, inApp: false, appBlurb: b.appBlurb }, { ...b, inApp: false });
+}
+
+export type DraftError =
+  | 'name'
+  | 'value'
+  | 'percent'
+  | 'startsPast'
+  | 'endsPast'
+  | 'dates'
+  | 'hours'
+  /** 0410: the guests' line in one language only. */
+  | 'blurbPair'
+  | 'blurbLong'
+  /** 0410: listed, and its code works once: a voucher for one bill is not a deal for everybody. */
+  | 'appSingleUse';
 
 export function validateDraft(d: PromotionDraft, savedStartsOn = '', savedEndsOn = '', now = new Date()): DraftError[] {
   const errors: DraftError[] = [];
@@ -177,6 +249,13 @@ export function validateDraft(d: PromotionDraft, savedStartsOn = '', savedEndsOn
   // time twice. An end earlier than the start is valid — it runs past
   // midnight (22:00–02:00) — so it is not an error here either.
   if (Boolean(d.hourFrom) !== Boolean(d.hourTo) || (d.hourFrom && d.hourFrom === d.hourTo)) errors.push('hours');
+  // Mirrors set_promotion_app (0410): both lines or neither, 160 characters at most, and no
+  // listing for a promotion whose code works once.
+  const en = d.appBlurb.en.trim();
+  const ar = d.appBlurb.ar.trim();
+  if ((en === '') !== (ar === '')) errors.push('blurbPair');
+  if (en.length > APP_BLURB_MAX || ar.length > APP_BLURB_MAX) errors.push('blurbLong');
+  if (d.inApp && d.codeSingleUse) errors.push('appSingleUse');
   return errors;
 }
 
@@ -267,26 +346,37 @@ export function statusText(row: Pick<PromotionRow, 'enabled' | 'starts_at' | 'en
 }
 
 /**
- * How the promotion reaches a bill. `missing` is the trap the server allows:
- * a promotion that is not automatic applies only with its code (0067
- * eligibility), so without a code it can never apply.
+ * How the promotion reaches a bill. A promotion that is not automatic applies
+ * with its code (0067 eligibility) or, when it is listed in the app, for the
+ * member who picked it there (0410). `app` is the listed one with no code: in
+ * the app only. `missing` is the trap the server allows: not automatic, no
+ * code and not listed, so it can never apply.
  */
-export type HowItApplies = { kind: 'auto' } | { kind: 'code'; code: string; singleUse: boolean } | { kind: 'missing' };
+export type HowItApplies =
+  | { kind: 'auto' }
+  | { kind: 'code'; code: string; singleUse: boolean }
+  | { kind: 'app' }
+  | { kind: 'missing' };
 
-export function howItApplies(d: Pick<PromotionDraft, 'auto' | 'publicCode' | 'codeSingleUse'>): HowItApplies {
+type HowInput = Pick<PromotionDraft, 'auto' | 'publicCode' | 'codeSingleUse'> & Partial<Pick<PromotionDraft, 'inApp'>>;
+
+export function howItApplies(d: HowInput): HowItApplies {
   if (d.auto) return { kind: 'auto' };
   if (d.publicCode) return { kind: 'code', code: d.publicCode, singleUse: d.codeSingleUse };
+  if (d.inApp) return { kind: 'app' };
   return { kind: 'missing' };
 }
 
-export function howText(d: Pick<PromotionDraft, 'auto' | 'publicCode' | 'codeSingleUse'>, tr: Translate): string {
+export function howText(d: HowInput, tr: Translate): string {
   const how = howItApplies(d);
+  const listed = d.inApp === true ? tr('ws.manager.promotions.inApp') : '';
   // Needing no code is the default and says nothing a manager acts on, so it
-  // stays silent; only a code, or a missing one, is worth a line.
-  if (how.kind === 'auto') return '';
+  // stays silent; a code, a missing one, or a place in the app is worth a line.
+  if (how.kind === 'auto') return listed;
+  if (how.kind === 'app') return tr('ws.manager.promotions.appOnly');
   if (how.kind === 'missing') return tr('ws.manager.promotions.codeMissing');
   const code = tr('ws.manager.promotions.code', { code: how.code });
-  return how.singleUse ? `${code} · ${tr('ws.manager.promotions.singleUse')}` : code;
+  return [how.singleUse ? `${code} · ${tr('ws.manager.promotions.singleUse')}` : code, listed].filter(Boolean).join(' · ');
 }
 
 /** What it covers: "All cafe items", or label + number per narrowed list (no plurals needed). */
@@ -406,6 +496,6 @@ export function describePromotion(d: PromotionDraft, tr: Translate, locale: Loca
 
 /** The single reason Save is unavailable, in the order the form reads. */
 export function saveBlocker(errors: readonly DraftError[]): DraftError | null {
-  const order: DraftError[] = ['name', 'value', 'percent', 'startsPast', 'endsPast', 'dates', 'hours'];
+  const order: DraftError[] = ['name', 'value', 'percent', 'startsPast', 'endsPast', 'dates', 'hours', 'blurbPair', 'blurbLong', 'appSingleUse'];
   return order.find((e) => errors.includes(e)) ?? null;
 }

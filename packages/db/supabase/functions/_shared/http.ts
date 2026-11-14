@@ -180,9 +180,11 @@ export function logError(where: string, err: unknown, ...context: unknown[]): vo
  * A database error as the caller may see it: mapPgError's code and status, with
  * `message` equal to the code. For a P0001 refusal that is exactly what it
  * always was (the message IS the code); for anything else it replaces the raw
- * Postgres / PostgREST text, which is logged instead.
+ * Postgres / PostgREST text, which is logged instead. `code` mirrors `error`
+ * (2026-11-09): the assistant handlers' refusals carry both, so every edge
+ * refusal reads the same to a client that looks for `code` first.
  */
-export function pgErrorBody(err: PgError, where: string): { status: number; body: { error: string; message: string } } {
+export function pgErrorBody(err: PgError, where: string): { status: number; body: { error: string; message: string; code: string } } {
   const mapped = mapPgError(err);
   if (err.code !== 'P0001') {
     logError(where, err);
@@ -195,7 +197,7 @@ export function pgErrorBody(err: PgError, where: string): { status: number; body
       detail: { function: where, code: err.code ?? null, status: mapped.status, message: err.message ?? null },
     });
   }
-  return { status: mapped.status, body: { error: mapped.code, message: mapped.code } };
+  return { status: mapped.status, body: { error: mapped.code, message: mapped.code, code: mapped.code } };
 }
 
 /** A SQLSTATE or a PostgREST code as it may be printed: five characters, or PGRST plus three digits. */

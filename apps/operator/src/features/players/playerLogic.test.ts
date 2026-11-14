@@ -117,6 +117,10 @@ describe('parseLevelReviews', () => {
     const noClaim = parseLevelReviews([{ ...rows[0], claimed: null }])[0]!;
     expect(reviewChoices(noClaim)).toEqual({ confirm: 'beginner', keep: null });
   });
+  it('drops a row whose record already reads as the suggested type (new and beginner are both Type C)', () => {
+    expect(parseLevelReviews([{ ...rows[0], claimed: 'new' }])).toEqual([]);
+    expect(parseLevelReviews([{ ...rows[0], claimed: 'advanced', confirmed: 'new' }])).toEqual([]);
+  });
 });
 
 describe('the dialog’s draft', () => {

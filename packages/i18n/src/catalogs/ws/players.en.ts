@@ -65,10 +65,10 @@ export const playersEn = {
     '55_plus': '55 and over',
   },
   level: {
-    new: 'Just starting',
-    beginner: 'Beginner',
-    intermediate: 'Intermediate',
-    advanced: 'Advanced',
+    new: 'Type C',
+    beginner: 'Type C',
+    intermediate: 'Type B',
+    advanced: 'Type A',
   },
   role: {
     coach: 'coach',

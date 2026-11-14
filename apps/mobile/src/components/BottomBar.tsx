@@ -4,37 +4,34 @@
  * form's error line over the button. Its shape is the incident report's
  * bottom row (app/(staff)/staff-incident-report.tsx) and the tournament
  * start's (TournamentPlanStep.tsx): in the flow after the scroll, inside a
- * KeyboardAvoidingView, so it is never under the keyboard and the list never
- * runs under it.
+ * KeyboardAvoid, so it is never under the keyboard and the list never runs
+ * under it; its home-indicator padding tucks under the keys.
  *
  * `ScreenWithBar` is the scroll and the bar together; a page passes its scroll
  * props (refresh control, content style) and the bar's buttons. Inside a
  * `Screen`, whose side gutter the bar bleeds through to reach both edges.
  */
 import type { ReactNode } from 'react';
-import {
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  View,
-  type ScrollViewProps,
-} from 'react-native';
+import { ScrollView, View, type ScrollViewProps } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLiftAssistantFab } from '../features/assistant/AssistantFab';
 import { space, useTheme } from '../theme';
 import { ErrorText } from './ui';
+import { KeyboardAvoid } from './KeyboardAvoid';
 
-/** The native bar over a staff page, as the incident report and the tournament start offset it. */
-const HEADER_OFFSET = 100;
+/** The bar's bottom padding: the home indicator's room, or `space.m` on a phone without one. */
+export function useBottomBarPad(): number {
+  return Math.max(useSafeAreaInsets().bottom, space.m);
+}
 
 export function BottomBar({ children, error }: { children: ReactNode; error?: string | null }) {
   const { colors } = useTheme();
-  const insets = useSafeAreaInsets();
+  const pad = useBottomBarPad();
   return (
     <View
       style={{
         paddingTop: space.sm,
-        paddingBottom: Math.max(insets.bottom, space.m),
+        paddingBottom: pad,
         paddingHorizontal: space.l,
         marginHorizontal: -space.l,
         gap: space.s,
@@ -64,12 +61,9 @@ export function ScreenWithBar({
 }) {
   // The floating assistant button rides above the bar instead of covering it.
   useLiftAssistantFab(!!bar);
+  const pad = useBottomBarPad();
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1 }}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? HEADER_OFFSET : 0}
-    >
+    <KeyboardAvoid footerPad={bar ? pad : 0}>
       <ScrollView
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
@@ -80,6 +74,6 @@ export function ScreenWithBar({
         {children}
       </ScrollView>
       {bar ? <BottomBar error={error}>{bar}</BottomBar> : null}
-    </KeyboardAvoidingView>
+    </KeyboardAvoid>
   );
 }

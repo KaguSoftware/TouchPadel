@@ -58,6 +58,8 @@ export const siteAccountCss = `
 /* Points, rewards and history. */
 .tp-acct__balance { font-family: var(--tp-font-display); font-size: clamp(2rem, 1.5rem + 2vw, 3rem); font-weight: var(--tp-site-fw-display); line-height: 1.1; }
 .tp-acct__tier { font-weight: 700; color: var(--tp-site-green-text); }
+.tp-acct__gives { display: grid; gap: 0.375rem; padding-block-start: 0.75rem; border-block-start: 1px solid var(--tp-border); }
+.tp-acct__gives-list { display: grid; gap: 0.25rem; padding-inline-start: 1.125rem; list-style: disc; font-weight: 700; }
 .tp-acct__list { display: grid; }
 .tp-acct__row { display: flex; justify-content: space-between; gap: 1rem; padding-block: 0.625rem; border-block-end: 1px solid var(--tp-border); }
 .tp-acct__row:last-child { border-block-end: 0; }

@@ -12,6 +12,8 @@
  *     JSON refusal carries `code`; no bare console.error in either function.
  * The Deno entries cannot load under vitest (npm: specifiers, Deno.env), so the
  * wiring is held by reading their source, as tests/assistant-jobs.test.ts does.
+ * assistant-job's source is its index.ts plus _shared/assistant/jobRunner.ts
+ * (its work, moved 2026-11-11; tests/assistant-job-runner.test.ts runs it).
  * assistant-chat's source is its index.ts plus the _shared/assistant modules
  * its code moved to on 2026-11-09 (runners.ts holds the tool runners).
  */
@@ -27,7 +29,11 @@ const read = (p: string) => readFileSync(resolve(HERE, '../supabase/functions', 
 const CHAT_INDEX = read('assistant-chat/index.ts');
 const RUNNERS = read('_shared/assistant/runners.ts');
 const CHAT = [CHAT_INDEX, RUNNERS, ...['persist', 'reads', 'recheck', 'reuse'].map((m) => read(`_shared/assistant/${m}.ts`))].join('\n');
-const JOB = read('assistant-job/index.ts');
+// assistant-job's source is its index.ts (the request) plus jobRunner.ts, where
+// its work moved on 2026-11-11 (Book, readChunk, runLive, submitBatch, tick).
+const JOB_INDEX = read('assistant-job/index.ts');
+const JOB_RUNNER = read('_shared/assistant/jobRunner.ts');
+const JOB = [JOB_INDEX, JOB_RUNNER].join('\n');
 
 afterEach(() => vi.restoreAllMocks());
 
@@ -105,15 +111,18 @@ describe('job plans, prices and refusals', () => {
   });
 
   it('a failed llm_price_micros read prices the call by the TypeScript estimate, never 0', () => {
-    const at = JOB.indexOf('\n  async price(');
-    const body = JOB.slice(at, JOB.indexOf('\n  }\n', at));
+    const at = JOB_RUNNER.indexOf('\n  async price(');
+    expect(at, 'Book.price not found in jobRunner.ts').toBeGreaterThan(0);
+    const body = JOB_RUNNER.slice(at, JOB_RUNNER.indexOf('\n  }\n', at));
     expect(body).not.toMatch(/return 0;/);
     expect(body).toMatch(/return await this\.estimate\(u, model\)/);
-    expect(JOB).toMatch(/turnEstimateMicros\(model, u, rates, fallback\)/);
+    expect(JOB_RUNNER).toMatch(/turnEstimateMicros\(model, u, rates, fallback\)/);
+    // tests/assistant-job-runner.test.ts runs this fallback.
   });
 
   it('a malformed job_id is a 400 before any read', () => {
-    const handler = JOB.slice(JOB.indexOf("Deno.serve(handle('assistant-job'"));
+    const handler = JOB_INDEX.slice(JOB_INDEX.indexOf("Deno.serve(handle('assistant-job'"));
+    expect(handler.length).toBeGreaterThan(0);
     const check = handler.indexOf('if (!isUuid(body.job_id))');
     expect(check).toBeGreaterThan(-1);
     expect(check).toBeLessThan(handler.indexOf(".from('assistant_jobs')"));

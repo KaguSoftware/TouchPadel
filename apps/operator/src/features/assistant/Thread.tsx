@@ -4,9 +4,13 @@
  * composer, and the composer. The drawer and the full page both render this;
  * `compact` is the only thing that changes between them.
  *
- * The record is the database. The live turn is shown until the messages
- * query carries its ids, then the stored rows take over; a turn that failed
- * stays with its error sentence until the next question.
+ * The record is the database. The live turn is shown until it has ended and
+ * the messages query carries its stored answer, whatever the outcome
+ * (threadLogic.reconcileLive); a turn the server never stored (a refusal
+ * before the stream) stays with its error sentence until the next question.
+ * Each answer says how it ended (stopped, cut short, declined, failed) the
+ * same way live and stored. A job estimate is rebuilt from its stored row
+ * while the job waits for a press, so the owner never pays for it twice.
  *
  * Layout since 2026-10-20 (owner picked C for a new chat, D for the rest):
  * an open chat has one toolbar on top (the caller's controls and the cost),
@@ -14,7 +18,7 @@
  * (StartScreen), and the newest answer ends with "Ask next" buttons. A new
  * chat reads nothing until the owner picks, so its composer stays locked.
  */
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Link } from '@tanstack/react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ASSISTANT_SCOPES, type AssistantScope } from '@touch/core/assistant/tools';
@@ -26,7 +30,7 @@ import { ErrorText, Spinner } from '../../components/ui';
 import { Icon } from '../../components/icons';
 import type { PricingMap } from '../../lib/assistantPricing';
 import { formatTokens, formatUsd, priceFor, totalTokens } from '../../lib/assistantPricing';
-import { QK, TERMINAL_JOB_STATUSES, acceptJob, fetchConversation, fetchConversationJobs, fetchMessages, fetchModels, fetchUsage, setScopes, sourcesOf, startSize, textOfContent, type JobMode, type MessageRow } from './api';
+import { QK, TERMINAL_JOB_STATUSES, acceptJob, fetchConversation, fetchConversationJobs, fetchMessages, fetchModels, fetchUsage, setScopes, sourcesOf, startSize, textOfContent, type JobEstimate, type JobMode, type MessageRow } from './api';
 import { Composer } from './Composer';
 import { JobEstimateCard } from './JobEstimateCard';
 import { JobProgress } from './JobProgress';
@@ -39,9 +43,18 @@ import { normaliseScopes, refusedScopes } from './scopes';
 import { StartScreen } from './StartScreen';
 import { ToolbarPopover } from './ToolbarPopover';
 import { followUpsFor } from './starters';
-import { useAssistantChat } from './useAssistantChat';
+import { errorCodeOf, useAssistantChat } from './useAssistantChat';
+import { acceptMayHaveStarted, errorSentenceKey, estimateOf, liveOutcome, loadDismissedJobs, placeEstimates, reconcileLive, saveDismissedJobs, storedOutcome, storedText } from './threadLogic';
 import { useAssistantMode } from './useAssistantMode';
 import { monthSoFar } from './usageDates';
+
+/**
+ * After a press on an estimate, the job row is read every 2 s for this long,
+ * so a live job that starts inside the accept request (up to 50 s) shows its
+ * progress, and an accept that timed out still finds the job it started.
+ */
+const ACCEPT_WATCH_MS = 70_000;
+const ACCEPT_POLL_MS = 2_000;
 
 export function Thread({
   conversationId,
@@ -83,12 +96,26 @@ export function Thread({
     queryFn: () => fetchMessages(conversationId!),
     enabled: conversationId !== null,
   });
+  const acceptWatchUntil = useRef(0);
   const jobs = useQuery({
     queryKey: QK.jobs(conversationId ?? ''),
     queryFn: () => fetchConversationJobs(conversationId!),
     enabled: conversationId !== null,
-    refetchInterval: (q) => (q.state.data?.some((j) => !TERMINAL_JOB_STATUSES.includes(j.status) && j.status !== 'estimated') ? 5_000 : false),
+    refetchInterval: (q) =>
+      Date.now() < acceptWatchUntil.current ? ACCEPT_POLL_MS : q.state.data?.some((j) => !TERMINAL_JOB_STATUSES.includes(j.status) && j.status !== 'estimated') ? 5_000 : false,
   });
+  // A job that finished since the last read wrote its answer as a message: read the chat again.
+  const jobStatuses = useRef(new Map<string, string>());
+  useEffect(() => {
+    const seen = jobStatuses.current;
+    let finished = false;
+    for (const j of jobs.data ?? []) {
+      const before = seen.get(j.id);
+      if (before !== undefined && !TERMINAL_JOB_STATUSES.includes(before as never) && TERMINAL_JOB_STATUSES.includes(j.status)) finished = true;
+      seen.set(j.id, j.status);
+    }
+    if (finished && conversationId) void qc.invalidateQueries({ queryKey: QK.messages(conversationId) });
+  }, [jobs.data, conversationId, qc]);
   const settings = useQuery({ queryKey: SHARED_QK.venueSettings, queryFn: fetchVenueSettings });
   const tz = settings.data?.timezone ?? VENUE_TZ;
   // Not memoised: re-read on every render so an open thread rolls into the
@@ -173,34 +200,56 @@ export function Thread({
     return out;
   }, [tr]);
 
-  // Jobs: accept from the estimate card, then watch the row.
-  const [dismissedJobs, setDismissedJobs] = useState<Set<string>>(() => new Set());
+  // Jobs: accept from the estimate card, then watch the row. "Not now" is
+  // remembered on this computer, so a put-aside estimate stays put aside.
+  const [dismissedJobs, setDismissedJobs] = useState<Set<string>>(() => loadDismissedJobs());
+  const dismissJob = (jobId: string) =>
+    setDismissedJobs((d) => {
+      const next = new Set(d).add(jobId);
+      saveDismissedJobs(next);
+      return next;
+    });
   const [watchedJobs, setWatchedJobs] = useState<string[]>([]);
   const [acceptBusy, setAcceptBusy] = useState<JobMode | 'aggregate' | null>(null);
   const accept = async (jobId: string, mode: JobMode) => {
+    const jobConversation = conversationId;
     setAcceptBusy(mode);
+    // Watch from the press: a live job runs inside the accept request, and its
+    // progress shows as soon as the row leaves 'estimated'.
+    acceptWatchUntil.current = Date.now() + ACCEPT_WATCH_MS;
+    setWatchedJobs((w) => (w.includes(jobId) ? w : [...w, jobId]));
+    if (jobConversation) void qc.invalidateQueries({ queryKey: QK.jobs(jobConversation) });
     try {
       await acceptJob(jobId, mode);
       toast.ok(tr('ws.owner.assistant.job.accepted'));
-      setWatchedJobs((w) => (w.includes(jobId) ? w : [...w, jobId]));
-      setDismissedJobs((d) => new Set(d).add(jobId));
-      if (conversationId) void qc.invalidateQueries({ queryKey: QK.jobs(conversationId) });
+      dismissJob(jobId);
     } catch (err) {
-      toast.err(err instanceof Error ? err.message : String(err));
+      // A timeout, a broken connection or "job is running" (409) may mean it
+      // started: keep watching the row instead of calling it a failure. The
+      // card stays until the row leaves 'estimated', so a press that never
+      // reached the server can be made again.
+      if (!acceptMayHaveStarted(err)) {
+        setWatchedJobs((w) => w.filter((id) => id !== jobId));
+        toast.err(tr(`ws.owner.assistant.message.errors.${errorSentenceKey(errorCodeOf(err))}`));
+      }
     } finally {
       setAcceptBusy(null);
+      if (jobConversation) void qc.invalidateQueries({ queryKey: QK.jobs(jobConversation) });
     }
   };
   const aggregate = (jobId: string, tools: string[]) => {
-    setDismissedJobs((d) => new Set(d).add(jobId));
+    dismissJob(jobId);
     void chat.ask(tr('ws.owner.assistant.job.aggregateAsk', { tools: tools.join(', ') }));
   };
 
-  // The live turn is superseded once its stored rows are in the list.
-  const rows: MessageRow[] = messages.data ?? [];
+  // The live turn gives way once it ended and its stored answer is in the
+  // list, whatever the outcome; until then its stored copies are hidden.
+  const allRows: MessageRow[] = messages.data ?? [];
   const live = chat.live;
-  const liveSuperseded = live !== null && live.done && !live.error && !live.stopped && live.assistantMessageId !== null && rows.some((m) => m.id === live.assistantMessageId);
-  const showLive = live !== null && !liveSuperseded;
+  const recon = reconcileLive(live, allRows);
+  const showLive = recon.showLive;
+  const rows = recon.hiddenRowIds.size > 0 ? allRows.filter((m) => !recon.hiddenRowIds.has(m.id)) : allRows;
+  const liveView = live ? liveOutcome(live) : null;
 
   // Keep the newest thing in view as it arrives.
   const scroller = useRef<HTMLDivElement>(null);
@@ -213,7 +262,26 @@ export function Thread({
   // use, which beats what the chat last paid, which beats any priced model.
   const model = live?.model ?? live?.usage?.model ?? chosenModel ?? modelsQ.data?.default_model ?? conversation.data?.tokens.model ?? Object.keys(pricing ?? {})[0] ?? '';
   const visibleJobs = (jobs.data ?? []).filter((j) => j.status !== 'estimated' && (!TERMINAL_JOB_STATUSES.includes(j.status) || watchedJobs.includes(j.id)));
-  const liveEstimate = live?.jobEstimate && !dismissedJobs.has(live.jobEstimate.job_id) ? live.jobEstimate : null;
+  // The live turn's estimate while it is on screen, then the stored row's: an
+  // estimate stays pressable after a reload, a chat switch or the next question.
+  const liveJobStatus = live?.jobEstimate ? jobs.data?.find((j) => j.id === live.jobEstimate!.job_id)?.status : undefined;
+  // (Kept past the live turn until the jobs read has the row, so the card does not blink.)
+  const liveEstimate =
+    live?.jobEstimate && !dismissedJobs.has(live.jobEstimate.job_id) && (showLive ? liveJobStatus === undefined || liveJobStatus === 'estimated' : liveJobStatus === undefined) ? live.jobEstimate : null;
+  const estimates = placeEstimates(jobs.data ?? [], new Set(rows.map((r) => r.id)), dismissedJobs, liveEstimate?.job_id ?? null);
+  const estimateCard = (estimate: JobEstimate) => (
+    <JobEstimateCard
+      key={`estimate-${estimate.job_id}`}
+      estimate={estimate}
+      model={model}
+      pricing={pricing}
+      fallbackMicrosPerMtok={fallback}
+      busy={acceptBusy}
+      onAccept={(mode) => void accept(estimate.job_id, mode)}
+      onAggregate={(tools) => aggregate(estimate.job_id, tools)}
+      onDismiss={() => dismissJob(estimate.job_id)}
+    />
+  );
 
   const todayRow = usage.data?.days.find((d) => d.usage_date === month.to);
   const chatSlot: MeterSlot | null = conversation.data
@@ -284,10 +352,10 @@ export function Thread({
   // "Ask next" under the newest answer that finished cleanly.
   const lastRow = rows[rows.length - 1];
   const lastAnswerTools: string[] | null = showLive
-    ? live && live.done && !live.error && !live.stopped && live.text !== ''
+    ? live && live.done && liveView?.kind === 'ok' && live.text !== ''
       ? live.tools.map((t) => t.name)
       : null
-    : lastRow && lastRow.role === 'assistant' && textOfContent(lastRow.content) !== ''
+    : lastRow && lastRow.role === 'assistant' && storedOutcome(lastRow).kind === 'ok' && storedText(lastRow) !== ''
       ? sourcesOf(lastRow).items.map((t) => t.name)
       : null;
   const followUps = !chat.streaming && lastAnswerTools ? followUpsFor(lastAnswerTools, scopes) : [];
@@ -660,15 +728,20 @@ export function Thread({
             {rows.map((m) => {
               if (m.role === 'user') return <Message key={m.id} role="user" text={textOfContent(m.content)} compact={compact} />;
               const src = sourcesOf(m);
-              const text = textOfContent(m.content);
-              const asked = [...rows].reverse().find((r) => r.role === 'user' && r.seq < m.seq);
+              const text = storedText(m);
+              const askedRow = [...allRows].reverse().find((r) => r.role === 'user' && r.seq < m.seq);
+              const asked = askedRow ? textOfContent(askedRow.content) : undefined;
+              const below = estimates.byMessage.get(m.id);
               return (
+                <Fragment key={m.id}>
                 <Message
-                  key={m.id}
                   messageId={m.id}
-                  question={asked ? textOfContent(asked.content) : undefined}
+                  question={asked}
                   role="assistant"
                   text={text}
+                  outcome={storedOutcome(m)}
+                  onAskAgain={asked ? () => void chat.ask(asked) : undefined}
+                  askAgainDisabled={chat.streaming}
                   tools={src.items}
                   scopes={src.scopes.length > 0 ? src.scopes : null}
                   gate={m.gate}
@@ -682,6 +755,8 @@ export function Thread({
                   onTurnOn={(s) => void turnOn(s)}
                   turningOn={turningOn}
                 />
+                {below?.map((j) => estimateCard(estimateOf(j)))}
+                </Fragment>
               );
             })}
 
@@ -700,8 +775,9 @@ export function Thread({
                   pricing={pricing}
                   fallbackMicrosPerMtok={fallback}
                   streaming={!live.done}
-                  stopped={live.stopped}
-                  error={live.error}
+                  outcome={liveView ?? undefined}
+                  onAskAgain={() => void chat.ask(live.userText)}
+                  askAgainDisabled={chat.streaming}
                   compact={compact}
                   onNavigate={onNavigate}
                   turnOn={live.done ? refusedScopes(live.text, live.tools.map((t) => t.error ?? '').filter(Boolean), scopeLabels, scopes) : []}
@@ -711,18 +787,8 @@ export function Thread({
               </>
             )}
 
-            {liveEstimate && (
-              <JobEstimateCard
-                estimate={liveEstimate}
-                model={model}
-                pricing={pricing}
-                fallbackMicrosPerMtok={fallback}
-                busy={acceptBusy}
-                onAccept={(mode) => void accept(liveEstimate.job_id, mode)}
-                onAggregate={(tools) => aggregate(liveEstimate.job_id, tools)}
-                onDismiss={() => setDismissedJobs((d) => new Set(d).add(liveEstimate.job_id))}
-              />
-            )}
+            {liveEstimate && estimateCard(liveEstimate)}
+            {estimates.trailing.map((j) => estimateCard(estimateOf(j)))}
 
             {visibleJobs.map((j) => (
               <JobProgress key={j.id} jobId={j.id} initial={j} model={j.tokens.model ?? model} pricing={pricing} fallbackMicrosPerMtok={fallback} />

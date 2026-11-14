@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ReactNode } from 'react';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { catalogs } from '@touch/i18n';
 import { LocaleProvider } from '../../lib/i18n';
 import { Sources } from './Sources';
 import { Message, parseBlocks } from './Message';
@@ -170,5 +171,89 @@ describe('parseBlocks', () => {
   it('separates paragraphs, lists, numbered lists and tables', () => {
     const blocks = parseBlocks('One\ntwo\n\n1. a\n2. b\n- c\n| h |\n| 1 |');
     expect(blocks.map((b) => b.kind)).toEqual(['p', 'ol', 'ul', 'table']);
+  });
+});
+
+describe('Message: how a turn ended', () => {
+  const tools = [{ call_id: 't1', name: 'panel_headline', args: {}, row_count: 3, ms: 10, route: null }];
+  const saved = { messageId: 'm1', question: 'How much today?', tools };
+
+  afterEach(() => {
+    cleanup();
+    localStorage.clear();
+  });
+
+  it('a finished answer keeps Pin and Re-check', () => {
+    renderIn(<Message role="assistant" text="Sales were 10." {...saved} outcome={{ kind: 'ok' }} />);
+    expect(screen.getByTestId('assistant-pin')).toBeTruthy();
+    expect(document.querySelector('[data-recheck]')).toBeTruthy();
+    expect(document.querySelector('[data-turn-outcome]')).toBeNull();
+  });
+
+  for (const [kind, words] of [
+    ['stopped', /Stopped\./],
+    ['cut_short', /This answer was cut short\. Ask for the rest\./],
+    ['refused', /The assistant declined to answer this\./],
+  ] as const) {
+    it(`${kind}: a quiet note, Copy stays, Pin and Re-check go`, () => {
+      renderIn(<Message role="assistant" text="Sales were" {...saved} outcome={{ kind }} />);
+      expect(document.querySelector(`[data-turn-outcome="${kind}"]`)!.textContent).toMatch(words);
+      expect(screen.getByText('Copy')).toBeTruthy();
+      expect(screen.queryByTestId('assistant-pin')).toBeNull();
+      expect(document.querySelector('[data-recheck]')).toBeNull();
+      expect(screen.queryByRole('alert')).toBeNull();
+    });
+  }
+
+  it('error: the sentence in the reader’s words, and Ask again sends only when pressed', () => {
+    const onAskAgain = vi.fn();
+    renderIn(<Message role="assistant" text="" {...saved} outcome={{ kind: 'error', code: 'TIMEOUT' }} onAskAgain={onAskAgain} />);
+    expect(screen.getByRole('alert').textContent).toMatch(/longer than 50 seconds/);
+    expect(onAskAgain).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByText('Ask again'));
+    expect(onAskAgain).toHaveBeenCalledTimes(1);
+    expect(screen.queryByTestId('assistant-pin')).toBeNull();
+  });
+
+  it('a dropped connection has its own sentence', () => {
+    renderIn(<Message role="assistant" text="Half" outcome={{ kind: 'error', code: 'CONNECTION' }} onAskAgain={() => {}} />);
+    expect(screen.getByRole('alert').textContent).toBe('The connection dropped before the answer finished.');
+    expect(screen.getByText('Ask again')).toBeTruthy();
+  });
+
+  it('no Ask again where asking again cannot help (the monthly cap)', () => {
+    renderIn(<Message role="assistant" text="" outcome={{ kind: 'error', code: 'LLM_MONTHLY_CAP' }} onAskAgain={() => {}} />);
+    expect(screen.getByRole('alert').textContent).toMatch(/Usage and limits/);
+    expect(screen.queryByText('Ask again')).toBeNull();
+  });
+
+  it('says the same in Arabic', () => {
+    localStorage.setItem('touch-operator-locale', 'ar');
+    renderIn(<Message role="assistant" text="" {...saved} outcome={{ kind: 'error', code: 'CONNECTION' }} onAskAgain={() => {}} />);
+    expect(screen.getByRole('alert').textContent).toBe('انقطع الاتصال قبل أن تكتمل الإجابة.');
+    expect(screen.getByText('اسأل مرة أخرى')).toBeTruthy();
+    cleanup();
+    renderIn(<Message role="assistant" text="نصف" {...saved} outcome={{ kind: 'cut_short' }} />);
+    expect(document.querySelector('[data-turn-outcome="cut_short"]')!.textContent).toBe('توقفت هذه الإجابة قبل أن تكتمل. اطلب البقية.');
+  });
+
+  it('every outcome key exists in both catalogs', () => {
+    const keys = [
+      'message.outcome.cutShort',
+      'message.outcome.refused',
+      'message.askAgain',
+      'message.askAgainHint',
+      'message.errors.CONNECTION',
+      'job.fromPrice',
+      'job.fromPriceHint',
+      'job.perTool',
+      'job.perToolEstimated',
+    ];
+    const at = (root: unknown, path: string) => path.split('.').reduce<unknown>((n, k) => (n && typeof n === 'object' ? (n as Record<string, unknown>)[k] : undefined), root);
+    for (const locale of ['en', 'ar'] as const) {
+      for (const key of keys) expect(typeof at(catalogs[locale], `ws.owner.assistant.${key}`), `${locale} ${key}`).toBe('string');
+    }
+    expect(at(catalogs.en, 'ws.owner.assistant.message.errors.LLM_MONTHLY_CAP')).not.toMatch(/Venue settings/);
+    expect(at(catalogs.ar, 'ws.owner.assistant.message.errors.LLM_MONTHLY_CAP')).not.toMatch(/إعدادات المكان/);
   });
 });

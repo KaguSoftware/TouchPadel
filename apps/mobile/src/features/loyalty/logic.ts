@@ -10,22 +10,26 @@
 import type { MessageKey } from '@touch/i18n';
 import {
   MEMBER_CODE_RE,
+  type LadderTier,
   type LedgerKind,
   type LedgerRow,
   type LoyaltyReward,
   type LoyaltyTier,
   type MemberCard,
   type MyLoyalty,
+  type TierDeal,
+  type TierPerk,
   tierColor,
 } from '@touch/core/loyalty';
 
 type Obj = Record<string, unknown>;
 
-const isObj = (v: unknown): v is Obj => !!v && typeof v === 'object' && !Array.isArray(v);
-const num = (v: unknown): number =>
+// The jsonb readers, shared with deals.ts (the other half of the loyalty answers).
+export const isObj = (v: unknown): v is Obj => !!v && typeof v === 'object' && !Array.isArray(v);
+export const num = (v: unknown): number =>
   typeof v === 'number' && Number.isFinite(v) ? v : Number(v) || 0;
-const str = (v: unknown): string => (typeof v === 'string' ? v : '');
-const strOrNull = (v: unknown): string | null => (typeof v === 'string' && v ? v : null);
+export const str = (v: unknown): string => (typeof v === 'string' ? v : '');
+export const strOrNull = (v: unknown): string | null => (typeof v === 'string' && v ? v : null);
 
 const LEDGER_KINDS: readonly LedgerKind[] = [
   'earn',
@@ -80,8 +84,52 @@ function parseReward(raw: unknown): LoyaltyReward | null {
   };
 }
 
-const list = <T>(raw: unknown, parse: (r: unknown) => T | null): T[] =>
+export const list = <T>(raw: unknown, parse: (r: unknown) => T | null): T[] =>
   Array.isArray(raw) ? raw.map(parse).filter((x): x is T => x !== null) : [];
+
+/** A privilege needs an id and a name to be shown; a kind this build does not know reads as a line. */
+function parsePerk(raw: unknown): TierPerk | null {
+  if (!isObj(raw) || !str(raw.id)) return null;
+  const name_en = str(raw.name_en).trim();
+  const name_ar = str(raw.name_ar).trim();
+  if (!name_en && !name_ar) return null;
+  return { id: str(raw.id), kind: raw.kind === 'free_addons' ? 'free_addons' : 'custom', name_en, name_ar };
+}
+
+function parseTierDeal(raw: unknown): TierDeal | null {
+  if (!isObj(raw) || !str(raw.id)) return null;
+  const name_en = str(raw.name_en).trim();
+  const name_ar = str(raw.name_ar).trim();
+  if (!name_en && !name_ar) return null;
+  return { id: str(raw.id), name_en, name_ar };
+}
+
+/**
+ * `my_loyalty.tiers` (0410): every tier from the base up, each with its own privileges and the
+ * listed deals it unlocks. Absent (a server before 0410) or unreadable is no ladder at all; a
+ * rung without an id is left out. Sorted by threshold, so the rungs climb whatever order they
+ * came in.
+ */
+export function parseLadder(raw: unknown): LadderTier[] {
+  if (!Array.isArray(raw)) return [];
+  const seen = new Set<string>();
+  const rungs: LadderTier[] = [];
+  for (const r of raw) {
+    const tier = parseTier(r);
+    if (!tier || !isObj(r) || seen.has(tier.id)) continue;
+    seen.add(tier.id);
+    rungs.push({
+      ...tier,
+      // A multiplier under 1 or unreadable would print "0× points": the plain rate instead.
+      multiplier: tier.multiplier > 0 ? tier.multiplier : 1,
+      min_points_12m: Math.max(0, tier.min_points_12m ?? 0),
+      perks: list(r.perks, parsePerk),
+      deals: list(r.deals, parseTierDeal),
+    });
+  }
+  // Array.prototype.sort is stable: equal thresholds keep the server's order.
+  return rungs.sort((a, b) => a.min_points_12m - b.min_points_12m);
+}
 
 /** app.my_loyalty(). Anything unreadable reads as "off", never as a crash. */
 export function parseMyLoyalty(raw: unknown): MyLoyalty {
@@ -94,6 +142,8 @@ export function parseMyLoyalty(raw: unknown): MyLoyalty {
     points_12m: num(o.points_12m),
     tier: parseTier(o.tier),
     next_tier: next ? { ...next, min_points_12m: next.min_points_12m ?? 0 } : null,
+    // 0410: absent from an older server reads as no ladder.
+    tiers: parseLadder(o.tiers),
     point_value_iqd: num(o.point_value_iqd),
     min_redeem_points: num(o.min_redeem_points),
     // 0403: points as money off only when the owner turned it on; absent reads as off.
@@ -180,6 +230,96 @@ export function tierProgress(
     fraction: span <= 0 ? 1 : Math.min(1, Math.max(0, done / span)),
     remaining: Math.max(0, target - l.points_12m),
   };
+}
+
+// ── the ladder (0410) ────────────────────────────────────────────────────────
+
+/** held: a rung under the member's card; current: their card; ahead: a card still to reach. */
+export type RungState = 'held' | 'current' | 'ahead';
+
+export interface LadderRung {
+  tier: LadderTier;
+  state: RungState;
+  /** Points in the last 12 months still needed for this rung; 0 unless it is ahead. */
+  remaining: number;
+}
+
+export interface LadderPosition {
+  /** Every rung from the base up. Empty when the answer carried no ladder. */
+  rungs: LadderRung[];
+  /** The member's own rung, or null when they hold no card on the ladder. */
+  current: LadderTier | null;
+  /** The first rung above theirs, or null at the top. */
+  next: LadderTier | null;
+}
+
+/**
+ * Where the member stands on the ladder. The SERVER names their tier (`tier.id`): a card can be
+ * held above what `points_12m` alone would give, so the points decide only when the answer names
+ * no tier the ladder carries. Everything under the current rung is held, everything over it is
+ * ahead with the points still needed (never negative).
+ */
+export function ladderPosition(
+  l: Pick<MyLoyalty, 'points_12m' | 'tier' | 'tiers'>,
+): LadderPosition {
+  const tiers = l.tiers ?? [];
+  let at = l.tier ? tiers.findIndex((t) => t.id === l.tier?.id) : -1;
+  if (at < 0) {
+    tiers.forEach((t, i) => {
+      if (t.min_points_12m <= l.points_12m) at = i;
+    });
+  }
+  const rungs = tiers.map((tier, i): LadderRung => {
+    const state: RungState = i > at ? 'ahead' : i === at ? 'current' : 'held';
+    return {
+      tier,
+      state,
+      remaining: state === 'ahead' ? Math.max(0, tier.min_points_12m - l.points_12m) : 0,
+    };
+  });
+  return { rungs, current: tiers[at] ?? null, next: tiers[at + 1] ?? null };
+}
+
+/** What a card gives, as the screen lists it. */
+export interface CardGives {
+  /** The earn rate when it is worth saying (above the rate it is compared with), else null. */
+  multiplier: number | null;
+  perks: TierPerk[];
+  deals: TierDeal[];
+}
+
+/**
+ * What one rung gives OF ITS OWN: its privileges, the deals it unlocks, and its points rate when
+ * that is above `overRate` (the member's current rate for the next card, 1 for a row of the
+ * ladder).
+ */
+export function rungGives(tier: LadderTier, overRate = 1): CardGives {
+  return {
+    multiplier: tier.multiplier > overRate ? tier.multiplier : null,
+    perks: tier.perks,
+    deals: tier.deals,
+  };
+}
+
+/**
+ * Everything the member's card holds: its own tier's privileges and deals and those of every
+ * tier below it (0410), the highest tier's first, nothing twice; and its points rate when above 1.
+ */
+export function cardHolds(position: LadderPosition): CardGives {
+  const mine = position.rungs.filter((r) => r.state !== 'ahead').reverse();
+  const perks = new Map<string, TierPerk>();
+  const deals = new Map<string, TierDeal>();
+  for (const r of mine) {
+    for (const p of r.tier.perks) if (!perks.has(p.id)) perks.set(p.id, p);
+    for (const d of r.tier.deals) if (!deals.has(d.id)) deals.set(d.id, d);
+  }
+  const rate = position.current?.multiplier ?? 1;
+  return { multiplier: rate > 1 ? rate : null, perks: [...perks.values()], deals: [...deals.values()] };
+}
+
+/** True when there is something to list. */
+export function givesAnything(g: CardGives): boolean {
+  return g.multiplier !== null || g.perks.length > 0 || g.deals.length > 0;
 }
 
 /** A tier's name in the guest's language, the other one when that is empty. */

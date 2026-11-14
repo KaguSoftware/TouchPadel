@@ -6,6 +6,9 @@
  *     which filters; the answer reuse filters on owner_id IN the query, the
  *     history window is tailStartSeq..userSeq-1 with the turn's signal) and
  *     each read's fallback when it fails (logged, never fatal);
+ *   * reads.ts tailToMessages: stored history to text-only turns, a failed
+ *     turn's empty text and an older "[CODE] sentence" placeholder skipped
+ *     (two user turns then follow each other), a leading assistant dropped;
  *   * reuse.ts findReusableAnswer over injected reads: only a chat of the
  *     last REUSE_LOOKBACK_MS, the same scopes (any order) and the same branch
  *     in scope, whose FIRST message is the same question once normalised;
@@ -44,6 +47,7 @@ interface Reads {
   readTail(service: unknown, id: string, userSeq: number, signal: AbortSignal): Promise<unknown[]>;
   recheckReads(asOwner: unknown): { readMessage(id: string): PromiseLike<{ data: unknown; error: unknown }>; readConversation(id: string): PromiseLike<{ data: unknown; error: unknown }> };
   reuseReads(service: unknown): ReuseReads;
+  tailToMessages(rows: readonly { role: string; content: unknown }[]): { role: string; content: string }[];
 }
 
 let RD: Reads;
@@ -181,6 +185,43 @@ describe('reads.ts', () => {
 });
 
 // ---------------------------------------------------------------------------
+describe('reads.ts tailToMessages', () => {
+  const t = (text: string) => [{ type: 'text', text }];
+  it('text only, blocks joined; tool_use and thinking blocks are not replayed', () => {
+    expect(
+      RD.tailToMessages([
+        { role: 'user', content: t('How was the week?') },
+        { role: 'assistant', content: [{ type: 'thinking', thinking: 'x' }, { type: 'text', text: 'Good: ' }, { type: 'tool_use', id: 't' }, { type: 'text', text: '4,500,000 IQD.' }] },
+      ]),
+    ).toEqual([
+      { role: 'user', content: 'How was the week?' },
+      { role: 'assistant', content: 'Good: \n4,500,000 IQD.' },
+    ]);
+  });
+  it('a failed turn stored as one empty block, or an older "[CODE] sentence" row, is skipped: two user turns follow each other', () => {
+    expect(
+      RD.tailToMessages([
+        { role: 'user', content: t('First?') },
+        { role: 'assistant', content: t('') },
+        { role: 'user', content: t('Second?') },
+        { role: 'assistant', content: t('[TIMEOUT] the turn did not finish inside 50 s') },
+        { role: 'user', content: t('Third?') },
+        { role: 'assistant', content: t('Stopped half way thro') },
+      ]),
+    ).toEqual([
+      { role: 'user', content: 'First?' },
+      { role: 'user', content: 'Second?' },
+      { role: 'user', content: 'Third?' },
+      { role: 'assistant', content: 'Stopped half way thro' },
+    ]);
+  });
+  it('a user who typed something that looks like a code is kept; a leading assistant is dropped', () => {
+    expect(RD.tailToMessages([{ role: 'assistant', content: t('Earlier answer') }, { role: 'user', content: t('[TIMEOUT] what does this mean') }])).toEqual([
+      { role: 'user', content: '[TIMEOUT] what does this mean' },
+    ]);
+  });
+});
+
 describe('findReusableAnswer', () => {
   const NOW = Date.parse('2026-11-09T09:00:00.000Z'); // 12:00 in Baghdad
   const TODAY = '2026-11-09';

@@ -8,6 +8,8 @@ import {
   edgeTimeoutMs,
   invalidateEdgeCache,
   stableStringify,
+  STREAM_STALL_MS,
+  StreamStalledError,
   statusToEdgeCode,
   streamEdge,
 } from './edge';
@@ -83,6 +85,8 @@ describe('callEdge deadlines', () => {
     expect(edgeTimeoutMs('staff-admin')).toBe(DEFAULT_REQUEST_TIMEOUT_MS);
     expect(edgeTimeoutMs('analytics-insights')).toBeGreaterThan(DEFAULT_REQUEST_TIMEOUT_MS);
     expect(edgeTimeoutMs('analytics-posthog')).toBeGreaterThan(DEFAULT_REQUEST_TIMEOUT_MS);
+    // A live job runs inside the accept request for up to 50 s (jobRunner WALL_MS).
+    expect(edgeTimeoutMs('assistant-job')).toBeGreaterThan(50_000);
 
     vi.useFakeTimers();
     const fetchMock = hangingFetch();
@@ -338,11 +342,109 @@ describe('streamEdge', () => {
     vi.stubGlobal('fetch', fetchMock);
     const controller = new AbortController();
     await streamEdge('assistant-chat', {}, { onEvent: vi.fn(), signal: controller.signal });
-    expect((fetchMock.mock.calls[0] as [string, RequestInit])[1].signal).toBe(controller.signal);
+    const sent = (fetchMock.mock.calls[0] as [string, RequestInit])[1].signal!;
+    expect(sent.aborted).toBe(false);
+    controller.abort();
+    // The request's own signal follows the caller's Stop only while the call runs.
+    expect(sent.aborted).toBe(false);
 
     stubSession(null);
     const err = await streamEdge('assistant-chat', {}, { onEvent: vi.fn() }).catch((e: unknown) => e);
     expect((err as EdgeError).kind).toBe('AUTH_REQUIRED');
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('streamEdge stall watchdog', () => {
+  /** A stream that sends `first` and then nothing, until its request is aborted. */
+  function silentAfter(first: string[]) {
+    return vi.fn((_url: string, init?: RequestInit) => {
+      const encoder = new TextEncoder();
+      const stream = new ReadableStream<Uint8Array>({
+        start(controller) {
+          for (const chunk of first) controller.enqueue(encoder.encode(chunk));
+          init?.signal?.addEventListener('abort', () => controller.error(Object.assign(new Error('Aborted'), { name: 'AbortError' })));
+        },
+      });
+      return Promise.resolve(new Response(stream, { status: 200, headers: { 'Content-Type': 'text/event-stream' } }));
+    });
+  }
+
+  it('cuts a stream that sends nothing for STREAM_STALL_MS and aborts the request', async () => {
+    vi.useFakeTimers();
+    const fetchMock = silentAfter(['event: delta\ndata: {"text":"Hi"}\n\n']);
+    vi.stubGlobal('fetch', fetchMock);
+    const seen: string[] = [];
+    const caught = streamEdge('assistant-chat', {}, { onEvent: (name) => seen.push(name) }).catch((e: unknown) => e);
+    await vi.advanceTimersByTimeAsync(STREAM_STALL_MS - 1);
+    expect(seen).toEqual(['delta']);
+    await vi.advanceTimersByTimeAsync(1);
+    const err = await caught;
+    expect(err).toBeInstanceOf(StreamStalledError);
+    expect((fetchMock.mock.calls[0] as [string, RequestInit])[1].signal!.aborted).toBe(true);
+  });
+
+  it('a heartbeat resets the watchdog', async () => {
+    vi.useFakeTimers();
+    const encoder = new TextEncoder();
+    let push: ((s: string) => void) | null = null;
+    let end: (() => void) | null = null;
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => {
+        const stream = new ReadableStream<Uint8Array>({
+          start(controller) {
+            push = (s) => controller.enqueue(encoder.encode(s));
+            end = () => controller.close();
+          },
+        });
+        return Promise.resolve(new Response(stream, { status: 200 }));
+      }),
+    );
+    const seen: string[] = [];
+    let settled: unknown = 'pending';
+    void streamEdge('assistant-chat', {}, { onEvent: (name) => seen.push(name) }).then(
+      () => (settled = 'ok'),
+      (e: unknown) => (settled = e),
+    );
+    for (let i = 0; i < 4; i += 1) {
+      await vi.advanceTimersByTimeAsync(STREAM_STALL_MS - 5_000);
+      push!(': heartbeat\n\n');
+    }
+    expect(settled).toBe('pending');
+    push!('event: done\ndata: {}\n\n');
+    end!();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(settled).toBe('ok');
+    expect(seen).toEqual(['done']);
+  });
+
+  it('a server that never sends its answer headers is cut too', async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        (_url: string, init?: RequestInit) =>
+          new Promise<Response>((_resolve, reject) => {
+            init?.signal?.addEventListener('abort', () => reject(Object.assign(new Error('Aborted'), { name: 'AbortError' })));
+          }),
+      ),
+    );
+    const caught = streamEdge('assistant-chat', {}, { onEvent: vi.fn() }).catch((e: unknown) => e);
+    await vi.advanceTimersByTimeAsync(STREAM_STALL_MS);
+    expect(await caught).toBeInstanceOf(StreamStalledError);
+  });
+
+  it('the Stop button still ends it as an abort, not a stall', async () => {
+    const fetchMock = silentAfter([]);
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+    const caught = streamEdge('assistant-chat', {}, { onEvent: vi.fn(), signal: controller.signal }).catch((e: unknown) => e);
+    await Promise.resolve();
+    await Promise.resolve();
+    controller.abort();
+    const err = await caught;
+    expect(err).not.toBeInstanceOf(StreamStalledError);
+    expect((err as Error).name).toBe('AbortError');
   });
 });

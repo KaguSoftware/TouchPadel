@@ -60,6 +60,28 @@ describe('parsePeople', () => {
     expect(d.levels[0]!.judged).toBe(1);
   });
 
+  it('shows Type C once: a new bucket folds into beginner, and the levels print A, B, C', () => {
+    const d = parsePeople({
+      ...payload,
+      levels: [
+        { bucket: 'new', guests: 2, judged: 0, plays: 3, bookings: 1, spend_iqd: 1000, share: 10 },
+        { bucket: 'beginner', guests: 4, judged: 1, plays: 5, bookings: 2, spend_iqd: 2000, share: 20 },
+        { bucket: 'advanced', guests: 5, judged: 2, plays: 9, bookings: 4, spend_iqd: 5000, share: 25 },
+        { bucket: 'unknown', guests: 9, judged: 0, plays: 9, bookings: 9, spend_iqd: 0, share: 45 },
+      ],
+      segments: [
+        { who: 'male', band: '25_34', level: 'new', guests: 5, plays: 6, spend_iqd: 100 },
+        { who: 'male', band: '25_34', level: 'beginner', guests: 6, plays: 7, spend_iqd: 200 },
+      ],
+    });
+    expect(d.levels.map((b) => [b.bucket, b.guests, b.judged, b.share])).toEqual([
+      ['advanced', 5, 2, 25],
+      ['beginner', 6, 1, 30],
+      ['unknown', 9, 0, 45],
+    ]);
+    expect(d.segments).toEqual([{ who: 'male', band: '25_34', level: 'beginner', guests: 11, plays: 13, spendIqd: 300 }]);
+  });
+
   it('keeps only the interest tags it knows, in the server’s order, and drops the empty ones', () => {
     const d = parsePeople(payload);
     expect(d.interests.map((r) => r.bucket)).toEqual(['courts', 'cafe']);

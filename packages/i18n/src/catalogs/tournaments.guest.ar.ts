@@ -76,7 +76,7 @@ export const tournamentsGuestAr: DeepMessages<typeof tournamentsGuestEn> = {
       notOpenStatus: 'التسجيل في هذه البطولة غير مفتوح حاليًا.',
       categoryMismatch: 'هذه البطولة لفئة أخرى من اللاعبين.',
       profileRequired: 'للتسجيل، نحتاج إلى معرفة مستواك ومدة لعبك.',
-      levelMismatch: 'هذه البطولة للاعبين من مستوى آخر.',
+      levelMismatch: 'هذه البطولة لفئة أخرى من اللاعبين.',
       yearsMismatch: 'هذه البطولة للاعبين بمدة لعب مختلفة.',
       answer: 'الإجابة الآن',
       full: 'اكتملت البطولة وقائمة الانتظار.',

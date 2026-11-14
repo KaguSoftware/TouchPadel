@@ -193,7 +193,7 @@ describe('StepSheet', () => {
     renderSheet();
     const dialog = await screen.findByRole('dialog');
     expect(await within(dialog).findByText('The plan: Autumn Open')).toBeTruthy();
-    expect(within(dialog).getByText(/Class B/)).toBeTruthy();
+    expect(within(dialog).getByText(/Type B/)).toBeTruthy();
     expect(calls.find((c) => c.fn === 'tournament_context')?.args).toEqual({ p_run_step_id: STEP });
     // The management reads stay off on /tasks.
     expect(calls.some((c) => c.fn === 'tournament_feasibility' || c.fn === 'release_cost' || c.fn === 'price_promo_numbers')).toBe(false);

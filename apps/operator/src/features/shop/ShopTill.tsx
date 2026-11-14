@@ -61,7 +61,7 @@ import type { IdentifiedMember } from '@touch/core/loyalty';
 import { can, useAuth } from '../../lib/auth';
 import { MemberAttach, MemberChip, MemberIdentifyDialog } from '../loyalty/MemberAttach';
 import { isMemberScan, memberView } from '../loyalty/loyaltyLogic';
-import { setTabCustomer } from '../loyalty/useLoyalty';
+import { setTabCustomer, useMemberBenefits } from '../loyalty/useLoyalty';
 import { BillDiscountDialog } from '../discounts/BillDiscountDialog';
 import { canDiscount, rpcMissing, useAutoCustomerDiscount, useBillDiscount } from '../discounts/useCustomerDiscount';
 import { useDiscountWords } from '../discounts/useDiscountWords';
@@ -608,10 +608,12 @@ function ShopMemberStep({ tabId, fallbackDue }: { tabId: string; fallbackDue: nu
   const due = d ? saleOwed(d, taxCtx).due : fallbackDue;
   const discountAllowed = canDiscount(staff);
   const off = discountBreakdown(d?.tab_adjustments ?? []);
-  const version = `${d?.subtotal_iqd ?? ''}|${off.manager}|${off.promotion}|${off.customer}`;
+  const version = `${d?.subtotal_iqd ?? ''}|${off.manager}|${off.promotion}|${off.customer}|${off.perks}`;
   const billDiscQ = useBillDiscount({ tabId, reservationId: null, version, enabled: discountAllowed && d !== undefined });
   const billDisc = billDiscQ.data;
   useAutoCustomerDiscount({ tabId, reservationId: null, state: billDisc, version, enabled: discountAllowed && d !== undefined });
+  // 0410: what the member's card gives, and its free add-ons brought onto the sale by themselves.
+  const benefits = useMemberBenefits({ tabId, version, enabled: discountAllowed && d !== undefined });
   const words = useDiscountWords();
   const [discountOpen, setDiscountOpen] = useState(false);
   const shown = discountAllowed && billDisc !== undefined && !rpcMissing(billDiscQ.error);
@@ -635,7 +637,14 @@ function ShopMemberStep({ tabId, fallbackDue }: { tabId: string; fallbackDue: nu
           {tr('ws.discounts.bill.cafeWaived')}
         </span>
       )}
-      <MemberAttach tabId={tabId} remainingIqd={due} />
+      {off.perks > 0 && (
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 'var(--tp-sp-2)', fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }} data-testid="card-perks-row">
+          <span>{tr('ws.loyalty.benefits.billRow')}</span>
+          <Money amount={-off.perks} />
+        </div>
+      )}
+      {/* No promotion apply at the shop till: a deal picked in the app is named, not applied here. */}
+      <MemberAttach tabId={tabId} remainingIqd={due} benefits={benefits} />
       {shown && billDisc.customer && (
         <div>
           <Button icon="user" data-testid="customer-discount-button" onClick={() => setDiscountOpen(true)}>

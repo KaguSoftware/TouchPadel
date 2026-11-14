@@ -12,10 +12,15 @@
  *   * the stored row: text blocks only (thinking dropped, a cited answer as
  *     one block), the gate with its deduped, sorted figures and the HMAC over
  *     them; a failed price keeps the call's estimate;
- *   * the error frame: a failed or timed-out turn stores the code and
- *     sentence as its text and still stores and records what it spent; a
- *     message that could not be stored writes no calls but the spend is
- *     still recorded;
+ *   * the error frame: a failed or timed-out turn stores its code as
+ *     `tokens.error_code` (and `stop_reason`) and the text that had arrived,
+ *     or one EMPTY text block (no longer "[CODE] sentence"), and still stores
+ *     and records what it spent; a message that could not be stored writes no
+ *     calls but the spend is still recorded;
+ *   * how the turn ended (2026-11-11, packages/core outcome.ts): every row
+ *     carries `stop_reason`; a Stop is `stopped` with no error_code, never
+ *     TIMEOUT; a failed spend record is retried once, then logged loudly
+ *     with the amounts;
  *   * a reused answer (no calls) prices and records nothing and says where it
  *     came from; a proposed job's row, its self-stamped estimate and the
  *     job_estimate event, or the UPSTREAM error frame when the row fails;
@@ -52,6 +57,8 @@ interface PersistInput {
   freshContext: FrozenContext | null;
   signal: AbortSignal;
   errorOut: { code: string; message: string } | null;
+  stopped?: boolean;
+  recordRetryMs?: number;
   reusedFrom: string | null;
   gateSign: ((input: string) => Promise<string>) | null;
   emit: Emit;
@@ -61,6 +68,7 @@ interface Persist {
   gateSigner(): ((input: string) => Promise<string>) | null;
   priceOf(service: unknown, model: string, u: { input: number; cache_write: number; cache_read: number; output: number }): Promise<number | null>;
   webSearchPricer(service: unknown): () => Promise<number>;
+  RECORD_RETRY_MS: number;
   insertMessage(service: unknown, conversationId: string, row: Record<string, unknown>): Promise<{ seq: number; error: unknown }>;
 }
 
@@ -198,6 +206,7 @@ describe('persistTurn: a turn that finished', () => {
       input: 1400, cache_write: 200, cache_read: 7200, output: 240,
       cost_micros: 80_000, calls: 2, model: MODEL, web_searches: 1,
       route: 'analysis', route_reason: 'compare', effort: 'medium',
+      stop_reason: 'end_turn',
     });
   });
 
@@ -297,7 +306,7 @@ describe('persistTurn: the gate signature', () => {
 
 // ---------------------------------------------------------------------------
 describe('persistTurn: the error frame', () => {
-  it('a timed-out turn stores the code and sentence as its text, still stores its calls and spend, and keeps the context out', async () => {
+  it('a timed-out turn stores its code (no placeholder text: one empty block), still stores its calls and spend, and keeps the context out', async () => {
     const svc = service({ maxSeq: 2 });
     const abort = new AbortController();
     abort.abort();
@@ -308,7 +317,8 @@ describe('persistTurn: the error frame', () => {
     });
     await P.persistTurn(d);
     const row = storedRow(svc.ops);
-    expect(row.content).toEqual([{ type: 'text', text: '[TIMEOUT] the turn did not finish inside 50 s' }]);
+    expect(row.content).toEqual([{ type: 'text', text: '' }]);
+    expect(row.tokens).toMatchObject({ stop_reason: 'TIMEOUT', error_code: 'TIMEOUT' });
     expect(row.gate).toBeNull();
     expect(row.seq).toBe(3);
     expect(svc.froms('assistant_calls')).toHaveLength(1);
@@ -340,6 +350,118 @@ describe('persistTurn: the error frame', () => {
     expect(svc.rpcs('llm_record_usage')).toHaveLength(1);
     expect(svc.rpcs('assistant_conversation_persist')).toHaveLength(1);
     expect(logged.join('\n')).toContain(`assistant message ${MSG} not stored in ${CONV}`);
+  });
+});
+
+// ---------------------------------------------------------------------------
+describe('persistTurn: how the turn ended (stop_reason, error_code)', () => {
+  const tokensOf = async (over: Partial<PersistInput>) => {
+    const svc = service();
+    await P.persistTurn(input(svc.client, over).d);
+    return { row: storedRow(svc.ops), svc };
+  };
+
+  it('every stored row carries the loop\'s stop_reason and no error_code when the turn did not fail', async () => {
+    for (const stopReason of ['end_turn', 'max_tokens', 'refusal', 'cost_capped', 'rounds_exhausted', 'job_proposed']) {
+      const { row } = await tokensOf({ turn: turnWith({ stopReason }) });
+      expect(row.tokens, stopReason).toMatchObject({ stop_reason: stopReason });
+      expect(row.tokens, stopReason).not.toHaveProperty('error_code');
+    }
+    const reused = await tokensOf({ turn: turnWith({ calls: [], webSearches: 0 }), reusedFrom: 'eeeeeeee-0000-4000-8000-000000000005' });
+    expect(reused.row.tokens).toMatchObject({ stop_reason: 'end_turn', reused_from: 'eeeeeeee-0000-4000-8000-000000000005' });
+  });
+
+  it('a failed turn stores error_code and the same code as stop_reason (what the live done event says), for every code', async () => {
+    for (const code of ['TIMEOUT', 'UPSTREAM', 'RATE_LIMITED', 'NOT_CONFIGURED']) {
+      const { row } = await tokensOf({ turn: turnWith({ finalContent: [], finalText: '', gate: null, stopReason: 'tool_use' }), errorOut: { code, message: 'x' } });
+      expect(row.tokens, code).toMatchObject({ stop_reason: code, error_code: code });
+      expect(row.content, code).toEqual([{ type: 'text', text: '' }]);
+    }
+  });
+
+  it('a failed turn keeps the text that had arrived (no placeholder appended)', async () => {
+    const { row } = await tokensOf({ turn: turnWith({ finalContent: [], finalText: 'Revenue was 4,250,000 IQD and', gate: null }), errorOut: { code: 'UPSTREAM', message: 'the model call failed' } });
+    expect(row.content).toEqual([{ type: 'text', text: 'Revenue was 4,250,000 IQD and' }]);
+    expect(row.tokens).toMatchObject({ error_code: 'UPSTREAM' });
+  });
+
+  it('a Stop is stopped, not TIMEOUT: no error_code, the text that arrived, the spend recorded, the context kept out', async () => {
+    const abort = new AbortController();
+    abort.abort();
+    const { row, svc } = await tokensOf({
+      turn: turnWith({ finalContent: [], finalText: 'Revenue was 4,250,000', gate: null, stopReason: 'tool_use' }),
+      stopped: true,
+      signal: abort.signal,
+    });
+    expect(row.tokens).toMatchObject({ stop_reason: 'stopped' });
+    expect(row.tokens).not.toHaveProperty('error_code');
+    expect(row.content).toEqual([{ type: 'text', text: 'Revenue was 4,250,000' }]);
+    expect(svc.rpcs('llm_record_usage')).toHaveLength(1);
+    expect(svc.froms('assistant_calls')).toHaveLength(1);
+    expect(persistArgs(svc.ops).p_context).toBeNull();
+  });
+
+  it('a Stop with nothing arrived stores one empty text block; a failure reported alongside a Stop wins (error_code kept)', async () => {
+    const empty = await tokensOf({ turn: turnWith({ finalContent: [], finalText: '', gate: null }), stopped: true });
+    expect(empty.row.content).toEqual([{ type: 'text', text: '' }]);
+    expect(empty.row.tokens).toMatchObject({ stop_reason: 'stopped' });
+    const both = await tokensOf({ stopped: true, errorOut: { code: 'TIMEOUT', message: 'x' } });
+    expect(both.row.tokens).toMatchObject({ stop_reason: 'TIMEOUT', error_code: 'TIMEOUT' });
+  });
+});
+
+// ---------------------------------------------------------------------------
+describe('persistTurn: the spend is never dropped silently', () => {
+  /** A service whose spend RPCs fail the first `fails[name]` times. */
+  function flaky(fails: Record<string, number>) {
+    const seen: Record<string, number> = {};
+    return fakeClient({
+      rpc: (name, args): Result => {
+        if (name === 'llm_price_micros') return { data: Number(args.p_input) * 50, error: null };
+        seen[name] = (seen[name] ?? 0) + 1;
+        return seen[name]! <= (fails[name] ?? 0) ? { data: null, error: { code: '57014', message: 'canceling statement due to statement timeout' } } : { data: null, error: null };
+      },
+      from: (): Result => ({ data: null, error: null }),
+    });
+  }
+
+  it('a failed llm_record_usage and llm_record_web_search are each retried once; a retry that lands logs no loss', async () => {
+    const svc = flaky({ llm_record_usage: 1, llm_record_web_search: 1 });
+    await P.persistTurn(input(svc.client, { recordRetryMs: 0 }).d);
+    expect(svc.rpcs('llm_record_usage')).toHaveLength(2);
+    expect(svc.rpcs('llm_record_usage')[1]!.args).toEqual(svc.rpcs('llm_record_usage')[0]!.args);
+    expect(svc.rpcs('llm_record_web_search')).toHaveLength(2);
+    expect(logged.join('\n')).toContain('llm_record_usage failed; retrying once');
+    expect(logged.join('\n')).not.toContain('SPEND NOT RECORDED');
+    expect(svc.rpcs('assistant_conversation_persist')).toHaveLength(1);
+  });
+
+  it('two failures: logged loudly with the amounts, and the turn still persists the chat', async () => {
+    const svc = flaky({ llm_record_usage: 2, llm_record_web_search: 2 });
+    await P.persistTurn(input(svc.client, { recordRetryMs: 0 }).d);
+    expect(svc.rpcs('llm_record_usage')).toHaveLength(2);
+    const log = logged.join('\n');
+    expect(log).toContain(`SPEND NOT RECORDED: llm_record_usage failed twice for message ${MSG}`);
+    expect(log).toContain('"p_input":1400');
+    expect(log).toContain('"p_output":240');
+    expect(log).toContain(`SPEND NOT RECORDED: llm_record_web_search failed twice for message ${MSG}`);
+    expect(log).toContain('"p_searches":1');
+    expect(svc.rpcs('assistant_conversation_persist')).toHaveLength(1);
+  });
+
+  it('the retry waits RECORD_RETRY_MS by default', async () => {
+    vi.useFakeTimers();
+    try {
+      const svc = flaky({ llm_record_usage: 1 });
+      const done = P.persistTurn(input(svc.client, { turn: turnWith({ webSearches: 0 }) }).d);
+      await vi.advanceTimersByTimeAsync(0);
+      expect(svc.rpcs('llm_record_usage')).toHaveLength(1);
+      await vi.advanceTimersByTimeAsync(P.RECORD_RETRY_MS);
+      await done;
+      expect(svc.rpcs('llm_record_usage')).toHaveLength(2);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 

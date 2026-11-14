@@ -89,7 +89,7 @@ import LessonReviewScreen from '../../app/(coaching)/lesson-review';
 import LessonDetailScreen from '../../app/(coaching)/lesson/[id]';
 import MyLessonsScreen from '../../app/(coaching)/my-lessons';
 import ProfileScreen from '../../app/profile';
-import BookingsScreen from '../../app/(tabs)/bookings';
+import BookingsScreen from '../../app/bookings';
 import PayStatusScreen from '../../app/pay/status';
 import { onlinePaymentsOnForFile } from '../test/onlinePaymentsEnv';
 

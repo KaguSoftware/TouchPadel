@@ -79,7 +79,7 @@ export const reportsEn = {
     methods: { cash: 'Cash', card: 'Card', online: 'Online', outside: 'Outside the cashier' },
     sources: { till: 'At the café cashier', guest_web: 'QR order' },
     adjKinds: { discount_percent: 'Percentage off', discount_amount: 'Amount off', price_override: 'Price changed' },
-    reasons: { promotion: 'Promotion' },
+    reasons: { promotion: 'Promotion', loyalty_tier_perk: 'Card privilege: free add-ons' },
     kinds: {
       reservation: 'Booking',
       tab: 'Cafe',

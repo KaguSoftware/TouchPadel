@@ -446,10 +446,19 @@ export const TabBookIcon = ({ size = 21, color }: TabIconProps) => (
     <Circle cx={18.5} cy={6} r={2.2} fill={color} />
   </Svg>
 );
-export const TabBookingsIcon = ({ size = 21, color }: TabIconProps) => (
+/**
+ * Rankings (the leaderboard, the bar's first tab since 2026-11-12): a trophy, `TrophyIcon` at the
+ * tab bar's weight. An object, so it never mirrors. iOS draws SF Symbols' `trophy`.
+ */
+export const TabRanksIcon = ({ size = 21, color }: TabIconProps) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" accessible={false}>
-    <Rect x={3.5} y={5.5} width={17} height={15} rx={2.5} stroke={color} strokeWidth={2} />
-    <Path d="M3.5 10h17M8 3v4M16 3v4" stroke={color} strokeWidth={2} strokeLinecap="round" />
+    <Path
+      d="M7 4h10v5a5 5 0 01-10 0V4zM7 6H4v1.5A3.5 3.5 0 007.3 11M17 6h3v1.5a3.5 3.5 0 01-3.3 3.5M12 14v3.5M8 20.5h8"
+      stroke={color}
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
   </Svg>
 );
 /**

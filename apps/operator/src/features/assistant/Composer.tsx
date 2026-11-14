@@ -11,7 +11,7 @@
  * picks, so the line is shut and says why. `hideHint` keeps the hint for
  * screen readers only (the start screen and the thread say it elsewhere).
  */
-import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { useLocale } from '../../lib/i18n';
 import { Button } from '../../components/ui';
 
@@ -53,7 +53,8 @@ export function Composer({
   const { tr } = useLocale();
   const [text, setText] = useState(initialText ?? '');
   const ref = useRef<HTMLTextAreaElement>(null);
-  const hintId = 'tp-assistant-ask-hint';
+  // One per box: the drawer and the page can both hold a composer.
+  const hintId = `tp-assistant-ask-hint-${useId()}`;
 
   useEffect(() => {
     if (autoFocus) ref.current?.focus();

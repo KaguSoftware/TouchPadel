@@ -66,13 +66,27 @@ Online payment (deposits, lesson pay, the ticket wallet, /tickets and /pay/*) fo
 since 2026-11-01 (Majed, F-02: no online payment in this build). Open matches no longer ride on it:
 a seat is paid at the desk (0370), so they follow `matches_enabled` alone and a payments-off build
 never asks for a ticket. `EXPO_PUBLIC_PHONE_OTP` is "on" in production since the same day (F-46).
-`src/lib/__tests__/buildFlags.test.ts` pins all three. Ranks (the players' leaderboard) is not a tab: it is the
-middle segment of Club, between the member card and the café menu
-(`src/features/ranks/RanksView.tsx`; Profile's Ranks row and the report screen's back open
-`/club?show=ranks`). The leaderboard's numbers are all the server's (`ranks_board`, public
+`src/lib/__tests__/buildFlags.test.ts` pins all three. Rankings (the players' leaderboard) is the
+bar's first tab since 2026-11-12 (Majed), `app/(tabs)/ranks.tsx` around the shared
+`src/features/ranks/RanksView.tsx`; Profile's Ranks row and the report screen's back open `/ranks`.
+It took My reservations' slot: My reservations is now a root-stack page, `app/bookings.tsx`, opened
+from Profile's "My reservations" row (and after a booking's success or a payment's status, which
+return to the tabs and push it). Club is the member card and the café menu only. The leaderboard's numbers are all the server's (`ranks_board`, public
 top N; `my_ranks`, the guest's own place, level, results and played bookings to report); a score is
 reported at `app/ranks-report.tsx` by username (exact lookup, `ranks_find_player`) and counts only
 once an opponent confirms. Everything under `['ranks']` stays off disk.
+
+Deals and the cards (Majed, 2026-11-12; migration 0410): `app/loyalty.tsx` shows, in this order,
+the points card, the way to the next card with what that card gives (`NextCardBlock.tsx`), the
+deals (`DealCards.tsx`), rewards, every card with its privileges (`TierLadder.tsx`) and the
+history. A deal is picked with `pick_deal` ("Use at the cashier") and the guest lands on the
+member card, which names the picked deal beside the QR (`DealNote.tsx` in `MemberCardPanel`): the
+cashier scans the card and applies it, nothing is redeemed on the phone. Everything is the
+server's (`my_loyalty.tiers`, `my_deals`); the phone never works out who holds which privilege
+beyond reading the ladder (`ladderPosition`, `cardHolds` in `logic.ts`; deal parsing in
+`deals.ts`). `['loyalty','deals']` stays off disk (a pick restored from disk could promise a deal
+already used), the pick runs now or fails now, and a server without 0410 (`PGRST202`) reads as no
+deals and no ladder, never as an error.
 
 ## Commits
 

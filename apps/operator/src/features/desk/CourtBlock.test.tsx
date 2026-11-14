@@ -118,7 +118,7 @@ describe('/desk/block event mode', () => {
     expect(within(table).getByText('Court 1')).toBeTruthy();
     expect(within(table).getByText('Court 2')).toBeTruthy();
     expect(within(table).getAllByText('To block')).toHaveLength(2);
-    expect(screen.getByText('Class A · 16 pairs')).toBeTruthy();
+    expect(screen.getByText('Type A · 16 pairs')).toBeTruthy();
     // Nothing is blocked yet, so the step cannot be sent.
     expect(screen.getByRole('button', { name: 'Send courts step' })).toHaveProperty('disabled', true);
 

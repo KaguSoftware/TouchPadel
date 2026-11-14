@@ -527,6 +527,11 @@ export const ERROR_CODE_KEYS = {
   POINTS_OFF: 'op.errors.POINTS_OFF',
   REWARD_NEEDS_BOOKING: 'op.errors.REWARD_NEEDS_BOOKING',
   REWARD_ALREADY_ON_BOOKING: 'op.errors.REWARD_ALREADY_ON_BOOKING',
+  // 0410 (deals in the app): a deal that is gone (off, ended, not listed, or all used up); one
+  // the guest's card is too low for; one the guest has already used as often as it allows.
+  DEAL_UNAVAILABLE: 'op.errors.DEAL_UNAVAILABLE',
+  DEAL_LOCKED: 'op.errors.DEAL_LOCKED',
+  DEAL_USED: 'op.errors.DEAL_USED',
   // 0364 ranks_leaderboard: the players' leaderboard (lines in catalogs/opErrors.ranks.*.ts).
   // RANKS_OFF the owner switched it (or player reports) off; RANKS_NOT_ELIGIBLE a booking that
   // is not the caller's, not played or past report_hours; RANKS_PLAYER_NOT_FOUND an unknown

@@ -202,7 +202,7 @@ describe.each<Locale>(['en', 'ar'])('play survey in %s', (locale) => {
       Promise.resolve({
         data:
           name === 'set_my_play_profile'
-            ? { ...ANSWERED, play_level: 'new', play_years: 'never', play_wants: ['matches'] }
+            ? { ...ANSWERED, play_level: 'beginner', play_years: 'never', play_wants: ['matches'] }
             : { gender: 'female', duplicate: false },
         error: null,
       }),
@@ -214,7 +214,11 @@ describe.each<Locale>(['en', 'ar'])('play survey in %s', (locale) => {
       queryData: seeds({ ...NEVER_ASKED, gender: null }),
     });
     try {
-      fireEvent.press(screen.getByTestId('play-survey.level.new'));
+      // Three tiles, Type A, B and C (Majed, 2026-11-12); there is no separate "new" tile,
+      // and a first-timer's Type C still takes "Not yet".
+      expect(screen.queryByTestId('play-survey.level.new')).toBeNull();
+      expect(screen.getByText(t('playProfile.survey.level.beginner.title'))).toBeTruthy();
+      fireEvent.press(screen.getByTestId('play-survey.level.beginner'));
       fireEvent.press(screen.getByTestId('play-survey.next'));
       await waitFor(() => expect(screen.getByTestId('play-survey.years.never')).toBeTruthy());
       fireEvent.press(screen.getByTestId('play-survey.years.never'));
@@ -280,7 +284,7 @@ describe.each<Locale>(['en', 'ar'])('play survey in %s', (locale) => {
       expect(saves(rpc)).toEqual([]);
       fireEvent.press(screen.getByTestId('play-survey.next'));
       await waitFor(() => expect(screen.getByTestId('play-survey.years.under-one')).toBeTruthy());
-      // "Not yet" does not fit Beginner (yearsFitLevel), so the answer is a year.
+      // Any year fits Type C; this one answers with a year.
       fireEvent.press(screen.getByTestId('play-survey.years.under-one'));
       fireEvent.press(screen.getByTestId('play-survey.next'));
       await waitFor(() => expect(screen.getByTestId('play-survey.wants.matches')).toBeTruthy());

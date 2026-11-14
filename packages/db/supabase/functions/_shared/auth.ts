@@ -10,6 +10,8 @@
  *   403 {error:'FORBIDDEN'}      — not active staff, or role not allowed
  *   403 {error:'AREA_BLOCKED'}   — the owner blocked every page this work
  *                                  belongs to (`opts.areas`, 0384, F-16)
+ * Each body is { error, message, code } with `code` equal to `error`
+ * (2026-11-09, like the assistant handlers' refusals).
  *
  * A second job counts like the main role (0345 staff.extra_roles; F-18): the
  * rule is `judgeStaffAccess` in ./staffAccess.ts, tested under Node.
@@ -63,7 +65,7 @@ export async function requireStaffRole(
   opts: StaffRoleOptions = {},
 ): Promise<StaffCaller | Response> {
   const userId = await getCallerUserId(req, service);
-  if (!userId) return json({ error: 'AUTH_REQUIRED', message: 'staff session required' }, 401);
+  if (!userId) return json({ error: 'AUTH_REQUIRED', message: 'staff session required', code: 'AUTH_REQUIRED' }, 401);
 
   const { data, error } = await service
     .from('staff')
@@ -87,6 +89,6 @@ export async function requireStaffRole(
     roles,
     opts.areas ?? [],
   );
-  if (!verdict.ok) return json({ error: verdict.code, message: verdict.message }, 403);
+  if (!verdict.ok) return json({ error: verdict.code, message: verdict.message, code: verdict.code }, 403);
   return { userId, role: String(data!.role) as StaffRole, roles: verdict.roles as StaffRole[] };
 }

@@ -280,7 +280,11 @@ queryClient.setMutationDefaults(['tournament', 'mutation'], {
  * Loyalty, the guest's side (loyalty plan §5.1), keyed under `loyaltyKeys`
  * (features/loyalty/keys.ts). Every loyalty write is online-only (build
  * contracts L-6): "Get a new code" runs now or fails now, and is never sent
- * again by itself (a second rotation would retire the code just drawn).
+ * again by itself (a second rotation would retire the code just drawn). So
+ * does a deal's "Use at the cashier" (0410, `pick_deal`): the guest is taken
+ * to their member card on its answer, so a pick that landed minutes later,
+ * on whatever screen they had moved to, would be a card that changed by
+ * itself.
  */
 queryClient.setMutationDefaults(['loyalty', 'mutation'], {
   networkMode: 'always',
@@ -365,8 +369,13 @@ export const persistOptions = {
       query.queryKey[0] !== 'username-check' &&
       // Loyalty: the member card carries its TOTP secret, which lives in
       // SecureStore (features/loyalty/cardStore.ts), never in this plain file.
+      // The deals (0410) are live state: a pick read back from disk would
+      // promise at the cashier a deal that was used or lapsed since.
       // The balance read (`['loyalty', 'mine']`) is kept.
-      !(query.queryKey[0] === 'loyalty' && query.queryKey[1] === 'card'),
+      !(
+        query.queryKey[0] === 'loyalty' &&
+        (query.queryKey[1] === 'card' || query.queryKey[1] === 'deals')
+      ),
   },
 } as const;
 

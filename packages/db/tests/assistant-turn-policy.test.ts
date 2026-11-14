@@ -4,7 +4,8 @@
  * aligned history window, the per-result row cap and its marker, the scope
  * refusal that may switch the false-refusal recovery off (the `if (scope)`
  * bug), the TS price estimate against app.llm_price_calc's arithmetic and the
- * per-message ceiling, and the money-only gate retry.
+ * per-message ceiling, the money-only gate retry, and how a turn that threw
+ * ended (turnEnding: a Stop is stopped, the wall is TIMEOUT).
  *
  * Pure: no database, no network. F2 moves the loop out of assistant-chat and
  * adds the fake-provider tests of the loop itself; these hold the rules it
@@ -31,6 +32,7 @@ import {
   previousTurnOf,
   signedPreviousNumbers,
   SMALL_LIST_ROWS,
+  turnEnding,
   turnEstimateMicros,
   CONTEXT_MAX_AGE_MS,
   costCapReached,
@@ -325,6 +327,18 @@ describe('review: a lookup keeps a warm cache', () => {
     expect(webSearchOn(LOOKUP_MODEL, routeTurn({ text: 'what should we do about the empty evenings?', scopes: ['money'], explicitModel: LOOKUP_MODEL }))).toBe(true);
   });
 
+  it('a request for a plan stays on the cheaper tier and still carries web_search (route.web, 2026-11-11)', () => {
+    const plan = routeTurn({ text: 'give me a plan for Ramadan', scopes: ['money'], explicitModel: null });
+    expect(plan).toMatchObject({ kind: 'analysis', model: LOOKUP_MODEL, effort: 'medium', web: true });
+    expect(webSearchOn(LOOKUP_MODEL, plan)).toBe(true);
+    // The warm-cache move keeps the flag: the turn may change model, not lose the tool.
+    expect(webSearchOn(LOOKUP_MODEL, keepWarmRoute(plan, opusMedium(60_000), { nowMs: NOW, ownerModel: LOOKUP_MODEL, allowed: priced }))).toBe(true);
+    // A judgement question on the same tier does not.
+    const judgement = routeTurn({ text: 'what is wrong with the cafe?', scopes: ['money'], explicitModel: null });
+    expect(judgement.web).toBeUndefined();
+    expect(webSearchOn(LOOKUP_MODEL, judgement)).toBe(false);
+  });
+
   it('a plain figure question is sticky like a lookup; a deep analysis is not', () => {
     const figure = routeTurn({ text: 'how much did we make yesterday?', scopes: ['money', 'courts'], explicitModel: null });
     expect(figure).toMatchObject({ kind: 'analysis', model: LOOKUP_MODEL, effort: 'low', sticky: true });
@@ -482,5 +496,22 @@ describe('cache TTL (2026-10-09)', () => {
     expect(billedCacheWrite(1000, 400)).toBe(600 + 640);
     expect(billedCacheWrite(1000, 5000)).toBe(1600); // never more 1-hour tokens than writes
     expect(billedCacheWrite(0, 0)).toBe(0);
+  });
+});
+
+describe('turnEnding (2026-11-11): a Stop is not a timeout', () => {
+  it('a client that left first is stopped, whatever the provider or the signal say', () => {
+    expect(turnEnding({ cancelled: 'stopped', providerCode: 'TIMEOUT', aborted: true })).toEqual({ stopped: true });
+    expect(turnEnding({ cancelled: 'stopped', providerCode: 'UPSTREAM', aborted: true })).toEqual({ stopped: true });
+    expect(turnEnding({ cancelled: 'stopped', providerCode: null, aborted: true })).toEqual({ stopped: true });
+  });
+  it('the wall first is TIMEOUT, even when the SDK reported its abort as UPSTREAM', () => {
+    expect(turnEnding({ cancelled: 'wall', providerCode: 'UPSTREAM', aborted: true })).toEqual({ stopped: false, code: 'TIMEOUT' });
+    expect(turnEnding({ cancelled: 'wall', providerCode: null, aborted: true })).toEqual({ stopped: false, code: 'TIMEOUT' });
+  });
+  it('no abort: the provider code, else UPSTREAM; an aborted signal with no known cause is TIMEOUT as before', () => {
+    expect(turnEnding({ cancelled: null, providerCode: 'RATE_LIMITED', aborted: false })).toEqual({ stopped: false, code: 'RATE_LIMITED' });
+    expect(turnEnding({ cancelled: null, providerCode: null, aborted: false })).toEqual({ stopped: false, code: 'UPSTREAM' });
+    expect(turnEnding({ cancelled: null, providerCode: null, aborted: true })).toEqual({ stopped: false, code: 'TIMEOUT' });
   });
 });

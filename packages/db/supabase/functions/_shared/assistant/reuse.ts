@@ -11,8 +11,12 @@
  *                    follow-up ("and yesterday?") means something only beside
  *                    its history, so it is never matched;
  *   which answer     planReuse: the stored reply is from today's business day
- *                    (venue clock), whole (not cost-capped, not an error
- *                    placeholder, not a refused scope), its gate verdict was ok
+ *                    (venue clock), whole (it ended `end_turn` when it says
+ *                    how it ended: never a failed turn with an error_code, a
+ *                    stopped, cut-short (max_tokens), refused, cost-capped or
+ *                    rounds-exhausted one; not cost-capped, not an older
+ *                    "[CODE]" error placeholder, not empty, not a refused
+ *                    scope), its gate verdict was ok
  *                    and it kept a figure baseline, and every tool behind it
  *                    is a known read-only one (no web search, no job proposal,
  *                    no failed call);
@@ -98,11 +102,15 @@ export function planReuse(reply: StoredReply, o: { today: string; tz: string; cl
   if (!Number.isFinite(created)) return null;
   if (localDate(new Date(created), o.tz) !== o.today) return null;
 
-  const tokens = reply.tokens && typeof reply.tokens === 'object' ? (reply.tokens as { cost_capped?: unknown }) : {};
+  const tokens = reply.tokens && typeof reply.tokens === 'object' ? (reply.tokens as { cost_capped?: unknown; stop_reason?: unknown; error_code?: unknown }) : {};
   if (tokens.cost_capped === true) return null;
+  // How it ended (persist.ts, 2026-11-11): only a finished answer is an answer.
+  // A row from before stop_reason was stored has none and is judged as before.
+  if (tokens.error_code !== undefined && tokens.error_code !== null) return null;
+  if (tokens.stop_reason !== undefined && tokens.stop_reason !== 'end_turn') return null;
 
   const text = textOf(reply.content).trim();
-  // An error placeholder is stored as "[CODE] message"; a scope refusal says the context is off.
+  // An older error placeholder was stored as "[CODE] message" (now an empty text); a scope refusal says the context is off.
   if (!text || text.startsWith('[') || /context is off for this chat|مغلق لهذ/i.test(text)) return null;
 
   const gate = reply.gate && typeof reply.gate === 'object' ? (reply.gate as { status?: unknown; unverified?: unknown; checked?: unknown; numbers?: unknown }) : null;

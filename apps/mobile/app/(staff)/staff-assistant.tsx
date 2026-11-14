@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, View, type ScrollViewInstance } from 'react-native';
+import { Pressable, ScrollView, View } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -8,6 +8,7 @@ import { Text } from '../../src/i18n/text';
 import { useLocale } from '../../src/i18n/LocaleProvider';
 import { radius, space, useTheme } from '../../src/theme';
 import { Hint, MicroLabel, Screen } from '../../src/components/ui';
+import { KeyboardAvoid } from '../../src/components/KeyboardAvoid';
 import { ErrorState, SkeletonList } from '../../src/components/states';
 import { ClockIcon, PlusIcon, SlidersIcon, SparkIcon } from '../../src/components/icons';
 import { useToast } from '../../src/components/overlays';
@@ -27,13 +28,13 @@ import {
   isModelNotPriced,
   normaliseScopes,
   refusedScopes,
-  sourcesOf,
-  textOfContent,
   toggleScope,
   type MessageRow,
 } from '../../src/features/assistant/chat';
 import { useAssistantChat } from '../../src/features/assistant/useAssistantChat';
-import { Answer, Composer, ScopeChips, UserBubble } from '../../src/features/assistant/parts';
+import { Answer, Composer, ScopeChips, StoredTurn, UserBubble } from '../../src/features/assistant/parts';
+import { liveEnding, mergeThread, retryTextFor } from '../../src/features/assistant/thread';
+import { useStickToBottom } from '../../src/features/assistant/stickToBottom';
 import { SettingsSheet } from '../../src/features/assistant/SettingsSheet';
 import { FreeThread } from '../../src/features/assistant/FreeThread';
 import { freeFrom } from '../../src/features/assistant/free';
@@ -179,56 +180,51 @@ function AssistantThread({
   // "Cafe context is off for this chat" → Turn on Cafe → ask the same thing again.
   const [turningOn, setTurningOn] = useState(false);
   const turnOn = async (scope: AssistantScope) => {
+    // Until the chat's own row is in, `scopes` is only the new-chat default, and
+    // saving it would overwrite what the chat really reads.
+    if (conversationId !== null && !conversation.data) {
+      toast(t('errors.generic'), 'error');
+      return;
+    }
     setTurningOn(true);
     try {
       await changeScopes.mutateAsync(normaliseScopes([...scopes, scope]));
-      if (chat.lastQuestion) void chat.ask(chat.lastQuestion);
+    } catch {
+      // changeScopes.onError already told the owner (the screen's error note); do not re-ask.
+      return;
     } finally {
       setTurningOn(false);
     }
+    if (chat.lastQuestion) void chat.ask(chat.lastQuestion);
   };
 
-  // The live turn is superseded once its stored rows are in the list.
-  const stored: MessageRow[] = messages.data ?? [];
+  // The stored rows are the record; the live turn is only the part not stored yet
+  // (thread.ts: it is retired as soon as its assistant row is in the list).
+  const stored = useMemo<MessageRow[]>(() => messages.data ?? [], [messages.data]);
   const live = chat.live;
-  const superseded =
-    live !== null &&
-    live.done &&
-    !live.error &&
-    !live.stopped &&
-    live.assistantMessageId !== null &&
-    stored.some((m) => m.id === live.assistantMessageId);
-  const showLive = live !== null && !superseded;
-  // A turn that failed half-way already has its question stored; the live bubble
-  // shows it too, so the stored copy gives way (the last one, if it matches).
-  const rows =
-    showLive && stored.length > 0
-      ? (() => {
-          const last = stored[stored.length - 1]!;
-          return last.role === 'user' && textOfContent(last.content) === live.userText
-            ? stored.slice(0, -1)
-            : stored;
-        })()
-      : stored;
+  const { rows, showLive } = useMemo(() => mergeThread(stored, live), [stored, live]);
+  const ending = useMemo(() => (live ? liveEnding(live, chat.end) : null), [live, chat.end]);
+  const { ask: askQuestion, streaming } = chat;
+  const onAsk = useCallback((text: string) => void askQuestion(text), [askQuestion]);
 
-  // Keep the newest thing in view as it arrives.
-  const scroller = useRef<ScrollViewInstance>(null);
-  const tick = `${rows.length}:${live?.text.length ?? 0}:${live?.tools.length ?? 0}:${live?.done ? 1 : 0}`;
+  // Follow the newest thing only while the owner is at the bottom.
+  const { ref: scrollRef, onScroll, onContentSizeChange, onLayout, follow } = useStickToBottom();
   useEffect(() => {
-    scroller.current?.scrollToEnd({ animated: true });
-  }, [tick]);
+    if (streaming) follow();
+  }, [streaming, follow]);
 
   const empty = conversationId === null && !live;
   const missing = conversationId !== null && conversation.isSuccess && conversation.data === null;
 
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1 }}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 56 + insets.top : 0}
-    >
+    // The composer's bottom padding (space.s + home indicator) tucks under the keys.
+    <KeyboardAvoid footerPad={space.s + insets.bottom}>
       <ScrollView
-        ref={scroller}
+        ref={scrollRef}
+        onScroll={onScroll}
+        onContentSizeChange={onContentSizeChange}
+        onLayout={onLayout}
+        scrollEventThrottle={16}
         testID={`${T}.thread`}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="interactive"
@@ -321,23 +317,15 @@ function AssistantThread({
         ) : null}
         {missing ? <Hint>{t('staff.assistant.thread.notFound')}</Hint> : null}
 
-        {rows.map((m) => {
-          const text = textOfContent(m.content);
-          if (m.role === 'user') return <UserBubble key={m.id} text={text} />;
-          const src = sourcesOf(m.sources);
-          return (
-            <Answer
-              key={m.id}
-              testID={`${T}.answer.${m.id}`}
-              text={text}
-              tools={src.items}
-              gate={m.gate}
-              jobProposed={src.jobIds.length > 0}
-              // A stored answer never offers "turn on": the question it would
-              // re-ask is only known for the turn in front of the owner.
-            />
-          );
-        })}
+        {rows.map((m, i) => (
+          <StoredTurn
+            key={m.id}
+            m={m}
+            testID={`${T}.answer.${m.id}`}
+            retryText={showLive || chat.streaming ? null : retryTextFor(rows, i)}
+            onAsk={onAsk}
+          />
+        ))}
 
         {showLive && live ? (
           <>
@@ -348,9 +336,7 @@ function AssistantThread({
               tools={live.tools}
               gate={live.gate}
               streaming={!live.done}
-              stopped={live.stopped}
-              error={live.error}
-              jobProposed={live.jobEstimate !== null}
+              ending={ending ?? undefined}
               turnOn={
                 live.done
                   ? refusedScopes(
@@ -371,7 +357,14 @@ function AssistantThread({
         <ScopeChips
           testID={`${T}.scope`}
           scopes={scopes}
-          disabled={chat.streaming || changeScopes.isPending || missing}
+          // Not before the chat's own row has loaded: `scopes` is then only the new-chat default,
+          // and a tap would overwrite the stored chat's scopes with it.
+          disabled={
+            chat.streaming ||
+            changeScopes.isPending ||
+            missing ||
+            (conversationId !== null && !conversation.isSuccess)
+          }
           onToggle={(scope) => changeScopes.mutate(toggleScope(scopes, scope))}
         />
         <Composer
@@ -398,7 +391,7 @@ function AssistantThread({
         }}
         onChooseFree={onChooseFree}
       />
-    </KeyboardAvoidingView>
+    </KeyboardAvoid>
   );
 }
 
@@ -411,7 +404,7 @@ function AssistantScreen() {
   const ownerFree = useFreeMode() === true;
   // Everyone but the owner has the free assistant and only that one.
   const free = !owner || ownerFree;
-  const params = useLocalSearchParams<{ id?: string; from?: string }>();
+  const params = useLocalSearchParams<{ id?: string; from?: string; n?: string }>();
   const fromParam = params.id && params.id !== '' ? params.id : null;
   const askedFrom = freeFrom(params.from);
 
@@ -421,14 +414,19 @@ function AssistantScreen() {
   const [session, setSession] = useState({ epoch: 0, id: fromParam });
   const [settingsOpen, setSettingsOpen] = useState(false);
   const seen = useRef(fromParam);
+  // "New chat" on the chats list sends a fresh `n`: the chat on screen may already be a
+  // fresh one (id '' both before and after), which the id alone would not tell apart.
+  const nonce = typeof params.n === 'string' && params.n !== '' ? params.n : null;
+  const seenNonce = useRef(nonce);
   useEffect(() => {
-    if (fromParam !== seen.current) {
+    if (fromParam !== seen.current || nonce !== seenNonce.current) {
       seen.current = fromParam;
+      seenNonce.current = nonce;
       setSession((s) => ({ epoch: s.epoch + 1, id: fromParam }));
       // A stored chat is the paid assistant's: opening one leaves the free mode.
       if (fromParam && owner) setFreeMode(false);
     }
-  }, [fromParam, owner]);
+  }, [fromParam, nonce, owner]);
 
   const newChat = () => {
     seen.current = null;

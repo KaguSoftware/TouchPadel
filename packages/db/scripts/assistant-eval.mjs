@@ -54,6 +54,11 @@ const CONTAINER = process.env.SUPABASE_DB_CONTAINER ?? 'supabase_db_touchpadel';
 const SHIP_GATE = 36;
 
 const argv = process.argv.slice(2);
+// --check: the module loaded (imports resolved, syntax accepted by node's strip-only mode); exit before anything is contacted.
+if (argv.includes('--check') && process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  console.log('assistant-eval: module loaded (--check)');
+  process.exit(0);
+}
 const flag = (name) => argv.find((a) => a === `--${name}` || a.startsWith(`--${name}=`));
 const value = (name) => flag(name)?.split('=')[1];
 const ONLY = value('only');
@@ -177,8 +182,11 @@ async function ask(token, c) {
             if (ev.data?.reset) out.text = '';
             out.text += ev.data?.text ?? '';
             break;
+          case 'tool_start':
+            if (ev.data?.name && !out.tools.includes(ev.data.name)) out.tools.push(ev.data.name);
+            break;
           case 'sources':
-            out.tools = (ev.data?.items ?? []).map((i) => i.name);
+            for (const i of ev.data?.items ?? []) if (i?.name && !out.tools.includes(i.name)) out.tools.push(i.name);
             out.sources = ev.data?.items ?? [];
             break;
           case 'gate':
@@ -211,17 +219,44 @@ async function ask(token, c) {
 
 const ZERO_WORDS = /\b(none|zero|no\b|nothing)\b|لا يوجد|لا شيء|صفر|لا توجد|ولا/i;
 
-/** The SQL truth appears in the text as a number token (any digit set, any separators). */
+const MONTHS_EN = 'january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sept|sep|oct|nov|dec';
+const MONTHS_AR =
+  'كانون\\s+(?:الثاني|الاول|الأول)|تشرين\\s+(?:الثاني|الاول|الأول)|[آا]ذار|نيسان|[أا]يار|حزيران|تموز|[آا]ب|[أا]يلول|شباط|' +
+  'يناير|فبراير|مارس|[أا]بريل|مايو|يونيو|يوليو|[أا]غسطس|سبتمبر|[أا]كتوبر|نوفمبر|ديسمبر';
+const MONTH = `(?:(?<![A-Za-z])(?:${MONTHS_EN})(?![A-Za-z])\\.?|(?<![\\u0600-\\u06FF])(?:${MONTHS_AR})(?![\\u0600-\\u06FF]))`;
+const DAY = '\\d{1,2}(?:st|nd|rd|th)?(?!\\d)';
+const RANGE_SEP = '\\s*(?:-|–|—|to|and|through|thru|until|till|&|و|إلى|الى|حتى)\\s*';
+const YEAR = '(?:\\s*,?\\s*\\d{4}(?!\\d))?';
+const DATE_PHRASES = [
+  /\b\d{4}-\d{1,2}-\d{1,2}(?:[T ]\d{1,2}:\d{2}(?::\d{2})?)?\b/g, // ISO
+  /\b\d{1,2}[/.]\d{1,2}[/.]\d{2,4}\b/g, // 04/03/2024
+  // "between 4 and 10 March 2024", "4–10 March", "4 March to 10 March 2024", "من 4 إلى 10 آذار"
+  new RegExp(`(?:(?:between|from|بين|من)\\s+)?${DAY}(?:\\s+(?:of\\s+)?${MONTH})?(?:${RANGE_SEP}${DAY}(?:\\s+(?:of\\s+)?${MONTH})?)?\\s+(?:of\\s+)?${MONTH}${YEAR}`, 'giu'),
+  // "March 4", "March 4-10, 2024", "March 4 to March 10"
+  new RegExp(`${MONTH}\\s+${DAY}(?:${RANGE_SEP}(?:${MONTH}\\s+)?${DAY})?${YEAR}`, 'giu'),
+  // "March 2024"
+  new RegExp(`${MONTH}\\s*,?\\s*\\d{4}(?!\\d)`, 'giu'),
+];
+
+/** The answer with date phrases (day numbers beside month names, ISO dates, ranges) taken out, digits to ASCII. */
+export function stripDates(text) {
+  let out = latinDigits(text ?? '');
+  for (const re of DATE_PHRASES) out = out.replace(re, ' ; ');
+  return out;
+}
+
+/** The SQL truth appears in the text as a number token (any digit set, any separators), outside date phrases. */
 export function textHasNumber(text, expected) {
+  const body = stripDates(text);
   const decimals = Number.isInteger(expected) ? 0 : 2;
   const tol = decimals === 0 ? 0.5 : 0.005;
-  const hit = tokenizeNumbers(text).some((t) => Math.abs(t.value - expected) <= tol);
+  const hit = tokenizeNumbers(body).some((t) => Math.abs(t.value - expected) <= tol);
   if (hit) return true;
-  if (expected === 0) return ZERO_WORDS.test(text);
+  if (expected === 0) return ZERO_WORDS.test(body);
   return false;
 }
 
-function containsAny(text, fragments) {
+export function containsAny(text, fragments) {
   const hay = latinDigits(text).toLowerCase();
   return (fragments ?? []).some((f) => hay.includes(latinDigits(f).toLowerCase()));
 }
@@ -229,7 +264,7 @@ function containsAny(text, fragments) {
 export function scoreCase(c, answer, truth) {
   const text = answer.text ?? '';
   const gateOk = answer.gate ? answer.gate.status === 'ok' : true; // no gate event = no figures were checked
-  const toolHit = !c.expect.tools_any_of || c.expect.tools_any_of.some((t) => answer.tools.includes(t));
+  const toolHit = !c.expect.tools_any_of || c.expect.tools_any_of.some((t) => (answer.tools ?? []).includes(t));
   let pass = false;
   let why = '';
   if (c.kind === 'numeric') {
@@ -245,7 +280,12 @@ export function scoreCase(c, answer, truth) {
     pass = actor && action;
     why = !actor ? `actor ${c.expect.actor_any[0]} missing` : !action ? 'action fragment missing' : '';
   }
-  if (pass && !toolHit) why = `passed without ${c.expect.tools_any_of.join('/')} (tools: ${answer.tools.join(',') || 'none'})`;
+  if (!toolHit) {
+    // A required tool that did not run fails the case, whatever the figure says.
+    const missing = `no tool of ${c.expect.tools_any_of.join('/')} ran (tools: ${answer.tools.join(',') || 'none'})`;
+    why = why ? `${why}; ${missing}` : missing;
+    pass = false;
+  }
   // Local view of the gate against the SQL truth alone (numbers the owner
   // typed are allowed, like the function does).
   const local = c.kind === 'numeric' && truth !== null ? gateAnswer(text, [truth], numbersIn(c.question)) : null;

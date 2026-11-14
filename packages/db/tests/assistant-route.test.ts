@@ -428,3 +428,114 @@ describe('the route shape', () => {
     expect(kindOf('   ')).toBe('analysis');
   });
 });
+
+describe('plan asks, judgement questions and Arabic outside-signal (2026-11-11)', () => {
+  const route = (text: string) => routeTurn({ text, scopes: FULL, explicitModel: null });
+  const MED = { kind: 'analysis', model: LOOKUP_MODEL, effort: 'medium' } as const;
+  const DEEP = { kind: 'analysis', model: null, effort: 'medium' } as const;
+  const CHEAP = { kind: 'analysis', model: LOOKUP_MODEL, effort: 'low' } as const;
+  const LOOK = { kind: 'lookup', model: LOOKUP_MODEL, effort: 'low' } as const;
+
+  // A: advice phrased as a how-to is not an app how-to
+  it('A: "how can I make the cafe more profitable?" is a judgement, not a lookup', () => {
+    const r = route('how can I make the cafe more profitable?');
+    expect(r).toMatchObject(MED);
+    expect(r.reason).toBe('judgement-signal');
+    expect(r.web).toBeUndefined();
+  });
+
+  // B: asks for a plan, medium with web search
+  for (const q of ['give me a plan for Ramadan', 'make me a plan to fill Friday mornings', 'اريد خطة لرمضان', 'I need a roadmap for the summer', 'سويلي خطة للبطولات']) {
+    it(`B: plan ask -> medium + web: ${q}`, () => {
+      const r = route(q);
+      expect(r).toMatchObject(MED);
+      expect(r.reason).toBe('plan-signal');
+      expect(r.web).toBe(true);
+    });
+  }
+  it('B: a plan beats a cheap reason, a deep reason beats a plan', () => {
+    expect(route('make me a plan to fill Friday mornings').reason).toBe('plan-signal');
+    const deep = route('give me a plan, why are mornings empty?');
+    expect(deep).toMatchObject(DEEP);
+    expect(deep.reason).toBe('why-signal');
+    expect(route('give me a plan for what other clubs charge').reason).toBe('outside-signal');
+  });
+  // "open the marketing plan" and "show me the plan" were never lookups (no page noun, no
+  // how-to verb): they stay no-lookup-pattern as before. What matters is that they are not a plan ask.
+  for (const q of ['open the marketing plan', 'show me the plan']) {
+    it(`B: naming a plan is not a plan ask: ${q}`, () => {
+      const r = route(q);
+      expect(r.reason).toBe('no-lookup-pattern');
+      expect(r.web).toBeUndefined();
+    });
+  }
+  for (const q of ['where is the content plan page', 'how do I approve the plan', 'وين صفحة الخطة', 'where can I find the plan']) {
+    it(`B: naming a plan page stays a lookup: ${q}`, () => {
+      const r = route(q);
+      expect(r.kind, `[${r.reason}]`).toBe('lookup');
+      expect(r.web).toBeUndefined();
+    });
+  }
+
+  // C: Arabic outside-signal with the definite plural
+  it('C: Arabic definite plural reaches outside-signal like its English twin', () => {
+    for (const q of ['اسعار الملاعب بالنوادي الثانية شكد؟', 'شكد تاخذ باقي النوادي', 'شكد الملاعب الثانية تاخذ', 'what do other clubs charge per hour?', 'what do others charge?', 'what does everyone else charge?']) {
+      const r = route(q);
+      expect(r, q).toMatchObject(DEEP);
+      expect(r.reason, q).toBe('outside-signal');
+    }
+  });
+
+  // D: judgement questions land on medium on purpose
+  for (const q of [
+    'what is wrong with the cafe?',
+    'what am I missing?',
+    'is it worth opening a third branch?',
+    'what would you do if you were me?',
+    'شنو رأيك بالكافيه؟',
+    'شنو المشكلة بالكافيه؟',
+    'الملاعب فارغة الصبح شنو الحل؟',
+  ]) {
+    it(`D: judgement -> medium, no web: ${q}`, () => {
+      const r = route(q);
+      expect(r, `[${r.reason}]`).toMatchObject(MED);
+      expect(r.web).toBeUndefined();
+    });
+  }
+
+  // true app how-tos stay lookups
+  for (const q of ['how do I make a booking', 'how can I make a new tab', 'how do I make a discount']) {
+    it(`how-to stays a lookup: ${q}`, () => {
+      expect(route(q)).toMatchObject(LOOK);
+    });
+  }
+
+  // regression: nothing else moved
+  const regress: Array<[string, 'lookup' | 'cheap' | 'medium' | 'deep']> = [
+    ['where is day close?', 'lookup'],
+    ['how do I add a new court?', 'lookup'],
+    ['how much did we make today?', 'cheap'],
+    ['why did cafe sales drop last week?', 'deep'],
+    ['what should I do about empty mornings?', 'deep'],
+    ['compare this week to last week', 'medium'],
+    ['should we run a tournament?', 'deep'],
+    ['what do other clubs charge per hour?', 'deep'],
+    ['can you show me the sales', 'cheap'],
+    ['what does the void button do?', 'lookup'],
+    ['وين اغلاق اليوم؟', 'lookup'],
+    ['شلون اضيف ملعب جديد؟', 'lookup'],
+    ['شكد دخلنا اليوم؟', 'cheap'],
+    ['ليش المبيعات نازلة؟', 'deep'],
+    ['شنو اسوي حتى ازيد الحجوزات؟', 'deep'],
+    ['عطني افكار للبطولات', 'deep'],
+    ['شلون ارجع الزباين؟', 'deep'],
+  ];
+  const shapes = { lookup: LOOK, cheap: CHEAP, medium: MED, deep: DEEP };
+  for (const [q, want] of regress) {
+    it(`regression: ${q} -> ${want}`, () => {
+      const r = route(q);
+      expect(r, `[${r.reason}]`).toMatchObject(shapes[want]);
+      expect(r.web).toBeUndefined();
+    });
+  }
+});

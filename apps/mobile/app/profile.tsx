@@ -121,7 +121,7 @@ export default function ProfileScreen() {
   const loyalty = useMyLoyalty(!!session && !session.user.is_anonymous);
   const showLoyalty = loyaltyOn(loyalty.data);
   // The leaderboard (0364): the guest's place and level, on their account too; the row opens
-  // Club's Ranks segment.
+  // the Rankings tab.
   const ranks = useMyRanks(!!session && !session.user.is_anonymous);
   const myRanks = ranks.data?.enabled ? ranks.data : null;
   const toast = useToast();
@@ -506,6 +506,14 @@ export default function ProfileScreen() {
           </MenuGroup>
 
           <MenuGroup label={t('profile.groupActivity')}>
+            {/* My reservations left the bar for Rankings (Majed, 2026-11-12): upcoming and past
+                bookings, matches and tournament entries, with the full history behind it. */}
+            <MenuRow
+              testID="profile.bookings"
+              icon={<CalendarIcon size={15} color={colors.gstrong} />}
+              label={t('booking.myBookings')}
+              onPress={() => router.push('/bookings')}
+            />
             {coachEntry ? (
               <MenuRow
                 testID="profile.coach-mode"
@@ -537,7 +545,7 @@ export default function ProfileScreen() {
                 ]
                   .filter(Boolean)
                   .join(' · ')}
-                onPress={() => downToTab({ pathname: '/club', params: { show: 'ranks' } })}
+                onPress={() => downToTab('/ranks')}
               />
             ) : null}
             {tournaments ? (
@@ -545,8 +553,8 @@ export default function ProfileScreen() {
                 testID="profile.my-tournaments"
                 icon={<CalendarIcon size={15} color={colors.gstrong} />}
                 label={t('tournaments.guest.entry.mine')}
-                // My reservations lists the guest's tournaments now (play-coaches §1).
-                onPress={() => downToTab('/bookings')}
+                // My reservations lists the guest's tournaments (play-coaches §1).
+                onPress={() => router.push('/bookings')}
               />
             ) : null}
             {/* Open matches (docs/design/open-matches/guest.md §4.16): the

@@ -23,10 +23,11 @@ const { Icon, Label } = NativeTabs.Trigger;
  * dropped here. Android keeps the custom bar in
  * `TabsLayout.android.tsx` — that platform split is deliberate.
  *
- * Five tabs since 2026-10-19: My reservations, Play, Book, Club, Coaches. In a build that leaves
- * tournaments out (features/tournaments/shipped.ts, Majed 2026-10-22) Play is `hidden`, which takes
- * it out of the bar and out of navigation altogether: four tabs. Ranks (the leaderboard) is not a
- * tab; it is a segment of Club (Sait, 2026-10-25).
+ * Five tabs: Rankings, Play, Book, Club, Coaches. Rankings (the leaderboard, SF Symbols' `trophy`)
+ * took My reservations' slot on 2026-11-12 (Majed); My reservations is a page off Profile now
+ * (app/bookings.tsx). While no branch has tournaments or open matches on
+ * (features/tournaments/shipped.ts) Play is `hidden`, which takes it out of the bar and out of
+ * navigation altogether: four tabs.
  * Profile left the bar on 2026-10-17 (Majed): the account is the avatar on the
  * trailing edge of each tab's title row (components/AccountButton.tsx), a push
  * to `app/profile.tsx`. Club (the member card's QR and the café menu, in SF
@@ -40,7 +41,7 @@ const { Icon, Label } = NativeTabs.Trigger;
  * NO testIDs HERE, deliberately. `NativeTabs.Trigger` is a CONFIGURATION node,
  * not a view: it describes a `UITabBarItem` that UIKit draws outside the React
  * tree, so there is no RN node to hang an id from and nothing a testID could
- * reach. Android's bar is ordinary Pressables and carries `tabs.bookings` /
+ * reach. Android's bar is ordinary Pressables and carries `tabs.ranks` /
  * `tabs.play` / `tabs.book` / `tabs.club` / `tabs.coaches`; the smoke tests
  * see those same five ids through the `expo-router/native-tabs` mock,
  * which stands in for UIKit (jest.setup.ts explains what that does and does
@@ -64,9 +65,9 @@ export default function TabsLayoutIOS() {
       }}
       iconColor={{ default: colors.fnt2, selected }}
     >
-      <NativeTabs.Trigger name="bookings">
-        <Icon sf="calendar" />
-        <Label>{t('tabs.bookings')}</Label>
+      <NativeTabs.Trigger name="ranks">
+        <Icon sf="trophy" />
+        <Label>{t('tabs.ranks')}</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="play" hidden={!shipped}>
         {/* A padel court, not SF Symbols' `sportscourt` (a football pitch):

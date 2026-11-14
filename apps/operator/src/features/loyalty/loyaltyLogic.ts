@@ -9,6 +9,7 @@ import {
   DEFAULT_TIER_COLOR,
   MEMBER_TOKEN_RE,
   TIER_COLORS,
+  TIER_PERK_REASON_CODE,
   parseMemberInput,
   redeemAmount,
   tierColor,
@@ -17,11 +18,16 @@ import {
   type IdentifiedMember,
   type LedgerKind,
   type LoyaltyRewardKind,
+  type LoyaltyAdminPerk,
   type LoyaltyAdminReward,
   type LoyaltyAdminTier,
   type LoyaltyCustomer,
   type LoyaltySettings,
+  type TabBenefits,
+  type TabPerk,
+  type TierPerkKind,
 } from '@touch/core/loyalty';
+import { makeT } from '@touch/i18n';
 
 // ---------------------------------------------------------------------------
 // The member field
@@ -91,7 +97,11 @@ export function readLoyaltyCustomer(raw: unknown): LoyaltyCustomer {
   };
 }
 
-/** The tab_adjustments reason codes app.loyalty_redeem writes (contracts §1.3). */
+/**
+ * The tab_adjustments reason codes app.loyalty_redeem writes (contracts §1.3): the rows a
+ * cashier can undo. A card's free add-ons (`loyalty_tier_perk`, 0410) are NOT among them: the
+ * server writes and removes those by itself (isTierPerkAdjustment), so they never get an Undo.
+ */
 export const LOYALTY_REASON_CODES = ['loyalty_points', 'loyalty_reward'] as const;
 
 export interface AdjustmentLike {
@@ -114,6 +124,79 @@ export function loyaltyAdjustments<T extends AdjustmentLike>(rows: readonly T[])
 /** IQD the tab's loyalty rows take off, so the bill can show it on its own row. */
 export function loyaltyDiscountIqd(rows: readonly AdjustmentLike[]): number {
   return loyaltyAdjustments(rows).reduce((s, a) => s + a.amount_iqd, 0);
+}
+
+// ---------------------------------------------------------------------------
+// What the member's card gives on a bill (0410)
+// ---------------------------------------------------------------------------
+
+/** A free add-on row of the member's card: the server's own, never undone by hand. */
+export function isTierPerkAdjustment(a: Pick<AdjustmentLike, 'reason_code'>): boolean {
+  return a.reason_code === TIER_PERK_REASON_CODE;
+}
+
+/**
+ * app.loyalty_tab_benefits with every list a list and every figure a number, whatever came
+ * back; null when it is not an answer at all (the bill then shows nothing new).
+ */
+export function readTabBenefits(raw: unknown): TabBenefits | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const r = raw as Partial<TabBenefits>;
+  if (typeof r.tab_id !== 'string') return null;
+  const addons = (r.addons ?? {}) as Partial<TabBenefits['addons']>;
+  const d = r.deal as Partial<NonNullable<TabBenefits['deal']>> | null | undefined;
+  return {
+    tab_id: r.tab_id,
+    customer_id: typeof r.customer_id === 'string' ? r.customer_id : null,
+    enabled: r.enabled === true,
+    tier: r.tier && typeof r.tier === 'object' ? r.tier : null,
+    perks: Array.isArray(r.perks) ? (r.perks as TabPerk[]).filter((p) => p && typeof p.id === 'string') : [],
+    addons: {
+      on_bill_iqd: Number(addons.on_bill_iqd ?? 0) || 0,
+      due_iqd: Number(addons.due_iqd ?? 0) || 0,
+      needs_refresh: addons.needs_refresh === true,
+    },
+    deal:
+      d && typeof d.promotion_id === 'string'
+        ? {
+            promotion_id: d.promotion_id,
+            name_en: String(d.name_en ?? ''),
+            name_ar: String(d.name_ar ?? ''),
+            type: d.type === 'amount' ? 'amount' : 'percent',
+            value: Number(d.value ?? 0) || 0,
+            applied: d.applied === true,
+          }
+        : null,
+  };
+}
+
+/**
+ * The automatic refresh's memory of one state (the customer discount's refreshSignature, for
+ * free add-ons): what the card gave, what the bill carried and the host's figures when the
+ * refresh was last asked for. The same signature twice is the same question and is never asked
+ * again, so a refresh the server refused (a part-paid bill) or one that changed nothing cannot
+ * loop.
+ */
+export function perksRefreshSignature(b: TabBenefits, version: string): string {
+  return JSON.stringify([
+    version,
+    b.tab_id,
+    b.customer_id,
+    b.tier?.id ?? null,
+    b.perks.map((p) => p.id),
+    b.addons.on_bill_iqd,
+    b.addons.due_iqd,
+    b.addons.needs_refresh,
+  ]);
+}
+
+/**
+ * True when the bill has something of the card to show: loyalty is on, the bill has a customer
+ * (attached, or the booking's or the app order's own guest), and their card gives a privilege
+ * or they picked a deal in the app.
+ */
+export function benefitsShown(b: TabBenefits | null | undefined): b is TabBenefits {
+  return Boolean(b && b.enabled && b.customer_id && (b.perks.length > 0 || b.deal));
 }
 
 /** What the staff side knows of the settings: the point value may be unreadable for a cashier. */
@@ -454,6 +537,181 @@ export function tierPayload(d: TierDraft): Record<string, unknown> {
 /** The base tier (sort 0) is everyone's: app.delete_loyalty_tier refuses it. */
 export function isBaseTier(t: Pick<LoyaltyAdminTier, 'sort'>): boolean {
   return t.sort === 0;
+}
+
+// ---------------------------------------------------------------------------
+// Setup › Loyalty: what a card gives (0410)
+// ---------------------------------------------------------------------------
+
+/** loyalty_tier_perks.name_en / name_ar: 1 to 80 characters. */
+export const PERK_NAME_MAX = 80;
+
+/** An add-on group as the menu names it (modifier_groups). */
+export interface AddonGroup {
+  id: string;
+  name_en: string;
+  name_ar: string;
+}
+
+export interface PerkDraft {
+  id: string | null;
+  tier_id: string;
+  kind: TierPerkKind;
+  name_en: string;
+  name_ar: string;
+  /**
+   * True until the owner types a name: the two names then follow the choice of add-ons
+   * (defaultPerkNames). An existing privilege keeps the names it was saved with.
+   */
+  autoName: boolean;
+  /** free_addons: every paid add-on, or only the groups chosen. */
+  scope: 'all' | 'groups';
+  modifier_group_ids: string[];
+  active: boolean;
+  /** Null on a new privilege: the server puts it after the tier's last one. */
+  sort: number | null;
+}
+
+/**
+ * The names a free add-ons privilege starts with, in both languages: what the guest reads on
+ * their card. "Free add-ons: Milk, Syrups" while the groups' own names fit, else the plain line.
+ */
+export function defaultPerkNames(
+  scope: PerkDraft['scope'],
+  groups: readonly AddonGroup[],
+): { name_en: string; name_ar: string } {
+  const one = (locale: 'en' | 'ar') => {
+    const tr = makeT(locale);
+    const K = 'ws.loyalty.setup.perks.defaults';
+    if (scope === 'all') return tr(`${K}.all`);
+    const names = groups.map((g) => (locale === 'ar' ? g.name_ar || g.name_en : g.name_en || g.name_ar).trim()).filter(Boolean);
+    if (names.length === 0) return tr(`${K}.some`);
+    const line = tr(`${K}.groups`, { groups: names.join(tr(`${K}.sep`)) });
+    return line.length <= PERK_NAME_MAX ? line : tr(`${K}.some`);
+  };
+  return { name_en: one('en'), name_ar: one('ar') };
+}
+
+/** The draft with its names brought in line with its add-ons, while they are still the default. */
+export function withAutoNames(d: PerkDraft, groups: readonly AddonGroup[]): PerkDraft {
+  if (!d.autoName) return d;
+  if (d.kind === 'custom') return { ...d, name_en: '', name_ar: '' };
+  const chosen = d.scope === 'groups' ? groups.filter((g) => d.modifier_group_ids.includes(g.id)) : [];
+  return { ...d, ...defaultPerkNames(d.scope, chosen) };
+}
+
+export function perkDraft(p: LoyaltyAdminPerk | null, tierId: string): PerkDraft {
+  if (p) {
+    const ids = Array.isArray(p.modifier_group_ids) ? p.modifier_group_ids : [];
+    return {
+      id: p.id,
+      tier_id: p.tier_id ?? tierId,
+      kind: p.kind === 'custom' ? 'custom' : 'free_addons',
+      name_en: p.name_en,
+      name_ar: p.name_ar,
+      autoName: false,
+      scope: ids.length > 0 ? 'groups' : 'all',
+      modifier_group_ids: [...ids],
+      active: p.active !== false,
+      sort: typeof p.sort === 'number' ? p.sort : null,
+    };
+  }
+  return {
+    id: null,
+    tier_id: tierId,
+    kind: 'free_addons',
+    ...defaultPerkNames('all', []),
+    autoName: true,
+    scope: 'all',
+    modifier_group_ids: [],
+    active: true,
+    sort: null,
+  };
+}
+
+/**
+ * The groups a draft frees that the menu still has. `known` null (the menu has not been read)
+ * keeps every id: nothing can be told apart yet.
+ */
+export function liveGroupIds(ids: readonly string[], known: ReadonlySet<string> | null): string[] {
+  return known ? ids.filter((id) => known.has(id)) : [...ids];
+}
+
+/**
+ * `groups` matters most: an empty list means EVERY add-on to the server, so "only these groups"
+ * with none left (none ticked, or every ticked one since removed from the menu) must never be
+ * saved as it stands. It would quietly make every add-on free.
+ */
+export function perkErrors(
+  d: PerkDraft,
+  known: ReadonlySet<string> | null,
+): { names?: true; groups?: true } {
+  const en = d.name_en.trim();
+  const ar = d.name_ar.trim();
+  return {
+    ...(en === '' || ar === '' || en.length > PERK_NAME_MAX || ar.length > PERK_NAME_MAX
+      ? { names: true as const }
+      : {}),
+    ...(d.kind === 'free_addons' && d.scope === 'groups' && liveGroupIds(d.modifier_group_ids, known).length === 0
+      ? { groups: true as const }
+      : {}),
+  };
+}
+
+/**
+ * The p_perk app.upsert_loyalty_tier_perk takes (no id: a new privilege); call only when
+ * perkErrors is empty. A custom privilege and "every add-on" both carry no groups; a group the
+ * menu no longer has is left out (the server refuses an unknown one).
+ */
+export function perkPayload(d: PerkDraft, known: ReadonlySet<string> | null): Record<string, unknown> {
+  return {
+    ...(d.id ? { id: d.id } : {}),
+    tier_id: d.tier_id,
+    kind: d.kind,
+    name_en: d.name_en.trim(),
+    name_ar: d.name_ar.trim(),
+    modifier_group_ids:
+      d.kind === 'free_addons' && d.scope === 'groups' ? liveGroupIds(d.modifier_group_ids, known) : [],
+    active: d.active,
+    ...(d.sort !== null ? { sort: d.sort } : {}),
+  };
+}
+
+/** What a privilege gives, for its row: a hand-honoured line, every add-on, or the named groups. */
+export type PerkGives =
+  | { kind: 'custom' }
+  | { kind: 'all' }
+  | {
+      kind: 'groups';
+      /** The chosen groups the menu still has (empty while the menu is unread). */
+      groups: AddonGroup[];
+      /** Chosen groups the menu no longer has. */
+      missing: number;
+      /** How many were chosen, known or not. */
+      count: number;
+    };
+
+/** `groups` null: the menu has not been read (or could not be), so only the count is known. */
+export function perkGives(
+  p: Pick<LoyaltyAdminPerk, 'kind' | 'modifier_group_ids'>,
+  groups: readonly AddonGroup[] | null,
+): PerkGives {
+  if (p.kind === 'custom') return { kind: 'custom' };
+  const ids = Array.isArray(p.modifier_group_ids) ? p.modifier_group_ids : [];
+  if (ids.length === 0) return { kind: 'all' };
+  if (!groups) return { kind: 'groups', groups: [], missing: 0, count: ids.length };
+  const found = ids.map((id) => groups.find((g) => g.id === id)).filter((g): g is AddonGroup => Boolean(g));
+  return { kind: 'groups', groups: found, missing: ids.length - found.length, count: ids.length };
+}
+
+/** A tier's privileges in the order the guest reads them. */
+export function sortedPerks(perks: readonly LoyaltyAdminPerk[] | undefined): LoyaltyAdminPerk[] {
+  return [...(perks ?? [])].sort((a, b) => a.sort - b.sort);
+}
+
+/** True when the server lists privileges at all (0410); an older one sends no `perks`. */
+export function perksSupported(tiers: readonly Pick<LoyaltyAdminTier, 'perks'>[]): boolean {
+  return tiers.some((t) => Array.isArray(t.perks));
 }
 
 export interface RewardDraft {

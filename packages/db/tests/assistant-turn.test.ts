@@ -21,7 +21,13 @@
  *     never for a small invented count (37); through pushSystem, so it folds
  *     into a trailing system line; prior-turn and web-cited figures pass
  *     without joining the re-check baseline; a reset delta on every retry;
- *   - a provider error leaves the state the chat function persists.
+ *   - a provider error leaves the state the chat function persists; a call
+ *     cut mid-stream whose error carries `partial` usage is recorded as an
+ *     `aborted` call, and the text it had streamed becomes the turn's text,
+ *     gated (2026-11-11);
+ *   - max_tokens and refusal end the loop with that stop reason: the text
+ *     kept and gated (marks only), no tool dispatched from a half-written
+ *     tool_use, no false-refusal or gate retry (2026-11-11).
  *
  * Pure: no database, no network, no SDK (turn.ts never loads provider.ts).
  */
@@ -35,6 +41,7 @@ import {
   citedNumbers,
   hasCitations,
   newTurnState,
+  partialCallOf,
   pushSystem,
   runTurnLoop,
   textOf,
@@ -440,6 +447,129 @@ describe('the round loop: stops', () => {
     expect(h.state.calls).toHaveLength(1);
     expect(h.state.sources.map((s) => s.call_id)).toEqual(['t1']);
     expect(h.state.allowed).toContain(4500000);
+  });
+});
+
+describe('the round loop: cut short (max_tokens, refusal)', () => {
+  const cut = (stop: 'max_tokens' | 'refusal', content: Block[]): TurnRound<Block> => ({ content, stop_reason: stop, usage: USAGE, ms: 5 });
+
+  it('max_tokens with text: the loop ends max_tokens, the text kept and gated, one call', async () => {
+    const h = harness([tools([toolUse('t1', 'panel_headline', { ...RANGE })]), cut('max_tokens', [text('Revenue was 4,500,000 IQD, and the cafe')])]);
+    await h.run();
+    expect(h.sent).toHaveLength(2);
+    expect(h.state.stopReason).toBe('max_tokens');
+    expect(h.state.finalText).toBe('Revenue was 4,500,000 IQD, and the cafe');
+    expect(h.state.gate?.status).toBe('ok');
+    expect(last(h.state.calls).stop_reason).toBe('max_tokens');
+  });
+
+  it('max_tokens with an invented money figure: marked, never retried (a regenerated answer would be cut again)', async () => {
+    const h = harness([cut('max_tokens', [text('Revenue was 9,999,999 IQD and')]), answer('never sent')]);
+    await h.run();
+    expect(h.sent).toHaveLength(1);
+    expect(h.state.gate?.status).toBe('unverified');
+    expect(h.state.gate?.unverified.map((u) => u.value)).toContain(9_999_999);
+    expect(h.state.gateRetried).toBe(false);
+    expect(resets(h.events)).toBe(0);
+    expect(named(h.events, 'gate')).toEqual([]);
+  });
+
+  it('max_tokens with a half-written tool_use: no tool runs, no tool event, the text before it stands', async () => {
+    const h = harness([cut('max_tokens', [text('Let me pull the week.'), toolUse('t1', 'panel_headline', { from: '2026-10-0' })]), answer('never sent')]);
+    await h.run();
+    expect(h.sent).toHaveLength(1);
+    expect(h.deps.runTool).not.toHaveBeenCalled();
+    expect(named(h.events, 'tool_start')).toEqual([]);
+    expect(h.state.sources).toEqual([]);
+    expect(h.state.stopReason).toBe('max_tokens');
+    expect(h.state.finalText).toBe('Let me pull the week.');
+  });
+
+  it('refusal: ends refusal, its text (even empty) kept, gated, and the false-refusal retry does not run', async () => {
+    const h = harness([cut('refusal', [text('The money context is off for this chat.')]), answer('never sent')]);
+    await h.run();
+    expect(h.sent).toHaveLength(1);
+    expect(h.state.stopReason).toBe('refusal');
+    expect(h.state.refusalRetried).toBe(false);
+    expect(h.deps.refusalSearch).not.toHaveBeenCalled();
+    expect(h.state.gate).not.toBeNull();
+
+    const empty = harness([cut('refusal', []), answer('never sent')]);
+    await empty.run();
+    expect(empty.sent).toHaveLength(1);
+    expect(empty.state.stopReason).toBe('refusal');
+    expect(empty.state.finalText).toBe('');
+  });
+
+  it('refusal with an invented figure: no gate retry either', async () => {
+    const h = harness([cut('refusal', [text('I will not say 9,999,999 IQD.')]), answer('never sent')]);
+    await h.run();
+    expect(h.sent).toHaveLength(1);
+    expect(h.state.gateRetried).toBe(false);
+    expect(h.state.gate?.status).toBe('unverified');
+  });
+});
+
+describe('the round loop: a call cut mid-stream', () => {
+  const PARTIAL = { usage: { input: 5000, cache_write: 100, cache_read: 2000, output: 40 }, ms: 1234, webSearches: 0 };
+  /** A stream that writes `streamed` and then throws an error carrying `partial` (provider.ts ProviderError.partial). */
+  function cutStream(h: Harness, streamed: string, partial: unknown, before: TurnRound<Block>[] = []) {
+    let n = 0;
+    h.deps.stream = vi.fn(async (msgs: Msg[], onText: (d: string) => void) => {
+      h.sent.push(structuredClone(msgs));
+      const step = before[n++];
+      if (step) {
+        for (const b of step.content) if (b.type === 'text' && b.text) onText(b.text);
+        return step;
+      }
+      if (streamed) onText(streamed);
+      throw Object.assign(new Error('aborted'), { code: 'TIMEOUT', partial });
+    });
+  }
+
+  it('the partial usage becomes an aborted call, estimated like any other; the error still propagates', async () => {
+    const h = harness([]);
+    cutStream(h, '', PARTIAL, [tools([toolUse('t1', 'panel_headline', { ...RANGE })])]);
+    await expect(h.run()).rejects.toThrow('aborted');
+    expect(h.state.calls.map((c) => [c.call_no, c.stop_reason])).toEqual([[1, 'tool_use'], [2, 'aborted']]);
+    expect(h.state.calls[1]).toMatchObject({ usage: PARTIAL.usage, ms: 1234, cost_micros: 1000, web_searches: 0, search_micros: 0 });
+    expect(h.deps.estimateMicros).toHaveBeenCalledWith(PARTIAL.usage);
+    expect(h.state.spentMicros).toBe(2000);
+  });
+
+  it('searches the cut call ran are priced too', async () => {
+    const h = harness([], { perSearchMicros: 10_000 });
+    cutStream(h, '', { ...PARTIAL, webSearches: 2 });
+    await expect(h.run()).rejects.toThrow();
+    expect(h.state.calls[0]).toMatchObject({ stop_reason: 'aborted', web_searches: 2, search_micros: 20_000, cost_micros: 21_000 });
+    expect(h.state.webSearches).toBe(2);
+  });
+
+  it('the text it had streamed is the turn\'s text (what the owner saw), gated for marks only', async () => {
+    const h = harness([]);
+    cutStream(h, 'Revenue was 9,999,999 IQD and', PARTIAL, [tools([toolUse('t1', 'panel_headline', { ...RANGE })], 'Let me look.')]);
+    await expect(h.run()).rejects.toThrow();
+    expect(h.state.finalText).toBe('Revenue was 9,999,999 IQD and');
+    expect(h.state.finalContent).toEqual([]);
+    expect(h.state.gate?.status).toBe('unverified');
+    expect(h.state.gateRetried).toBe(false);
+  });
+
+  it('no partial on the error (cut before message_start) records no call; no text streamed keeps the state as it was', async () => {
+    const h = harness([]);
+    cutStream(h, '', undefined, [tools([toolUse('t1', 'panel_headline', { ...RANGE })], 'Let me look.')]);
+    await expect(h.run()).rejects.toThrow();
+    expect(h.state.calls).toHaveLength(1);
+    expect(h.state.finalText).toBe('Let me look.');
+    expect(h.state.gate).toBeNull();
+  });
+
+  it('partialCallOf reads the shape structurally and refuses anything else', () => {
+    expect(partialCallOf({ partial: PARTIAL })).toEqual(PARTIAL);
+    expect(partialCallOf({ partial: { usage: { input: -3, output: 'x' }, ms: Number.NaN } })).toEqual({ usage: { input: 0, cache_write: 0, cache_read: 0, output: 0 }, ms: 0, webSearches: 0 });
+    expect(partialCallOf(new Error('x'))).toBeNull();
+    expect(partialCallOf({ partial: { ms: 3 } })).toBeNull();
+    expect(partialCallOf(null)).toBeNull();
   });
 });
 

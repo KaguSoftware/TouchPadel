@@ -22,7 +22,6 @@ import {
   ActivityIndicator,
   Animated,
   Easing,
-  KeyboardAvoidingView,
   Platform,
   Pressable,
   ScrollView,
@@ -45,6 +44,7 @@ import { brand, radius, shadows, space, useTheme } from '../theme';
 import { BlurTargetView, BlurView } from 'expo-blur';
 import { BrandPattern } from './BrandPattern';
 import { fieldKeyboardDefaults } from './fieldKeyboard';
+import { KeyboardAvoid } from './KeyboardAvoid';
 import { KeyboardScrollContext } from './KeyboardScroll';
 import { TitleSquiggle } from './icons';
 import { insetStart, isFrame, type Frame } from './segmentedThumb';
@@ -92,7 +92,7 @@ export function Screen({
    * scrolls the focused field clear of the keyboard; Android resizes itself.
    * `'bar'`: a pinned footer outside the scroll area (order item, order menu)
    * must ride above the keyboard too, so the page is padded by a
-   * KeyboardAvoidingView instead. Never combine the two on one page (the
+   * KeyboardAvoid instead. Never combine the two on one page (the
    * lift is applied twice), and leave it off when the page already has a
    * BottomBar, StepPage or FormScreen.
    */
@@ -122,13 +122,8 @@ export function Screen({
     >
       {pattern === 'blur' ? <BlurredPattern /> : pattern ? <BrandPattern /> : null}
       {keyboard === 'bar' && Platform.OS === 'ios' ? (
-        <KeyboardAvoidingView
-          style={{ flex: 1 }}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          keyboardVerticalOffset={Platform.OS === 'ios' && !edges.includes('top') ? 100 : 0}
-        >
-          {children}
-        </KeyboardAvoidingView>
+        // The pinned footers on these pages pad at least the home indicator (KeyboardAvoid).
+        <KeyboardAvoid footerPad={insets.bottom}>{children}</KeyboardAvoid>
       ) : (
         children
       )}
@@ -178,10 +173,7 @@ export function FormScreen({
 }) {
   const insets = useSafeAreaInsets();
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1 }}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
+    <KeyboardAvoid androidBehavior="height">
       <ScrollView
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
@@ -194,7 +186,7 @@ export function FormScreen({
       >
         {children}
       </ScrollView>
-    </KeyboardAvoidingView>
+    </KeyboardAvoid>
   );
 }
 

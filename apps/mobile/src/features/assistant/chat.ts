@@ -31,8 +31,12 @@ export type ConversationRow = Pick<StoredConversationRow, 'id' | 'title' | 'scop
   tokens?: { cost_micros?: unknown } | null;
 };
 
-/** The columns `fetchMessages` reads: everything but the per-answer tokens. */
-export type MessageRow = Omit<StoredMessageRow, 'tokens'>;
+/**
+ * The columns `fetchMessages` reads. `tokens` carries how an answer ended
+ * (`stop_reason`, `error_code`; read through `turnOutcome`), so it is `unknown`
+ * here and optional: a row the phone builds itself has none.
+ */
+export type MessageRow = Omit<StoredMessageRow, 'tokens'> & { tokens?: unknown };
 
 // ── Errors ──────────────────────────────────────────────────────────────────
 

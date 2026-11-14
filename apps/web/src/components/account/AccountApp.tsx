@@ -11,6 +11,7 @@ import {
   accountPhone,
   historyKindKey,
   localName,
+  nextTierGives,
   pointsToNextTier,
   readMemberCard,
   readMyLoyalty,
@@ -212,6 +213,8 @@ function Points({ locale, loyalty }: { locale: Locale; loyalty: MyLoyalty }) {
     );
   }
   const toNext = pointsToNextTier(loyalty);
+  // 0410: what the next tier adds, so the points still to earn have something to aim at.
+  const gives = nextTierGives(loyalty);
   return (
     <>
       <section className="tp-acct__panel tp-acct__points" aria-labelledby="acct-points-title">
@@ -236,6 +239,23 @@ function Points({ locale, loyalty }: { locale: Locale; loyalty: MyLoyalty }) {
         ) : (
           <p className="tp-acct__muted">{tr('loyalty.web.account.topTier')}</p>
         )}
+        {loyalty.next_tier && gives ? (
+          <div className="tp-acct__gives">
+            <p className="tp-acct__label">
+              {tr('loyalty.web.account.nextGives', { tier: localName(locale, loyalty.next_tier) })}
+            </p>
+            <ul className="tp-acct__gives-list">
+              {gives.multiplier !== null ? (
+                <li>
+                  {tr('loyalty.web.account.nextMultiplier', { times: num(gives.multiplier) })}
+                </li>
+              ) : null}
+              {gives.perks.map((perk) => (
+                <li key={perk.id}>{localName(locale, perk)}</li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
       </section>
 
       <section className="tp-acct__panel" aria-labelledby="acct-rewards-title">

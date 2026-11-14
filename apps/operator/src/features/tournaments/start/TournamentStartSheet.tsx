@@ -233,7 +233,7 @@ export function TournamentStartSheet({
                     ? tr(`ws.tournaments.start.typeName.${plan.variant}`)
                     : s === 'name' && plan.classes.length > 0
                       ? [
-                          plan.classes.join(tr('ws.protocols.view.listJoin')),
+                          tr('ws.events.block.classLabel', { class: plan.classes.join(tr('ws.protocols.view.listJoin')) }),
                           full && plan.format
                             ? tr(`ws.team.tasks.form.option.${plan.format}`)
                             : null,

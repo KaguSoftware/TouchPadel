@@ -9,6 +9,9 @@
  * offered) and app.upsert_loyalty_reward (also the On offer switch; there is no reward delete).
  * Every write is online only and re-reads the page and the till's copy of the terms.
  *
+ * 0410: what each card gives besides points (free add-ons, or a line the staff honour by hand)
+ * is its own panel under the tiers, TierPerks.tsx; a server that lists no privileges shows none.
+ *
  * Loyalty ships switched off (L-1) until the client gives the point value, tier names and
  * thresholds; this is where the owner switches it on.
  */
@@ -35,6 +38,7 @@ import { NumberField } from '../admin/settings/settingsFields';
 import { TILL_MENU_QUERY } from '../till/tillData';
 import {
   isBaseTier,
+  perksSupported,
   parseMultiplier,
   parseWhole,
   rewardDraft,
@@ -52,6 +56,7 @@ import {
 } from './loyaltyLogic';
 import { invalidateLoyaltyAdmin, useLoyaltyAdmin } from './useLoyalty';
 import { TierColorLabel, TierColorPicker } from './TierColorPicker';
+import { PerksPanel } from './TierPerks';
 
 const K = 'ws.loyalty.setup';
 
@@ -82,6 +87,8 @@ export function LoyaltySetupScreen() {
               draft0={settingsDraft(q.data.settings)}
             />
             <TiersPanel canEdit={canEdit} tiers={q.data.tiers} />
+            {/* 0410: absent on an older server, which sends no `perks` under a tier. */}
+            {perksSupported(q.data.tiers) && <PerksPanel canEdit={canEdit} tiers={q.data.tiers} />}
             <RewardsPanel canEdit={canEdit} rewards={q.data.rewards} />
           </>
         )}

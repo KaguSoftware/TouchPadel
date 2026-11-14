@@ -1393,6 +1393,8 @@ function adjustmentWords(a: DayAdjustmentRow, tr: Tr): string[] {
 function reasonWords(code: string | null, tr: Tr): string | null {
   if (!code) return null;
   if (code === 'promotion') return tr('ws.manager.dayClose.reasonPromotion');
+  // 0410: the free add-ons of a member's card, the server's own rows.
+  if (code === 'loyalty_tier_perk') return tr('ws.manager.dayClose.reasonCardPerk');
   const known = knownReason(code);
   return known ? tr(`op.reasons.${known}`) : code;
 }

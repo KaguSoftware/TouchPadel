@@ -33,8 +33,13 @@ function ChatsScreen() {
   });
   const rows = list.data ?? [];
 
+  // A new chat carries a fresh `n` so the assistant screen opens an empty chat even when
+  // the one on screen was already empty (same `id`, nothing else to tell them apart).
   const open = (id: string | null) =>
-    router.dismissTo({ pathname: '/staff-assistant', params: { id: id ?? '' } });
+    router.dismissTo({
+      pathname: '/staff-assistant',
+      params: id ? { id } : { id: '', n: String(Date.now()) },
+    });
 
   return (
     <Screen pattern="blur" clearBar edges={[]}>

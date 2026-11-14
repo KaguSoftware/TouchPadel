@@ -7,22 +7,29 @@
  * refresh() (['tab', id]) and queueResults' tab invalidations re-read it with the tab; the
  * record's panel rides under ['customer', id] for the same reason.
  */
-import { useQuery, type QueryClient } from '@tanstack/react-query';
+import { useEffect, useRef } from 'react';
+import { useQuery, useQueryClient, type QueryClient, type UseQueryResult } from '@tanstack/react-query';
 import type {
   CourtRewardState,
   IdentifiedMember,
   LoyaltyAdmin,
+  LoyaltyAdminPerk,
   LoyaltyAdminReward,
+  PerksRefreshResult,
   RedeemResult,
+  TabBenefits,
 } from '@touch/core/loyalty';
 import { AppRpcError, appRpc } from '../../lib/appRpc';
 import { supabase } from '../../lib/supabase';
 import { currentBranchId } from '../../lib/venueScope';
 import { deviceId, onlineKey } from '../../lib/idem';
 import { touch } from '../../ipc/bridge';
+import { LOCAL_TAB_PREFIX } from '../../lib/offlineTabs';
 import {
   memberView,
+  perksRefreshSignature,
   readLoyaltyCustomer,
+  readTabBenefits,
   type AdjustmentLike,
   type MemberView,
   type RedeemTerms,
@@ -36,6 +43,12 @@ export const LOYALTY_KEYS = {
    * own key, so every tab refresh re-reads it.
    */
   courtReward: (tabId: string) => ['tab', tabId, 'loyalty', 'courtReward'] as const,
+  /**
+   * What the tab customer's card gives on this bill (loyalty_tab_benefits, 0410): a child of the
+   * tab's own key, so the till's refresh, an attach and every loyalty write re-read it. The
+   * host's `version` ends the key (useTabBenefits), as it does for the customer discount.
+   */
+  benefits: (tabId: string) => ['tab', tabId, 'loyalty', 'benefits'] as const,
   /** The chip's member: identify answer + loyalty_customer. */
   member: (customerId: string) => ['loyaltyMember', customerId] as const,
   /** The customer record's panel (a child of the record's own key). */
@@ -311,6 +324,117 @@ export function useLoyaltyAdmin(enabled = true) {
     enabled,
     queryFn: () => appRpc<LoyaltyAdmin>('loyalty_admin'),
   });
+}
+
+// ---------------------------------------------------------------------------
+// What the member's card gives on a bill (0410)
+// ---------------------------------------------------------------------------
+
+/**
+ * A server without 0410 (PGRST202, appRpc's RPC_MISSING): the bill shows nothing new. Read off
+ * the code, as features/discounts does, so a screen test that mocks lib/appRpc still mounts.
+ */
+function rpcMissing(error: unknown): boolean {
+  return (error as { code?: unknown } | null)?.code === 'RPC_MISSING';
+}
+
+/**
+ * What the tab customer's card gives on this bill: their card, its privileges, the free
+ * add-ons on the bill against what they should come to, and the deal they picked in the app.
+ * Asked for every live bill, not only one with a member attached: the server also knows the
+ * customer of a booking's bill and of an order placed from the app (app.tab_customer).
+ * `version` is the host's own figures, so a bill whose lines changed is asked again.
+ */
+export function useTabBenefits({
+  tabId,
+  version,
+  enabled,
+}: {
+  tabId: string | null;
+  version: string;
+  enabled: boolean;
+}): UseQueryResult<TabBenefits | null> {
+  return useQuery({
+    queryKey: [...LOYALTY_KEYS.benefits(tabId ?? ''), version],
+    enabled: enabled && Boolean(tabId) && !(tabId ?? '').startsWith(LOCAL_TAB_PREFIX),
+    queryFn: async () => readTabBenefits(await appRpc<unknown>('loyalty_tab_benefits', { p_tab_id: tabId })),
+    retry: (n, e) => !rpcMissing(e) && n < 1,
+    placeholderData: (prev) => prev,
+  });
+}
+
+/**
+ * While a bill is open: when its benefits say the free add-ons on it are not what the card
+ * gives (a line with a paid add-on was added or voided, the member was attached or taken off,
+ * their card or its privileges changed), ask app.loyalty_perks_refresh for them, once per
+ * state, then re-read the bill. Nobody presses anything, and nothing is shown: a success is the
+ * bill's own "Card privileges" row, and a refusal (a part-paid bill, answered as data, or
+ * anything raised) leaves the bill as it was. Never loops: the same state and figures are
+ * never asked twice (perksRefreshSignature).
+ */
+export function useAutoTierPerks({
+  tabId,
+  state,
+  version,
+  enabled,
+}: {
+  tabId: string | null;
+  /** The benefits as read for THIS version; pass undefined while a newer read is on its way. */
+  state: TabBenefits | null | undefined;
+  version: string;
+  enabled: boolean;
+}): void {
+  const qc = useQueryClient();
+  const asked = useRef<string | null>(null);
+  useEffect(() => {
+    if (!enabled || !tabId || !state || state.tab_id !== tabId || !state.addons.needs_refresh) return;
+    const signature = perksRefreshSignature(state, version);
+    if (asked.current === signature) return;
+    asked.current = signature;
+    void (async () => {
+      try {
+        await appRpc<PerksRefreshResult>('loyalty_perks_refresh', { p_tab_id: tabId, p_device_id: deviceId() });
+      } catch {
+        // Left as it was; the bill's rows still say what it carries.
+        return;
+      }
+      void qc.invalidateQueries({ queryKey: ['tab', tabId] });
+      void qc.invalidateQueries({ queryKey: ['tabs'] });
+      void qc.invalidateQueries({ queryKey: ['bookingBill'] });
+      void qc.invalidateQueries({ queryKey: ['bookingBillStates'] });
+    })();
+  }, [enabled, state, version, tabId, qc]);
+}
+
+/**
+ * The two above for a host: the read, and the automatic refresh beside it. Mounted wherever the
+ * customer discount's own refresh is (the café till, the shop till's member step, the desk's
+ * booking bill). Returns what the member block shows, or null (not read yet, nothing to show,
+ * or a server without 0410).
+ */
+export function useMemberBenefits(args: { tabId: string | null; version: string; enabled: boolean }): TabBenefits | null {
+  const q = useTabBenefits(args);
+  useAutoTierPerks({
+    tabId: args.tabId,
+    state: q.isPlaceholderData ? undefined : q.data,
+    version: args.version,
+    enabled: args.enabled,
+  });
+  return rpcMissing(q.error) ? null : (q.data ?? null);
+}
+
+// ---------------------------------------------------------------------------
+// Setup › Loyalty: a tier's privileges (0410)
+// ---------------------------------------------------------------------------
+
+/** Owner: create (no id) or change a tier privilege; absent keys are kept on a change. */
+export function upsertTierPerk(perk: Record<string, unknown>): Promise<LoyaltyAdminPerk> {
+  return appRpc<LoyaltyAdminPerk>('upsert_loyalty_tier_perk', { p_perk: perk });
+}
+
+/** Owner: remove one tier privilege. Open bills drop its free add-ons at their next refresh. */
+export function deleteTierPerk(perkId: string): Promise<unknown> {
+  return appRpc('delete_loyalty_tier_perk', { p_perk_id: perkId });
 }
 
 /** After a write on a tab: the tab (its totals and loyalty rows), the lists, a booking's bill, the member. */

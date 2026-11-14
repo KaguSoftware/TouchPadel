@@ -80,19 +80,22 @@ export const staffAssistantEn = {
     failed: 'could not be read',
     job: 'This needs a longer job. Open the assistant on the desktop app to see the estimate and run it.',
     retry: 'Ask again',
+    cutShort: 'This answer was cut short. Ask for the rest.',
+    refused: 'The assistant declined to answer this.',
   },
   errors: {
     AUTH_REQUIRED: 'Your session has ended. Sign in again to ask.',
     FORBIDDEN: 'Only the owner can use the assistant.',
     NOT_CONFIGURED: 'No AI key is configured for this venue, so nothing was asked or billed.',
     LLM_DAILY_QUOTA: 'Today’s question limit is reached. It resets with the business day.',
-    LLM_MONTHLY_CAP: 'This month’s AI spending cap is reached. Raise it in Venue settings on the desktop app.',
+    LLM_MONTHLY_CAP: 'This month’s AI spending cap is reached. Raise it on the assistant’s Usage and limits page in the desktop app.',
     RATE_LIMITED: 'The AI vendor is busy. Wait a moment and ask again.',
     UPSTREAM: 'The AI vendor did not answer. What was read is kept; ask again.',
     TIMEOUT: 'The answer took longer than 50 seconds and was stopped. What was read is kept.',
     INVALID_REQUEST: 'The question could not be sent as written.',
     ASSISTANT_MODEL_NOT_PRICED: 'The chosen model has no rates in the pricing table, so nothing was asked or billed.',
     UNKNOWN: 'The assistant could not answer. Ask again.',
+    CONNECTION: 'The connection was lost before the answer finished. Ask again.',
   },
   /**
    * The free assistant (owner call 2026-10-16; `assistant-free`): every staff role's only

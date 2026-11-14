@@ -16,9 +16,18 @@
  *    that stops it.
  *  - The "best one only" rule is said once, where it is decided (how a
  *    promotion is applied), not as a banner above the form.
- *  - "How it is applied" is a choice between two plain options. The server
- *    applies a promotion that is not automatic ONLY with its code (0067), so
- *    code-only without a code is called out: it would never apply.
+ *  - "How it is applied" is a choice between three plain options:
+ *    automatically, only with a code, or in the app only (0410: not automatic,
+ *    no code, listed, so it applies for the member who picked it in the app).
+ *    The server applies a promotion that is not automatic with its code (0067)
+ *    or for the member who picked it, so one with no code that is not listed
+ *    is called out: it would never apply.
+ *  - "In the guests' app" (0410) lists the promotion as a deal, with the line
+ *    guests read under it in both languages. It is saved by its own call,
+ *    app.set_promotion_app, after upsert_promotion has answered with the id;
+ *    when that second call fails the promotion itself WAS saved, and the
+ *    panel says exactly that. A promotion whose code works once cannot be
+ *    listed. Only the owner lists; a manager reads the listing.
  *  - Long pickers (menu items) start from what is chosen plus a search, rather
  *    than ~190 chips in a clipped scroll box.
  *
@@ -59,13 +68,19 @@ import { useConfirm } from '../../../components/ConfirmDialog';
 import { useAdminMenu } from '../menu/useAdminMenu';
 import { PriceChangeButton, PriceLockNote, usePriceChangeStart } from './PriceChangeStart';
 import {
+  APP_BLURB_MAX,
   EMPTY_DRAFT,
+  appListingArgs,
+  appListingChanged,
+  appListingKnown,
   describePromotion,
   fromRow,
+  isAppOnly,
   isDirty,
   lifecycle,
   minEndOn,
   minStartOn,
+  promotionChanged,
   saveBlocker,
   statusText,
   toRpcArgs,
@@ -82,7 +97,10 @@ const DAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const;
 const LIFECYCLE_TONE: Record<PromotionLifecycle, Tone> = { live: 'success', scheduled: 'info', disabled: 'neutral', expired: 'neutral' };
 
 /** The fields whose errors wait until the manager has been there. */
-type TouchKey = 'name' | 'value' | 'dates' | 'hours';
+type TouchKey = 'name' | 'value' | 'dates' | 'hours' | 'blurb';
+
+/** The three ways a promotion reaches a bill, as "How it is applied" offers them. */
+type How = 'auto' | 'code' | 'app';
 
 const hintStyle = { fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)', marginBlockStart: 'var(--tp-sp-1)' } as const;
 
@@ -124,8 +142,18 @@ function Editor({ id, row }: { id: string | null; row: PromotionRow | null }) {
   const [draft, setDraft] = useState<PromotionDraft>(initial);
   const [saved, setSaved] = useState<PromotionDraft>(initial);
   const [error, setError] = useState<unknown>(null);
+  /** 0410: set_promotion_app refused after the promotion itself was saved. */
+  const [appError, setAppError] = useState<unknown>(null);
+  /**
+   * The option pressed in "How it is applied", while the draft alone cannot say it: a listed
+   * promotion with no code yet reads as "in the app only" until its code is generated.
+   */
+  const [howPick, setHowPick] = useState<Exclude<How, 'auto'> | null>(null);
   const [touched, setTouched] = useState<ReadonlySet<TouchKey>>(new Set());
   const dirty = isDirty(draft, saved);
+  // A server without 0410 sends no `in_app`: the listing is then not offered at all. A new
+  // promotion has no row to tell by, so it is offered and the save says if it could not be.
+  const appKnown = row ? appListingKnown(row) : true;
   const errors = validateDraft(draft, saved.startsOn, saved.endsOn);
   const blocker = saveBlocker(errors);
   const readOnly = !can.editPromotions;
@@ -178,19 +206,45 @@ function Editor({ id, row }: { id: string | null; row: PromotionRow | null }) {
   const shown = (key: TouchKey, ...codes: typeof errors) => touched.has(key) && codes.some((c) => errors.includes(c));
 
   const save = useMutation({
-    mutationFn: async () => {
-      const result = await appRpc<string | { id: string } | null>('upsert_promotion', toRpcArgs(draft, id));
-      const newId = typeof result === 'string' ? result : result && typeof result === 'object' ? result.id : id;
-      return newId ?? id;
+    mutationFn: async (): Promise<{ id: string | null; listingError: unknown }> => {
+      let savedId = id;
+      // Only the listing changed (a retry after it failed, or a new line for guests): the
+      // promotion itself is not written again.
+      if (id === null || promotionChanged(draft, saved)) {
+        const result = await appRpc<string | { id: string } | null>('upsert_promotion', toRpcArgs(draft, id));
+        savedId = (typeof result === 'string' ? result : result && typeof result === 'object' ? result.id : id) ?? id;
+      }
+      // 0410: the listing is its own call, and it needs the id, also of a new promotion.
+      if (!appKnown || !savedId || !appListingChanged(draft, saved)) return { id: savedId, listingError: null };
+      try {
+        await appRpc('set_promotion_app', appListingArgs(draft, savedId));
+        return { id: savedId, listingError: null };
+      } catch (e) {
+        // The promotion WAS saved: this is told apart from a failed save.
+        return { id: savedId, listingError: e ?? new Error('set_promotion_app') };
+      }
     },
-    onSuccess: async (newId) => {
+    onSuccess: async ({ id: newId, listingError }) => {
       setError(null);
-      setSaved(draft);
-      toast.ok(tr('ws.manager.promotions.editor.saved'));
+      setAppError(listingError);
+      if (listingError === null) {
+        setSaved(draft);
+        toast.ok(tr('ws.manager.promotions.editor.saved'));
+      } else if (id === null) {
+        // The page reopens on the new promotion, which shows it as not listed.
+        setSaved(draft);
+        toast.err(tr('ws.manager.promotions.editor.app.failedNew'));
+      } else {
+        // Everything but the listing is saved; the listing stays an unsaved change, so Save retries it alone.
+        setSaved({ ...draft, inApp: saved.inApp, appBlurb: saved.appBlurb });
+      }
       await queryClient.invalidateQueries({ queryKey: PROMOTIONS_KEY });
       if (id === null && newId) void navigate({ to: '/admin/promotions/$id', params: { id: newId }, replace: true });
     },
-    onError: (e) => setError(e),
+    onError: (e) => {
+      setAppError(null);
+      setError(e);
+    },
   });
 
   const generate = useMutation({
@@ -212,6 +266,19 @@ function Editor({ id, row }: { id: string | null; row: PromotionRow | null }) {
   const endedLabel = lc === 'expired' && !dirty && row?.ends_at ? formatDate(new Date(row.ends_at), locale) : null;
   const saveDisabled = readOnly || !dirty || blocker !== null;
   const codeOnly = !draft.auto;
+  const how: How = draft.auto ? 'auto' : (howPick ?? (isAppOnly(draft) ? 'app' : 'code'));
+  // Not automatic, no code, not listed: nothing can ever bring it to a bill.
+  const neverApplies = codeOnly && !draft.publicCode && !draft.inApp;
+  // The code a promotion had, which "in the app only" takes away with the save.
+  const codeLost = how === 'app' && saved.publicCode && !draft.publicCode ? saved.publicCode : null;
+
+  function pickHow(next: How) {
+    setHowPick(next === 'auto' ? null : next);
+    if (next === 'auto') patch({ auto: true });
+    else if (next === 'code') patch({ auto: false });
+    // In the app only: listed, no code (so no single-use either).
+    else patch({ auto: false, inApp: true, publicCode: null, codeSingleUse: false });
+  }
 
   return (
     <div style={{ maxInlineSize: '64rem' }}>
@@ -238,7 +305,15 @@ function Editor({ id, row }: { id: string | null; row: PromotionRow | null }) {
               </>
             ) : (
               <>
-                <Button kind="ghost" disabled={!dirty || save.isPending} onClick={() => setDraft(saved)}>
+                <Button
+                  kind="ghost"
+                  disabled={!dirty || save.isPending}
+                  onClick={() => {
+                    setDraft(saved);
+                    setHowPick(null);
+                    setAppError(null);
+                  }}
+                >
                   {tr('ws.kit.actions.discard')}
                 </Button>
                 <Button
@@ -435,20 +510,28 @@ function Editor({ id, row }: { id: string | null; row: PromotionRow | null }) {
         <Panel title={tr('ws.manager.promotions.editor.howTitle')} style={{ gridColumn: '1 / -1' }}>
           <div style={{ display: 'grid', gap: 'var(--tp-sp-5)', gridTemplateColumns: 'repeat(auto-fit, minmax(20rem, 1fr))', alignItems: 'start' }}>
             <div style={{ display: 'grid', gap: 'var(--tp-sp-2)', justifyItems: 'start' }}>
-              <SegmentedControl
+              <SegmentedControl<How>
                 aria-label={tr('ws.manager.promotions.editor.howTitle')}
-                value={codeOnly ? 'code' : 'auto'}
-                onChange={(v) => patch({ auto: v === 'auto' })}
+                value={how}
+                onChange={pickHow}
                 options={[
                   { value: 'auto', label: tr('ws.manager.promotions.editor.howAuto'), disabled: readOnly },
                   { value: 'code', label: tr('ws.manager.promotions.editor.howCode'), icon: 'tag', disabled: readOnly },
+                  // 0410: only where the server can list a promotion in the app.
+                  ...(appKnown ? [{ value: 'app' as const, label: tr('ws.manager.promotions.editor.howApp'), icon: 'phone' as const, disabled: readOnly }] : []),
                 ]}
               />
               <p style={{ ...hintStyle, marginBlockStart: 0 }}>
-                {tr(codeOnly ? 'ws.manager.promotions.editor.codeHint' : 'ws.manager.promotions.editor.autoHint')}
+                {tr(how === 'app' ? 'ws.manager.promotions.editor.appHint' : how === 'code' ? 'ws.manager.promotions.editor.codeHint' : 'ws.manager.promotions.editor.autoHint')}
               </p>
+              {codeLost && (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-1)', fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-warn-fg)', fontWeight: 600 }}>
+                  <Icon name="alert" size={14} />
+                  {tr('ws.manager.promotions.editor.codeLost', { code: codeLost })}
+                </span>
+              )}
 
-              {(codeOnly || draft.publicCode) && (
+              {how !== 'app' && (codeOnly || draft.publicCode) && (
                 <div style={{ display: 'grid', gap: 'var(--tp-sp-2)', justifyItems: 'start', marginBlockStart: 'var(--tp-sp-1)' }}>
                   <span style={{ fontSize: 'var(--tp-fs-sm)', fontWeight: 600 }}>{tr('ws.manager.promotions.editor.publicCode')}</span>
                   <div style={{ display: 'flex', gap: 'var(--tp-sp-2)', alignItems: 'flex-start', flexWrap: 'wrap' }}>
@@ -473,11 +556,15 @@ function Editor({ id, row }: { id: string | null; row: PromotionRow | null }) {
                       </Button>
                     )}
                   </div>
-                  {codeOnly && !draft.publicCode && (
+                  {/* Without a code it applies only if members can pick it in the app (0410). */}
+                  {neverApplies && (
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-1)', fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-warn-fg)', fontWeight: 600 }}>
                       <Icon name="alert" size={14} />
-                      {tr('ws.manager.promotions.editor.codeMissing')}
+                      {tr(appKnown ? 'ws.manager.promotions.editor.codeMissing' : 'ws.manager.promotions.editor.codeMissingNoApp')}
                     </span>
+                  )}
+                  {codeOnly && !draft.publicCode && draft.inApp && (
+                    <span style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>{tr('ws.manager.promotions.editor.codeMissingListed')}</span>
                   )}
                   <Switch
                     checked={draft.codeSingleUse}
@@ -499,7 +586,117 @@ function Editor({ id, row }: { id: string | null; row: PromotionRow | null }) {
           </p>
           <ErrorText error={error} />
         </Panel>
+
+        {/* In the guests' app (0410) */}
+        {appKnown && (
+          <Panel title={tr('ws.manager.promotions.editor.app.title')} style={{ gridColumn: '1 / -1' }} data-testid="promotion-app">
+            {readOnly ? (
+              <AppListingRead draft={draft} />
+            ) : (
+              <div style={{ display: 'grid', gap: 'var(--tp-sp-3)' }}>
+                <div>
+                  <Switch
+                    checked={draft.inApp}
+                    // In the app only IS the listing; a single-use code cannot be listed (it can always be taken off).
+                    disabled={how === 'app' || (!draft.inApp && draft.codeSingleUse)}
+                    onChange={(inApp) => patch({ inApp })}
+                    label={tr('ws.manager.promotions.editor.app.switch')}
+                  />
+                  <p style={hintStyle}>
+                    {tr(
+                      how === 'app'
+                        ? 'ws.manager.promotions.editor.app.lockedAppOnly'
+                        : !draft.inApp && draft.codeSingleUse
+                          ? 'ws.manager.promotions.editor.app.lockedSingleUse'
+                          : 'ws.manager.promotions.editor.app.switchHint',
+                    )}
+                  </p>
+                  {errors.includes('appSingleUse') && (
+                    <span role="alert" style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-1)', fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-danger-fg)', fontWeight: 600, marginBlockStart: 'var(--tp-sp-1)' }}>
+                      <Icon name="alert" size={14} />
+                      {tr('ws.manager.promotions.editor.errors.appSingleUse')}
+                    </span>
+                  )}
+                  {draft.inApp && !draft.enabled && <p style={hintStyle}>{tr('ws.manager.promotions.editor.app.offNote')}</p>}
+                </div>
+                {/* The lines show with the listing, and stay while they hold text so a half-written pair can be fixed. */}
+                {(draft.inApp || draft.appBlurb.en !== '' || draft.appBlurb.ar !== '') && (
+                  <div onBlur={leave('blurb')} style={{ display: 'grid', gap: 'var(--tp-sp-1)' }}>
+                    <div style={{ display: 'grid', gap: 'var(--tp-sp-2-5)', gridTemplateColumns: 'repeat(auto-fit, minmax(18rem, 1fr))' }}>
+                      <BlurbField
+                        label={tr('ws.manager.promotions.editor.app.blurbEn')}
+                        dir="ltr"
+                        value={draft.appBlurb.en}
+                        onChange={(en) => patch({ appBlurb: { ...draft.appBlurb, en } })}
+                        error={shown('blurb', 'blurbPair', 'blurbLong') ? tr(`ws.manager.promotions.editor.errors.${errors.includes('blurbLong') ? 'blurbLong' : 'blurbPair'}`) : undefined}
+                      />
+                      <BlurbField
+                        label={tr('ws.manager.promotions.editor.app.blurbAr')}
+                        dir="rtl"
+                        value={draft.appBlurb.ar}
+                        onChange={(ar) => patch({ appBlurb: { ...draft.appBlurb, ar } })}
+                      />
+                    </div>
+                    <p style={{ ...hintStyle, marginBlockStart: 0 }}>{tr('ws.manager.promotions.editor.app.blurbHint')}</p>
+                  </div>
+                )}
+                {appError != null && (
+                  <div data-testid="promotion-app-failed">
+                    <MessagePresenter tone="error" message={tr('ws.manager.promotions.editor.app.failed')} />
+                    <ErrorText error={appError} />
+                  </div>
+                )}
+              </div>
+            )}
+          </Panel>
+        )}
       </div>
+    </div>
+  );
+}
+
+/** One of the two lines guests read under a deal: 160 characters, counted as they are typed. */
+function BlurbField({ label, dir, value, onChange, error }: { label: string; dir: 'ltr' | 'rtl'; value: string; onChange: (v: string) => void; error?: string }) {
+  const { tr, locale } = useLocale();
+  return (
+    <div style={{ display: 'grid', gap: 'var(--tp-sp-1)', minInlineSize: 0 }}>
+      <Field label={label} error={error} style={{ marginBlockEnd: 0 }}>
+        <textarea
+          style={{ ...inputStyle, minBlockSize: '4.5rem', resize: 'vertical', fontFamily: 'inherit' }}
+          dir={dir}
+          lang={dir === 'rtl' ? 'ar' : 'en'}
+          value={value}
+          maxLength={APP_BLURB_MAX}
+          onChange={(e) => onChange(e.target.value)}
+        />
+      </Field>
+      {/* Outside the field's hint, which gives way to an error: the count stays in sight. */}
+      <span aria-hidden="true" style={{ justifySelf: 'end', fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)', fontVariantNumeric: 'tabular-nums' }}>
+        {tr('ws.manager.promotions.editor.app.count', { n: formatNumber(value.length, locale), max: formatNumber(APP_BLURB_MAX, locale) })}
+      </span>
+    </div>
+  );
+}
+
+/** The listing as a manager reads it: only the owner lists a promotion in the app. */
+function AppListingRead({ draft }: { draft: PromotionDraft }) {
+  const { tr } = useLocale();
+  const hasLines = draft.appBlurb.en.trim() !== '' && draft.appBlurb.ar.trim() !== '';
+  return (
+    <div style={{ display: 'grid', gap: 'var(--tp-sp-2)', justifyItems: 'start' }}>
+      <StatusBadge
+        tone={draft.inApp ? 'success' : 'neutral'}
+        icon={draft.inApp ? 'phone' : undefined}
+        dot={!draft.inApp}
+        label={tr(draft.inApp ? 'ws.manager.promotions.editor.app.listed' : 'ws.manager.promotions.editor.app.notListed')}
+      />
+      {draft.inApp && hasLines && (
+        <div style={{ display: 'grid', gap: 'var(--tp-sp-1)', fontSize: 'var(--tp-fs-sm)' }}>
+          <bdi lang="en">{draft.appBlurb.en}</bdi>
+          <bdi lang="ar">{draft.appBlurb.ar}</bdi>
+        </div>
+      )}
+      <p style={{ ...hintStyle, marginBlockStart: 0 }}>{tr('ws.manager.promotions.editor.app.ownerOnly')}</p>
     </div>
   );
 }

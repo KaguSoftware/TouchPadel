@@ -403,16 +403,17 @@ export const tournamentsEn = {
       closed: 'The venue is closed that day. Pick another day.',
       loading: 'Loading the courts…',
     },
-    // The Name step's class and format cards. Class is the club's label by
-    // player level (owner, 2026-10-06); the app runs Americano and Mexicano.
+    // The Name step's class and format cards. The class is the player type
+    // (Type A, B, C; Majed, 2026-11-12); the tag describes the games, never a
+    // level word. The app runs Americano and Mexicano.
     classes: {
-      A: { tag: 'Advanced', body: 'For strong, experienced players. Fast, competitive games.' },
+      A: { tag: 'Competitive', body: 'For strong, experienced players. Fast, competitive games.' },
       B: {
-        tag: 'Intermediate',
+        tag: 'Regular players',
         body: 'For players who play regularly and know the rules and positions.',
       },
       C: {
-        tag: 'Beginners',
+        tag: 'Open to all',
         body: 'For new and social players. Friendly games, open to anyone learning.',
       },
     },

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { mapErrorToKey } from '../../booking/errors';
 import { phoneTakenKey } from '../errors';
 
 /** PHONE_TAKEN (build contracts L-3) reads the catalogue's line through the shared resolver. */
@@ -14,5 +15,12 @@ describe('phoneTakenKey', () => {
       phoneTakenKey({ code: 'otp_expired', message: 'Token has expired or is invalid' }),
     ).toBeNull();
     expect(phoneTakenKey(undefined)).toBeNull();
+  });
+});
+
+/** pick_deal's refusals (0410) read the shared catalogue's lines on the phone, with no override. */
+describe('deal refusals', () => {
+  it.each(['DEAL_UNAVAILABLE', 'DEAL_LOCKED', 'DEAL_USED'] as const)('%s maps to its own line', (code) => {
+    expect(mapErrorToKey({ message: code, code: 'P0001' })).toBe(`op.errors.${code}`);
   });
 });

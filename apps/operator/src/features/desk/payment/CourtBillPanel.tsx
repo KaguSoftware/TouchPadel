@@ -60,7 +60,7 @@ import { PaymentPane } from '../../till/PaymentPane';
 import { AddCafeBillDialog } from './AddCafeBillDialog';
 import { CourtReceiptPrint } from './CourtReceiptPrint';
 import { MemberAttach } from '../../loyalty/MemberAttach';
-import { useCourtReward } from '../../loyalty/useLoyalty';
+import { useCourtReward, useMemberBenefits } from '../../loyalty/useLoyalty';
 import {
   canAddCafeBill,
   canTakePayment,
@@ -326,6 +326,10 @@ export function CourtBillView({
   const discountShown = discountAllowed && discountLive && billDisc !== undefined && !rpcMissing(billDiscQ.error) && (billDisc.court_allowed || tab !== null);
   // The café part of the bill's discount, out of the server's discount figure into its own row.
   const cafeCustomerOff = tab && billDisc?.cafe && billDisc.cafe.amount_iqd <= tab.discount_iqd ? billDisc.cafe.amount_iqd : 0;
+  // 0410: what the member's card gives on the café bill, and its free add-ons brought on by
+  // themselves; they too come out of the discount figure into a row of their own.
+  const benefits = useMemberBenefits({ tabId: tab?.id ?? null, version: discountVersion, enabled: discountAllowed && discountLive && tab !== null });
+  const cardPerksOff = tab && benefits && benefits.tab_id === tab.id && benefits.addons.on_bill_iqd <= tab.discount_iqd - cafeCustomerOff ? benefits.addons.on_bill_iqd : 0;
   const courtNote =
     billDisc?.court && billDisc.court.amount_iqd > 0
       ? tr('ws.discounts.bill.courtNote', { label: discountWords.billLabel(billDisc.court, billDisc.standing?.reason), amount: amount(billDisc.court.amount_iqd) })
@@ -387,7 +391,8 @@ export function CourtBillView({
         {tab && <KitchenReachFlag tabId={tab.id} />}
         {/* 0403: also while it owes nothing, so a free hour that covered the fee keeps its Undo. */}
         {tab && (state === 'billOpen' || state === 'closeBill') && !matchBooking && (
-          <MemberAttach tabId={tab.id} remainingIqd={Math.min(tab.due_iqd, tab.subtotal_iqd)} />
+          // No promotion apply on the desk's bill: a deal picked in the app is named, not applied here.
+          <MemberAttach tabId={tab.id} remainingIqd={Math.min(tab.due_iqd, tab.subtotal_iqd)} benefits={benefits} />
         )}
 
         {onlinePaid > 0 && (
@@ -425,7 +430,10 @@ export function CourtBillView({
               </div>
             )}
             {tab.item_count > 0 && <BillRow label={tr('ws.courtDesk.payment.cafeItems', { count: formatNumber(tab.item_count, locale) })} amount={tab.subtotal_iqd} />}
-            {tab.discount_iqd - cafeCustomerOff > 0 && <BillRow label={tr('ws.courtDesk.payment.discount')} amount={-(tab.discount_iqd - cafeCustomerOff)} />}
+            {tab.discount_iqd - cafeCustomerOff - cardPerksOff > 0 && (
+              <BillRow label={tr('ws.courtDesk.payment.discount')} amount={-(tab.discount_iqd - cafeCustomerOff - cardPerksOff)} />
+            )}
+            {cardPerksOff > 0 && <BillRow label={tr('ws.loyalty.benefits.billRow')} amount={-cardPerksOff} />}
             {cafeCustomerOff > 0 && billDisc?.cafe && (
               <BillRow label={`${tr('ws.discounts.bill.row')} · ${discountWords.billLabel(billDisc.cafe, billDisc.standing?.reason)}`} amount={-cafeCustomerOff} />
             )}

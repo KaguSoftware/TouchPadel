@@ -3,6 +3,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { TIER_SWATCH } from '@touch/core/loyalty';
 import { formatDate, formatNumber, isolateLtr } from '@touch/i18n';
 import { Text } from '../src/i18n/text';
 import { useLocale } from '../src/i18n/LocaleProvider';
@@ -11,29 +12,35 @@ import { useAuth } from '../src/features/auth/context';
 import { mapErrorToKey } from '../src/features/booking/errors';
 import { useVenueSettings } from '../src/features/availability/hooks';
 import { DEFAULT_TZ } from '../src/features/availability/assemble';
-import { useMyLoyalty } from '../src/features/loyalty/hooks';
+import { useMyDeals, useMyLoyalty, usePickDeal } from '../src/features/loyalty/hooks';
+import { DealsSection } from '../src/features/loyalty/DealCards';
+import { NextCardBlock } from '../src/features/loyalty/NextCardBlock';
+import { TierLadder } from '../src/features/loyalty/TierLadder';
 import { useBack, useReturnTo } from '../src/navigation/back';
 import {
   LEDGER_KIND_KEYS,
   rewardName,
   signedPoints,
   tierName,
-  tierProgress,
 } from '../src/features/loyalty/logic';
 import { usePullRefresh } from '../src/lib/usePullRefresh';
 import { brand, radius, space, useTheme, withAlpha } from '../src/theme';
 import { BrandPattern } from '../src/components/BrandPattern';
 import { Button, Card, Hint, MicroLabel, Screen } from '../src/components/ui';
 import { EmptyState, ErrorState, SkeletonList } from '../src/components/states';
+import { useToast } from '../src/components/overlays';
 
 /**
- * Points and rewards (loyalty plan §5.1; build contracts §1.3 `my_loyalty`): the balance and what
- * it is worth, the tier with the way to the next one, the rewards the till can give, and the
- * last 50 ledger rows.
+ * Points and rewards (loyalty plan §5.1; build contracts §1.3 `my_loyalty`; 0410 `my_deals`), in
+ * the order a guest asks about them: the balance, the way to the next card and what that card
+ * gives, the deals to use at the cashier, the rewards the points reach, every card from the base
+ * up, and the last 50 ledger rows.
  *
- * Nothing is spent here: points and rewards are used at the till, by staff, against the member
- * card (L-5), so every reward reads "show at the till" and the one action is the card. While the
- * owner has loyalty switched off (`enabled` false, L-1) the screen says so and offers nothing.
+ * Points and rewards are not spent here: the cashier does that against the member card (L-5), so
+ * every reward reads "show at the cashier". A DEAL is the one thing the guest does here (0410):
+ * "Use at the cashier" picks it (`pick_deal`) and takes them to their member card, where the
+ * cashier's scan applies it. While the owner has loyalty switched off (`enabled` false, L-1) the
+ * screen says so and offers nothing.
  */
 function LoyaltyScreen() {
   const { t, locale } = useLocale();
@@ -49,9 +56,32 @@ function LoyaltyScreen() {
       : returnTo({ pathname: '/club', params: { show: 'card' } }, '(tabs)');
   const insets = useSafeAreaInsets();
   const { session } = useAuth();
-  const mine = useMyLoyalty(!!session && !session.user.is_anonymous);
-  const pull = usePullRefresh(mine.refetch);
+  const member = !!session && !session.user.is_anonymous;
+  const mine = useMyLoyalty(member);
+  // 0410. A server without deals, or a read that failed, is simply no deals to show.
+  const deals = useMyDeals(member);
+  const pick = usePickDeal();
+  const toast = useToast();
+  const refetchMine = mine.refetch;
+  const refetchDeals = deals.refetch;
+  const pull = usePullRefresh(() => Promise.all([refetchMine(), refetchDeals()]));
   const tz = useVenueSettings().data?.timezone ?? DEFAULT_TZ;
+
+  // "Use at the cashier": the pick lands on the member card, so that is where the guest goes.
+  const pickForCashier = (id: string) => {
+    if (pick.isPending) return;
+    pick.mutate(id, {
+      onSuccess: showCard,
+      onError: (err) => toast(t(mapErrorToKey(err)), 'error'),
+    });
+  };
+  const unpick = () => {
+    if (pick.isPending) return;
+    pick.mutate(null, {
+      onSuccess: () => toast(t('loyalty.guest.deals.cleared'), 'info'),
+      onError: (err) => toast(t(mapErrorToKey(err)), 'error'),
+    });
+  };
 
   const points = (n: number) => isolateLtr(formatNumber(n, locale));
 
@@ -79,7 +109,6 @@ function LoyaltyScreen() {
         />
       );
     }
-    const progress = tierProgress(l);
     const lineStyle = {
       fontFamily: fonts.body600,
       fontSize: 13,
@@ -145,8 +174,16 @@ function LoyaltyScreen() {
                   paddingEnd: 11,
                 }}
               >
+                {/* The tier's own colour (0376), ringed so a black card's dot holds on the navy. */}
                 <View
-                  style={{ width: 14, height: 14, borderRadius: 7, backgroundColor: brand.green }}
+                  style={{
+                    width: 14,
+                    height: 14,
+                    borderRadius: 7,
+                    backgroundColor: TIER_SWATCH[l.tier.color],
+                    borderWidth: 1,
+                    borderColor: withAlpha(brand.white, 0.45),
+                  }}
                 />
                 <Text style={{ fontFamily: fonts.body700, fontSize: 12, color: brand.white }}>
                   {tierName(l.tier, locale)}
@@ -224,33 +261,23 @@ function LoyaltyScreen() {
           />
         </View>
 
-        {/* 2. Where the tier stands, under the card (points from the last 12 months). */}
-        {l.tier ? (
-          <View style={{ gap: 2 }}>
-            {progress && l.next_tier ? (
-              <>
-                <Text style={[lineStyle, { textAlign: 'center' }]}>
-                  {t('loyalty.guest.tier.next', { tier: tierName(l.next_tier, locale) })}
-                </Text>
-                <Text style={[lineStyle, { textAlign: 'center', fontFamily: fonts.body400 }]}>
-                  {t('loyalty.guest.tier.needed', { points: points(progress.remaining) })}
-                </Text>
-              </>
-            ) : (
-              <Text style={[lineStyle, { textAlign: 'center' }]}>
-                {t('loyalty.guest.tier.top')} {t('loyalty.guest.tier.window')}
-              </Text>
-            )}
-            {progress && l.next_tier ? (
-              <Text style={[lineStyle, { textAlign: 'center', fontFamily: fonts.body400 }]}>
-                {t('loyalty.guest.tier.window')}
-              </Text>
-            ) : null}
-          </View>
-        ) : null}
+        {/* 2. The way to the next card and what it gives (0410), in that card's own colour. */}
+        <NextCardBlock testID={l.next_tier ? 'loyalty.next-card' : 'loyalty.top-card'} loyalty={l} />
 
-        {/* 3. Rewards: shown, never redeemed here; the till does that against the card. */}
-        <View style={{ gap: 7, marginTop: 4 }}>
+        {/* 3. Deals (0410): picked here, applied by the cashier's scan of the member card. */}
+        <DealsSection
+          testID="loyalty"
+          deals={deals.data}
+          points12m={l.points_12m}
+          tz={tz}
+          pending={pick.isPending ? pick.variables : undefined}
+          onUse={pickForCashier}
+          onShowCard={showCard}
+          onClear={unpick}
+        />
+
+        {/* 4. Rewards: shown, never redeemed here; the cashier does that against the card. */}
+        <View style={{ gap: 7, marginTop: space.s }}>
           <MicroLabel>{t('loyalty.guest.rewards.title')}</MicroLabel>
           <View
             accessibilityLabel={l.rewards.length === 0 ? t('loyalty.guest.rewards.empty') : undefined}
@@ -381,9 +408,12 @@ function LoyaltyScreen() {
           {l.rewards.length > 0 ? <Hint>{t('loyalty.guest.rewards.note')}</Hint> : null}
         </View>
 
-        {/* 4. History: the 50 newest ledger rows, newest first, as the server sends them. With
+        {/* 5. The cards (0410): every tier from the base up, the member's own marked. */}
+        <TierLadder testID="loyalty" loyalty={l} />
+
+        {/* 6. History: the 50 newest ledger rows, newest first, as the server sends them. With
             none yet, the three steps that start it. */}
-        <View style={{ gap: 7, marginTop: 4 }}>
+        <View style={{ gap: 7, marginTop: space.s }}>
           <MicroLabel>
             {l.history.length === 0
               ? t('loyalty.guest.home.earnTitle')

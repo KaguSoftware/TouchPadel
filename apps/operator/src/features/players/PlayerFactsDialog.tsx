@@ -12,6 +12,7 @@
  */
 import { useState } from 'react';
 import { formatDate, formatNumber, isolate } from '@touch/i18n';
+import { PICKABLE_LEVELS, levelForPick, sameType } from '@touch/core';
 import { useLocale } from '../../lib/i18n';
 import { useStationReach } from '../../lib/stationReach';
 import { useToast } from '../../components/toast';
@@ -22,7 +23,6 @@ import {
   AGE_BANDS,
   INTEREST_TAGS,
   NOTE_MAX,
-  PLAY_LEVELS,
   draftDirty,
   draftErrors,
   draftOf,
@@ -124,13 +124,16 @@ export function PlayerFactsDialog({
               ? tr(`${K}.dialog.levelHint`, { level: tr(`${K}.level.${facts.claimedLevel}`) })
               : tr(`${K}.dialog.levelHintNoClaim`)}
           </p>
+          {/* One choice per player type (A, B, C); a stored `new` shows as Type C and is kept. */}
           <SegmentedControl<PlayLevel | 'none'>
             aria-label={tr(`${K}.dialog.level`)}
-            value={draft.level ?? 'none'}
-            onChange={(next) => setDraft((d) => ({ ...d, level: next === 'none' ? null : next, note: next === 'none' ? '' : d.note }))}
+            value={PICKABLE_LEVELS.find((l) => sameType(l, draft.level)) ?? 'none'}
+            onChange={(next) =>
+              setDraft((d) => ({ ...d, level: next === 'none' ? null : levelForPick(next as (typeof PICKABLE_LEVELS)[number], d.level), note: next === 'none' ? '' : d.note }))
+            }
             options={[
               { value: 'none', label: tr(`${K}.dialog.notConfirmed`), disabled, testId: 'player-level-none' },
-              ...PLAY_LEVELS.map((l) => ({ value: l, label: tr(`${K}.level.${l}`), disabled, testId: `player-level-${l}` })),
+              ...PICKABLE_LEVELS.map((l) => ({ value: l, label: tr(`${K}.level.${l}`), disabled, testId: `player-level-${l}` })),
             ]}
           />
           {facts.suggested && (

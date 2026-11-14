@@ -275,6 +275,82 @@ describe.each(LOCALES)('the owner assistant in %s', (locale) => {
     }
   });
 
+  it('opens an empty chat from New chat, even when the one on screen is empty', () => {
+    const screen = renderRoute(StaffAssistantChats, {
+      locale,
+      staff: { role: 'owner' },
+      queryData: [[assistantKeys.conversations, CHATS]],
+    });
+    try {
+      fireEvent.press(screen.getByTestId('staff-assistant-chats.new'));
+      const call = routerState.calls.filter((c) => c.method === 'dismissTo').pop();
+      const arg = call?.arg as { pathname: string; params: { id: string; n?: string } };
+      expect(arg.pathname).toBe('/staff-assistant');
+      expect(arg.params.id).toBe('');
+      expect(arg.params.n).toMatch(/^\d+$/);
+    } finally {
+      screen.unmount();
+    }
+  });
+
+  it('draws a stored failed turn once, in the reader’s language, with Ask again; chips wait for the row', () => {
+    const rows = [
+      { id: 'u1', conversation_id: CHAT, seq: 1, role: 'user', content: 'How much?', sources: null, gate: null, created_at: '2026-10-06T18:20:00Z' },
+      {
+        id: 'a1',
+        conversation_id: CHAT,
+        seq: 2,
+        role: 'assistant',
+        content: [{ type: 'text', text: '' }],
+        sources: null,
+        gate: null,
+        tokens: { stop_reason: 'error', error_code: 'UPSTREAM' },
+        created_at: '2026-10-06T18:20:05Z',
+      },
+    ];
+    const screen = renderRoute(StaffAssistant, {
+      locale,
+      staff: { role: 'owner' },
+      params: { id: CHAT },
+      queryData: [[assistantKeys.messages(CHAT), rows]],
+    });
+    try {
+      expect(screen.getAllByText('How much?')).toHaveLength(1);
+      const error = screen.getByTestId(`staff-assistant.answer.a1.error`);
+      expect(within(error).getByText(t('staff.assistant.errors.UPSTREAM'))).toBeTruthy();
+      expect(screen.getByTestId('staff-assistant.answer.a1.retry')).toBeTruthy();
+      // The chat's own row has not loaded: a tap would overwrite its scopes.
+      expect(screen.getByTestId('staff-assistant.scope.money').props.accessibilityState.disabled).toBe(true);
+    } finally {
+      screen.unmount();
+    }
+  });
+
+  it('says a stopped, cut-short and declined answer in the reader’s language', () => {
+    const base = { conversation_id: CHAT, role: 'assistant', sources: null, gate: null, created_at: '2026-10-06T18:20:05Z' };
+    const rows = [
+      { ...base, id: 's', seq: 1, content: [{ type: 'text', text: 'Part' }], tokens: { stop_reason: 'stopped' } },
+      { ...base, id: 'c', seq: 2, content: [{ type: 'text', text: 'Part' }], tokens: { stop_reason: 'max_tokens' } },
+      { ...base, id: 'r', seq: 3, content: [{ type: 'text', text: 'No' }], tokens: { stop_reason: 'refusal' } },
+      { ...base, id: 'j', seq: 4, content: [{ type: 'text', text: 'Done' }], tokens: { stop_reason: 'job_proposed' }, sources: [{ job_id: 'j1' }] },
+    ];
+    const screen = renderRoute(StaffAssistant, {
+      locale,
+      staff: { role: 'owner' },
+      params: { id: CHAT },
+      queryData: [[assistantKeys.messages(CHAT), rows]],
+    });
+    try {
+      expect(screen.getByText(t('staff.assistant.composer.stopped'))).toBeTruthy();
+      expect(screen.getByText(t('staff.assistant.message.cutShort'))).toBeTruthy();
+      expect(screen.getByText(t('staff.assistant.message.refused'))).toBeTruthy();
+      // A job's result is not a proposal: no "open the desktop app" note.
+      expect(screen.queryByTestId('staff-assistant.answer.j.job')).toBeNull();
+    } finally {
+      screen.unmount();
+    }
+  });
+
   it('lists the staff screenshots, who and which page', () => {
     const screen = renderRoute(StaffScreenshots, {
       locale,

@@ -467,6 +467,8 @@ function personName(id: string | null, role: string | null, serverName: string |
 }
 
 function reasonWords(code: string, tr: Tr): string {
+  // 0410: the free add-ons of a member's card (loyalty.perks_apply), in the day close's own words.
+  if (code === 'loyalty_tier_perk') return tr('ws.manager.dayClose.reasonCardPerk');
   const known = knownReason(code);
   return known ? tr(`op.reasons.${known}`) : code;
 }

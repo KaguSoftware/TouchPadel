@@ -18,7 +18,9 @@ const at = (model: string, t: Tok, pricing: PricingMap | null | undefined, fallb
   priceFor({ model, input: t.input, cache_read: t.cache_read, output: t.output }, pricing, fallback);
 
 /**
- * The card's prices, in USD micros. `model` is the chat's. Since 2026-10-08
+ * The card's prices, in USD micros. `model` is the chat's. `aggregate` is a
+ * lower bound: the press is a full chat turn, and only the aggregate tools'
+ * input is measured, so the card shows it as "from …". Since 2026-10-08
  * an estimate carries `by_step`: the chunk extraction is priced at its own
  * model's rates (Sonnet 5.5) and the reduce step at the chat's; an older
  * estimate prices every token at the chat's model, as before.
@@ -89,6 +91,7 @@ export function JobEstimateCard({
             title={tr('ws.owner.assistant.job.aggregate')}
             hint={tr('ws.owner.assistant.job.aggregateHint', { n: iso(String(agg.calls.length)), tokens: iso(formatTokens(agg.tokens_est)) })}
             price={prices.aggregate ?? 0}
+            priceFrom
             kind="primary"
             busy={busy === 'aggregate'}
             disabled={!!busy}
@@ -131,8 +134,12 @@ export function JobEstimateCard({
               </li>
             ))}
             {estimate.per_tool.map((t) => (
-              <li key={t.tool} dir="ltr" style={{ fontFamily: 'var(--tp-font-numeric)' }}>
-                {t.tool}: {formatNumber(t.rows, locale)} rows × {t.tokens_per_row} tok{t.measured ? '' : ' (est.)'}
+              <li key={t.tool} dir="auto">
+                {tr(t.measured ? 'ws.owner.assistant.job.perTool' : 'ws.owner.assistant.job.perToolEstimated', {
+                  tool: iso(t.tool),
+                  rows: iso(formatNumber(t.rows, locale)),
+                  tokens: iso(formatNumber(t.tokens_per_row, locale)),
+                })}
               </li>
             ))}
           </ul>
@@ -152,6 +159,7 @@ function Way({
   title,
   hint,
   price,
+  priceFrom,
   kind,
   busy,
   disabled,
@@ -161,20 +169,35 @@ function Way({
   title: string;
   hint: string;
   price: number;
+  /** The price is the least it costs ("from $x"). */
+  priceFrom?: boolean;
   kind: 'primary' | 'default';
   busy?: boolean;
   disabled?: boolean;
   disabledReason?: string;
   onPress: () => void;
 }) {
+  const { tr } = useLocale();
   return (
     <div style={{ display: 'flex', gap: 'var(--tp-sp-3)', alignItems: 'flex-start', flexWrap: 'wrap' }}>
       <div style={{ flex: '0 0 auto', minInlineSize: '11rem' }}>
-        <Button kind={kind} onClick={onPress} busy={busy} disabled={disabled} disabledReason={disabledReason} style={{ inlineSize: '100%', justifyContent: 'space-between' }}>
+        <Button
+          kind={kind}
+          onClick={onPress}
+          busy={busy}
+          disabled={disabled}
+          disabledReason={disabledReason}
+          title={priceFrom ? tr('ws.owner.assistant.job.fromPriceHint') : undefined}
+          style={{ inlineSize: '100%', justifyContent: 'space-between' }}
+        >
           <span>{title}</span>
-          <span dir="ltr" style={{ fontFamily: 'var(--tp-font-numeric)', marginInlineStart: 'var(--tp-sp-2)' }}>
-            {formatUsd(price)}
-          </span>
+          {priceFrom ? (
+            <span style={{ marginInlineStart: 'var(--tp-sp-2)' }}>{tr('ws.owner.assistant.job.fromPrice', { price: iso(formatUsd(price)) })}</span>
+          ) : (
+            <span dir="ltr" style={{ fontFamily: 'var(--tp-font-numeric)', marginInlineStart: 'var(--tp-sp-2)' }}>
+              {formatUsd(price)}
+            </span>
+          )}
         </Button>
       </div>
       <p style={{ flex: 1, minInlineSize: '10rem', fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', marginBlockStart: '0.4rem' }}>{hint}</p>

@@ -8,6 +8,10 @@
  * The pure half (parse, create, update, remove) is tested on its own; below it
  * a tiny shared store, so the page's chat drawer, its strip and the thread all
  * see the same chats and the same open one.
+ *
+ * One key per person (2026-11-11): on a shared station the next person's first
+ * question used to overwrite the one key, wiping the previous person's chats.
+ * The old single key is moved to its owner's key the first time they read.
  */
 import { useCallback, useSyncExternalStore } from 'react';
 import { FREE_THREAD_KEEP, FREE_THREAD_SESSION_KEY, loadFreeThread, type FreeExchange } from './freeThreadLogic';
@@ -21,7 +25,13 @@ export interface FreeChat {
   exchanges: FreeExchange[];
 }
 
+/** The single key of before 2026-11-11 (one person per computer); read once to migrate. */
 export const FREE_CHATS_KEY = 'touch-assistant-free-chats-v1';
+
+/** This person's own key. */
+export function freeChatsKey(userId: string): string {
+  return `${FREE_CHATS_KEY}:${userId}`;
+}
 export const FREE_ACTIVE_KEY = 'touch-assistant-free-active';
 /** Older chats fall off the end of the list. */
 export const FREE_CHATS_KEEP = 50;
@@ -93,16 +103,35 @@ let state: State = { userId: '', chats: [], activeId: null };
 const listeners = new Set<() => void>();
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
 
-function readChats(userId: string): FreeChat[] {
+/** Write one person's chats under their own key. */
+export function writeFreeChats(userId: string, chats: readonly FreeChat[]): void {
+  if (!userId) return;
+  localStorage.setItem(freeChatsKey(userId), serialiseFreeChats(userId, chats));
+}
+
+/**
+ * One person's chats: their own key; else the old single key when it is
+ * theirs (moved to their key, and the old key removed); else the single
+ * thread of before 2026-10-20. Another person's old key is left for them.
+ */
+export function readFreeChats(userId: string): FreeChat[] {
+  if (!userId) return [];
   try {
-    const chats = parseFreeChats(localStorage.getItem(FREE_CHATS_KEY), userId);
-    if (chats.length > 0) return chats;
+    const own = localStorage.getItem(freeChatsKey(userId));
+    if (own !== null) return parseFreeChats(own, userId);
+    const legacyRaw = localStorage.getItem(FREE_CHATS_KEY);
+    const legacy = parseFreeChats(legacyRaw, userId);
+    if (legacy.length > 0) {
+      writeFreeChats(userId, legacy);
+      localStorage.removeItem(FREE_CHATS_KEY);
+      return legacy;
+    }
     // The single thread of before 2026-10-20 becomes the first saved chat.
     const old = loadFreeThread(userId);
     if (old.length === 0) return [];
     sessionStorage.removeItem(FREE_THREAD_SESSION_KEY);
     const chat: FreeChat = { id: `free-chat-${Date.now().toString(36)}`, title: chatTitle(old[0]!.question), updatedAt: Date.now(), exchanges: old };
-    localStorage.setItem(FREE_CHATS_KEY, serialiseFreeChats(userId, [chat]));
+    writeFreeChats(userId, [chat]);
     return [chat];
   } catch {
     return [];
@@ -122,7 +151,7 @@ function readActive(userId: string, chats: readonly FreeChat[]): string | null {
 /** Load a person's chats the first time they are asked for (idempotent, no emit). */
 function ensureUser(userId: string): State {
   if (state.userId !== userId) {
-    const chats = userId ? readChats(userId) : [];
+    const chats = userId ? readFreeChats(userId) : [];
     state = { userId, chats, activeId: userId ? readActive(userId, chats) : null };
   }
   return state;
@@ -136,7 +165,7 @@ function persist(): void {
     saveTimer = null;
     try {
       if (!userId) return;
-      localStorage.setItem(FREE_CHATS_KEY, serialiseFreeChats(userId, chats));
+      writeFreeChats(userId, chats);
       if (activeId) sessionStorage.setItem(FREE_ACTIVE_KEY, JSON.stringify({ user: userId, id: activeId }));
       else sessionStorage.removeItem(FREE_ACTIVE_KEY);
     } catch {

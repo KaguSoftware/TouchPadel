@@ -174,14 +174,18 @@ export interface CallEdgeOptions {
  * The functions that are slow by nature: model calls, PostHog queries, the
  * Telegram round trip, the receipt reader (whose caller also brings its own
  * signal, scanReading.ts). Every other function gets the 15 s default.
- * streamEdge has no deadline at all: the owner's Stop button is the deadline.
+ * streamEdge has no overall deadline (the owner's Stop button is the deadline),
+ * only a stall watchdog: STREAM_STALL_MS with no byte at all.
  */
 export const EDGE_TIMEOUT_MS: Partial<Record<EdgeFunctionName, number | null>> = {
   'analytics-posthog': LONG_REQUEST_TIMEOUT_MS,
   'analytics-insights': 90_000,
   'assistant-chat': LONG_REQUEST_TIMEOUT_MS,
   'assistant-component': 90_000,
-  'assistant-job': 30_000,
+  // Above the server's wall: a live job runs inside the accept request for up
+  // to 50 s (jobRunner WALL_MS), so a shorter deadline called a job that was
+  // still running and billing a failure.
+  'assistant-job': 65_000,
   'assistant-index': 120_000,
   'telegram-diagnose': 30_000,
   'receipt-scan': 90_000,
@@ -284,6 +288,49 @@ export interface StreamEdgeOptions {
   onEvent: (name: string, data: unknown) => void;
   /** The Stop button: aborting rejects the fetch with an AbortError. */
   signal?: AbortSignal;
+  /** Longest wait with no byte at all before the stream is called dead (default STREAM_STALL_MS). */
+  stallMs?: number;
+}
+
+/**
+ * The assistant functions send a heartbeat comment every 15 s (assistant-chat;
+ * 10 s for assistant-free), so three missed heartbeats with no byte at all
+ * means the connection is gone even if the socket never says so.
+ */
+export const STREAM_STALL_MS = 45_000;
+
+/**
+ * The stream went silent for `stallMs` (no answer headers, no event, no
+ * heartbeat) and was cut. The request was aborted; the server may still store
+ * what it had. A TypeError like a network failure, which it is.
+ */
+export class StreamStalledError extends TypeError {
+  readonly stallMs: number;
+  constructor(stallMs: number) {
+    super(`the stream sent nothing for ${stallMs} ms`);
+    this.name = 'StreamStalledError';
+    this.stallMs = stallMs;
+  }
+}
+
+/** `p`, unless `ms` pass first: then `onStall` runs and the result is a StreamStalledError. */
+function within<T>(p: Promise<T>, ms: number, onStall: () => void): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      onStall();
+      reject(new StreamStalledError(ms));
+    }, ms);
+    p.then(
+      (v) => {
+        clearTimeout(timer);
+        resolve(v);
+      },
+      (e: unknown) => {
+        clearTimeout(timer);
+        reject(e);
+      },
+    );
+  });
 }
 
 /**
@@ -299,17 +346,36 @@ export async function streamEdge<Req>(fn: EdgeFunctionName, body: Req, opts: Str
   const token = data.session?.access_token;
   if (!token) throw new EdgeError(401, 'AUTH_REQUIRED', 'no staff session');
 
-  const res = await fetch(`${supabaseUrl}/functions/v1/${fn}`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      apikey: supabaseAnonKey,
-      'Content-Type': 'application/json',
-      Accept: 'text/event-stream',
-    },
-    body: JSON.stringify(body ?? {}),
-    signal: opts.signal,
-  });
+  // One signal for the request: the caller's Stop, or the stall watchdog.
+  const stallMs = opts.stallMs ?? STREAM_STALL_MS;
+  const ac = new AbortController();
+  const parent = opts.signal;
+  const onParentAbort = () => ac.abort();
+  if (parent?.aborted) ac.abort();
+  else parent?.addEventListener('abort', onParentAbort, { once: true });
+  try {
+    await readStream(fn, token, body, opts, ac, stallMs);
+  } finally {
+    parent?.removeEventListener('abort', onParentAbort);
+  }
+}
+
+async function readStream<Req>(fn: EdgeFunctionName, token: string, body: Req, opts: StreamEdgeOptions, ac: AbortController, stallMs: number): Promise<void> {
+  const res = await within(
+    fetch(`${supabaseUrl}/functions/v1/${fn}`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        apikey: supabaseAnonKey,
+        'Content-Type': 'application/json',
+        Accept: 'text/event-stream',
+      },
+      body: JSON.stringify(body ?? {}),
+      signal: ac.signal,
+    }),
+    stallMs,
+    () => ac.abort(),
+  );
 
   if (!res.ok) {
     const payload = await parseBody(res);
@@ -338,7 +404,11 @@ export async function streamEdge<Req>(fn: EdgeFunctionName, body: Req, opts: Str
   const decoder = new TextDecoder();
   let buffer = '';
   for (;;) {
-    const { value, done } = await reader.read();
+    // Any byte (an event or a heartbeat comment) resets the watchdog.
+    const { value, done } = await within(reader.read(), stallMs, () => {
+      ac.abort();
+      void reader.cancel().catch(() => {});
+    });
     if (done) break;
     buffer += decoder.decode(value, { stream: true });
     const parsed = parseSseChunk(buffer);

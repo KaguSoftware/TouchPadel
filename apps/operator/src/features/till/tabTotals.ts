@@ -34,6 +34,8 @@
  * is floored at zero, so a discount can never eat into the court fee.
  */
 
+import { TIER_PERK_REASON_CODE } from '@touch/core/loyalty';
+
 export interface TotalsLine {
   /** Matches a line discount's `order_item_id`. Optional: a row cached before it was selected. */
   id?: string;
@@ -200,17 +202,21 @@ export function computeTabTotals(tab: TotalsInput | null, tax: TaxContext | null
 
 /**
  * Split the tab's discount rows into what a manager did, what the server
- * applied as a promotion (0067: `reason_code = 'promotion'`) and the customer's
+ * applied as a promotion (0067: `reason_code = 'promotion'`), the customer's
  * own discount (0342: `customer_discount` from their standing one,
- * `customer_discount_once` given at this bill only). All are plain sums of
- * server rows — the same rule computeTabTotals uses for `discount` — so the
- * lines on the bill add up to that figure. Non-discount kinds (price
- * overrides) are not discounts and are excluded, as in computeTabTotals.
+ * `customer_discount_once` given at this bill only) and what the member's card
+ * frees (0410: `loyalty_tier_perk`, one line discount per line whose paid
+ * add-ons the card makes free). All are plain sums of server rows, the same
+ * rule computeTabTotals uses for `discount`, so the lines on the bill add up to
+ * that figure. Non-discount kinds (price overrides) are not discounts and are
+ * excluded, as in computeTabTotals.
  */
 export interface DiscountBreakdown {
   manager: number;
   promotion: number;
   customer: number;
+  /** 0410: the free add-ons of the member's card. Never a manager's doing, never undone by hand. */
+  perks: number;
 }
 
 const CUSTOMER_REASONS = new Set(['customer_discount', 'customer_discount_once']);
@@ -221,11 +227,13 @@ export function discountBreakdown(
   let manager = 0;
   let promotion = 0;
   let customer = 0;
+  let perks = 0;
   for (const a of adjustments) {
     if (!DISCOUNT_KINDS.has(a.kind)) continue;
     if (a.reason_code === 'promotion') promotion += a.amount_iqd;
     else if (CUSTOMER_REASONS.has(a.reason_code ?? '')) customer += a.amount_iqd;
+    else if (a.reason_code === TIER_PERK_REASON_CODE) perks += a.amount_iqd;
     else manager += a.amount_iqd;
   }
-  return { manager, promotion, customer };
+  return { manager, promotion, customer, perks };
 }

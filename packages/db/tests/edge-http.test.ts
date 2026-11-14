@@ -80,7 +80,7 @@ describe('what a caller may see of an error', () => {
   it('pgErrorBody keeps a P0001 refusal exactly as it was', () => {
     expect(pgErrorBody({ code: 'P0001', message: 'ROLE_RETIRED' }, 'test')).toEqual({
       status: 400,
-      body: { error: 'ROLE_RETIRED', message: 'ROLE_RETIRED' },
+      body: { error: 'ROLE_RETIRED', message: 'ROLE_RETIRED', code: 'ROLE_RETIRED' },
     });
     expect(pgErrorBody({ code: 'P0001', message: 'FORBIDDEN' }, 'test').status).toBe(403);
   });
@@ -89,7 +89,7 @@ describe('what a caller may see of an error', () => {
     const spy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     const raw = 'duplicate key value violates unique constraint "profiles_phone_key" Key (phone)=(07701234567)';
     const out = pgErrorBody({ code: '23505', message: raw, details: 'Key (phone)=(07701234567) already exists.' }, 'test');
-    expect(out).toEqual({ status: 409, body: { error: 'DUPLICATE', message: 'DUPLICATE' } });
+    expect(out).toEqual({ status: 409, body: { error: 'DUPLICATE', message: 'DUPLICATE', code: 'DUPLICATE' } });
     expect(JSON.stringify(out)).not.toContain('07701234567');
     expect(String(spy.mock.calls[0]?.[1])).toContain('profiles_phone_key');
     spy.mockRestore();

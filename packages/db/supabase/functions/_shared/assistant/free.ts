@@ -16,8 +16,11 @@
  *     each person also has a per-minute and per-day allowance (createLimiter).
  *   - Nothing is stored: the client keeps the thread and sends the last turns.
  *
- * Pure: no Deno, no imports that touch the network.
+ * Pure: no Deno, no imports that touch the network. The Groq call (postGroq) takes
+ * its fetch, URL, clock and logger as deps, so the retry and 429 rules run under a
+ * fake fetch in tests/assistant-free.test.ts.
  */
+import { applyChunk, retryAfterMs, takeSseData, type StreamAccumulator } from './groqWire.ts';
 
 export const FREE_TEXT_MAX = 1000;
 export const FREE_HISTORY_MAX = 6;
@@ -388,4 +391,105 @@ export function createLimiter(perMinute = FREE_PER_MINUTE, perDay = FREE_PER_DAY
     },
     size: () => ({ recent: recent.size, daily: daily.size }),
   };
+}
+
+// ---------------------------------------------------------------------------
+// The Groq call, with its seams injected (moved out of assistant-free/index.ts 2026-11-11).
+// ---------------------------------------------------------------------------
+
+/** A Groq 429 that asks for at most this long is waited out once; longer is RATE_LIMITED. */
+export const FREE_SHORT_WAIT_MS = 4_000;
+
+export type FreeErrorCode = 'RATE_LIMITED' | 'UPSTREAM' | 'TIMEOUT' | 'NOT_CONFIGURED';
+
+export class FreeError extends Error {
+  constructor(readonly code: FreeErrorCode) {
+    super(code);
+  }
+}
+
+export interface GroqDeps {
+  fetch: (url: string, init: RequestInit) => Promise<Response>;
+  url: string;
+  /** Resolves after `ms` (the short-wait retry). */
+  sleep: (ms: number) => Promise<void>;
+  log: (err: unknown, note: string) => void;
+}
+
+/**
+ * How long Groq asked us to wait, in ms, without the 250 ms margin the shared
+ * parser (providerGroq.ts retryAfterMs) adds: the margin is added once, at the
+ * sleep. null when it said nothing parseable.
+ */
+export function groqWaitMs(res: Response, bodyText: string): number | null {
+  const ms = retryAfterMs(res, bodyText);
+  return ms === null ? null : ms - 250;
+}
+
+/**
+ * One streamed chat completion. A 429 asking for <= FREE_SHORT_WAIT_MS is waited
+ * out once (+250 ms); any other 429/413 is RATE_LIMITED (the club's free tier);
+ * 401/403 is NOT_CONFIGURED; a network failure is TIMEOUT when the wall clock
+ * aborted it, else UPSTREAM.
+ */
+export async function postGroq(deps: GroqDeps, apiKey: string, body: unknown, signal: AbortSignal, retried = false): Promise<Response> {
+  let res: Response;
+  try {
+    res = await deps.fetch(deps.url, { method: 'POST', headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal });
+  } catch (e) {
+    if (signal.aborted) throw new FreeError('TIMEOUT');
+    deps.log(e, 'Groq unreachable');
+    throw new FreeError('UPSTREAM');
+  }
+  if (res.ok) return res;
+  const text = await res.text().catch(() => '');
+  if (res.status === 429 || res.status === 413) {
+    const wait = groqWaitMs(res, text);
+    if (!retried && res.status === 429 && wait !== null && wait <= FREE_SHORT_WAIT_MS && !signal.aborted) {
+      await deps.sleep(wait + 250);
+      return postGroq(deps, apiKey, body, signal, true);
+    }
+    deps.log(new Error(`Groq refused ${res.status}`), text.slice(0, 300));
+    throw new FreeError('RATE_LIMITED');
+  }
+  deps.log(new Error(`Groq error ${res.status}`), text.slice(0, 300));
+  throw new FreeError(res.status === 401 || res.status === 403 ? 'NOT_CONFIGURED' : 'UPSTREAM');
+}
+
+export const FREE_ERROR_TEXT: Record<string, string> = {
+  RATE_LIMITED: 'the free AI is busy right now; try again in a minute',
+  UPSTREAM: 'the free AI did not answer',
+  TIMEOUT: 'the free AI did not finish inside 25 s',
+};
+
+/** The JSON refusal sent before the stream opens when the first Groq call failed. */
+export function freeFailureReply(code: FreeErrorCode | string): { status: number; body: Record<string, unknown> } {
+  if (code === 'RATE_LIMITED') return { status: 429, body: { error: code, code, scope: 'club', message: FREE_ERROR_TEXT.RATE_LIMITED } };
+  if (code === 'NOT_CONFIGURED') return { status: 503, body: { error: code, code, message: 'Groq refused the key' } };
+  return { status: 502, body: { error: code, code, message: FREE_ERROR_TEXT[code] ?? FREE_ERROR_TEXT.UPSTREAM } };
+}
+
+/** Reads a Groq SSE body into `acc`, calling `onDelta` for each text piece. Throws FreeError('UPSTREAM') with no body. */
+export async function readGroqStream(upstream: Response, acc: StreamAccumulator, onDelta: (text: string) => void): Promise<void> {
+  if (!upstream.body) throw new FreeError('UPSTREAM');
+  const reader = upstream.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const { payloads, rest } = takeSseData(buffer);
+    buffer = rest;
+    for (const p of payloads) {
+      let chunk: unknown;
+      try {
+        chunk = JSON.parse(p);
+      } catch {
+        continue;
+      }
+      const { textDelta } = applyChunk(acc, chunk);
+      if (textDelta) onDelta(textDelta);
+    }
+  }
 }

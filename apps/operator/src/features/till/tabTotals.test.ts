@@ -355,7 +355,7 @@ describe('discountBreakdown', () => {
       { kind: 'discount_amount', amount_iqd: 250, reason_code: 'promotion' },
       { kind: 'price_override', amount_iqd: 9999, reason_code: 'other' },
     ]);
-    expect(out).toEqual({ manager: 1000, promotion: 750, customer: 0 });
+    expect(out).toEqual({ manager: 1000, promotion: 750, customer: 0, perks: 0 });
   });
 
   it("puts the customer's own discount (standing or this bill only) in its own bucket (0342)", () => {
@@ -364,7 +364,7 @@ describe('discountBreakdown', () => {
       { kind: 'discount_amount', amount_iqd: 500, reason_code: 'customer_discount_once' },
       { kind: 'discount_amount', amount_iqd: 300, reason_code: 'comp' },
     ]);
-    expect(out).toEqual({ manager: 300, promotion: 0, customer: 2500 });
+    expect(out).toEqual({ manager: 300, promotion: 0, customer: 2500, perks: 0 });
   });
 
   it('the buckets add up to the discount computeTabTotals takes off', () => {
@@ -376,12 +376,39 @@ describe('discountBreakdown', () => {
     expect(b.manager + b.promotion + b.customer).toBe(computeTabTotals(tab({ tab_adjustments: adjustments }), NO_TAX).discount);
   });
 
+  it("puts the free add-ons of a member's card in a bucket of their own, never the manager's (0410)", () => {
+    const out = discountBreakdown([
+      { kind: 'discount_amount', amount_iqd: 500, reason_code: 'loyalty_tier_perk', order_item_id: 'l1' },
+      { kind: 'discount_amount', amount_iqd: 1000, reason_code: 'loyalty_tier_perk', order_item_id: 'l2' },
+      { kind: 'discount_amount', amount_iqd: 2000, reason_code: 'loyalty_reward', order_item_id: null },
+      { kind: 'discount_percent', amount_iqd: 300, reason_code: 'comp', order_item_id: null },
+    ]);
+    // Points and rewards stay in the manager figure, where the bill already takes them out by name.
+    expect(out).toEqual({ manager: 2300, promotion: 0, customer: 0, perks: 1500 });
+  });
+
+  it('with free add-ons on live lines, the four buckets still add up to the discount taken off', () => {
+    const adjustments = [
+      { kind: 'discount_amount', amount_iqd: 500, reason_code: 'loyalty_tier_perk', order_item_id: 'l1' },
+      { kind: 'discount_amount', amount_iqd: 400, reason_code: 'promotion', order_item_id: null },
+      { kind: 'discount_percent', amount_iqd: 900, reason_code: 'customer_discount', order_item_id: null },
+      { kind: 'discount_amount', amount_iqd: 250, reason_code: 'comp', order_item_id: null },
+    ];
+    const b = discountBreakdown(adjustments);
+    const totals = computeTabTotals(
+      { orders: [{ status: 'sent', order_items: [line(6000, { id: 'l1' }), line(4000, { id: 'l2' })] }], tab_adjustments: adjustments, payments: [] },
+      NO_TAX,
+    );
+    expect(b.manager + b.promotion + b.customer + b.perks).toBe(totals.discount);
+    expect(totals.discount).toBe(2050);
+  });
+
   it('treats a missing reason as a manager discount', () => {
-    expect(discountBreakdown([{ kind: 'discount_amount', amount_iqd: 300 }])).toEqual({ manager: 300, promotion: 0, customer: 0 });
+    expect(discountBreakdown([{ kind: 'discount_amount', amount_iqd: 300 }])).toEqual({ manager: 300, promotion: 0, customer: 0, perks: 0 });
   });
 
   it('is zero for no adjustments', () => {
-    expect(discountBreakdown([])).toEqual({ manager: 0, promotion: 0, customer: 0 });
+    expect(discountBreakdown([])).toEqual({ manager: 0, promotion: 0, customer: 0, perks: 0 });
   });
 });
 

@@ -6,6 +6,7 @@ import {
   accountPhone,
   credentialsOf,
   historyKindKey,
+  nextTierGives,
   pointsToNextTier,
   safeReturnPath,
 } from './account';
@@ -113,5 +114,33 @@ describe('account display helpers', () => {
       expect(t('ar', key)).not.toBe(key);
     }
     expect(historyKindKey('something_new')).toBe('loyalty.web.account.history.kind.adjust');
+  });
+});
+
+describe('nextTierGives (0410)', () => {
+  const tier = { id: 't0', name_en: 'Member', name_ar: 'عضو', multiplier: 1, color: 'classic' as const };
+  const next = { id: 't1', name_en: 'Gold', name_ar: 'ذهبي', multiplier: 1.5, color: 'gold' as const, min_points_12m: 600 };
+  const perk = { id: 'p1', kind: 'free_addons' as const, name_en: 'Free add-ons', name_ar: 'إضافات مجانية' };
+
+  it('names the next tier’s own privileges and its better multiplier', () => {
+    expect(
+      nextTierGives({
+        tier,
+        next_tier: next,
+        tiers: [
+          { ...tier, min_points_12m: 0, perks: [], deals: [] },
+          { ...next, perks: [perk], deals: [] },
+        ],
+      }),
+    ).toEqual({ perks: [{ id: 'p1', name_en: 'Free add-ons', name_ar: 'إضافات مجانية' }], multiplier: 1.5 });
+  });
+
+  it('is null at the top tier, and when the next tier adds nothing to show', () => {
+    expect(nextTierGives({ tier, next_tier: null, tiers: [] })).toBeNull();
+    expect(nextTierGives({ tier, next_tier: { ...next, multiplier: 1 }, tiers: [] })).toBeNull();
+  });
+
+  it('still tells the multiplier when an older server sends no ladder', () => {
+    expect(nextTierGives({ tier, next_tier: next })).toEqual({ perks: [], multiplier: 1.5 });
   });
 });
