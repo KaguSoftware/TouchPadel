@@ -39,6 +39,8 @@ const DECLARED = [
   'orders', 'order_items', 'tickets', 'payments',
   'till_shifts', 'refunds', 'stock_batches', 'court_advisory', 'venues', 'reservations', 'match_venue_advisory',
   'match_tickets',
+  // Loyalty (0415): a reward voucher, after the bill's rows, before the member's account.
+  'loyalty_reward_vouchers',
   // Loyalty (0308): a manager's gift key, just before the account.
   'loyalty_gift_advisory',
   // Loyalty (0305): a member's cached balance, last; the earn and clawback triggers are deferred.

@@ -1437,7 +1437,7 @@ export const en = {
         pts: '{points} points',
         show: 'Show this code at the cashier.',
         bearer: 'Anyone who has this code can collect the reward.',
-        left: 'Time left',
+        timeLeft: 'Time left',
         a11yLeft: '{time} left',
         cancel: 'Cancel and get my points back',
         cancelTitle: 'Cancel this reward?',

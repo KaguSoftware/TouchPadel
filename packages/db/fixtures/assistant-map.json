@@ -1,5 +1,5 @@
 {
-  "generated_from": "40104bc60ee2d75512af86b4e62dd061539de9d8",
+  "generated_from": "0ccc519ab8514b0e3b0b9492a9de0fad5c997f20",
   "chunks": [
     {
       "kind": "page",
@@ -43582,7 +43582,7 @@
       "ref": "system:cron:tp_reward_voucher_sweep",
       "lang": "en",
       "title": "cron job tp_reward_voucher_sweep",
-      "body": "Runs select app.loyalty_voucher_sweep();. Schedules seen in migrations, latest last: '* * * * *' (0415). cron.schedule upserts by job name, so the latest definition that pg_cron accepts is live.",
+      "body": "Runs select app.loyalty_voucher_sweep();. Schedules seen in migrations, latest last: '* * * * *' (0415), '* * * * *' (0419). cron.schedule upserts by job name, so the latest definition that pg_cron accepts is live.",
       "route": null
     },
     {

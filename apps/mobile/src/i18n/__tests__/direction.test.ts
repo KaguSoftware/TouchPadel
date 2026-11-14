@@ -33,7 +33,12 @@ const rel = (f: string) => relative(ROOT, f).split(sep).join('/');
 const stripComments = (src: string) => src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
 
 /** Files that draw in physical coordinates on purpose (eslint override, same list). */
-const PHYSICAL_ART = new Set<string>();
+const PHYSICAL_ART = new Set<string>([
+  // The café menu's category bar (2026-11-13): the drag lens is placed from onLayout's x and the
+  // finger's moves, both measured from the physical left in either direction, and each edge fade
+  // is a left-to-right gradient pinned to the physical edge it fades from.
+  'src/features/cafe/CategoryBar.tsx',
+]);
 const isGeometry = (f: string) => f.startsWith('src/features/courtTransition/');
 
 describe('DirectionRoot', () => {

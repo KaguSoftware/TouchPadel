@@ -198,7 +198,7 @@ function RewardVoucherScreen() {
 
             {/* The time: large and still, the bar doing the moving. */}
             <View style={{ alignItems: 'center', gap: 4 }}>
-              <MicroLabel>{t('loyalty.guest.voucher.left')}</MicroLabel>
+              <MicroLabel>{t('loyalty.guest.voucher.timeLeft')}</MicroLabel>
               <Text
                 testID="reward-voucher.time"
                 accessibilityLabel={t('loyalty.guest.voucher.a11yLeft', { time: formatCountdown(msLeft) })}
