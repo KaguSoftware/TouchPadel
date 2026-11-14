@@ -43,14 +43,14 @@ import {
   asyncStatus,
   type Column,
 } from '../../../components/kit';
-import { SortButtons } from '../../../components/inputs';
 import { Switch } from '../../../components/Switch';
+import { DragHandle } from '../../../components/DragReorder';
 import { useToast } from '../../../components/toast';
 import { useConfirm } from '../../../components/ConfirmDialog';
 import { Icon } from '../../../components/icons';
 import { MARK_FG, MARK_SOFT } from '../../ops/OpsVisuals';
 import { HighlightDot, MarginChip, Thumb } from './chips';
-import { countWithoutCost, defaultPrice, inRelease, itemListView, newItemMode, nextSortOrder, reorderedIds, sortRows } from './menuLogic';
+import { countWithoutCost, defaultPrice, inRelease, itemListView, newItemMode, movedIds, nextSortOrder, reorderedIds, sortRows } from './menuLogic';
 import { CategoryForm } from './CategoryEditor';
 import { ItemForm } from './ItemForm';
 import { MENU_AVAILABILITY_KEY, fetchStockBlockData, stockBlockFor } from './availability';
@@ -102,6 +102,17 @@ export function MenuEditor() {
     action();
   }
 
+  /** Asked by the dialog BEFORE its exit plays; false keeps it open. */
+  const confirmDiscard = async () => {
+    if (!dirtyRef.current) return true;
+    return confirm({ title: tr('op.common.unsavedPrompt'), kind: 'danger' });
+  };
+  const closeEditor = () => {
+    dirtyRef.current = false;
+    setSelectedItem(null);
+    setEditCategory(null);
+  };
+
   const openItem = (id: string | 'new', categoryId?: string) =>
     void guardedSelect(() => {
       setEditCategory(null);
@@ -123,8 +134,7 @@ export function MenuEditor() {
     });
 
   const reorder = useMutation({
-    mutationFn: async ({ rows, index, direction }: { rows: ItemRow[]; index: number; direction: 'up' | 'down' }) => {
-      const ids = reorderedIds(rows, index, direction);
+    mutationFn: async ({ ids }: { ids: string[] }) => {
       if (ids.length === 0) return;
       const position = new Map(ids.map((id, i) => [id, i]));
       patchCachedItems(queryClient, (items) =>
@@ -167,11 +177,32 @@ export function MenuEditor() {
   const proposeItem = () => void navigate({ to: '/protocols', search: { start: 'product_release' } });
 
   const columns: Column<ItemRow>[] = [
+    ...(view.reorderable
+      ? [
+          {
+            key: 'order',
+            header: '',
+            align: 'center',
+            width: '3rem',
+            render: (i: ItemRow) => {
+              const index = categoryItems.findIndex((r) => r.id === i.id);
+              return (
+                <span onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()} style={{ display: 'inline-flex' }}>
+                  <DragHandle
+                    label={`${tr('op.common.moveUp')} / ${tr('op.common.moveDown')}`}
+                    disabled={!can.editMenu || reorder.isPending}
+                    onMove={(direction) => reorder.mutate({ ids: reorderedIds(categoryItems, index, direction) })}
+                  />
+                </span>
+              );
+            },
+          } satisfies Column<ItemRow>,
+        ]
+      : []),
     {
       key: 'item',
       header: tr('ws.manager.menu.item'),
       render: (i) => {
-        const block = stockBlockFor(i, availabilityQ.data, today);
         const category = crossCategory ? categoryById.get(i.category_id) : undefined;
         return (
           <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-2)', minInlineSize: 0 }}>
@@ -184,24 +215,34 @@ export function MenuEditor() {
               <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-1-5)', fontWeight: i.id === selectedItem ? 700 : 500 }}>
                 <HighlightDot highlight={i.highlight} />
                 <bdi>{pickName(locale, i)}</bdi>
-              </span>
+          </span>
               {category && (
                 <span style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>
                   <bdi>{pickName(locale, category)}</bdi>
                 </span>
               )}
-              <span style={{ display: 'flex', gap: 'var(--tp-sp-1)', flexWrap: 'wrap' }}>
-                {/* In release says more than Inactive: it is off until the owner launches it. */}
-                {inRelease(i) ? (
-                  <StatusBadge size="sm" tone="info" icon="split" label={tr('ws.release.menu.inReleaseBadge')} />
-                ) : (
-                  !i.is_active && <StatusBadge size="sm" tone="neutral" label={tr('ws.manager.menu.inactive')} />
-                )}
-                {i.sold_out && <StatusBadge size="sm" tone="danger" label={tr('ws.manager.menu.soldOut')} />}
-                {i.unavailable_on === today && <StatusBadge size="sm" tone="warn" label={tr('ws.manager.menu.offToday')} />}
-                {block.blocked && <StatusBadge size="sm" tone="warn" icon="box" label={tr('ws.manager.menu.blocked')} />}
-              </span>
             </span>
+          </span>
+        );
+      },
+    },
+    {
+      key: 'status',
+      header: tr('op.categories.status'),
+      width: '16rem',
+      render: (i) => {
+        const block = stockBlockFor(i, availabilityQ.data, today);
+        return (
+          <span style={{ display: 'flex', gap: 'var(--tp-sp-1)', flexWrap: 'wrap' }}>
+            {/* In release says more than Inactive: it is off until the owner launches it. */}
+            {inRelease(i) ? (
+              <StatusBadge size="sm" tone="info" icon="split" label={tr('ws.release.menu.inReleaseBadge')} />
+            ) : (
+              !i.is_active && <StatusBadge size="sm" tone="neutral" label={tr('ws.manager.menu.inactive')} />
+            )}
+            {i.sold_out && <StatusBadge size="sm" tone="danger" label={tr('ws.manager.menu.soldOut')} />}
+            {i.unavailable_on === today && <StatusBadge size="sm" tone="warn" label={tr('ws.manager.menu.offToday')} />}
+            {block.blocked && <StatusBadge size="sm" tone="warn" icon="box" label={tr('ws.manager.menu.blocked')} />}
           </span>
         );
       },
@@ -238,29 +279,6 @@ export function MenuEditor() {
         </span>
       ),
     },
-    ...(view.reorderable
-      ? [
-          {
-            key: 'order',
-            header: '',
-            align: 'end',
-            width: '5rem',
-            render: (i: ItemRow) => {
-              const index = categoryItems.findIndex((r) => r.id === i.id);
-              return (
-                <span onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
-                  <SortButtons
-                    onUp={() => reorder.mutate({ rows: categoryItems, index, direction: 'up' })}
-                    onDown={() => reorder.mutate({ rows: categoryItems, index, direction: 'down' })}
-                    disabledUp={!can.editMenu || index <= 0 || reorder.isPending}
-                    disabledDown={!can.editMenu || index === categoryItems.length - 1 || reorder.isPending}
-                  />
-                </span>
-              );
-            },
-          } satisfies Column<ItemRow>,
-        ]
-      : []),
   ];
 
   const orderNote = view.mode === 'search' ? tr('ws.manager.menu.reorderOffSearch') : view.mode === 'noCost' ? tr('ws.manager.menu.reorderOffNoCost') : tr('ws.manager.menu.reorderHint');
@@ -311,30 +329,16 @@ export function MenuEditor() {
         error={menu.error}
         onRetry={() => void menu.refetch()}
         emptyContent={
-          editCategory && data ? (
-            <CategoryForm
-              key="new"
-              category={null}
-              taxGroups={data.taxGroups}
-              onDone={(id) => {
-                setEditCategory(null);
-                setSelectedCategory(id);
-              }}
-              onCancel={() => setEditCategory(null)}
-              onDirtyChange={onDirtyChange}
-            />
-          ) : (
-            <EmptyState
-              icon="layers"
-              title={tr('ws.manager.menu.noCategories')}
-              body={tr('ws.manager.menu.noCategoriesBody')}
-              action={
-                <Button kind="primary" icon="plus" disabled={!can.editMenu} onClick={() => setEditCategory('new')}>
-                  {tr('ws.manager.menu.newCategory')}
-                </Button>
-              }
-            />
-          )
+          <EmptyState
+            icon="layers"
+            title={tr('ws.manager.menu.noCategories')}
+            body={tr('ws.manager.menu.noCategoriesBody')}
+            action={
+              <Button kind="primary" icon="plus" disabled={!can.editMenu} onClick={() => setEditCategory('new')}>
+                {tr('ws.manager.menu.newCategory')}
+              </Button>
+            }
+          />
         }
       >
         {data && (
@@ -359,9 +363,7 @@ export function MenuEditor() {
             <div
               style={{
                 display: 'grid',
-                gridTemplateColumns: narrow
-                  ? 'minmax(17rem, 22rem) minmax(0, 1fr)'
-                  : 'minmax(11rem, 13rem) minmax(20rem, 26rem) minmax(0, 1fr)',
+                gridTemplateColumns: narrow ? 'minmax(0, 1fr)' : 'minmax(11rem, 13rem) minmax(0, 1fr)',
                 gap: 'var(--tp-sp-4)',
                 alignItems: 'start',
               }}
@@ -485,8 +487,13 @@ export function MenuEditor() {
                     rowKey={(i) => i.id}
                     selectedKey={item?.id ?? null}
                     onRowClick={(i) => openItem(i.id, i.category_id)}
-                    // Scrolls inside itself, so the editor beside it stays in
-                    // view whichever row was clicked.
+                    // Drag a product to a new place; the handle's arrow keys do the same without a mouse.
+                    onRowDrop={
+                      view.reorderable && can.editMenu && !reorder.isPending
+                        ? (from, to) => reorder.mutate({ ids: movedIds(categoryItems, from, to) })
+                        : undefined
+                    }
+                    // Scrolls inside itself, so the page keeps its place whichever row was clicked.
                     maxBlockSize="calc(100vh - 19rem)"
                     // A bare sentence in a table body told a manager whose search
                     // matched nothing that the category was empty, and offered no
@@ -503,47 +510,48 @@ export function MenuEditor() {
                 )}
               </div>
 
-              {/* the editor: a category or an item */}
-              <div style={{ minInlineSize: 0 }}>
-                {editCategory ? (
-                  <CategoryForm
-                    key={editCategory === 'new' ? 'new' : editCategory.id}
-                    category={editCategory === 'new' ? null : editCategory}
-                    taxGroups={data.taxGroups}
-                    itemCount={editCategory === 'new' ? undefined : data.items.filter((i) => i.category_id === editCategory.id).length}
-                    onDone={(id) => {
-                      setEditCategory(null);
-                      setSelectedCategory(id);
-                      setSearch('');
-                      setNoCostOnly(false);
-                    }}
-                    onCancel={() => setEditCategory(null)}
-                    onDirtyChange={onDirtyChange}
-                  />
-                ) : (item || selectedItem === 'new') && activeCat ? (
-                  <ItemForm
-                    key={item?.id ?? 'new'}
-                    item={item}
-                    categoryId={activeCat}
-                    categoryName={pickName(locale, categoryById.get(item?.category_id ?? activeCat))}
-                    categoryKind={categoryById.get(item?.category_id ?? activeCat)?.kind ?? 'cafe'}
-                    newSortOrder={nextSortOrder(categoryItems)}
-                    groups={data.groups}
-                    modifiers={data.modifiers}
-                    cost={item ? (data.costs.get(item.id) ?? null) : null}
-                    stockBlock={item ? stockBlockFor(item, availabilityQ.data, today) : { blocked: false, ingredients: [] }}
-                    today={today}
-                    onSaved={(id) => setSelectedItem(id)}
-                    onDirtyChange={onDirtyChange}
-                  />
-                ) : (
-                  <EmptyState icon="note" title={tr('ws.manager.menu.pickItem')} />
-                )}
-              </div>
             </div>
           </div>
         )}
       </AsyncStateWrapper>
+
+      {data && editCategory && (
+        <CategoryForm
+          key={editCategory === 'new' ? 'new' : editCategory.id}
+          category={editCategory === 'new' ? null : editCategory}
+          taxGroups={data.taxGroups}
+          itemCount={editCategory === 'new' ? undefined : data.items.filter((i) => i.category_id === editCategory.id).length}
+          onDone={(id) => {
+            dirtyRef.current = false;
+            setEditCategory(null);
+            setSelectedCategory(id);
+            setSearch('');
+            setNoCostOnly(false);
+          }}
+          onDirtyChange={onDirtyChange}
+          onClose={closeEditor}
+          canClose={confirmDiscard}
+        />
+      )}
+      {data && !editCategory && (item || selectedItem === 'new') && activeCat && (
+        <ItemForm
+          key={item?.id ?? 'new'}
+          item={item}
+          categoryId={activeCat}
+          categoryName={pickName(locale, categoryById.get(item?.category_id ?? activeCat))}
+          categoryKind={categoryById.get(item?.category_id ?? activeCat)?.kind ?? 'cafe'}
+          newSortOrder={nextSortOrder(categoryItems)}
+          groups={data.groups}
+          modifiers={data.modifiers}
+          cost={item ? (data.costs.get(item.id) ?? null) : null}
+          stockBlock={item ? stockBlockFor(item, availabilityQ.data, today) : { blocked: false, ingredients: [] }}
+          today={today}
+          onSaved={(id) => setSelectedItem(id)}
+          onDirtyChange={onDirtyChange}
+          onClose={closeEditor}
+          canClose={confirmDiscard}
+        />
+      )}
     </div>
   );
 }

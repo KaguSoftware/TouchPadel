@@ -30,6 +30,7 @@ import { useLocale } from '../../lib/i18n';
 import { useToast } from '../../components/toast';
 import { Button, ErrorText, Field, Modal, inputStyle } from '../../components/ui';
 import { AsyncStateWrapper, EmptyState, MessagePresenter, Panel, SegmentedControl, StatusBadge, ViewMore, asyncStatus, useListCap } from '../../components/kit';
+import { BrandBall } from '../../components/brand';
 import { CardTitle, MARK_FG } from '../ops/OpsVisuals';
 import { useStockFormat } from '../stock/stockUi';
 import { RK } from './keys';
@@ -90,6 +91,7 @@ export function RecipeChangesCard({
   return (
     <Panel
       title={<CardTitle icon="layers">{tr('ws.rolePages.recipeChanges.title')}</CardTitle>}
+      fill
       actions={data.waitingCount > 0 ? <StatusBadge size="sm" tone="warn" label={tr('ws.rolePages.recipeChanges.waitingBadge', { count: formatNumber(data.waitingCount, locale) })} /> : undefined}
       data-testid="recipe-changes-card"
     >
@@ -103,7 +105,10 @@ export function RecipeChangesCard({
       ) : q.isPending ? (
         <p style={{ color: 'var(--tp-muted-fg)', margin: 0 }}>{tr('common.loading')}</p>
       ) : data.rows.length === 0 ? (
-        <p style={{ margin: 0, color: MARK_FG.success, fontWeight: 600 }}>{tr('ws.rolePages.recipeChanges.none')}</p>
+        <div style={{ flex: 1, display: 'grid', justifyItems: 'center', alignContent: 'center', gap: 'var(--tp-sp-2)', paddingBlock: 'var(--tp-sp-3)', textAlign: 'center' }}>
+          <BrandBall size={56} seam="var(--tp-surface)" />
+          <p style={{ margin: 0, color: MARK_FG.success, fontWeight: 600 }}>{tr('ws.rolePages.recipeChanges.none')}</p>
+        </div>
       ) : (
         <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--tp-sp-1)' }}>
           {cap.shown.map((r) => (
@@ -130,7 +135,15 @@ export function RecipeChangesCard({
         </ul>
       )}
       {!q.isError && <ViewMore hidden={cap.hidden} open={cap.open} onToggle={cap.toggle} />}
-      <div style={{ marginBlockStart: 'var(--tp-sp-3)' }}>
+      <div
+        style={{
+          marginBlockStart: 'auto',
+          paddingBlockStart: 'var(--tp-sp-3)',
+          borderBlockStart: '1px solid var(--tp-border)',
+          display: 'flex',
+          justifyContent: 'flex-end',
+        }}
+      >
         <Button size="sm" iconEnd="arrowUpRight" onClick={() => setListOpen(true)}>
           {tr('ws.rolePages.recipeChanges.seeAll')}
         </Button>

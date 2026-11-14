@@ -104,6 +104,15 @@ export function moveInList<T>(list: readonly T[], index: number, direction: 'up'
   return next;
 }
 
+/** A list after dragging the item at `from` onto the one at `to`: it takes that place. */
+export function moveToIndex<T>(list: readonly T[], from: number, to: number): T[] {
+  if (from < 0 || to < 0 || from >= list.length || to >= list.length || from === to) return [...list];
+  const next = [...list];
+  const [moved] = next.splice(from, 1);
+  next.splice(to, 0, moved!);
+  return next;
+}
+
 export function sameOrder(a: readonly string[], b: readonly string[]): boolean {
   return a.length === b.length && a.every((v, i) => v === b[i]);
 }

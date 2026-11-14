@@ -21,10 +21,11 @@ import { appRpc } from '../../../lib/appRpc';
 import { useLocale, pickName } from '../../../lib/i18n';
 import { can, useAuth } from '../../../lib/auth';
 import { Button, card, inputStyle } from '../../../components/ui';
-import { MoneyInput, SortButtons } from '../../../components/inputs';
+import { MoneyInput } from '../../../components/inputs';
+import { DragHandle, useDragReorder } from '../../../components/DragReorder';
 import { Switch } from '../../../components/Switch';
 import { useToast } from '../../../components/toast';
-import { reorderedIds, sortRows } from '../menu/menuLogic';
+import { movedIds, reorderedIds, sortRows } from '../menu/menuLogic';
 import { PriceChangeButton, PriceLockNote } from '../promotions/PriceChangeStart';
 import { addonLock, isRenameRefusal, isRequiredAddonRefusal, newOptionActive, type AddonLock } from './addonsLogic';
 import { RevealsEditor } from './RevealsEditor';
@@ -88,8 +89,7 @@ export function OptionsEditor({ group, data }: { group: GroupRow; data: AddonsDa
   });
 
   const reorder = useMutation({
-    mutationFn: async ({ index, direction }: { index: number; direction: 'up' | 'down' }) => {
-      const ids = reorderedIds(options, index, direction);
+    mutationFn: async ({ ids }: { ids: string[] }) => {
       if (ids.length === 0) return;
       const position = new Map(ids.map((id, i) => [id, i]));
       patchCachedModifiers(queryClient, (mods) =>
@@ -107,6 +107,11 @@ export function OptionsEditor({ group, data }: { group: GroupRow; data: AddonsDa
     onError: (e) => toast.err(e),
     onSettled: () => refresh(),
   });
+  const rowProps = useDragReorder(
+    options.map((o) => o.id),
+    (from, to) => reorder.mutate({ ids: movedIds(options, from, to) }),
+    !reorder.isPending,
+  );
 
   async function setActive(m: ModifierRow, next: boolean) {
     try {
@@ -144,6 +149,7 @@ export function OptionsEditor({ group, data }: { group: GroupRow; data: AddonsDa
           <span />
           {options.map((m, index) => (
             <Fragment key={m.id}>
+              <div {...rowProps(m.id)} style={{ display: 'grid', gridTemplateColumns: 'subgrid', gridColumn: '1 / -1', alignItems: 'center' }}>
               <OptionRow
                 option={m}
                 lock={addonLock(m, caps)}
@@ -154,14 +160,14 @@ export function OptionsEditor({ group, data }: { group: GroupRow; data: AddonsDa
                 revealCount={data.reveals.filter((r) => r.modifier_id === m.id).length}
                 onToggleReveals={() => setOpenReveals(openReveals === m.id ? null : m.id)}
                 sort={
-                  <SortButtons
-                    onUp={() => reorder.mutate({ index, direction: 'up' })}
-                    onDown={() => reorder.mutate({ index, direction: 'down' })}
-                    disabledUp={index === 0 || reorder.isPending}
-                    disabledDown={index === options.length - 1 || reorder.isPending}
+                  <DragHandle
+                    label={`${tr('op.common.moveUp')} / ${tr('op.common.moveDown')}`}
+                    disabled={reorder.isPending}
+                    onMove={(direction) => reorder.mutate({ ids: reorderedIds(options, index, direction) })}
                   />
                 }
               />
+              </div>
               {openReveals === m.id && (
                 <div style={{ gridColumn: '1 / -1' }}>
                   <RevealsEditor key={m.id} modifier={m} data={data} />

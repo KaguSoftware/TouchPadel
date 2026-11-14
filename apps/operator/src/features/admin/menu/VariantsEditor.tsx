@@ -21,13 +21,14 @@
  * "Change the price" too (§2.2, #9, the `onSale` lock's note says so), and a
  * refusal with hint `name` says that rather than the price sentence.
  */
-import { useEffect, useId, useState, type CSSProperties } from 'react';
+import { useId, useState, type CSSProperties } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { useLocale, pickName } from '../../../lib/i18n';
 import { appRpc } from '../../../lib/appRpc';
 import { usePermissions } from '../../../lib/auth';
-import { Button, Field, inputStyle } from '../../../components/ui';
-import { Money, Panel } from '../../../components/kit';
+import { Button, inputStyle } from '../../../components/ui';
+import { Money } from '../../../components/kit';
+import { Icon } from '../../../components/icons';
 import { MoneyInput } from '../../../components/inputs';
 import { useToast } from '../../../components/toast';
 import { PriceChangeButton, PriceLockNote } from '../promotions/PriceChangeStart';
@@ -44,31 +45,42 @@ interface VariantPayload {
   sort_order?: number;
 }
 
+/** One size, as a card: its name, its price and whether it is the default. The form's Save sends them. */
 const ROW: CSSProperties = {
-  display: 'grid',
-  gridTemplateColumns: 'minmax(6rem, 1fr) minmax(9rem, 12rem) 5rem 5.5rem',
-  gap: 'var(--tp-sp-2)',
+  display: 'flex',
+  flexWrap: 'wrap',
   alignItems: 'center',
+  gap: 'var(--tp-sp-3)',
+  padding: 'var(--tp-sp-3) var(--tp-sp-4)',
+  borderRadius: 'var(--tp-radius-panel)',
 };
 
-const HEAD: CSSProperties = {
-  fontSize: 'var(--tp-fs-xs)',
-  fontWeight: 600,
-  color: 'var(--tp-muted-fg)',
-};
+/** The price box and the default button share one size, so choosing a default moves nothing. */
+const CONTROL: CSSProperties = { blockSize: '2.5rem', inlineSize: '9rem', boxSizing: 'border-box' };
 
-export function VariantsEditor({ item, pricesLock = null }: { item: ItemRow; pricesLock?: PricesLock | null }) {
+export function VariantsEditor({
+  item,
+  pricesLock = null,
+  prices,
+  onPrice,
+  defaultId,
+  onDefault,
+}: {
+  item: ItemRow;
+  pricesLock?: PricesLock | null;
+  /** Edited prices by size id; the form saves them with its own Save. */
+  prices: Record<string, number>;
+  onPrice: (id: string, price: number) => void;
+  /** The size that is (or is about to become) the default. */
+  defaultId: string | null;
+  onDefault: (id: string) => void;
+}) {
   const { tr, locale } = useLocale();
   const toast = useToast();
   const can = usePermissions();
   const { refresh } = useAdminMenu();
   const [draft, setDraft] = useState<{ nameEn: string; nameAr: string; price: number } | null>(null);
   const variants = [...item.menu_item_variants].sort((a, b) => a.sort_order - b.sort_order);
-  const savedDefault = variants.find((v) => v.is_default)?.id ?? null;
-  const [defaultId, setDefaultId] = useState<string | null>(savedDefault);
-
-  // Follow the server after a save or a colleague's change.
-  useEffect(() => setDefaultId(savedDefault), [savedDefault]);
 
   const save = useMutation({
     mutationFn: (v: VariantPayload) =>
@@ -90,88 +102,155 @@ export function VariantsEditor({ item, pricesLock = null }: { item: ItemRow; pri
   });
 
   const readOnly = !can.editMenu;
+  const newPriceId = useId();
+  const canAdd = draft !== null && draft.nameEn.trim() !== '' && draft.nameAr.trim() !== '';
 
   return (
-    <Panel
-      title={tr('ws.manager.menu.form.sizes.title')}
-      actions={
+    <div style={{ display: 'grid', gap: 'var(--tp-sp-3)' }}>
+      {pricesLock === 'onSale' && (
         // The shared start: it leaves for Protocols, so it wears the same ↗ as
         // every other price or promo start (it carried a tag icon here alone).
-        pricesLock === 'onSale' ? (
+        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
           <PriceChangeButton size="sm" target={{ change: 'price', item: item.id }} label={tr('ws.release.menu.sizes.changePrice')} />
-        ) : pricesLock === 'inRelease' ? undefined : (
-          <Button size="sm" icon="plus" onClick={() => setDraft({ nameEn: '', nameAr: '', price: 0 })} disabled={readOnly || !!draft}>
-            {tr('ws.manager.menu.form.sizes.newSize')}
-          </Button>
-        )
-      }
-    >
+        </div>
+      )}
       {variants.length === 0 && !draft ? (
         <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>{tr('ws.manager.menu.form.sizes.empty')}</p>
       ) : (
-        <div role="radiogroup" aria-label={tr('ws.manager.menu.form.sizes.default')} style={{ display: 'grid', gap: 'var(--tp-sp-1-5)' }}>
-          {variants.length > 0 && (
-            <div style={ROW} aria-hidden="true">
-              <span style={HEAD}>{tr('ws.manager.menu.form.sizes.size')}</span>
-              <span style={HEAD}>{tr('ws.manager.menu.form.sizes.price')}</span>
-              <span style={{ ...HEAD, textAlign: 'center' }}>{tr('ws.manager.menu.form.sizes.default')}</span>
-              <span />
-            </div>
-          )}
+        <div role="radiogroup" aria-label={tr('ws.manager.menu.form.sizes.default')} style={{ display: 'grid', gap: 'var(--tp-sp-3)' }}>
           {variants.map((v) => (
             <VariantRowEditor
               key={v.id}
               variant={v}
               name={pickName(locale, v)}
               isDefault={defaultId === v.id}
-              onPickDefault={() => setDefaultId(v.id)}
-              busy={save.isPending}
+              onPickDefault={() => onDefault(v.id)}
+              price={prices[v.id] ?? v.price_iqd}
+              onPrice={(n) => onPrice(v.id, n)}
               readOnly={readOnly}
               priceLocked={pricesLock !== null}
-              onSave={(next) => save.mutate(next)}
             />
           ))}
-          {variants.length > 1 && (
-            <p style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>{tr('ws.manager.menu.form.sizes.defaultHint')}</p>
-          )}
         </div>
+      )}
+      {pricesLock === null && !draft && (
+        <button
+          type="button"
+          disabled={readOnly}
+          onClick={() => setDraft({ nameEn: '', nameAr: '', price: 0 })}
+          style={{
+            inlineSize: '100%',
+            minBlockSize: '4rem',
+            marginBlockStart: variants.length > 0 ? 'var(--tp-sp-3)' : 0,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 'var(--tp-sp-2-5)',
+            border: '2px dashed var(--tp-border-strong)',
+            borderRadius: 'var(--tp-radius-panel)',
+            background: 'transparent',
+            color: 'var(--tp-accent)',
+            font: 'inherit',
+            fontWeight: 700,
+            cursor: readOnly ? 'not-allowed' : 'pointer',
+            opacity: readOnly ? 'var(--tp-opacity-disabled)' : 1,
+          }}
+        >
+          <Icon name="plus" size={18} strokeWidth={2.4} />
+          {tr('ws.manager.menu.form.sizes.newSize')}
+        </button>
       )}
       {/* The lock said the way Add-ons and Shop products say it. */}
       {pricesLock && <PriceLockNote message={tr(`ws.release.menu.sizes.${pricesLock}`)} style={{ marginBlockStart: 'var(--tp-sp-2)' }} />}
       {draft && !pricesLock && (
-        <div style={{ display: 'flex', gap: 'var(--tp-sp-1-5)', alignItems: 'flex-end', marginBlockStart: 'var(--tp-sp-2)', flexWrap: 'wrap' }}>
-          <Field label={tr('op.menu.nameEn')} style={{ marginBlockEnd: 0, flex: '1 1 8rem' }}>
-            <input style={inputStyle} dir="ltr" value={draft.nameEn} onChange={(e) => setDraft({ ...draft, nameEn: e.target.value })} />
-          </Field>
-          <Field label={tr('op.menu.nameAr')} style={{ marginBlockEnd: 0, flex: '1 1 8rem' }}>
-            <input style={inputStyle} dir="rtl" lang="ar" value={draft.nameAr} onChange={(e) => setDraft({ ...draft, nameAr: e.target.value })} />
-          </Field>
-          <Field label={tr('op.menu.priceIqd')} style={{ marginBlockEnd: 0 }}>
-            <MoneyInput value={draft.price} onChange={(n) => setDraft({ ...draft, price: n ?? 0 })} style={{ inlineSize: '10rem' }} />
-          </Field>
-          <Button kind="ghost" onClick={() => setDraft(null)}>
-            {tr('common.cancel')}
-          </Button>
-          <Button
-            kind="primary"
-            busy={save.isPending}
-            disabled={!draft.nameEn.trim() || !draft.nameAr.trim()}
-            disabledReason={draft.nameEn.trim() || draft.nameAr.trim() ? tr('ws.manager.disabled.namesRequired') : undefined}
-            onClick={() =>
-              save.mutate({
-                name_en: draft.nameEn.trim(),
-                name_ar: draft.nameAr.trim(),
-                price_iqd: draft.price,
-                is_default: variants.length === 0,
-                sort_order: variants.length,
-              })
+        <form
+          aria-label={tr('ws.manager.menu.form.sizes.newSize')}
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (!canAdd || save.isPending) return;
+            save.mutate({
+              name_en: draft.nameEn.trim(),
+              name_ar: draft.nameAr.trim(),
+              price_iqd: draft.price,
+              is_default: variants.length === 0,
+              sort_order: variants.length,
+            });
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') {
+              e.stopPropagation();
+              setDraft(null);
             }
-          >
-            {tr('common.save')}
-          </Button>
-        </div>
+          }}
+          style={{
+            display: 'grid',
+            gap: 'var(--tp-sp-4)',
+            marginBlockStart: variants.length > 0 ? 'var(--tp-sp-3)' : 0,
+            padding: 'var(--tp-sp-4)',
+            border: '2px solid var(--tp-accent)',
+            borderRadius: 'var(--tp-radius-panel)',
+            background: 'var(--tp-accent-soft)',
+          }}
+        >
+          <strong style={{ fontSize: 'var(--tp-fs-md)' }}>{tr('ws.manager.menu.form.sizes.newSize')}</strong>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(13rem, 1fr))', gap: 'var(--tp-sp-3)' }}>
+            <label style={{ display: 'grid', gap: 'var(--tp-sp-1)', fontSize: 'var(--tp-fs-sm)', fontWeight: 700 }}>
+              {tr('op.menu.nameEn')}
+              <input
+                style={{ ...inputStyle, minBlockSize: '3rem', borderRadius: '0.75rem', fontWeight: 400 }}
+                dir="ltr"
+                autoFocus
+                value={draft.nameEn}
+                onChange={(e) => setDraft({ ...draft, nameEn: e.target.value })}
+              />
+            </label>
+            <label style={{ display: 'grid', gap: 'var(--tp-sp-1)', fontSize: 'var(--tp-fs-sm)', fontWeight: 700 }}>
+              {tr('op.menu.nameAr')}
+              <input
+                style={{ ...inputStyle, minBlockSize: '3rem', borderRadius: '0.75rem', fontWeight: 400 }}
+                dir="rtl"
+                lang="ar"
+                value={draft.nameAr}
+                onChange={(e) => setDraft({ ...draft, nameAr: e.target.value })}
+              />
+            </label>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'flex-end', gap: 'var(--tp-sp-3)', flexWrap: 'wrap' }}>
+            <div style={{ display: 'grid', gap: 'var(--tp-sp-1)', fontSize: 'var(--tp-fs-sm)', fontWeight: 700 }}>
+              <label htmlFor={newPriceId}>{tr('op.menu.priceIqd')}</label>
+              <span style={{ display: 'flex', alignItems: 'stretch', inlineSize: '12rem', blockSize: '3rem', border: '1px solid var(--tp-border-strong)', borderRadius: '0.75rem', overflow: 'hidden', background: 'var(--tp-surface)' }}>
+                <MoneyInput
+                  id={newPriceId}
+                  value={draft.price}
+                  onChange={(n) => setDraft({ ...draft, price: n ?? 0 })}
+                  bare
+                  style={{ flex: 1, minInlineSize: 0 }}
+                  inputStyle={{ border: 'none', borderRadius: 0, background: 'transparent', minBlockSize: 0, blockSize: '100%', fontWeight: 700 }}
+                />
+                <span aria-hidden="true" style={{ display: 'grid', placeItems: 'center', paddingInline: 'var(--tp-sp-3)', fontSize: 'var(--tp-fs-xs)', fontWeight: 700, color: 'var(--tp-muted-fg)', background: 'var(--tp-surface-2)' }}>
+                  {tr('ws.manager.menu.form.iqd')}
+                </span>
+              </span>
+            </div>
+            <span style={{ flex: 1 }} />
+            <Button size="lg" onClick={() => setDraft(null)}>
+              {tr('common.cancel')}
+            </Button>
+            <Button
+              size="lg"
+              kind="primary"
+              type="submit"
+              icon="check"
+              busy={save.isPending}
+              disabled={!canAdd}
+              disabledReason={!canAdd ? tr('ws.manager.disabled.namesRequired') : undefined}
+            >
+              {tr('ws.manager.menu.form.sizes.add')}
+            </Button>
+          </div>
+        </form>
       )}
-    </Panel>
+    </div>
   );
 }
 
@@ -180,44 +259,67 @@ function VariantRowEditor({
   name,
   isDefault,
   onPickDefault,
-  busy,
+  price,
+  onPrice,
   readOnly,
   priceLocked,
-  onSave,
 }: {
   variant: VariantRow;
   name: string;
   isDefault: boolean;
   onPickDefault: () => void;
-  busy: boolean;
+  price: number;
+  onPrice: (price: number) => void;
   readOnly: boolean;
   /** Show the stored price as a figure; only the default can change. */
   priceLocked: boolean;
-  onSave: (v: VariantPayload) => void;
 }) {
   const { tr } = useLocale();
   const priceId = useId();
-  const [price, setPrice] = useState<number>(variant.price_iqd);
-  useEffect(() => setPrice(variant.price_iqd), [variant.price_iqd]);
-  // Only the row that BECOMES the default has something to save: the server
-  // clears the old default itself, so losing it is not a change on that row.
-  const becomesDefault = isDefault && !variant.is_default;
-  const dirty = (!priceLocked && price !== variant.price_iqd) || becomesDefault;
 
   return (
-    <div style={ROW}>
-      <bdi style={{ minInlineSize: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</bdi>
+    <div style={{ ...ROW, border: `2px solid ${isDefault ? 'var(--tp-accent)' : 'var(--tp-border)'}`, background: isDefault ? 'var(--tp-accent-soft)' : 'var(--tp-surface)' }}>
+      <bdi style={{ flex: '1 1 8rem', minInlineSize: 0, fontWeight: 700, fontSize: 'var(--tp-fs-md)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</bdi>
       {priceLocked ? (
-        <span style={{ minInlineSize: 0, paddingInline: 'var(--tp-sp-2)' }}>
+        <span style={{ flex: '0 0 auto', paddingInline: 'var(--tp-sp-2)' }}>
           <Money amount={variant.price_iqd} unit={false} />
         </span>
       ) : (
-        <span style={{ minInlineSize: 0 }}>
+        <span style={{ flex: '0 0 auto' }}>
           <label htmlFor={priceId} className="tp-sr-only">{`${tr('ws.manager.menu.form.sizes.price')}: ${name}`}</label>
-          <MoneyInput id={priceId} value={price} onChange={(n) => setPrice(n ?? 0)} disabled={readOnly} />
+          <span style={{ ...CONTROL, display: 'flex', alignItems: 'stretch', border: '1px solid var(--tp-border-strong)', borderRadius: 'var(--tp-radius-ctl)', overflow: 'hidden', background: 'var(--tp-surface)' }}>
+            <MoneyInput
+              id={priceId}
+              value={price}
+              onChange={(n) => onPrice(n ?? 0)}
+              disabled={readOnly}
+              bare
+              style={{ flex: 1, minInlineSize: 0 }}
+              inputStyle={{ border: 'none', borderRadius: 0, background: 'transparent', minBlockSize: 0, blockSize: '100%', fontWeight: 700 }}
+            />
+            <span aria-hidden="true" style={{ display: 'grid', placeItems: 'center', paddingInline: 'var(--tp-sp-2-5)', fontSize: 'var(--tp-fs-xs)', fontWeight: 700, color: 'var(--tp-muted-fg)', background: 'var(--tp-surface-2)' }}>
+              {tr('ws.manager.menu.form.iqd')}
+            </span>
+          </span>
         </span>
       )}
-      <span style={{ display: 'flex', justifyContent: 'center' }}>
+      <label
+        style={{
+          ...CONTROL,
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 'var(--tp-sp-1-5)',
+          flex: '0 0 auto',
+          borderRadius: 'var(--tp-radius-ctl)',
+          border: `1px solid ${isDefault ? 'var(--tp-accent)' : 'var(--tp-border-strong)'}`,
+          background: isDefault ? 'var(--tp-accent)' : 'var(--tp-surface)',
+          color: isDefault ? 'var(--tp-accent-contrast)' : 'var(--tp-fg)',
+          fontSize: 'var(--tp-fs-sm)',
+          fontWeight: 600,
+          cursor: readOnly ? 'not-allowed' : 'pointer',
+        }}
+      >
         <input
           type="radio"
           name={`default-size-${variant.item_id}`}
@@ -225,16 +327,11 @@ function VariantRowEditor({
           disabled={readOnly}
           onChange={onPickDefault}
           aria-label={`${tr('ws.manager.menu.form.sizes.default')}: ${name}`}
-          style={{ inlineSize: '1rem', blockSize: '1rem' }}
+          style={{ position: 'absolute', opacity: 0, inlineSize: 0, blockSize: 0 }}
         />
-      </span>
-      <span>
-        {dirty && (
-          <Button size="sm" kind="primary" busy={busy} onClick={() => onSave({ ...variant, price_iqd: priceLocked ? variant.price_iqd : price, is_default: isDefault || variant.is_default })}>
-            {tr('common.save')}
-          </Button>
-        )}
-      </span>
+        {isDefault && <Icon name="check" size={14} strokeWidth={3} />}
+        {isDefault ? tr('ws.manager.menu.form.sizes.default') : tr('ws.manager.menu.form.sizes.makeDefault')}
+      </label>
     </div>
   );
 }

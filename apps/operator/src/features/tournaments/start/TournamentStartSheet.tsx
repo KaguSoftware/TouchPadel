@@ -259,34 +259,8 @@ export function TournamentStartSheet({
                   >
                     <span
                       aria-hidden="true"
-                      style={{
-                        inlineSize: '1.75rem',
-                        blockSize: '1.75rem',
-                        flexShrink: 0,
-                        borderRadius: 'var(--tp-radius-pill)',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        fontSize: 'var(--tp-fs-xs)',
-                        fontWeight: 800,
-                        // The row's line height would push the digit off centre.
-                        lineHeight: 1,
-                        fontVariantNumeric: 'tabular-nums',
-                        background: warn
-                          ? 'var(--tp-danger)'
-                          : done
-                            ? 'var(--tp-accent-2)'
-                            : now
-                              ? 'var(--tp-accent-contrast)'
-                              : 'var(--tp-surface-3)',
-                        color: warn
-                          ? 'var(--tp-danger-contrast)'
-                          : done
-                            ? 'var(--tp-accent-2-contrast)'
-                            : now
-                              ? 'var(--tp-accent)'
-                              : 'var(--tp-muted-fg)',
-                      }}
+                      className="tp-wiz-n"
+                      data-state={warn ? 'warn' : done ? 'done' : now ? 'now' : undefined}
                     >
                       {warn ? (
                         '!'
@@ -298,28 +272,11 @@ export function TournamentStartSheet({
                     </span>
                     <span style={{ flex: 1, minInlineSize: 0 }}>{sectionLabel(s)}</span>
                     {warn ? (
-                      <span
-                        style={{
-                          fontSize: 'var(--tp-fs-xs)',
-                          color: now ? 'var(--tp-accent-contrast)' : 'var(--tp-danger-fg)',
-                          fontWeight: 600,
-                        }}
-                      >
+                      <span className="tp-wiz-note" style={{ fontWeight: 700, color: now ? 'var(--tp-rail-active-fg)' : 'var(--tp-rail-fg)' }}>
                         {tr('ws.tournaments.start.needsLook')}
                       </span>
                     ) : (
-                      note && (
-                        <span
-                          style={{
-                            fontSize: 'var(--tp-fs-xs)',
-                            // White on the open section's dark blue row, grey elsewhere.
-                            color: now ? 'var(--tp-accent-contrast)' : 'var(--tp-muted-fg)',
-                            fontWeight: now ? 600 : 500,
-                          }}
-                        >
-                          {note}
-                        </span>
-                      )
+                      note && <span className="tp-wiz-note">{note}</span>
                     )}
                   </button>
                 );

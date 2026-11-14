@@ -30,15 +30,15 @@ import {
   asyncStatus,
   type Column,
 } from '../../../components/kit';
-import { SortButtons } from '../../../components/inputs';
+import { DragHandle } from '../../../components/DragReorder';
 import { ImageField } from '../../../components/ImageField';
 import { Switch } from '../../../components/Switch';
 import { ChevronForward } from '../../../components/icons';
 import { useToast } from '../../../components/toast';
 import { useConfirm } from '../../../components/ConfirmDialog';
 import { Thumb } from './chips';
-import { FormBar } from './FormBar';
-import { NAME_MAX, reorderedIds, sortRows } from './menuLogic';
+import { SectionDialog, type DialogSection } from '../../../components/SectionDialog';
+import { NAME_MAX, movedIds, reorderedIds, sortRows } from './menuLogic';
 import { savePhoto } from './photo';
 import {
   patchCachedCategories,
@@ -52,16 +52,18 @@ export function CategoryForm({
   taxGroups,
   itemCount,
   onDone,
-  onCancel,
   onDirtyChange,
+  onClose,
+  canClose,
 }: {
   category: CategoryRow | null;
   taxGroups: TaxGroupRow[];
   /** Items in this category, for the line under the title. */
   itemCount?: number;
   onDone: (id: string) => void;
-  onCancel: () => void;
   onDirtyChange?: (dirty: boolean) => void;
+  onClose: () => void;
+  canClose?: () => boolean | Promise<boolean>;
 }) {
   const { tr, locale } = useLocale();
   const toast = useToast();
@@ -157,52 +159,24 @@ export function CategoryForm({
     },
   });
 
-  async function cancel() {
-    if (dirty && !(await confirm({ title: tr('op.common.unsavedPrompt'), kind: 'danger' }))) return;
+  /** Closing the dialog drops a photo uploaded for a category that was never saved. */
+  function close() {
     if (!category && pendingPhoto.current) void removeMedia(pendingPhoto.current);
     onDirtyChange?.(false);
-    onCancel();
+    onClose();
   }
 
   const namesMissing = name.en.trim() === '' || name.ar.trim() === '';
   const valid = !namesMissing && taxGroupId !== '';
 
-  return (
-    <div style={{ minInlineSize: 0, display: 'grid', gap: 'var(--tp-sp-3)' }}>
-      <FormBar
-        title={<bdi>{category ? pickName(locale, category) : tr('ws.manager.menu.categoryForm.newTitle')}</bdi>}
-        meta={
-          category ? (
-            <>
-              <span>{tr('ws.manager.menu.categoryForm.editTitle')}</span>
-              {itemCount !== undefined && <span>· {tr('ws.manager.menu.categoryForm.itemsCount', { count: formatNumber(itemCount, locale) })}</span>}
-            </>
-          ) : undefined
-        }
-        dirty={dirty}
-        actions={
-          <>
-            <Button kind="ghost" onClick={() => void cancel()} disabled={save.isPending}>
-              {tr('common.cancel')}
-            </Button>
-            <Button
-              kind="primary"
-              icon="check"
-              busy={save.isPending}
-              disabled={readOnly || !valid || !dirty}
-              // Only the reason that sends the manager somewhere: "nothing has
-              // changed" under a greyed Save says nothing the badge doesn't.
-              disabledReason={dirty && namesMissing ? tr('ws.manager.disabled.namesRequired') : undefined}
-              onClick={() => save.mutate()}
-            >
-              {tr('ws.kit.actions.save')}
-            </Button>
-          </>
-        }
-      />
-      <ErrorText error={error} style={{ marginBlock: 0 }} />
-
-      <Panel title={tr('ws.manager.menu.form.details')}>
+  const sections: DialogSection[] = [
+    {
+      key: 'details',
+      label: tr('ws.manager.menu.form.details'),
+      icon: 'note',
+      flagged: namesMissing,
+      content: (
+        <Panel title={tr('ws.manager.menu.form.details')}>
         <BilingualFieldPair label={tr('ws.manager.menu.form.name')} value={name} onChange={setName} required maxLength={NAME_MAX} disabled={readOnly} />
         <Field label={tr('op.menu.taxGroup')} hint={tr('op.categories.taxGroupHint')}>
           <Select
@@ -217,8 +191,14 @@ export function CategoryForm({
           <p style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>{tr('op.categories.activeHint')}</p>
         </div>
       </Panel>
-
-      <Panel title={tr('op.categories.photo')}>
+      ),
+    },
+    {
+      key: 'photo',
+      label: tr('op.categories.photo'),
+      icon: 'image',
+      content: (
+        <Panel title={tr('op.categories.photo')}>
         <div style={{ maxInlineSize: '22rem' }}>
           <ImageField
             label={tr('op.categories.photo')}
@@ -232,7 +212,41 @@ export function CategoryForm({
           <p style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>{tr('op.categories.photoHint')}</p>
         </div>
       </Panel>
-    </div>
+      ),
+    },
+  ];
+
+  return (
+    <SectionDialog
+      title={category ? pickName(locale, category) : tr('ws.manager.menu.categoryForm.newTitle')}
+      meta={
+        category ? (
+          <>
+            <span>{tr('ws.manager.menu.categoryForm.editTitle')}</span>
+            {itemCount !== undefined && <span>· {tr('ws.manager.menu.categoryForm.itemsCount', { count: formatNumber(itemCount, locale) })}</span>}
+          </>
+        ) : undefined
+      }
+      sections={sections}
+      notice={<ErrorText error={error} style={{ marginBlock: 0 }} />}
+      dirty={dirty}
+      busy={save.isPending}
+      onClose={close}
+      canClose={canClose}
+      actions={
+        <Button
+          size="lg"
+          kind="primary"
+          icon="check"
+          busy={save.isPending}
+          disabled={readOnly || !valid || !dirty}
+          disabledReason={dirty && namesMissing ? tr('ws.manager.disabled.namesRequired') : undefined}
+          onClick={() => save.mutate()}
+        >
+          {tr('ws.kit.actions.save')}
+        </Button>
+      }
+    />
   );
 }
 
@@ -241,12 +255,10 @@ export function useCategoryReorder() {
   const { tr } = useLocale();
   const toast = useToast();
   const queryClient = useQueryClient();
-  const { data, refresh } = useAdminMenu();
+  const { refresh } = useAdminMenu();
 
   const mutation = useMutation({
-    mutationFn: async ({ index, direction }: { index: number; direction: 'up' | 'down' }) => {
-      const rows = data?.categories ?? [];
-      const ids = reorderedIds(rows, index, direction);
+    mutationFn: async ({ ids }: { ids: string[] }) => {
       if (ids.length === 0) return;
       const position = new Map(ids.map((id, i) => [id, i]));
       patchCachedCategories(queryClient, (cats) =>
@@ -299,6 +311,22 @@ export function CategoryEditor() {
 
   const columns: Column<CategoryRow>[] = [
     {
+      key: 'order',
+      header: tr('op.categories.order'),
+      align: 'center',
+      width: '4.5rem',
+      render: (c) => {
+        const index = categories.findIndex((r) => r.id === c.id);
+        return (
+          <DragHandle
+            label={`${tr('op.common.moveUp')} / ${tr('op.common.moveDown')}`}
+            disabled={!can.editMenu || reorder.isPending}
+            onMove={(direction) => reorder.mutate({ ids: reorderedIds(categories, index, direction) })}
+          />
+        );
+      },
+    },
+    {
       key: 'name',
       header: tr('op.categories.category'),
       truncate: true,
@@ -329,23 +357,6 @@ export function CategoryEditor() {
         ),
     },
     {
-      key: 'order',
-      header: tr('op.categories.order'),
-      align: 'center',
-      width: '5.5rem',
-      render: (c) => {
-        const index = categories.findIndex((r) => r.id === c.id);
-        return (
-          <SortButtons
-            onUp={() => reorder.mutate({ index, direction: 'up' })}
-            onDown={() => reorder.mutate({ index, direction: 'down' })}
-            disabledUp={!can.editMenu || index === 0 || reorder.isPending}
-            disabledDown={!can.editMenu || index === categories.length - 1 || reorder.isPending}
-          />
-        );
-      },
-    },
-    {
       key: 'open',
       header: '',
       width: '2rem',
@@ -367,7 +378,7 @@ export function CategoryEditor() {
       />
       <AsyncStateWrapper status={status} error={menu.error} onRetry={() => void menu.refetch()}>
         {data && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(22rem, 1fr))', gap: 'var(--tp-sp-4)', alignItems: 'start' }}>
+          <div style={{ display: 'grid', gap: 'var(--tp-sp-4)' }}>
             {categories.length === 0 ? (
               <EmptyState icon="grid" title={tr('op.categories.empty')} body={tr('op.categories.emptyBody')} />
             ) : (
@@ -377,30 +388,27 @@ export function CategoryEditor() {
                 rowKey={(c) => c.id}
                 selectedKey={editing && editing !== 'new' ? editing : null}
                 onRowClick={(c) => void guarded(c.id)}
-                // The list scrolls inside itself so the form beside it stays in
-                // view whichever row was clicked.
+                onRowDrop={can.editMenu && !reorder.isPending ? (from, to) => reorder.mutate({ ids: movedIds(categories, from, to) }) : undefined}
+                // The list scrolls inside itself, so the page keeps its place.
                 maxBlockSize="calc(100vh - 13rem)"
                 aria-label={tr('op.categories.title')}
               />
             )}
-            <div style={{ minInlineSize: 0 }}>
-              {editing ? (
-                <CategoryForm
-                  key={editing}
-                  category={editingRow}
-                  taxGroups={data.taxGroups}
-                  itemCount={editingRow ? (itemCounts.get(editingRow.id) ?? 0) : undefined}
-                  onDone={(id) => setEditing(id)}
-                  onCancel={() => {
-                    dirtyRef.current = false;
-                    setEditing(null);
-                  }}
-                  onDirtyChange={onDirtyChange}
-                />
-              ) : (
-                <EmptyState icon="note" title={tr('op.categories.pick')} />
-              )}
-            </div>
+            {editing && (
+              <CategoryForm
+                key={editing}
+                category={editingRow}
+                taxGroups={data.taxGroups}
+                itemCount={editingRow ? (itemCounts.get(editingRow.id) ?? 0) : undefined}
+                onDone={(id) => setEditing(id)}
+                onDirtyChange={onDirtyChange}
+                onClose={() => {
+                  dirtyRef.current = false;
+                  setEditing(null);
+                }}
+                canClose={async () => !dirtyRef.current || confirm({ title: tr('op.common.unsavedPrompt'), kind: 'danger' })}
+              />
+            )}
           </div>
         )}
       </AsyncStateWrapper>

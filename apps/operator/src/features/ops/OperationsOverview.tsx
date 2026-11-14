@@ -104,11 +104,9 @@ function useFloorNowHeading(): { subtitle: string | undefined; actions: ReactNod
   const updatedAt = overviewQ.dataUpdatedAt ? new Date(overviewQ.dataUpdatedAt) : null;
   const subtitle = overviewQ.data ? daySubtitle(overviewQ.data, tr, locale) : undefined;
 
+  // The refresh button, with when it last ran one line under it, both at the line's end.
   const actions = (
-    <>
-      {updatedAt && (
-        <span style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>{tr('ws.manager.ops.updated', { time: formatTime(updatedAt, locale) })}</span>
-      )}
+    <div style={{ display: 'grid', justifyItems: 'end', gap: 'var(--tp-sp-1)' }}>
       <Button
         icon="refresh"
         size="sm"
@@ -117,7 +115,10 @@ function useFloorNowHeading(): { subtitle: string | undefined; actions: ReactNod
       >
         {tr('ws.kit.actions.refresh')}
       </Button>
-    </>
+      {updatedAt && (
+        <span style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>{tr('ws.manager.ops.updated', { time: formatTime(updatedAt, locale) })}</span>
+      )}
+    </div>
   );
   return { subtitle, actions };
 }

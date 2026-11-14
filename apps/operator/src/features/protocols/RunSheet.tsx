@@ -14,7 +14,7 @@
  * A done tournament run offers "Publish as tournament" to management
  * (tournaments build contracts §1.6 publish), which opens PublishDialog.
  */
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { VENUE_TZ, formatDate, formatDateTime, formatIQD, formatNumber, isolate, type MessageKey } from '@touch/i18n';
 import type { StepRow } from '@touch/core/protocols';
@@ -27,13 +27,14 @@ import { canOfferPublish } from '../tournaments/publishLogic';
 import { useConfirm } from '../../components/ConfirmDialog';
 import { useToast } from '../../components/toast';
 import { Button, ErrorText, Modal } from '../../components/ui';
-import { AsyncStateWrapper, EmptyState, StatusBadge, asyncStatus } from '../../components/kit';
-import { invalidateProtocols, useRunDetail } from './api';
+import { ReviewList, StepWizard, type WizardAt, type WizardStep } from '../../components/StepWizard';
+import { AsyncStateWrapper, StatusBadge, asyncStatus } from '../../components/kit';
+import { invalidateProtocols, stepDetailQuery, useRunDetail } from './api';
 import { ReasonDialog } from './DecisionDialog';
-import { protocolErrorKey } from './errors';
 import { PK } from './keys';
 import { PhotoStrip } from './PhotoField';
 import {
+  LOCK_UNOPENED_STEPS,
   addStepAfterChoices,
   defaultStep,
   isObj,
@@ -44,42 +45,133 @@ import {
   type RunDetail,
 } from './protocolLogic';
 import { AddStepDialog, EditItemsDialog } from './RunEdits';
-import { StepPanel } from './StepPanel';
+import { SendSlot } from './ReleaseSteps';
+import { StepMeta, StepPanel } from './StepPanel';
 
 const muted = { color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' } as const;
 
 export function RunSheet({ runId, stepId, onStep, onClose }: { runId: string; stepId: string | null; onStep: (id: string) => void; onClose: () => void }) {
-  const { tr, locale } = useLocale();
+  const { tr } = useLocale();
   const q = useRunDetail(runId);
   const d = q.data;
-  const title = d ? pickText(locale, d.run.title_en, d.run.title_ar) || tr(`work.protocol.kind.${d.run.kind}`) : tr('ws.protocols.run.loading');
-  const selected = stepId && d?.steps.some((s) => s.id === stepId) ? stepId : d ? defaultStep(d.steps) : null;
+  // Loaded: the run is the stepped dialog every "add new" form uses. Until
+  // then (or when it fails to load) the plain dialog carries the wait and retry.
+  if (d) return <RunWizard d={d} stepId={stepId} onStep={onStep} onClose={onClose} />;
   return (
-    <Modal
-      title={title}
-      titleAfter={d ? <StatusBadge tone={runStatusTone(d.run.status)} label={tr(`work.protocol.runStatus.${d.run.status}`)} /> : undefined}
-      subtitle={
-        d
-          ? [
-              tr(`work.protocol.kind.${d.run.kind}`),
-              d.run.variant ? tr(`work.protocol.variant.${d.run.variant}`) : null,
-              tr('ws.protocols.run.startedBy', { name: isolate(d.run.started_by_name ?? '—'), date: formatDate(new Date(d.run.started_at), locale) }),
-            ]
-              .filter(Boolean)
-              .join(' · ')
-          : undefined
-      }
-      onClose={onClose}
-      size="xl"
-    >
+    <Modal title={tr('ws.protocols.run.loading')} onClose={onClose} size="xl">
       <AsyncStateWrapper status={asyncStatus(q, () => false)} error={q.error} onRetry={() => void q.refetch()}>
-        {d && <RunBody d={d} selected={selected} onStep={onStep} />}
+        {null}
       </AsyncStateWrapper>
     </Modal>
   );
 }
 
-function RunBody({ d, selected, onStep }: { d: RunDetail; selected: string | null; onStep: (id: string) => void }) {
+function RunWizard({ d, stepId, onStep, onClose }: { d: RunDetail; stepId: string | null; onStep: (id: string) => void; onClose: () => void }) {
+  const { tr, locale } = useLocale();
+  const { run, steps } = d;
+  const title = pickText(locale, run.title_en, run.title_ar) || tr(`work.protocol.kind.${run.kind}`);
+  const selected = stepId && steps.some((s) => s.id === stepId) ? stepId : defaultStep(steps);
+  const index = Math.max(0, steps.findIndex((s) => s.id === selected));
+  const [summary, setSummary] = useState(false);
+  // Where a release step's green "Send this step" is drawn: the wizard's footer.
+  const [sendSlot, setSendSlot] = useState<HTMLElement | null>(null);
+  const at: WizardAt = summary ? 'review' : index;
+  const acts = useRunActions(d);
+  // Every step is read up front, so moving between steps shows each one at once instead of a loading flash.
+  const qc = useQueryClient();
+  const stepIds = steps.map((s) => s.id).join(',');
+  useEffect(() => {
+    for (const id of stepIds.split(',')) if (id) void qc.prefetchQuery({ ...stepDetailQuery(id), staleTime: 15_000 });
+  }, [qc, stepIds]);
+
+  const wizardSteps: WizardStep[] = steps.map((s) => ({
+    key: s.id,
+    label: pickText(locale, s.name_en, s.name_ar),
+    done: s.status === 'passed' || s.status === 'skipped',
+    locked: LOCK_UNOPENED_STEPS && s.status === 'waiting',
+    badge: (
+      <>
+        {!(LOCK_UNOPENED_STEPS && s.status === 'waiting') && <StatusBadge tone={stepStatusTone(s.status)} label={tr(`work.protocol.stepStatus.${s.status}`)} />}
+        <StepMeta step={s} />
+      </>
+    ),
+    status: (
+      <>
+        {tr(`work.protocol.stepStatus.${s.status}`)}
+        {s.round > 1 && ` · ${tr('work.protocol.round', { round: formatNumber(s.round, locale) })}`}
+        {s.step_key === null && ` · ${tr('ws.protocols.run.ownStep')}`}
+      </>
+    ),
+    content: (
+      <>
+        {acts.editItemsFor(s)}
+        <StepPanel key={s.id} stepId={s.id} run={d} titled={false} />
+      </>
+    ),
+  }));
+
+  return (
+    <SendSlot.Provider value={sendSlot}>
+      <StepWizard
+        title={title}
+        eyebrow={[tr(`work.protocol.kind.${run.kind}`), run.variant ? tr(`work.protocol.variant.${run.variant}`) : null].filter(Boolean).join(' · ')}
+        lead={
+          <span style={{ display: 'grid', gap: 'var(--tp-sp-4)', justifyItems: 'start' }}>
+            <span>
+              {tr('ws.protocols.run.startedByShort', { name: isolate(run.started_by_name ?? '—') })} · {formatDate(new Date(run.started_at), locale)}
+            </span>
+            {acts.actions}
+          </span>
+        }
+        progressAfter={<StatusBadge size="sm" tone={runStatusTone(run.status)} label={tr(`work.protocol.runStatus.${run.status}`)} />}
+        testId="run-sheet"
+        steps={wizardSteps}
+        at={at}
+        onAtChange={(next) => {
+          if (next === 'review') {
+            setSummary(true);
+            return;
+          }
+          setSummary(false);
+          const s = steps[next];
+          if (s) onStep(s.id);
+        }}
+        footerStart={acts.stopButton}
+        footerEnd={<span ref={setSendSlot} style={{ display: 'contents' }} />}
+        reviewLabel={tr('ws.protocols.run.summary')}
+        reviewLead={tr('ws.protocols.run.summaryLead')}
+        review={(goTo) => (
+          <>
+            <ReviewList
+              goTo={goTo}
+              rows={steps.map((s) => ({
+                label: pickText(locale, s.name_en, s.name_ar),
+                value: tr(`work.protocol.stepStatus.${s.status}`),
+                step: s.id,
+              }))}
+            />
+            {acts.dates.length > 0 && <p style={{ ...muted, margin: 0 }}>{acts.dates.join(' · ')}</p>}
+            {acts.addStep}
+            {run.kind === 'product_release' && <ReleaseExtras d={d} />}
+          </>
+        )}
+        notice={acts.error != null ? <ErrorText error={acts.error} /> : undefined}
+        submitLabel={tr('common.close')}
+        onSubmit={onClose}
+        onClose={onClose}
+      />
+      {acts.dialogs}
+    </SendSlot.Provider>
+  );
+}
+
+/**
+ * The run's own actions and the dialogs they open, gathered for the wizard
+ * around the steps: Stop, Withdraw, Cancel the date, Publish (the side
+ * column), the owner's checklist and extra step (the step and Summary pages).
+ * Every one follows `can`, as before; only where it sits changed.
+ */
+function useRunActions(d: RunDetail) {
   const { tr, locale } = useLocale();
   const { staff } = useAuth();
   const qc = useQueryClient();
@@ -120,140 +212,80 @@ function RunBody({ d, selected, onStep }: { d: RunDetail; selected: string | nul
     run.finished_at ? tr('ws.protocols.run.finishedAt', { date: formatDateTime(new Date(run.finished_at), locale) }) : null,
   ].filter((x): x is string => x !== null);
 
-  return (
-    <div style={{ display: 'grid', gap: 'var(--tp-sp-3)' }} data-testid="run-sheet">
-      {(dates.length > 0 || can.stop || can.withdraw_run || can.cancel_schedule || offerPublish) && (
-        <div style={{ display: 'flex', gap: 'var(--tp-sp-2)', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'space-between' }}>
-          <span style={muted}>{dates.join(' · ')}</span>
-          <span style={{ display: 'flex', gap: 'var(--tp-sp-1-5)', flexWrap: 'wrap' }}>
-            {offerPublish && (
-              <Button size="sm" kind="primary" icon="trophy" onClick={() => setPublishing(true)}>
-                {tr('ws.tournaments.publish.action')}
-              </Button>
-            )}
-            {can.cancel_schedule && (
-              <Button
-                size="sm"
-                icon="undo"
-                busy={busy === 'unschedule'}
-                onClick={async () => {
-                  // F-61: cancelling the date asks first.
-                  const ok = await confirm({
-                    title: tr('ws.protocols.run.unscheduleTitle'),
-                    body: tr('ws.protocols.run.unscheduleBody'),
-                    confirmLabel: tr('ws.protocols.run.unscheduleConfirm'),
-                    kind: 'danger',
-                  });
-                  if (ok) void act('unschedule', () => appRpc('cancel_schedule', { p_run_id: run.id }), 'ws.protocols.run.unscheduled');
-                }}
-              >
-                {tr('work.protocol.action.cancelSchedule')}
-              </Button>
-            )}
-            {can.withdraw_run && (
-              <Button
-                size="sm"
-                kind="ghost"
-                busy={busy === 'withdraw'}
-                onClick={async () => {
-                  const ok = await confirm({ title: tr('ws.protocols.run.withdrawTitle'), body: tr('ws.protocols.run.withdrawBody'), confirmLabel: tr('work.protocol.action.withdraw'), kind: 'danger' });
-                  if (ok) void act('withdraw', () => appRpc('withdraw_protocol', { p_run_id: run.id }), 'ws.protocols.run.withdrawn');
-                }}
-              >
-                {tr('ws.protocols.run.withdraw')}
-              </Button>
-            )}
-            {/* The way in to a stop, not the stop: a quiet control beside the
-                run, so the step's own work stays the loudest thing on the
-                sheet. The reason prompt it opens is the red one. */}
-            {can.stop && (
-              <Button size="sm" icon="ban" onClick={() => setStopping(true)}>
-                {tr('ws.protocols.run.stop')}
-              </Button>
-            )}
-          </span>
-        </div>
-      )}
-      {error != null && (
-        <p role="alert" style={{ margin: 0, color: 'var(--tp-danger-fg)', fontSize: 'var(--tp-fs-sm)' }}>
-          {tr(protocolErrorKey(error))}
-        </p>
-      )}
+  const actions =
+    can.withdraw_run || can.cancel_schedule || offerPublish ? (
+      <span style={{ display: 'flex', gap: 'var(--tp-sp-1-5)', flexWrap: 'wrap' }}>
+        {offerPublish && (
+          <Button size="sm" kind="primary" icon="trophy" onClick={() => setPublishing(true)}>
+            {tr('ws.tournaments.publish.action')}
+          </Button>
+        )}
+        {can.cancel_schedule && (
+          <Button
+            size="sm"
+            icon="undo"
+            busy={busy === 'unschedule'}
+            onClick={async () => {
+              // F-61: cancelling the date asks first.
+              const ok = await confirm({
+                title: tr('ws.protocols.run.unscheduleTitle'),
+                body: tr('ws.protocols.run.unscheduleBody'),
+                confirmLabel: tr('ws.protocols.run.unscheduleConfirm'),
+                kind: 'danger',
+              });
+              if (ok) void act('unschedule', () => appRpc('cancel_schedule', { p_run_id: run.id }), 'ws.protocols.run.unscheduled');
+            }}
+          >
+            {tr('work.protocol.action.cancelSchedule')}
+          </Button>
+        )}
+        {can.withdraw_run && (
+          <Button
+            size="sm"
+            kind="ghost"
+            busy={busy === 'withdraw'}
+            onClick={async () => {
+              const ok = await confirm({ title: tr('ws.protocols.run.withdrawTitle'), body: tr('ws.protocols.run.withdrawBody'), confirmLabel: tr('work.protocol.action.withdraw'), kind: 'danger' });
+              if (ok) void act('withdraw', () => appRpc('withdraw_protocol', { p_run_id: run.id }), 'ws.protocols.run.withdrawn');
+            }}
+          >
+            {tr('ws.protocols.run.withdraw')}
+          </Button>
+        )}
+      </span>
+    ) : null;
 
-      <div style={{ display: 'grid', gap: 'var(--tp-sp-3)', gridTemplateColumns: 'minmax(15rem, 20rem) minmax(0, 1fr)', alignItems: 'start' }}>
-        <nav aria-label={tr('ws.protocols.run.steps')} style={{ display: 'grid', gap: 'var(--tp-sp-2)' }}>
-          <ol style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--tp-sp-1)' }}>
-            {steps.map((s, i) => {
-              const on = s.id === selected;
-              return (
-                <li key={s.id} style={{ display: 'grid', gap: 'var(--tp-sp-0)' }}>
-                  <button
-                    type="button"
-                    aria-current={on ? 'step' : undefined}
-                    onClick={() => onStep(s.id)}
-                    data-testid="run-step"
-                    style={{
-                      display: 'grid',
-                      gridTemplateColumns: 'auto 1fr',
-                      gap: 'var(--tp-sp-0) var(--tp-sp-2)',
-                      alignItems: 'center',
-                      textAlign: 'start',
-                      padding: 'var(--tp-sp-2)',
-                      borderRadius: 'var(--tp-radius-ctl)',
-                      border: `1px solid ${on ? 'var(--tp-accent)' : 'var(--tp-border)'}`,
-                      background: on ? 'var(--tp-accent-soft)' : 'var(--tp-surface)',
-                      color: 'var(--tp-fg)',
-                      cursor: 'pointer',
-                      font: 'inherit',
-                    }}
-                  >
-                    <span
-                      aria-hidden="true"
-                      style={{
-                        gridRow: 'span 2',
-                        inlineSize: '1.6rem',
-                        blockSize: '1.6rem',
-                        borderRadius: 'var(--tp-radius-pill)',
-                        display: 'grid',
-                        placeItems: 'center',
-                        fontSize: 'var(--tp-fs-sm)',
-                        fontWeight: 700,
-                        background: 'var(--tp-surface-2)',
-                      }}
-                    >
-                      {formatNumber(i + 1, locale)}
-                    </span>
-                    <span style={{ fontWeight: 600 }}>{pickText(locale, s.name_en, s.name_ar)}</span>
-                    <span style={{ display: 'flex', gap: 'var(--tp-sp-1)', flexWrap: 'wrap', alignItems: 'center' }}>
-                      <StatusBadge size="sm" tone={stepStatusTone(s.status)} label={tr(`work.protocol.stepStatus.${s.status}`)} />
-                      {s.round > 1 && <span style={muted}>{tr('work.protocol.round', { round: formatNumber(s.round, locale) })}</span>}
-                      {s.step_key === null && <span style={muted}>{tr('ws.protocols.run.ownStep')}</span>}
-                    </span>
-                  </button>
-                  {on && owner && can.edit_items && itemsEditable(s.status) && (
-                    <Button size="sm" kind="ghost" icon="note" onClick={() => setEditing(s)} style={{ justifySelf: 'start' }}>
-                      {s.items.length > 0 ? tr('ws.protocols.edits.editItems', { count: formatNumber(s.items.length, locale) }) : tr('ws.protocols.edits.addItems')}
-                    </Button>
-                  )}
-                </li>
-              );
-            })}
-          </ol>
-          {afterChoices.length > 0 && (
-            <Button size="sm" icon="plus" onClick={() => setAdding(true)}>
-              {tr('ws.protocols.edits.addStep')}
-            </Button>
-          )}
-          {run.kind === 'product_release' && <ReleaseExtras d={d} />}
-        </nav>
-        <div style={{ minInlineSize: 0 }}>
-          {selected ? <StepPanel key={selected} stepId={selected} run={d} /> : <EmptyState compact title={tr('ws.protocols.run.pickStep')} />}
-        </div>
+  // The way in to a stop, not the stop: it sits in the dialog's footer, where
+  // Back used to be, in red. The reason prompt it opens is the red one too.
+  const stopButton = can.stop ? (
+    <Button size="lg" kind="danger" icon="ban" onClick={() => setStopping(true)}>
+      {tr('ws.protocols.run.stop')}
+    </Button>
+  ) : (
+    <span />
+  );
+
+  const editItemsFor = (s: StepRow) =>
+    owner && can.edit_items && itemsEditable(s.status) ? (
+      <div>
+        <Button size="sm" kind="ghost" icon="note" onClick={() => setEditing(s)}>
+          {s.items.length > 0 ? tr('ws.protocols.edits.editItems', { count: formatNumber(s.items.length, locale) }) : tr('ws.protocols.edits.addItems')}
+        </Button>
       </div>
+    ) : null;
 
-      {publishing && (
-        <PublishDialog runId={run.id} data={run.data} tz={settingsQ.data?.timezone ?? VENUE_TZ} onClose={() => setPublishing(false)} />
-      )}
+  const addStep =
+    afterChoices.length > 0 ? (
+      <div>
+        <Button size="sm" icon="plus" onClick={() => setAdding(true)}>
+          {tr('ws.protocols.edits.addStep')}
+        </Button>
+      </div>
+    ) : null;
+
+  const dialogs = (
+    <>
+      {publishing && <PublishDialog runId={run.id} data={run.data} tz={settingsQ.data?.timezone ?? VENUE_TZ} onClose={() => setPublishing(false)} />}
       {stopping && (
         <ReasonDialog
           title={tr('ws.protocols.run.stopTitle')}
@@ -272,8 +304,10 @@ function RunBody({ d, selected, onStep }: { d: RunDetail; selected: string | nul
       )}
       {editing && <EditItemsDialog step={editing} onClose={() => setEditing(null)} />}
       {adding && <AddStepDialog runId={run.id} after={afterChoices} onClose={() => setAdding(false)} />}
-    </div>
+    </>
   );
+
+  return { actions, stopButton, dates, addStep, editItemsFor, dialogs, error };
 }
 
 // ── After a launch ───────────────────────────────────────────────────────────

@@ -28,21 +28,13 @@ import { appRpc } from '../../../lib/appRpc';
 import { removeMedia } from '../../../lib/storage';
 import { useLocale, pickName } from '../../../lib/i18n';
 import { can as hasCapability, useAuth, usePermissions } from '../../../lib/auth';
-import { Button, ErrorText, Field } from '../../../components/ui';
-import { BilingualFieldPair, MessagePresenter, Money, Panel, StatusBadge } from '../../../components/kit';
-import { MoneyInput } from '../../../components/inputs';
-import { ImageField } from '../../../components/ImageField';
-import { Switch } from '../../../components/Switch';
-import { Icon } from '../../../components/icons';
+import { Button, ErrorText } from '../../../components/ui';
+import { MessagePresenter, Money } from '../../../components/kit';
 import { useToast } from '../../../components/toast';
 import { useConfirm } from '../../../components/ConfirmDialog';
-import { MARK, MARK_FG } from '../../ops/OpsVisuals';
-import { HIGHLIGHT_COLOR, MarginChip } from './chips';
-import { FormBar } from './FormBar';
+import { SectionDialog, type DialogSection } from '../../../components/SectionDialog';
+import { AvailabilitySection, CostSection, DetailsSection, PhotoSection } from './ItemSections';
 import {
-  DESCRIPTION_MAX,
-  HOOK_MAX,
-  NAME_MAX,
   defaultPrice,
   hookError,
   inRelease,
@@ -55,11 +47,11 @@ import {
 import { savePhoto } from './photo';
 import { PriceChangeButton } from '../promotions/PriceChangeStart';
 import { VariantsEditor } from './VariantsEditor';
+import { isRenameRefusal } from '../addons/addonsLogic';
 import { ItemModifierGroups } from './ItemModifierGroups';
 import { todayIso, type StockBlock } from './availability';
 import { useAdminMenu, type GroupRow, type Highlight, type ItemRow, type ModifierRow } from './useAdminMenu';
 
-const HIGHLIGHTS: readonly Highlight[] = ['none', 'blue', 'brown'];
 const NO_BLOCK: StockBlock = { blocked: false, ingredients: [] };
 
 export function ItemForm({
@@ -75,6 +67,8 @@ export function ItemForm({
   today = todayIso(),
   onSaved,
   onDirtyChange,
+  onClose,
+  canClose,
 }: {
   item: ItemRow | null;
   categoryId: string;
@@ -94,6 +88,8 @@ export function ItemForm({
   today?: string;
   onSaved: (id: string) => void;
   onDirtyChange?: (dirty: boolean) => void;
+  onClose: () => void;
+  canClose?: () => boolean | Promise<boolean>;
 }) {
   const { tr, locale } = useLocale();
   const toast = useToast();
@@ -118,6 +114,9 @@ export function ItemForm({
   const [photo, setPhoto] = useState<string | null>(item?.photo_path ?? null);
   const [costDraft, setCostDraft] = useState<number | null>(cost);
   const [error, setError] = useState<unknown>(null);
+  // Sizes: edited prices and a newly chosen default wait for the form's Save.
+  const [sizePrices, setSizePrices] = useState<Record<string, number>>({});
+  const [sizeDefault, setSizeDefault] = useState<string | null>(null);
   const draftId = useRef(crypto.randomUUID());
   const pendingPhoto = useRef<string | null>(null);
 
@@ -139,7 +138,15 @@ export function ItemForm({
     highlight !== (item?.highlight ?? 'none') ||
     isActive !== activeAtRest ||
     (!item && (pendingPhoto.current !== null || costDraft !== null));
-  const dirty = formDirty || (item !== null && costDraft !== cost);
+  const variants = item?.menu_item_variants ?? [];
+  const savedDefaultId = variants.find((v) => v.is_default)?.id ?? null;
+  const defaultId = sizeDefault ?? savedDefaultId;
+  const pricesLocked = locks.prices !== null;
+  // What the sizes need written: a price that changed, and the size that becomes the default.
+  const sizeChanges = variants.filter(
+    (v) => (!pricesLocked && sizePrices[v.id] !== undefined && sizePrices[v.id] !== v.price_iqd) || (sizeDefault === v.id && sizeDefault !== savedDefaultId),
+  );
+  const dirty = formDirty || (item !== null && costDraft !== cost) || sizeChanges.length > 0;
 
   useEffect(() => {
     onDirtyChange?.(dirty);
@@ -166,6 +173,8 @@ export function ItemForm({
     setHighlight(item?.highlight ?? 'none');
     setIsActive(activeAtRest);
     setCostDraft(cost);
+    setSizePrices({});
+    setSizeDefault(null);
     setError(null);
   }
 
@@ -251,17 +260,31 @@ export function ItemForm({
       } else if (costDraft !== cost) {
         await appRpc('set_item_cost', { p_item_id: id, p_cost_iqd: costDraft });
       }
+      // Sizes last, the new default after the rest: the server clears the old default itself.
+      for (const v of [...sizeChanges].sort((a, b) => Number(sizeDefault === a.id) - Number(sizeDefault === b.id))) {
+        await appRpc('upsert_variant', {
+          p_id: v.id,
+          p_item_id: v.item_id,
+          p_name_en: v.name_en,
+          p_name_ar: v.name_ar,
+          p_price_iqd: pricesLocked ? v.price_iqd : (sizePrices[v.id] ?? v.price_iqd),
+          p_is_default: sizeDefault === v.id ? true : v.is_default,
+          p_sort_order: v.sort_order,
+        });
+      }
       return id;
     },
     onSuccess: async (id) => {
       setError(null);
+      setSizePrices({});
+      setSizeDefault(null);
       toast.ok(tr('op.toast.saved'));
       await refresh();
       onSaved(id);
     },
     onError: (e) => {
       setError(e);
-      toast.err(e);
+      toast.err(isRenameRefusal(e) ? tr('ws.pricing.renameViaProtocol') : e);
     },
   });
 
@@ -289,212 +312,151 @@ export function ItemForm({
         ? tr('op.errors.HOOK_PAIR_MISMATCH')
         : undefined;
 
-  return (
-    <div style={{ minInlineSize: 0, display: 'grid', gap: 'var(--tp-sp-3)' }}>
-      <FormBar
-        title={<bdi>{item ? pickName(locale, item) : tr('ws.manager.menu.newItem')}</bdi>}
-        meta={
-          <>
-            {categoryName && <bdi>{categoryName}</bdi>}
-            {price !== null && (
-              <span>
-                · {tr('op.menu.defaultPrice')}: <Money amount={price} />
-              </span>
-            )}
-            {item && <MarginChip price={price} cost={cost} />}
-          </>
-        }
-        dirty={dirty}
-        actions={
-          <>
-            {dirty && (
-              <Button kind="ghost" disabled={busy} onClick={discard}>
-                {tr('ws.kit.actions.discard')}
-              </Button>
-            )}
-            <Button kind="primary" icon="check" busy={busy} disabled={readOnly || !valid || !dirty} disabledReason={saveReason} onClick={() => save.mutate()}>
-              {tr('ws.kit.actions.save')}
-            </Button>
-          </>
-        }
-      />
-      <ErrorText error={error} style={{ marginBlock: 0 }} />
-      {item && inRelease(item) && <ReleaseNotice item={item} />}
-
-      {/* Details */}
-      <Panel title={tr('ws.manager.menu.form.details')}>
-        <BilingualFieldPair label={tr('ws.manager.menu.form.name')} value={name} onChange={setName} required maxLength={NAME_MAX} disabled={readOnly} />
-        <BilingualFieldPair label={tr('ws.manager.menu.form.description')} value={desc} onChange={setDesc} multiline maxLength={DESCRIPTION_MAX} disabled={readOnly} />
-        <BilingualFieldPair
-          label={tr('ws.manager.menu.form.hook')}
-          value={hook}
-          onChange={setHook}
-          maxLength={HOOK_MAX}
-          disabled={readOnly}
-          error={hookErr === 'pair' ? tr('op.errors.HOOK_PAIR_MISMATCH') : undefined}
+  const sections: DialogSection[] = [
+    {
+      key: 'details',
+      label: tr('ws.manager.menu.form.details'),
+      icon: 'note',
+      flagged: namesMissing || hookErr === 'pair',
+      content: (
+        <DetailsSection
+          name={name}
+          desc={desc}
+          hook={hook}
+          onName={setName}
+          onDesc={setDesc}
+          onHook={setHook}
+          hookError={hookErr === 'pair' ? tr('op.errors.HOOK_PAIR_MISMATCH') : undefined}
+          readOnly={readOnly}
         />
-        <p style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>{tr('ws.manager.menu.form.hookHint', { max: HOOK_MAX })}</p>
-      </Panel>
-
-      {/* Photo + highlight */}
-      <Panel title={tr('ws.manager.menu.form.presentation')}>
-        <div style={{ display: 'flex', gap: 'var(--tp-sp-4)', alignItems: 'flex-start', flexWrap: 'wrap' }}>
-          <div style={{ inlineSize: '11rem' }}>
-            <ImageField
-              label={tr('op.menu.photo')}
-              value={photo}
-              onChange={onPhotoChange}
-              folder="items"
-              ownerId={item?.id ?? draftId.current}
-              aspect="1:1"
-              disabled={readOnly || photoMutation.isPending}
+      ),
+    },
+    {
+      key: 'presentation',
+      label: tr('ws.manager.menu.form.presentation'),
+      icon: 'image',
+      center: true,
+      content: (
+        <PhotoSection
+          photo={photo}
+          onPhoto={onPhotoChange}
+          photoBusy={photoMutation.isPending}
+          ownerId={item?.id ?? draftId.current}
+          highlight={highlight}
+          onHighlight={setHighlight}
+          itemName={name.en.trim() || name.ar.trim() || tr('ws.manager.menu.newItem')}
+          price={price}
+          readOnly={readOnly}
+        />
+      ),
+    },
+    {
+      key: 'pricing',
+      label: tr('ws.manager.menu.form.pricing'),
+      icon: 'tag',
+      content: (
+        <CostSection
+          price={price}
+          cost={costDraft}
+          onCost={setCostDraft}
+          onCostBlur={commitCost}
+          costBusy={costMutation.isPending}
+          isActive={isActive}
+          onActive={setIsActive}
+          activeDisabled={locks.switchOn !== null}
+          activeHint={locks.switchOn ? tr(`ws.release.menu.switch.${locks.switchOn}`) : tr('ws.manager.menu.form.activeHint')}
+          // The shared start, with the ↗ every other one wears.
+          activeAction={
+            locks.switchOn === 'putOnSale' && item ? (
+              <PriceChangeButton size="sm" target={{ change: 'shop_launch', item: item.id }} label={tr('ws.release.menu.putOnSale')} />
+            ) : undefined
+          }
+          readOnly={readOnly}
+          showFigures={item !== null}
+        />
+      ),
+    },
+    {
+      key: 'availability',
+      label: tr('ws.manager.menu.form.availability'),
+      icon: 'clock',
+      content: (
+        <AvailabilitySection
+          saved={item !== null}
+          state={item ? orderableState(item, today, stockBlock.blocked) : 'orderable'}
+          soldOut={item?.sold_out ?? false}
+          onSoldOut={setSoldOut}
+          offToday={!!offToday}
+          backOn={backOn}
+          onOffToday={(available) => availability.mutate(available)}
+          offBusy={availability.isPending}
+          stockBlock={stockBlock}
+          readOnly={readOnly}
+          ingredientNames={stockBlock.ingredients.map((i) => pickName(locale, i))}
+        />
+      ),
+    },
+    ...(item
+      ? ([
+          { key: 'sizes', label: tr('ws.manager.menu.form.sizes.title'), icon: 'layers', tip: tr('ws.manager.menu.form.sizes.defaultHint'), content: (
+            <VariantsEditor
+              item={item}
+              pricesLock={locks.prices}
+              prices={sizePrices}
+              onPrice={(id, n) => setSizePrices((p) => ({ ...p, [id]: n }))}
+              defaultId={defaultId}
+              onDefault={(id) => setSizeDefault(id === savedDefaultId ? null : id)}
             />
-            <p style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>{tr('op.menu.photoHint')}</p>
-          </div>
-          <fieldset style={{ border: 'none', padding: 0, margin: 0, minInlineSize: 0 }}>
-            <legend style={{ fontSize: 'var(--tp-fs-sm)', fontWeight: 600, marginBlockEnd: 'var(--tp-sp-1)' }}>{tr('op.menu.highlight')}</legend>
-            <div style={{ display: 'flex', gap: 'var(--tp-sp-1-5)', flexWrap: 'wrap' }}>
-              {HIGHLIGHTS.map((h) => {
-                const selected = highlight === h;
-                // 'brown' is a stored value; the guest menu paints it green, so
-                // the label names the colour the guest sees (see chips.tsx).
-                const label = h === 'none' ? tr('op.menu.highlightNone') : h === 'blue' ? tr('op.menu.highlightBlue') : tr('op.menu.highlightBrown');
-                return (
-                  <label
-                    key={h}
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: 'var(--tp-sp-1-5)',
-                      paddingBlock: 'var(--tp-sp-1)',
-                      paddingInline: 'var(--tp-sp-2-5)',
-                      border: `2px solid ${selected ? 'var(--tp-accent)' : 'var(--tp-border)'}`,
-                      borderRadius: 'var(--tp-radius-pill)',
-                      cursor: readOnly ? 'not-allowed' : 'pointer',
-                      fontSize: 'var(--tp-fs-sm)',
-                      background: selected ? 'var(--tp-accent-soft)' : undefined,
-                    }}
-                  >
-                    <input
-                      type="radio"
-                      name="highlight"
-                      value={h}
-                      checked={selected}
-                      disabled={readOnly}
-                      onChange={() => setHighlight(h)}
-                      style={{ position: 'absolute', opacity: 0, inlineSize: 0, blockSize: 0 }}
-                    />
-                    <span
-                      aria-hidden="true"
-                      style={{
-                        inlineSize: '0.9rem',
-                        blockSize: '0.9rem',
-                        borderRadius: '50%',
-                        background: HIGHLIGHT_COLOR[h],
-                        border: h === 'none' ? '1px dashed var(--tp-muted-fg)' : 'none',
-                      }}
-                    />
-                    {label}
-                  </label>
-                );
-              })}
-            </div>
-          </fieldset>
-        </div>
-      </Panel>
+          ) },
+          { key: 'groups', label: tr('ws.manager.menu.form.groups.title'), icon: 'sliders', tip: tr('ws.manager.menu.form.groups.lead'), content: <ItemModifierGroups item={item} groups={groups} modifiers={modifiers} /> },
+        ] satisfies DialogSection[])
+      : []),
+  ];
 
-      {/* Cost + active */}
-      <Panel title={tr('ws.manager.menu.form.pricing')}>
-        <div style={{ display: 'flex', gap: 'var(--tp-sp-5)', alignItems: 'flex-start', flexWrap: 'wrap' }}>
-          <Field label={tr('op.menu.cost')} hint={tr('op.menu.costHint')} style={{ marginBlockEnd: 0, maxInlineSize: '20rem' }}>
-            <span onBlur={commitCost} style={{ display: 'inline-block' }}>
-              <MoneyInput value={costDraft} onChange={setCostDraft} allowEmpty disabled={readOnly || costMutation.isPending} style={{ inlineSize: '13rem' }} />
-            </span>
-          </Field>
-          <div style={{ display: 'grid', gap: 'var(--tp-sp-1)', maxInlineSize: '20rem', paddingBlockStart: 'var(--tp-sp-5)' }}>
-            <Switch checked={isActive} disabled={readOnly || locks.switchOn !== null} onChange={setIsActive} label={tr('op.menu.isActive')} />
-            <p style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>
-              {locks.switchOn ? tr(`ws.release.menu.switch.${locks.switchOn}`) : tr('ws.manager.menu.form.activeHint')}
-            </p>
-            {/* The shared start, with the ↗ every other one wears. */}
-            {locks.switchOn === 'putOnSale' && item && (
-              <div>
-                <PriceChangeButton size="sm" target={{ change: 'shop_launch', item: item.id }} label={tr('ws.release.menu.putOnSale')} />
-              </div>
-            )}
-          </div>
-        </div>
-      </Panel>
-
-      {/* Availability — can a guest order it now, then the two switches that change that */}
-      <Panel title={tr('ws.manager.menu.form.availability')}>
-        {item ? (
-          <div style={{ display: 'grid', gap: 'var(--tp-sp-3)' }}>
-            <NowLine state={orderableState(item, today, stockBlock.blocked)} />
-
-            <div>
-              <Switch checked={item.sold_out} disabled={readOnly} onChange={setSoldOut} label={tr('op.menu.soldOutShort')} tone="danger" />
-              <p style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)', marginBlockStart: 'var(--tp-sp-1)' }}>{tr('ws.manager.menu.form.soldOutHint')}</p>
-            </div>
-
-            <div style={{ display: 'flex', gap: 'var(--tp-sp-2-5)', alignItems: 'center', flexWrap: 'wrap' }}>
-              {offToday ? (
-                <>
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-1-5)', fontSize: 'var(--tp-fs-sm)', fontWeight: 600, color: MARK_FG.warn }}>
-                    <Icon name="clock" size={15} style={{ color: MARK.warn }} />
-                    <bdi>{tr('ws.manager.menu.form.offTodayUntil', { date: backOn ?? '' })}</bdi>
-                  </span>
-                  <Button size="sm" busy={availability.isPending} disabled={readOnly} onClick={() => availability.mutate(true)}>
-                    {tr('ws.manager.menu.form.restore')}
-                  </Button>
-                </>
-              ) : (
-                <>
-                  <Button size="sm" icon="clock" busy={availability.isPending} disabled={readOnly} onClick={() => availability.mutate(false)}>
-                    {tr('ws.manager.menu.form.markOff')}
-                  </Button>
-                  <span style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)', flex: '1 1 12rem' }}>{tr('ws.manager.menu.form.offTodayHint')}</span>
-                </>
-              )}
-            </div>
-
-            {stockBlock.blocked && (
-              <div role="status" aria-label={tr('ws.manager.menu.form.blockedTitle')}>
-                <div style={{ display: 'flex', gap: 'var(--tp-sp-2)', alignItems: 'center', marginBlockEnd: 'var(--tp-sp-1-5)' }}>
-                  <StatusBadge tone="warn" icon="box" label={tr('ws.manager.menu.form.blockedTitle')} />
-                  <StatusBadge tone="neutral" icon="lock" label={tr('ws.kit.common.readOnlyStock')} size="sm" />
-                </div>
-                <MessagePresenter
-                  tone="refused"
-                  icon="box"
-                  message={
-                    <>
-                      {tr('ws.manager.menu.form.blockedBody')}{' '}
-                      <strong>
-                        {stockBlock.ingredients.length > 0
-                          ? tr('ws.manager.menu.form.blockedIngredients', {
-                              names: stockBlock.ingredients.map((i) => pickName(locale, i)).join(locale === 'ar' ? '، ' : ', '),
-                            })
-                          : tr('ws.manager.menu.form.blockedUnknown')}
-                      </strong>
-                    </>
-                  }
-                />
-              </div>
-            )}
-          </div>
-        ) : (
-          <p style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>{tr('ws.manager.menu.form.saveFirst')}</p>
-        )}
-      </Panel>
-
-      {item && (
+  return (
+    <SectionDialog
+      title={item ? pickName(locale, item) : tr('ws.manager.menu.newItem')}
+      meta={categoryName ? <bdi>{categoryName}</bdi> : undefined}
+      sideNote={
+        price !== null ? (
+          <>
+            {tr('op.menu.defaultPrice')}:{' '}
+            <strong style={{ color: 'var(--tp-success-fg)', fontWeight: 800 }}>
+              <Money amount={price} />
+            </strong>
+          </>
+        ) : undefined
+      }
+      sections={sections}
+      notice={
         <>
-          <VariantsEditor item={item} pricesLock={locks.prices} />
-          <ItemModifierGroups item={item} groups={groups} modifiers={modifiers} />
+          <ErrorText error={error} style={{ marginBlock: 0 }} />
+          {item && inRelease(item) && <ReleaseNotice item={item} />}
         </>
-      )}
-    </div>
+      }
+      dirty={dirty}
+      busy={busy}
+      onClose={onClose}
+      canClose={canClose}
+      actions={
+        <>
+          {dirty && (
+            <Button
+              size="lg"
+              disabled={busy}
+              onClick={discard}
+              // Solid red: a destructive choice, set apart from Save.
+              style={{ background: 'var(--tp-danger)', color: 'var(--tp-danger-contrast)', borderColor: 'transparent' }}
+            >
+              {tr('ws.kit.actions.discard')}
+            </Button>
+          )}
+          <Button size="lg" kind="primary" icon="check" busy={busy} disabled={readOnly || !valid || !dirty} disabledReason={saveReason} onClick={() => save.mutate()}>
+            {tr('ws.kit.actions.save')}
+          </Button>
+        </>
+      }
+    />
   );
 }
 
@@ -524,21 +486,5 @@ function ReleaseNotice({ item }: { item: ItemRow }) {
         </span>
       }
     />
-  );
-}
-
-/**
- * The answer the availability panel exists for: can a guest order this right
- * now, and if not, the first reason. The old panel showed a neutral "Off for
- * today · Temporary" badge whether or not the item was off, so it read as off.
- */
-function NowLine({ state }: { state: ReturnType<typeof orderableState> }) {
-  const { tr } = useLocale();
-  const ok = state === 'orderable';
-  return (
-    <p style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-2)', fontWeight: 600, color: ok ? MARK_FG.success : MARK_FG.warn }}>
-      <Icon name={ok ? 'checkCircle' : 'ban'} size={18} style={{ color: ok ? MARK.success : MARK.warn, flex: '0 0 auto' }} />
-      {tr(`ws.manager.menu.form.now.${state}`)}
-    </p>
   );
 }

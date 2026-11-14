@@ -16,7 +16,7 @@ import { appRpc } from '../../../lib/appRpc';
 import { useLocale, pickName } from '../../../lib/i18n';
 import { usePermissions } from '../../../lib/auth';
 import { Button } from '../../../components/ui';
-import { Panel } from '../../../components/kit';
+import { EmptyState } from '../../../components/kit';
 import { Switch } from '../../../components/Switch';
 import { useToast } from '../../../components/toast';
 import { useChoiceRuleText } from '../addons/ChoiceLimits';
@@ -79,20 +79,31 @@ export function ItemModifierGroups({
     />
   );
 
+  // Nothing to switch on yet: say so once, and put the one way forward where the eye is.
+  if (groups.length === 0) {
+    return (
+      <EmptyState
+        icon="sliders"
+        title={tr('ws.manager.menu.form.groups.noneTitle')}
+        body={tr('ws.manager.menu.form.groups.noneBody')}
+        action={
+          <Button kind="primary" iconEnd="arrowUpRight" onClick={() => void navigate({ to: '/admin/addons' })}>
+            {tr('ws.manager.menu.form.groups.create')}
+          </Button>
+        }
+      />
+    );
+  }
+
   return (
-    <Panel
-      title={tr('ws.manager.menu.form.groups.title')}
-      actions={
+    <div style={{ display: 'grid', gap: 'var(--tp-sp-3)' }}>
+      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
         <Button size="sm" kind="ghost" iconEnd="arrowUpRight" onClick={() => void navigate({ to: '/admin/addons' })}>
           {tr('ws.manager.menu.form.groups.manage')}
         </Button>
-      }
-    >
-      {groups.length === 0 ? (
-        <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>{tr('ws.manager.menu.form.groups.none')}</p>
-      ) : (
+      </div>
+      {(
         <div style={{ display: 'grid', gap: 'var(--tp-sp-2)' }}>
-          <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>{tr('ws.manager.menu.form.groups.lead')}</p>
           {offered.length === 0 ? (
             <p style={{ fontSize: 'var(--tp-fs-sm)' }}>{tr('ws.manager.menu.form.groups.noneOffered')}</p>
           ) : (
@@ -110,11 +121,11 @@ export function ItemModifierGroups({
           )}
         </div>
       )}
-    </Panel>
+    </div>
   );
 }
 
-const listStyle = { listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--tp-sp-1)' } as const;
+const listStyle = { listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--tp-sp-3)' } as const;
 
 function GroupRowView({
   group,
@@ -131,20 +142,17 @@ function GroupRowView({
 }) {
   const { tr, locale } = useLocale();
   const ruleText = useChoiceRuleText();
-  const optionText = options
-    .map((m) => (m.price_delta_iqd > 0 ? `${pickName(locale, m)} (+${formatIQD(m.price_delta_iqd, locale)})` : pickName(locale, m)))
-    .join(locale === 'ar' ? '، ' : ', ');
   return (
     <li
       style={{
         display: 'grid',
         gridTemplateColumns: 'auto minmax(0, 1fr)',
-        columnGap: 'var(--tp-sp-2-5)',
-        alignItems: 'start',
-        paddingBlock: 'var(--tp-sp-2)',
-        paddingInline: 'var(--tp-sp-2)',
-        borderRadius: 'var(--tp-radius-ctl)',
-        background: offered ? 'var(--tp-surface-2)' : 'transparent',
+        columnGap: 'var(--tp-sp-4)',
+        alignItems: 'center',
+        padding: 'var(--tp-sp-3) var(--tp-sp-4)',
+        borderRadius: 'var(--tp-radius-panel)',
+        border: `2px solid ${offered ? 'var(--tp-accent)' : 'var(--tp-border)'}`,
+        background: offered ? 'var(--tp-accent-soft)' : 'var(--tp-surface)',
       }}
     >
       <Switch checked={offered} disabled={disabled} onChange={onChange} label={`${tr('ws.manager.menu.form.groups.offered')}: ${pickName(locale, group)}`} hideLabel style={{ marginBlockStart: '0.1rem' }} />
@@ -153,9 +161,20 @@ function GroupRowView({
           <bdi style={{ fontWeight: 600 }}>{pickName(locale, group)}</bdi>
           <span style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>{ruleText(group.min_select, group.max_select)}</span>
         </span>
-        <span style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>
-          {options.length === 0 ? tr('ws.manager.menu.form.groups.noOptions') : <bdi>{optionText}</bdi>}
-        </span>
+        {options.length === 0 ? (
+          <span style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>{tr('ws.manager.menu.form.groups.noOptions')}</span>
+        ) : (
+          <span style={{ display: 'flex', gap: 'var(--tp-sp-1-5)', flexWrap: 'wrap', marginBlockStart: 'var(--tp-sp-1-5)' }}>
+            {options.map((m) => (
+              <bdi
+                key={m.id}
+                style={{ paddingBlock: 'var(--tp-sp-0)', paddingInline: 'var(--tp-sp-2-5)', borderRadius: 'var(--tp-radius-pill)', background: 'var(--tp-surface)', border: '1px solid var(--tp-border)', fontSize: 'var(--tp-fs-xs)', fontWeight: 600, color: 'var(--tp-muted-fg)' }}
+              >
+                {m.price_delta_iqd > 0 ? `${pickName(locale, m)} (+${formatIQD(m.price_delta_iqd, locale)})` : pickName(locale, m)}
+              </bdi>
+            ))}
+          </span>
+        )}
       </div>
     </li>
   );

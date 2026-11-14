@@ -14,6 +14,7 @@
  *
  * Refusals land on the field they name (`issueAt`, the server's hint names).
  */
+import { Icon } from '../../components/icons';
 import { Fragment, useState, type CSSProperties, type ReactNode } from 'react';
 import { formatIQD, formatNumber, isolate, type MessageKey } from '@touch/i18n';
 import {
@@ -80,6 +81,8 @@ export interface FormEnv {
   submitterDecides?: boolean;
   /** Release launch: the run's own photos to put on the menu. */
   launchPhotos?: string[];
+  /** A stepped sheet already names the list in its step title: its own heading is for screen readers only. */
+  stepTitled?: boolean;
 }
 
 /** Fields another screen or panel writes: the walker leaves them out. */
@@ -130,6 +133,7 @@ export function RecordForm({
   issues,
   env,
   disabled,
+  quiet,
 }: {
   fields: readonly FieldDef[];
   value: Obj;
@@ -137,6 +141,8 @@ export function RecordForm({
   issues: readonly FieldIssue[];
   env: FormEnv;
   disabled?: boolean;
+  /** No "Optional" tags: the whole form is optional and its screen says so once. */
+  quiet?: boolean;
 }) {
   const shown = fields.filter((f) => {
     if (WRITTEN_ELSEWHERE.has(f.name)) return false;
@@ -163,11 +169,11 @@ export function RecordForm({
           group.length === 2 ? (
             <div key={group[0]!.name} style={PAIR}>
               {group.map((f) => (
-                <FieldControl key={f.name} def={f} path={[f.name]} value={value} set={set} issues={issues} env={env} disabled={disabled} onRecord={onChange} />
+                <FieldControl key={f.name} def={f} path={[f.name]} value={value} set={set} issues={issues} env={env} disabled={disabled} onRecord={onChange} quiet={quiet} />
               ))}
             </div>
           ) : (
-            <FieldControl key={group[0]!.name} def={group[0]!} path={[group[0]!.name]} value={value} set={set} issues={issues} env={env} disabled={disabled} onRecord={onChange} />
+            <FieldControl key={group[0]!.name} def={group[0]!} path={[group[0]!.name]} value={value} set={set} issues={issues} env={env} disabled={disabled} onRecord={onChange} quiet={quiet} />
           );
         if (lessonAnchor === null || group[0]!.name !== lessonAnchor) return node;
         return (
@@ -479,6 +485,7 @@ function FieldControl(props: ControlProps) {
       );
     }
     case 'list':
+      if (env.stepTitled && top === 'sizes') return <SizeRows {...props} error={error} />;
       return <ListEditor {...props} label={label} error={error} hint={hint} />;
     case 'uuid':
     case 'uuids':
@@ -499,6 +506,106 @@ function OptionalMark() {
 
 // ── Generic list ────────────────────────────────────────────────────────────
 
+/** The menu editor's cards, for the new-item wizard: a 2px frame, roomy labelled boxes, a dashed tile to add. */
+export const CARD: CSSProperties = {
+  display: 'grid',
+  gap: 'var(--tp-sp-3)',
+  padding: 'var(--tp-sp-4)',
+  border: '2px solid var(--tp-border)',
+  borderRadius: 'var(--tp-radius-panel)',
+  background: 'var(--tp-surface)',
+};
+const BIG_BOX: CSSProperties = { ...inputStyle, minBlockSize: '3rem', borderRadius: '0.75rem', fontWeight: 400 };
+
+function AddTile({ label, onClick }: { label: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      style={{
+        inlineSize: '100%',
+        minBlockSize: '4rem',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 'var(--tp-sp-2-5)',
+        border: '2px dashed var(--tp-border-strong)',
+        borderRadius: 'var(--tp-radius-panel)',
+        background: 'transparent',
+        color: 'var(--tp-accent)',
+        font: 'inherit',
+        fontWeight: 700,
+        cursor: 'pointer',
+      }}
+    >
+      <Icon name="plus" size={18} strokeWidth={2.4} />
+      {label}
+    </button>
+  );
+}
+
+/** The new-item wizard's sizes: a card per size (its number, a remove button, the two names), then a dashed tile. */
+function SizeRows({ def, path, value, set, issues, disabled, error }: ControlProps & { error?: string }) {
+  const { tr, locale } = useLocale();
+  const rows = (Array.isArray(getAt(value, path)) ? getAt(value, path) : []) as Obj[];
+  const full = def.maxItems !== undefined && rows.length >= def.maxItems;
+  const labelStyle: CSSProperties = { display: 'grid', gap: 'var(--tp-sp-1)', fontSize: 'var(--tp-fs-sm)', fontWeight: 700 };
+  return (
+    <div style={{ display: 'grid', gap: 'var(--tp-sp-3)' }}>
+      {error && rows.length === 0 && <p style={{ color: 'var(--tp-danger-fg)', fontSize: 'var(--tp-fs-sm)', margin: 0 }}>{error}</p>}
+      {rows.map((row, i) => {
+        const rowIssue = issueAt(issues, [...path, i]);
+        return (
+          <div key={i} style={{ ...CARD, borderColor: rowIssue ? 'var(--tp-danger)' : 'var(--tp-border)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--tp-sp-2)' }}>
+              <strong style={{ fontSize: 'var(--tp-fs-md)' }}>{tr('ws.protocols.form.sizeN', { n: formatNumber(i + 1, locale) })}</strong>
+              {!disabled && rows.length > 1 && (
+                <Button
+                  size="sm"
+                  kind="ghost"
+                  icon="x"
+                  aria-label={tr('ws.protocols.form.removeRow', { n: formatNumber(i + 1, locale) })}
+                  title={tr('ws.protocols.form.removeRow', { n: formatNumber(i + 1, locale) })}
+                  onClick={() => set(path, rows.filter((__, j) => j !== i))}
+                />
+              )}
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(13rem, 1fr))', gap: 'var(--tp-sp-3)' }}>
+              <label style={labelStyle}>
+                {tr('ws.protocols.fields.sizes_name_en')}
+                <input
+                  style={BIG_BOX}
+                  dir="ltr"
+                  aria-invalid={rowIssue ? true : undefined}
+                  value={typeof row.name_en === 'string' ? row.name_en : ''}
+                  disabled={disabled}
+                  onChange={(e) => set([...path, i, 'name_en'], e.target.value)}
+                />
+              </label>
+              <label style={labelStyle}>
+                {tr('ws.protocols.fields.sizes_name_ar')}
+                <input
+                  style={BIG_BOX}
+                  dir="rtl"
+                  lang="ar"
+                  aria-invalid={rowIssue ? true : undefined}
+                  value={typeof row.name_ar === 'string' ? row.name_ar : ''}
+                  disabled={disabled}
+                  onChange={(e) => set([...path, i, 'name_ar'], e.target.value)}
+                />
+              </label>
+            </div>
+            {rowIssue && <p style={{ color: 'var(--tp-danger-fg)', fontSize: 'var(--tp-fs-sm)', margin: 0 }}>{issueText(tr, rowIssue)}</p>}
+          </div>
+        );
+      })}
+      {!disabled && !full && (
+        <AddTile label={tr('ws.protocols.form.addSize')} onClick={() => set(path, [...rows, blankObject(def.fields ?? [], path.filter((p): p is string => typeof p === 'string'))])} />
+      )}
+    </div>
+  );
+}
+
 function ListEditor({ def, path, value, set, issues, env, disabled, onRecord, label, error, hint }: ControlProps & { label: string; error?: string; hint?: string }) {
   const { tr, locale } = useLocale();
   const rows = (Array.isArray(getAt(value, path)) ? getAt(value, path) : []) as Obj[];
@@ -506,7 +613,7 @@ function ListEditor({ def, path, value, set, issues, env, disabled, onRecord, la
   const full = def.maxItems !== undefined && rows.length >= def.maxItems;
   return (
     <fieldset style={{ border: 'none', padding: 0, margin: 0, minInlineSize: 0, display: 'grid', gap: 'var(--tp-sp-1-5)' }}>
-      <legend style={{ fontWeight: 600, paddingInline: 0, marginBlockEnd: 'var(--tp-sp-1)' }}>
+      <legend className={env.stepTitled ? 'tp-sr-only' : undefined} style={{ fontWeight: 600, paddingInline: 0, marginBlockEnd: 'var(--tp-sp-1)' }}>
         {label}
         {!def.required && <OptionalMark />}
       </legend>
@@ -522,20 +629,24 @@ function ListEditor({ def, path, value, set, issues, env, disabled, onRecord, la
               flexWrap: 'wrap',
               gap: 'var(--tp-sp-2)',
               alignItems: 'flex-end',
-              padding: 'var(--tp-sp-2)',
-              borderRadius: 'var(--tp-radius-ctl)',
+              // A field keeps a gap under itself; in the stepped sheet the card's bottom is that gap, so it is not doubled.
+              padding: env.stepTitled ? 'var(--tp-sp-3) var(--tp-sp-3) 0' : 'var(--tp-sp-2)',
+              borderRadius: env.stepTitled ? 'var(--tp-radius-panel)' : 'var(--tp-radius-ctl)',
               border: `1px solid ${rowIssue ? 'var(--tp-danger)' : 'var(--tp-border)'}`,
+              background: env.stepTitled ? 'var(--tp-surface)' : undefined,
             }}
           >
             {members.map((m) => (
               <div key={m.name} style={{ flex: '1 1 10rem', minInlineSize: 0 }}>
-                <FieldControl def={m} path={[...path, i, m.name]} value={value} set={set} issues={[]} env={env} disabled={disabled} onRecord={onRecord} />
+                <FieldControl def={m} path={[...path, i, m.name]} value={value} set={set} issues={[]} env={env} disabled={disabled} onRecord={onRecord} quiet={env.stepTitled || undefined} />
               </div>
             ))}
             {!disabled && (
               <Button
                 size="sm"
                 kind="ghost"
+                // Level with the boxes, above the gap a field keeps under itself.
+                style={env.stepTitled ? { marginBlockEnd: 'var(--tp-sp-4)' } : undefined}
                 icon="x"
                 aria-label={tr('ws.protocols.form.removeRow', { n: formatNumber(i + 1, locale) })}
                 title={tr('ws.protocols.form.removeRow', { n: formatNumber(i + 1, locale) })}
@@ -549,7 +660,7 @@ function ListEditor({ def, path, value, set, issues, env, disabled, onRecord, la
       {!disabled && !full && (
         <div>
           <Button size="sm" icon="plus" onClick={() => set(path, [...rows, blankObject(def.fields ?? [], path.filter((p): p is string => typeof p === 'string'))])}>
-            {tr('ws.protocols.form.addRow')}
+            {env.stepTitled && def.name === 'sizes' ? tr('ws.protocols.form.addSize') : tr('ws.protocols.form.addRow')}
           </Button>
         </div>
       )}
@@ -565,8 +676,10 @@ export function NumberBox({
   integer,
   disabled,
   ariaLabel,
+  placeholder,
   style,
 }: {
+  placeholder?: string;
   value: number | null;
   onChange: (next: number | null) => void;
   integer?: boolean;
@@ -583,6 +696,7 @@ export function NumberBox({
       inputMode={integer ? 'numeric' : 'decimal'}
       autoComplete="off"
       aria-label={ariaLabel}
+      placeholder={placeholder}
       disabled={disabled}
       value={shown}
       onChange={(e) => {
@@ -1147,16 +1261,16 @@ function AddonTable({ path, value, set, env, disabled, label, error, issues, onR
   );
 }
 
-function RecipeLines({ path, value, set, issues, disabled, label, error }: ControlProps & { label: string; error?: string }) {
+function RecipeLines({ path, value, set, issues, env, disabled, label, error }: ControlProps & { label: string; error?: string }) {
   const { tr, locale } = useLocale();
   const ingredients = useIngredients();
   const rows = (Array.isArray(value.lines) ? value.lines : []) as Obj[];
   const unitOf = (id: string) => ingredients.data?.find((i) => i.id === id)?.unit;
   const NEW = '__new__';
   return (
-    <fieldset style={{ border: 'none', padding: 0, margin: 0, minInlineSize: 0, display: 'grid', gap: 'var(--tp-sp-1-5)' }}>
-      <legend style={{ fontWeight: 600, paddingInline: 0, marginBlockEnd: 'var(--tp-sp-1)' }}>{label}</legend>
-      <p style={{ ...muted, margin: 0 }}>{tr('ws.protocols.hints.lines')}</p>
+    <fieldset style={{ border: 'none', padding: 0, margin: 0, minInlineSize: 0, display: 'grid', gap: env.stepTitled ? 'var(--tp-sp-3)' : 'var(--tp-sp-1-5)' }}>
+      <legend className={env.stepTitled ? 'tp-sr-only' : undefined} style={{ fontWeight: 600, paddingInline: 0, marginBlockEnd: 'var(--tp-sp-1)' }}>{label}</legend>
+      <p style={{ ...muted, margin: 0, marginBlockEnd: 'var(--tp-sp-1)' }}>{tr('ws.protocols.hints.lines')}</p>
       {error && rows.length === 0 && <p style={{ color: 'var(--tp-danger-fg)', fontSize: 'var(--tp-fs-sm)', margin: 0 }}>{error}</p>}
       {rows.map((row, i) => {
         const ingredientId = typeof row.ingredient_id === 'string' ? row.ingredient_id : '';
@@ -1164,7 +1278,14 @@ function RecipeLines({ path, value, set, issues, disabled, label, error }: Contr
         const typed = ingredientId === '' && (row._typed === true || (typeof row.label === 'string' && row.label !== ''));
         const rowIssue = issueAt(issues, [...path, i]);
         return (
-          <div key={i} style={{ display: 'flex', gap: 'var(--tp-sp-2)', alignItems: 'center', flexWrap: 'wrap', paddingBlock: 'var(--tp-sp-1)', borderBlockEnd: '1px solid var(--tp-border)' }}>
+          <div
+            key={i}
+            style={
+              env.stepTitled
+                ? { ...CARD, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 'var(--tp-sp-3)', borderColor: rowIssue ? 'var(--tp-danger)' : 'var(--tp-border)' }
+                : { display: 'flex', gap: 'var(--tp-sp-2)', alignItems: 'center', flexWrap: 'wrap', paddingBlock: 'var(--tp-sp-1)', borderBlockEnd: '1px solid var(--tp-border)' }
+            }
+          >
             <span style={{ flex: '2 1 12rem', minInlineSize: 0 }}>
               <Select<string>
                 aria-label={tr('ws.protocols.fields.lines_ingredient_id')}
@@ -1191,7 +1312,7 @@ function RecipeLines({ path, value, set, issues, disabled, label, error }: Contr
                 onChange={(e) => set([...path, i, 'label'], e.target.value)}
               />
             )}
-            <NumberBox value={typeof row.qty === 'number' ? row.qty : null} onChange={(q) => set([...path, i, 'qty'], q)} disabled={disabled} ariaLabel={tr('ws.protocols.fields.lines_qty')} style={{ inlineSize: '6rem' }} />
+            <NumberBox value={typeof row.qty === 'number' ? row.qty : null} onChange={(q) => set([...path, i, 'qty'], q)} disabled={disabled} ariaLabel={tr('ws.protocols.fields.lines_qty')} placeholder={tr('ws.protocols.fields.lines_qty')} style={{ inlineSize: '7rem' }} />
             <SegmentedControl<string>
               size="sm"
               aria-label={tr('ws.protocols.fields.lines_unit')}
@@ -1213,11 +1334,15 @@ function RecipeLines({ path, value, set, issues, disabled, label, error }: Contr
         );
       })}
       {!disabled && rows.length < 30 && (
-        <div>
-          <Button size="sm" icon="plus" onClick={() => set(path, [...rows, { ingredient_id: '', label: '', qty: null, unit: 'g' }])}>
-            {tr('ws.protocols.form.addLine')}
-          </Button>
-        </div>
+        env.stepTitled ? (
+          <AddTile label={tr('ws.protocols.form.addLine')} onClick={() => set(path, [...rows, { ingredient_id: '', label: '', qty: null, unit: 'g' }])} />
+        ) : (
+          <div>
+            <Button size="sm" icon="plus" onClick={() => set(path, [...rows, { ingredient_id: '', label: '', qty: null, unit: 'g' }])}>
+              {tr('ws.protocols.form.addLine')}
+            </Button>
+          </div>
+        )
       )}
     </fieldset>
   );

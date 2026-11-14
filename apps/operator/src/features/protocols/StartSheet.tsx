@@ -19,7 +19,7 @@
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { formatDate, type MessageKey } from '@touch/i18n';
+import { formatDate, formatNumber, type MessageKey } from '@touch/i18n';
 import {
   builtInStep,
   firstStepKey,
@@ -34,8 +34,8 @@ import { AppRpcError, appRpc } from '../../lib/appRpc';
 import { useAuth } from '../../lib/auth';
 import { useLocale } from '../../lib/i18n';
 import { useToast } from '../../components/toast';
-import { Button, Field, Modal, Select, inputStyle } from '../../components/ui';
-import { MessagePresenter, SegmentedControl } from '../../components/kit';
+import { Field, Select, inputStyle } from '../../components/ui';
+import { ReviewList, StepWizard, WizardChoice, WizardChoices, WizardNote, type WizardAt, type WizardStep } from '../../components/StepWizard';
 import { invalidateProtocols, useOverview, useTargets, useTemplateDetail } from './api';
 import { finalizeRecord } from './contextLogic';
 import { protocolErrorKey } from './errors';
@@ -43,11 +43,9 @@ import { cleanRecord, initialValue, mintKey, type Obj } from './formModel';
 import { PhotoField } from './PhotoField';
 import { priceProposalPrefill, type TargetLink } from './priceTargets';
 import { decidesStep, firstStepNeedsOk, isObj, startTemplateId, titlesInBoth } from './protocolLogic';
-import { RecordForm, type FormEnv } from './StepForm';
+import { CARD, RecordForm, type FormEnv } from './StepForm';
 import { PK } from './keys';
 import { TournamentStartSheet } from '../tournaments/start/TournamentStartSheet';
-
-const TOURNAMENT_TYPES: TournamentVariant[] = ['type1', 'type2', 'type3'];
 
 interface Idea {
   id: string;
@@ -109,7 +107,6 @@ export function StartSheet(props: StartSheetProps) {
 
 function GenericStartSheet({
   kind,
-  variant: variantIn,
   change: changeIn,
   link = {},
   ideaId,
@@ -121,7 +118,8 @@ function GenericStartSheet({
   const { staff } = useAuth();
   const qc = useQueryClient();
   const toast = useToast();
-  const [variant, setVariant] = useState<TournamentVariant | null>(kind === 'tournament' ? variantIn ?? 'type1' : null);
+  // A tournament never reaches this sheet (it has its own), so there is no variant here.
+  const variant: TournamentVariant | null = null;
   const [change, setChange] = useState<PriceChangeKind | null>(
     kind === 'price_promo' ? (changeIn && changeChoices.includes(changeIn) ? changeIn : changeChoices[0] ?? null) : null,
   );
@@ -152,6 +150,9 @@ function GenericStartSheet({
   const [photos, setPhotos] = useState<string[]>([]);
   const [issues, setIssues] = useState<FieldIssue[]>([]);
   const [key, setKey] = useState(() => mintKey('protocol.start'));
+  const [at, setAt] = useState<WizardAt>(0);
+  // Steps whose fields show their marks: one someone was stopped on, or all after a refused send.
+  const [revealed, setRevealed] = useState<readonly string[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
 
@@ -179,13 +180,6 @@ function GenericStartSheet({
     setPhotos(idea.photos);
   }, [idea, kind]);
 
-  // A tournament type changes the plan's form (type 2 is the short one).
-  function pickVariant(v: TournamentVariant) {
-    setVariant(v);
-    setValue((prev) => initialValue(startForm(kind, { variant: v }).fields, prev));
-    setIssues([]);
-  }
-
   const env: FormEnv = useMemo(
     () => ({
       kind,
@@ -195,6 +189,7 @@ function GenericStartSheet({
       targets: targets.data,
       changeChoices,
       submitterDecides,
+      stepTitled: kind === 'product_release',
     }),
     [kind, variant, change, targets.data, changeChoices, submitterDecides],
   );
@@ -204,7 +199,8 @@ function GenericStartSheet({
   // A new item or a tournament left untitled takes the name it was given.
   const namesTitle = kind === 'product_release' || kind === 'tournament';
 
-  async function start() {
+  /** What would be sent, and what is wrong with it right now. */
+  function prepare() {
     const record = finalizeRecord(kind, firstStepKey(kind), cleanRecord(form.fields, value), current);
     const fallback = (typed: string, name: unknown) => (typed.trim() !== '' ? typed.trim() : namesTitle && typeof name === 'string' ? name.trim() : '');
     const en = fallback(titleEn, record.name_en);
@@ -215,8 +211,49 @@ function GenericStartSheet({
       // A title left blank takes the name below, so a missing one is the name's
       // to say: "Write something first" under an optional box only confuses.
     ).filter((i) => !(namesTitle && i.field === 'title' && i.code === 'TEXT_REQUIRED'));
+    return { record, en, ar, found };
+  }
+  const live = prepare();
+
+  // Which fields live on which step. A new item's proposal is split in four;
+  // every other kind's first step is one.
+  const split = kind === 'product_release';
+  const ITEM = ['name_en', 'name_ar', 'item_kind'];
+  const groups: Record<string, readonly string[]> = split
+    ? { item: ITEM, recipe: ['lines'], sizes: ['sizes'] }
+    : {};
+  const fieldsOf = (stepKey: string) => {
+    const base = form.fields.filter((f) => f.name !== 'change');
+    if (!split) return stepKey === 'details' ? base : [];
+    if (stepKey === 'about') return base.filter((f) => !ITEM.includes(f.name) && f.name !== 'lines' && f.name !== 'sizes');
+    // The kind is drawn as cards (below), not by the record form.
+    return base.filter((f) => groups[stepKey]?.includes(f.name) && f.name !== 'item_kind');
+  };
+  const stepOfIssue = (field: string): string => {
+    const root = field.split(/[.[]/)[0]!;
+    if (field === 'title') return 'title';
+    if (field === 'variant') return 'title';
+    if (!split) return 'details';
+    if (ITEM.includes(root)) return 'item';
+    if (root === 'lines') return 'recipe';
+    if (root === 'sizes') return 'sizes';
+    return 'about';
+  };
+  const issuesFor = (stepKey: string) => live.found.filter((i) => stepOfIssue(i.field) === stepKey);
+  const shownIssues = issues.length > 0 ? issues : live.found.filter((i) => revealed.includes(stepOfIssue(i.field)));
+  const check = (stepKey: string) => (issuesFor(stepKey).length > 0 ? [tr('ws.protocols.form.checkMarked')] : []);
+
+  async function start() {
+    const { record, en, ar, found } = live;
     setIssues(found);
-    if (found.length > 0) return;
+    if (found.length > 0) {
+      const first = steps.find((s) => (s.problems?.length ?? 0) > 0);
+      if (first) {
+        setRevealed((r) => [...r, first.key]);
+        setAt(steps.indexOf(first));
+      }
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
@@ -240,120 +277,262 @@ function GenericStartSheet({
       setError(e);
       if (e instanceof AppRpcError && e.hint && (e.code === 'RECORD_INVALID' || e.code === 'TEXT_TOO_LONG' || e.code === 'SPONSOR_DETAILS_REQUIRED')) {
         setIssues([{ field: e.hint, code: e.code as FieldIssue['code'] }]);
+        const named = stepOfIssue(e.hint);
+        const i = steps.findIndex((st) => st.key === named);
+        if (i >= 0) setAt(i);
       }
     } finally {
       setBusy(false);
     }
   }
 
-  const titleIssue = issues.find((i) => i.field === 'title');
+  const titleIssue = shownIssues.find((i) => i.field === 'title');
   const firstName = first ? tr(`ws.protocols.start.firstStep.${kind}` as MessageKey) : '';
+  const list = (name: string) => (Array.isArray(live.record[name]) ? (live.record[name] as Obj[]) : []);
+  const nameOf = (o: Obj) => [o.name_en, o.name_ar].find((n) => typeof n === 'string' && n.trim() !== '') as string | undefined;
+  const itemName = [live.record.name_en, live.record.name_ar].find((n) => typeof n === 'string' && n.trim() !== '') as string | undefined;
+  const titleShown = live.en || live.ar;
+  const recordForm = (stepKey: string, quiet?: boolean) => {
+    const fields = fieldsOf(stepKey);
+    if (fields.length === 0 || (kind === 'price_promo' && !change)) return null;
+    return <RecordForm fields={fields} value={value} onChange={setValue} issues={shownIssues} env={env} disabled={busy} quiet={quiet} />;
+  };
+  const kindIssue = shownIssues.find((i) => i.field === 'item_kind');
+  const kindCards = (
+    <div style={{ display: 'grid', gap: 'var(--tp-sp-2)' }}>
+      <span style={{ fontWeight: 600 }}>
+        {tr('ws.protocols.fields.item_kind')} <span aria-hidden="true" style={{ color: 'var(--tp-danger-fg)' }}>*</span>
+      </span>
+      <WizardChoices small label={tr('ws.protocols.fields.item_kind')}>
+        {(['drink', 'dessert', 'food'] as const).map((k) => (
+          <WizardChoice
+            key={k}
+            on={value.item_kind === k}
+            title={tr(`work.item.kind.${k}` as MessageKey)}
+            disabled={busy}
+            onPick={() => setValue((prev) => ({ ...prev, item_kind: k }))}
+            testId={`item-kind-${k}`}
+          />
+        ))}
+      </WizardChoices>
+      {kindIssue && (
+        <span role="alert" style={{ color: 'var(--tp-danger-fg)', fontSize: 'var(--tp-fs-sm)' }}>
+          {tr(`op.errors.${kindIssue.code}` as MessageKey)}
+        </span>
+      )}
+    </div>
+  );
+  const photoField =
+    form.photoFolder && form.photosMax > 0 ? (
+      <PhotoField
+        folder={form.photoFolder}
+        paths={photos}
+        onChange={setPhotos}
+        min={form.photosMin}
+        max={form.photosMax}
+        disabled={busy}
+        invalid={shownIssues.some((i) => i.field === 'photos')}
+      />
+    ) : null;
+  const ideaBanner = (
+    <>
+      {idea && (
+        <WizardNote>
+          {tr('ws.protocols.start.fromIdea', {
+            name: idea.author_name ?? '—',
+            team: tr(`work.team.${idea.team === 'kitchen' ? 'kitchen' : 'bar'}`),
+            date: idea.submitted_at ? formatDate(new Date(idea.submitted_at), locale) : '—',
+          })}
+        </WizardNote>
+      )}
+      {ideaId && ideas.isSuccess && !idea && <WizardNote tone="refused">{tr('ws.protocols.start.ideaGone')}</WizardNote>}
+    </>
+  );
+  const decider =
+    firstNeedsOk !== null && !submitterDecides ? (
+      <p style={{ margin: 0, color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }} data-testid="start-decider">
+        {tr('ws.protocols.start.goesToDecider')}
+      </p>
+    ) : null;
+
+  const changeStep: WizardStep | null =
+    kind === 'price_promo' && changeChoices.length > 1
+      ? {
+          key: 'change',
+          label: tr('ws.protocols.fields.change'),
+          note: change ? tr(`work.protocol.change.${change}`) : null,
+          problems: change ? [] : [tr('ws.protocols.form.checkMarked')],
+          content: (
+            <>
+              {ideaBanner}
+              <Field label={tr('ws.protocols.fields.change')} required>
+                <Select<PriceChangeKind>
+                  value={change ?? ''}
+                  options={changeChoices.map((c) => ({ value: c, label: tr(`work.protocol.change.${c}`) }))}
+                  onChange={(c) => {
+                    setChange(c);
+                    prefilledFor.current = null;
+                  }}
+                />
+              </Field>
+            </>
+          ),
+        }
+      : null;
+
+  const titleStep: WizardStep = {
+    key: 'title',
+    label: tr('ws.protocols.start.titleLegend'),
+    note: titleShown || null,
+    problems: check('title'),
+    flagged: shownIssues.some((i) => stepOfIssue(i.field) === 'title'),
+    content: (
+      <>
+        <WizardNote>
+          {tr(both ? 'ws.protocols.start.titleBoth' : 'ws.protocols.start.titleOne')}
+          {namesTitle && ` ${tr('ws.protocols.start.titleFromName')}`}
+        </WizardNote>
+        <div style={{ display: 'grid', gap: 'var(--tp-sp-3)', gridTemplateColumns: 'repeat(auto-fit, minmax(14rem, 1fr))' }}>
+          <Field label={tr('ws.protocols.start.titleEn')} required={both && !namesTitle} optional={!both || namesTitle} error={titleIssue ? tr(`op.errors.${titleIssue.code}` as MessageKey) : undefined}>
+            <input style={inputStyle} dir="ltr" maxLength={140} value={titleEn} disabled={busy} onChange={(e) => setTitleEn(e.target.value)} data-testid="title-en" />
+          </Field>
+          <Field label={tr('ws.protocols.start.titleAr')} required={both && !namesTitle} optional={!both || namesTitle} error={titleIssue ? tr(`op.errors.${titleIssue.code}` as MessageKey) : undefined}>
+            <input style={inputStyle} dir="rtl" maxLength={140} value={titleAr} disabled={busy} onChange={(e) => setTitleAr(e.target.value)} data-testid="title-ar" />
+          </Field>
+        </div>
+      </>
+    ),
+  };
+
+  const flag = (k: string) => shownIssues.some((i) => stepOfIssue(i.field) === k);
+  const recordSteps: WizardStep[] = split
+    ? [
+        {
+          key: 'item',
+          label: tr('ws.protocols.start.wizard.stepItem'),
+          note: itemName ?? null,
+          problems: check('item'),
+          flagged: flag('item'),
+          content: (
+            <>
+              {ideaBanner}
+              {kindCards}
+              {recordForm('item')}
+              {decider}
+            </>
+          ),
+        },
+        {
+          key: 'recipe',
+          label: tr('ws.protocols.fields.lines'),
+          note: tr('ws.protocols.start.wizard.ingredients', { count: formatNumber(list('lines').length, locale) }),
+          problems: check('recipe'),
+          flagged: flag('recipe'),
+          content: (
+            <>
+              {recordForm('recipe')}
+            </>
+          ),
+        },
+        {
+          key: 'sizes',
+          label: tr('ws.protocols.fields.sizes'),
+          note: list('sizes').map(nameOf).filter(Boolean).join(tr('ws.protocols.view.listJoin')) || null,
+          problems: check('sizes'),
+          flagged: flag('sizes'),
+          content: (
+            <>
+              {recordForm('sizes')}
+            </>
+          ),
+        },
+        {
+          key: 'about',
+          label: tr('ws.protocols.start.wizard.stepAbout'),
+          problems: check('about'),
+          flagged: flag('about'),
+          content: (
+            <>
+              <div style={CARD}>{recordForm('about', true)}</div>
+              {photoField && <div style={CARD}>{photoField}</div>}
+            </>
+          ),
+        },
+      ]
+    : [
+        {
+          key: 'details',
+          label: firstName,
+          problems: check('details'),
+          flagged: flag('details'),
+          content: (
+            <>
+              {firstNeedsOk !== null && !submitterDecides && (
+                <WizardNote testId="start-decider">{tr('ws.protocols.start.goesToDecider')}</WizardNote>
+              )}
+              {recordForm('details')}
+              {photoField}
+            </>
+          ),
+        },
+      ];
+
+  // A new item is named first, and its optional run title comes last; every
+  // other kind opens with its title.
+  const steps: WizardStep[] = [
+    ...(changeStep ? [changeStep] : []),
+    ...(namesTitle ? [...recordSteps, titleStep] : [titleStep, ...recordSteps]),
+  ];
+
+  const reviewRows = () => [
+    ...(changeStep ? [{ label: tr('ws.protocols.fields.change'), value: change ? tr(`work.protocol.change.${change}`) : '—', step: 'change' }] : []),
+    { label: tr('ws.protocols.start.titleLegend'), value: <bdi>{titleShown || '—'}</bdi>, step: 'title' },
+    ...(split
+      ? [
+          { label: tr('ws.protocols.fields.name_en'), value: <bdi>{(live.record.name_en as string | undefined) || '—'}</bdi>, step: 'item' },
+          { label: tr('ws.protocols.fields.name_ar'), value: <bdi>{(live.record.name_ar as string | undefined) || '—'}</bdi>, step: 'item' },
+          {
+            label: tr('ws.protocols.fields.item_kind'),
+            value: typeof live.record.item_kind === 'string' ? tr(`work.item.kind.${live.record.item_kind}` as MessageKey) : '—',
+            step: 'item',
+          },
+          { label: tr('ws.protocols.fields.lines'), value: tr('ws.protocols.start.wizard.ingredients', { count: formatNumber(list('lines').length, locale) }), step: 'recipe' },
+          { label: tr('ws.protocols.fields.sizes'), value: <bdi>{list('sizes').map(nameOf).filter(Boolean).join(tr('ws.protocols.view.listJoin')) || '—'}</bdi>, step: 'sizes' },
+          { label: tr('ws.protocols.fields.audience'), value: <bdi>{(live.record.audience as string | undefined) || '—'}</bdi>, step: 'about' },
+        ]
+      : [{ label: firstName, value: issuesFor('details').length === 0 ? tr('ws.protocols.start.wizard.filled') : '—', step: 'details' }]),
+    ...(form.photosMax > 0
+      ? [{ label: tr('ws.protocols.photos.label'), value: formatNumber(photos.length, locale), step: split ? 'about' : 'details' }]
+      : []),
+  ];
 
   return (
-    <Modal
+    <StepWizard
       title={tr('ws.protocols.start.title', { kind: tr(`work.protocol.kind.${kind}`) })}
-      subtitle={tr(`ws.protocols.cards.lead.${kind}` as MessageKey)}
+      lead={tr(`ws.protocols.cards.lead.${kind}` as MessageKey)}
+      steps={steps}
+      at={at}
+      onAtChange={setAt}
+      onBlocked={(k) => setRevealed((r) => (r.includes(k) ? r : [...r, k]))}
+      busy={busy}
       onClose={onClose}
-      dismissible={!busy}
-      size="lg"
-      footer={(close) => (
+      submitLabel={tr('work.protocol.action.start')}
+      submitBlocked={templateLoading ? tr('ws.kit.async.loading') : null}
+      onSubmit={() => void start()}
+      testId="start-sheet"
+      notice={
+        error != null ? (
+          <WizardNote tone="error">{tr(protocolErrorKey(error))}</WizardNote>
+        ) : undefined
+      }
+      review={(goTo) => (
         <>
-          <Button onClick={close} disabled={busy}>
-            {tr('common.cancel')}
-          </Button>
-          <Button kind="primary" icon="play" busy={busy} disabled={templateLoading} onClick={() => void start()} data-testid="start-send">
-            {tr('work.protocol.action.start')}
-          </Button>
+          <ReviewList goTo={goTo} busy={busy} rows={reviewRows()} />
+          {firstNeedsOk !== null && !submitterDecides && (
+            <WizardNote testId="start-decider">{tr('ws.protocols.start.goesToDecider')}</WizardNote>
+          )}
         </>
       )}
-    >
-      <div style={{ display: 'grid', gap: 'var(--tp-sp-3)' }} data-testid="start-sheet">
-        {idea && (
-          <MessagePresenter
-            tone="info"
-            message={tr('ws.protocols.start.fromIdea', {
-              name: idea.author_name ?? '—',
-              team: tr(`work.team.${idea.team === 'kitchen' ? 'kitchen' : 'bar'}`),
-              date: idea.submitted_at ? formatDate(new Date(idea.submitted_at), locale) : '—',
-            })}
-          />
-        )}
-        {ideaId && ideas.isSuccess && !idea && <MessagePresenter tone="refused" message={tr('ws.protocols.start.ideaGone')} />}
-
-        {kind === 'tournament' && (
-          <Field label={tr('ws.protocols.start.variant')} group>
-            <SegmentedControl<TournamentVariant>
-              value={variant ?? 'type1'}
-              onChange={pickVariant}
-              options={TOURNAMENT_TYPES.map((v) => ({ value: v, label: tr(`work.protocol.variant.${v}`) }))}
-            />
-          </Field>
-        )}
-        {kind === 'tournament' && variant && <p style={{ margin: 0, color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>{tr(`ws.protocols.start.variantLead.${variant}` as MessageKey)}</p>}
-
-        {kind === 'price_promo' && changeChoices.length > 1 && (
-          <Field label={tr('ws.protocols.fields.change')} required>
-            <Select<PriceChangeKind>
-              value={change ?? ''}
-              options={changeChoices.map((c) => ({ value: c, label: tr(`work.protocol.change.${c}`) }))}
-              onChange={(c) => {
-                setChange(c);
-                prefilledFor.current = null;
-              }}
-            />
-          </Field>
-        )}
-
-        <fieldset style={{ border: 'none', padding: 0, margin: 0, display: 'grid', gap: 'var(--tp-sp-2)' }}>
-          <legend style={{ fontSize: 'var(--tp-fs-md)', fontWeight: 700, paddingInline: 0, marginBlockEnd: 'var(--tp-sp-1)' }}>{tr('ws.protocols.start.titleLegend')}</legend>
-          <p style={{ margin: 0, color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>
-            {tr(both ? 'ws.protocols.start.titleBoth' : 'ws.protocols.start.titleOne')}
-            {namesTitle && ` ${tr('ws.protocols.start.titleFromName')}`}
-          </p>
-          <div style={{ display: 'grid', gap: 'var(--tp-sp-2)', gridTemplateColumns: 'repeat(auto-fit, minmax(14rem, 1fr))' }}>
-            <Field label={tr('ws.protocols.start.titleEn')} required={both && !namesTitle} optional={!both || namesTitle} error={titleIssue ? tr(`op.errors.${titleIssue.code}` as MessageKey) : undefined}>
-              <input style={inputStyle} dir="ltr" maxLength={140} value={titleEn} disabled={busy} onChange={(e) => setTitleEn(e.target.value)} data-testid="title-en" />
-            </Field>
-            <Field label={tr('ws.protocols.start.titleAr')} required={both && !namesTitle} optional={!both || namesTitle} error={titleIssue ? tr(`op.errors.${titleIssue.code}` as MessageKey) : undefined}>
-              <input style={inputStyle} dir="rtl" maxLength={140} value={titleAr} disabled={busy} onChange={(e) => setTitleAr(e.target.value)} data-testid="title-ar" />
-            </Field>
-          </div>
-        </fieldset>
-
-        <section style={{ display: 'grid', gap: 'var(--tp-sp-2)' }}>
-          <h3 style={{ margin: 0, fontSize: 'var(--tp-fs-md)', fontWeight: 700 }}>{firstName}</h3>
-          {firstNeedsOk !== null && (
-            <p style={{ margin: 0, color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }} data-testid="start-decider">
-              {tr(submitterDecides ? 'ws.protocols.start.passesAtOnce' : 'ws.protocols.start.goesToDecider')}
-            </p>
-          )}
-          {(kind !== 'price_promo' || change) && (
-            <RecordForm fields={form.fields.filter((f) => f.name !== 'change')} value={value} onChange={setValue} issues={issues} env={env} disabled={busy} />
-          )}
-          {form.photoFolder && form.photosMax > 0 && (
-            <PhotoField
-              folder={form.photoFolder}
-              paths={photos}
-              onChange={setPhotos}
-              min={form.photosMin}
-              max={form.photosMax}
-              disabled={busy}
-              invalid={issues.some((i) => i.field === 'photos')}
-            />
-          )}
-        </section>
-
-        {issues.length > 0 && (
-          <p role="alert" style={{ margin: 0, color: 'var(--tp-danger-fg)', fontSize: 'var(--tp-fs-sm)' }}>
-            {tr('ws.protocols.form.checkMarked')}
-          </p>
-        )}
-        {error != null && (
-          <p role="alert" style={{ margin: 0, color: 'var(--tp-danger-fg)', fontSize: 'var(--tp-fs-sm)' }}>
-            {tr(protocolErrorKey(error))}
-          </p>
-        )}
-      </div>
-    </Modal>
+    />
   );
 }

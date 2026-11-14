@@ -34,6 +34,8 @@ export function MoneyInput({
   placeholder,
   id,
   style,
+  inputStyle: inputOverride,
+  bare,
   'aria-label': ariaLabel,
 }: {
   value: number | null;
@@ -45,6 +47,10 @@ export function MoneyInput({
   placeholder?: string;
   id?: string;
   style?: CSSProperties;
+  /** Overrides on the input itself (`style` is for the row around it). */
+  inputStyle?: CSSProperties;
+  /** No formatted readout beside the input: the caller draws its own frame and unit. */
+  bare?: boolean;
   /** For a box with no Field around it, such as a row under a column header. */
   'aria-label'?: string;
 }) {
@@ -77,7 +83,7 @@ export function MoneyInput({
       <input
         id={id}
         aria-label={ariaLabel}
-        style={numericStyle}
+        style={{ ...numericStyle, ...inputOverride }}
         dir="ltr"
         inputMode="numeric"
         autoComplete="off"
@@ -86,7 +92,7 @@ export function MoneyInput({
         value={text}
         onChange={(e) => commit(e.target.value)}
       />
-      {value !== null && (
+      {value !== null && !bare && (
         <span
           dir="ltr"
           style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', whiteSpace: 'nowrap' }}

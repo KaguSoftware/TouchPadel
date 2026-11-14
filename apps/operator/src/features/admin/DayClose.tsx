@@ -56,7 +56,7 @@ import { useMatchStates } from '../matches/useMatches';
 import { HoldReviewsPanel } from '../holds/HoldStandingPanels';
 import { HandInToSafe, useDayBoxes } from './HandInToSafe';
 import { hasPendingHandIn } from './handInLogic';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { formatDate, formatIQD, formatNumber, formatTime, isolate, type MessageKey } from '@touch/i18n';
@@ -70,6 +70,7 @@ import { pickName, useLocale } from '../../lib/i18n';
 import { usePermissions, requiredRoleFor } from '../../lib/auth';
 import { touch, type QueueRowInfo } from '../../ipc/bridge';
 import { AmountPad, Button, ErrorText, Field, Modal, inputStyle } from '../../components/ui';
+import { Icon } from '../../components/icons';
 import {
   DataTable,
   EmptyState,
@@ -180,6 +181,10 @@ export function DayClose() {
   // Null until the manager enters a count: 0 is a real count, "not counted" is not.
   const [countedCash, setCountedCash] = useState<number | null>(null);
   const [cardBatch, setCardBatch] = useState<number | null>(null);
+  // The close is three screens: count the cash, enter the card total, close. The
+  // blockers (open tabs, unsynced queue) show on the first.
+  const [stage, setStage] = useState<1 | 2 | 3>(1);
+  const [showFigures, setShowFigures] = useState(false);
   const [notes, setNotes] = useState('');
   const [error, setError] = useState<unknown>(null);
   const [busy, setBusy] = useState(false);
@@ -191,6 +196,8 @@ export function DayClose() {
     setCountedCash(null);
     setCardBatch(null);
     setNotes('');
+    setStage(1);
+    setShowFigures(false);
   }
 
   // Identical query to the till's — same key, same shape, deliberately shared.
@@ -590,7 +597,17 @@ export function DayClose() {
             title={<CardTitle icon="sun">{tr('ws.manager.dayClose.stepsTitle')}</CardTitle>}
             actions={stateTone && state !== 'closed' ? <StatusBadge tone={stateTone} label={tr(`ws.manager.dayClose.state.${state === 'busy' ? 'ready' : (state as 'ready' | 'blockedByOpenTabs' | 'blockedByUnsyncedQueue')}`)} /> : undefined}
           >
-            <ol style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--tp-sp-4)' }}>
+            <div style={{ display: 'grid', gap: 'var(--tp-sp-4)' }}>
+              <StageProgress
+                stage={stage}
+                labels={[tr('ws.manager.dayClose.stage.cash'), tr('ws.manager.dayClose.stage.card'), tr('ws.manager.dayClose.stage.close')]}
+              />
+
+              {/* ------------------------------------------------ 1 · cash */}
+              {stage === 1 && (
+                <>
+                  {openTabs.length > 0 || queueRows.length > 0 ? (
+                    <ol style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--tp-sp-4)' }}>
               <Step
                 index={1}
                 title={tr('ws.manager.dayClose.steps.tabs')}
@@ -674,46 +691,61 @@ export function DayClose() {
                   </div>
                 )}
               </Step>
-
-              <Step
-                index={3}
-                title={tr('ws.manager.dayClose.steps.count')}
-                done={countedCash !== null}
-                tone="neutral"
-                status={countedCash !== null ? tr('ws.manager.dayClose.steps.countDone') : undefined}
-              >
-                <div style={{ display: 'grid', gap: 'var(--tp-sp-2)' }}>
-                  <RowList chevrons={false}>
-                    <FigureRow label={tr('ws.manager.dayClose.openingFloat')} value={<Money amount={day?.opening_float_iqd ?? summary?.opening_float_iqd} />} />
-                    <FigureRow label={tr('ws.manager.dayClose.cashPayments')} value={<Money amount={summary?.cash_payments_iqd} />} />
-                    {summary?.desk_cash_iqd != null && (
-                      <FigureRow label={tr('ws.manager.dayClose.deskCash')} hint={tr('ws.manager.dayClose.deskCashHint')} value={<Money amount={summary.desk_cash_iqd} />} />
-                    )}
-                  </RowList>
-                  <div style={{ display: 'flex', gap: 'var(--tp-sp-4)', flexWrap: 'wrap', alignItems: 'start' }}>
-                    <Field label={tr('ws.manager.dayClose.countedCash')} hint={tr('ws.manager.dayClose.countedHint')} style={{ flex: '1 1 13rem', minInlineSize: 0, marginBlockEnd: 0 }}>
-                      <MoneyInput
-                        value={countedCash}
-                        onChange={setCountedCash}
-                        allowEmpty
-                        max={MAX_COUNTED_IQD}
-                        disabled={busy}
-                        style={{ fontSize: 'var(--tp-fs-xl)' }}
-                      />
-                    </Field>
-                    <AmountPad nullable value={countedCash} onChange={setCountedCash} max={MAX_COUNTED_IQD} disabled={busy} />
+                    </ol>
+                  ) : (
+                    <p data-testid="day-close-checks-clear" style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>
+                      {tr('ws.manager.dayClose.checksClear')}
+                    </p>
+                  )}
+                  <div style={{ display: 'grid', gap: 'var(--tp-sp-3)' }}>
+                    <div style={{ display: 'grid', gap: 'var(--tp-sp-2)', justifyItems: 'start' }}>
+                      <Button size="sm" kind="ghost" aria-expanded={showFigures} onClick={() => setShowFigures((v) => !v)}>
+                        {tr(showFigures ? 'ws.manager.dayClose.hideFigures' : 'ws.manager.dayClose.showFigures')}
+                      </Button>
+                      {showFigures && (
+                        <div style={{ inlineSize: '100%' }}>
+                          <RowList chevrons={false}>
+                            <FigureRow label={tr('ws.manager.dayClose.openingFloat')} value={<Money amount={day?.opening_float_iqd ?? summary?.opening_float_iqd} />} />
+                            <FigureRow label={tr('ws.manager.dayClose.cashPayments')} value={<Money amount={summary?.cash_payments_iqd} />} />
+                            {summary?.desk_cash_iqd != null && (
+                              <FigureRow label={tr('ws.manager.dayClose.deskCash')} hint={tr('ws.manager.dayClose.deskCashHint')} value={<Money amount={summary.desk_cash_iqd} />} />
+                            )}
+                          </RowList>
+                        </div>
+                      )}
+                    </div>
+                    <div style={{ display: 'flex', gap: 'var(--tp-sp-4)', flexWrap: 'wrap', alignItems: 'start' }}>
+                      <Field label={tr('ws.manager.dayClose.countedCash')} hint={tr('ws.manager.dayClose.countedHint')} style={{ flex: '1 1 13rem', minInlineSize: 0, marginBlockEnd: 0 }}>
+                        <MoneyInput
+                          value={countedCash}
+                          onChange={setCountedCash}
+                          allowEmpty
+                          max={MAX_COUNTED_IQD}
+                          disabled={busy}
+                          style={{ fontSize: 'var(--tp-fs-xl)' }}
+                        />
+                      </Field>
+                      <AmountPad nullable value={countedCash} onChange={setCountedCash} max={MAX_COUNTED_IQD} disabled={busy} />
+                    </div>
                   </div>
-                </div>
-              </Step>
+                  <StageFooter>
+                    <span />
+                    <Button
+                      kind="primary"
+                      size="lg"
+                      disabled={countedCash === null}
+                      disabledReason={countedCash === null ? tr('ws.manager.dayClose.block.noCount') : undefined}
+                      onClick={() => setStage(2)}
+                    >
+                      {tr('ws.manager.dayClose.next')}
+                    </Button>
+                  </StageFooter>
+                </>
+              )}
 
-              <Step
-                index={4}
-                title={tr('ws.manager.dayClose.steps.card')}
-                done={cardBatch !== null}
-                tone="neutral"
-                status={cardBatch === null ? tr('ws.manager.dayClose.steps.cardOptional') : undefined}
-              >
-                <div style={{ display: 'grid', gap: 'var(--tp-sp-2)' }}>
+              {/* ------------------------------------------------ 2 · card */}
+              {stage === 2 && (
+                <>
                   <RowList chevrons={false}>
                     <FigureRow label={tr('ws.manager.dayClose.cardPayments')} value={<Money amount={summary?.card_payments_iqd} />} />
                     {summary?.desk_card_iqd != null && (
@@ -723,47 +755,63 @@ export function DayClose() {
                   <Field label={tr('ws.manager.dayClose.cardBatch')} hint={tr('ws.manager.dayClose.cardBatchHint')} style={{ marginBlockEnd: 0 }}>
                     <MoneyInput value={cardBatch} onChange={setCardBatch} allowEmpty disabled={busy} />
                   </Field>
-                </div>
-              </Step>
+                  <StageFooter>
+                    <Button onClick={() => setStage(1)}>{tr('ws.manager.dayClose.back')}</Button>
+                    <Button kind="primary" size="lg" onClick={() => setStage(3)}>
+                      {tr('ws.manager.dayClose.next')}
+                    </Button>
+                  </StageFooter>
+                </>
+              )}
 
-              {/* Till shifts (wave5-addendum §5.2): the last look before the
-                  close, because an open shift is what the close would end
-                  uncounted. After the count, so the step numbers the block
-                  sentences name (steps 1 to 3) stay true. */}
-              <TillShiftsStep
-                index={5}
-                day={shiftDay}
-                refundsDatedByShift={refundsDatedByShift}
-                loaded={shiftsQ.data !== undefined}
-                error={shiftsQ.isError ? shiftsQ.error : null}
-                onRetry={() => void shiftsQ.refetch()}
-              />
-
-              <Step index={6} title={tr('ws.manager.dayClose.steps.close')} done={false} tone={block === null ? 'success' : 'neutral'}>
-                <div style={{ display: 'grid', gap: 'var(--tp-sp-2)' }}>
+              {/* ------------------------------------------------ 3 · close */}
+              {stage === 3 && (
+                <>
+                  <RowList chevrons={false}>
+                    <FigureRow label={tr('ws.manager.dayClose.cashCounted')} value={<Money amount={countedCash ?? undefined} />} />
+                    <FigureRow
+                      label={tr('ws.manager.dayClose.cardBatchShort')}
+                      value={cardBatch === null ? <span style={{ color: 'var(--tp-muted-fg)' }}>{tr('ws.manager.dayClose.notEntered')}</span> : <Money amount={cardBatch} />}
+                    />
+                  </RowList>
+                  {/* Till shifts (wave5-addendum §5.2): the last look before the
+                      close, because an open shift is what the close would end
+                      uncounted. A warning only, never a block. */}
+                  <ol style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--tp-sp-4)' }}>
+                    <TillShiftsStep
+                      index={1}
+                      day={shiftDay}
+                      refundsDatedByShift={refundsDatedByShift}
+                      loaded={shiftsQ.data !== undefined}
+                      error={shiftsQ.isError ? shiftsQ.error : null}
+                      onRetry={() => void shiftsQ.refetch()}
+                    />
+                  </ol>
                   <Field label={tr('ws.manager.dayClose.notes')} hint={tr('ws.manager.dayClose.notesHint')} style={{ marginBlockEnd: 0 }}>
                     <input style={inputStyle} value={notes} disabled={busy} onChange={(e) => setNotes(e.target.value)} />
                   </Field>
                   <ErrorText error={error} style={{ marginBlock: 0 }} />
                   {!can.closeDay && <PermissionRefusedNotice action={tr('ws.manager.dayClose.closeBtn')} requiredRole={requiredRoleFor('closeDay')} />}
-                  <div>
+                  <StageFooter>
+                    <Button disabled={busy} onClick={() => setStage(2)}>
+                      {tr('ws.manager.dayClose.back')}
+                    </Button>
                     <Button
                       kind={block === null ? 'danger' : 'default'}
                       size="lg"
                       icon="lock"
                       busy={busy}
                       disabled={!can.closeDay || block !== null}
-                      // One reason, naming the step that holds the close — the
-                      // manager scrolled past that step to get here (rulebook 4.3).
+                      // One reason, naming what holds the close.
                       disabledReason={block ? tr(`ws.manager.dayClose.block.${block}`) : undefined}
                       onClick={() => void closeDay()}
                     >
                       {tr('ws.manager.dayClose.closeBtn')}
                     </Button>
-                  </div>
-                </div>
-              </Step>
-            </ol>
+                  </StageFooter>
+                </>
+              )}
+            </div>
           </Panel>
         )}
 
@@ -843,6 +891,76 @@ export function DayClose() {
 
 /** Route alias for the spec name. */
 export const DayCloseScreen = DayClose;
+
+/** The three close screens as a row of labels: done ones ticked, the current one underlined. */
+function StageProgress({ stage, labels }: { stage: 1 | 2 | 3; labels: readonly [string, string, string] }) {
+  const { locale } = useLocale();
+  return (
+    <ol aria-label={labels.join(' / ')} style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 'var(--tp-sp-2)' }}>
+      {labels.map((label, i) => {
+        const n = i + 1;
+        const done = n < stage;
+        const current = n === stage;
+        return (
+          <li
+            key={label}
+            aria-current={current ? 'step' : undefined}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 'var(--tp-sp-2)',
+              minInlineSize: 0,
+              paddingBlockEnd: 'var(--tp-sp-2)',
+              borderBlockEnd: `3px solid ${done ? 'var(--tp-success-mark)' : current ? 'var(--tp-accent)' : 'var(--tp-surface-3)'}`,
+              fontSize: 'var(--tp-fs-sm)',
+              fontWeight: 600,
+              color: current ? 'var(--tp-fg)' : done ? 'var(--tp-success-fg)' : 'var(--tp-muted-fg)',
+            }}
+          >
+            <span
+              aria-hidden="true"
+              style={{
+                flex: 'none',
+                display: 'grid',
+                placeItems: 'center',
+                inlineSize: '1.5rem',
+                blockSize: '1.5rem',
+                borderRadius: '999px',
+                fontSize: 'var(--tp-fs-xs)',
+                fontWeight: 700,
+                fontVariantNumeric: 'tabular-nums',
+                background: current ? 'var(--tp-accent)' : done ? 'var(--tp-success-soft)' : 'var(--tp-surface-3)',
+                color: current ? 'var(--tp-accent-contrast)' : done ? 'var(--tp-success-fg)' : 'var(--tp-muted-fg)',
+              }}
+            >
+              {done ? <Icon name="check" size={14} /> : formatNumber(n, locale)}
+            </span>
+            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
+/** Back on one side, the way on on the other, under a rule. */
+function StageFooter({ children }: { children: ReactNode }) {
+  return (
+    <div
+      style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        gap: 'var(--tp-sp-3)',
+        flexWrap: 'wrap',
+        paddingBlockStart: 'var(--tp-sp-4)',
+        borderBlockStart: '1px solid var(--tp-border)',
+      }}
+    >
+      {children}
+    </div>
+  );
+}
 
 function tabName(t: OpenTabRow, tr: Tr): string {
   if (t.table) return tr('ws.manager.dayClose.tabTable', { number: t.table.table_number });

@@ -91,6 +91,22 @@ export function reorderedIds<T extends Sortable>(
   return next.map((row) => row.id);
 }
 
+/**
+ * The ids after dragging one row onto another: `fromId` leaves its place and
+ * takes the place `toId` had (below it when moving down, above it when moving
+ * up). Empty when nothing moves, which the caller treats as "no write".
+ */
+export function movedIds<T extends Sortable>(rows: readonly T[], fromId: string, toId: string): string[] {
+  const ordered = sortRows(rows);
+  const from = ordered.findIndex((r) => r.id === fromId);
+  const to = ordered.findIndex((r) => r.id === toId);
+  if (from < 0 || to < 0 || from === to) return [];
+  const next = [...ordered];
+  const [moved] = next.splice(from, 1);
+  next.splice(to, 0, moved!);
+  return next.map((r) => r.id);
+}
+
 export const HOOK_MAX = 60;
 export const NAME_MAX = 80;
 export const DESCRIPTION_MAX = 400;
