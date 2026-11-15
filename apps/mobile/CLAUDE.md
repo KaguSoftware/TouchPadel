@@ -77,9 +77,9 @@ reported at `app/ranks-report.tsx` by username (exact lookup, `ranks_find_player
 once an opponent confirms. Everything under `['ranks']` stays off disk.
 
 Deals and the cards (Majed, 2026-11-12; migration 0410): `app/loyalty.tsx` shows, in this order,
-the points, the way to the next card with what that card gives (`NextCardBlock.tsx`), the
-deals (`DealCards.tsx`), rewards, every card with its privileges (`TierLadder.tsx`) and the
-history. A deal is picked with `pick_deal` ("Use at the cashier") and the guest lands on the
+the points, the way to the next card with every card and its privileges under it, the next
+one's written out in full (`NextCardBlock.tsx`, one block since 2026-11-15), the deals
+(`DealCards.tsx`), rewards and the history. A deal is picked with `pick_deal` ("Use at the cashier") and the guest lands on the
 member card, which names the picked deal beside the QR (`DealNote.tsx` in `MemberCardPanel`): the
 cashier scans the card and applies it, nothing is redeemed on the phone. The Club tab lists the
 deals the guest can use under the QR (`CardDeals.tsx`, `usableDeals`: open ones, picked first;

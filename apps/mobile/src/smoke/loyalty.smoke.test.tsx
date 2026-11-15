@@ -439,8 +439,11 @@ describe.each(LOCALES)('loyalty states in %s', (locale) => {
         ),
       ).toBeTruthy();
       expect(screen.queryByTestId('loyalty.top-card')).toBeNull();
-      // The cards (0410): the base one is theirs, the two above say what they still need.
-      expect(screen.getByTestId('loyalty.tiers')).toBeTruthy();
+      // The cards (0410) sit in the same block, the next card's list in its own row: the base one
+      // is theirs, the one past the next says what it still needs (the next one's is the head's).
+      const tiers = within(next).getByTestId('loyalty.tiers');
+      expect(within(within(tiers).getByTestId('loyalty.tier.tier-1')).getByTestId('loyalty.next-card.gives')).toBeTruthy();
+      expect(within(screen.getByTestId('loyalty.tier.tier-1')).queryByText(t('loyalty.guest.next.toGo'))).toBeNull();
       expect(
         within(screen.getByTestId('loyalty.tier.tier-0')).getByText(t('loyalty.guest.ladder.yours')),
       ).toBeTruthy();
@@ -497,9 +500,9 @@ describe.each(LOCALES)('loyalty states in %s', (locale) => {
       const top = screen.getByTestId('loyalty.top-card');
       expect(within(top).getByText(t('loyalty.guest.next.topLabel'))).toBeTruthy();
       expect(within(top).getByText(t('loyalty.guest.next.top'))).toBeTruthy();
-      expect(within(top).getByText(t('loyalty.guest.next.holds'))).toBeTruthy();
+      // Its cards are in the same block: its own row marked, the ones under it included.
+      expect(within(top).getByTestId('loyalty.tier-yours')).toBeTruthy();
       expect(within(top).getByText(locale === 'ar' ? 'كل الإضافات مجانًا' : 'Every add-on free')).toBeTruthy();
-      // A card holds what the tiers under it give too.
       expect(within(top).getByText(locale === 'ar' ? 'نكهة مجانية' : 'Free syrup')).toBeTruthy();
       expect(screen.queryByTestId('loyalty.next-card')).toBeNull();
       expect(screen.queryByTestId('loyalty.top-card.progress')).toBeNull();
