@@ -46,6 +46,7 @@ import {
   runTurnLoop,
   textOf,
   toolUsesOf,
+  MAX_TOOL_USES_PER_ROUND,
   TURN_NOTICES,
   webSearchSources,
   type Dispatched,
@@ -207,6 +208,19 @@ describe('the round loop: answers and tool rounds', () => {
     await running;
     expect(named(h.events, 'tool_end').map((d) => d.call_id)).toEqual(['b', 'a']);
     expect(toolResults(h.sent[1]![3]).map((r) => r.tool_use_id)).toEqual(['a', 'b']);
+  });
+
+  it(`at most ${MAX_TOOL_USES_PER_ROUND} tool calls run in one round; the rest are answered not-run (audit finding 30)`, async () => {
+    const runTool = vi.fn(async (spec: ToolSpec) => cleanedFor(spec, HEADLINE));
+    const uses = Array.from({ length: 10 }, (_, i) => toolUse(`u${i}`, 'panel_headline', { ...RANGE }));
+    const h = harness([tools(uses), answer('Done.')], { runTool });
+    await h.run();
+    expect(runTool).toHaveBeenCalledTimes(MAX_TOOL_USES_PER_ROUND);
+    const results = toolResults(h.sent[1]![3]);
+    // Every tool_use has its result, in order; the ones past the cap say why.
+    expect(results.map((r) => r.tool_use_id)).toEqual(uses.map((u) => u.id));
+    const notRun = results.slice(MAX_TOOL_USES_PER_ROUND);
+    expect(notRun.map((r) => [r.is_error, r.content])).toEqual(notRun.map(() => [true, TURN_NOTICES.toolsPerRound]));
   });
 
   it('an unknown tool, bad arguments, an unknown handle and a throwing runner each answer an is_error result; the runner is not called for the first three', async () => {
