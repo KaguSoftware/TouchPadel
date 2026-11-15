@@ -484,13 +484,14 @@ export const TabBookIcon = ({ size = 21, color }: TabIconProps) => (
   </Svg>
 );
 /**
- * Rankings (the leaderboard, the bar's first tab since 2026-11-12): a trophy, `TrophyIcon` at the
- * tab bar's weight. An object, so it never mirrors. iOS draws SF Symbols' `trophy`.
+ * Rankings (the leaderboard, the bar's first tab since 2026-11-12): a winners' podium, three
+ * steps with the tallest in the middle. Symmetric enough to never mirror. iOS draws the same
+ * picture from assets/tabs/ranks*.png, since SF Symbols has no podium.
  */
 export const TabRanksIcon = ({ size = 21, color }: TabIconProps) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" accessible={false}>
     <Path
-      d="M7 4h10v5a5 5 0 01-10 0V4zM7 6H4v1.5A3.5 3.5 0 007.3 11M17 6h3v1.5a3.5 3.5 0 01-3.3 3.5M12 14v3.5M8 20.5h8"
+      d="M3 20v-7h5V8h8v7h5v5zM8 13v7M16 15v5"
       stroke={color}
       strokeWidth={2}
       strokeLinecap="round"
