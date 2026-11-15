@@ -6,4 +6,5 @@ export * from './totp';
 export * from './points';
 export * from './qr';
 export * from './tierColors';
+export * from './voucher';
 export { sha1, hmacSha1 } from './sha1';

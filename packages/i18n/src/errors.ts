@@ -532,6 +532,13 @@ export const ERROR_CODE_KEYS = {
   DEAL_UNAVAILABLE: 'op.errors.DEAL_UNAVAILABLE',
   DEAL_LOCKED: 'op.errors.DEAL_LOCKED',
   DEAL_USED: 'op.errors.DEAL_USED',
+  // 0415 (reward vouchers): a code that names no voucher; one already used, cancelled or expired;
+  // one past its 15 minutes; a reward of another branch; five vouchers already waiting.
+  VOUCHER_NOT_FOUND: 'op.errors.VOUCHER_NOT_FOUND',
+  VOUCHER_USED: 'op.errors.VOUCHER_USED',
+  VOUCHER_EXPIRED: 'op.errors.VOUCHER_EXPIRED',
+  VOUCHER_WRONG_BRANCH: 'op.errors.VOUCHER_WRONG_BRANCH',
+  VOUCHER_LIMIT: 'op.errors.VOUCHER_LIMIT',
   // 0364 ranks_leaderboard: the players' leaderboard (lines in catalogs/opErrors.ranks.*.ts).
   // RANKS_OFF the owner switched it (or player reports) off; RANKS_NOT_ELIGIBLE a booking that
   // is not the caller's, not played or past report_hours; RANKS_PLAYER_NOT_FOUND an unknown

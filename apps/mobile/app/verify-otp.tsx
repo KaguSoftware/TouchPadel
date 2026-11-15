@@ -180,8 +180,10 @@ function VerifyOtpForm({
           toast(t('auth.welcomeToApp'), 'info');
           continueAfterAuth();
         } else {
-          // The number already had a whole account: this was a sign-in.
-          await finishSignIn(user);
+          // The number already had a whole account: this was a sign-in, and
+          // the guest, who meant to create one, is told so (0414's check
+          // normally stops them before the code; this is when it could not).
+          await finishSignIn(user, 'auth.signedInExisting');
         }
         return;
       }

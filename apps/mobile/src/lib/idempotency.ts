@@ -36,6 +36,15 @@ export function reservationIdemKey(): string {
 }
 
 /**
+ * 0415: one key per Redeem press on a reward (app.redeem_reward). The press runs once ("run now
+ * or fail now"); a request that timed out but committed shows up as the voucher at the top of
+ * Points & rewards on the next read, never as a second one.
+ */
+export function rewardIdemKey(): string {
+  return `MOBILE:loyalty.redeem:${ulid()}`;
+}
+
+/**
  * Stable key for one user intent, memoised by an intent id (e.g.
  * `${courtId}|${startAt}|${durationMin}`). Calling this twice for the same
  * intent returns the SAME key, which is what makes app.hold_slot's

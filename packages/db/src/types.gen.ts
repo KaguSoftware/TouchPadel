@@ -120,6 +120,24 @@ export type Database = {
         }
         Relationships: []
       }
+      phone_sign_up_lookups: {
+        Row: {
+          caller: string
+          created_at: string
+          id: number
+        }
+        Insert: {
+          caller: string
+          created_at?: string
+          id?: never
+        }
+        Update: {
+          caller?: string
+          created_at?: string
+          id?: never
+        }
+        Relationships: []
+      }
       pin_attempts: {
         Row: {
           attempted_at: string
@@ -1084,6 +1102,7 @@ export type Database = {
         Args: { p_reason?: string; p_reservation_id: string }
         Returns: Json
       }
+      cancel_reward_voucher: { Args: { p_voucher_id: string }; Returns: Json }
       cancel_schedule: { Args: { p_run_id: string }; Returns: Json }
       cancel_series: {
         Args: { p_reason_code: string; p_scope: string; p_series_id: string }
@@ -3022,6 +3041,17 @@ export type Database = {
         Returns: string
       }
       loyalty_unredeem: { Args: { p_adjustment_id: string }; Returns: Json }
+      loyalty_voucher_end: {
+        Args: { p_status: string; p_voucher_id: string }
+        Returns: boolean
+      }
+      loyalty_voucher_json: {
+        Args: {
+          p_voucher: Database["public"]["Tables"]["loyalty_reward_vouchers"]["Row"]
+        }
+        Returns: Json
+      }
+      loyalty_voucher_sweep: { Args: never; Returns: number }
       main_cash_balance: { Args: { p_venue: string }; Returns: number }
       main_cash_box: { Args: { p_station: string }; Returns: string }
       main_cash_count: {
@@ -3661,6 +3691,7 @@ export type Database = {
           venue_id: string
         }[]
       }
+      my_reward_vouchers: { Args: never; Returns: Json }
       my_rewards: { Args: { p_venue_id?: string }; Returns: Json }
       my_staff_roles: {
         Args: never
@@ -3774,6 +3805,7 @@ export type Database = {
       phone_canon: { Args: { p_phone: string }; Returns: string }
       phone_claim_internal: { Args: { p_user: string }; Returns: string }
       phone_digits: { Args: { p_phone: string }; Returns: string }
+      phone_sign_up_status: { Args: { p_phone: string }; Returns: string }
       phone_verified_owner: {
         Args: { p_key: string; p_profile: string }
         Returns: boolean
@@ -4497,6 +4529,10 @@ export type Database = {
         Returns: undefined
       }
       redact_incident: { Args: { p_id: string }; Returns: Json }
+      redeem_reward: {
+        Args: { p_idempotency_key?: string; p_reward_id: string }
+        Returns: Json
+      }
       refund: {
         Args: {
           p_amount_iqd: number
@@ -6213,6 +6249,10 @@ export type Database = {
         }
         Returns: string
       }
+      use_reward_voucher: {
+        Args: { p_code: string; p_idempotency_key?: string; p_tab_id: string }
+        Returns: Json
+      }
       username_check: { Args: { p_username: string }; Returns: Json }
       username_normal: { Args: { p: string }; Returns: string }
       username_offensive: { Args: { p: string }; Returns: boolean }
@@ -6307,6 +6347,7 @@ export type Database = {
         }
         Returns: Json
       }
+      voucher_code_new: { Args: never; Returns: string }
       wage_due_date: {
         Args: { p_month: string; p_pay_day: number }
         Returns: string
@@ -10652,6 +10693,93 @@ export type Database = {
           },
           {
             foreignKeyName: "loyalty_ledger_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      loyalty_reward_vouchers: {
+        Row: {
+          code: string
+          created_at: string
+          ended_at: string | null
+          expires_at: string
+          id: string
+          points: number
+          profile_id: string
+          reservation_reward_id: string | null
+          reward_id: string
+          status: string
+          tab_adjustment_id: string | null
+          tab_id: string | null
+          used_by: string | null
+          venue_id: string | null
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          ended_at?: string | null
+          expires_at: string
+          id?: string
+          points: number
+          profile_id: string
+          reservation_reward_id?: string | null
+          reward_id: string
+          status?: string
+          tab_adjustment_id?: string | null
+          tab_id?: string | null
+          used_by?: string | null
+          venue_id?: string | null
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          ended_at?: string | null
+          expires_at?: string
+          id?: string
+          points?: number
+          profile_id?: string
+          reservation_reward_id?: string | null
+          reward_id?: string
+          status?: string
+          tab_adjustment_id?: string | null
+          tab_id?: string | null
+          used_by?: string | null
+          venue_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "loyalty_reward_vouchers_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "loyalty_reward_vouchers_reward_id_fkey"
+            columns: ["reward_id"]
+            isOneToOne: false
+            referencedRelation: "loyalty_rewards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "loyalty_reward_vouchers_tab_id_fkey"
+            columns: ["tab_id"]
+            isOneToOne: false
+            referencedRelation: "tabs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "loyalty_reward_vouchers_used_by_fkey"
+            columns: ["used_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "loyalty_reward_vouchers_venue_id_fkey"
             columns: ["venue_id"]
             isOneToOne: false
             referencedRelation: "venues"

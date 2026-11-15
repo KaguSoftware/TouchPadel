@@ -165,3 +165,47 @@ export function menuPhotoUrl(
   const encoded = trimmed.split('/').map(encodeURIComponent).join('/');
   return `${base.replace(/\/+$/, '')}/storage/v1/object/public/menu-media/${encoded}`;
 }
+
+/**
+ * Rows drawn on the first paint of the menu: about one phone screen. The rest are added as the
+ * guest scrolls (`MENU_MORE_ROWS` at a time), so opening the menu builds a handful of rows and
+ * fetches a handful of photos, not the whole menu's (Majed, 2026-11-13).
+ */
+export const MENU_FIRST_ROWS = 8;
+export const MENU_MORE_ROWS = 12;
+
+/** Total rows on the menu. */
+export function menuRowCount(sections: readonly MenuViewSection[]): number {
+  return sections.reduce((n, s) => n + s.items.length, 0);
+}
+
+/**
+ * The menu cut to its first `limit` rows, in menu order. A section is kept while any of its
+ * rows is; the sections after the cut are left out whole (their chips still show).
+ */
+export function shownSections(
+  sections: readonly MenuViewSection[],
+  limit: number,
+): MenuViewSection[] {
+  const out: MenuViewSection[] = [];
+  let left = Math.max(0, limit);
+  for (const s of sections) {
+    if (left <= 0) break;
+    out.push(s.items.length <= left ? s : { ...s, items: s.items.slice(0, left) });
+    left -= s.items.length;
+  }
+  return out;
+}
+
+/**
+ * Rows to draw so that section `id` is drawn whole, with one more batch after it so a chip tap
+ * can land the section at the top of the screen. Unknown id: 0.
+ */
+export function rowsToShow(sections: readonly MenuViewSection[], id: string): number {
+  let n = 0;
+  for (const s of sections) {
+    n += s.items.length;
+    if (s.id === id) return n + MENU_MORE_ROWS;
+  }
+  return 0;
+}

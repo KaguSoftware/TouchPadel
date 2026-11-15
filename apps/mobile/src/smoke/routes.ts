@@ -362,9 +362,11 @@ export const SMOKE_ROUTES: readonly SmokeRoute[] = [
   // ── loyalty ───────────────────────────────────────────────────────────────
   // Loyalty plan §5.1, cased by loyalty.smoke.test.tsx in EN and AR. The
   // member card's primary is the QR itself (a mark, no text of its own); the
-  // loyalty screen's is the way to that card.
+  // loyalty screen's is the points (2026-11-13: no card and no card button there).
   { file: 'member-card.tsx', route: 'member-card', primary: 'member-card.qr' },
-  { file: 'loyalty.tsx', route: 'loyalty', primary: 'loyalty.show-card' },
+  { file: 'loyalty.tsx', route: 'loyalty', primary: 'loyalty.points' },
+  // 0415: a reward redeemed in the app; the primary is its QR (a mark, like the card's).
+  { file: 'reward-voucher.tsx', route: 'reward-voucher', primary: 'reward-voucher.qr' },
   // ── coach mode ────────────────────────────────────────────────────────────
   // docs/design/coaching/guest.md §4.17, cased by coachMode.smoke.test.tsx in
   // EN and AR with the `coach` render option (a signed-in account that

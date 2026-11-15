@@ -61,6 +61,7 @@ import type { IdentifiedMember } from '@touch/core/loyalty';
 import { can, useAuth } from '../../lib/auth';
 import { MemberAttach, MemberChip, MemberIdentifyDialog } from '../loyalty/MemberAttach';
 import { isMemberScan, memberView } from '../loyalty/loyaltyLogic';
+import { isVoucherCode } from '@touch/core/loyalty';
 import { setTabCustomer, useMemberBenefits } from '../loyalty/useLoyalty';
 import { BillDiscountDialog } from '../discounts/BillDiscountDialog';
 import { canDiscount, rpcMissing, useAutoCustomerDiscount, useBillDiscount } from '../discounts/useCustomerDiscount';
@@ -196,6 +197,12 @@ export function ShopTill() {
       if (isMemberScan(action.code)) {
         setQuery('');
         if (canMemberRef.current) setIdentify({ code: action.code.trim().toUpperCase() });
+        return;
+      }
+      // 0415: a reward voucher needs the sale's bill: it is given on the payment step.
+      if (isVoucherCode(action.code)) {
+        setQuery('');
+        setNotice(tr('ws.loyalty.voucher.ringUpFirst'));
         return;
       }
       const hit = findSizeByCode(sizesRef.current, action.code);

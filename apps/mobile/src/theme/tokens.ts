@@ -357,6 +357,38 @@ export const GLASS_SMOKE = '#0B1018';
 const CLEAR = { light: 0.6, dark: 0.3 } as const;
 
 export const tierFinish = {
+  // 0416, the club's four cards (CARD_LADDER, @touch/core/loyalty), from the starter card up.
+  // White: clear glass with a white wash, white lines and word, the silver name.
+  white: {
+    tint: '#FFFFFF',
+    smoke: CLEAR,
+    lines: '#FFFFFF',
+    linesAlpha: 0.22,
+    word: '#FFFFFF',
+    metal: { hi: '#FFFFFF', face: frame.silverHi, lo: frame.silverLo, shade: frame.steel },
+    rim: 'rgba(255,255,255,0.4)',
+  },
+  // Touch Padel green: the classic card's own green.
+  green: {
+    tint: '#A5D06F',
+    smoke: CLEAR,
+    lines: '#A5D06F',
+    linesAlpha: 0.24,
+    word: '#BFE08F',
+    metal: { hi: '#E4F2D0', face: '#BFE08F', lo: '#6E9440', shade: '#3D5622' },
+    rim: 'rgba(191,224,143,0.36)',
+  },
+  // Touch Padel blue: the brand blue washed in, a step lighter for the lines and word so they
+  // hold on blue mode's navy.
+  blue: {
+    tint: '#3360AB',
+    smoke: CLEAR,
+    lines: '#7FA3E0',
+    linesAlpha: 0.3,
+    word: '#A9C3EE',
+    metal: { hi: '#DCE7F8', face: '#A9C3EE', lo: '#3360AB', shade: '#172C4F' },
+    rim: 'rgba(169,195,238,0.36)',
+  },
   classic: {
     tint: '#A5D06F',
     smoke: CLEAR,

@@ -594,6 +594,15 @@ const GUEST_DATA: Record<string, Record<string, Field>> = {
     earn_base_iqd: { category: 'Purchase history', why: 'the money a bill or an online payment earned points on; the base a refund takes points back against', onDelete: 'keep' },
     earn_court_iqd: { category: 'Purchase history', why: 'the court part of that money', onDelete: 'keep' },
   },
+  // 0415: a reward the guest redeemed in the app, the single-use code the till scans for it, and
+  // what it became. It lives 15 minutes; used, cancelled or expired it is part of the points trail.
+  loyalty_reward_vouchers: {
+    id: n, profile_id: n, reward_id: n, venue_id: n,
+    code: { category: 'Device or other IDs', why: 'the one-time code under the reward QR the till scans; spent or dead within 16 minutes', onDelete: 'keep' },
+    points: { category: 'Purchase history', why: 'the points this guest spent on a reward', onDelete: 'keep' },
+    status: n, created_at: n, expires_at: n, ended_at: n, used_by: n, tab_id: n,
+    tab_adjustment_id: n, reservation_reward_id: n,
+  },
   // 0308 (c3): every member-code or phone lookup at the till and the café link, success or not, for
   // the throttle; pruned after a day, so a deletion does not need to reach it.
   loyalty_token_attempts: {

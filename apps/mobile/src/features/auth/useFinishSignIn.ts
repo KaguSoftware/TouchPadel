@@ -7,6 +7,7 @@ import { writeStaffHint } from '../staff/hint';
 import { clearPendingIntents } from '../booking/pendingIntent';
 import { useLocale } from '../../i18n/LocaleProvider';
 import { useToast } from '../../components/overlays';
+import type { MessageKey } from '@touch/i18n';
 import { isActiveStaffRow } from './social';
 
 /**
@@ -28,7 +29,8 @@ export function useFinishSignIn(continueAfterAuth: () => void) {
   const queryClient = useQueryClient();
 
   return useCallback(
-    async (user: User | null) => {
+    /** `welcome`: the toast's line, `auth.welcomeBack` unless the caller knows better. */
+    async (user: User | null, welcome: MessageKey = 'auth.welcomeBack') => {
       const staffRead = user ? readOwnStaffRow(queryClient, user.id).catch(() => null) : Promise.resolve(null);
       const staffRow = await staffRead;
       // An incomplete profile is not stopped here: only a Google or Apple account
@@ -38,11 +40,11 @@ export function useFinishSignIn(continueAfterAuth: () => void) {
           // A staff account books nothing: the slot or match a guest tapped is dropped.
           clearPendingIntents();
           if (user) await writeStaffHint(user.id);
-          toast(t('auth.welcomeBack'), 'info');
+          toast(t(welcome), 'info');
           router.replace('/staff');
           return;
         default:
-          toast(t('auth.welcomeBack'), 'info');
+          toast(t(welcome), 'info');
           continueAfterAuth();
       }
     },

@@ -1,5 +1,5 @@
 import { View } from 'react-native';
-import { TIER_SWATCH, type TierColor } from '@touch/core/loyalty';
+import { TIER_SWATCH, tierWantsLightInk, type TierColor } from '@touch/core/loyalty';
 import { formatNumber, isolate, isolateLtr } from '@touch/i18n';
 import { Text } from '../../i18n/text';
 import { useLocale } from '../../i18n/LocaleProvider';
@@ -9,11 +9,12 @@ import { tierName, type CardGives } from './logic';
 
 /**
  * A tier's own colour as a ground, and the ink that reads on it (0376: the owner's swatch,
- * `TIER_SWATCH`). Every swatch is a light metal that carries the navy, except the black card,
- * which carries white. Theme-invariant, like the green CTA: a gold card is gold in both modes.
+ * `TIER_SWATCH`). The light grounds (white, green, the metals) carry the navy; the blue and the
+ * black card carry white (0416). Theme-invariant, like the green CTA: a gold card is gold in both
+ * modes.
  */
 export function tierGround(color: TierColor): { ground: string; ink: string } {
-  return { ground: TIER_SWATCH[color], ink: color === 'black' ? brand.white : brand.navy };
+  return { ground: TIER_SWATCH[color], ink: tierWantsLightInk(color) ? brand.white : brand.navy };
 }
 
 /** A member card seen small, in its tier's colour: the mark beside a tier's name. */

@@ -212,3 +212,16 @@ export function dealPointsNeeded(d: Pick<Deal, 'state' | 'tier'>, points12m: num
   if (d.state !== 'locked' || !d.tier) return null;
   return Math.max(0, d.tier.min_points_12m - points12m);
 }
+
+/**
+ * The deals the Club tab lists under the member card (Majed, 2026-11-13): the ones the guest can
+ * use, picked first, as the server orders them. A deal outside its hours stays (it can be picked
+ * for later and says "Not right now"); a deal locked to a higher card or already used is left to
+ * Points & rewards, which lists them all. Null when there is nothing to list.
+ */
+export function usableDeals(deals: MyDeals | null | undefined): MyDeals | null {
+  if (!deals) return null;
+  const open = deals.deals.filter((d) => d.state === 'open');
+  if (open.length === 0) return null;
+  return { ...deals, deals: [...open.filter((d) => d.picked), ...open.filter((d) => !d.picked)] };
+}

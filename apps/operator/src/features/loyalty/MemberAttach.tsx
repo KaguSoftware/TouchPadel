@@ -35,7 +35,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { formatIQD, formatNumber } from '@touch/i18n';
-import type { IdentifiedMember, LoyaltyAdminReward, TabBenefits } from '@touch/core/loyalty';
+import { parseVoucherCode, type IdentifiedMember, type LoyaltyAdminReward, type TabBenefits, type UseVoucherResult } from '@touch/core/loyalty';
 import { useLocale } from '../../lib/i18n';
 import { can, useAuth } from '../../lib/auth';
 import { useStationReach } from '../../lib/stationReach';
@@ -55,6 +55,7 @@ import {
   type MemberView,
 } from './loyaltyLogic';
 import {
+  applyVoucher,
   forgetMemberToken,
   freshMemberToken,
   grantManagerPin,
@@ -148,10 +149,13 @@ export function MemberIdentifyDialog({
   initialCode = '',
   onClose,
   onIdentified,
+  onVoucher,
 }: {
   initialCode?: string;
   onClose: () => void;
   onIdentified: (member: IdentifiedMember) => Promise<void> | void;
+  /** 0415: a reward voucher typed into the member field goes here instead of the lookup. */
+  onVoucher?: (code: string) => void;
 }) {
   const { tr } = useLocale();
   const { reachable } = useStationReach();
@@ -164,6 +168,11 @@ export function MemberIdentifyDialog({
   async function find(raw = text) {
     if (busy) return;
     setError(null);
+    const voucher = onVoucher ? parseVoucherCode(raw) : null;
+    if (voucher && onVoucher) {
+      onVoucher(voucher);
+      return;
+    }
     const code = identifyCode(raw);
     setInvalid(code === null);
     if (!code) return;
@@ -319,7 +328,8 @@ type Dialog =
   | { kind: 'identify'; code: string }
   | { kind: 'staffPin'; member: IdentifiedMember }
   | { kind: 'redeem' }
-  | { kind: 'rewards' };
+  | { kind: 'rewards' }
+  | { kind: 'voucher'; code: string };
 
 export function MemberAttach({
   tabId,
@@ -368,7 +378,9 @@ export function MemberAttach({
       if (!scanGate.current) return;
       setNotice(null);
       setError(null);
-      setDialog({ kind: 'identify', code: (e as CustomEvent<string>).detail });
+      const code = (e as CustomEvent<string>).detail;
+      // 0415: a reward voucher gives its reward on this bill; a member card attaches the member.
+      setDialog(parseVoucherCode(code) ? { kind: 'voucher', code } : { kind: 'identify', code });
     }
     window.addEventListener(MEMBER_SCAN_EVENT, onScan);
     return () => window.removeEventListener(MEMBER_SCAN_EVENT, onScan);
@@ -426,6 +438,25 @@ export function MemberAttach({
     refresh(m.customer_id);
   }
 
+  // 0415: a reward the guest redeemed in the app. Scanning it anywhere on the till opens this
+  // dialog with the code (MEMBER_SCAN_EVENT); the button is for a code read out or typed.
+  const voucherButton = open ? (
+    <Button
+      size="sm"
+      kind="ghost"
+      icon="ticket"
+      disabled={busy || !reachable}
+      disabledReason={offlineReason}
+      onClick={() => {
+        setNotice(null);
+        setDialog({ kind: 'voucher', code: '' });
+      }}
+      data-testid="member-voucher"
+    >
+      {tr(`${K}.voucher.button`)}
+    </Button>
+  ) : null;
+
   if (local) {
     return (
       <div style={box}>
@@ -447,18 +478,21 @@ export function MemberAttach({
   return (
     <section aria-label={tr(`${K}.member.attached`)} style={box} data-testid="member-attach">
       {!customerId ? (
-        <Button
-          icon="userPlus"
-          disabled={!open || busy || !reachable}
-          disabledReason={offlineReason}
-          onClick={() => {
-            setNotice(null);
-            setDialog({ kind: 'identify', code: '' });
-          }}
-          data-testid="member-button"
-        >
-          {tr(`${K}.member.button`)}
-        </Button>
+        <div style={{ display: 'flex', gap: 'var(--tp-sp-1-5)', flexWrap: 'wrap' }}>
+          <Button
+            icon="userPlus"
+            disabled={!open || busy || !reachable}
+            disabledReason={offlineReason}
+            onClick={() => {
+              setNotice(null);
+              setDialog({ kind: 'identify', code: '' });
+            }}
+            data-testid="member-button"
+          >
+            {tr(`${K}.member.button`)}
+          </Button>
+          {voucherButton}
+        </div>
       ) : member ? (
         <MemberChip
           member={member}
@@ -495,6 +529,7 @@ export function MemberAttach({
                 >
                   {tr(`${K}.rewards.button`)}
                 </Button>
+                {voucherButton}
                 <Button
                   size="sm"
                   kind="ghost"
@@ -633,6 +668,19 @@ export function MemberAttach({
           initialCode={dialog.code}
           onClose={() => setDialog({ kind: 'none' })}
           onIdentified={attach}
+          onVoucher={(code) => setDialog({ kind: 'voucher', code })}
+        />
+      )}
+      {dialog.kind === 'voucher' && (
+        <VoucherDialog
+          tabId={tabId}
+          initialCode={dialog.code}
+          onClose={() => setDialog({ kind: 'none' })}
+          onDone={(text) => {
+            setDialog({ kind: 'none' });
+            setNotice(text);
+            refresh();
+          }}
         />
       )}
       {dialog.kind === 'staffPin' && (
@@ -901,6 +949,134 @@ function RedeemDialog({
 // Rewards
 // ---------------------------------------------------------------------------
 
+type Tr = ReturnType<typeof useLocale>['tr'];
+
+/** What the bill got from a reward, for the notice under the member block. */
+function rewardDoneText(
+  tr: Tr,
+  locale: ReturnType<typeof useLocale>['locale'],
+  r: { kind: string; name_en: string; name_ar: string },
+  res: { amount_iqd: number | string; item_added?: boolean },
+): string {
+  const name = locale === 'ar' ? r.name_ar : r.name_en;
+  const amount = formatIQD(Number(res.amount_iqd), locale);
+  return r.kind === 'item'
+    ? tr(`${K}.rewards.${res.item_added ? 'doneItemAdded' : 'doneItem'}`, { name })
+    : r.kind === 'court_hour'
+      ? tr(`${K}.rewards.doneCourt`, { amount })
+      : tr(`${K}.rewards.done`, { amount });
+}
+
+/**
+ * 0415: a reward voucher (TPV-…) from the guest's app, given on this bill (use_reward_voucher).
+ * A scan opens it with the code and applies at once; a refusal (used, expired, another branch,
+ * not on this bill) stays here beside the field so the cashier can tell the guest.
+ */
+function VoucherDialog({
+  tabId,
+  initialCode,
+  onClose,
+  onDone,
+}: {
+  tabId: string;
+  initialCode: string;
+  onClose: () => void;
+  onDone: (notice: string) => void;
+}) {
+  const { tr, locale } = useLocale();
+  const { reachable } = useStationReach();
+  const [text, setText] = useState(initialCode);
+  const [invalid, setInvalid] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<unknown>(null);
+  const started = useRef(false);
+
+  async function give(raw = text) {
+    if (busy) return;
+    setError(null);
+    const code = parseVoucherCode(raw);
+    setInvalid(code === null);
+    if (!code) return;
+    setBusy(true);
+    try {
+      const res: UseVoucherResult = await applyVoucher(tabId, code);
+      const done = rewardDoneText(tr, locale, res, res);
+      onDone(res.member_name ? tr(`${K}.voucher.from`, { who: res.member_name, done }) : done);
+    } catch (e) {
+      setError(e);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // A scan that opened the dialog is given at once: the cashier already did the work.
+  useEffect(() => {
+    if (started.current || !initialCode) return;
+    started.current = true;
+    void give(initialCode);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialCode]);
+
+  return (
+    <Modal
+      title={tr(`${K}.voucher.title`)}
+      subtitle={tr(`${K}.voucher.lead`)}
+      size="sm"
+      dismissible={!busy}
+      onClose={onClose}
+      footer={(close) => (
+        <>
+          <Button onClick={close} disabled={busy}>
+            {tr('common.cancel')}
+          </Button>
+          <Button
+            kind="primary"
+            icon="ticket"
+            busy={busy}
+            disabled={!reachable || text.trim() === ''}
+            disabledReason={reachable ? undefined : tr(`${K}.member.noConnection`)}
+            onClick={() => void give()}
+            data-testid="voucher-give"
+          >
+            {tr(`${K}.voucher.apply`)}
+          </Button>
+        </>
+      )}
+    >
+      <Field
+        label={tr(`${K}.voucher.field`)}
+        error={invalid ? tr(`${K}.voucher.invalid`) : undefined}
+        style={{ marginBlockEnd: 0 }}
+      >
+        <input
+          style={{ ...inputStyle, fontVariantNumeric: 'tabular-nums', letterSpacing: '0.04em' }}
+          dir="ltr"
+          autoFocus
+          autoComplete="off"
+          spellCheck={false}
+          value={text}
+          maxLength={24}
+          disabled={busy}
+          placeholder={tr(`${K}.voucher.placeholder`)}
+          data-testid="voucher-code"
+          onChange={(e) => {
+            setText(e.target.value);
+            setInvalid(false);
+          }}
+          onKeyDown={(e) => {
+            // The scanner ends its burst with Enter, as a person does.
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              void give();
+            }
+          }}
+        />
+      </Field>
+      <ErrorText error={error} />
+    </Modal>
+  );
+}
+
 function RewardsDialog({
   tabId,
   member,
@@ -940,14 +1116,7 @@ function RewardsDialog({
     try {
       const res = await redeemReward(tabId, r.id, key, await proof.prove());
       proof.settle(null);
-      const name = locale === 'ar' ? r.name_ar : r.name_en;
-      onDone(
-        r.kind === 'item'
-          ? tr(`${K}.rewards.${res.item_added ? 'doneItemAdded' : 'doneItem'}`, { name })
-          : r.kind === 'court_hour'
-            ? tr(`${K}.rewards.doneCourt`, { amount: formatIQD(Number(res.amount_iqd), locale) })
-            : tr(`${K}.rewards.done`, { amount: formatIQD(Number(res.amount_iqd), locale) }),
-      );
+      onDone(rewardDoneText(tr, locale, r, res));
     } catch (e) {
       proof.settle(e);
       setError(e);

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-import { fullNameOf, sendPasswordResetCode, sendSignInCode, signInWithPhone, signUpWithPhone, validateSignUp } from '../api';
+import { fullNameOf, phoneSignUpStatus, sendPasswordResetCode, sendSignInCode, signInWithPhone, signUpWithPhone, validateSignUp } from '../api';
 
 /**
  * Phone + password accounts (owner decision 2026-09-15). What must not drift:
@@ -103,5 +103,28 @@ describe('fullNameOf', () => {
   it('joins trimmed parts with one space', () => {
     expect(fullNameOf(' Sara ', ' Ali ')).toBe('Sara Ali');
     expect(fullNameOf('Sara', '')).toBe('Sara');
+  });
+});
+
+describe('phoneSignUpStatus (0414)', () => {
+  function rpcClient(rpc: (fn: string, args: unknown) => Promise<unknown>) {
+    const call = vi.fn(rpc);
+    const client = { schema: vi.fn(() => ({ rpc: call })) } as unknown as SupabaseClient;
+    return { call, client };
+  }
+
+  it('asks app.phone_sign_up_status about the composed number', async () => {
+    const { call, client } = rpcClient(async () => ({ data: 'taken', error: null }));
+    expect(await phoneSignUpStatus(client as never, '+905523464432')).toBe('taken');
+    expect(call).toHaveBeenCalledWith('phone_sign_up_status', { p_phone: '+905523464432' });
+  });
+
+  it('never throws: an error, an old server or a dead network is unknown', async () => {
+    const refused = rpcClient(async () => ({ data: null, error: { code: 'PGRST202', message: 'x' } }));
+    expect(await phoneSignUpStatus(refused.client as never, '+9647701234567')).toBe('unknown');
+    const offline = rpcClient(async () => {
+      throw new TypeError('Network request failed');
+    });
+    expect(await phoneSignUpStatus(offline.client as never, '+9647701234567')).toBe('unknown');
   });
 });

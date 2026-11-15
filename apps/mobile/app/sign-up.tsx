@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Redirect, Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { RequireNoSession } from '../src/features/auth/RequireNoSession';
-import { mapOtpError, validatePhoneInput } from '../src/features/auth/phoneOtp';
+import { isPhoneFieldError, mapOtpError, validatePhoneInput } from '../src/features/auth/phoneOtp';
 import { supabase } from '../src/lib/supabase';
-import { sendSignUpCode } from '../src/features/auth/api';
+import { phoneSignUpStatus, sendSignUpCode } from '../src/features/auth/api';
 import { hasSocial, useSocialSignIn } from '../src/features/auth/useSocialSignIn';
 import { usePostAuthContinue } from '../src/features/booking/usePostAuthContinue';
 import { useLocale } from '../src/i18n/LocaleProvider';
@@ -101,11 +101,20 @@ function SignUpScreen({ step }: { step: number }) {
     if (!agreed) return setError(t('auth.termsRequired'));
     setBusy(true);
     try {
+      // 0414: a number a whole account already owns stops here, before a code
+      // is paid for. 'unknown' (old server, throttled, offline) goes on as
+      // before, and verify-otp says so if the code opens an existing account.
+      if ((await phoneSignUpStatus(supabase, e164)) === 'taken') {
+        return setFieldErrors({ phone: t('auth.phoneTakenSignUp') });
+      }
       await sendSignUpCode(supabase, e164);
       setRegistering(true);
       router.push({ pathname: '/verify-otp', params: { phone: e164, mode: 'register' } });
     } catch (err) {
-      setError(t(mapOtpError(err)));
+      // A refusal about the number goes under the number; the rest is an alert.
+      const key = mapOtpError(err);
+      if (isPhoneFieldError(key)) setFieldErrors({ phone: t(key) });
+      else setError(t(key));
     } finally {
       setBusy(false);
     }
@@ -220,8 +229,12 @@ function SignUpScreen({ step }: { step: number }) {
             testID="sign-up.sign-in"
             lead={t('auth.alreadyLead')}
             label={t('auth.signIn')}
-            // Reached from Profile as well as Welcome: always land on sign-in.
-            onPress={() => router.replace({ pathname: '/sign-in', params: { method: 'phone' } })}
+            // Reached from Profile as well as Welcome: always land on sign-in,
+            // with the number typed here already filled in.
+            onPress={() => {
+              const { e164 } = validatePhoneInput(iso, national);
+              router.replace({ pathname: '/sign-in', params: e164 ? { method: 'phone', phone: e164 } : { method: 'phone' } });
+            }}
             style={{ marginTop: 18 }}
           />
         ) : null}

@@ -12,7 +12,18 @@ import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { MemberCard } from '@touch/core/loyalty';
 import { supabase } from '../../lib/supabase';
-import { fetchMyDeals, fetchMyLoyalty, fetchMyMemberCard, pickDeal, rotateMemberCard } from './api';
+import {
+  cancelRewardVoucher,
+  fetchMyDeals,
+  fetchMyLoyalty,
+  fetchMyMemberCard,
+  fetchMyRewardVouchers,
+  pickDeal,
+  redeemReward,
+  rotateMemberCard,
+} from './api';
+import { rewardIdemKey } from '../../lib/idempotency';
+import { VOUCHER_POLL_MS } from './vouchers';
 import { readCachedCard, storeCachedCard } from './cardStore';
 import { loyaltyKeys } from './keys';
 
@@ -104,6 +115,50 @@ export function usePickDeal() {
     },
     onError: () => {
       void queryClient.invalidateQueries({ queryKey: loyaltyKeys.deals });
+    },
+  });
+}
+
+/**
+ * The rewards redeemed in the app (0415): the active ones and those ended in the last half hour,
+ * with the server clock (`data.now`, read at `dataUpdatedAt`). `poll` asks again every few
+ * seconds while a voucher is on screen, so it turns to "collected" when the till scans it.
+ */
+export function useMyRewardVouchers(enabled: boolean, poll = false) {
+  return useQuery({
+    queryKey: loyaltyKeys.vouchers,
+    queryFn: () => fetchMyRewardVouchers(supabase),
+    enabled,
+    staleTime: poll ? 0 : 30_000,
+    refetchInterval: poll ? VOUCHER_POLL_MS : false,
+  });
+}
+
+/**
+ * Redeem a reward (0415): a fresh key per press. The new voucher goes straight into the list, and
+ * the balance is read again (the points left at once).
+ */
+export function useRedeemReward() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: loyaltyKeys.mutation('redeem'),
+    mutationFn: (rewardId: string) => redeemReward(supabase, rewardId, rewardIdemKey()),
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: loyaltyKeys.mine });
+      void queryClient.invalidateQueries({ queryKey: loyaltyKeys.vouchers });
+    },
+  });
+}
+
+/** Cancel an active voucher (0415): its points come back. */
+export function useCancelRewardVoucher() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: loyaltyKeys.mutation('cancel-voucher'),
+    mutationFn: (voucherId: string) => cancelRewardVoucher(supabase, voucherId),
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: loyaltyKeys.mine });
+      void queryClient.invalidateQueries({ queryKey: loyaltyKeys.vouchers });
     },
   });
 }

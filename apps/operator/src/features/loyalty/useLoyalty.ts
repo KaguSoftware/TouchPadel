@@ -18,6 +18,7 @@ import type {
   PerksRefreshResult,
   RedeemResult,
   TabBenefits,
+  UseVoucherResult,
 } from '@touch/core/loyalty';
 import { AppRpcError, appRpc } from '../../lib/appRpc';
 import { supabase } from '../../lib/supabase';
@@ -186,6 +187,22 @@ export function redeemReward(
     p_idempotency_key: key,
     p_member_token: memberToken,
   });
+}
+
+/**
+ * 0415: the till scans a reward the guest redeemed in the app (use_reward_voucher). The code is the
+ * proof: no member on the bill, no token, no PIN. A code that names no voucher is answered
+ * {error} (the server counts it toward the throttle and releases the key), thrown here as the
+ * refusal it is. One key per scan: a double scan replays the first answer.
+ */
+export async function applyVoucher(tabId: string, code: string): Promise<UseVoucherResult> {
+  const answer = await appRpc<UseVoucherResult & { error?: string }>('use_reward_voucher', {
+    p_tab_id: tabId,
+    p_code: code,
+    p_idempotency_key: onlineKey('use_reward_voucher'),
+  });
+  if (answer.error) throw new AppRpcError(answer.error, answer.error);
+  return answer;
 }
 
 /**

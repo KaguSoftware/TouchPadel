@@ -6,10 +6,10 @@
  * what the screen offers before it asks. Tested in loyaltyLogic.test.ts under node.
  */
 import {
-  DEFAULT_TIER_COLOR,
+  CARD_LADDER,
   MEMBER_TOKEN_RE,
-  TIER_COLORS,
   TIER_PERK_REASON_CODE,
+  isVoucherCode,
   parseMemberInput,
   redeemAmount,
   tierColor,
@@ -47,6 +47,14 @@ export function identifyCode(raw: string): { code: string; method: 'qr' | 'phone
  */
 export function isMemberScan(code: string): boolean {
   return MEMBER_TOKEN_RE.test(code.trim().toUpperCase());
+}
+
+/**
+ * 0415: true when a scanner burst is a member card or a reward voucher (TPV-…): the till routes
+ * both to the bill's member block instead of the quick add.
+ */
+export function isLoyaltyScan(code: string): boolean {
+  return isMemberScan(code) || isVoucherCode(code);
 }
 
 // ---------------------------------------------------------------------------
@@ -462,13 +470,13 @@ export interface TierDraft {
 }
 
 /**
- * The colour a new tier starts on: the first of the ladder (bronze, silver, gold, platinum,
- * black) no tier has yet, so three tiers added in a row come out three colours; classic once
- * every one is taken. The owner can pick any.
+ * The colour a new tier starts on (0416): the first of the club's cards (white, green, blue,
+ * black: CARD_LADDER) no tier has yet, so the starter card and three tiers added in a row come
+ * out white, green, blue, black; black once every one is taken. The owner can pick any.
  */
 export function suggestTierColor(tiers: readonly Pick<LoyaltyAdminTier, 'color'>[]): TierColor {
   const used = new Set(tiers.map((t) => tierColor(t.color)));
-  return TIER_COLORS.find((c) => c !== DEFAULT_TIER_COLOR && !used.has(c)) ?? DEFAULT_TIER_COLOR;
+  return CARD_LADDER.find((c) => !used.has(c)) ?? 'black';
 }
 
 export function tierDraft(

@@ -17,6 +17,7 @@
     "app.secrets": "excluded: HMAC and signing secrets (0009/0019); never readable by anyone but definer functions, and never sent to a model vendor",
     "app.setup_expected": "excluded: 0385 (F-55) the list of buckets, policies and cron jobs the setup check expects; a missing one reaches the owner and dev as a Monitoring event",
     "app.sms_limits": "excluded: OTP kill switch and send caps (phone-otp 2026-09-05); only aggregate counts reach the assistant through system_status",
+    "app.phone_sign_up_lookups": "excluded: throttle rows for the Create account number check (0414): a hashed caller and a time, nothing about any guest; live one hour",
     "app.sms_sends": "excluded: per-phone OTP send log (phone-otp 2026-09-05); phone numbers of guests, only aggregate counts reach the assistant through system_status",
     "assistant_calls": "table_read",
     "assistant_cache_config": "excluded: the stored-days cache switch (0330): one settings row, no venue knowledge — the assistant reaches the cache through the history_figures tool and says how many days came from it",
@@ -75,7 +76,7 @@
     "legacy_cafe_products": "table_read",
     "legacy_report_figures": "table_read",
     "legacy_reports": "table_read",
-    "lesson_attendance":"excluded: student identity, attendance, strikes or a coach's time-off reasons; the owner reads lessons through desk_lessons, customer_lessons and report_lessons",
+    "lesson_attendance": "excluded: student identity, attendance, strikes or a coach's time-off reasons; the owner reads lessons through desk_lessons, customer_lessons and report_lessons",
     "lesson_enrolments": "excluded: student identity, attendance, strikes or a coach's time-off reasons; the owner reads lessons through desk_lessons, customer_lessons and report_lessons",
     "lesson_events": "excluded: student identity, attendance, strikes or a coach's time-off reasons; the owner reads lessons through desk_lessons, customer_lessons and report_lessons",
     "lesson_strikes": "excluded: student identity, attendance, strikes or a coach's time-off reasons; the owner reads lessons through desk_lessons, customer_lessons and report_lessons",
@@ -209,7 +210,8 @@
     "wage_payments": "excluded: the wages the owner marked paid, money about a named person; never readable by the owner assistant or any LLM",
     "waiter_calls": "table_read",
     "shop_sale_reward_earnings": "excluded: the Touch Shop sales reward each person earned in a closed business month and the wage month it is paid in (0355), money about a named person; never readable by the owner assistant or any LLM",
-    "shop_sale_reward_rates": "excluded: the shop sales reward percent frozen on each settled shop tab (0355), wage bookkeeping read by no client; never readable by the owner assistant or any LLM"
+    "shop_sale_reward_rates": "excluded: the shop sales reward percent frozen on each settled shop tab (0355), wage bookkeeping read by no client; never readable by the owner assistant or any LLM",
+    "loyalty_reward_vouchers": "excluded: a reward a guest redeemed in the app and its single-use code (0415); the code is a bearer credential, so the table has no client grant and is never read by the owner assistant or any LLM"
   },
   "views": {
     "cafe_settings_public": "table_read",
@@ -347,7 +349,7 @@
     "assistant_table_read": "tool:table_read",
     "assistant_tabs_list": "tool:tabs_list",
     "assistant_tsquery": "excluded: an internal helper (0325) — turns the owner's question into the full-text query inside app.assistant_search; no client grant, nothing to look up",
-    "assistant_tournaments_summary":"tool:tournaments_summary",
+    "assistant_tournaments_summary": "tool:tournaments_summary",
     "assistant_upsert_chunk": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client",
     "assistant_usage": "tool:usage",
     "attendance_month": "map:action",
@@ -1277,6 +1279,7 @@
     "slip_fail_reading": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client",
     "slip_store_reading": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client",
     "slips_to_send": "map:action",
+    "phone_sign_up_status": "excluded: the phone's Create account step (0414), anon by design; answers taken/free/unknown for one number before a code is sent; not an owner question",
     "sms_send_gate": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client",
     "sms_send_result": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client",
     "split_by_item": "map:action",
@@ -1590,7 +1593,15 @@
     "trg_sync_replays_append_only": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client",
     "trg_tournament_entry_confirm": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client",
     "trg_tournament_rounds_confirmed": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client",
-    "venue_files_gc": "excluded: service_role only — the Files garbage collector run by cron tp_venue_files_gc (0391): deletes file rows whose stored file is gone, never called by a client"
+    "venue_files_gc": "excluded: service_role only — the Files garbage collector run by cron tp_venue_files_gc (0391): deletes file rows whose stored file is gone, never called by a client",
+    "cancel_reward_voucher": "map:action",
+    "my_reward_vouchers": "map:action",
+    "redeem_reward": "map:action",
+    "use_reward_voucher": "map:action",
+    "loyalty_voucher_end": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client",
+    "loyalty_voucher_json": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client",
+    "voucher_code_new": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client",
+    "loyalty_voucher_sweep": "excluded: service_role only — the reward voucher sweep run by cron tp_reward_voucher_sweep (0415): expires vouchers nobody used and gives their points back, never called by a client"
   },
   "routes": {
     "/admin": "map:page",
@@ -1736,7 +1747,8 @@
     "tp_telegram_sweep": "map:system",
     "tp_tournament_sweep": "map:system",
     "tp_shop_reward_sweep": "map:system",
-    "tp_venue_files_gc": "map:system"
+    "tp_venue_files_gc": "map:system",
+    "tp_reward_voucher_sweep": "map:system"
   },
   "docs": {
     "API.md": "index:doc",

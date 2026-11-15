@@ -1,5 +1,13 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { Alert, Animated, Easing, ScrollView, View, useWindowDimensions } from 'react-native';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import {
+  Alert,
+  Animated,
+  Easing,
+  ScrollView,
+  View,
+  useWindowDimensions,
+  type ScrollViewInstance,
+} from 'react-native';
 import Svg, { Path, Rect } from 'react-native-svg';
 import {
   QR_INK,
@@ -115,6 +123,20 @@ function CountdownBar({
   );
 }
 
+/**
+ * The panel's `below`, drawn as an element: `toCode` reaches it as a prop, to be called from a
+ * press, never read while the panel renders.
+ */
+function Below({
+  render,
+  toCode,
+}: {
+  render: (toCode: () => void) => ReactNode;
+  toCode: () => void;
+}) {
+  return render(toCode);
+}
+
 /** The code's size under the QR before it is fitted to the QR's width. */
 const CODE_PT = 20;
 
@@ -151,6 +173,10 @@ function MemberQr({ token, size }: { token: string; size: number }) {
  * run of the app (never from disk, and not past the pick's 24 hours), so with no signal the card
  * is the code alone, exactly as before; the pick itself is the server's and still applies.
  *
+ * Under the code, `below` (Majed, 2026-11-13): the Club tab lists the deals there. It is handed a
+ * way back to the code, which scrolls the paper into view: a deal picked down there is named on
+ * the paper, and that is what the guest shows.
+ *
  * A panel since 2026-10-19, so the Club tab (app/(tabs)/club.tsx) shows the same card the
  * pushed screen (app/member-card.tsx) does. Signed-in only: the caller gates the session.
  */
@@ -158,6 +184,7 @@ export function MemberCardPanel({
   testID,
   bottomPad,
   children,
+  below,
 }: {
   /** `<route>.<element>`; the parts take `${testID}.qr`, `.code`, `.progress`, `.new-code`, `.error`, `.deal`. */
   testID: string;
@@ -165,6 +192,8 @@ export function MemberCardPanel({
   bottomPad: number;
   /** Above the code: the Club tab puts the guest's points card here. */
   children?: ReactNode;
+  /** Under the code: the Club tab's deals. `toCode` scrolls the code back into view. */
+  below?: (toCode: () => void) => ReactNode;
 }) {
   const { t } = useLocale();
   const { colors, fonts } = useTheme();
@@ -176,6 +205,12 @@ export function MemberCardPanel({
   // 0410. Members only, as `my_loyalty` is read; a failed read is simply no deal line.
   const deals = useMyDeals(!!session && !session.user.is_anonymous);
   const toast = useToast();
+  const reduce = useReduceMotion();
+  const scroll = useRef<ScrollViewInstance>(null);
+  // Where the code's paper starts in the scroll, so `toCode` can bring it back.
+  const paperY = useRef(0);
+  const toCode = () =>
+    scroll.current?.scrollTo({ y: Math.max(0, paperY.current - space.l), animated: !reduce });
   const now = useNow();
   const deal = pickedDeal(deals.data, now);
 
@@ -228,6 +263,7 @@ export function MemberCardPanel({
     }
     return (
       <ScrollView
+        ref={scroll}
         contentContainerStyle={{
           paddingTop: space.l,
           paddingBottom: bottomPad,
@@ -240,6 +276,9 @@ export function MemberCardPanel({
         {children}
         {/* The code: on white, edge to edge of its own card, in both themes. */}
         <View
+          onLayout={(e) => {
+            paperY.current = e.nativeEvent.layout.y;
+          }}
           style={{
             alignItems: 'center',
             backgroundColor: QR_PAPER,
@@ -361,6 +400,9 @@ export function MemberCardPanel({
             <Hint style={{ textAlign: 'center' }}>{t('loyalty.guest.card.offline')}</Hint>
           ) : null}
         </View>
+
+        {/* Under the code (the Club tab's deals); "Get a new code" stays last, the rare action. */}
+        {below ? <Below render={below} toCode={toCode} /> : null}
 
         <Button
           testID={`${testID}.new-code`}

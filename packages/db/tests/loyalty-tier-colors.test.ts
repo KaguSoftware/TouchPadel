@@ -65,7 +65,27 @@ function run(tag: string, body: string[]): Results {
 
 describe('the closed colour list', () => {
   it('is the one the migration checks', () => {
-    expect([...TIER_COLORS]).toEqual(['classic', 'bronze', 'silver', 'gold', 'platinum', 'black']);
+    expect([...TIER_COLORS]).toEqual([
+      'white', 'green', 'blue', 'black',
+      'classic', 'bronze', 'silver', 'gold', 'platinum',
+    ]);
+  });
+});
+
+describe.skipIf(!docker)('the club cards (0416)', () => {
+  it('takes white, green and blue, still takes a 0376 metal, and refuses anything else', () => {
+    const r = run('tc-cards', [
+      TIER('white', '{"name_en":"TC White","name_ar":"أبيض","min_points_12m":40,"sort":1,"color":"white"}'),
+      TIER('green', '{"name_en":"TC Green","name_ar":"أخضر","min_points_12m":80,"sort":2,"color":"green"}'),
+      TIER('blue', '{"name_en":"TC Blue","name_ar":"أزرق","min_points_12m":160,"sort":3,"color":"blue"}'),
+      TIER('silver', '{"name_en":"TC Silver","name_ar":"فضي","min_points_12m":320,"sort":4,"color":"silver"}'),
+      TIER('bad', '{"name_en":"TC Red","name_ar":"أحمر","min_points_12m":640,"sort":5,"color":"red"}'),
+    ]);
+    expect(ok(r, 'white')).toMatchObject({ color: 'white' });
+    expect(ok(r, 'green')).toMatchObject({ color: 'green' });
+    expect(ok(r, 'blue')).toMatchObject({ color: 'blue' });
+    expect(ok(r, 'silver')).toMatchObject({ color: 'silver' });
+    expect(refused(r, 'bad')).toBe('INVALID_VALUE');
   });
 });
 

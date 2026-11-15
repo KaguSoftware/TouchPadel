@@ -1,7 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import {
   Image,
-  Platform,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -10,18 +9,27 @@ import {
   type NativeSyntheticEvent,
   type ScrollViewInstance,
 } from 'react-native';
-import { BlurView } from 'expo-blur';
 import { formatIQD } from '@touch/i18n';
 import { Text } from '../../i18n/text';
 import { useLocale } from '../../i18n/LocaleProvider';
-import { radius, space, useTheme, withAlpha } from '../../theme';
+import { radius, space, useTheme } from '../../theme';
 import { EmptyState, ErrorState, SkeletonList } from '../../components/states';
 import { BranchPicker } from '../availability/BranchPicker';
 import { useGuestVenue } from '../availability/hooks';
 import { CategoryBand, CategoryPlaceholder } from './categoryArt';
+import { CategoryBar } from './CategoryBar';
 import { useCafeMenu } from './hooks';
 import { ItemDetail } from './ItemDetail';
-import { menuPhotoUrl, pickText, type MenuViewItem } from './logic';
+import {
+  MENU_FIRST_ROWS,
+  MENU_MORE_ROWS,
+  menuPhotoUrl,
+  menuRowCount,
+  pickText,
+  rowsToShow,
+  shownSections,
+  type MenuViewItem,
+} from './logic';
 import { usePullRefresh } from '../../lib/usePullRefresh';
 
 const THUMB = 56;
@@ -45,7 +53,11 @@ function Thumb({ path, categoryEn }: { path: string | null; categoryEn: string }
     >
       {url && !failed ? (
         <Image
-          source={{ uri: url }}
+          // A photo's path is a fresh uuid per upload (operator lib/storage.ts), so a copy kept on
+          // the phone is never stale: iOS reads it from disk without asking again; Android's
+          // image cache keeps it on disk anyway. `resize` decodes it at thumb size there.
+          source={{ uri: url, cache: 'force-cache' }}
+          resizeMethod="resize"
           onError={() => setFailed(true)}
           style={{ width: THUMB, height: THUMB }}
           accessibilityIgnoresInvertColors
@@ -81,47 +93,54 @@ export function CafeMenuView({
   bottomPad: number;
 }) {
   const { t, locale } = useLocale();
-  const { colors, fonts, appearance } = useTheme();
+  const { colors, fonts } = useTheme();
   const guest = useGuestVenue();
   const menu = useCafeMenu(guest.venueId);
   const pull = usePullRefresh(() => Promise.all([guest.query.refetch(), menu.refetch()]));
   const sections = useMemo(() => menu.data ?? [], [menu.data]);
+  // The first screenful is drawn at once (from the copy on the phone when there is one); the
+  // rest join as the guest scrolls toward them, so a photo is fetched only once its row nears.
+  const [limit, setLimit] = useState(MENU_FIRST_ROWS);
+  const total = menuRowCount(sections);
+  const drawn = useMemo(() => shownSections(sections, limit), [sections, limit]);
+  const more = limit < total;
 
   const [category, setCategory] = useState<string | null>(null);
   const [opened, setOpened] = useState<{ item: MenuViewItem; categoryEn: string } | null>(null);
   const scrollRef = useRef<ScrollViewInstance>(null);
-  const chipsRef = useRef<ScrollViewInstance>(null);
   const headerH = useRef(0);
   const listY = useRef(0);
   const sectionY = useRef<Record<string, number>>({});
-  const chipX = useRef<Record<string, { x: number; width: number }>>({});
-  const chipsW = useRef(0);
   // A chip tap scrolls past the categories in between; they must not light up
   // until the scroll reaches the tapped one (or the guest takes over).
   const jumpingTo = useRef<string | null>(null);
+  // A chip tapped for a category not drawn yet: the scroll waits for its layout.
+  const pendingJump = useRef<string | null>(null);
+  const viewH = useRef(0);
+  const chipList = useMemo(
+    () => sections.map((s) => ({ id: s.id, label: pickText(s.name_en, s.name_ar, locale) })),
+    [sections, locale],
+  );
   const active =
     category && sections.some((s) => s.id === category) ? category : (sections[0]?.id ?? null);
 
-  useEffect(() => {
-    const at = active ? chipX.current[active] : undefined;
-    if (!at) return;
-    chipsRef.current?.scrollTo({
-      x: Math.max(0, at.x - (chipsW.current - at.width) / 2),
-      animated: true,
-    });
-  }, [active]);
+  // One batch per render: scroll events arriving before the new rows land add nothing more.
+  const drawMore = () => setLimit((n) => (n === limit ? n + MENU_MORE_ROWS : n));
 
   const onScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     const { contentOffset, layoutMeasurement, contentSize } = e.nativeEvent;
-    const atBottom = contentOffset.y + layoutMeasurement.height >= contentSize.height - 4;
+    const left = contentSize.height - (contentOffset.y + layoutMeasurement.height);
+    // Within a screen of the end: draw the next rows before the guest reaches them.
+    if (more && left < layoutMeasurement.height) drawMore();
+    const atBottom = left <= 4;
     const line = contentOffset.y + headerH.current + space.m;
     let next = sections[0]?.id ?? null;
     for (const s of sections) {
       const y = sectionY.current[s.id];
       if (y !== undefined && listY.current + y <= line) next = s.id;
     }
-    // The last category may be too short ever to reach the line.
-    if (atBottom && sections.length > 0) next = sections[sections.length - 1]!.id;
+    // The last category may be too short ever to reach the line (only once it is all drawn).
+    if (atBottom && !more && sections.length > 0) next = sections[sections.length - 1]!.id;
     if (jumpingTo.current !== null) {
       if (next !== jumpingTo.current) return;
       jumpingTo.current = null;
@@ -129,15 +148,23 @@ export function CafeMenuView({
     if (next !== active) setCategory(next);
   };
 
-  const jumpTo = (id: string) => {
+  const scrollToSection = (id: string) => {
     const y = sectionY.current[id];
-    setCategory(id);
-    if (y === undefined) return;
+    if (y === undefined) return false;
     jumpingTo.current = id;
     scrollRef.current?.scrollTo({
       y: Math.max(0, listY.current + y - headerH.current - space.s),
       animated: true,
     });
+    return true;
+  };
+
+  const jumpTo = (id: string) => {
+    setCategory(id);
+    const need = rowsToShow(sections, id);
+    if (need > limit) setLimit(need);
+    // Not drawn yet: its first layout does the scroll (the section's onLayout below).
+    if (!scrollToSection(id)) pendingJump.current = id;
   };
 
   const price = (iqd: number) => formatIQD(iqd, locale);
@@ -291,38 +318,6 @@ export function CafeMenuView({
     );
   };
 
-  const chip = (id: string, label: string) => {
-    const on = active === id;
-    return (
-      <Pressable
-        key={id}
-        testID={`${testID}.category.${id}`}
-        accessibilityRole="button"
-        accessibilityState={{ selected: on }}
-        onLayout={(e) => {
-          chipX.current[id] = { x: e.nativeEvent.layout.x, width: e.nativeEvent.layout.width };
-        }}
-        onPress={() => jumpTo(id)}
-        style={({ pressed }) => ({
-          height: 36,
-          paddingStart: space.m,
-          paddingEnd: space.m,
-          borderRadius: radius.pill,
-          justifyContent: 'center',
-          borderWidth: 1,
-          borderColor: on ? colors.blue : colors.line,
-          backgroundColor: on ? colors.blue : pressed ? colors.sub : colors.card,
-        })}
-      >
-        <Text
-          style={{ fontFamily: fonts.body700, fontSize: 13, color: on ? colors.card : colors.ink }}
-        >
-          {label}
-        </Text>
-      </Pressable>
-    );
-  };
-
   const body = () => {
     if (guest.query.isError && !guest.venueId) {
       return (
@@ -360,12 +355,16 @@ export function CafeMenuView({
     }
     return (
       <View style={{ gap: space.l }}>
-        {sections.map((s) => (
+        {drawn.map((s) => (
           <View
             key={s.id}
             style={{ gap: space.s }}
             onLayout={(e) => {
               sectionY.current[s.id] = e.nativeEvent.layout.y;
+              if (pendingJump.current === s.id) {
+                pendingJump.current = null;
+                scrollToSection(s.id);
+              }
             }}
           >
             <CategoryBand nameEn={s.name_en} nameAr={s.name_ar} />
@@ -394,6 +393,13 @@ export function CafeMenuView({
         jumpingTo.current = null;
       }}
       scrollEventThrottle={32}
+      onLayout={(e) => {
+        viewH.current = e.nativeEvent.layout.height;
+      }}
+      // A tall phone can show every drawn row with nothing to scroll: draw on until it can't.
+      onContentSizeChange={(_, h) => {
+        if (more && viewH.current > 0 && h < viewH.current * 1.25) drawMore();
+      }}
       // Child 1 is the chips (child 0 is the branch picker, empty when the guest has one branch).
       stickyHeaderIndices={sections.length > 1 ? [1] : undefined}
       contentContainerStyle={{ paddingTop: space.m, paddingBottom: bottomPad }}
@@ -417,34 +423,7 @@ export function CafeMenuView({
             headerH.current = e.nativeEvent.layout.height;
           }}
         >
-          {/* The chips ride on the segmented control's track, frosted: the menu scrolls under it blurred, with no hard edge. */}
-          <View
-            style={{
-              borderRadius: radius.cell,
-              overflow: 'hidden',
-              backgroundColor: withAlpha(colors.seg, 0.7),
-            }}
-          >
-            {Platform.OS === 'ios' ? (
-              <BlurView
-                pointerEvents="none"
-                intensity={40}
-                tint={appearance === 'dark' ? 'dark' : 'light'}
-                style={{ position: 'absolute', top: 0, bottom: 0, start: 0, end: 0 }}
-              />
-            ) : null}
-            <ScrollView
-              ref={chipsRef}
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={{ gap: space.s, padding: 4 }}
-              onLayout={(e) => {
-                chipsW.current = e.nativeEvent.layout.width;
-              }}
-            >
-              {sections.map((s) => chip(s.id, pickText(s.name_en, s.name_ar, locale)))}
-            </ScrollView>
-          </View>
+          <CategoryBar testID={testID} chips={chipList} active={active} onPick={jumpTo} />
         </View>
       ) : null}
 
