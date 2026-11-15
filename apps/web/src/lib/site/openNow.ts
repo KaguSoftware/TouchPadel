@@ -1,6 +1,7 @@
 // Subpath import, not '@touch/i18n': the package index re-exports both full message
 // catalogs, and this module ships to the browser inside the open-now pill.
 import { VENUE_TZ } from '@touch/i18n/formatting';
+import { localParts } from '@touch/core/time/tz';
 
 /**
  * "Open now", computed in the browser on the venue's own clock (Asia/Baghdad), so a
@@ -13,6 +14,8 @@ export type OpeningHoursBlob = Record<string, unknown> | null | undefined;
 
 const DAY_KEYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] as const;
 type DayKey = (typeof DAY_KEYS)[number];
+/** localParts' dayOfWeek (0 = Sunday) to the blob's day key. */
+const BY_DAY_OF_WEEK: readonly DayKey[] = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
 
 /** The stored windows of one day, defensively parsed (the blob is operator-edited JSON). */
 function rawWindows(raw: unknown): [string, string][] {
@@ -28,21 +31,13 @@ function rawWindows(raw: unknown): [string, string][] {
 
 /** The venue's wall clock: its ISO date, day key and `HH:MM`, all in Asia/Baghdad. */
 export function venueClock(now: Date): { isoDate: string; dayKey: DayKey; hhmm: string } {
-  const isoDate = new Intl.DateTimeFormat('en-CA', { timeZone: VENUE_TZ }).format(now);
-  const weekday = new Intl.DateTimeFormat('en-US', { timeZone: VENUE_TZ, weekday: 'short' })
-    .format(now)
-    .slice(0, 3)
-    .toLowerCase();
-  const parts = new Intl.DateTimeFormat('en-GB', {
-    timeZone: VENUE_TZ,
-    hour: '2-digit',
-    minute: '2-digit',
-    hourCycle: 'h23',
-  }).formatToParts(now);
-  const hour = parts.find((p) => p.type === 'hour')?.value ?? '00';
-  const minute = parts.find((p) => p.type === 'minute')?.value ?? '00';
-  const dayKey = (DAY_KEYS as readonly string[]).includes(weekday) ? (weekday as DayKey) : 'mon';
-  return { isoDate, dayKey, hhmm: `${hour}:${minute}` };
+  const p = localParts(now, VENUE_TZ); // @touch/core: the same clock the app and the till read
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return {
+    isoDate: p.date,
+    dayKey: BY_DAY_OF_WEEK[p.dayOfWeek] ?? 'mon',
+    hhmm: `${pad(Math.floor(p.minutesOfDay / 60))}:${pad(p.minutesOfDay % 60)}`,
+  };
 }
 
 export interface OpenState {

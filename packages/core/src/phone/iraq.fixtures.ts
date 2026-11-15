@@ -18,6 +18,8 @@ export const IRAQ_PHONE_FIXTURES: ReadonlyArray<{
   { raw: '٠٧٧٠١٢٣٤٥٦٧', digits: '07701234567', canon: '7701234567', e164: '+9647701234567' },
   { raw: '۰۷۷۰۱۲۳۴۵۶۷', digits: '07701234567', canon: '7701234567', e164: '+9647701234567' },
   { raw: '0750 123 4567', digits: '07501234567', canon: '7501234567', e164: '+9647501234567' },
+  // 0430: the trunk 0 written after the country code is still the same number.
+  { raw: '+964 0770 123 4567', digits: '96407701234567', canon: '7701234567', e164: '+9647701234567' },
   // Too short: a mobile is 7 + nine digits.
   { raw: '0770123456', digits: '0770123456', canon: '770123456', e164: null },
   // Too long.

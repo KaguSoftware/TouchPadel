@@ -13,6 +13,7 @@ import { toolByName } from '@touch/core/assistant/tools';
 import { useLocale } from '../../lib/i18n';
 import { Button, Spinner } from '../../components/ui';
 import { recheckMessage, type RecheckResult, type SourceItem } from './api';
+import { westernDigits } from '@touch/core/staff/requests';
 
 /** A message can be re-checked when at least one of its calls read business figures and succeeded. */
 export function hasRecheckableTools(tools: readonly SourceItem[]): boolean {
@@ -20,14 +21,6 @@ export function hasRecheckableTools(tools: readonly SourceItem[]): boolean {
     if (t.error) return false;
     const spec = toolByName(t.name);
     return !!spec && spec.kind !== 'knowledge' && spec.kind !== 'meta';
-  });
-}
-
-/** Arabic-Indic and Extended Arabic-Indic digits → ASCII (gate.ts does the same before it counts). */
-function latinDigits(s: string): string {
-  return s.replace(/[٠-٩۰-۹]/g, (ch) => {
-    const code = ch.charCodeAt(0);
-    return String(code >= 0x06f0 ? code - 0x06f0 : code - 0x0660);
   });
 }
 
@@ -43,7 +36,7 @@ export function rawsForValues(text: string, values: readonly number[]): string[]
   const out = new Set<string>();
   for (const m of text.matchAll(NUMBER_RE)) {
     const raw = m[0];
-    const body = latinDigits(raw).replace(/%$/, '').replace(/[,٬]/g, '').replace('٫', '.').replace('−', '-');
+    const body = westernDigits(raw).replace(/%$/, '').replace(/[,٬]/g, '').replace('٫', '.').replace('−', '-');
     const value = Number(body);
     if (!Number.isFinite(value)) continue;
     if (values.some((v) => Math.abs(v - value) <= 1e-6)) out.add(raw);

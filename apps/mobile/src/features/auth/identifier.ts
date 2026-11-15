@@ -4,6 +4,7 @@
  * a phone number. Pure, so vitest covers it.
  */
 import { COUNTRIES, DEFAULT_ISO, PRIMARY_BY_DIAL, parsePhone } from '../profile/phone';
+import { westernDigits } from '@touch/core/staff/requests';
 
 export type IdentifierKind = 'email' | 'phone' | 'none';
 
@@ -40,14 +41,6 @@ export function phoneFromIdentifier(text: string): {
   return { iso: DEFAULT_ISO, national: plain, plausible: /^7[0-9]{9}$/.test(national) };
 }
 
-/** Arabic-Indic and Persian digits to ASCII, so a length is a count of digits. */
-function foldDigits(text: string): string {
-  return text.replace(/[٠-٩۰-۹]/g, (ch) => {
-    const code = ch.charCodeAt(0);
-    return String(code >= 0x06f0 ? code - 0x06f0 : code - 0x0660);
-  });
-}
-
 /**
  * What the field keeps while a phone number is being typed, so it stops taking
  * digits that could never dial: an Iraqi number in local form is 11 digits with
@@ -57,7 +50,7 @@ function foldDigits(text: string): string {
  */
 export function limitIdentifier(text: string): string {
   if (identifierKind(text) !== 'phone') return text;
-  const folded = foldDigits(text.trim());
+  const folded = westernDigits(text.trim());
   const plus = folded.startsWith('+');
   const digits = folded.replace(/[^0-9]/g, '');
   if (plus) return `+${digits.slice(0, 15)}`;
@@ -74,7 +67,7 @@ export function limitIdentifier(text: string): string {
  */
 export function normalizeIdentifier(text: string): string {
   if (identifierKind(text) !== 'phone') return text;
-  const folded = foldDigits(text.trim());
+  const folded = westernDigits(text.trim());
   if (!folded.startsWith('+')) {
     const digits = folded.replace(/[^0-9]/g, '');
     if (digits.startsWith('00') && digits.length > 2) return limitIdentifier(`+${digits.slice(2)}`);
@@ -92,7 +85,7 @@ export function normalizeIdentifier(text: string): string {
 export function splitCountryCode(value: string): { iso: string; dial: string; rest: string } | null {
   const v = value.trim();
   if (!v.startsWith('+')) return null;
-  const digits = foldDigits(v).replace(/[^0-9]/g, '');
+  const digits = westernDigits(v).replace(/[^0-9]/g, '');
   const hit = [...COUNTRIES]
     .sort((a, b) => b.dial.length - a.dial.length)
     .find((c) => digits.startsWith(c.dial));
@@ -103,7 +96,7 @@ export function splitCountryCode(value: string): { iso: string; dial: string; re
 
 /** A local Iraqi number grouped the way it is written: `0770 123 4567`, or `770 123 4567`. */
 export function formatLocal(value: string): string {
-  const d = foldDigits(value).replace(/[^0-9]/g, '');
+  const d = westernDigits(value).replace(/[^0-9]/g, '');
   const groups = d.startsWith('0') ? [4, 3, 4] : [3, 3, 4];
   const out: string[] = [];
   let at = 0;

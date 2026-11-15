@@ -1,5 +1,5 @@
 {
-  "generated_from": "0ccc519ab8514b0e3b0b9492a9de0fad5c997f20",
+  "generated_from": "fc9fa48af517f39a52cf9893fb06de6ed7fe1848",
   "chunks": [
     {
       "kind": "page",
@@ -3014,7 +3014,7 @@
       "ref": "action:app.apply_customer_court_discount",
       "lang": "en",
       "title": "app.apply_customer_court_discount (part 1 of 4)",
-      "body": "0342, 0403. court_desk, cashier, manager, owner at the booking's branch (RESERVATION_NOT_FOUND, VENUE_MISMATCH), no PIN. The court-fee discount of a confirmed, arrived or completed plain booking with a price (COURT_DISCOUNT_NOT_ALLOWED detail not_a_live_booking | match). p_kind NULL refreshes it (a one-off keeps its kind and value, else the booking customer's standing court discount unless this booking waived it, else it goes) and answers every refusal as data ({applied, unchanged: true, refused}); 'standing' lifts the waiver and puts the standing discount on in place of a one-off; 'none' takes it off and waives the standing",
+      "body": "0342, 0403, 0430 (the booking's live bill locked first, so a concurrent settle_tab and this never pass each other). court_desk, cashier, manager, owner at the booking's branch (RESERVATION_NOT_FOUND, VENUE_MISMATCH), no PIN. The court-fee discount of a confirmed, arrived or completed plain booking with a price (COURT_DISCOUNT_NOT_ALLOWED detail not_a_live_booking | match). p_kind NULL refreshes it (a one-off keeps its kind and value, else the booking customer's standing court discount unless this booking waived it, else it goes) and answers every refusal as data ({applied, unchanged: true, refused}); 'standing' lifts the waiver",
       "route": null
     },
     {
@@ -3022,7 +3022,7 @@
       "ref": "action:app.apply_customer_court_discount~2",
       "lang": "en",
       "title": "app.apply_customer_court_discount (part 2 of 4)",
-      "body": "0342, 0403. court_desk, cashier, manager, owner at the booking's branch (RESERVATION_NOT_FOUND, VENUE_MISMATCH), no PIN. The court-fee discount of a confirmed, \ndiscount for this booking (customer_discount_waivers); 'percent' | 'amount' with p_value and p_reason gives it on this booking only (NO_CUSTOMER, SELF_DISCOUNT). The customer is the booking's guest, else its live tab's customer. Fixed once a bill of the booking settled with it in place (COURT_BILL_CLOSED). COURT_FEE_PAID when the fee is already paid; DISCOUNT_REQUIRES_REFUND when the discount is more than is still owed (0403: a free court hour from loyalty, reservation_loyalty_rewards, counts as already covered). Locks the court (lock_court) then the booking row. Audit court_discount.apply / court_discount.remove. Returns",
+      "body": "0342, 0403, 0430 (the booking's live bill locked first, so a concurrent settle_tab and this never pass each other). court_desk, cashier, manager, owner at the b\nand puts the standing discount on in place of a one-off; 'none' takes it off and waives the standing discount for this booking (customer_discount_waivers); 'percent' | 'amount' with p_value and p_reason gives it on this booking only (NO_CUSTOMER, SELF_DISCOUNT). The customer is the booking's guest, else its live tab's customer. Fixed once a bill of the booking settled with it in place (COURT_BILL_CLOSED). COURT_FEE_PAID when the fee is already paid; DISCOUNT_REQUIRES_REFUND when the discount is more than is still owed (0403: a free court hour from loyalty, reservation_loyalty_rewards, counts as already covered). Locks the court",
       "route": null
     },
     {
@@ -3030,7 +3030,7 @@
       "ref": "action:app.apply_customer_court_discount~3",
       "lang": "en",
       "title": "app.apply_customer_court_discount (part 3 of 4)",
-      "body": "0342, 0403. court_desk, cashier, manager, owner at the booking's branch (RESERVATION_NOT_FOUND, VENUE_MISMATCH), no PIN. The court-fee discount of a confirmed, \n{applied, unchanged, kind, value, amount_iqd, standing, customer_id, remaining_iqd}.\nSignature: app.apply_customer_court_discount(p_reservation_id uuid, p_kind text default null, p_value int default null, p_reason text default null, p_device_id text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (court_desk, cashier, manager, owner).\nAudit actions written: court_discount.remove, court_discount.apply.",
+      "body": "0342, 0403, 0430 (the booking's live bill locked first, so a concurrent settle_tab and this never pass each other). court_desk, cashier, manager, owner at the b\n(lock_court) then the booking row. Audit court_discount.apply / court_discount.remove. Returns {applied, unchanged, kind, value, amount_iqd, standing, customer_id, remaining_iqd}.\nSignature: app.apply_customer_court_discount(p_reservation_id uuid, p_kind text default null, p_value int default null, p_reason text default null, p_device_id text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (court_desk, cashier, manager, owner).\nAudit actions written: court_discount.remove, court_discount.apply.",
       "route": null
     },
     {
@@ -3038,7 +3038,7 @@
       "ref": "action:app.apply_customer_court_discount~4",
       "lang": "en",
       "title": "app.apply_customer_court_discount (part 4 of 4)",
-      "body": "0342, 0403. court_desk, cashier, manager, owner at the booking's branch (RESERVATION_NOT_FOUND, VENUE_MISMATCH), no PIN. The court-fee discount of a confirmed, \nGranted to: authenticated. Guard: staff role in (court_desk, cashier, manager, owner).\nAudit actions written: court_discount.remove, court_discount.apply.\nError codes: FORBIDDEN, INVALID_KIND, INVALID_VALUE, REASON_REQUIRED, INVALID_ARGUMENT, RESERVATION_NOT_FOUND, VENUE_MISMATCH, COURT_DISCOUNT_NOT_ALLOWED, NO_CUSTOMER, SELF_DISCOUNT, COURT_BILL_CLOSED, COURT_FEE_PAID, DISCOUNT_REQUIRES_REFUND.\nCalled from: apps/operator/src/features/discounts/useCustomerDiscount.ts.\nDefined in migration 0403 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "0342, 0403, 0430 (the booking's live bill locked first, so a concurrent settle_tab and this never pass each other). court_desk, cashier, manager, owner at the b\nGranted to: authenticated. Guard: staff role in (court_desk, cashier, manager, owner).\nAudit actions written: court_discount.remove, court_discount.apply.\nError codes: FORBIDDEN, INVALID_KIND, INVALID_VALUE, REASON_REQUIRED, INVALID_ARGUMENT, RESERVATION_NOT_FOUND, VENUE_MISMATCH, COURT_DISCOUNT_NOT_ALLOWED, NO_CUSTOMER, SELF_DISCOUNT, COURT_BILL_CLOSED, COURT_FEE_PAID, DISCOUNT_REQUIRES_REFUND.\nCalled from: apps/operator/src/features/discounts/useCustomerDiscount.ts.\nDefined in migration 0430 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -5302,7 +5302,7 @@
       "ref": "action:app.eligible_promotions",
       "lang": "en",
       "title": "app.eligible_promotions (part 1 of 3)",
-      "body": "0067, 0212, 0306, 0309, 0382, 0410. Cashier, manager, owner at the tab's branch (VENUE_MISMATCH): the promotions that could apply to the tab right now, [{promotionId, name_en, name_ar, type, value, amountIqd, picked}]: enabled, of this branch or every branch, inside its dates, days and hours, automatic or named by p_code (CODE_INVALID for an unknown code) or, since 0410, a listed deal (in_app) the tab's customer picked in the app (app.loyalty_picked_deal; no code needed), on its courts, within its total and per-customer limits (redemptions on other tabs), its tier (app.promotion_tier_ok) and its minimum spend; amountIqd is the",
+      "body": "0067, 0212, 0306, 0309, 0382, 0410, 0430. Cashier, manager, owner at the tab's branch (VENUE_MISMATCH): the promotions that could apply to the tab right now, [{promotionId, name_en, name_ar, type, value, amountIqd, picked}]: enabled, of this branch or every branch, inside its dates, days and hours, automatic or named by p_code (CODE_INVALID for an unknown code) or, since 0410, a listed deal (in_app) the tab's customer picked in the app (app.loyalty_picked_deal_on: live, and on no other open bill of theirs; no code needed), on its courts, within its total and per-customer limits (redemptions on other tabs), its tier",
       "route": null
     },
     {
@@ -5310,7 +5310,7 @@
       "ref": "action:app.eligible_promotions~2",
       "lang": "en",
       "title": "app.eligible_promotions (part 2 of 3)",
-      "body": "0067, 0212, 0306, 0309, 0382, 0410. Cashier, manager, owner at the tab's branch (VENUE_MISMATCH): the promotions that could apply to the tab right now, [{promot\ndiscount on its base, at most what the other discounts leave (app.promotion_room_iqd), and a candidate below 1 is dropped. The picked deal sorts first, then the largest amount: app.apply_best_promotion takes the first.\nSignature: app.eligible_promotions(p_tab_id uuid, p_code text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (cashier,manager,owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, TAB_NOT_FOUND, VENUE_MISMATCH, CODE_INVALID.\nNot called directly by the operator app (edge function, guest app, queue or internal).",
+      "body": "0067, 0212, 0306, 0309, 0382, 0410, 0430. Cashier, manager, owner at the tab's branch (VENUE_MISMATCH): the promotions that could apply to the tab right now, [{\n(app.promotion_tier_ok) and its minimum spend; amountIqd is the discount on its base, at most what the other discounts leave (app.promotion_room_iqd), and a candidate below 1 is dropped. The picked deal sorts first, then the largest amount: app.apply_best_promotion takes the first.\nSignature: app.eligible_promotions(p_tab_id uuid, p_code text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (cashier,manager,owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, TAB_NOT_FOUND, VENUE_MISMATCH, CODE_INVALID.",
       "route": null
     },
     {
@@ -5318,7 +5318,7 @@
       "ref": "action:app.eligible_promotions~3",
       "lang": "en",
       "title": "app.eligible_promotions (part 3 of 3)",
-      "body": "0067, 0212, 0306, 0309, 0382, 0410. Cashier, manager, owner at the tab's branch (VENUE_MISMATCH): the promotions that could apply to the tab right now, [{promot\nError codes: FORBIDDEN, TAB_NOT_FOUND, VENUE_MISMATCH, CODE_INVALID.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0410 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "0067, 0212, 0306, 0309, 0382, 0410, 0430. Cashier, manager, owner at the tab's branch (VENUE_MISMATCH): the promotions that could apply to the tab right now, [{\nGranted to: authenticated. Guard: staff role in (cashier,manager,owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, TAB_NOT_FOUND, VENUE_MISMATCH, CODE_INVALID.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0430 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -10846,7 +10846,7 @@
       "ref": "action:app.upsert_variant~3",
       "lang": "en",
       "title": "app.upsert_variant (part 3 of 3)",
-      "body": "Manager or owner, or the shop assistant, as main or second job (0404), for shop sizes only (0246; FORBIDDEN hint category otherwise; PRICE_VIA_PROTOCOL does not\nGranted to: authenticated. Guard: staff role in (manager,owner,shop_staff).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, ITEM_IN_RELEASE, PRICE_VIA_PROTOCOL.\nCalled from: apps/operator/src/features/admin/menu/VariantsEditor.tsx (pages /admin).\nDefined in migration 0404 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "Manager or owner, or the shop assistant, as main or second job (0404), for shop sizes only (0246; FORBIDDEN hint category otherwise; PRICE_VIA_PROTOCOL does not\nGranted to: authenticated. Guard: staff role in (manager,owner,shop_staff).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, ITEM_IN_RELEASE, PRICE_VIA_PROTOCOL.\nCalled from: apps/operator/src/features/admin/menu/ItemForm.tsx, apps/operator/src/features/admin/menu/VariantsEditor.tsx (pages /admin).\nDefined in migration 0404 (last definition). The assistant cannot call this; it only explains it.",
       "route": "/admin"
     },
     {
@@ -24965,16 +24965,32 @@
       "kind": "label",
       "ref": "label:op.common",
       "lang": "ar",
-      "title": "op.common (packages/i18n/src/catalogs/ar.ts)",
-      "body": "forbidden: لا تملك صلاحية الوصول إلى هذه الشاشة.\nlanguage: العربية / English\nrefresh: تحديث\nnone: لا شيء\nactions: الإجراءات\nadd: إضافة\nedit: تعديل\napply: تطبيق\nminutesShort: {minutes} د\npin: الرقم السري للمدير\nquitApp: الخروج إلى سطح المكتب\nreason: السبب\nnotes: ملاحظات\noptional: اختياري\nrequired: مطلوب\nunsavedPrompt: لديك تغييرات غير محفوظة. هل تريد المغادرة على أي حال؟\nsearch: بحث\nremove: إزالة\nreplace: استبدال\nupload: رفع\nuploading: جارٍ الرفع…\ndragHere: اسحب ملفًا إلى هنا أو انقر لاختيار ملف\nmoveUp: تحريك لأعلى\nmoveDown: تحريك لأسفل\nconnecting: جارٍ الاتصال…\nlive: مباشر\ndisconnected: انقطع الاتصال\nretry: إعادة المحاولة\nnotConfigured: غير مُعدّ\ncopy: نسخ\nprint: طباعة\nback: رجوع\nyes: نعم\nno: لا\ncomingSoon: سيتوفر هذا القسم في تحديث لاحق.",
+      "title": "op.common (packages/i18n/src/catalogs/ar.ts) (part 1 of 2)",
+      "body": "forbidden: لا تملك صلاحية الوصول إلى هذه الشاشة.\nlanguage: العربية / English\nrefresh: تحديث\nnone: لا شيء\nactions: الإجراءات\nadd: إضافة\nedit: تعديل\napply: تطبيق\nminutesShort: {minutes} د\npin: الرقم السري للمدير\nquitApp: الخروج إلى سطح المكتب\nreason: السبب\nnotes: ملاحظات\noptional: اختياري\nrequired: مطلوب\nunsavedPrompt: لديك تغييرات غير محفوظة. هل تريد المغادرة على أي حال؟\nsearch: بحث\nremove: إزالة\nreplace: استبدال\nupload: رفع\nuploading: جارٍ الرفع…\ndragHere: اسحب ملفًا إلى هنا أو انقر لاختيار ملف\ndragHereTop: اسحب ملفًا إلى هنا\ndragHereOr: أو\ndragHereBottom: انقر لاختيار ملف\nmoveUp: تحريك لأعلى\nmoveDown: تحريك لأسفل\nconnecting: جارٍ الاتصال…\nlive: مباشر\ndisconnected: انقطع الاتصال\nretry: إعادة المحاولة\nnotConfigured: غير مُعدّ\ncopy: نسخ",
       "route": null
     },
     {
       "kind": "label",
       "ref": "label:op.common",
       "lang": "en",
-      "title": "op.common (packages/i18n/src/catalogs/en.ts)",
-      "body": "forbidden: Your role does not have access to this screen.\nlanguage: العربية / English\nrefresh: Refresh\nnone: None\nactions: Actions\nadd: Add\nedit: Edit\napply: Apply\nminutesShort: {minutes} min\npin: Manager PIN\nquitApp: Quit to desktop\nreason: Reason\nnotes: Notes\noptional: optional\nrequired: required\nunsavedPrompt: You have unsaved changes. Leave anyway?\nsearch: Search\nremove: Remove\nreplace: Replace\nupload: Upload\nuploading: Uploading…\ndragHere: Drag a file here or click to choose one\nmoveUp: Move up\nmoveDown: Move down\nconnecting: Connecting…\nlive: Live\ndisconnected: Disconnected\nretry: Retry\nnotConfigured: Not configured\ncopy: Copy\nprint: Print\nback: Back\nyes: Yes\nno: No\ncomingSoon: This section arrives in a later update.",
+      "title": "op.common (packages/i18n/src/catalogs/en.ts) (part 1 of 2)",
+      "body": "forbidden: Your role does not have access to this screen.\nlanguage: العربية / English\nrefresh: Refresh\nnone: None\nactions: Actions\nadd: Add\nedit: Edit\napply: Apply\nminutesShort: {minutes} min\npin: Manager PIN\nquitApp: Quit to desktop\nreason: Reason\nnotes: Notes\noptional: optional\nrequired: required\nunsavedPrompt: You have unsaved changes. Leave anyway?\nsearch: Search\nremove: Remove\nreplace: Replace\nupload: Upload\nuploading: Uploading…\ndragHere: Drag a file here or click to choose one\ndragHereTop: Drag a file here\ndragHereOr: or\ndragHereBottom: click to choose one\nmoveUp: Move up\nmoveDown: Move down\nconnecting: Connecting…\nlive: Live\ndisconnected: Disconnected\nretry: Retry\nnotConfigured: Not configured\ncopy: Copy\nprint: Print",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:op.common~2",
+      "lang": "ar",
+      "title": "op.common (packages/i18n/src/catalogs/ar.ts) (part 2 of 2)",
+      "body": "forbidden: لا تملك صلاحية الوصول إلى هذه الشاشة.\ndragHereBottom: انقر لاختيار ملف\nmoveUp: تحريك لأعلى\nmoveDown: تحريك لأسفل\nconnecting: جارٍ الاتصال…\nlive: مباشر\ndisconnected: انقطع الاتصال\nretry: إعادة المحاولة\nnotConfigured: غير مُعدّ\ncopy: نسخ\nprint: طباعة\nback: رجوع\nyes: نعم\nno: لا\ncomingSoon: سيتوفر هذا القسم في تحديث لاحق.",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:op.common~2",
+      "lang": "en",
+      "title": "op.common (packages/i18n/src/catalogs/en.ts) (part 2 of 2)",
+      "body": "forbidden: Your role does not have access to this screen.\nmoveUp: Move up\nmoveDown: Move down\nconnecting: Connecting…\nlive: Live\ndisconnected: Disconnected\nretry: Retry\nnotConfigured: Not configured\ncopy: Copy\nprint: Print\nback: Back\nyes: Yes\nno: No\ncomingSoon: This section arrives in a later update.",
       "route": null
     },
     {
@@ -25565,7 +25581,7 @@
       "kind": "label",
       "ref": "label:op.menu",
       "lang": "ar",
-      "title": "op.menu (packages/i18n/src/catalogs/ar.ts) (part 1 of 2)",
+      "title": "op.menu (packages/i18n/src/catalogs/ar.ts) (part 1 of 3)",
       "body": "categories: الفئات\nitems: الأصناف\nnewCategory: فئة جديدة\nnewItem: صنف جديد\nnameEn: الاسم (بالإنجليزية)\nnameAr: الاسم (بالعربية)\ndescriptionEn: الوصف (بالإنجليزية)\ndescriptionAr: الوصف (بالعربية)\ntaxGroup: المجموعة الضريبية\nsortOrder: ترتيب العرض\nisActive: مفعّل\nsaved: تم الحفظ.\nvariants: الأحجام والأسعار\nnewVariant: حجم جديد\npriceIqd: السعر (د.ع)\nisDefault: افتراضي\nmodifierGroups: مجموعات الإضافات\nnewGroup: مجموعة جديدة\nminSelect: الحد الأدنى للاختيارات\nmaxSelect: الحد الأقصى للاختيارات\nmodifiersTitle: الإضافات\nnewModifier: إضافة جديدة\npriceDelta: فرق السعر (د.ع)\nlinked: مرتبطة\nlink: ربط\nunlink: فك الربط\navailable: متوفر\nunavailableToday: موقوف اليوم\nmarkUnavailable: إيقاف لليوم\nmarkAvailable: إعادة التوفر\nhookEn: عبارة النكهة (بالإنجليزية)",
       "route": "/admin/menu"
     },
@@ -25573,7 +25589,7 @@
       "kind": "label",
       "ref": "label:op.menu",
       "lang": "en",
-      "title": "op.menu (packages/i18n/src/catalogs/en.ts) (part 1 of 2)",
+      "title": "op.menu (packages/i18n/src/catalogs/en.ts) (part 1 of 3)",
       "body": "categories: Categories\nitems: Items\nnewCategory: New category\nnewItem: New item\nnameEn: Name (English)\nnameAr: Name (Arabic)\ndescriptionEn: Description (English)\ndescriptionAr: Description (Arabic)\ntaxGroup: Tax group\nsortOrder: Sort order\nisActive: Active\nsaved: Saved.\nvariants: Sizes & prices\nnewVariant: New size\npriceIqd: Price (IQD)\nisDefault: Default\nmodifierGroups: Modifier groups\nnewGroup: New group\nminSelect: Min choices\nmaxSelect: Max choices\nmodifiersTitle: Modifiers\nnewModifier: New modifier\npriceDelta: Price delta (IQD)\nlinked: Linked\nlink: Link\nunlink: Unlink\navailable: Available\nunavailableToday: Off today (86)\nmarkUnavailable: Mark off for today\nmarkAvailable: Restore availability\nhookEn: Flavour line (English)\nhookAr: Flavour line (Arabic)",
       "route": "/admin/menu"
     },
@@ -25581,16 +25597,32 @@
       "kind": "label",
       "ref": "label:op.menu~2",
       "lang": "ar",
-      "title": "op.menu (packages/i18n/src/catalogs/ar.ts) (part 2 of 2)",
-      "body": "categories: الفئات\nlinked: مرتبطة\nlink: ربط\nunlink: فك الربط\navailable: متوفر\nunavailableToday: موقوف اليوم\nmarkUnavailable: إيقاف لليوم\nmarkAvailable: إعادة التوفر\nhookEn: عبارة النكهة (بالإنجليزية)\nhookAr: عبارة النكهة (بالعربية)\nhookPlaceholder: حلو · مقرمش · قوي\nhighlight: الإبراز\nhighlightNone: بدون\nhighlightBlue: أزرق\nhighlightBrown: أخضر\nsoldOut: نفد (حتى إعادة التفعيل)\nsoldOutShort: نفد\noffToday: موقوف اليوم، ويعود في {date}\ncost: الكلفة (د.ع)\ncostHint: اتركها فارغة إن لم تعرفها. تستثني تقارير الربح الأصناف التي بلا كلفة.\nmargin: هامش {pct}%\nnoCost: بلا كلفة\nnoCostCount: أصناف بلا كلفة: {count}. الكلفة مطلوبة لتحليلات الربح.\nphoto: الصورة\nphotoHint: صورة مربعة حتى 1200 بكسل. تُحفظ بصيغة WebP.\nsearch: ابحث عن صنف…\ndefaultPrice: السعر الافتراضي\nreorder: إعادة الترتيب",
+      "title": "op.menu (packages/i18n/src/catalogs/ar.ts) (part 2 of 3)",
+      "body": "categories: الفئات\nlinked: مرتبطة\nlink: ربط\nunlink: فك الربط\navailable: متوفر\nunavailableToday: موقوف اليوم\nmarkUnavailable: إيقاف لليوم\nmarkAvailable: إعادة التوفر\nhookEn: عبارة النكهة (بالإنجليزية)\nhookAr: عبارة النكهة (بالعربية)\nhookPlaceholder: حلو · مقرمش · قوي\nhighlight: الإبراز\nhighlightNone: بدون\nhighlightBlue: أزرق\nhighlightBrown: أخضر\nsoldOut: نفد (حتى إعادة التفعيل)\nsoldOutShort: نفد\noffToday: موقوف اليوم، ويعود في {date}\ncost: الكلفة (د.ع)\ncostHint: اتركها فارغة إن لم تعرفها. تستثني تقارير الربح الأصناف التي بلا كلفة.\nmargin: هامش {pct}%\nnoCost: بلا كلفة\nnoCostCount: أصناف بلا كلفة: {count}. الكلفة مطلوبة لتحليلات الربح.\nphoto: الصورة\nphotoHint: صورة مربعة حتى 1200 بكسل. تُحفظ بصيغة WebP.\nhighlightHint: حافة ملوّنة تُبرز الصنف في منيو الضيوف وعلى الكاشير.\nsearch: ابحث عن صنف…",
       "route": "/admin/menu"
     },
     {
       "kind": "label",
       "ref": "label:op.menu~2",
       "lang": "en",
-      "title": "op.menu (packages/i18n/src/catalogs/en.ts) (part 2 of 2)",
-      "body": "categories: Categories\navailable: Available\nunavailableToday: Off today (86)\nmarkUnavailable: Mark off for today\nmarkAvailable: Restore availability\nhookEn: Flavour line (English)\nhookAr: Flavour line (Arabic)\nhookPlaceholder: sweet · crisp · bold\nhighlight: Highlight\nhighlightNone: None\nhighlightBlue: Blue\nhighlightBrown: Green\nsoldOut: Sold out (until switched back)\nsoldOutShort: Sold out\noffToday: Off today — back on {date}\ncost: Cost (IQD)\ncostHint: Leave blank if you do not know it. Profit reports skip items without a cost.\nmargin: {pct}% margin\nnoCost: No cost\nnoCostCount: {count} items without cost — needed for profit analytics\nphoto: Photo\nphotoHint: Square, up to 1200 px. Saved as WebP.\nsearch: Search items…\ndefaultPrice: Default price\nreorder: Reorder",
+      "title": "op.menu (packages/i18n/src/catalogs/en.ts) (part 2 of 3)",
+      "body": "categories: Categories\navailable: Available\nunavailableToday: Off today (86)\nmarkUnavailable: Mark off for today\nmarkAvailable: Restore availability\nhookEn: Flavour line (English)\nhookAr: Flavour line (Arabic)\nhookPlaceholder: sweet · crisp · bold\nhighlight: Highlight\nhighlightNone: None\nhighlightBlue: Blue\nhighlightBrown: Green\nsoldOut: Sold out (until switched back)\nsoldOutShort: Sold out\noffToday: Off today — back on {date}\ncost: Cost (IQD)\ncostHint: Leave blank if you do not know it. Profit reports skip items without a cost.\nmargin: {pct}% margin\nnoCost: No cost\nnoCostCount: {count} items without cost — needed for profit analytics\nphoto: Photo\nphotoHint: Square, up to 1200 px. Saved as WebP.\nhighlightHint: A coloured edge that makes the item stand out on the guest menu and the till.",
+      "route": "/admin/menu"
+    },
+    {
+      "kind": "label",
+      "ref": "label:op.menu~3",
+      "lang": "ar",
+      "title": "op.menu (packages/i18n/src/catalogs/ar.ts) (part 3 of 3)",
+      "body": "categories: الفئات\nphoto: الصورة\nphotoHint: صورة مربعة حتى 1200 بكسل. تُحفظ بصيغة WebP.\nhighlightHint: حافة ملوّنة تُبرز الصنف في منيو الضيوف وعلى الكاشير.\nsearch: ابحث عن صنف…\ndefaultPrice: السعر الافتراضي\nreorder: إعادة الترتيب",
+      "route": "/admin/menu"
+    },
+    {
+      "kind": "label",
+      "ref": "label:op.menu~3",
+      "lang": "en",
+      "title": "op.menu (packages/i18n/src/catalogs/en.ts) (part 3 of 3)",
+      "body": "categories: Categories\nphoto: Photo\nphotoHint: Square, up to 1200 px. Saved as WebP.\nhighlightHint: A coloured edge that makes the item stand out on the guest menu and the till.\nsearch: Search items…\ndefaultPrice: Default price\nreorder: Reorder",
       "route": "/admin/menu"
     },
     {
@@ -33006,15 +33038,15 @@
       "ref": "label:ws.manager.dayClose",
       "lang": "ar",
       "title": "ws.manager.dayClose (packages/i18n/src/catalogs/ws/manager.ar.ts) (part 1 of 4)",
-      "body": "title: إغلاق اليوم\nsubtitle: يوم العمل {date} · مفتوح منذ {time} · الرصيد الافتتاحي {float}\nstate.ready: جاهز للإغلاق\nstate.blockedByOpenTabs: بقيت فواتير مفتوحة\nstate.blockedByUnsyncedQueue: بانتظار المزامنة\nstate.closed: أُغلق اليوم\nstepsTitle: خطوات إغلاق اليوم\nsteps.tabs: سوِّ كل فاتورة مفتوحة أو ألغِها\nsteps.tabsDone: لا فواتير مفتوحة\nsteps.tabsLeft: لا تزال مفتوحة: {count}\nsteps.tabsHint: افتح كل فاتورة في كاشير الكافيه، ثم استلم دفعتها أو ألغِها. تُحدَّث هذه القائمة تلقائيًا.\nsteps.sync: انتظر حتى تُكمل هذه المحطة المزامنة\nsteps.syncDone: تمت مزامنة كل شيء\nsteps.syncLeft: بانتظار المزامنة: {count}\nsteps.count: عُدّ النقد في الدرج\nsteps.countDone: تم العدّ\nsteps.card: أدخل إجمالي جهاز البطاقة\nsteps.cardOptional: اختياري\nsteps.close: أغلق اليوم",
+      "body": "title: إغلاق اليوم\nsubtitle: يوم العمل {date} · مفتوح منذ {time} · الرصيد الافتتاحي {float}\nstate.ready: جاهز للإغلاق\nstate.blockedByOpenTabs: بقيت فواتير مفتوحة\nstate.blockedByUnsyncedQueue: بانتظار المزامنة\nstate.closed: أُغلق اليوم\nstepsTitle: خطوات إغلاق اليوم\nstage.cash: النقد\nstage.card: البطاقة\nstage.close: الإغلاق\nnext: التالي\nback: رجوع\nshowFigures: اعرض أرقام اليوم\nhideFigures: أخفِ أرقام اليوم\nchecksClear: لا فواتير مفتوحة، وهذه المحطة متزامنة.\nsteps.tabs: سوِّ كل فاتورة مفتوحة أو ألغِها\nsteps.tabsDone: لا فواتير مفتوحة\nsteps.tabsLeft: لا تزال مفتوحة: {count}\nsteps.tabsHint: افتح كل فاتورة في كاشير الكافيه، ثم استلم دفعتها أو ألغِها. تُحدَّث هذه القائمة تلقائيًا.\nsteps.sync: انتظر حتى تُكمل هذه المحطة المزامنة\nsteps.syncDone: تمت مزامنة كل شيء",
       "route": "/admin/day-close"
     },
     {
       "kind": "label",
       "ref": "label:ws.manager.dayClose",
       "lang": "en",
-      "title": "ws.manager.dayClose (packages/i18n/src/catalogs/ws/manager.en.ts) (part 1 of 4)",
-      "body": "title: Day close\nsubtitle: Business day {date} · open since {time} · float {float}\nstate.ready: Ready to close\nstate.blockedByOpenTabs: Open tabs left\nstate.blockedByUnsyncedQueue: Waiting to sync\nstate.closed: Day closed\nstepsTitle: Close the day\nsteps.tabs: Settle or void every open tab\nsteps.tabsDone: No open tabs\nsteps.tabsLeft: {count} still open\nsteps.tabsHint: Open each one at the café cashier and take the payment or void it. This list updates by itself.\nsteps.sync: Let this station finish syncing\nsteps.syncDone: Everything is synced\nsteps.syncLeft: {count} waiting\nsteps.count: Count the cash in the drawer\nsteps.countDone: Counted\nsteps.card: Enter the card terminal total\nsteps.cardOptional: Optional\nsteps.close: Close the day\nopenTab: Open at the café cashier",
+      "title": "ws.manager.dayClose (packages/i18n/src/catalogs/ws/manager.en.ts) (part 1 of 3)",
+      "body": "title: Day close\nsubtitle: Business day {date} · open since {time} · float {float}\nstate.ready: Ready to close\nstate.blockedByOpenTabs: Open tabs left\nstate.blockedByUnsyncedQueue: Waiting to sync\nstate.closed: Day closed\nstepsTitle: Close the day\nstage.cash: Cash\nstage.card: Card\nstage.close: Close\nnext: Next\nback: Back\nshowFigures: Show today’s figures\nhideFigures: Hide today’s figures\nchecksClear: No open tabs, and this station is synced.\nsteps.tabs: Settle or void every open tab\nsteps.tabsDone: No open tabs\nsteps.tabsLeft: {count} still open\nsteps.tabsHint: Open each one at the café cashier and take the payment or void it. This list updates by itself.\nsteps.sync: Let this station finish syncing\nsteps.syncDone: Everything is synced\nsteps.syncLeft: {count} waiting",
       "route": "/admin/day-close"
     },
     {
@@ -33022,7 +33054,7 @@
       "ref": "label:ws.manager.dayClose#2",
       "lang": "ar",
       "title": "ws.manager.dayClose (packages/i18n/src/catalogs/ws/manager.ar.ts) (part 1 of 4)",
-      "body": "cardBatchHint: الإجمالي المطبوع على إيصال نهاية اليوم من الجهاز. اتركه فارغًا إن لم يدفع أحد بالبطاقة.\nnotes: ملاحظات الإغلاق\nnotesHint: اختياري. أي شيء يجب أن يعرفه المالك عن عدّ اليوم.\ncloseBtn: إغلاق اليوم\nblock.openTabs: سوِّ الفواتير المفتوحة أو ألغِها أولًا (الخطوة 1).\nblock.unsynced: انتظر حتى تُكمل هذه المحطة المزامنة (الخطوة 2).\nblock.noCount: أدخل النقد المعدود أولًا (الخطوة 3).\nconfirmTitle: إغلاق يوم العمل {date}؟\nconfirmBody: النقد المعدود: {cash}. جهاز البطاقة: {card}. لا يمكن التراجع عن هذا، ولن يستقبل كاشير الكافيه طلبات حتى يُفتح اليوم التالي.\nnotEntered: لم يُدخل\nclosedTitle: أُغلق يوم العمل {date}\nclosedLead: هذه هي الأرقام النهائية كما حسبها الخادم.",
+      "body": "countedHint: كل ما في الدرج بما فيه الرصيد الافتتاحي. يُحسب المبلغ المتوقع وأي فرق عند إغلاق اليوم.\ncardBatch: إجمالي جهاز البطاقة (د.ع)\ncardBatchHint: الإجمالي المطبوع على إيصال نهاية اليوم من الجهاز. اتركه فارغًا إن لم يدفع أحد بالبطاقة.\nnotes: ملاحظات الإغلاق\nnotesHint: اختياري. أي شيء يجب أن يعرفه المالك عن عدّ اليوم.\ncloseBtn: إغلاق اليوم\nblock.openTabs: سوِّ الفواتير المفتوحة أو ألغِها أولًا.\nblock.unsynced: انتظر حتى تُكمل هذه المحطة المزامنة.\nblock.noCount: أدخل النقد المعدود أولًا.\nconfirmTitle: إغلاق يوم العمل {date}؟\nconfirmBody: النقد المعدود: {cash}. جهاز البطاقة: {card}. لا يمكن التراجع عن هذا، ولن يستقبل كاشير الكافيه طلبات حتى يُفتح اليوم التالي.\nnotEntered: لم يُدخل",
       "route": "/admin/day-close"
     },
     {
@@ -33030,7 +33062,7 @@
       "ref": "label:ws.manager.dayClose#2",
       "lang": "en",
       "title": "ws.manager.dayClose (packages/i18n/src/catalogs/ws/manager.en.ts) (part 1 of 4)",
-      "body": "cardBatchHint: The total on the terminal’s end-of-day slip. Leave it blank if nobody paid by card.\nnotes: Closing notes\nnotesHint: Optional. Anything the owner should know about today’s count.\ncloseBtn: Close the day\nblock.openTabs: Settle or void the open tabs first (step 1).\nblock.unsynced: Wait for this station to finish syncing (step 2).\nblock.noCount: Enter the counted cash first (step 3).\nconfirmTitle: Close business day {date}?\nconfirmBody: Counted cash: {cash}. Card terminal: {card}. This cannot be undone, and the café cashier cannot take orders until the next day is opened.\nnotEntered: not entered\nclosedTitle: Business day {date} is closed",
+      "body": "countedCash: Counted cash (IQD)\ncountedHint: Everything in the drawer, float included. The expected amount and any difference are worked out when the day closes.\ncardBatch: Card terminal total (IQD)\ncardBatchHint: The total on the terminal’s end-of-day slip. Leave it blank if nobody paid by card.\nnotes: Closing notes\nnotesHint: Optional. Anything the owner should know about today’s count.\ncloseBtn: Close the day\nblock.openTabs: Settle or void the open tabs first.\nblock.unsynced: Wait for this station to finish syncing.\nblock.noCount: Enter the counted cash first.\nconfirmTitle: Close business day {date}?\nconfirmBody: Counted cash: {cash}. Card terminal: {card}. This cannot be undone, and the café cashier cannot take orders until the next day is opened.",
       "route": "/admin/day-close"
     },
     {
@@ -33038,7 +33070,7 @@
       "ref": "label:ws.manager.dayClose#2~2",
       "lang": "ar",
       "title": "ws.manager.dayClose (packages/i18n/src/catalogs/ws/manager.ar.ts) (part 2 of 4)",
-      "body": "cardBatchHint: الإجمالي المطبوع على إيصال نهاية اليوم من الجهاز. اتركه فارغًا إن لم يدفع أحد بالبطاقة.\nnotEntered: لم يُدخل\nclosedTitle: أُغلق يوم العمل {date}\nclosedLead: هذه هي الأرقام النهائية كما حسبها الخادم.\nnextDay: فتح اليوم التالي\ncashExpected: النقد المتوقع\ncashCounted: النقد المعدود\ndifference: الفرق\ncardExpected: البطاقة المتوقعة\ncardBatchShort: جهاز البطاقة\nvarianceOver: زيادة قدرها {amount}\nvarianceShort: نقص قدره {amount}\nvarianceExact: مطابق\nsummaryTitle: الخصومات والإلغاءات والمبالغ المستردة والهدر\nsummaryLead: يوم العمل هذا حتى الآن. كل سطر يفتح تلك القيود في سجل التدقيق.\nrecorded: المسجَّل: {count}\ndiscounts: الخصومات وتعديلات السعر\nvoids: الأسطر الملغاة\nrefunds: المبالغ المستردة\nwaste: الهدر\nauthorisers: من أدخل الرقم السري\nnoAuthoriser: لا أحد بعد",
+      "body": "countedHint: كل ما في الدرج بما فيه الرصيد الافتتاحي. يُحسب المبلغ المتوقع وأي فرق عند إغلاق اليوم.\nconfirmTitle: إغلاق يوم العمل {date}؟\nconfirmBody: النقد المعدود: {cash}. جهاز البطاقة: {card}. لا يمكن التراجع عن هذا، ولن يستقبل كاشير الكافيه طلبات حتى يُفتح اليوم التالي.\nnotEntered: لم يُدخل\nclosedTitle: أُغلق يوم العمل {date}\nclosedLead: هذه هي الأرقام النهائية كما حسبها الخادم.\nnextDay: فتح اليوم التالي\ncashExpected: النقد المتوقع\ncashCounted: النقد المعدود\ndifference: الفرق\ncardExpected: البطاقة المتوقعة\ncardBatchShort: جهاز البطاقة\nvarianceOver: زيادة قدرها {amount}\nvarianceShort: نقص قدره {amount}\nvarianceExact: مطابق\nsummaryTitle: الخصومات والإلغاءات والمبالغ المستردة والهدر\nsummaryLead: يوم العمل هذا حتى الآن. كل سطر يفتح تلك القيود في سجل التدقيق.\nrecorded: المسجَّل: {count}",
       "route": "/admin/day-close"
     },
     {
@@ -33046,7 +33078,7 @@
       "ref": "label:ws.manager.dayClose#2~2",
       "lang": "en",
       "title": "ws.manager.dayClose (packages/i18n/src/catalogs/ws/manager.en.ts) (part 2 of 4)",
-      "body": "cardBatchHint: The total on the terminal’s end-of-day slip. Leave it blank if nobody paid by card.\nnotEntered: not entered\nclosedTitle: Business day {date} is closed\nclosedLead: These are the final figures, worked out by the server.\nnextDay: Open the next day\ncashExpected: Cash expected\ncashCounted: Cash counted\ndifference: Difference\ncardExpected: Card expected\ncardBatchShort: Card terminal\nvarianceOver: Over by {amount}\nvarianceShort: Short by {amount}\nvarianceExact: Matches\nsummaryTitle: Discounts, voids, refunds and waste\nsummaryLead: This business day so far. Each line opens those entries in the audit log.\nrecorded: {count} recorded\ndiscounts: Discounts and price overrides\nvoids: Voided lines\nrefunds: Refunds\nwaste: Waste\nauthorisers: PINs entered by\nnoAuthoriser: Nobody yet",
+      "body": "countedCash: Counted cash (IQD)\nconfirmTitle: Close business day {date}?\nconfirmBody: Counted cash: {cash}. Card terminal: {card}. This cannot be undone, and the café cashier cannot take orders until the next day is opened.\nnotEntered: not entered\nclosedTitle: Business day {date} is closed\nclosedLead: These are the final figures, worked out by the server.\nnextDay: Open the next day\ncashExpected: Cash expected\ncashCounted: Cash counted\ndifference: Difference\ncardExpected: Card expected\ncardBatchShort: Card terminal\nvarianceOver: Over by {amount}\nvarianceShort: Short by {amount}\nvarianceExact: Matches\nsummaryTitle: Discounts, voids, refunds and waste\nsummaryLead: This business day so far. Each line opens those entries in the audit log.\nrecorded: {count} recorded",
       "route": "/admin/day-close"
     },
     {
@@ -33054,7 +33086,7 @@
       "ref": "label:ws.manager.dayClose#2~3",
       "lang": "ar",
       "title": "ws.manager.dayClose (packages/i18n/src/catalogs/ws/manager.ar.ts) (part 3 of 4)",
-      "body": "cardBatchHint: الإجمالي المطبوع على إيصال نهاية اليوم من الجهاز. اتركه فارغًا إن لم يدفع أحد بالبطاقة.\nrecorded: المسجَّل: {count}\ndiscounts: الخصومات وتعديلات السعر\nvoids: الأسطر الملغاة\nrefunds: المبالغ المستردة\nwaste: الهدر\nauthorisers: من أدخل الرقم السري\nnoAuthoriser: لا أحد بعد\nadjustmentsTitle: كل خصم وتعديل سعر\nadjustmentsLead: احتاج كل منها إلى الرقم السري للمدير.\ntime: الوقت\nwhat: الإجراء\namount: المبلغ\nreason: السبب\nwho: الموظف\nkind.percent: خصم {percent}%\nkind.amount: خصم بمبلغ ثابت\nkind.override: تعديل السعر\nkind.other: تعديل\nscopeBill: الفاتورة كاملة\nscopeItem: صنف واحد\npinBy: الرقم السري: {name}\nreasonPromotion: عرض\nreasonCardPerk: امتياز البطاقة: إضافات مجانية\nnoAdjustments: لا خصومات أو تعديلات سعر في يوم العمل هذا.\nexport: تصدير أرقام اليوم\nopenDayTitle: فتح اليوم",
+      "body": "countedHint: كل ما في الدرج بما فيه الرصيد الافتتاحي. يُحسب المبلغ المتوقع وأي فرق عند إغلاق اليوم.\nvarianceExact: مطابق\nsummaryTitle: الخصومات والإلغاءات والمبالغ المستردة والهدر\nsummaryLead: يوم العمل هذا حتى الآن. كل سطر يفتح تلك القيود في سجل التدقيق.\nrecorded: المسجَّل: {count}\ndiscounts: الخصومات وتعديلات السعر\nvoids: الأسطر الملغاة\nrefunds: المبالغ المستردة\nwaste: الهدر\nauthorisers: من أدخل الرقم السري\nnoAuthoriser: لا أحد بعد\nadjustmentsTitle: كل خصم وتعديل سعر\nadjustmentsLead: احتاج كل منها إلى الرقم السري للمدير.\ntime: الوقت\nwhat: الإجراء\namount: المبلغ\nreason: السبب\nwho: الموظف\nkind.percent: خصم {percent}%\nkind.amount: خصم بمبلغ ثابت\nkind.override: تعديل السعر\nkind.other: تعديل\nscopeBill: الفاتورة كاملة\nscopeItem: صنف واحد\npinBy: الرقم السري: {name}\nreasonPromotion: عرض",
       "route": "/admin/day-close"
     },
     {
@@ -33062,7 +33094,7 @@
       "ref": "label:ws.manager.dayClose#2~3",
       "lang": "en",
       "title": "ws.manager.dayClose (packages/i18n/src/catalogs/ws/manager.en.ts) (part 3 of 4)",
-      "body": "cardBatchHint: The total on the terminal’s end-of-day slip. Leave it blank if nobody paid by card.\nrecorded: {count} recorded\ndiscounts: Discounts and price overrides\nvoids: Voided lines\nrefunds: Refunds\nwaste: Waste\nauthorisers: PINs entered by\nnoAuthoriser: Nobody yet\nadjustmentsTitle: Each discount and price override\nadjustmentsLead: Every one needed a manager PIN.\ntime: Time\nwhat: What\namount: Amount\nreason: Reason\nwho: Who\nkind.percent: {percent}% off\nkind.amount: Amount off\nkind.override: Price override\nkind.other: Adjustment\nscopeBill: whole bill\nscopeItem: one item\npinBy: PIN: {name}\nreasonPromotion: Promotion\nreasonCardPerk: Card privilege: free add-ons\nnoAdjustments: No discounts or price overrides this business day.\nexport: Export the day’s figures\nopenDayTitle: Open the day",
+      "body": "countedCash: Counted cash (IQD)\nvarianceExact: Matches\nsummaryTitle: Discounts, voids, refunds and waste\nsummaryLead: This business day so far. Each line opens those entries in the audit log.\nrecorded: {count} recorded\ndiscounts: Discounts and price overrides\nvoids: Voided lines\nrefunds: Refunds\nwaste: Waste\nauthorisers: PINs entered by\nnoAuthoriser: Nobody yet\nadjustmentsTitle: Each discount and price override\nadjustmentsLead: Every one needed a manager PIN.\ntime: Time\nwhat: What\namount: Amount\nreason: Reason\nwho: Who\nkind.percent: {percent}% off\nkind.amount: Amount off\nkind.override: Price override\nkind.other: Adjustment\nscopeBill: whole bill\nscopeItem: one item\npinBy: PIN: {name}\nreasonPromotion: Promotion\nreasonCardPerk: Card privilege: free add-ons",
       "route": "/admin/day-close"
     },
     {
@@ -33070,7 +33102,7 @@
       "ref": "label:ws.manager.dayClose#2~4",
       "lang": "ar",
       "title": "ws.manager.dayClose (packages/i18n/src/catalogs/ws/manager.ar.ts) (part 4 of 4)",
-      "body": "cardBatchHint: الإجمالي المطبوع على إيصال نهاية اليوم من الجهاز. اتركه فارغًا إن لم يدفع أحد بالبطاقة.\nreasonPromotion: عرض\nreasonCardPerk: امتياز البطاقة: إضافات مجانية\nnoAdjustments: لا خصومات أو تعديلات سعر في يوم العمل هذا.\nexport: تصدير أرقام اليوم\nopenDayTitle: فتح اليوم\nopenDayLead: لا يوجد يوم عمل مفتوح، لذا لا يستطيع كاشير الكافيه استقبال الطلبات. عُدّ الرصيد الافتتاحي في الدرج ثم افتح اليوم.\nopeningFloatInput: الرصيد الافتتاحي في الدرج (د.ع)\nopenDayBtn: فتح اليوم\nlastClose: آخر إغلاق",
+      "body": "countedHint: كل ما في الدرج بما فيه الرصيد الافتتاحي. يُحسب المبلغ المتوقع وأي فرق عند إغلاق اليوم.\nkind.percent: خصم {percent}%\nkind.amount: خصم بمبلغ ثابت\nkind.override: تعديل السعر\nkind.other: تعديل\nscopeBill: الفاتورة كاملة\nscopeItem: صنف واحد\npinBy: الرقم السري: {name}\nreasonPromotion: عرض\nreasonCardPerk: امتياز البطاقة: إضافات مجانية\nnoAdjustments: لا خصومات أو تعديلات سعر في يوم العمل هذا.\nexport: تصدير أرقام اليوم\nopenDayTitle: فتح اليوم\nopenDayLead: لا يوجد يوم عمل مفتوح، لذا لا يستطيع كاشير الكافيه استقبال الطلبات. عُدّ الرصيد الافتتاحي في الدرج ثم افتح اليوم.",
       "route": "/admin/day-close"
     },
     {
@@ -33078,7 +33110,7 @@
       "ref": "label:ws.manager.dayClose#2~4",
       "lang": "en",
       "title": "ws.manager.dayClose (packages/i18n/src/catalogs/ws/manager.en.ts) (part 4 of 4)",
-      "body": "cardBatchHint: The total on the terminal’s end-of-day slip. Leave it blank if nobody paid by card.\nreasonPromotion: Promotion\nreasonCardPerk: Card privilege: free add-ons\nnoAdjustments: No discounts or price overrides this business day.\nexport: Export the day’s figures\nopenDayTitle: Open the day\nopenDayLead: No business day is open, so the café cashier cannot take orders. Count the float in the drawer, then open the day.\nopeningFloatInput: Cash float in the drawer (IQD)",
+      "body": "countedCash: Counted cash (IQD)\nkind.override: Price override\nkind.other: Adjustment\nscopeBill: whole bill\nscopeItem: one item\npinBy: PIN: {name}\nreasonPromotion: Promotion\nreasonCardPerk: Card privilege: free add-ons\nnoAdjustments: No discounts or price overrides this business day.\nexport: Export the day’s figures\nopenDayTitle: Open the day",
       "route": "/admin/day-close"
     },
     {
@@ -33086,15 +33118,15 @@
       "ref": "label:ws.manager.dayClose#3",
       "lang": "ar",
       "title": "ws.manager.dayClose (packages/i18n/src/catalogs/ws/manager.ar.ts) (part 1 of 3)",
-      "body": "lastCloseLine: يوم العمل {date}\nlastCloseNone: لم يُغلق أي يوم بعد.\ncsv.tabFigures: إغلاق اليوم\ncsv.figure: البند\ncsv.value: القيمة (د.ع)\ncsv.count: العدد\ncsv.authorisers: بتفويض من\ncsv.note: ملاحظة\ncsv.partOf: سبق احتسابه في السطر أعلاه\ncsv.adjustments: التعديلات\ncsv.date: التاريخ\ncsv.time: الوقت\ncsv.what: الإجراء\ncsv.appliesTo: ينطبق على\ncsv.reason: السبب\ncsv.amount: المبلغ (د.ع)\ncsv.appliedBy: الموظف\ncsv.authorisedBy: بتفويض من\ncsv.tab: معرّف الفاتورة\nhandIn.title: تسليم النقد إلى القاصة\nhandIn.lead: يُسلَّم نقد كل درج من هذا اليوم إلى القاصة، ويبقى الرصيد الافتتاحي في الدرج.\nhandIn.pendingLead: أُغلق يوم العمل {date}، لكن نقده لم يصل إلى القاصة بعد.\nhandIn.boxes.cafe: كاشير الكافيه\nhandIn.boxes.desk: مكتب الملاعب\nhandIn.boxes.shop: مكتب المتجر",
+      "body": "openingFloatInput: الرصيد الافتتاحي في الدرج (د.ع)\nopenDayBtn: فتح اليوم\nlastClose: آخر إغلاق\nlastCloseLine: يوم العمل {date}\nlastCloseNone: لم يُغلق أي يوم بعد.\ncsv.tabFigures: إغلاق اليوم\ncsv.figure: البند\ncsv.value: القيمة (د.ع)\ncsv.count: العدد\ncsv.authorisers: بتفويض من\ncsv.note: ملاحظة\ncsv.partOf: سبق احتسابه في السطر أعلاه\ncsv.adjustments: التعديلات\ncsv.date: التاريخ\ncsv.time: الوقت\ncsv.what: الإجراء\ncsv.appliesTo: ينطبق على\ncsv.reason: السبب\ncsv.amount: المبلغ (د.ع)\ncsv.appliedBy: الموظف\ncsv.authorisedBy: بتفويض من\ncsv.tab: معرّف الفاتورة\nhandIn.title: تسليم النقد إلى القاصة\nhandIn.lead: يُسلَّم نقد كل درج من هذا اليوم إلى القاصة، ويبقى الرصيد الافتتاحي في الدرج.",
       "route": "/admin/day-close"
     },
     {
       "kind": "label",
       "ref": "label:ws.manager.dayClose#3",
       "lang": "en",
-      "title": "ws.manager.dayClose (packages/i18n/src/catalogs/ws/manager.en.ts) (part 1 of 3)",
-      "body": "openDayBtn: Open the day\nlastClose: Last close\nlastCloseLine: Business day {date}\nlastCloseNone: No day has been closed yet.\ncsv.tabFigures: Day close\ncsv.figure: Figure\ncsv.value: Value (IQD)\ncsv.count: Count\ncsv.authorisers: Authorised by\ncsv.note: Note\ncsv.partOf: Already counted in the line above\ncsv.adjustments: Adjustments\ncsv.date: Date\ncsv.time: Time\ncsv.what: What\ncsv.appliesTo: Applies to\ncsv.reason: Reason\ncsv.amount: Amount (IQD)\ncsv.appliedBy: Applied by\ncsv.authorisedBy: Authorised by\ncsv.tab: Tab id\nhandIn.title: Hand cash to the safe\nhandIn.lead: Each drawer’s cash from this day goes to the safe. The opening float stays in the drawer.\nhandIn.pendingLead: Business day {date} is closed, but its cash has not reached the safe yet.",
+      "title": "ws.manager.dayClose (packages/i18n/src/catalogs/ws/manager.en.ts) (part 1 of 4)",
+      "body": "openDayLead: No business day is open, so the café cashier cannot take orders. Count the float in the drawer, then open the day.\nopeningFloatInput: Cash float in the drawer (IQD)\nopenDayBtn: Open the day\nlastClose: Last close\nlastCloseLine: Business day {date}\nlastCloseNone: No day has been closed yet.\ncsv.tabFigures: Day close\ncsv.figure: Figure\ncsv.value: Value (IQD)\ncsv.count: Count\ncsv.authorisers: Authorised by\ncsv.note: Note\ncsv.partOf: Already counted in the line above\ncsv.adjustments: Adjustments\ncsv.date: Date\ncsv.time: Time\ncsv.what: What\ncsv.appliesTo: Applies to\ncsv.reason: Reason\ncsv.amount: Amount (IQD)\ncsv.appliedBy: Applied by",
       "route": "/admin/day-close"
     },
     {
@@ -33102,15 +33134,15 @@
       "ref": "label:ws.manager.dayClose#3~2",
       "lang": "ar",
       "title": "ws.manager.dayClose (packages/i18n/src/catalogs/ws/manager.ar.ts) (part 2 of 3)",
-      "body": "lastCloseLine: يوم العمل {date}\nhandIn.pendingLead: أُغلق يوم العمل {date}، لكن نقده لم يصل إلى القاصة بعد.\nhandIn.boxes.cafe: كاشير الكافيه\nhandIn.boxes.desk: مكتب الملاعب\nhandIn.boxes.shop: مكتب المتجر\nhandIn.took: استلم {amount} نقدًا\nhandIn.tookLessRefunds: استلم {amount} نقدًا، رُدّ منه {refunds}\nhandIn.noCash: لم يستلم نقدًا\nhandIn.amountLabel: {box}: النقد المُسلَّم إلى القاصة\nhandIn.overNet: أكثر مما استلمه هذا الدرج. الزيادة تُؤخذ من الرصيد الافتتاحي.\nhandIn.handedIn: سُلِّم {amount}\nhandIn.kept: بقي في الدرج\nhandIn.move: نقل {amount} إلى القاصة\nhandIn.zero: كل المبالغ صفر، فلا شيء يُنقل.\nhandIn.notNow: ليس الآن\nhandIn.later: لم يُسلَّم النقد بعد. يمكنك تسليمه من صفحة القاصة.\nhandIn.keptHint: ما بقي في الدرج يمكن تسليمه لاحقًا من صفحة القاصة.",
+      "body": "openingFloatInput: الرصيد الافتتاحي في الدرج (د.ع)\ncsv.authorisedBy: بتفويض من\ncsv.tab: معرّف الفاتورة\nhandIn.title: تسليم النقد إلى القاصة\nhandIn.lead: يُسلَّم نقد كل درج من هذا اليوم إلى القاصة، ويبقى الرصيد الافتتاحي في الدرج.\nhandIn.pendingLead: أُغلق يوم العمل {date}، لكن نقده لم يصل إلى القاصة بعد.\nhandIn.boxes.cafe: كاشير الكافيه\nhandIn.boxes.desk: مكتب الملاعب\nhandIn.boxes.shop: مكتب المتجر\nhandIn.took: استلم {amount} نقدًا\nhandIn.tookLessRefunds: استلم {amount} نقدًا، رُدّ منه {refunds}\nhandIn.noCash: لم يستلم نقدًا\nhandIn.amountLabel: {box}: النقد المُسلَّم إلى القاصة\nhandIn.overNet: أكثر مما استلمه هذا الدرج. الزيادة تُؤخذ من الرصيد الافتتاحي.\nhandIn.handedIn: سُلِّم {amount}\nhandIn.kept: بقي في الدرج\nhandIn.move: نقل {amount} إلى القاصة",
       "route": "/admin/day-close"
     },
     {
       "kind": "label",
       "ref": "label:ws.manager.dayClose#3~2",
       "lang": "en",
-      "title": "ws.manager.dayClose (packages/i18n/src/catalogs/ws/manager.en.ts) (part 2 of 3)",
-      "body": "openDayBtn: Open the day\nhandIn.lead: Each drawer’s cash from this day goes to the safe. The opening float stays in the drawer.\nhandIn.pendingLead: Business day {date} is closed, but its cash has not reached the safe yet.\nhandIn.boxes.cafe: Café cashier\nhandIn.boxes.desk: Court desk\nhandIn.boxes.shop: Shop desk\nhandIn.took: Took {amount} in cash\nhandIn.tookLessRefunds: Took {amount} in cash, less {refunds} refunded\nhandIn.noCash: No cash taken\nhandIn.amountLabel: {box}: cash to the safe\nhandIn.overNet: More than this drawer took. The extra comes out of the float.\nhandIn.handedIn: Handed in {amount}\nhandIn.kept: Kept in the drawer\nhandIn.move: Move {amount} to the safe\nhandIn.zero: Every amount is 0, so there is nothing to move.\nhandIn.notNow: Not now",
+      "title": "ws.manager.dayClose (packages/i18n/src/catalogs/ws/manager.en.ts) (part 2 of 4)",
+      "body": "openDayLead: No business day is open, so the café cashier cannot take orders. Count the float in the drawer, then open the day.\ncsv.adjustments: Adjustments\ncsv.date: Date\ncsv.time: Time\ncsv.what: What\ncsv.appliesTo: Applies to\ncsv.reason: Reason\ncsv.amount: Amount (IQD)\ncsv.appliedBy: Applied by\ncsv.authorisedBy: Authorised by\ncsv.tab: Tab id\nhandIn.title: Hand cash to the safe\nhandIn.lead: Each drawer’s cash from this day goes to the safe. The opening float stays in the drawer.\nhandIn.pendingLead: Business day {date} is closed, but its cash has not reached the safe yet.\nhandIn.boxes.cafe: Café cashier\nhandIn.boxes.desk: Court desk\nhandIn.boxes.shop: Shop desk\nhandIn.took: Took {amount} in cash\nhandIn.tookLessRefunds: Took {amount} in cash, less {refunds} refunded",
       "route": "/admin/day-close"
     },
     {
@@ -33118,15 +33150,23 @@
       "ref": "label:ws.manager.dayClose#3~3",
       "lang": "ar",
       "title": "ws.manager.dayClose (packages/i18n/src/catalogs/ws/manager.ar.ts) (part 3 of 3)",
-      "body": "lastCloseLine: يوم العمل {date}\nhandIn.notNow: ليس الآن\nhandIn.later: لم يُسلَّم النقد بعد. يمكنك تسليمه من صفحة القاصة.\nhandIn.keptHint: ما بقي في الدرج يمكن تسليمه لاحقًا من صفحة القاصة.\nhandIn.allIn: وصل نقد هذا اليوم إلى القاصة.\nhandIn.openSafe: فتح صفحة القاصة\nhandIn.toast: نُقل {amount} إلى القاصة.\nhandIn.empty: لا نقد يُسلَّم من هذا اليوم.\nhandIn.error: تعذّر تحميل الأدراج.",
+      "body": "openingFloatInput: الرصيد الافتتاحي في الدرج (د.ع)\nhandIn.overNet: أكثر مما استلمه هذا الدرج. الزيادة تُؤخذ من الرصيد الافتتاحي.\nhandIn.handedIn: سُلِّم {amount}\nhandIn.kept: بقي في الدرج\nhandIn.move: نقل {amount} إلى القاصة\nhandIn.zero: كل المبالغ صفر، فلا شيء يُنقل.\nhandIn.notNow: ليس الآن\nhandIn.later: لم يُسلَّم النقد بعد. يمكنك تسليمه من صفحة القاصة.\nhandIn.keptHint: ما بقي في الدرج يمكن تسليمه لاحقًا من صفحة القاصة.\nhandIn.allIn: وصل نقد هذا اليوم إلى القاصة.\nhandIn.openSafe: فتح صفحة القاصة\nhandIn.toast: نُقل {amount} إلى القاصة.\nhandIn.empty: لا نقد يُسلَّم من هذا اليوم.\nhandIn.error: تعذّر تحميل الأدراج.",
       "route": "/admin/day-close"
     },
     {
       "kind": "label",
       "ref": "label:ws.manager.dayClose#3~3",
       "lang": "en",
-      "title": "ws.manager.dayClose (packages/i18n/src/catalogs/ws/manager.en.ts) (part 3 of 3)",
-      "body": "openDayBtn: Open the day\nhandIn.handedIn: Handed in {amount}\nhandIn.kept: Kept in the drawer\nhandIn.move: Move {amount} to the safe\nhandIn.zero: Every amount is 0, so there is nothing to move.\nhandIn.notNow: Not now\nhandIn.later: Not handed in. You can do it from the Safe page.\nhandIn.keptHint: What stayed in a drawer can be handed in later from the Safe page.\nhandIn.allIn: This day’s cash is in the safe.\nhandIn.openSafe: Open the Safe page\nhandIn.toast: Moved {amount} to the safe.\nhandIn.empty: No cash to hand in for this day.\nhandIn.error: The drawers could not be loaded.",
+      "title": "ws.manager.dayClose (packages/i18n/src/catalogs/ws/manager.en.ts) (part 3 of 4)",
+      "body": "openDayLead: No business day is open, so the café cashier cannot take orders. Count the float in the drawer, then open the day.\nhandIn.boxes.cafe: Café cashier\nhandIn.boxes.desk: Court desk\nhandIn.boxes.shop: Shop desk\nhandIn.took: Took {amount} in cash\nhandIn.tookLessRefunds: Took {amount} in cash, less {refunds} refunded\nhandIn.noCash: No cash taken\nhandIn.amountLabel: {box}: cash to the safe\nhandIn.overNet: More than this drawer took. The extra comes out of the float.\nhandIn.handedIn: Handed in {amount}\nhandIn.kept: Kept in the drawer\nhandIn.move: Move {amount} to the safe\nhandIn.zero: Every amount is 0, so there is nothing to move.\nhandIn.notNow: Not now\nhandIn.later: Not handed in. You can do it from the Safe page.",
+      "route": "/admin/day-close"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.manager.dayClose#3~4",
+      "lang": "en",
+      "title": "ws.manager.dayClose (packages/i18n/src/catalogs/ws/manager.en.ts) (part 4 of 4)",
+      "body": "openDayLead: No business day is open, so the café cashier cannot take orders. Count the float in the drawer, then open the day.\nhandIn.move: Move {amount} to the safe\nhandIn.zero: Every amount is 0, so there is nothing to move.\nhandIn.notNow: Not now\nhandIn.later: Not handed in. You can do it from the Safe page.\nhandIn.keptHint: What stayed in a drawer can be handed in later from the Safe page.\nhandIn.allIn: This day’s cash is in the safe.\nhandIn.openSafe: Open the Safe page\nhandIn.toast: Moved {amount} to the safe.\nhandIn.empty: No cash to hand in for this day.\nhandIn.error: The drawers could not be loaded.",
       "route": "/admin/day-close"
     },
     {
@@ -33134,15 +33174,15 @@
       "ref": "label:ws.manager.dayClose~2",
       "lang": "ar",
       "title": "ws.manager.dayClose (packages/i18n/src/catalogs/ws/manager.ar.ts) (part 2 of 4)",
-      "body": "title: إغلاق اليوم\nsteps.syncLeft: بانتظار المزامنة: {count}\nsteps.count: عُدّ النقد في الدرج\nsteps.countDone: تم العدّ\nsteps.card: أدخل إجمالي جهاز البطاقة\nsteps.cardOptional: اختياري\nsteps.close: أغلق اليوم\nopenTab: فتح في كاشير الكافيه\nopenBooking: فتح الحجز\ntabTable: طاولة {number}\ntabUnnamed: فاتورة بلا اسم\nwrites.order: طلب\nwrites.ticket: تذكرة مطبخ\nwrites.payment: دفعة\nwrites.booking: حجز\nwrites.waiterCall: نداء النادل\nwrites.waste: تسجيل هدر\nwrites.tab: فاتورة جديدة\nwrites.discount: خصم\nwrites.refund: استرداد\nwrites.voidLine: سطر ملغى\nwrites.tabRemoval: حذف فاتورة\nwrites.billClose: إغلاق فاتورة بمبلغ صفر\nwrites.savedOffline: حُفظ دون اتصال\nwrites.other: تغيير\nopeningFloat: الرصيد الافتتاحي\ncashPayments: النقد المستلم اليوم\ncardPayments: البطاقة المستلمة اليوم",
+      "body": "title: إغلاق اليوم\nsteps.tabsHint: افتح كل فاتورة في كاشير الكافيه، ثم استلم دفعتها أو ألغِها. تُحدَّث هذه القائمة تلقائيًا.\nsteps.sync: انتظر حتى تُكمل هذه المحطة المزامنة\nsteps.syncDone: تمت مزامنة كل شيء\nsteps.syncLeft: بانتظار المزامنة: {count}\nsteps.count: عُدّ النقد في الدرج\nsteps.countDone: تم العدّ\nsteps.card: أدخل إجمالي جهاز البطاقة\nsteps.cardOptional: اختياري\nsteps.close: أغلق اليوم\nopenTab: فتح في كاشير الكافيه\nopenBooking: فتح الحجز\ntabTable: طاولة {number}\ntabUnnamed: فاتورة بلا اسم\nwrites.order: طلب\nwrites.ticket: تذكرة مطبخ\nwrites.payment: دفعة\nwrites.booking: حجز\nwrites.waiterCall: نداء النادل\nwrites.waste: تسجيل هدر\nwrites.tab: فاتورة جديدة\nwrites.discount: خصم\nwrites.refund: استرداد\nwrites.voidLine: سطر ملغى\nwrites.tabRemoval: حذف فاتورة",
       "route": "/admin/day-close"
     },
     {
       "kind": "label",
       "ref": "label:ws.manager.dayClose~2",
       "lang": "en",
-      "title": "ws.manager.dayClose (packages/i18n/src/catalogs/ws/manager.en.ts) (part 2 of 4)",
-      "body": "title: Day close\nsteps.count: Count the cash in the drawer\nsteps.countDone: Counted\nsteps.card: Enter the card terminal total\nsteps.cardOptional: Optional\nsteps.close: Close the day\nopenTab: Open at the café cashier\nopenBooking: Open booking\ntabTable: Table {number}\ntabUnnamed: Tab without a name\nwrites.order: Order\nwrites.ticket: Kitchen ticket\nwrites.payment: Payment\nwrites.booking: Booking\nwrites.waiterCall: Waiter call\nwrites.waste: Waste record\nwrites.tab: New tab\nwrites.discount: Discount\nwrites.refund: Refund\nwrites.voidLine: Voided line\nwrites.tabRemoval: Tab removal\nwrites.billClose: Bill closed at zero\nwrites.savedOffline: Saved offline\nwrites.other: Change\nopeningFloat: Opening float\ncashPayments: Cash taken today\ncardPayments: Card taken today",
+      "title": "ws.manager.dayClose (packages/i18n/src/catalogs/ws/manager.en.ts) (part 2 of 3)",
+      "body": "title: Day close\nsteps.sync: Let this station finish syncing\nsteps.syncDone: Everything is synced\nsteps.syncLeft: {count} waiting\nsteps.count: Count the cash in the drawer\nsteps.countDone: Counted\nsteps.card: Enter the card terminal total\nsteps.cardOptional: Optional\nsteps.close: Close the day\nopenTab: Open at the café cashier\nopenBooking: Open booking\ntabTable: Table {number}\ntabUnnamed: Tab without a name\nwrites.order: Order\nwrites.ticket: Kitchen ticket\nwrites.payment: Payment\nwrites.booking: Booking\nwrites.waiterCall: Waiter call\nwrites.waste: Waste record\nwrites.tab: New tab\nwrites.discount: Discount\nwrites.refund: Refund\nwrites.voidLine: Voided line\nwrites.tabRemoval: Tab removal\nwrites.billClose: Bill closed at zero\nwrites.savedOffline: Saved offline\nwrites.other: Change",
       "route": "/admin/day-close"
     },
     {
@@ -33150,15 +33190,15 @@
       "ref": "label:ws.manager.dayClose~3",
       "lang": "ar",
       "title": "ws.manager.dayClose (packages/i18n/src/catalogs/ws/manager.ar.ts) (part 3 of 4)",
-      "body": "title: إغلاق اليوم\nwrites.billClose: إغلاق فاتورة بمبلغ صفر\nwrites.savedOffline: حُفظ دون اتصال\nwrites.other: تغيير\nopeningFloat: الرصيد الافتتاحي\ncashPayments: النقد المستلم اليوم\ncardPayments: البطاقة المستلمة اليوم\ndeskCash: النقد المستلم في مكتب الملاعب\ndeskCashHint: محسوب ضمن النقد المستلم اليوم. وهو في صندوق نقد مكتب الملاعب، فعُدّ ذلك الصندوق أيضًا.\ndeskCard: البطاقة المستلمة في مكتب الملاعب\ndeskCardHint: محسوبة ضمن البطاقة المستلمة اليوم.\nunpaid.title: لُعبت اليوم ولم تُدفع\nunpaid.badge: غير مدفوع: {count}\nunpaid.lead: لُعبت هذه الحجوزات ولم تُستلم رسوم الملعب. لا يزال بإمكانك إغلاق اليوم.\nunpaid.owed: المستحق\nunpaid.noName: ضيف بلا اسم\ncountedCash: النقد المعدود (د.ع)\ncountedHint: كل ما في الدرج بما فيه الرصيد الافتتاحي. يُحسب المبلغ المتوقع وأي فرق عند إغلاق اليوم.",
+      "body": "title: إغلاق اليوم\nwrites.booking: حجز\nwrites.waiterCall: نداء النادل\nwrites.waste: تسجيل هدر\nwrites.tab: فاتورة جديدة\nwrites.discount: خصم\nwrites.refund: استرداد\nwrites.voidLine: سطر ملغى\nwrites.tabRemoval: حذف فاتورة\nwrites.billClose: إغلاق فاتورة بمبلغ صفر\nwrites.savedOffline: حُفظ دون اتصال\nwrites.other: تغيير\nopeningFloat: الرصيد الافتتاحي\ncashPayments: النقد المستلم اليوم\ncardPayments: البطاقة المستلمة اليوم\ndeskCash: النقد المستلم في مكتب الملاعب\ndeskCashHint: محسوب ضمن النقد المستلم اليوم. وهو في صندوق نقد مكتب الملاعب، فعُدّ ذلك الصندوق أيضًا.\ndeskCard: البطاقة المستلمة في مكتب الملاعب\ndeskCardHint: محسوبة ضمن البطاقة المستلمة اليوم.\nunpaid.title: لُعبت اليوم ولم تُدفع\nunpaid.badge: غير مدفوع: {count}",
       "route": "/admin/day-close"
     },
     {
       "kind": "label",
       "ref": "label:ws.manager.dayClose~3",
       "lang": "en",
-      "title": "ws.manager.dayClose (packages/i18n/src/catalogs/ws/manager.en.ts) (part 3 of 4)",
-      "body": "title: Day close\nwrites.billClose: Bill closed at zero\nwrites.savedOffline: Saved offline\nwrites.other: Change\nopeningFloat: Opening float\ncashPayments: Cash taken today\ncardPayments: Card taken today\ndeskCash: Cash taken at the court desk\ndeskCashHint: Already in the cash taken today. It is in the court desk’s cash box, so count that box too.\ndeskCard: Card taken at the court desk\ndeskCardHint: Already in the card taken today.\nunpaid.title: Played today, not paid\nunpaid.badge: {count} not paid\nunpaid.lead: These bookings were played but their court fee was not taken. You can still close the day.\nunpaid.owed: Still owed\nunpaid.noName: Guest without a name\ncountedCash: Counted cash (IQD)",
+      "title": "ws.manager.dayClose (packages/i18n/src/catalogs/ws/manager.en.ts) (part 3 of 3)",
+      "body": "title: Day close\nwrites.refund: Refund\nwrites.voidLine: Voided line\nwrites.tabRemoval: Tab removal\nwrites.billClose: Bill closed at zero\nwrites.savedOffline: Saved offline\nwrites.other: Change\nopeningFloat: Opening float\ncashPayments: Cash taken today\ncardPayments: Card taken today\ndeskCash: Cash taken at the court desk\ndeskCashHint: Already in the cash taken today. It is in the court desk’s cash box, so count that box too.\ndeskCard: Card taken at the court desk\ndeskCardHint: Already in the card taken today.\nunpaid.title: Played today, not paid\nunpaid.badge: {count} not paid\nunpaid.lead: These bookings were played but their court fee was not taken. You can still close the day.\nunpaid.owed: Still owed\nunpaid.noName: Guest without a name",
       "route": "/admin/day-close"
     },
     {
@@ -33166,15 +33206,7 @@
       "ref": "label:ws.manager.dayClose~4",
       "lang": "ar",
       "title": "ws.manager.dayClose (packages/i18n/src/catalogs/ws/manager.ar.ts) (part 4 of 4)",
-      "body": "title: إغلاق اليوم\nunpaid.owed: المستحق\nunpaid.noName: ضيف بلا اسم\ncountedCash: النقد المعدود (د.ع)\ncountedHint: كل ما في الدرج بما فيه الرصيد الافتتاحي. يُحسب المبلغ المتوقع وأي فرق عند إغلاق اليوم.\ncardBatch: إجمالي جهاز البطاقة (د.ع)",
-      "route": "/admin/day-close"
-    },
-    {
-      "kind": "label",
-      "ref": "label:ws.manager.dayClose~4",
-      "lang": "en",
-      "title": "ws.manager.dayClose (packages/i18n/src/catalogs/ws/manager.en.ts) (part 4 of 4)",
-      "body": "title: Day close\nunpaid.lead: These bookings were played but their court fee was not taken. You can still close the day.\nunpaid.owed: Still owed\nunpaid.noName: Guest without a name\ncountedCash: Counted cash (IQD)\ncountedHint: Everything in the drawer, float included. The expected amount and any difference are worked out when the day closes.\ncardBatch: Card terminal total (IQD)",
+      "body": "title: إغلاق اليوم\ndeskCard: البطاقة المستلمة في مكتب الملاعب\ndeskCardHint: محسوبة ضمن البطاقة المستلمة اليوم.\nunpaid.title: لُعبت اليوم ولم تُدفع\nunpaid.badge: غير مدفوع: {count}\nunpaid.lead: لُعبت هذه الحجوزات ولم تُستلم رسوم الملعب. لا يزال بإمكانك إغلاق اليوم.\nunpaid.owed: المستحق\nunpaid.noName: ضيف بلا اسم\ncountedCash: النقد المعدود (د.ع)",
       "route": "/admin/day-close"
     },
     {
@@ -33230,7 +33262,7 @@
       "ref": "label:ws.manager.menu",
       "lang": "ar",
       "title": "ws.manager.menu (packages/i18n/src/catalogs/ws/manager.ar.ts) (part 1 of 4)",
-      "body": "title: أصناف المنيو\nlead: ما يبيعه كاشير الكافيه ويعرضه منيو الضيوف ويحضّره المطبخ. يظهر أي تغيير في كل مكان فور حفظه.\ncategories: الفئات\ncategory: الفئة\nitems: الأصناف\nitem: الصنف\nprice: السعر (د.ع)\nstatus: الحالة\nsoldOut: نفد\noffToday: موقوف اليوم\nblocked: غير متاح بسبب المخزون\ninactive: غير فعّال\nactive: فعّال\nsearch: ابحث عن صنف في كل الفئات\nemptyCategory: لا أصناف في هذه الفئة بعد.\nemptyCategoryBody: أضف أول صنف ليظهر في كاشير الكافيه والموقع فور حفظه.\nnoMatch: لا أصناف تطابق البحث.\nnoCategories: لا فئات بعد.\nnoCategoriesBody: أنشئ فئة أولًا، فكل صنف يُضاف داخل فئة.\npickItem: اختر صنفًا لتحريره أو أضف صنفًا جديدًا.\nnewItem: صنف جديد\nnewCategory: فئة جديدة\neditCategory: تحرير الفئة\nreorderHint: استخدم الأسهم لتحديد الترتيب الذي يراه الضيوف في هذه الفئة.",
+      "body": "title: أصناف المنيو\nlead: ما يبيعه كاشير الكافيه ويعرضه منيو الضيوف ويحضّره المطبخ. يظهر أي تغيير في كل مكان فور حفظه.\ncategories: الفئات\ncategory: الفئة\nitems: الأصناف\nitem: الصنف\nprice: السعر (د.ع)\nstatus: الحالة\nsoldOut: نفد\noffToday: موقوف اليوم\nblocked: غير متاح بسبب المخزون\ninactive: غير فعّال\nactive: فعّال\nsearch: ابحث عن صنف في كل الفئات\nemptyCategory: لا أصناف في هذه الفئة بعد.\nemptyCategoryBody: أضف أول صنف ليظهر في كاشير الكافيه والموقع فور حفظه.\nnoMatch: لا أصناف تطابق البحث.\nnoCategories: لا فئات بعد.\nnoCategoriesBody: أنشئ فئة أولًا، فكل صنف يُضاف داخل فئة.\npickItem: اختر صنفًا لتحريره أو أضف صنفًا جديدًا.\nnewItem: صنف جديد\nnewCategory: فئة جديدة\neditCategory: تحرير الفئة\nreorderHint: اسحب النقاط لتحديد الترتيب الذي يراه الضيوف في هذه الفئة.",
       "route": "/admin/menu"
     },
     {
@@ -33246,15 +33278,15 @@
       "ref": "label:ws.manager.menu#2",
       "lang": "ar",
       "title": "ws.manager.menu (packages/i18n/src/catalogs/ws/manager.ar.ts) (part 1 of 3)",
-      "body": "form.now.soldOut: لا يمكن للضيوف طلبه: نفدت الكمية.\nform.now.offToday: لا يمكن للضيوف طلبه اليوم: موقوف لليوم.\nform.now.blocked: لا يمكن للضيوف طلبه: نفد أحد مكوّناته من المخزون.\nform.soldOutHint: يبقى موقوفًا حتى يعيد أحد تشغيله.\nform.offTodayTitle: موقوف لليوم\nform.offTodayHint: يُوقف الصنف حتى الغد، ثم يعود من تلقاء نفسه.\nform.offTodayUntil: موقوف اليوم، ويعود في {date}.\nform.markOff: إيقاف الصنف لليوم\nform.restore: إعادة التشغيل الآن\nform.blockedTitle: غير متاح بسبب المخزون\nform.blockedBody: نفد من المطبخ مكوّن يحتاجه هذا الصنف، فلن يبيعه كاشير الكافيه ولا الموقع. لا يمكن تغيير هذه الحالة يدويًا: تزول عند استلام البضائع أو جرد المخزون.\nform.blockedIngredients: نفد: {names}",
+      "body": "form.availability: التوفّر\nform.now.orderable: يمكن للضيوف طلبه الآن.\nform.now.inactive: لا يمكن للضيوف طلبه: الصنف موقوف.\nform.now.soldOut: لا يمكن للضيوف طلبه: نفدت الكمية.\nform.now.offToday: لا يمكن للضيوف طلبه اليوم: موقوف لليوم.\nform.now.blocked: لا يمكن للضيوف طلبه: نفد أحد مكوّناته من المخزون.\nform.soldOutHint: يبقى موقوفًا حتى يعيد أحد تشغيله.\nform.offTodayTitle: موقوف لليوم\nform.offTodayHint: يُوقف الصنف حتى الغد، ثم يعود من تلقاء نفسه.\nform.offTodayUntil: موقوف اليوم، ويعود في {date}.\nform.markOff: إيقاف الصنف لليوم\nform.restore: إعادة التشغيل الآن\nform.blockedTitle: غير متاح بسبب المخزون\nform.blockedBody: نفد من المطبخ مكوّن يحتاجه هذا الصنف، فلن يبيعه كاشير الكافيه ولا الموقع. لا يمكن تغيير هذه الحالة يدويًا: تزول عند استلام البضائع أو جرد المخزون.",
       "route": "/admin/menu"
     },
     {
       "kind": "label",
       "ref": "label:ws.manager.menu#2",
       "lang": "en",
-      "title": "ws.manager.menu (packages/i18n/src/catalogs/ws/manager.en.ts) (part 1 of 4)",
-      "body": "form.activeHint: Switched off, the item is hidden from the café cashier and the guest menu.\nform.availability: Availability\nform.now.orderable: Guests can order this now.\nform.now.inactive: Guests cannot order this: the item is switched off.\nform.now.soldOut: Guests cannot order this: it is sold out.\nform.now.offToday: Guests cannot order this today: it is off for today.\nform.now.blocked: Guests cannot order this: an ingredient is out of stock.\nform.soldOutHint: Stays off until someone switches it back on.\nform.offTodayTitle: Off for today\nform.offTodayHint: Takes it off until tomorrow, then it comes back on its own.\nform.offTodayUntil: Off today — back on {date}.\nform.markOff: Take off for today",
+      "title": "ws.manager.menu (packages/i18n/src/catalogs/ws/manager.en.ts) (part 1 of 3)",
+      "body": "form.onSale: On sale\nform.costPerServing: Cost per serving\nform.costShort: Cost\nform.marginShort: Margin\nform.iqd: IQD\nform.activeHint: Switched off, the item is hidden from the café cashier and the guest menu.\nform.availability: Availability\nform.now.orderable: Guests can order this now.\nform.now.inactive: Guests cannot order this: the item is switched off.\nform.now.soldOut: Guests cannot order this: it is sold out.\nform.now.offToday: Guests cannot order this today: it is off for today.\nform.now.blocked: Guests cannot order this: an ingredient is out of stock.\nform.soldOutHint: Stays off until someone switches it back on.\nform.offTodayTitle: Off for today\nform.offTodayHint: Takes it off until tomorrow, then it comes back on its own.",
       "route": "/admin/menu"
     },
     {
@@ -33262,15 +33294,15 @@
       "ref": "label:ws.manager.menu#2~2",
       "lang": "ar",
       "title": "ws.manager.menu (packages/i18n/src/catalogs/ws/manager.ar.ts) (part 2 of 3)",
-      "body": "form.now.soldOut: لا يمكن للضيوف طلبه: نفدت الكمية.\nform.blockedIngredients: نفد: {names}\nform.blockedUnknown: لا تستطيع هذه المحطة تحديد المكوّن الذي نفد. راجع «المتوفر» ضمن المخزون.\nform.saveFirst: احفظ الصنف لإدارة الأحجام والإضافات والتوفّر.\nform.sizes.title: الأحجام والأسعار\nform.sizes.size: الحجم\nform.sizes.price: السعر (د.ع)\nform.sizes.default: الافتراضي\nform.sizes.defaultHint: الحجم الافتراضي هو المحدّد مسبقًا في كاشير الكافيه ومنيو الضيوف.\nform.sizes.newSize: حجم جديد\nform.sizes.empty: لا أحجام بعد. أضف حجمًا ليصبح للصنف سعر.\nform.groups.title: خيارات الإضافات\nform.groups.lead: فعّل مجموعات الإضافات التي يختار منها الضيوف عند طلب هذا الصنف.\nform.groups.offered: المجموعات المتاحة لهذا الصنف\nform.groups.others: مجموعات إضافات أخرى\nform.groups.showOthers: عرض المجموعات الأخرى",
+      "body": "form.availability: التوفّر\nform.blockedBody: نفد من المطبخ مكوّن يحتاجه هذا الصنف، فلن يبيعه كاشير الكافيه ولا الموقع. لا يمكن تغيير هذه الحالة يدويًا: تزول عند استلام البضائع أو جرد المخزون.\nform.blockedIngredients: نفد: {names}\nform.blockedUnknown: لا تستطيع هذه المحطة تحديد المكوّن الذي نفد. راجع «المتوفر» ضمن المخزون.\nform.saveFirst: احفظ الصنف لإدارة الأحجام والإضافات والتوفّر.\nform.sizes.title: الأحجام والأسعار\nform.sizes.size: الحجم\nform.sizes.price: السعر (د.ع)\nform.sizes.default: الافتراضي\nform.sizes.makeDefault: اجعله الافتراضي\nform.sizes.add: إضافة الحجم\nform.sizes.defaultHint: الحجم الافتراضي هو المحدّد مسبقًا في كاشير الكافيه ومنيو الضيوف.\nform.sizes.newSize: حجم جديد\nform.sizes.empty: لا أحجام بعد. أضف حجمًا ليصبح للصنف سعر.\nform.groups.title: خيارات الإضافات",
       "route": "/admin/menu"
     },
     {
       "kind": "label",
       "ref": "label:ws.manager.menu#2~2",
       "lang": "en",
-      "title": "ws.manager.menu (packages/i18n/src/catalogs/ws/manager.en.ts) (part 2 of 4)",
-      "body": "form.activeHint: Switched off, the item is hidden from the café cashier and the guest menu.\nform.offTodayTitle: Off for today\nform.offTodayHint: Takes it off until tomorrow, then it comes back on its own.\nform.offTodayUntil: Off today — back on {date}.\nform.markOff: Take off for today\nform.restore: Put back on now\nform.blockedTitle: Blocked by stock\nform.blockedBody: The kitchen is out of an ingredient this item needs, so the café cashier and website will not sell it. This is not a toggle: it clears when stock is received or counted.\nform.blockedIngredients: Out of stock: {names}\nform.blockedUnknown: The blocking ingredient could not be named from this station. Check On hand under Stock.\nform.saveFirst: Save the item to manage sizes, add-ons and availability.",
+      "title": "ws.manager.menu (packages/i18n/src/catalogs/ws/manager.en.ts) (part 2 of 3)",
+      "body": "form.onSale: On sale\nform.soldOutHint: Stays off until someone switches it back on.\nform.offTodayTitle: Off for today\nform.offTodayHint: Takes it off until tomorrow, then it comes back on its own.\nform.offTodayUntil: Off today — back on {date}.\nform.markOff: Take off for today\nform.restore: Put back on now\nform.blockedTitle: Blocked by stock\nform.blockedBody: The kitchen is out of an ingredient this item needs, so the café cashier and website will not sell it. This is not a toggle: it clears when stock is received or counted.\nform.blockedIngredients: Out of stock: {names}\nform.blockedUnknown: The blocking ingredient could not be named from this station. Check On hand under Stock.\nform.saveFirst: Save the item to manage sizes, add-ons and availability.\nform.sizes.title: Sizes and prices",
       "route": "/admin/menu"
     },
     {
@@ -33278,23 +33310,23 @@
       "ref": "label:ws.manager.menu#2~3",
       "lang": "ar",
       "title": "ws.manager.menu (packages/i18n/src/catalogs/ws/manager.ar.ts) (part 3 of 3)",
-      "body": "form.now.soldOut: لا يمكن للضيوف طلبه: نفدت الكمية.\nform.groups.offered: المجموعات المتاحة لهذا الصنف\nform.groups.others: مجموعات إضافات أخرى\nform.groups.showOthers: عرض المجموعات الأخرى\nform.groups.hideOthers: إخفاء المجموعات الأخرى\nform.groups.noneOffered: لا مجموعات إضافات لهذا الصنف بعد.\nform.groups.noOptions: لا خيارات في هذه المجموعة بعد.\nform.groups.manage: تحرير المجموعات في «الإضافات»\nform.groups.none: لا مجموعات إضافات بعد. أنشئها في «الإضافات».",
+      "body": "form.availability: التوفّر\nform.sizes.newSize: حجم جديد\nform.sizes.empty: لا أحجام بعد. أضف حجمًا ليصبح للصنف سعر.\nform.groups.title: خيارات الإضافات\nform.groups.lead: فعّل مجموعات الإضافات التي يختار منها الضيوف عند طلب هذا الصنف.\nform.groups.offered: المجموعات المتاحة لهذا الصنف\nform.groups.others: مجموعات إضافات أخرى\nform.groups.showOthers: عرض المجموعات الأخرى\nform.groups.hideOthers: إخفاء المجموعات الأخرى\nform.groups.noneOffered: لا مجموعات إضافات لهذا الصنف بعد.\nform.groups.noOptions: لا خيارات في هذه المجموعة بعد.\nform.groups.manage: تحرير المجموعات في «الإضافات»\nform.groups.none: لا مجموعات إضافات بعد. أنشئها في «الإضافات».\nform.groups.noneTitle: لا توجد مجموعات إضافات بعد\nform.groups.noneBody: أنشئ المجموعة مرة واحدة في «الإضافات»، ثم فعّلها لأي صنف من هنا.",
       "route": "/admin/menu"
     },
     {
       "kind": "label",
       "ref": "label:ws.manager.menu#2~3",
       "lang": "en",
-      "title": "ws.manager.menu (packages/i18n/src/catalogs/ws/manager.en.ts) (part 3 of 4)",
-      "body": "form.activeHint: Switched off, the item is hidden from the café cashier and the guest menu.\nform.blockedUnknown: The blocking ingredient could not be named from this station. Check On hand under Stock.\nform.saveFirst: Save the item to manage sizes, add-ons and availability.\nform.sizes.title: Sizes and prices\nform.sizes.size: Size\nform.sizes.price: Price (IQD)\nform.sizes.default: Default\nform.sizes.defaultHint: The default size is the one the café cashier and the guest menu pick first.\nform.sizes.newSize: New size\nform.sizes.empty: No sizes yet. Add one so the item has a price.\nform.groups.title: Add-on choices\nform.groups.lead: Switch on the add-on groups guests choose from on this item.\nform.groups.offered: Offered on this item\nform.groups.others: Other add-on groups",
+      "title": "ws.manager.menu (packages/i18n/src/catalogs/ws/manager.en.ts) (part 3 of 3)",
+      "body": "form.onSale: On sale\nform.saveFirst: Save the item to manage sizes, add-ons and availability.\nform.sizes.title: Sizes and prices\nform.sizes.size: Size\nform.sizes.price: Price (IQD)\nform.sizes.default: Default\nform.sizes.makeDefault: Make default\nform.sizes.add: Add size\nform.sizes.defaultHint: The default size is the one the café cashier and the guest menu pick first.\nform.sizes.newSize: New size\nform.sizes.empty: No sizes yet. Add one so the item has a price.\nform.groups.title: Add-on choices\nform.groups.lead: Switch on the add-on groups guests choose from on this item.\nform.groups.offered: Offered on this item\nform.groups.others: Other add-on groups\nform.groups.showOthers: Show other groups\nform.groups.hideOthers: Hide other groups",
       "route": "/admin/menu"
     },
     {
       "kind": "label",
-      "ref": "label:ws.manager.menu#2~4",
-      "lang": "en",
-      "title": "ws.manager.menu (packages/i18n/src/catalogs/ws/manager.en.ts) (part 4 of 4)",
-      "body": "form.activeHint: Switched off, the item is hidden from the café cashier and the guest menu.\nform.groups.title: Add-on choices\nform.groups.lead: Switch on the add-on groups guests choose from on this item.\nform.groups.offered: Offered on this item\nform.groups.others: Other add-on groups\nform.groups.showOthers: Show other groups\nform.groups.hideOthers: Hide other groups\nform.groups.noneOffered: No add-on groups are offered on this item yet.\nform.groups.noOptions: No options in this group yet.\nform.groups.manage: Edit groups in Add-ons",
+      "ref": "label:ws.manager.menu#3",
+      "lang": "ar",
+      "title": "ws.manager.menu (packages/i18n/src/catalogs/ws/manager.ar.ts)",
+      "body": "form.groups.create: إنشاء مجموعات الإضافات",
       "route": "/admin/menu"
     },
     {
@@ -33302,7 +33334,7 @@
       "ref": "label:ws.manager.menu#3",
       "lang": "en",
       "title": "ws.manager.menu (packages/i18n/src/catalogs/ws/manager.en.ts)",
-      "body": "form.groups.none: No add-on groups exist yet. Create them in Add-ons.",
+      "body": "form.groups.noneOffered: No add-on groups are offered on this item yet.\nform.groups.noOptions: No options in this group yet.\nform.groups.manage: Edit groups in Add-ons\nform.groups.none: No add-on groups exist yet. Create them in Add-ons.\nform.groups.noneTitle: No add-on groups yet\nform.groups.noneBody: Create a group once in Add-ons, then switch it on for any item from here.\nform.groups.create: Create add-on groups",
       "route": "/admin/menu"
     },
     {
@@ -33310,7 +33342,7 @@
       "ref": "label:ws.manager.menu~2",
       "lang": "ar",
       "title": "ws.manager.menu (packages/i18n/src/catalogs/ws/manager.ar.ts) (part 2 of 4)",
-      "body": "title: أصناف المنيو\npickItem: اختر صنفًا لتحريره أو أضف صنفًا جديدًا.\nnewItem: صنف جديد\nnewCategory: فئة جديدة\neditCategory: تحرير الفئة\nreorderHint: استخدم الأسهم لتحديد الترتيب الذي يراه الضيوف في هذه الفئة.\nreorderOffSearch: تُعرض النتائج المطابقة من كل الفئات. امسح البحث لتغيير الترتيب.\nreorderOffNoCost: تُعرض الأصناف التي بلا كلفة من كل الفئات. اعرض كل الأصناف لتغيير الترتيب.\nnoCost.title: أصناف بلا كلفة\nnoCost.hint: لا تُحتسب في تقارير الربح قبل إدخال كلفتها.\nnoCost.show: عرضها\nnoCost.back: عرض كل الأصناف\nnoCost.none: لكل صنف فعّال كلفة.\ncategoryForm.newTitle: فئة جديدة\ncategoryForm.editTitle: تحرير الفئة\ncategoryForm.itemsCount: الأصناف في هذه الفئة: {count}\ncategoryForm.kind: نوع القسم\ncategoryForm.kindCafe: كافيه (يُحضَّر عند الطلب)\ncategoryForm.kindShop: متجر (يُباع من الرف)",
+      "body": "title: أصناف المنيو\npickItem: اختر صنفًا لتحريره أو أضف صنفًا جديدًا.\nnewItem: صنف جديد\nnewCategory: فئة جديدة\neditCategory: تحرير الفئة\nreorderHint: اسحب النقاط لتحديد الترتيب الذي يراه الضيوف في هذه الفئة.\nreorderOffSearch: تُعرض النتائج المطابقة من كل الفئات. امسح البحث لتغيير الترتيب.\nreorderOffNoCost: تُعرض الأصناف التي بلا كلفة من كل الفئات. اعرض كل الأصناف لتغيير الترتيب.\nnoCost.title: أصناف بلا كلفة\nnoCost.hint: لا تُحتسب في تقارير الربح قبل إدخال كلفتها.\nnoCost.show: عرضها\nnoCost.back: عرض كل الأصناف\nnoCost.none: لكل صنف فعّال كلفة.\ncategoryForm.newTitle: فئة جديدة\ncategoryForm.editTitle: تحرير الفئة\ncategoryForm.itemsCount: الأصناف في هذه الفئة: {count}\ncategoryForm.kind: نوع القسم\ncategoryForm.kindCafe: كافيه (يُحضَّر عند الطلب)\ncategoryForm.kindShop: متجر (يُباع من الرف)",
       "route": "/admin/menu"
     },
     {
@@ -33318,7 +33350,7 @@
       "ref": "label:ws.manager.menu~2",
       "lang": "en",
       "title": "ws.manager.menu (packages/i18n/src/catalogs/ws/manager.en.ts) (part 2 of 4)",
-      "body": "title: Menu items\nnoCategoriesBody: Create a category first; items live inside categories.\npickItem: Choose an item to edit it, or add a new one.\nnewItem: New item\nnewCategory: New category\neditCategory: Edit category\nreorderHint: Use the arrows to set the order guests see in this category.\nreorderOffSearch: Showing matches from every category. Clear the search to change the order.\nreorderOffNoCost: Showing items without a cost from every category. Show all items to change the order.\nnoCost.title: Items without a cost\nnoCost.hint: Profit reports cannot count these until a cost is entered.\nnoCost.show: Show them\nnoCost.back: Show all items\nnoCost.none: Every active item has a cost.\ncategoryForm.newTitle: New category\ncategoryForm.editTitle: Edit category",
+      "body": "title: Menu items\nnoCategoriesBody: Create a category first; items live inside categories.\npickItem: Choose an item to edit it, or add a new one.\nnewItem: New item\nnewCategory: New category\neditCategory: Edit category\nreorderHint: Drag the dots to set the order guests see in this category.\nreorderOffSearch: Showing matches from every category. Clear the search to change the order.\nreorderOffNoCost: Showing items without a cost from every category. Show all items to change the order.\nnoCost.title: Items without a cost\nnoCost.hint: Profit reports cannot count these until a cost is entered.\nnoCost.show: Show them\nnoCost.back: Show all items\nnoCost.none: Every active item has a cost.\ncategoryForm.newTitle: New category\ncategoryForm.editTitle: Edit category",
       "route": "/admin/menu"
     },
     {
@@ -33326,7 +33358,7 @@
       "ref": "label:ws.manager.menu~3",
       "lang": "ar",
       "title": "ws.manager.menu (packages/i18n/src/catalogs/ws/manager.ar.ts) (part 3 of 4)",
-      "body": "title: أصناف المنيو\ncategoryForm.itemsCount: الأصناف في هذه الفئة: {count}\ncategoryForm.kind: نوع القسم\ncategoryForm.kindCafe: كافيه (يُحضَّر عند الطلب)\ncategoryForm.kindShop: متجر (يُباع من الرف)\ncategoryForm.kindHint: أقسام المتجر تُباع أصنافها عند الكاونتر ولها مخزونها الخاص، ولا تظهر في منيو الطاولة.\ncategoryForm.kindLocked: لا يمكن تغيير النوع إلا إذا كان القسم فارغًا. انقل أصنافه أولًا.\nform.details: التفاصيل\nform.name: الاسم\nform.description: الوصف\nform.hook: سطر النكهة\nform.hookHint: حتى {max} حرفًا. اكتبه باللغتين معًا أو اتركه فارغًا. مثال: حلو · مقرمش · جريء.\nform.presentation: الصورة والإبراز\nform.pricing: الكلفة والحالة\nform.activeHint: عند إيقافه يختفي الصنف من كاشير الكافيه ومنيو الضيوف.\nform.availability: التوفّر\nform.now.orderable: يمكن للضيوف طلبه الآن.",
+      "body": "title: أصناف المنيو\ncategoryForm.itemsCount: الأصناف في هذه الفئة: {count}\ncategoryForm.kind: نوع القسم\ncategoryForm.kindCafe: كافيه (يُحضَّر عند الطلب)\ncategoryForm.kindShop: متجر (يُباع من الرف)\ncategoryForm.kindHint: أقسام المتجر تُباع أصنافها عند الكاونتر ولها مخزونها الخاص، ولا تظهر في منيو الطاولة.\ncategoryForm.kindLocked: لا يمكن تغيير النوع إلا إذا كان القسم فارغًا. انقل أصنافه أولًا.\nform.details: التفاصيل\nform.name: الاسم\nform.description: الوصف\nform.hook: سطر النكهة\nform.hookHint: حتى {max} حرفًا. اكتبه باللغتين معًا أو اتركه فارغًا. مثال: حلو · مقرمش · جريء.\nform.presentation: الصورة والإبراز\nform.pricing: الكلفة والحالة\nform.onSale: معروض للبيع\nform.costPerServing: كلفة الحصة\nform.costShort: الكلفة\nform.marginShort: الهامش\nform.iqd: د.ع.",
       "route": "/admin/menu"
     },
     {
@@ -33342,7 +33374,7 @@
       "ref": "label:ws.manager.menu~4",
       "lang": "ar",
       "title": "ws.manager.menu (packages/i18n/src/catalogs/ws/manager.ar.ts) (part 4 of 4)",
-      "body": "title: أصناف المنيو\nform.pricing: الكلفة والحالة\nform.activeHint: عند إيقافه يختفي الصنف من كاشير الكافيه ومنيو الضيوف.\nform.availability: التوفّر\nform.now.orderable: يمكن للضيوف طلبه الآن.\nform.now.inactive: لا يمكن للضيوف طلبه: الصنف موقوف.",
+      "body": "title: أصناف المنيو\nform.presentation: الصورة والإبراز\nform.pricing: الكلفة والحالة\nform.onSale: معروض للبيع\nform.costPerServing: كلفة الحصة\nform.costShort: الكلفة\nform.marginShort: الهامش\nform.iqd: د.ع.\nform.activeHint: عند إيقافه يختفي الصنف من كاشير الكافيه ومنيو الضيوف.",
       "route": "/admin/menu"
     },
     {
@@ -38606,7 +38638,7 @@
       "ref": "label:ws.protocols.form",
       "lang": "ar",
       "title": "ws.protocols.form (packages/i18n/src/catalogs/ws/protocols.ar.ts) (part 1 of 2)",
-      "body": "choose: اختر…\nfieldInvalid: مطلوب أو غير صالح.\nfieldTooLong: طويل جدًا.\ncheckMarked: راجع الحقول المعلّمة.\naddRow: إضافة\nremoveRow: حذف الصف {n}\naddLine: إضافة مكوّن\npickIngredient: المكوّن\nnotStocked: غير موجود في المخزون بعد (اكتبه)\naddRange: إضافة ملاعب وأوقات\nminutes: {n} د\nminutesUnit: دقيقة\nnewDuration: المدة بالدقائق\naddDuration: إضافة مدة\nremoveDuration: حذف {n} دقيقة\ndurationsHint: سعر لكل مدة حجز، من 15 إلى 480 دقيقة، على أن تكون المدة من مضاعفات 5.\ndrawCode: إنشاء رمز\nnoneToPick: لا خيارات متاحة.\nnoTargets: لا يوجد ما يمكن تغييره بهذه الطريقة الآن.\npickItemFirst: اختر الصنف أولًا.\nnoSizes: تظهر الأحجام بعد إنشاء مسودة الصنف.\nsize: الحجم\naddon: الإضافة\nnow: الآن\nnewPrice: السعر الجديد\nshop: المتجر\noff: غير مفعّل\nnewRule: سعر ملعب جديد\neveryCourt: كل الملاعب",
+      "body": "choose: اختر…\nfieldInvalid: مطلوب أو غير صالح.\nfieldTooLong: طويل جدًا.\ncheckMarked: راجع الحقول المعلّمة.\naddRow: إضافة\naddSize: إضافة حجم\nsizeN: الحجم {n}\nremoveRow: حذف الصف {n}\naddLine: إضافة مكوّن\npickIngredient: المكوّن\nnotStocked: غير موجود في المخزون بعد (اكتبه)\naddRange: إضافة ملاعب وأوقات\nminutes: {n} د\nminutesUnit: دقيقة\nnewDuration: المدة بالدقائق\naddDuration: إضافة مدة\nremoveDuration: حذف {n} دقيقة\ndurationsHint: سعر لكل مدة حجز، من 15 إلى 480 دقيقة، على أن تكون المدة من مضاعفات 5.\ndrawCode: إنشاء رمز\nnoneToPick: لا خيارات متاحة.\nnoTargets: لا يوجد ما يمكن تغييره بهذه الطريقة الآن.\npickItemFirst: اختر الصنف أولًا.\nnoSizes: تظهر الأحجام بعد إنشاء مسودة الصنف.\nsize: الحجم\naddon: الإضافة\nnow: الآن\nnewPrice: السعر الجديد\nshop: المتجر\noff: غير مفعّل",
       "route": null
     },
     {
@@ -38614,7 +38646,7 @@
       "ref": "label:ws.protocols.form",
       "lang": "en",
       "title": "ws.protocols.form (packages/i18n/src/catalogs/ws/protocols.en.ts) (part 1 of 2)",
-      "body": "choose: Choose…\nfieldInvalid: Missing or not valid.\nfieldTooLong: Too long.\ncheckMarked: Check the marked fields.\naddRow: Add\nremoveRow: Remove row {n}\naddLine: Add an ingredient\npickIngredient: Ingredient\nnotStocked: Not stocked yet (type it)\naddRange: Add courts and times\nminutes: {n} min\nminutesUnit: minutes\nnewDuration: Length in minutes\naddDuration: Add a length\nremoveDuration: Remove {n} min\ndurationsHint: A price for each booking length, 15 to 480 minutes in steps of 5.\ndrawCode: Make a code\nnoneToPick: Nothing to pick.\nnoTargets: Nothing can be changed this way right now.\npickItemFirst: Pick the item first.\nnoSizes: The sizes show once the draft item exists.\nsize: Size\naddon: Add-on\nnow: Now\nnewPrice: New price\nshop: Shop\noff: off\nnewRule: A new court rate",
+      "body": "choose: Choose…\nfieldInvalid: Missing or not valid.\nfieldTooLong: Too long.\ncheckMarked: Check the marked fields.\naddRow: Add\naddSize: Add a size\nsizeN: Size {n}\nremoveRow: Remove row {n}\naddLine: Add an ingredient\npickIngredient: Ingredient\nnotStocked: Not stocked yet (type it)\naddRange: Add courts and times\nminutes: {n} min\nminutesUnit: minutes\nnewDuration: Length in minutes\naddDuration: Add a length\nremoveDuration: Remove {n} min\ndurationsHint: A price for each booking length, 15 to 480 minutes in steps of 5.\ndrawCode: Make a code\nnoneToPick: Nothing to pick.\nnoTargets: Nothing can be changed this way right now.\npickItemFirst: Pick the item first.\nnoSizes: The sizes show once the draft item exists.\nsize: Size\naddon: Add-on\nnow: Now\nnewPrice: New price\nshop: Shop",
       "route": null
     },
     {
@@ -38622,7 +38654,7 @@
       "ref": "label:ws.protocols.form~2",
       "lang": "ar",
       "title": "ws.protocols.form (packages/i18n/src/catalogs/ws/protocols.ar.ts) (part 2 of 2)",
-      "body": "choose: اختر…\nnoSizes: تظهر الأحجام بعد إنشاء مسودة الصنف.\nsize: الحجم\naddon: الإضافة\nnow: الآن\nnewPrice: السعر الجديد\nshop: المتجر\noff: غير مفعّل\nnewRule: سعر ملعب جديد\neveryCourt: كل الملاعب\nnoCampaign: بلا حملة\nnoLaunchPhotos: لم تُرسل صورة مع التجربة أو مع خطوة التسويق. أرسل واحدة هناك أولًا.\nuseLaunchPhoto: استخدام الصورة {n}\nlessonType: {name} · {kind} {length}\ndraft: مسودة\nlessonNow: الآن: السعر {price} · أجرة الملعب {share}\ncoachNow: الآن: السعر {price}\ncoachNowType: الآن: سعر نوع الحصة، {price}\ncoachPriceHint: إن تُرك فارغًا يُزال سعر المدرّب الخاص ويُطبَّق سعر نوع الحصة.\npickCoachFirst: يلزم اختيار المدرّب أولًا.",
+      "body": "choose: اختر…\npickItemFirst: اختر الصنف أولًا.\nnoSizes: تظهر الأحجام بعد إنشاء مسودة الصنف.\nsize: الحجم\naddon: الإضافة\nnow: الآن\nnewPrice: السعر الجديد\nshop: المتجر\noff: غير مفعّل\nnewRule: سعر ملعب جديد\neveryCourt: كل الملاعب\nnoCampaign: بلا حملة\nnoLaunchPhotos: لم تُرسل صورة مع التجربة أو مع خطوة التسويق. أرسل واحدة هناك أولًا.\nuseLaunchPhoto: استخدام الصورة {n}\nlessonType: {name} · {kind} {length}\ndraft: مسودة\nlessonNow: الآن: السعر {price} · أجرة الملعب {share}\ncoachNow: الآن: السعر {price}\ncoachNowType: الآن: سعر نوع الحصة، {price}\ncoachPriceHint: إن تُرك فارغًا يُزال سعر المدرّب الخاص ويُطبَّق سعر نوع الحصة.\npickCoachFirst: يلزم اختيار المدرّب أولًا.",
       "route": null
     },
     {
@@ -38787,10 +38819,42 @@
     },
     {
       "kind": "label",
+      "ref": "label:ws.protocols.rel",
+      "lang": "ar",
+      "title": "ws.protocols.rel (packages/i18n/src/catalogs/ws/protocols.ar.ts) (part 1 of 2)",
+      "body": "takeOut: ١ · أخرِج من المخزون\nhowMany: ٢ · كم حضّرت؟\ntakePhoto: ٣ · التقط صورة\nmade: حُضّر {count}\ntapToAdd: اضغط للإضافة\ntakeOne: أنقص واحدًا من {size}\ncamera: الكاميرا\nupload: رفع\naddMore: إضافة\nuploading: جارٍ الرفع…\nprice: السعر\ncostLine: التكلفة {amount}\ncostUnknown: التكلفة غير معروفة\nsuggested: المقترح {amount}\nmargin: هامش {pct}%\nenglish: English\narabic: العربية\nphotos: الصور\nphotosOptional: اختياري · حتى {max}\nready: جاهز للإطلاق؟\ndone: تم\nchecksDone: اكتمل {count} من الفحوصات\nallDone: كل شيء جاهز\nmissing: ناقص\npick: اختر\ncheck: للمراجعة\nwhen: متى\nlaunchNow: أطلق الآن\nlaunchNowBody: يظهر في القائمة فور الإرسال\npickDate: اختر تاريخًا\npickDateBody: يبدأ في ذلك اليوم\nmenuPhoto: صورة القائمة\nmenuPhotoFrom: من خطوتَي التجربة والتسويق",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.protocols.rel",
+      "lang": "en",
+      "title": "ws.protocols.rel (packages/i18n/src/catalogs/ws/protocols.en.ts) (part 1 of 2)",
+      "body": "takeOut: 1 · Take out of stock\nhowMany: 2 · How many did you make?\ntakePhoto: 3 · Take a photo\nmade: {count} made\ntapToAdd: Tap to add\ntakeOne: Take one off {size}\ncamera: Camera\nupload: Upload\naddMore: Add\nuploading: Uploading…\nprice: Price\ncostLine: Cost {amount}\ncostUnknown: Cost not known\nsuggested: Suggested {amount}\nmargin: {pct}% margin\nenglish: English\narabic: العربية\nphotos: Photos\nphotosOptional: Optional · up to {max}\nready: Ready to launch?\ndone: Done\nchecksDone: {count} checks done\nallDone: Everything is ready\nmissing: Missing\npick: Pick\ncheck: To check\nwhen: When\nlaunchNow: Launch now\nlaunchNowBody: On the menu as soon as you send\npickDate: Pick a date\npickDateBody: Goes live on that day\nmenuPhoto: Menu photo",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.protocols.rel~2",
+      "lang": "ar",
+      "title": "ws.protocols.rel (packages/i18n/src/catalogs/ws/protocols.ar.ts) (part 2 of 2)",
+      "body": "takeOut: ١ · أخرِج من المخزون\nwhen: متى\nlaunchNow: أطلق الآن\nlaunchNowBody: يظهر في القائمة فور الإرسال\npickDate: اختر تاريخًا\npickDateBody: يبدأ في ذلك اليوم\nmenuPhoto: صورة القائمة\nmenuPhotoFrom: من خطوتَي التجربة والتسويق\nsend: أرسل هذه الخطوة\nitem: الصنف\nrecipe: الوصفة\nsizes: الأحجام\nstory: القصة\nmenuCategory: فئة القائمة (يختارها صاحب القرار)",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.protocols.rel~2",
+      "lang": "en",
+      "title": "ws.protocols.rel (packages/i18n/src/catalogs/ws/protocols.en.ts) (part 2 of 2)",
+      "body": "takeOut: 1 · Take out of stock\npick: Pick\ncheck: To check\nwhen: When\nlaunchNow: Launch now\nlaunchNowBody: On the menu as soon as you send\npickDate: Pick a date\npickDateBody: Goes live on that day\nmenuPhoto: Menu photo\nmenuPhotoFrom: From the test and marketing steps\nsend: Send this step\nitem: Item\nrecipe: Recipe\nsizes: Sizes\nstory: Story\nmenuCategory: Menu category (chosen by the decider)",
+      "route": null
+    },
+    {
+      "kind": "label",
       "ref": "label:ws.protocols.run",
       "lang": "ar",
-      "title": "ws.protocols.run (packages/i18n/src/catalogs/ws/protocols.ar.ts) (part 1 of 3)",
-      "body": "loading: بروتوكول\nsteps: الخطوات\nstartedBy: بدأه {name} في {date}\nscheduledFor: يُنفّذ في {date}\nliveAt: أُطلق في {date}\nfinishedAt: انتهى في {date}\nownStep: أضافها المالك\npickStep: اختر خطوة لعرضها.\nstop: إيقاف هذا البروتوكول\nstopTitle: إيقاف هذا البروتوكول؟\nstopBody: تتوقف كل الخطوات ولا يحدث شيء بعدها. يُحذف الصنف الجديد إن لم يُطلق بعد. يقرأ كل المعنيين سببك.\nstopBodyOwner: تتوقف كل الخطوات ولا يحدث شيء بعدها. يُحذف الصنف الجديد إن لم يُطلق بعد. ذكر السبب اختياري، وإن ذكرته فسيقرؤه كل المعنيين.\nstopped: أُوقف البروتوكول.\nwithdraw: سحب هذا البروتوكول\nwithdrawTitle: سحب هذا البروتوكول؟\nwithdrawBody: لم يُتخذ فيه أي قرار بعد. ينتهي هنا ولا يمكن استئنافه.\nwithdrawn: سُحب البروتوكول.\nunscheduled: أُلغي الموعد. الخطوة الأخيرة مفتوحة من جديد.\nunscheduleTitle: إلغاء الموعد؟",
+      "title": "ws.protocols.run (packages/i18n/src/catalogs/ws/protocols.ar.ts) (part 1 of 4)",
+      "body": "loading: بروتوكول\nsteps: الخطوات\nstartedBy: بدأه {name} في {date}\nstartedByShort: بدأها {name}\nscheduledFor: يُنفّذ في {date}\nliveAt: أُطلق في {date}\nfinishedAt: انتهى في {date}\nownStep: أضافها المالك\nsummary: الملخص\nsummaryLead: حالة كل خطوة وما يحدث بعد الإطلاق.\npickStep: اختر خطوة لعرضها.\nstop: إيقاف هذا البروتوكول\nstopTitle: إيقاف هذا البروتوكول؟\nstopBody: تتوقف كل الخطوات ولا يحدث شيء بعدها. يُحذف الصنف الجديد إن لم يُطلق بعد. يقرأ كل المعنيين سببك.\nstopBodyOwner: تتوقف كل الخطوات ولا يحدث شيء بعدها. يُحذف الصنف الجديد إن لم يُطلق بعد. ذكر السبب اختياري، وإن ذكرته فسيقرؤه كل المعنيين.\nstopped: أُوقف البروتوكول.\nwithdraw: سحب هذا البروتوكول\nwithdrawTitle: سحب هذا البروتوكول؟\nwithdrawBody: لم يُتخذ فيه أي قرار بعد. ينتهي هنا ولا يمكن استئنافه.",
       "route": null
     },
     {
@@ -38798,7 +38862,7 @@
       "ref": "label:ws.protocols.run",
       "lang": "en",
       "title": "ws.protocols.run (packages/i18n/src/catalogs/ws/protocols.en.ts) (part 1 of 3)",
-      "body": "loading: Protocol\nsteps: Steps\nstartedBy: Started by {name} on {date}\nscheduledFor: Goes ahead on {date}\nliveAt: Launched on {date}\nfinishedAt: Finished on {date}\nownStep: Added by the owner\npickStep: Pick a step to see it.\nstop: Stop this protocol\nstopTitle: Stop this protocol?\nstopBody: Every step stops and nothing more happens. A new item that has not launched is removed. Everyone involved reads your reason.\nstopBodyOwner: Every step stops and nothing more happens. A new item that has not launched is removed. A reason is optional; if you give one, everyone involved reads it.\nstopped: Stopped.\nwithdraw: Withdraw this protocol\nwithdrawTitle: Withdraw this protocol?\nwithdrawBody: Nobody has decided anything on it yet. It ends here and cannot be picked up again.",
+      "body": "loading: Protocol\nsteps: Steps\nstartedBy: Started by {name} on {date}\nstartedByShort: Started by {name}\nscheduledFor: Goes ahead on {date}\nliveAt: Launched on {date}\nfinishedAt: Finished on {date}\nownStep: Added by the owner\nsummary: Summary\nsummaryLead: Where each step stands, and what happens after the launch.\npickStep: Pick a step to see it.\nstop: Stop this protocol\nstopTitle: Stop this protocol?\nstopBody: Every step stops and nothing more happens. A new item that has not launched is removed. Everyone involved reads your reason.\nstopBodyOwner: Every step stops and nothing more happens. A new item that has not launched is removed. A reason is optional; if you give one, everyone involved reads it.\nstopped: Stopped.\nwithdraw: Withdraw this protocol",
       "route": null
     },
     {
@@ -38806,15 +38870,15 @@
       "ref": "label:ws.protocols.run#2",
       "lang": "en",
       "title": "ws.protocols.run (packages/i18n/src/catalogs/ws/protocols.en.ts)",
-      "body": "reviewStatus.failed: The summary could not be written. The figures above stand.",
+      "body": "reviewMargin: margin {margin}%\nreviewNoMargin: cost not known, so no margin\nreviewStatus.thin: Too few sales to say much yet.\nreviewStatus.failed: The summary could not be written. The figures above stand.",
       "route": null
     },
     {
       "kind": "label",
       "ref": "label:ws.protocols.run~2",
       "lang": "ar",
-      "title": "ws.protocols.run (packages/i18n/src/catalogs/ws/protocols.ar.ts) (part 2 of 3)",
-      "body": "loading: بروتوكول\nwithdrawBody: لم يُتخذ فيه أي قرار بعد. ينتهي هنا ولا يمكن استئنافه.\nwithdrawn: سُحب البروتوكول.\nunscheduled: أُلغي الموعد. الخطوة الأخيرة مفتوحة من جديد.\nunscheduleTitle: إلغاء الموعد؟\nunscheduleBody: لن يُنفَّذ في ذلك اليوم، وتُفتح الخطوة الأخيرة من جديد لاختيار موعد آخر.\nunscheduleConfirm: إلغاء الموعد\nwithdrawStepTitle: سحب ما أرسلته؟\nwithdrawStepBody: يُسترجع ما أرسلته وتُفتح الخطوة من جديد. لا يمكن لأحد اتخاذ قرار فيها حتى ترسلها مرة أخرى.\nwithdrawStepConfirm: سحبه\nremoveCandidateTitle: إزالة {name}؟\nremoveCandidateBody: يخرج من هذا التوظيف وتُحذف بياناته معه.\nremoveCandidateConfirm: إزالة\nfollowTitle: متابعة كل خطوة\nfollowHint: استلم إشعارًا كلما اجتازت خطوة في بروتوكول أو بدأ بروتوكول أو توقف أو انتهى.\nfollowSaved: حُفظ.\nmarketingTake: رأي التسويق",
+      "title": "ws.protocols.run (packages/i18n/src/catalogs/ws/protocols.ar.ts) (part 2 of 4)",
+      "body": "loading: بروتوكول\nstopped: أُوقف البروتوكول.\nwithdraw: سحب هذا البروتوكول\nwithdrawTitle: سحب هذا البروتوكول؟\nwithdrawBody: لم يُتخذ فيه أي قرار بعد. ينتهي هنا ولا يمكن استئنافه.\nwithdrawn: سُحب البروتوكول.\nunscheduled: أُلغي الموعد. الخطوة الأخيرة مفتوحة من جديد.\nunscheduleTitle: إلغاء الموعد؟\nunscheduleBody: لن يُنفَّذ في ذلك اليوم، وتُفتح الخطوة الأخيرة من جديد لاختيار موعد آخر.\nunscheduleConfirm: إلغاء الموعد\nwithdrawStepTitle: سحب ما أرسلته؟\nwithdrawStepBody: يُسترجع ما أرسلته وتُفتح الخطوة من جديد. لا يمكن لأحد اتخاذ قرار فيها حتى ترسلها مرة أخرى.\nwithdrawStepConfirm: سحبه\nremoveCandidateTitle: إزالة {name}؟\nremoveCandidateBody: يخرج من هذا التوظيف وتُحذف بياناته معه.\nremoveCandidateConfirm: إزالة\nfollowTitle: متابعة كل خطوة",
       "route": null
     },
     {
@@ -38829,8 +38893,8 @@
       "kind": "label",
       "ref": "label:ws.protocols.run~3",
       "lang": "ar",
-      "title": "ws.protocols.run (packages/i18n/src/catalogs/ws/protocols.ar.ts) (part 3 of 3)",
-      "body": "loading: بروتوكول\nremoveCandidateConfirm: إزالة\nfollowTitle: متابعة كل خطوة\nfollowHint: استلم إشعارًا كلما اجتازت خطوة في بروتوكول أو بدأ بروتوكول أو توقف أو انتهى.\nfollowSaved: حُفظ.\nmarketingTake: رأي التسويق\nnoTake: لم يكتب التسويق شيئًا عن هذا بعد.\nteamNotes: ملاحظات الفريق\nnoNotes: لا ملاحظات بعد. يضيفها الموظفون خلال أول 30 يومًا بعد الإطلاق.\nreview: مراجعة اليوم الثلاثين\nreviewNotYet: تُكتب بعد 30 يومًا من الإطلاق.\nreviewFigures: الكمية المباعة: {units} · أيام البيع: {days} · {revenue}\nreviewMargin: الهامش {margin}%\nreviewNoMargin: الكلفة غير معروفة، فلا هامش\nreviewStatus.thin: المبيعات قليلة جدًا ولا تكفي لاستخلاص الكثير بعد.\nreviewStatus.failed: تعذّرت كتابة الملخص. الأرقام أعلاه صحيحة.",
+      "title": "ws.protocols.run (packages/i18n/src/catalogs/ws/protocols.ar.ts) (part 3 of 4)",
+      "body": "loading: بروتوكول\nwithdrawStepConfirm: سحبه\nremoveCandidateTitle: إزالة {name}؟\nremoveCandidateBody: يخرج من هذا التوظيف وتُحذف بياناته معه.\nremoveCandidateConfirm: إزالة\nfollowTitle: متابعة كل خطوة\nfollowHint: استلم إشعارًا كلما اجتازت خطوة في بروتوكول أو بدأ بروتوكول أو توقف أو انتهى.\nfollowSaved: حُفظ.\nmarketingTake: رأي التسويق\nnoTake: لم يكتب التسويق شيئًا عن هذا بعد.\nteamNotes: ملاحظات الفريق\nnoNotes: لا ملاحظات بعد. يضيفها الموظفون خلال أول 30 يومًا بعد الإطلاق.\nreview: مراجعة اليوم الثلاثين\nreviewNotYet: تُكتب بعد 30 يومًا من الإطلاق.\nreviewFigures: الكمية المباعة: {units} · أيام البيع: {days} · {revenue}\nreviewMargin: الهامش {margin}%\nreviewNoMargin: الكلفة غير معروفة، فلا هامش\nreviewStatus.thin: المبيعات قليلة جدًا ولا تكفي لاستخلاص الكثير بعد.",
       "route": null
     },
     {
@@ -38838,7 +38902,15 @@
       "ref": "label:ws.protocols.run~3",
       "lang": "en",
       "title": "ws.protocols.run (packages/i18n/src/catalogs/ws/protocols.en.ts) (part 3 of 3)",
-      "body": "loading: Protocol\nwithdrawStepConfirm: Withdraw it\nremoveCandidateTitle: Remove {name}?\nremoveCandidateBody: They leave this hiring and their details go with them.\nremoveCandidateConfirm: Remove\nfollowTitle: Follow every step\nfollowHint: Get a notification each time a protocol step passes or a protocol starts, stops or finishes.\nfollowSaved: Saved.\nmarketingTake: Marketing’s take\nnoTake: Marketing has not written anything on this yet.\nteamNotes: Notes from the team\nnoNotes: No notes yet. Staff add them in the first 30 days after the launch.\nreview: Day-30 review\nreviewNotYet: Written 30 days after the launch.\nreviewFigures: {units} sold on {days} days · {revenue}\nreviewMargin: margin {margin}%\nreviewNoMargin: cost not known, so no margin\nreviewStatus.thin: Too few sales to say much yet.",
+      "body": "loading: Protocol\nwithdrawStepConfirm: Withdraw it\nremoveCandidateTitle: Remove {name}?\nremoveCandidateBody: They leave this hiring and their details go with them.\nremoveCandidateConfirm: Remove\nfollowTitle: Follow every step\nfollowHint: Get a notification each time a protocol step passes or a protocol starts, stops or finishes.\nfollowSaved: Saved.\nmarketingTake: Marketing’s take\nnoTake: Marketing has not written anything on this yet.\nteamNotes: Notes from the team\nnoNotes: No notes yet. Staff add them in the first 30 days after the launch.\nreview: Day-30 review\nreviewNotYet: Written 30 days after the launch.\nreviewFigures: {units} sold on {days} days · {revenue}",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.protocols.run~4",
+      "lang": "ar",
+      "title": "ws.protocols.run (packages/i18n/src/catalogs/ws/protocols.ar.ts) (part 4 of 4)",
+      "body": "loading: بروتوكول\nreviewMargin: الهامش {margin}%\nreviewNoMargin: الكلفة غير معروفة، فلا هامش\nreviewStatus.thin: المبيعات قليلة جدًا ولا تكفي لاستخلاص الكثير بعد.\nreviewStatus.failed: تعذّرت كتابة الملخص. الأرقام أعلاه صحيحة.",
       "route": null
     },
     {
@@ -38862,7 +38934,7 @@
       "ref": "label:ws.protocols.start~2",
       "lang": "ar",
       "title": "ws.protocols.start (packages/i18n/src/catalogs/ws/protocols.ar.ts) (part 2 of 2)",
-      "body": "title: بدء: {kind}\nfirstStep.price_promo: الاقتراح\npassesAtOnce: أنت من يقرر هذه الخطوة الأولى، لذا تمر فور البدء.\ngoesToDecider: عند البدء تُرسل هذه الخطوة الأولى لاتخاذ القرار فيها.\nstarted: بدأ البروتوكول.\nstartedAuto: بدأ البروتوكول. مرّت خطوتك الأولى فورًا.\nfromIdea: من فكرة {name} ({team}، {date}). تأتي صورها معها. غيّر ما تريد قبل البدء.\nideaGone: لم تعد هذه الفكرة بانتظار القرار: بُدئ بها أو رُفضت أو سُحبت.",
+      "body": "title: بدء: {kind}\nfirstStep.price_promo: الاقتراح\npassesAtOnce: أنت من يقرر هذه الخطوة الأولى، لذا تمر فور البدء.\ngoesToDecider: عند البدء تُرسل هذه الخطوة الأولى لاتخاذ القرار فيها.\nstarted: بدأ البروتوكول.\nstartedAuto: بدأ البروتوكول. مرّت خطوتك الأولى فورًا.\nfromIdea: من فكرة {name} ({team}، {date}). تأتي صورها معها. غيّر ما تريد قبل البدء.\nideaGone: لم تعد هذه الفكرة بانتظار القرار: بُدئ بها أو رُفضت أو سُحبت.\nwizard.stepItem: الصنف\nwizard.stepAbout: تفاصيل إضافية\nwizard.ingredients: {count} مكونات\nwizard.filled: تمت التعبئة",
       "route": null
     },
     {
@@ -38870,7 +38942,7 @@
       "ref": "label:ws.protocols.start~2",
       "lang": "en",
       "title": "ws.protocols.start (packages/i18n/src/catalogs/ws/protocols.en.ts) (part 2 of 2)",
-      "body": "title: Start: {kind}\nfirstStep.tournament: The plan\nfirstStep.hiring: The open position\nfirstStep.price_promo: The proposal\npassesAtOnce: You decide this first step, so it passes as soon as you start.\ngoesToDecider: Starting sends this first step for a decision.\nstarted: Started.\nstartedAuto: Started. Your first step passed at once.\nfromIdea: From {name}’s idea ({team}, {date}). Its photos come with it. Change anything before you start.\nideaGone: That idea is no longer waiting: it was started, declined or withdrawn.",
+      "body": "title: Start: {kind}\nfirstStep.tournament: The plan\nfirstStep.hiring: The open position\nfirstStep.price_promo: The proposal\npassesAtOnce: You decide this first step, so it passes as soon as you start.\ngoesToDecider: Starting sends this first step for a decision.\nstarted: Started.\nstartedAuto: Started. Your first step passed at once.\nfromIdea: From {name}’s idea ({team}, {date}). Its photos come with it. Change anything before you start.\nideaGone: That idea is no longer waiting: it was started, declined or withdrawn.\nwizard.stepItem: The item\nwizard.stepAbout: More details\nwizard.ingredients: {count} ingredients\nwizard.filled: Filled in",
       "route": null
     },
     {
@@ -38878,7 +38950,7 @@
       "ref": "label:ws.protocols.step",
       "lang": "ar",
       "title": "ws.protocols.step (packages/i18n/src/catalogs/ws/protocols.ar.ts) (part 1 of 2)",
-      "body": "title: خطوة\nassigned: مُسندة إلى {name}\nactors: يُنفّذها: {roles}\ndecider.owner: يقرر المالك\ndecider.manager: يقرر أحد المديرين\ndecider.self: تمر حين يرسلها المالك\nopensAfter: تُفتح بعد: {steps}\nchecklist: قائمة التحقق\ntickedBy: {name}، {date}\ndecide: اتخاذ القرار\nwithdraw: سحب ما أرسلته\nwithdrawn: سُحب ما أرسلته. يمكنك إرساله من جديد.\nskip: تخطّي هذه الخطوة\nskipTitle: تخطّي «{step}»؟\nskipBody: هذه الخطوة اختيارية. تُفتح الخطوات التالية من دونها.\nskipped: تم التخطي.\nskippedBy: تخطّاها {name}: {note}\nforSomeoneElse: هذه الخطوة من مهام {roles}.\nawaitingDecision: أُرسلت. {decider}.\nhistory: ما أُرسل\nnothingSent: لم يُرسل شيء بعد.\nsentBy: {name}، {date}\ndecidedBy: {decision} من {name}، {date}\nsentBackTo: أُعيد إلى {step}\nhiddenRecord: ما أُرسل هنا لا يراه إلا المديرون والمالك.",
+      "body": "title: خطوة\nassigned: مُسندة إلى {name}\nactors: يُنفّذها: {roles}\ndecider.owner: يقرر المالك\ndecider.manager: يقرر أحد المديرين\ndecider.self: تمر حين يرسلها المالك\nopensAfter: تُفتح بعد: {steps}\nlocked: هذه الخطوة مقفلة\nlockedAfter: تُفتح عند اكتمال {steps}.\nlockedEarlier: تُفتح عند اكتمال الخطوات السابقة.\nchecklist: قائمة التحقق\ntickedBy: {name}، {date}\ndecide: اتخاذ القرار\nwithdraw: سحب ما أرسلته\nwithdrawn: سُحب ما أرسلته. يمكنك إرساله من جديد.\nskip: تخطّي هذه الخطوة\nskipTitle: تخطّي «{step}»؟\nskipBody: هذه الخطوة اختيارية. تُفتح الخطوات التالية من دونها.\nskipped: تم التخطي.\nskippedBy: تخطّاها {name}: {note}\nforSomeoneElse: هذه الخطوة من مهام {roles}.\nawaitingDecision: أُرسلت. {decider}.\nhistory: ما أُرسل\nnothingSent: لم يُرسل شيء بعد.\nsentBy: {name}، {date}",
       "route": null
     },
     {
@@ -38886,7 +38958,7 @@
       "ref": "label:ws.protocols.step",
       "lang": "en",
       "title": "ws.protocols.step (packages/i18n/src/catalogs/ws/protocols.en.ts) (part 1 of 2)",
-      "body": "title: Step\nassigned: For {name}\nactors: Done by: {roles}\ndecider.owner: The owner decides\ndecider.manager: A manager decides\ndecider.self: Passes when the owner sends it\nopensAfter: Opens after: {steps}\nchecklist: Checklist\ntickedBy: {name}, {date}\ndecide: Decide\nwithdraw: Withdraw what I sent\nwithdrawn: Withdrawn. You can send it again.\nskip: Skip this step\nskipTitle: Skip “{step}”?\nskipBody: This step is optional. The steps after it open without it.\nskipped: Skipped.\nskippedBy: Skipped by {name}: {note}\nforSomeoneElse: This step is for {roles}.\nawaitingDecision: Sent. {decider}.\nhistory: What was sent\nnothingSent: Nothing sent yet.\nsentBy: {name}, {date}\ndecidedBy: {decision} by {name}, {date}\nsentBackTo: sent back to {step}",
+      "body": "title: Step\nassigned: For {name}\nactors: Done by: {roles}\ndecider.owner: The owner decides\ndecider.manager: A manager decides\ndecider.self: Passes when the owner sends it\nopensAfter: Opens after: {steps}\nlocked: This step is locked\nlockedAfter: It opens once {steps} is done.\nlockedEarlier: It opens once the earlier steps are done.\nchecklist: Checklist\ntickedBy: {name}, {date}\ndecide: Decide\nwithdraw: Withdraw what I sent\nwithdrawn: Withdrawn. You can send it again.\nskip: Skip this step\nskipTitle: Skip “{step}”?\nskipBody: This step is optional. The steps after it open without it.\nskipped: Skipped.\nskippedBy: Skipped by {name}: {note}\nforSomeoneElse: This step is for {roles}.\nawaitingDecision: Sent. {decider}.\nhistory: What was sent\nnothingSent: Nothing sent yet.",
       "route": null
     },
     {
@@ -38894,7 +38966,7 @@
       "ref": "label:ws.protocols.step~2",
       "lang": "ar",
       "title": "ws.protocols.step (packages/i18n/src/catalogs/ws/protocols.ar.ts) (part 2 of 2)",
-      "body": "title: خطوة\nhistory: ما أُرسل\nnothingSent: لم يُرسل شيء بعد.\nsentBy: {name}، {date}\ndecidedBy: {decision} من {name}، {date}\nsentBackTo: أُعيد إلى {step}\nhiddenRecord: ما أُرسل هنا لا يراه إلا المديرون والمالك.\nstate.pending: بانتظار القرار\nstate.withdrawn: مسحوب\nstate.superseded: استُبدل\nyourPart: دورك\ncovering: أنت تغطي هذه الخطوة بدلًا من {roles}.\nprefilled: معبأ مما أُرسل سابقًا. غيّر ما يحتاج إلى تغيير.\nyouDecide: أنت من يقرر هذه الخطوة، لذا تمر فور إرسالها.\nsent: أُرسلت الخطوة.\nsentAuto: أُرسلت ومرّت: أنت من يقرر هذه الخطوة.",
+      "body": "title: خطوة\nskippedBy: تخطّاها {name}: {note}\nforSomeoneElse: هذه الخطوة من مهام {roles}.\nawaitingDecision: أُرسلت. {decider}.\nhistory: ما أُرسل\nnothingSent: لم يُرسل شيء بعد.\nsentBy: {name}، {date}\ndecidedBy: {decision} من {name}، {date}\nsentBackTo: أُعيد إلى {step}\nhiddenRecord: ما أُرسل هنا لا يراه إلا المديرون والمالك.\nstate.pending: بانتظار القرار\nstate.withdrawn: مسحوب\nstate.superseded: استُبدل\nyourPart: دورك\ncovering: أنت تغطي هذه الخطوة بدلًا من {roles}.\nprefilled: معبأ مما أُرسل سابقًا. غيّر ما يحتاج إلى تغيير.\nyouDecide: أنت من يقرر هذه الخطوة، لذا تمر فور إرسالها.\nsent: أُرسلت الخطوة.\nsentAuto: أُرسلت ومرّت: أنت من يقرر هذه الخطوة.",
       "route": null
     },
     {
@@ -38902,7 +38974,7 @@
       "ref": "label:ws.protocols.step~2",
       "lang": "en",
       "title": "ws.protocols.step (packages/i18n/src/catalogs/ws/protocols.en.ts) (part 2 of 2)",
-      "body": "title: Step\nawaitingDecision: Sent. {decider}.\nhistory: What was sent\nnothingSent: Nothing sent yet.\nsentBy: {name}, {date}\ndecidedBy: {decision} by {name}, {date}\nsentBackTo: sent back to {step}\nhiddenRecord: Only managers and the owner see what was sent here.\nstate.pending: Waiting for a decision\nstate.withdrawn: Withdrawn\nstate.superseded: Replaced\nyourPart: Your part\ncovering: You are covering this step for {roles}.\nprefilled: Filled in from what was sent before. Change what needs changing.\nyouDecide: You decide this step, so it passes as soon as you send it.\nsent: Sent.\nsentAuto: Sent and passed: you decide this step.",
+      "body": "title: Step\nskipped: Skipped.\nskippedBy: Skipped by {name}: {note}\nforSomeoneElse: This step is for {roles}.\nawaitingDecision: Sent. {decider}.\nhistory: What was sent\nnothingSent: Nothing sent yet.\nsentBy: {name}, {date}\ndecidedBy: {decision} by {name}, {date}\nsentBackTo: sent back to {step}\nhiddenRecord: Only managers and the owner see what was sent here.\nstate.pending: Waiting for a decision\nstate.withdrawn: Withdrawn\nstate.superseded: Replaced\nyourPart: Your part\ncovering: You are covering this step for {roles}.\nprefilled: Filled in from what was sent before. Change what needs changing.\nyouDecide: You decide this step, so it passes as soon as you send it.\nsent: Sent.\nsentAuto: Sent and passed: you decide this step.",
       "route": null
     },
     {
@@ -43893,7 +43965,7 @@
       "kind": "system",
       "ref": "system:edge:deposit-reconcile",
       "lang": "en",
-      "title": "edge function deposit-reconcile (part 1 of 2)",
+      "title": "edge function deposit-reconcile (part 1 of 3)",
       "body": "verify_jwt = true (supabase/config.toml).\ndeposit-reconcile — the payment sweeper (plan §4). Called by pg_cron through\napp.deposit_nudge (tp_deposit_sweep, every 30 s) and nudged right after a\nrefund is requested.\n\n  POST (service role only)  {}\n    → 200 { checked, cancelled, refunded, refund_failed, errors }\n    → 403 for any other caller\n\nFor each payment app.deposits_due_for_reconcile claims (60 s lease):\n  check   open past its deadline, or pending and unheard for 90 s: ask the\n          gateway and apply. Still open past the deadline → cancel it at the\n          gateway and apply what it says; three failed cancels → GIVE_UP\n          (expired; a SUCCESS that still arrives later is honoured).",
       "route": null
     },
@@ -43901,8 +43973,16 @@
       "kind": "system",
       "ref": "system:edge:deposit-reconcile~2",
       "lang": "en",
-      "title": "edge function deposit-reconcile (part 2 of 2)",
-      "body": "verify_jwt = true (supabase/config.toml).\n          gateway and apply what it says; three failed cancels → GIVE_UP\n          (expired; a SUCCESS that still arrives later is honoured).\n  refund  refund_pending: send the refund with the request id minted when\n          it was requested (so a retry is the same refund), then\n          app.deposit_refund_apply. A refund the gateway says it already\n          has, but whose outcome we never saw, is refund_failed: a manager\n          checks the gateway's dashboard instead of us guessing.\n\nBounded: 50 rows and a 45 s budget, under the cron's 60 s lease.",
+      "title": "edge function deposit-reconcile (part 2 of 3)",
+      "body": "verify_jwt = true (supabase/config.toml).\n          gateway and apply what it says; three failed cancels → GIVE_UP\n          (expired; a SUCCESS that still arrives later is honoured).\n  refund  refund_pending: send the refund with the request id minted when\n          it was requested (so a retry is the same refund), then\n          app.deposit_refund_apply. A refund the gateway says it already\n          has (our earlier send: an answer that said \"pending\", or one we\n          lost) is looked up on the payment (its `cancels`, by our refund\n          request id) and applied as what the gateway says became of it;\n          only when the payment does not say is it refund_failed: a manager\n          checks the gateway's dashboard instead of us guessing.\n",
+      "route": null
+    },
+    {
+      "kind": "system",
+      "ref": "system:edge:deposit-reconcile~3",
+      "lang": "en",
+      "title": "edge function deposit-reconcile (part 3 of 3)",
+      "body": "verify_jwt = true (supabase/config.toml).\n          only when the payment does not say is it refund_failed: a manager\n          checks the gateway's dashboard instead of us guessing.\n\nBounded: 50 rows and a 45 s budget, under the cron's 60 s lease.",
       "route": null
     },
     {

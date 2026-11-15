@@ -191,16 +191,6 @@ async function queueOffline<T>(fn: QueueableRpc, args: Record<string, unknown>):
   return outcome.result as T;
 }
 
-/**
- * May this failure be queued instead? Only a call that never reached the
- * server: a fetch that could not connect. A timeout is NOT one — the request
- * may have landed and its answer been lost, and queuing it would make a
- * second, unclaimed copy.
- */
-function queueableFailure(error: unknown): boolean {
-  return !(error instanceof RequestTimeoutError) && isTransportFailure(error);
-}
-
 /** Call an app-schema RPC; resolves to the function result or throws AppRpcError. */
 export async function appRpc<T = unknown>(
   fn: AppFunctionName,
@@ -215,9 +205,13 @@ export async function appRpc<T = unknown>(
   try {
     return await callWithPin<T>(fn, args, timeoutMs);
   } catch (error) {
-    if (queueable && queueableFailure(error)) {
+    // A call that fails in transport is NOT queued: Chromium's "Failed to
+    // fetch" also covers a connection reset after the request was sent, and a
+    // queued copy carries a new key, so a create (upsert_menu_item with no id)
+    // would land twice. The station reads offline from here, so the person's
+    // next save goes to the queue; this one says "No connection".
+    if (queueable && !(error instanceof RequestTimeoutError) && isTransportFailure(error)) {
       setStationReachable(false);
-      return queueOffline<T>(fn as QueueableRpc, args);
     }
     throw error;
   }

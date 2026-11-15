@@ -2987,6 +2987,10 @@ export type Database = {
       }
       loyalty_phone_masked: { Args: { p_phone: string }; Returns: string }
       loyalty_picked_deal: { Args: { p_profile: string }; Returns: string }
+      loyalty_picked_deal_on: {
+        Args: { p_profile: string; p_tab: string }
+        Returns: string
+      }
       loyalty_points_for: {
         Args: {
           p_cafe: boolean

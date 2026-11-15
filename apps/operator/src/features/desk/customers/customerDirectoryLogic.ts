@@ -10,6 +10,7 @@
  * name prefix, then phone prefix, then the rest, each by name.
  */
 import type { CustomerSearchRow } from '../deskTypes';
+import { westernDigits } from '@touch/core/staff/requests';
 
 export interface CustomerDirectory {
   rows: CustomerSearchRow[];
@@ -34,19 +35,9 @@ export const CUSTOMER_DIRECTORY_KEY = ['customerDirectory'] as const;
 
 export type CustomerSort = 'name' | 'bookings';
 
-const ARABIC_INDIC = '٠١٢٣٤٥٦٧٨٩';
-const PERSIAN = '۰۱۲۳۴۵۶۷۸۹';
-
-function foldDigits(s: string): string {
-  return s.replace(/[٠-٩۰-۹]/g, (ch) => {
-    const a = ARABIC_INDIC.indexOf(ch);
-    return String(a >= 0 ? a : PERSIAN.indexOf(ch));
-  });
-}
-
 /** `app.search_norm` (0065), then every space removed, as the search compares it. */
 export function nameKey(text: string | null | undefined): string {
-  return foldDigits((text ?? '').toLowerCase())
+  return westernDigits((text ?? '').toLowerCase())
     .replace(/[ـً-ْٰ]/g, '')
     .replace(/[أإآٱ]/g, 'ا')
     .replace(/ة/g, 'ه')
@@ -56,7 +47,7 @@ export function nameKey(text: string | null | undefined): string {
 
 /** `app.phone_digits`: Arabic-Indic digits folded, every non-digit dropped. */
 export function phoneKey(text: string | null | undefined): string {
-  return foldDigits(text ?? '').replace(/\D/g, '');
+  return westernDigits(text ?? '').replace(/\D/g, '');
 }
 
 /**

@@ -296,6 +296,13 @@ export function TabDetailPanel({
   async function settle(method: PaymentMethod, amountIqd: number | null, tenderedIqd: number | null): Promise<SettleResult> {
     setBusy(true);
     setActionError(null);
+    // A card payment records what the terminal charged: the amount on this
+    // screen. "Whatever is due" let the server record a different figure when
+    // the bill moved under a stale panel (another station took cash, a waiter
+    // added a line): 20,000 recorded against a 30,000 charge (audit finding
+    // 21). If the bill grew, the rest stays owed; if it shrank, the server
+    // refuses and the panel re-reads.
+    if (amountIqd == null && method === 'card') amountIqd = due;
     try {
       const outcome = await mutate<{ status: string; change_iqd: number | null }>('tab.settle', {
         tabId,
@@ -320,7 +327,7 @@ export function TabDetailPanel({
       refresh();
       return 'queued';
     } catch (e) {
-      if (e instanceof AppRpcError && e.code === 'TOTAL_CHANGED') {
+      if (e instanceof AppRpcError && (e.code === 'TOTAL_CHANGED' || e.code === 'INVALID_AMOUNT')) {
         // The bill moved under the payment (a price change, a line added
         // elsewhere). Nothing was taken; re-read both and let them press again.
         void queryClient.invalidateQueries({ queryKey: ['tab', tabId] });

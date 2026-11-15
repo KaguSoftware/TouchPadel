@@ -1590,7 +1590,7 @@ export const en = {
         noAccount: 'No account yet?',
         getApp: 'Create one in the Touch Padel app',
         errors: {
-          phone: 'Enter an Iraqi mobile number, like 0770 123 4567.',
+          phone: 'Enter your mobile number, like 0770 123 4567. Outside Iraq, start with your country code (+44 …).',
           email: 'Enter a valid email address.',
           credentials: 'That number or email and password don’t match an account.',
           unavailable: 'Signing in isn’t available right now. Please try again in a moment.',

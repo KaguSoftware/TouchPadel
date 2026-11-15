@@ -644,6 +644,14 @@ Deno.serve(handle('replay', async (req) => {
     // 'conflict', detail = the error) so the queued write never vanishes —
     // duplicates return the stored outcome instead of silently re-applying.
     const mapped = mapPgError(pgErr);
+    // A colleague's row refused for the person signed in now (a manager's
+    // queued change replayed with a cashier's session, or a page the person
+    // signed in now is blocked from): nothing is recorded, so the same key can
+    // still apply when someone allowed signs in. The till holds the row and
+    // goes on with the rest (sync-worker.ts `hold`).
+    if (callerId !== staff_id && (mapped.code === 'FORBIDDEN' || mapped.code === 'AREA_BLOCKED')) {
+      return json({ result: 'hold', error: mapped.code }, 403);
+    }
     const errDetail = {
       code: mapped.code,
       message: pgErr.message,

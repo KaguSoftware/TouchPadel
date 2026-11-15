@@ -2,10 +2,14 @@
  * send-sms-otp — PURE helpers (no `Deno.*`, no supabase-js, no fetch), shared
  * by the edge function and packages/db/tests/phone-otp.test.ts.
  *
- * The hook payload GoTrue POSTs (Send SMS hook):
- *   { user: { id, phone, email?, ... }, sms: { otp: "561166", sms_type?: "sms" | "phone_change" | "reauthentication" } }
- * `user.phone` is digits without '+'. For a phone CHANGE the payload's
- * user.phone is the NEW number GoTrue is confirming.
+ * The hook payload GoTrue POSTs (Send SMS hook, supabase/auth
+ * internal/api/phone.go sendPhoneConfirmation):
+ *   { user: { id, phone, new_phone?, ... }, sms: { otp: "561166", phone: "9647701234567", sms_type?: ... } }
+ * `sms.phone` is the number being confirmed, digits without '+'. It is the one
+ * to text: for a phone CHANGE (updateUser({ phone })) `user.phone` is still
+ * the OLD number (empty for an email or Apple account) and the new one sits
+ * only in `sms.phone` and `user.new_phone`. GoTrue never fills `sms_type`, so
+ * a change is recognised by `sms.phone` differing from `user.phone`.
  *
  * The hook's error contract: a JSON body `{ error: { http_code, message } }`
  * sent with HTTP **200** makes GoTrue fail the client's signInWithOtp with
@@ -30,14 +34,20 @@ export function parseHookPayload(json: unknown): ParseOutcome {
   if (!json || typeof json !== 'object') return { ok: false, reason: 'body must be a JSON object' };
   const body = json as { user?: unknown; sms?: unknown };
   const user = (body.user ?? {}) as { id?: unknown; phone?: unknown };
-  const sms = (body.sms ?? {}) as { otp?: unknown; sms_type?: unknown };
+  const sms = (body.sms ?? {}) as { otp?: unknown; sms_type?: unknown; phone?: unknown };
 
-  const phoneE164 = e164FromGotrue(user.phone);
-  if (!phoneE164) return { ok: false, reason: 'user.phone missing' };
+  const current = e164FromGotrue(user.phone);
+  const phoneE164 = e164FromGotrue(sms.phone) ?? current;
+  if (!phoneE164) return { ok: false, reason: 'sms.phone missing' };
   const otp = typeof sms.otp === 'string' ? sms.otp.trim() : '';
   if (!/^\d{4,10}$/.test(otp)) return { ok: false, reason: 'sms.otp missing' };
 
-  const rawType = typeof sms.sms_type === 'string' ? sms.sms_type : 'sms';
+  const rawType =
+    typeof sms.sms_type === 'string' && sms.sms_type
+      ? sms.sms_type
+      : phoneE164 !== current
+        ? 'phone_change'
+        : 'sms';
   const purpose: HookPayload['purpose'] =
     rawType === 'phone_change' || rawType === 'reauthentication' ? rawType : 'sms';
 

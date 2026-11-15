@@ -2,7 +2,6 @@
 
 export * from './money/iqd';
 export * from './money/split';
-export * from './money/tax';
 export * from './money/discount';
 export * from './money/promotion';
 export * from './pricing/rateRules';

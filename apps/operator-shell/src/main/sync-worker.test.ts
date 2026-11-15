@@ -216,6 +216,36 @@ describe('startSyncWorker', () => {
     expect(queueStatus().conflicts).toBe(1);
   });
 
+  it('a manager row refused for the cashier signed in now waits for someone else, and later rows go on', async () => {
+    const MANAGER = '5c9f1f1e-2b3a-4c4d-8e9f-0000000000bb';
+    const managers = envelope({ staffId: MANAGER, mutationType: 'rpc.queued', idempotencyKey: `TILL1:rpc.queued:${String(n++).padStart(26, 'C')}` });
+    const sale = envelope();
+    enqueue(managers);
+    enqueue(sale);
+    const { fetchImpl, calls } = makeFetch([
+      { status: 403, body: { result: 'hold', error: 'FORBIDDEN' } },
+      { status: 200, body: { result: 'applied' } },
+      { status: 200, body: { result: 'applied' } },
+    ]);
+    const w = start(fetchImpl);
+    w.kick();
+    await w.idle();
+
+    // Held, not failed: still pending, still blocking day close, not re-sent.
+    expect(listBlockingRows().map((r) => [r.idempotencyKey, r.state])).toEqual([[managers.idempotencyKey, 'pending']]);
+    expect(results.map((r) => r.state)).toEqual(['acked']);
+    w.kick();
+    await w.idle();
+    expect(calls).toHaveLength(2);
+
+    // The manager signs in: the held row is sent again with their session.
+    setAuthState({ ...AUTH, accessToken: 'jwt-manager', staffId: MANAGER });
+    await w.idle();
+    expect(calls).toHaveLength(3);
+    expect(calls[2]!.body.idempotency_key).toBe(managers.idempotencyKey);
+    expect(listBlockingRows()).toHaveLength(0);
+  });
+
   it('marks a deterministic 4xx as failed and does NOT wedge later rows', async () => {
     const poison = envelope();
     const good = envelope();

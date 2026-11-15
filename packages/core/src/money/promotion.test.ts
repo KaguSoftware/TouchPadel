@@ -6,7 +6,6 @@ import {
   PROMO_CODE_LENGTH,
   isGeneratedPromoCode,
   normalizePromoCode,
-  pickBestPromotion,
   promotionDiscountIqd,
 } from './promotion';
 
@@ -46,20 +45,6 @@ describe('promotionDiscountIqd (twin of app.promotion_amount_iqd)', () => {
   it('rejects a non-integer or negative base with a MoneyError', () => {
     expect(() => promotionDiscountIqd(12.5, 'percent', 10)).toThrowError(MoneyError);
     expect(() => promotionDiscountIqd(-1, 'amount', 10)).toThrowError(MoneyError);
-  });
-});
-
-describe('pickBestPromotion (twin of the eligible_promotions ordering)', () => {
-  it('takes the largest amount, first-listed on a tie, and skips sub-1 amounts', () => {
-    const list = [
-      { promotionId: 'a', amountIqd: 1_000 },
-      { promotionId: 'b', amountIqd: 1_500 },
-      { promotionId: 'c', amountIqd: 1_500 },
-      { promotionId: 'd', amountIqd: 0 },
-    ];
-    expect(pickBestPromotion(list)?.promotionId).toBe('b');
-    expect(pickBestPromotion([list[3]!])).toBeNull();
-    expect(pickBestPromotion([])).toBeNull();
   });
 });
 

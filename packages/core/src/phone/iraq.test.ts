@@ -5,6 +5,7 @@ import {
   isIraqiMobile,
   phoneCanon,
   phoneDigits,
+  toE164Any,
   toE164Iraq,
 } from './iraq';
 
@@ -23,9 +24,24 @@ describe('phoneDigits / phoneCanon (twins of app.phone_digits / app.phone_canon,
     expect(phoneCanon(undefined)).toBe('');
   });
 
-  it('strips ONE prefix only, like the SQL regexp', () => {
-    // '^(964|0)' removes a single alternative: 9640770… keeps the trunk 0.
-    expect(phoneCanon('9640770123456')).toBe('0770123456');
+  it('drops the trunk 0 after 964 too, like the SQL app.phone_canon (0430)', () => {
+    // "+964 0770…" is how many people write it: the same person as 0770….
+    expect(phoneCanon('9640770123456')).toBe('770123456');
+    expect(phoneCanon('+964 0770 123 4567')).toBe(phoneCanon('07701234567'));
+  });
+});
+
+describe('toE164Any (web sign-in: phone sign-in is open worldwide)', () => {
+  it('takes any Iraqi spelling, and any country written with its code', () => {
+    expect(toE164Any('0770 123 4567')).toBe('+9647701234567');
+    expect(toE164Any('+964 0770 123 4567')).toBe('+9647701234567');
+    expect(toE164Any('+90 532 123 4567')).toBe('+905321234567');
+    expect(toE164Any('0090 532 123 4567')).toBe('+905321234567');
+  });
+  it('refuses a foreign number without its code, and junk', () => {
+    expect(toE164Any('532 123 4567')).toBeNull();
+    expect(toE164Any('+12')).toBeNull();
+    expect(toE164Any(null)).toBeNull();
   });
 });
 

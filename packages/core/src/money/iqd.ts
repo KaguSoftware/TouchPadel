@@ -4,8 +4,7 @@
  * IQD is a zero-decimal currency: every amount that reaches a bill, a report line, or the
  * day close is a whole number of dinars. In SQL this is the `iqd` bigint domain; in TS it is
  * a number branded as `IQD` and asserted to be a non-negative safe integer at every boundary.
- * NO floats ever represent money — fractional internal figures (per-gram unit costs) must be
- * rounded through `toIqdHalfUp` (see ./tax.ts) at computation time, in this package only.
+ * NO floats ever represent money.
  */
 declare const IqdBrand: unique symbol;
 export type IQD = number & { readonly [IqdBrand]: 'IQD' };
@@ -14,8 +13,7 @@ export type MoneyErrorCode =
   | 'NOT_AN_INTEGER'
   | 'NEGATIVE_AMOUNT'
   | 'UNSAFE_AMOUNT'
-  | 'INVALID_ARGUMENT'
-  | 'SPLIT_MISMATCH';
+  | 'INVALID_ARGUMENT';
 
 export class MoneyError extends Error {
   readonly code: MoneyErrorCode;

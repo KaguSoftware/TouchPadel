@@ -187,6 +187,25 @@ describe('send-sms-otp otp.ts', () => {
     ).toMatchObject({ ok: true, payload: { purpose: 'phone_change' } });
   });
 
+  // GoTrue (internal/api/phone.go): sms.phone is the number being confirmed;
+  // during a change user.phone is still the old one, and sms_type is never set.
+  it('texts the number being confirmed (sms.phone), never the old user.phone', () => {
+    expect(
+      parseHookPayload({
+        user: { id: 'u1', phone: '9647701234567', new_phone: '9647809876543' },
+        sms: { otp: '123456', phone: '9647809876543' },
+      }),
+    ).toMatchObject({ ok: true, payload: { phoneE164: '+9647809876543', purpose: 'phone_change' } });
+    // An email or Apple account adding its first phone: no user.phone at all.
+    expect(
+      parseHookPayload({ user: { id: 'u1', phone: '' }, sms: { otp: '123456', phone: '9647809876543' } }),
+    ).toMatchObject({ ok: true, payload: { phoneE164: '+9647809876543', purpose: 'phone_change' } });
+    // A plain sign-in: sms.phone is the account's own number.
+    expect(
+      parseHookPayload({ user: { id: 'u1', phone: '9647701234567' }, sms: { otp: '123456', phone: '9647701234567' } }),
+    ).toMatchObject({ ok: true, payload: { phoneE164: '+9647701234567', purpose: 'sms' } });
+  });
+
   it('refuses a payload without a phone or a code', () => {
     expect(parseHookPayload({ user: { id: 'u1' }, sms: { otp: '123456' } })).toMatchObject({ ok: false });
     expect(parseHookPayload({ user: { id: 'u1', phone: '9647701234567' }, sms: {} })).toMatchObject({ ok: false });

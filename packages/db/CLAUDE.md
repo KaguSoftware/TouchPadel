@@ -17,6 +17,26 @@ is a line in that file.
 
 ## Migrations
 
+- **0430 (2026-11-15, audit_fixes; Majed: fix the audit's findings 4, 7 and 11):** the internal
+  `app.loyalty_picked_deal_on(p_profile, p_tab)` is `loyalty_picked_deal` minus a pick already
+  redeemed on ANOTHER open or awaiting-payment bill of the member (one pick, one use, even with a
+  café and a court bill open at once); **0430 holds `eligible_promotions`** (0410 no longer; it
+  asks `loyalty_picked_deal_on` for the tab it prices). `app.phone_canon` strips `00`, then `964`,
+  then a trunk `0` ("+964 0770 …" = "0770 …"), with the TS twins `@touch/core` `phoneCanon` and
+  `_shared/phone.ts` and `iraq.fixtures.ts`; `profiles.phone_key` recomputed with 0307's two
+  statements. **0430 holds `apply_customer_court_discount`** (0403 no longer): it locks the
+  booking's live tab before the court, so a concurrent `settle_tab` and the discount never pass
+  each other. **0430 holds `queued_rpc_claim`** (0398 no longer): `AREA_BLOCKED` detail the name
+  for a page the caller is blocked from (`app.area_blocked_rpc`), since `app.pre_request` sees only
+  `queued_rpc`; replay HOLDS a colleague's row refused `FORBIDDEN` or `AREA_BLOCKED` (records
+  nothing, the till retries it when someone else signs in). Trigger `profiles_push_token_one_holder`
+  (`app.trg_profile_push_token_one_holder`, AFTER INSERT OR UPDATE OF `expo_push_token`): a token
+  just written leaves every other profile (one handset, one account; the guest app also asks for
+  permission once at sign-in when the install never has, so a reinstall gets its notifications
+  back); today's duplicates stay with the account that signed in last.
+  `tests/audit-fixes-0430.test.ts` (one rolled-back psql transaction). 0420–0427 are
+  held by other worktrees; a later migration that re-issues `eligible_promotions` (deal-ideas'
+  0427) starts from 0430's body.
 - **0416 (2026-11-13, loyalty_card_colors; Majed: the cards are white (the starter card), Touch
   Padel green, Touch Padel blue, then black):** `loyalty_tiers_color` also takes `white`, `green`,
   `blue`; the 0376 metals stay valid but the operator offers only `CARD_LADDER`

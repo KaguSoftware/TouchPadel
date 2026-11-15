@@ -40,6 +40,23 @@ export function shouldPersistToken(args: {
 }
 
 /**
+ * May this registration show the OS permission dialog?
+ *
+ * Settings' button always may (`prompt`). The sign-in sync may only when this
+ * install has never asked (`undetermined`; Majed 2026-11-15): a fresh install
+ * resets the permission on iOS and Android 13+, and a guest who deleted and
+ * reinstalled the app used to get no notifications until they found Settings.
+ * An answered dialog (granted, or denied) is never shown again from here.
+ */
+export function mayAskForPush(args: {
+  prompt: boolean;
+  askIfNeverAsked: boolean;
+  status: string;
+}): boolean {
+  return args.prompt || (args.askIfNeverAsked && args.status === 'undetermined');
+}
+
+/**
  * Should a silent (non-prompting) sync actually run?
  *
  * Guards, in order: a torn-down lifecycle, a sync already in flight (resume can

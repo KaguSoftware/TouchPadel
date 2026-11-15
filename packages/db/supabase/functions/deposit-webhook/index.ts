@@ -129,7 +129,11 @@ Deno.serve(handle('deposit-webhook', async (req) => {
       }
       return json({ ok: true, matched: false });
     }
-    // Never ours (or not yet visible): record it and let Qi stop.
+    // Never ours (or not yet visible). Recorded only when a key vouched for
+    // it: with no key set (Qi off) anyone can POST here, and every unmatched
+    // body used to become a row of up to 64 KB, so a loop filled the database
+    // (audit finding 12). 200 either way, so Qi stops.
+    if (signatureOk !== true) return json({ ok: true, matched: false });
     const { error } = await log(facts.requestId, 'unmatched', signatureOk);
     if (error) {
       console.error(`[deposit-webhook] event not recorded: ${describe(error)}`);
