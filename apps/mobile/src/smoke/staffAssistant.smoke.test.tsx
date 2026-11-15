@@ -8,7 +8,7 @@
  * render; the free stream is a spy on `sendFreeQuestion`.
  */
 import { afterEach, describe, expect, it, jest } from '@jest/globals';
-import { act, fireEvent, within } from '@testing-library/react-native';
+import { act, fireEvent, waitFor, within } from '@testing-library/react-native';
 import { countPhrase, makeT, type Locale } from '@touch/i18n';
 import { FREE_MODEL_CHOICE } from '@touch/core/assistant/free';
 import * as assistantApi from '../features/assistant/api';
@@ -78,7 +78,7 @@ describe.each(LOCALES)('the owner assistant in %s', (locale) => {
     __resetFreeMode();
   });
 
-  it('offers starters and scope chips on a new chat, How-to only', () => {
+  it('offers starters and scope chips on a new chat that reads nothing, with the composer locked', async () => {
     const screen = renderRoute(StaffAssistant, { locale, staff: { role: 'owner' } });
     try {
       expect(screen.getByTestId('staff-assistant.suggestion.yesterday')).toBeTruthy();
@@ -87,19 +87,112 @@ describe.each(LOCALES)('the owner assistant in %s', (locale) => {
           t('staff.assistant.scopes.howto'),
         ),
       ).toBeTruthy();
-      expect(
-        screen.getByTestId('staff-assistant.scope.howto').props.accessibilityState.checked,
-      ).toBe(true);
-      // A new chat reads How-to only (owner, 2026-10-16): the owner turns on what the question needs.
-      expect(
-        screen.getByTestId('staff-assistant.scope.money').props.accessibilityState.checked,
-      ).toBe(false);
-      // Nothing to send until something is typed.
+      // A new chat reads nothing until the owner picks, as on the desktop (owner, 2026-10-20).
+      for (const scope of ['howto', 'money']) {
+        expect(
+          screen.getByTestId(`staff-assistant.scope.${scope}`).props.accessibilityState.checked,
+        ).toBe(false);
+      }
+      expect(screen.getByPlaceholderText(t('staff.assistant.composer.locked'))).toBeTruthy();
       expect(screen.getByTestId('staff-assistant.composer.send').props.accessibilityState.disabled).toBe(
         true,
       );
+      // Ticking a scope unlocks it.
+      fireEvent.press(screen.getByTestId('staff-assistant.scope.howto'));
+      expect(await screen.findByPlaceholderText(t('staff.assistant.composer.placeholder'))).toBeTruthy();
     } finally {
       screen.unmount();
+    }
+  });
+
+  it('puts thumbs on a rateable stored answer only, shows the stored rating and writes a press', async () => {
+    const mk = (id: string, seq: number, role: string, content: unknown, extra: Record<string, unknown> = {}) => ({
+      id,
+      conversation_id: CHAT,
+      seq,
+      role,
+      content,
+      sources: null,
+      gate: null,
+      tokens: { stop_reason: 'end_turn' },
+      created_at: '2026-10-06T18:20:05Z',
+      ...extra,
+    });
+    const rows = [
+      mk('u1', 1, 'user', 'How much?'),
+      mk('a1', 2, 'assistant', [{ type: 'text', text: 'A lot.' }], { feedback: { rating: 1, note: null } }),
+      mk('u2', 3, 'user', 'And now?'),
+      mk('a2', 4, 'assistant', [{ type: 'text', text: 'Same.' }]),
+      mk('u3', 5, 'user', 'Again?'),
+      mk('a3', 6, 'assistant', [{ type: 'text', text: 'Half an ans' }], { tokens: { stop_reason: 'stopped' } }),
+    ];
+    const rate = jest.spyOn(assistantApi, 'rateMessage').mockResolvedValue(undefined);
+    const screen = renderRoute(StaffAssistant, {
+      locale,
+      staff: { role: 'owner' },
+      params: { id: CHAT },
+      queryData: [[assistantKeys.messages(CHAT), rows]],
+    });
+    try {
+      const up1 = screen.getByTestId('staff-assistant.answer.a1.thumbs-up');
+      expect(up1.props.accessibilityLabel).toBe(t('staff.assistant.feedback.good'));
+      expect(up1.props.accessibilityState.selected).toBe(true);
+      expect(screen.getByTestId('staff-assistant.answer.a1.thumbs-down').props.accessibilityLabel).toBe(
+        t('staff.assistant.feedback.bad'),
+      );
+      expect(screen.getByTestId('staff-assistant.answer.a1.thumbs-down').props.accessibilityState.selected).toBe(false);
+      // A stopped answer and a user row carry none.
+      expect(screen.queryByTestId('staff-assistant.answer.a3.thumbs-up')).toBeNull();
+      expect(screen.queryByTestId('staff-assistant.answer.u1.thumbs-up')).toBeNull();
+
+      await act(async () => {
+        fireEvent.press(screen.getByTestId('staff-assistant.answer.a2.thumbs-down'));
+        // A second press while the write is in flight sends nothing more.
+        fireEvent.press(screen.getByTestId('staff-assistant.answer.a2.thumbs-up'));
+      });
+      expect(rate).toHaveBeenCalledTimes(1);
+      expect(rate).toHaveBeenCalledWith('a2', -1);
+      await waitFor(() =>
+        expect(screen.getByTestId('staff-assistant.answer.a2.thumbs-down').props.accessibilityState.selected).toBe(true),
+      );
+
+      // Pressing the chosen thumb again clears it.
+      await act(async () => {
+        fireEvent.press(screen.getByTestId('staff-assistant.answer.a1.thumbs-up'));
+      });
+      expect(rate).toHaveBeenLastCalledWith('a1', 0);
+      await waitFor(() =>
+        expect(screen.getByTestId('staff-assistant.answer.a1.thumbs-up').props.accessibilityState.selected).toBe(false),
+      );
+    } finally {
+      screen.unmount();
+      rate.mockRestore();
+    }
+  });
+
+  it('puts the thumb back and says so quietly when the write fails', async () => {
+    const rows = [
+      { id: 'u1', conversation_id: CHAT, seq: 1, role: 'user', content: 'Q', sources: null, gate: null, created_at: '2026-10-06T18:20:00Z' },
+      { id: 'a1', conversation_id: CHAT, seq: 2, role: 'assistant', content: [{ type: 'text', text: 'A.' }], sources: null, gate: null, tokens: null, created_at: '2026-10-06T18:20:05Z' },
+    ];
+    const rate = jest.spyOn(assistantApi, 'rateMessage').mockRejectedValue(new Error('x'));
+    const screen = renderRoute(StaffAssistant, {
+      locale,
+      staff: { role: 'owner' },
+      params: { id: CHAT },
+      queryData: [[assistantKeys.messages(CHAT), rows]],
+    });
+    try {
+      await act(async () => {
+        fireEvent.press(screen.getByTestId('staff-assistant.answer.a1.thumbs-up'));
+      });
+      await waitFor(() =>
+        expect(screen.getByTestId('staff-assistant.answer.a1.thumbs-up').props.accessibilityState.selected).toBe(false),
+      );
+      expect(await screen.findByText(t('staff.assistant.feedback.failed'))).toBeTruthy();
+    } finally {
+      screen.unmount();
+      rate.mockRestore();
     }
   });
 

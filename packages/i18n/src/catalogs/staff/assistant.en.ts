@@ -29,6 +29,8 @@ export const staffAssistantEn = {
     stop: 'Stop',
     stopped: 'Stopped. What was read is kept; the answer was cut short.',
     billed: 'Each question is billed to the venue’s AI allowance.',
+    locked: 'Pick what this chat reads to type a question',
+    lockedHint: 'The assistant reads only what you pick, so nothing is sent until you pick at least one.',
   },
   model: {
     title: 'Model',
@@ -83,6 +85,12 @@ export const staffAssistantEn = {
     cutShort: 'This answer was cut short. Ask for the rest.',
     refused: 'The assistant declined to answer this.',
   },
+  /** The thumbs under a stored answer (0422). Icon-only: these are their accessibility labels. */
+  feedback: {
+    good: 'Good answer',
+    bad: 'Wrong or not useful',
+    failed: 'Your rating was not saved. Try again.',
+  },
   errors: {
     AUTH_REQUIRED: 'Your session has ended. Sign in again to ask.',
     FORBIDDEN: 'Only the owner can use the assistant.',
@@ -94,6 +102,7 @@ export const staffAssistantEn = {
     TIMEOUT: 'The answer took longer than 50 seconds and was stopped. What was read is kept.',
     INVALID_REQUEST: 'The question could not be sent as written.',
     ASSISTANT_MODEL_NOT_PRICED: 'The chosen model has no rates in the pricing table, so nothing was asked or billed.',
+    NOT_SAVED: 'This answer was written but could not be saved, so it will not be in the chat later. Ask again to keep it.',
     UNKNOWN: 'The assistant could not answer. Ask again.',
     CONNECTION: 'The connection was lost before the answer finished. Ask again.',
   },

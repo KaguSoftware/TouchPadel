@@ -5,34 +5,41 @@ import { formatNumber, isolate, isolateLtr } from '@touch/i18n';
 import { Text } from '../../i18n/text';
 import { useLocale } from '../../i18n/LocaleProvider';
 import { Hint, MicroLabel } from '../../components/ui';
-import { brand, space, useTheme, withAlpha } from '../../theme';
-import { GivesList, tierGround } from './cardParts';
-import {
-  cardHolds,
-  givesAnything,
-  ladderPosition,
-  rungGives,
-  tierName,
-  tierProgress,
-} from './logic';
+import { CheckIcon } from '../../components/icons';
+import { brand, radius, space, useTheme, withAlpha } from '../../theme';
+import { GivesList, TierChip, tierGround } from './cardParts';
+import { givesAnything, ladderPosition, rungGives, tierName, tierProgress } from './logic';
 
 /**
- * The way to the next card (0410; Majed, 2026-11-12: "how many points till you reach the next
- * tier and what the next tier gives ... flex them so people want the next tier").
+ * The way to the next card and every card, as one block (0410; Majed, 2026-11-12: "how many
+ * points till you reach the next tier and what the next tier gives ... flex them so people want
+ * the next tier"; 2026-11-15: the next card's "what you get" and "The cards" are one part).
  *
  * The head wears the NEXT card's own colour, edge to edge, so the block reads as that card held
  * out: its name, the points still to go, and a bar from the current card's threshold to its own.
- * Under it, on the page's card ground, what that card adds: its points rate when above the
- * member's, its privileges and the deals it unlocks.
+ * Under it, on the page's card ground, the cards from the base up, one row each with hairlines:
+ * the member's own on a tint, the ones under it included, the ones above with the points they
+ * still need. The next card's row is the pitch: what it gives is listed in full, its points rate
+ * when above the member's.
  *
- * At the top card the head wears the member's own colour and says so, and the list is everything
- * the card holds (its own tier's privileges and those of every tier below).
+ * At the top card the head wears the member's own colour and says so; the rows under it read as
+ * included, so the list is everything the card holds.
  *
- * Every figure is the server's: `next_tier` and `points_12m` from `my_loyalty`, the privileges
- * from its ladder. With no ladder (a server before 0410) the head still draws and the list is
- * only the points rate. Draws nothing when the answer names no tier at all.
+ * Every figure is the server's: `next_tier` and `points_12m` from `my_loyalty`, the cards from its
+ * ladder. With no ladder (a server before 0410) the head still draws and the body is only what the
+ * next card gives (its points rate). Draws nothing when the answer names no tier at all.
  */
-export function NextCardBlock({ testID, loyalty: l }: { testID: string; loyalty: MyLoyalty }) {
+export function NextCardBlock({
+  testID,
+  route,
+  loyalty: l,
+}: {
+  /** The block; the head's parts take `${testID}.name|remaining|progress`, the next card's list `${testID}.gives`. */
+  testID: string;
+  /** The rows: the list takes `${route}.tiers`, a row `${route}.tier.<id>`, the member's mark `${route}.tier-yours`. */
+  route: string;
+  loyalty: MyLoyalty;
+}) {
   const { t, locale } = useLocale();
   const { colors, fonts } = useTheme();
   const points = (n: number) => isolateLtr(formatNumber(n, locale));
@@ -44,17 +51,11 @@ export function NextCardBlock({ testID, loyalty: l }: { testID: string; loyalty:
   if (!shown) return null;
 
   const { ground, ink } = tierGround(shown.color);
-  const holds = cardHolds(position);
-  const gives = (() => {
-    if (!next) return holds;
-    const rung: LadderTier = position.rungs.find((r) => r.tier.id === next.id)?.tier ?? {
-      ...next,
-      perks: [],
-      deals: [],
-    };
-    return rungGives(rung, l.tier?.multiplier ?? 1);
-  })();
   const name = tierName(shown, locale);
+  const myRate = l.tier?.multiplier ?? 1;
+  // What the next card gives, over the member's own rate. Without a ladder only its rate is known.
+  const nextGives = (rung: LadderTier | undefined) =>
+    next ? rungGives(rung ?? { ...next, perks: [], deals: [] }, myRate) : null;
 
   return (
     <View
@@ -166,19 +167,126 @@ export function NextCardBlock({ testID, loyalty: l }: { testID: string; loyalty:
           </Text>
         )}
       </View>
-      {givesAnything(gives) ? (
-        <View testID={`${testID}.gives`} style={{ padding: space.l, gap: space.sm }}>
-          <MicroLabel>
-            {next
-              ? t('loyalty.guest.next.gives', { tier: isolate(name) })
-              : t('loyalty.guest.next.holds')}
-          </MicroLabel>
-          <GivesList gives={gives} tone="block" />
-          {next && givesAnything(holds) ? (
-            <Hint style={{ marginTop: 0 }}>{t('loyalty.guest.next.keeps')}</Hint>
-          ) : null}
+
+      {position.rungs.length > 0 ? (
+        <View testID={`${route}.tiers`}>
+          <View style={{ paddingHorizontal: space.l, paddingTop: space.m, paddingBottom: space.xs }}>
+            <MicroLabel>{t('loyalty.guest.ladder.title')}</MicroLabel>
+          </View>
+          {position.rungs.map(({ tier, state, remaining }) => {
+            const isNext = next !== null && tier.id === next.id;
+            const gives = isNext ? nextGives(tier) : rungGives(tier);
+            return (
+              <View
+                key={tier.id}
+                testID={`${route}.tier.${tier.id}`}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'flex-start',
+                  gap: space.sm,
+                  paddingVertical: isNext ? space.m : space.sm,
+                  paddingHorizontal: space.l,
+                  backgroundColor: state === 'current' ? colors.tint : undefined,
+                  borderTopWidth: 1,
+                  borderTopColor: colors.line,
+                }}
+              >
+                {/* Level with the name's line. */}
+                <View style={{ height: 21, justifyContent: 'center' }}>
+                  <TierChip color={tier.color} />
+                </View>
+                <View style={{ flex: 1, gap: 2 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.s }}>
+                    <Text
+                      style={{
+                        flex: 1,
+                        fontFamily: fonts.body700,
+                        fontSize: 15,
+                        lineHeight: 21,
+                        color: colors.ink,
+                      }}
+                    >
+                      {tierName(tier, locale)}
+                    </Text>
+                    {state === 'current' ? (
+                      <View
+                        testID={`${route}.tier-yours`}
+                        style={{
+                          borderRadius: radius.pill,
+                          borderWidth: 1,
+                          borderColor: colors.gline,
+                          backgroundColor: colors.gtint,
+                          paddingVertical: 3,
+                          paddingHorizontal: 9,
+                        }}
+                      >
+                        <Text style={{ fontFamily: fonts.body700, fontSize: 11.5, color: colors.gtext }}>
+                          {t('loyalty.guest.ladder.yours')}
+                        </Text>
+                      </View>
+                    ) : state === 'held' ? (
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                        <CheckIcon size={12} color={colors.mut} strokeWidth={2.4} />
+                        <Text style={{ fontFamily: fonts.body600, fontSize: 11.5, color: colors.mut }}>
+                          {t('loyalty.guest.ladder.included')}
+                        </Text>
+                      </View>
+                    ) : isNext ? null : (
+                      // The next card's points to go are the head's big figure; the cards past it say theirs here.
+                      <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 5 }}>
+                        <Text style={{ fontFamily: fonts.body600, fontSize: 11.5, color: colors.mut }}>
+                          {t('loyalty.guest.next.toGo')}
+                        </Text>
+                        <Text
+                          style={{
+                            fontFamily: fonts.display800,
+                            fontSize: 14,
+                            color: colors.ink,
+                            fontVariant: ['tabular-nums'],
+                          }}
+                        >
+                          {points(remaining)}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                  <Text style={{ fontFamily: fonts.body400, fontSize: 12.5, lineHeight: 18, color: colors.mut }}>
+                    {tier.min_points_12m > 0
+                      ? t('loyalty.guest.ladder.from', { points: points(tier.min_points_12m) })
+                      : t('loyalty.guest.ladder.base')}
+                  </Text>
+                  {gives && givesAnything(gives) ? (
+                    isNext ? (
+                      <View testID={`${testID}.gives`} style={{ marginTop: space.sm, gap: space.sm }}>
+                        <MicroLabel>{t('loyalty.guest.next.gives', { tier: isolate(name) })}</MicroLabel>
+                        <GivesList gives={gives} tone="block" />
+                      </View>
+                    ) : (
+                      <View style={{ marginTop: 3 }}>
+                        <GivesList gives={gives} tone="row" />
+                      </View>
+                    )
+                  ) : null}
+                </View>
+              </View>
+            );
+          })}
+          <View style={{ paddingHorizontal: space.l, paddingBottom: space.m }}>
+            <Hint>{t('loyalty.guest.tier.window')}</Hint>
+          </View>
         </View>
-      ) : null}
+      ) : (
+        // A server before 0410: no ladder, only what the next card gives (its points rate).
+        (() => {
+          const gives = nextGives(undefined);
+          return gives && givesAnything(gives) ? (
+            <View testID={`${testID}.gives`} style={{ padding: space.l, gap: space.sm }}>
+              <MicroLabel>{t('loyalty.guest.next.gives', { tier: isolate(name) })}</MicroLabel>
+              <GivesList gives={gives} tone="block" />
+            </View>
+          ) : null;
+        })()
+      )}
     </View>
   );
 }

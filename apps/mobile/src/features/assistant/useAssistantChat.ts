@@ -17,12 +17,11 @@ import {
   emptyTurn,
   settleTools,
   type AssistantErrorCode,
-  type LiveTurn,
 } from '@touch/core/assistant/client';
 import { captureException } from '../../lib/telemetry';
 import { assistantKeys, sendMessage } from './api';
 import { AssistantStreamError } from './chat';
-import { NO_END, type LiveEnd } from './thread';
+import { NO_END, type LiveEnd, type PhoneLiveTurn } from './thread';
 import { StreamLostError, ownerStopped } from './stream';
 
 export interface UseAssistantChatOptions {
@@ -38,7 +37,7 @@ export interface UseAssistantChatOptions {
 }
 
 export interface UseAssistantChat {
-  live: LiveTurn | null;
+  live: PhoneLiveTurn | null;
   /** How the live turn ended beyond the reducer's state: `done`'s stop_reason, a lost stream. */
   end: LiveEnd;
   streaming: boolean;
@@ -48,13 +47,21 @@ export interface UseAssistantChat {
   stop: () => void;
 }
 
+/**
+ * How long after a Stop, a lost stream or leaving the screen the stored rows are read once more.
+ * The server keeps going when the client lets go and writes the turn when it ends (50 s at most),
+ * so the first refetch can come too early; this one picks up what it finished storing. The
+ * operator's chatStreams.ts does the same.
+ */
+export const LATE_REFETCH_MS = 3000;
+
 function codeOf(err: unknown): AssistantErrorCode {
   return err instanceof AssistantStreamError ? err.code : 'UNKNOWN';
 }
 
 export function useAssistantChat(opts: UseAssistantChatOptions): UseAssistantChat {
   const qc = useQueryClient();
-  const [live, setLive] = useState<LiveTurn | null>(null);
+  const [live, setLive] = useState<PhoneLiveTurn | null>(null);
   const [end, setEnd] = useState<LiveEnd>(NO_END);
   const [streaming, setStreaming] = useState(false);
   const [lastQuestion, setLastQuestion] = useState<string | null>(null);
@@ -71,6 +78,9 @@ export function useAssistantChat(opts: UseAssistantChatOptions): UseAssistantCha
     setLive((cur) => (cur && cur.conversationId !== opts.conversationId ? null : cur));
   }, [opts.conversationId]);
 
+  // Leaving the screen aborts the request (nothing streams in the background on the phone).
+  // The server still finishes and stores the turn, so the late refetch below, and the stale
+  // messages query, bring the answer back when the owner returns to the chat.
   useEffect(() => () => controller.current?.abort(), []);
 
   const stop = useCallback(() => controller.current?.abort(), []);
@@ -85,7 +95,13 @@ export function useAssistantChat(opts: UseAssistantChatOptions): UseAssistantCha
       setStreaming(true);
       setLastQuestion(question);
       setEnd(NO_END);
-      setLive(emptyTurn(conversationId, question));
+      // The ids this chat already had: a turn that ends before `message_start` is told
+      // from its own stored rows by them (thread.ts mergeThread).
+      const knownIds = conversationId
+        ? (qc.getQueryData<{ id: string }[]>(assistantKeys.messages(conversationId)) ?? []).map((r) => r.id)
+        : [];
+      setLive({ ...emptyTurn(conversationId, question), knownIds });
+      let lateRefetch = false;
 
       let convId = conversationId;
       try {
@@ -126,6 +142,7 @@ export function useAssistantChat(opts: UseAssistantChatOptions): UseAssistantCha
         // The owner's Stop, read from the controller: expo/fetch reports a request
         // cancelled before its headers as a plain Error, not an AbortError. Never telemetry.
         if (ownerStopped(ac.signal)) {
+          lateRefetch = true;
           setLive((cur) =>
             cur
               ? { ...cur, done: true, stopped: true, tools: settleTools(cur.tools) }
@@ -135,7 +152,10 @@ export function useAssistantChat(opts: UseAssistantChatOptions): UseAssistantCha
           // A refusal carries its code; a dropped connection is UNKNOWN, which
           // reads "ask again" and keeps the question on screen to do so.
           if (!(err instanceof AssistantStreamError)) captureException(err, { scope: 'assistant.ask' });
-          if (err instanceof StreamLostError) setEnd((e) => ({ ...e, lost: true }));
+          if (err instanceof StreamLostError) {
+            lateRefetch = true;
+            setEnd((e) => ({ ...e, lost: true }));
+          }
           const code = codeOf(err);
           setLive((cur) =>
             cur
@@ -163,6 +183,18 @@ export function useAssistantChat(opts: UseAssistantChatOptions): UseAssistantCha
         }
         void qc.invalidateQueries({ queryKey: assistantKeys.conversations });
         void qc.invalidateQueries({ queryKey: assistantKeys.usage });
+        if (lateRefetch) {
+          // Once, a little later: the server may still be storing the turn it was cut off from.
+          const id = convId;
+          setTimeout(() => {
+            if (id) {
+              void qc.invalidateQueries({ queryKey: assistantKeys.messages(id) });
+              void qc.invalidateQueries({ queryKey: assistantKeys.conversation(id) });
+            }
+            void qc.invalidateQueries({ queryKey: assistantKeys.conversations });
+            void qc.invalidateQueries({ queryKey: assistantKeys.usage });
+          }, LATE_REFETCH_MS);
+        }
       }
     },
     [qc],

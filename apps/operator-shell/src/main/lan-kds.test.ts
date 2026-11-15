@@ -13,7 +13,7 @@ import {
 } from './lan-frames';
 import type { LanReach } from '../ipc-channels';
 import { pickLanBind, startLanKdsServer, type LanKdsServer } from './lan-kds-server';
-import { openQueue, listBlockingRows } from './queue';
+import { enqueue, openQueue, listBlockingRows } from './queue';
 import { ulid } from './ulid';
 import type { MutationEnvelope } from '../ipc-channels';
 
@@ -111,6 +111,34 @@ describe('lan kds server', () => {
     if (frame.type === 'ticket.snapshot') {
       expect(frame.data).toHaveLength(1);
       expect(frame.data[0]!.items[0]!.qty).toBe(2);
+    }
+  });
+
+  it('a till restarted mid-outage rebuilds the board from its queue, bumps included', async () => {
+    const made = orderEnvelope();
+    const waiting = orderEnvelope();
+    enqueue(made);
+    enqueue(waiting);
+    enqueue({
+      localId: `KDS-01-${ulid()}`,
+      idempotencyKey: `TILL1:ticket.status:${ulid()}`,
+      mutationType: 'ticket.status',
+      payload: { ticketIdemKey: made.idempotencyKey, status: 'ready' },
+      createdAt: new Date().toISOString(),
+      staffId: STAFF,
+      deviceId: 'TILL1',
+    });
+    server!.close();
+    server = startLanKdsServer(
+      { stationId: 'TILL1', mode: 'till', lanPsk: PSK, lanBind: '127.0.0.1', configured: true, appVersion: 't' },
+      { port: PORT },
+    );
+    const ws = track(connect(PSK));
+    const frame = await nextMessage(ws);
+    expect(frame.type).toBe('ticket.snapshot');
+    if (frame.type === 'ticket.snapshot') {
+      expect(frame.data.map((t) => t.ref).sort()).toEqual([made.idempotencyKey, waiting.idempotencyKey].sort());
+      expect(frame.data.find((t) => t.ref === made.idempotencyKey)?.status).toBe('ready');
     }
   });
 

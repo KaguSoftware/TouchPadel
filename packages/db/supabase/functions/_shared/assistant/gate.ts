@@ -31,6 +31,14 @@
  * regeneration; the one exception keeps today's behaviour: a spaced or Arabic-scaled base
  * of 1000 or more that was already a flagged figure before scales were read stays one.
  *
+ * 2026-11-12 (review): (a) a bare 1900..2099 number directly beside a currency word or
+ * symbol, or scaled by a scale word, is money, not a year ("2000 IQD", "2000 د.ع",
+ * "2000 ألف"); it is checked, and a tool result's own bare 1900..2099 numbers now join
+ * the allowed set (numbersIn). (b) "ربع مليون", "نصف مليون", "half a million" and
+ * "a quarter of a million" read as scaled figures (250,000 / 500,000 within one unit
+ * of the written base, 1,000). Both only MARK (`markOnly`, `scaled`): `shouldRetry`
+ * ignores them, so neither buys a paid regeneration. Bare half / double stay unseen.
+ *
  * Small counts beside a discipline word: a bare integer 1..SMALL_COUNT_MAX stays exempt
  * unless it directly quantifies (next three words, cut at punctuation, a digit or a
  * connector) discount, void, refund, no-show, cancellation, break, absence, late arrival,
@@ -42,8 +50,9 @@
 
 export interface GateResult {
   status: 'ok' | 'unverified';
+  /** `markOnly` (additive, only ever `true`, 2026-11-12) marks a money figure in the 1900..2099 range or a word quantity: shown as unverified, never a retry trigger. */
   /** `scaled` (additive, only ever `true`) marks a figure recognised through a scale ("12.9M"): never a retry trigger. */
-  unverified: { raw: string; value: number; scaled?: boolean }[];
+  unverified: { raw: string; value: number; scaled?: boolean; markOnly?: boolean }[];
   /** How many number tokens the answer contained (after dates and times were set aside). */
   checked: number;
 }
@@ -87,7 +96,43 @@ const CURRENCY_RE = /\b(?:IQD|USD|iqd|usd)\b|د\.ع\.?|دينار(?:اً|ا|ًا
 /** ISO dates, clock times and 4-digit years are never figures the model invented. */
 const DATE_RE = /\b\d{4}-\d{2}-\d{2}(?:[T ]\d{2}:\d{2}(?::\d{2})?)?\b/g;
 const TIME_RE = /\b\d{1,2}:\d{2}(?::\d{2})?\b/g;
-const YEAR_RE = /\b(?:19|20)\d{2}\b/g;
+// (?<!\u0001): a year-range number marked as money by markMoneyYears is a figure, not a year.
+const YEAR_RE = /(?<!\u0001)\b(?:19|20)\d{2}\b/g;
+
+/**
+ * 2026-11-12: a bare 1900..2099 number is a year, unless a currency word or symbol sits
+ * directly beside it ("2000 IQD", "IQD 2000", "2000 دينار", "2000 د.ع", "$1950") or a
+ * scale word scales it ("2000 ألف", "2000 thousand"): that is money, and it was never
+ * checked. A marker (U+0001) is put in front of it so YEAR_RE leaves it and the tokenizer
+ * can flag it `moneyYear` (a mark, never a retry). Separators ("2,000") never were years.
+ */
+const MONEY_YEAR_RE = /(?<![\d,.٬٫-])(?:19|20)\d{2}(?![\d]|[,.٬٫]\d)/g;
+const MONEY_AFTER = /^[  ]*(?:IQD|USD|iqd|usd|dinars?\b|dollars?\b|thousand\b|million\b|billion\b|دينار|دنانير|د\.ع|ألف|الف|آلاف|الاف|مليون|ملايين|مليار)/;
+const MONEY_BEFORE = /(?:IQD|USD|iqd|usd|\$|د\.ع\.?|دينار)[  ]*$/;
+function markMoneyYears(text: string): string {
+  return latinDigits(text).replace(MONEY_YEAR_RE, (m, offset: number, whole: string) => {
+    const before = whole.slice(Math.max(0, offset - 12), offset);
+    const after = whole.slice(offset + m.length, offset + m.length + 16);
+    return MONEY_BEFORE.test(before) || MONEY_AFTER.test(after) ? `\u0001${m}` : m;
+  });
+}
+
+/**
+ * Quantities written as words that carry a number: "ربع مليون" (250,000), "نصف مليون",
+ * "half a million", "a quarter of a million". Each becomes a placeholder + a scaled
+ * figure ("500 thousand") so the scaled-figure path reads it; the token's `raw` is
+ * restored to the phrase as written. Bare half / double / ربع / ضعف stay unseen.
+ */
+const WORD_QTY_RE =
+  /(?<![؀-ۿ])(?:نصف|نص|ربع)\s+(?:مليون|مليار)(?![؀-ۿ])|\b(?:half|a quarter|quarter)(?: of)?(?: a| an)? (?:million|billion)\b|\bhalf a (?:million|billion)\b/gi;
+function wordQuantity(phrase: string): string {
+  const p = phrase.toLowerCase();
+  const quarter = /ربع|quarter/.test(p);
+  const billion = /مليار|billion/.test(p);
+  return billion ? (quarter ? '250 million' : '500 million') : quarter ? '250 thousand' : '500 thousand';
+}
+/** First private-use character of the placeholders that stand for a word quantity (one per phrase, up to 256). */
+const QTY_BASE = 0xe000;
 
 /**
  * A number token: not glued to a letter or `#` (so `r12` and `phone#3` are
@@ -128,6 +173,8 @@ export interface NumberToken {
   base?: number;
   /** Scaled figure only: the base alone was a figure of its own before scales were read (spaced or Arabic scale). */
   plainBefore?: boolean;
+  /** A 1900..2099 number beside a currency word or scale word: money, not a year (flagged, never retried). */
+  moneyYear?: boolean;
   /** A bare count 1..SMALL_COUNT_MAX that directly quantifies a discipline noun: must be given verbatim. */
   discipline?: boolean;
 }
@@ -178,10 +225,19 @@ export function plainText(text: string): string {
 
 /** Every number token in a text, dates / times / years excluded. */
 export function tokenizeNumbers(text: string): NumberToken[] {
-  const cleaned = plainText(text).replace(DATE_RE, ' ').replace(TIME_RE, ' ').replace(YEAR_RE, ' ');
+  const phrases: string[] = [];
+  const marked = markMoneyYears(text).replace(WORD_QTY_RE, (phrase) => {
+    if (phrases.length >= 256) return phrase;
+    phrases.push(phrase);
+    return `${String.fromCharCode(QTY_BASE + phrases.length - 1)}${wordQuantity(phrase)}`;
+  });
+  const cleaned = plainText(marked).replace(DATE_RE, ' ').replace(TIME_RE, ' ').replace(YEAR_RE, ' ');
   const out: NumberToken[] = [];
   for (const m of cleaned.matchAll(NUMBER_RE)) {
-    const raw = m[0];
+    let raw = m[0];
+    const prev = cleaned.charCodeAt((m.index as number) - 1);
+    const moneyYear = prev === 1;
+    if (prev >= QTY_BASE && prev < QTY_BASE + 256) raw = phrases[prev - QTY_BASE] ?? raw;
     const neg = raw.startsWith('-') || raw.startsWith('−');
     if (m[1] !== undefined) {
       const body = m[1].replace(/[,٬]/g, '').replace('٫', '.');
@@ -194,7 +250,9 @@ export function tokenizeNumbers(text: string): NumberToken[] {
       const scale = scaleMultiplier(m[2] as string);
       const value = Number(((neg ? -base : base) * scale).toPrecision(15));
       const plainBefore = /^[ \u00a0]/.test(m[2] as string) || /[\u0600-\u06ff]/.test(m[2] as string);
-      out.push({ raw, value, decimals, percent: false, bare: false, scale, base: neg ? -base : base, plainBefore });
+      const st: NumberToken = { raw, value, decimals, percent: false, bare: false, scale, base: neg ? -base : base, plainBefore };
+      if (moneyYear) st.moneyYear = true;
+      out.push(st);
       continue;
     }
     const percent = raw.endsWith('%');
@@ -205,6 +263,7 @@ export function tokenizeNumbers(text: string): NumberToken[] {
     const decimals = dot === -1 ? 0 : body.length - dot - 1;
     const bare = !percent && decimals === 0 && !/[,٬]/.test(raw) && !raw.startsWith('-') && !raw.startsWith('−');
     const tok: NumberToken = { raw, value, decimals, percent, bare };
+    if (moneyYear) tok.moneyYear = true;
     if (bare && value >= 1 && value <= SMALL_COUNT_MAX && quantifiesDiscipline(cleaned, m.index as number, (m.index as number) + raw.length)) tok.discipline = true;
     out.push(tok);
   }
@@ -214,7 +273,12 @@ export function tokenizeNumbers(text: string): NumberToken[] {
 /** The numeric values in a text — what `clean.ts` records as the allowed set. */
 export function numbersIn(text: string): number[] {
   // A scaled figure also records its base as written, so a tool line such as "5 m" keeps allowing 5.
-  return tokenizeNumbers(text).flatMap((t) => (t.base !== undefined ? [t.value, t.base] : [t.value]));
+  const out = tokenizeNumbers(text).flatMap((t) => (t.base !== undefined ? [t.value, t.base] : [t.value]));
+  // 2026-11-12: a bare 1900..2099 number in a tool result ("price_iqd": 2000) is no longer ignored as a year,
+  // or the answer's own "2000 IQD" would be marked. Dates and clock times are set aside first.
+  const bare = latinDigits(text).replace(DATE_RE, ' ').replace(TIME_RE, ' ');
+  for (const m of bare.matchAll(/(?<![\d,.٬٫-])(?:19|20)\d{2}(?![\d]|[,.٬٫]\d)/g)) out.push(Number(m[0]));
+  return out;
 }
 
 function toleranceFor(token: NumberToken): number {
@@ -261,7 +325,7 @@ interface Operand {
 export function gateAnswer(text: string, allowed: readonly number[], userNumbers: readonly number[]): GateResult {
   const given = [...new Set([...allowed, ...userNumbers])].sort((a, b) => a - b);
   const tokens = tokenizeNumbers(text);
-  const unverified: { raw: string; value: number; scaled?: boolean }[] = [];
+  const unverified: { raw: string; value: number; scaled?: boolean; markOnly?: boolean }[] = [];
   const seen = new Set<string>();
 
   // Pass 1 (rules 1 and 2): what is given verbatim or a small count. The given figures
@@ -290,6 +354,11 @@ export function gateAnswer(text: string, allowed: readonly number[], userNumbers
     if (scaled && tok.plainBefore && Math.abs(tok.base as number) >= RETRY_MIN_ABS) {
       const baseTok: NumberToken = { raw: tok.raw, value: tok.base as number, decimals: tok.decimals, percent: false, bare: false };
       if (verbatim(baseTok, given) === undefined && !derivedPasses(baseTok, pos, derived)) scaled = false;
+    }
+    // A money figure that was a "year" until 2026-11-12 only marks, even when scaled with a spaced or Arabic base of 1000 or more.
+    if (tok.moneyYear) {
+      unverified.push(scaled ? { raw: tok.raw, value: tok.value, scaled: true, markOnly: true } : { raw: tok.raw, value: tok.value, markOnly: true });
+      return;
     }
     unverified.push(scaled ? { raw: tok.raw, value: tok.value, scaled: true } : { raw: tok.raw, value: tok.value });
   });
@@ -407,7 +476,7 @@ function derivedPasses(tok: NumberToken, pos: number, derived: DerivedFigures): 
  */
 export function shouldRetry(gate: GateResult): boolean {
   if (gate.status !== 'unverified') return false;
-  return gate.unverified.some((u) => !u.scaled && (/[%٪]/.test(u.raw) || Math.abs(u.value) >= RETRY_MIN_ABS));
+  return gate.unverified.some((u) => !u.scaled && !u.markOnly && (/[%٪]/.test(u.raw) || Math.abs(u.value) >= RETRY_MIN_ABS));
 }
 
 /** The operator instruction appended when the first answer failed (contracts, chat flow). */

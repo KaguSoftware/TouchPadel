@@ -7,6 +7,7 @@ import { Button, MicroLabel } from '../../components/ui';
 import { EmptyState, ErrorState, Skeleton } from '../../components/states';
 import { useToast } from '../../components/overlays';
 import { usePullRefresh } from '../../lib/usePullRefresh';
+import { useScreenFocused } from '../../lib/useScreenFocused';
 import { space, useTheme } from '../../theme';
 import { useAuth } from '../auth/context';
 import { mapErrorToKey } from '../booking/errors';
@@ -36,8 +37,8 @@ export function RanksView({ bottomPad, testID }: { bottomPad: number; testID?: s
   const my = useMyRanks(member);
   const answer = useAnswerResult();
   // Live over the 0364 broadcasts: a point written anywhere, or a score reported to this guest,
-  // re-reads the board and their page (features/ranks/live.ts).
-  useRanksLive();
+  // re-reads the board and their page (features/ranks/live.ts), only while this screen is in front.
+  useRanksLive(useScreenFocused());
   const pull = usePullRefresh(() => Promise.all([board.refetch(), member ? my.refetch() : null]));
 
   const mine = my.data?.enabled ? my.data : null;

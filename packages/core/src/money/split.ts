@@ -1,4 +1,4 @@
-import { iqd, sumIqd, MoneyError, type IQD } from './iqd';
+import { iqd, MoneyError, type IQD } from './iqd';
 
 /**
  * Even bill split — EXACT integer largest-remainder (resolved plan override; this WINS over
@@ -26,33 +26,6 @@ export function splitEvenly(total: number, n: number): IQD[] {
   const shares: IQD[] = new Array(n);
   for (let i = 0; i < n; i++) {
     shares[i] = iqd(i < remainder ? base + 1 : base);
-  }
-  return shares;
-}
-
-/**
- * Split by items: each payer takes the lines assigned to them; line totals are already exact
- * integers so no rounding is ever involved. Returns one share (sum of that payer's lines) per
- * payer. When `expectedTotal` is given, the invariant Σ shares === expectedTotal is enforced —
- * catching a line assigned to nobody or to two payers.
- */
-export function splitByItems(
-  lineTotalsByPayer: ReadonlyArray<readonly number[]>,
-  expectedTotal?: number,
-): IQD[] {
-  if (!Array.isArray(lineTotalsByPayer) || lineTotalsByPayer.length === 0) {
-    throw new MoneyError('INVALID_ARGUMENT', 'splitByItems needs at least one payer');
-  }
-  const shares = lineTotalsByPayer.map((lines) => sumIqd(lines));
-  if (expectedTotal !== undefined) {
-    const total = iqd(expectedTotal);
-    const assigned = sumIqd(shares);
-    if (assigned !== total) {
-      throw new MoneyError(
-        'SPLIT_MISMATCH',
-        `assigned lines sum to ${assigned} but the bill total is ${total}`,
-      );
-    }
   }
   return shares;
 }

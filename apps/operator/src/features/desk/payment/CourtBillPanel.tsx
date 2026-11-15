@@ -51,6 +51,7 @@ import { AppRpcError } from '../../../lib/appRpc';
 import { QK } from '../../../lib/queryKeys';
 import { resultErrorCode } from '../../../lib/queueResults';
 import { usePendingResults } from '../../../lib/pendingResults';
+import { holdQueuedSettle, useQueuedSettleHeld } from './queuedSettles';
 import { canAccess, permissionsFor, useAuth } from '../../../lib/auth';
 import { useLocale } from '../../../lib/i18n';
 import { useToast } from '../../../components/toast';
@@ -173,6 +174,9 @@ export function CourtBillView({
   const rewardTabId = tab?.id ?? bill.settled_tabs.at(-1)?.tab_id ?? null;
   const freeHour = useCourtReward(rewardTabId, !match && !isMatchBill(bill)).data?.reward ?? null;
   const closePending = tab ? pendingCloses.pending.has(tab.id) : false;
+  // A payment for this bill is on the station's queue: the due on screen is
+  // stale until it lands, so the pay buttons wait (audit finding 22).
+  const settleQueued = useQueuedSettleHeld(tab?.id);
   const amount = (n: number) => formatIQD(n, locale);
 
   function invalidate() {
@@ -228,6 +232,7 @@ export function CourtBillView({
         expectedTotalIqd: tab.total_iqd,
       });
       setPaying(null);
+      if (out.queued) holdQueuedSettle(tab.id, out.localId);
       setSettled({ changeIqd: out.result?.change_iqd ?? 0, queued: out.queued === true });
       invalidate();
     } catch (e) {
@@ -448,10 +453,10 @@ export function CourtBillView({
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--tp-sp-2)' }}>
             {canTakePayment(state) && (
               <>
-                <Button kind="primary" size="lg" icon="banknote" busy={busy && paying === null} disabled={!payable || dayBlocked || busy} disabledReason={tr('ws.courtDesk.payment.dayClosedReason')} onClick={() => void startPayment('cash')}>
+                <Button kind="primary" size="lg" icon="banknote" busy={busy && paying === null} disabled={!payable || dayBlocked || busy || settleQueued} disabledReason={settleQueued ? tr('ws.cashier.detail.settleQueued') : tr('ws.courtDesk.payment.dayClosedReason')} onClick={() => void startPayment('cash')}>
                   {tr('ws.courtDesk.payment.cash')}
                 </Button>
-                <Button size="lg" icon="card" disabled={!payable || dayBlocked || busy} disabledReason={tr('ws.courtDesk.payment.dayClosedReason')} onClick={() => void startPayment('card')}>
+                <Button size="lg" icon="card" disabled={!payable || dayBlocked || busy || settleQueued} disabledReason={settleQueued ? tr('ws.cashier.detail.settleQueued') : tr('ws.courtDesk.payment.dayClosedReason')} onClick={() => void startPayment('card')}>
                   {tr('ws.courtDesk.payment.card')}
                 </Button>
               </>

@@ -23,7 +23,7 @@ const { Icon, Label } = NativeTabs.Trigger;
  * dropped here. Android keeps the custom bar in
  * `TabsLayout.android.tsx` — that platform split is deliberate.
  *
- * Five tabs: Rankings, Play, Book, Club, Coaches. Rankings (the leaderboard, SF Symbols' `trophy`)
+ * Five tabs: Rankings, Play, Book, Club, Coaches. Rankings (the leaderboard, a podium, assets/tabs/ranks*.png)
  * took My reservations' slot on 2026-11-12 (Majed); My reservations is a page off Profile now
  * (app/bookings.tsx). While no branch has tournaments or open matches on
  * (features/tournaments/shipped.ts) Play is `hidden`, which takes it out of the bar and out of
@@ -66,7 +66,8 @@ export default function TabsLayoutIOS() {
       iconColor={{ default: colors.fnt2, selected }}
     >
       <NativeTabs.Trigger name="ranks">
-        <Icon sf="trophy" />
+        {/* A podium, which SF Symbols has none of: Android's TabRanksIcon drawn to PNGs. */}
+        <Icon src={require('../../assets/tabs/ranks.png')} renderingMode="template" />
         <Label>{t('tabs.ranks')}</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="play" hidden={!shipped}>

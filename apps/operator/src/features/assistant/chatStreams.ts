@@ -16,6 +16,16 @@
  *
  * One question per conversation at a time: a press while that chat streams is
  * ignored, so a remount or a double press never sends a second paid request.
+ *
+ * New chat always opens a clean start screen (`resetNewChat`, 2026-11-12): a
+ * first question that failed before the stream used to stay under NEW_KEY, so
+ * New chat showed the dead turn again and its locked composer. A first question
+ * still running is detached instead of dropped: it keeps streaming under a key
+ * of its own and lands on its chat when `message_start` names it.
+ *
+ * Each entry keeps the scopes and model its question was asked with, so "Ask
+ * again" on a failed first question re-asks exactly that, even after the
+ * drawer was closed and its checked set forgotten.
  */
 import type { QueryClient } from '@tanstack/react-query';
 import type { AssistantScope } from '@touch/core/assistant/tools';
@@ -25,6 +35,9 @@ import { saveSessionConversation } from './scopes';
 import type { ChatErrorCode, ChatTurn } from './threadLogic';
 
 export const NEW_KEY = 'new';
+/** A first question New chat moved aside while it was still running. */
+const DETACHED_PREFIX = 'detached:';
+let detachedSeq = 0;
 
 /**
  * After a turn that did not end with the server's `done` (Stop, a dropped
@@ -38,13 +51,19 @@ export interface ChatEntry {
   live: ChatTurn | null;
   streaming: boolean;
   lastQuestion: string | null;
+  /** The checked set the last question was asked with (a new chat's; null for an existing chat, which keeps its own). */
+  lastScopes: readonly AssistantScope[] | null;
+  /** The model the last question was asked with (a new chat's choice; null = the chat's own or the venue default). */
+  lastModel: string | null;
 }
 
 interface Running {
   controller: AbortController;
+  /** Where the question's entry lives now; moved by adopt and resetNewChat. */
+  key: { current: string };
 }
 
-const EMPTY: ChatEntry = { live: null, streaming: false, lastQuestion: null };
+const EMPTY: ChatEntry = { live: null, streaming: false, lastQuestion: null, lastScopes: null, lastModel: null };
 
 let entries = new Map<string, ChatEntry>();
 /** NEW_KEY → the conversation its first question created, until a view follows or the stream ends. */
@@ -110,25 +129,60 @@ export function settleAlias(conversationId: string): void {
   emit();
 }
 
+/** Move an entry and its running question from one key to another. */
+function moveEntry(from: string, to: string): void {
+  const cur = entries.get(from);
+  if (cur) {
+    const nextEntries = new Map(entries);
+    nextEntries.delete(from);
+    nextEntries.set(to, cur);
+    entries = nextEntries;
+  }
+  const run = running.get(from);
+  if (run) {
+    running.delete(from);
+    running.set(to, run);
+    run.key.current = to;
+  }
+}
+
 /** The first question's chat exists: its entry moves from NEW_KEY to the id, and the views follow. */
 function adopt(id: string): void {
-  const cur = entries.get(NEW_KEY);
-  if (!cur) return;
-  const nextEntries = new Map(entries);
-  nextEntries.delete(NEW_KEY);
-  nextEntries.set(id, cur);
-  entries = nextEntries;
-  const run = running.get(NEW_KEY);
-  if (run) {
-    running.delete(NEW_KEY);
-    running.set(id, run);
-  }
+  if (!entries.has(NEW_KEY) && !running.has(NEW_KEY)) return;
+  moveEntry(NEW_KEY, id);
   // Views of a new chat keep seeing the turn until they have moved to the id.
   aliases = new Map(aliases).set(NEW_KEY, id);
   emit();
   const views = [...(followers.get(NEW_KEY) ?? [])];
   if (views.length === 0) saveSessionConversation(id);
   for (const follow of views) follow(id);
+}
+
+/**
+ * New chat: the start screen, whatever the last new chat left behind. A
+ * finished or failed first question is forgotten (a refusal before the stream
+ * was never stored, and a stored one is in the chat list); one still running
+ * moves aside under a key of its own and keeps streaming, so its answer lands
+ * on its chat (or is aborted by Stop from that chat), never on this screen.
+ */
+export function resetNewChat(): void {
+  let changed = false;
+  if (aliases.has(NEW_KEY)) {
+    aliases = new Map(aliases);
+    aliases.delete(NEW_KEY);
+    changed = true;
+  }
+  if (running.has(NEW_KEY)) {
+    detachedSeq += 1;
+    moveEntry(NEW_KEY, `${DETACHED_PREFIX}${detachedSeq}`);
+    changed = true;
+  } else if (entries.has(NEW_KEY)) {
+    const nextEntries = new Map(entries);
+    nextEntries.delete(NEW_KEY);
+    entries = nextEntries;
+    changed = true;
+  }
+  if (changed) emit();
 }
 
 export interface AskInput {
@@ -165,10 +219,16 @@ export async function askInChat(input: AskInput): Promise<boolean> {
     aliases.delete(NEW_KEY);
   }
   const key = { current: startKey };
-  running.set(startKey, { controller: ac });
+  running.set(startKey, { controller: ac, key });
   const knownIds = conversationId ? (qc.getQueryData<MessageRow[]>(QK.messages(conversationId)) ?? []).map((r) => r.id) : [];
   const turn: ChatTurn = { ...emptyTurn(conversationId, question), knownIds };
-  patch(startKey, () => ({ live: turn, streaming: true, lastQuestion: question }));
+  patch(startKey, () => ({
+    live: turn,
+    streaming: true,
+    lastQuestion: question,
+    lastScopes: conversationId ? null : [...scopes],
+    lastModel: conversationId ? null : (model ?? null),
+  }));
 
   let convId = conversationId;
   let ended = false; // `done` or `error` arrived
@@ -190,10 +250,9 @@ export async function askInChat(input: AskInput): Promise<boolean> {
           const startedId = name === 'message_start' && typeof data === 'object' && data !== null ? (data as { conversation_id?: unknown }).conversation_id : null;
           if (typeof startedId === 'string' && startedId !== convId) {
             convId = startedId;
-            if (key.current === NEW_KEY) {
-              adopt(startedId);
-              key.current = startedId;
-            }
+            if (key.current === NEW_KEY) adopt(startedId);
+            // Moved aside by New chat: it lands on its chat, and no view follows it there.
+            else if (key.current.startsWith(DETACHED_PREFIX)) moveEntry(key.current, startedId);
           }
           patchLive(key.current, (cur) => ({ ...cur, ...applyEvent(cur, name, data) }));
         },
@@ -223,6 +282,13 @@ export async function askInChat(input: AskInput): Promise<boolean> {
     patch(key.current, (cur) => ({ ...cur, streaming: false, live: cur.live && !cur.live.done ? { ...cur.live, done: true } : cur.live }));
     // No view followed the new chat (the drawer was closed): drop the alias.
     if (aliases.get(NEW_KEY) === key.current && key.current !== NEW_KEY && !followers.has(NEW_KEY)) settleAlias(key.current);
+    // Moved aside and never named a chat (refused before the stream): nobody can see it, so forget it.
+    if (key.current.startsWith(DETACHED_PREFIX)) {
+      const nextEntries = new Map(entries);
+      nextEntries.delete(key.current);
+      entries = nextEntries;
+      emit();
+    }
     // Whatever happened, the stored rows are the record: refetch them so the
     // persisted turn replaces the live one (or shows what survived).
     const refetchMessages = () => {

@@ -40,6 +40,7 @@ import {
   type PlanIdea,
 } from './planLogic';
 import { CONTENT_CHANNELS, type ContentChannel } from '../content/contentLogic';
+import { keyForValues } from '../../lib/valueKeys';
 
 const noon = (iso: string) => new Date(`${iso}T12:00:00Z`);
 const muted = { color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' } as const;
@@ -189,17 +190,14 @@ export function IdeaForm({ day, idea, onClose }: { day: string; idea: PlanIdea |
   const [draft, setDraft] = useState<IdeaDraft>(idea ? draftFromIdea(idea) : EMPTY_IDEA);
   const [tried, setTried] = useState(false);
   // One key per idea as sent: a retry of the same one reuses it (claim_replay compares no payload).
-  const key = useRef<{ sig: string; key: string } | null>(null);
-  const keyFor = (sig: string) => {
-    if (key.current?.sig !== sig) key.current = { sig, key: `plan.idea:${crypto.randomUUID()}` };
-    return key.current.key;
-  };
+  const keys = useRef(new Map<string, string>());
+  const keyFor = (args: unknown) => keyForValues(keys.current, [args], () => `plan.idea:${crypto.randomUUID()}`);
   const issues = validateIdea(draft);
   const weekly = weeklyDays(day);
   const save = useMutation({
     mutationFn: () => {
       const args = saveIdeaArgs(draft, day, idea?.id ?? null, null);
-      return appRpc<{ ids: string[] }>('save_plan_idea', { ...args, p_idempotency_key: idea ? null : keyFor(JSON.stringify(args)) });
+      return appRpc<{ ids: string[] }>('save_plan_idea', { ...args, p_idempotency_key: idea ? null : keyFor(args) });
     },
     onSuccess: (r) => {
       const n = r.ids?.length ?? 1;

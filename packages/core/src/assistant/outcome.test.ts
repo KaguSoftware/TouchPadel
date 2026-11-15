@@ -27,8 +27,19 @@ describe('turnOutcome', () => {
     expect(turnOutcome({ stop_reason: 'end_turn', error_code: 'TIMEOUT' }, 'Half an ans')).toEqual({ kind: 'error', code: 'TIMEOUT' });
   });
 
-  it('ignores an error code it does not know', () => {
+  it('ignores an error code it does not know when there is an answer', () => {
     expect(turnOutcome({ error_code: 'WHATEVER' }, 'An answer.')).toEqual({ kind: 'ok' });
+  });
+
+  it('an empty row with an unknown error code is a failure, never a blank answer', () => {
+    expect(turnOutcome({ error_code: 'WHATEVER', stop_reason: 'WHATEVER' }, '')).toEqual({ kind: 'error', code: 'UNKNOWN' });
+    expect(turnOutcome({ error_code: '' }, '')).toEqual({ kind: 'ok' });
+  });
+
+  it('reads the failed message a job writes into its chat (empty text, the job’s code)', () => {
+    expect(turnOutcome({ error_code: 'LLM_MONTHLY_CAP', stop_reason: 'LLM_MONTHLY_CAP' }, '')).toEqual({ kind: 'error', code: 'LLM_MONTHLY_CAP' });
+    expect(turnOutcome({ error_code: 'LLM_DAILY_QUOTA', stop_reason: 'LLM_DAILY_QUOTA' }, '')).toEqual({ kind: 'error', code: 'LLM_DAILY_QUOTA' });
+    expect(turnOutcome({ error_code: 'TIMEOUT', stop_reason: 'TIMEOUT' }, '')).toEqual({ kind: 'error', code: 'TIMEOUT' });
   });
 
   it('reads the placeholder older rows stored for a failed turn', () => {

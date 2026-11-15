@@ -4,8 +4,10 @@ import {
   ack,
   markConflict,
   markFailed,
+  markHeld,
   markInflight,
   peekNext,
+  releaseHeld,
   releaseToPending,
   setWorkerUnreachable,
   type QueueRow,
@@ -299,6 +301,14 @@ export function startSyncWorker(opts: SyncWorkerOptions): SyncWorker {
     // Deterministic 4xx — replaying the same bytes cannot succeed.
     noteTransportOk();
     const b = (body ?? {}) as Record<string, unknown>;
+    if (b.result === 'hold') {
+      // Someone else queued it and the person signed in now may not send it
+      // (FORBIDDEN): the server recorded nothing. It waits for a different
+      // person to sign in; the rows behind it go on.
+      markHeld(row.idempotencyKey, auth.staffId);
+      opts.onActivity();
+      return true;
+    }
     const detail =
       typeof b.code === 'string' ? b.code : typeof b.error === 'string' ? b.error : `HTTP ${res.status}`;
     // Terminal: this row will never replay, and a person has to deal with it.
@@ -332,7 +342,10 @@ export function startSyncWorker(opts: SyncWorkerOptions): SyncWorker {
 
   const timer = setInterval(() => scheduleDrain(false), tickMs);
   const unsubscribeAuth = onAuthStateChange(() => {
-    if (!getReplayAuth()) return;
+    const signedIn = getReplayAuth();
+    if (!signedIn) return;
+    // Rows held for the last person (replay `hold`) get another try with this one.
+    releaseHeld(signedIn.staffId);
     // A fresh token lifts the 401 pause; the drain it starts proves the rest.
     if (pausedOnAuth) {
       pausedOnAuth = false;

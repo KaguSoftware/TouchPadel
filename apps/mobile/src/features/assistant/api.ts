@@ -71,11 +71,38 @@ export async function fetchConversation(id: string): Promise<ConversationRow | n
 export async function fetchMessages(conversationId: string): Promise<MessageRow[]> {
   const { data, error } = await supabase
     .from('assistant_messages')
-    .select('id, conversation_id, seq, role, content, sources, gate, tokens, created_at')
+    .select(
+      // `feedback`: the owner's thumb (assistant_feedback, 0422), a one-to-one embed; null = not rated.
+      'id, conversation_id, seq, role, content, sources, gate, tokens, created_at, feedback:assistant_feedback(rating,note)',
+    )
     .eq('conversation_id', conversationId)
     .order('seq', { ascending: true });
   if (error) throw error;
   return (data ?? []) as unknown as MessageRow[];
+}
+
+/**
+ * `assistant_rate_message` (0422): the owner's thumb on a stored answer; `rating` 0 clears.
+ * Refused as FORBIDDEN, ASSISTANT_MESSAGE_NOT_FOUND, ASSISTANT_NOT_RATEABLE or INVALID_ARGUMENT.
+ * The generated `Database` type does not have it until 0422 is regenerated, so the call goes
+ * through an untyped view of `rpc` (the pattern of playProfile/api.ts).
+ */
+export async function rateMessage(
+  messageId: string,
+  rating: -1 | 0 | 1,
+  note: string | null = null,
+): Promise<void> {
+  const app = supabase.schema('app');
+  const rpc = app.rpc as unknown as (
+    fn: string,
+    args: Record<string, unknown>,
+  ) => PromiseLike<{ data: unknown; error: unknown }>;
+  const { error } = await rpc.call(app, 'assistant_rate_message', {
+    p_message_id: messageId,
+    p_rating: rating,
+    p_note: note,
+  });
+  if (error) throw error;
 }
 
 /** `assistant_set_scopes` (0108): validates against the catalog and returns the row. */

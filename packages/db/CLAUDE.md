@@ -17,6 +17,133 @@ is a line in that file.
 
 ## Migrations
 
+- **0431 (2026-11-15, match_guest_lock; audit finding 27):** while matches are paid at the desk
+  (0370), `ticket_pick` locked no ticket rows, so two joins by one guest at two branches at once
+  both passed the cross-branch clash check (R41). The internal `app.lock_match_guest(p_guest)`
+  (advisory key `app.matches:guest:<id>`) is taken in `ticket_pick`'s two pay-at-desk branches
+  only. It is a LEAF in `scripts/lib/lock-order.mjs` (`LEAF_ADVISORY`, not ranked): in that mode
+  these flows lock no `match_tickets` rows and the holder takes only its own branch's keys, which
+  it already holds. **0431 holds `ticket_pick`** (0370 no longer).
+  `tests/match-guest-lock-0431.test.ts` (two sessions).
+- **0430 (2026-11-15, audit_fixes; Majed: fix the audit's findings 4, 7 and 11):** the internal
+  `app.loyalty_picked_deal_on(p_profile, p_tab)` is `loyalty_picked_deal` minus a pick already
+  redeemed on ANOTHER open or awaiting-payment bill of the member (one pick, one use, even with a
+  café and a court bill open at once); **0430 holds `eligible_promotions`** (0410 no longer; it
+  asks `loyalty_picked_deal_on` for the tab it prices). `app.phone_canon` strips `00`, then `964`,
+  then a trunk `0` ("+964 0770 …" = "0770 …"), with the TS twins `@touch/core` `phoneCanon` and
+  `_shared/phone.ts` and `iraq.fixtures.ts`; `profiles.phone_key` recomputed with 0307's two
+  statements. **0430 holds `apply_customer_court_discount`** (0403 no longer): it locks the
+  booking's live tab before the court, so a concurrent `settle_tab` and the discount never pass
+  each other. **0430 holds `queued_rpc_claim`** (0398 no longer): `AREA_BLOCKED` detail the name
+  for a page the caller is blocked from (`app.area_blocked_rpc`), since `app.pre_request` sees only
+  `queued_rpc`; replay HOLDS a colleague's row refused `FORBIDDEN` or `AREA_BLOCKED` (records
+  nothing, the till retries it when someone else signs in). Trigger `profiles_push_token_one_holder`
+  (`app.trg_profile_push_token_one_holder`, AFTER INSERT OR UPDATE OF `expo_push_token`): a token
+  just written leaves every other profile (one handset, one account; the guest app also asks for
+  permission once at sign-in when the install never has, so a reinstall gets its notifications
+  back); today's duplicates stay with the account that signed in last.
+  `tests/audit-fixes-0430.test.ts` (one rolled-back psql transaction). 0420–0424 are the
+  assistant batch (below); 0425–0427 are held by other worktrees, and a later migration that
+  re-issues `eligible_promotions` (deal-ideas' 0427) starts from 0430's body.
+- **0424 (2026-11-13, assistant_cafe_history; 0412 put the old café till's days into
+  `panel_headline`, so `history_figures` no longer equalled the panel):** needs 0412 and 0413.
+  **0424 holds `assistant_history_figures`** (0420 no longer): totals add `app.legacy_cafe_totals`
+  through `app.legacy_cafe_add_to_figures` as `panel_headline` does, so they equal the panel again
+  for any range, and every row (day, week, month, the bucket clipped to the range) adds its own
+  bucket's old-till days (one helper call per bucket, none when the range holds no old-till day);
+  `history` is also present when only the café touches the range, and `history.cafe` = the
+  `legacy_cafe_totals` object + `inRows` (true), null without old-till days; 0420's padel-report
+  rule unchanged; the day cache still stores `reports_figures` only (the till is added at read
+  time). **0424 holds `assistant_costs_summary`** (0421 no longer): `cash_result_iqd` null with the
+  note extended when `history.period.cafe.days > 0` (revenue with no costs, like the reports), and
+  totals gain `old_till_revenue_iqd`. **0424 holds `assistant_run_tool`** (0421 no longer): + the
+  deferred tool `cafe_history` (scope cafe, aggregate, rows `products`, route `/analytics/cafe`),
+  `app.analytics_cafe_history` dispatched directly (analytics_guard + `report_venues()`, no one-branch
+  `current_venue()`, so no wrapper). `assistant_history_items` and the detail families stay
+  system-only (the till's products are not menu items; the tool texts say so).
+  `tests/assistant-cafe-history.test.ts` (one rolled-back psql transaction).
+- **0423 (2026-11-12, assistant_job_sweep_resume; a stuck job had no way out and a paused job
+  could only be cancelled and paid for again):** `assistant_jobs.status_at` (when the job entered
+  its status; default now(), backfilled) and `tick_lapses` (leases a tick took over after the tick
+  holding them died), both internal. **0423 holds `assistant_job_transition`** and
+  **`assistant_job_cancel`** (0112 no longer: + status_at; a move to running resets tick_lapses;
+  same allowlist, same `assistant_job_allowed`), **`assistant_job_claim_tick`** (0405 no longer:
+  + tick_lapses on a lapsed take-over) and **`assistant_job_tick_nudge`** (0113 no longer: runs
+  the internal `assistant_job_expire()` (estimated or over_estimate untouched 7 days → cancelled,
+  `EXPIRED: …`, quiet) and posts the tick while a batch runs OR `assistant_job_stuck_due()`; its
+  catch-all calls `app.monitor`). New internal `assistant_job_stuck_reason(assistant_jobs)`
+  (stalled_start accepted > 10 min, stalled_live > 10 min, stalled_submit batch without id > 10
+  min, batch_overdue > 26 h, lease_lapsing tick_lapses ≥ 3, stalled_reduce > 10 min) and the
+  service-role `assistant_job_claim_stuck(p_seconds, p_limit)` (FOR UPDATE SKIP LOCKED, the
+  lease). The edge settles each in `jobRunner.ts sweep` at the top of every tick, no model call:
+  fail (`JOB_STALLED` on the row, UPSTREAM + job_error in the chat, Monitoring step = reason),
+  pause a dead live run as `stopped` with its saved objects, mark a reduce done when its answer is
+  already in the chat, cancel a vendor batch still billing; a submit that died after
+  `submitting_at` is an `assistant_job_swept` error event (no vendor listing, Majed). Resume:
+  `POST {action:'resume', job_id, mode?}` (over_estimate → running; only chunks no stored object
+  covers; batch by default; 409 INVALID_TRANSITION / JOB_DATA_CHANGED). A live job with chunks
+  unread and objects paid for now pauses (`result.pause.reason` over_estimate | time | cap |
+  stopped) instead of failing. No new client grant or SQL error code (JOB_DATA_CHANGED is the
+  edge's, in errors.ts); `tests/assistant-job-sweep.test.ts` (one rolled-back psql transaction).
+- **0422 (2026-11-12, assistant_feedback_monitoring; owner: thumbs on answers, assistant errors on
+  the Monitoring page, a weekly report, all low-key):** `public.assistant_feedback` (one row per
+  answer, `message_id` primary key with cascade; the owner reads own rows, no client write; clients
+  embed `feedback:assistant_feedback(rating,note)` on their message select); **0422 holds
+  `assistant_rate_message(p_message_id, p_rating, p_note default null)`** (owner; +1 or -1 upserts,
+  0 clears, the note through `safe_line` only with -1 and at most 280 characters;
+  `ASSISTANT_MESSAGE_NOT_FOUND`, `ASSISTANT_NOT_RATEABLE`); the internal `assistant_week_clock`,
+  `assistant_week_figures`, `assistant_week_level`; the service-role `assistant_weekly_report`
+  (cron `tp_assistant_weekly` daily 02:40 UTC, ONE `assistant_weekly` monitoring event per business
+  week, warn at 5 % failed, 25 % thumbs down or any answer not saved; `assistant_weekly_report_failed`
+  on error, not in `sweeps-report.test.ts` because its success event comes before the handler);
+  `assistant_weekly_page(p_weeks 1..12)` for dev and owner, computed live. The edge functions report
+  `assistant_failed`, `assistant_refused`, `assistant_not_saved`, `assistant_job_failed` and
+  `assistant_free_failed` through `_shared/assistant/monitor.ts`: ids and codes only (never the
+  question, the answer, a note or a name), in the background, the free guide throttled.
+  `tests/assistant-feedback.test.ts`, `tests/assistant-weekly.test.ts`, `tests/assistant-monitor.test.ts`.
+- **0421 (2026-11-12, assistant_money_staff_tools; Majed lifted the LLM wall for the OWNER
+  assistant only: the safe "give it full access", payees of wage, advance and coach pay rows
+  included; wages and advances "get rid of the wall"; attendance "here too"; profit only as a
+  cash result):** five owner-only tools, `app.assistant_<x>(p_from, p_to, …)` STABLE, definer,
+  `app.report_venues()` on every read, no client grant (dispatcher only), catalog kind aggregate
+  with capped rows and totals summed in SQL: `assistant_cash_closes(p_detail days|shifts|none)`
+  (tool `cash_closes`, core: day_sessions, till_shifts, day-close hand-ins per box as
+  `main_cash_day_boxes`; days latest 100, shifts latest 200, time order),
+  `assistant_costs_summary(p_group day|week|month)` (tool `costs_summary`, core: live safe and
+  bank payments by 0343 category, `revenue_iqd` = `panel_headline`'s revenue, `cash_result_iqd`
+  null with a `note` while a pre-system report is counted), `assistant_safe_summary(p_rows)` (tool
+  `safe_summary`: balance now, opening, closing, in and out per branch, rows latest 200),
+  `assistant_wages_summary(p_detail)` (tool `wages_summary`, scope staff: `app.wage_line` over
+  `wages_month`'s people per branch and pay month, at most 12, people in name order, cap 300) and
+  `assistant_attendance_summary` (tool `attendance_summary`, scope staff: staff_attendance per
+  person in name order, till-shift presence, a `coverage` note). Still binding: nothing grades
+  staff (people rows by name or time, never by a figure; prompt hard rule 8). The walls stay for
+  every other model surface: `check-analytics-payload.mjs` patterns and
+  `app.assistant_readable_columns` unchanged (comment only), coverage fixture entries for the
+  lifted tables now name the tool, their `comment on table` texts re-issued. **0421 holds
+  `assistant_run_tool`** (0420 no longer) and **`assistant_set_scopes`** (0108 no longer: + engagement,
+  files, which raised ASSISTANT_UNKNOWN_SCOPE; `tests/assistant-catalog.test.ts` pins the list to
+  `ASSISTANT_SCOPES`); `v_day_close_summary` leaves `assistant_readable_columns` (no venue_id, so
+  it mixed branches); `break_history` says breaks stopped 2026-11-01;
+  `tests/assistant-money-tools.test.ts` (one rolled-back psql transaction).
+- **0420 (2026-11-12, assistant_history_reports; review 2026-11-12):** the history tools now count
+  the pre-system monthly reports (0331/0348) by 0349's rule. **0420 holds
+  `assistant_history_figures`** (0330 no longer): totals add `app.legacy_report_totals` through
+  `app.legacy_add_to_figures`, so they equal `panel_headline` for the same range; with group
+  month a report inside one calendar month is in that month's row, day and week rows stay the
+  system's own; `history` = the legacy object + `inRows`, null when no report touches the range.
+  **0420 holds `assistant_history_courts`** (0330 no longer): occupancy is (booked + lesson) /
+  open as `analytics_courts_summary` since 0288 (it was booked / open), the total's null while a
+  report is counted; the hour key is now `booked_pct` (stored hour cells have no lesson minutes);
+  `history` the same object, never added into its numbers. **0420 holds
+  `assistant_detail_compute`** (0330 no longer): the courts family sums `per_court`, because kpis
+  carry the reports when a live run holds a whole report month. New owner-only
+  `app.assistant_unpaid_played_bookings(p_from, p_to, p_limit default 50)` (tool
+  `unpaid_played_bookings`, kind aggregate, not countable): `unpaid_played_bookings`' predicate
+  over at most 92 business days of `app.report_venues()`, `total` and `remaining_iqd` over every
+  match, rows largest debt first (1..200). **0420 holds `assistant_run_tool`** (0354 no longer).
+  `reports_figures` and the day cache tables unchanged; `tests/assistant-history-reports.test.ts`
+  (one rolled-back psql transaction).
 - **0416 (2026-11-13, loyalty_card_colors; Majed: the cards are white (the starter card), Touch
   Padel green, Touch Padel blue, then black):** `loyalty_tiers_color` also takes `white`, `green`,
   `blue`; the 0376 metals stay valid but the operator offers only `CARD_LADDER`
@@ -226,8 +353,8 @@ is a line in that file.
   `tests/sweeps-report.test.ts` counts handlers against `app.monitor` calls in each latest body.
   `app.monitor_scrub_text` masks any run of eight digits, dashes included, so a digit-heavy uuid
   in a message or detail is stored as `[number]`.
-- Ordinal strictly greater than the current max, never a reused one. Latest is `0406`
-  (0380–0391 and 0402–0406 are at the top of this list; 0392–0401 are in their own headers, and
+- Ordinal strictly greater than the current max, never a reused one. Latest is `0424`
+  (0380–0391, 0402–0416 and 0420–0424 are at the top of this list; 0392–0401 are in their own headers, and
   0377–0379 have no file). Before them: (0376 loyalty_tier_colors, 2026-10-31 (Ameen: a tier made "from 100 points" never reached a
   gifted account, and the owner picks each tier's card colour): `loyalty_tiers.color` (classic |
   bronze | silver | gold | platinum | black, default classic, `loyalty_tiers_color`; the same keys
@@ -537,7 +664,7 @@ is a line in that file.
   0149 assistant-cap, 0150 move-not-into-past, 0151 out-of-stock-alert, 0152 my-reservations,
   0153 terms-consent, 0154 analytics-returning-guest, 0155–0157 six new staff roles, 0158–0206
   protocols and the staff phone (change-order line 10), 0207–0227 multi-venue slices 2–4); the next is
-  `0407`. **Check the directory, not this line** — it said 0146 while 0147–0149 were already on
+  `0425`. **Check the directory, not this line** — it said 0146 while 0147–0149 were already on
   disk, and later 0150 while 0154 was, and a reused ordinal fails `check-migrations.mjs` after the
   file is written.
 - `0069` and `0071` are already doubled; `0023`, `0040` and `0101` have no file, so leave the gaps.

@@ -26,6 +26,13 @@ describe('credentialsOf (the app’s sign-in rules)', () => {
     });
   });
 
+  it('signs in an account from another country by its number with the code (sign-in is worldwide)', () => {
+    expect(credentialsOf('phone', '+90 532 123 4567', 'pw')).toEqual({
+      phone: '+905321234567',
+      password: 'pw',
+    });
+  });
+
   it('trims an email and refuses a non-address', () => {
     expect(credentialsOf('email', '  sara@example.com ', 'pw')).toEqual({
       email: 'sara@example.com',

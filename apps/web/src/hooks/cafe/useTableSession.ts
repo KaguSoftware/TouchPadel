@@ -71,7 +71,12 @@ function bootSession(sb: BrowserSupabase, locale: string): Promise<BindResult> {
     }
     const res = await tableRequest(locale, 'POST');
     if (!res.ok) return { name: 'error' };
-    return parseBindResult(await res.json());
+    const result = parseBindResult(await res.json());
+    if (result.name === 'bound' && result.serverNow) {
+      const skew = Date.parse(result.serverNow) - Date.now();
+      if (Number.isFinite(skew)) result.session.clockSkewMs = skew;
+    }
+    return result;
   })().catch((): BindResult => ({ name: 'error' }));
   bootCache.set(BOOT_KEY, p);
   void p.then((r) => {
@@ -143,9 +148,10 @@ export function useTableSession(hasTable: boolean, locale: string): UseTableSess
   }, [locale]);
 
   // --------------------------------------------------- inactivity expiry arm
-  const armExpiry = useCallback((expiresAt: string) => {
+  const armExpiry = useCallback((expiresAt: string, clockSkewMs = 0) => {
     if (expiryTimer.current) clearTimeout(expiryTimer.current);
-    const ms = new Date(expiresAt).getTime() - Date.now();
+    // Counted on the server's clock (clockSkewMs, measured at the bind).
+    const ms = new Date(expiresAt).getTime() - (Date.now() + clockSkewMs);
     if (!Number.isFinite(ms) || ms <= 0) {
       expire();
       return;
@@ -155,7 +161,7 @@ export function useTableSession(hasTable: boolean, locale: string): UseTableSess
   }, [expire]);
 
   useEffect(() => {
-    if (session) armExpiry(session.expiresAt);
+    if (session) armExpiry(session.expiresAt, session.clockSkewMs);
     return () => {
       if (expiryTimer.current) clearTimeout(expiryTimer.current);
     };

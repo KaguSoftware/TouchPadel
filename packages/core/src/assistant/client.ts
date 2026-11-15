@@ -84,6 +84,8 @@ export interface MessageRow {
   gate: GatePayload | null;
   tokens: Partial<UsagePayload> | null;
   created_at: string;
+  /** The owner's thumb on this answer (assistant_feedback, 0422); null or absent = not rated. */
+  feedback?: { rating: number; note?: string | null } | null;
 }
 
 export interface JobEstimateModes {
@@ -200,7 +202,10 @@ export function sourcesOf(sources: unknown): StoredSources {
  * refusal before it. NOT_FOUND (a chat or message that is gone or not the
  * owner's), INTERNAL (a database read the function could not make) and
  * INVALID_TRANSITION (a job accepted twice, assistant-job) are the server's
- * own codes; they used to collapse to UNKNOWN.
+ * own codes; they used to collapse to UNKNOWN. NOT_SAVED (2026-11-12) is the
+ * stream's `error` after an answer was written but could not be stored: the
+ * text on screen will not be in the chat later, so the owner is told to ask
+ * again.
  */
 export const ASSISTANT_ERROR_CODES = [
   'AUTH_REQUIRED',
@@ -216,6 +221,7 @@ export const ASSISTANT_ERROR_CODES = [
   'NOT_FOUND',
   'INTERNAL',
   'INVALID_TRANSITION',
+  'NOT_SAVED',
   'UNKNOWN',
 ] as const;
 export type AssistantErrorCode = (typeof ASSISTANT_ERROR_CODES)[number];

@@ -558,6 +558,10 @@ export function ShopTill() {
         <PaymentPane
           mode={paying.method}
           due={paying.due}
+          // An offline sale settles whole: its queued settle carries the
+          // full total (offlineSettlePayload), so a part amount typed here
+          // would be recorded as the whole sale (audit finding 20).
+          allowPartial={!paying.tabId.startsWith(LOCAL_TAB_PREFIX)}
           busy={busy}
           error={error}
           onCancel={() => {

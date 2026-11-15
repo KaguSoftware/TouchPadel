@@ -101,7 +101,7 @@ export function taxContextFrom(categories: readonly TaxCategory[], taxInclusive:
 }
 
 /** round(a / b) for non-negative integers, half away from zero like Postgres numeric round. */
-function roundDiv(a: number, b: number): number {
+export function roundDiv(a: number, b: number): number {
   return Math.floor((2 * a + b) / (2 * b));
 }
 

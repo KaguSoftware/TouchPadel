@@ -116,6 +116,20 @@ describe.each(['en', 'ar'])('useTableSession (%s)', (locale) => {
     expect(calls).toContainEqual({ url: `/${locale}/menu/table`, method: 'DELETE', header: '1' });
   });
 
+  it('times the session on the server clock: a phone set two hours fast keeps its table', async () => {
+    // The server says it is now 2 h earlier than this device thinks; the session has 90 min left.
+    const serverNow = Date.now() - 2 * 60 * 60_000;
+    postBody = {
+      ...bound(new Date(serverNow + 90 * 60_000).toISOString()),
+      serverNow: new Date(serverNow).toISOString(),
+    };
+    const { result } = renderHook(() => useTableSession(true, locale));
+    await waitFor(() => expect(result.current.state).toBe('bound'));
+    await new Promise((r) => setTimeout(r, 20));
+    expect(result.current.state).toBe('bound');
+    expect(calls.filter((c) => c.method === 'DELETE')).toHaveLength(0);
+  });
+
   it('markExpired (a write the server refused as expired) clears the cookie too', async () => {
     postBody = bound(new Date(Date.now() + 60 * 60_000).toISOString());
     const { result } = renderHook(() => useTableSession(true, locale));

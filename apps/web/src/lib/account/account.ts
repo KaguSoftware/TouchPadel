@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@touch/db';
-import { toE164Iraq } from '@touch/core/phone/iraq';
+import { toE164Any } from '@touch/core/phone/iraq';
 import type { LedgerKind, MemberCard, MyLoyalty } from '@touch/core/loyalty';
 import type { Locale, MessageKey } from '@touch/i18n';
 import { appRpc } from '@/lib/appRpc';
@@ -19,7 +19,8 @@ export type Credentials = { phone: string; password: string } | { email: string;
 
 /**
  * The sign-in the app does (apps/mobile/src/features/auth/api.ts): a phone is any Iraqi mobile
- * spelling, sent as E.164 (`toE164Iraq`, what the app's phone field composes); an email is
+ * spelling, or any country's number written with its code, sent as E.164 (`toE164Any`, what the
+ * app's phone field composes); an email is
  * trimmed. Returns the error key when the identifier is not one.
  */
 export function credentialsOf(
@@ -28,7 +29,7 @@ export function credentialsOf(
   password: string,
 ): Credentials | { error: MessageKey } {
   if (method === 'phone') {
-    const phone = toE164Iraq(identifier);
+    const phone = toE164Any(identifier);
     return phone ? { phone, password } : { error: 'loyalty.web.signIn.errors.phone' };
   }
   const email = identifier.trim();
@@ -153,8 +154,8 @@ export function accountName(
 export function accountPhone(
   user: { phone?: string | null; user_metadata?: Record<string, unknown> } | null | undefined,
 ): string | null {
-  const authPhone = user?.phone ? toE164Iraq(`+${user.phone.replace(/^\+/, '')}`) : null;
+  const authPhone = user?.phone ? toE164Any(`+${user.phone.replace(/^\+/, '')}`) : null;
   if (authPhone) return authPhone;
   const meta = user?.user_metadata?.phone;
-  return typeof meta === 'string' ? toE164Iraq(meta) : null;
+  return typeof meta === 'string' ? toE164Any(meta) : null;
 }

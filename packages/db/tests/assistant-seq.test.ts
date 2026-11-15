@@ -71,6 +71,55 @@ describe('insertAtNextSeq', () => {
     expect(out.error?.code).toBe('23505');
     expect(inserts).toBe(SEQ_ATTEMPTS);
   });
+
+  it('a max(seq) read that throws once is retried, and the row lands', async () => {
+    const t = table([1, 2]);
+    let reads = 0;
+    const out = await insertAtNextSeq({
+      maxSeq: async () => {
+        if (reads++ === 0) throw { code: '57014', message: 'statement timeout' };
+        return t.maxSeq();
+      },
+      insert: t.insert,
+    });
+    expect(out).toEqual({ seq: 3, error: null });
+    expect(reads).toBe(2);
+  });
+
+  it('a max(seq) read that throws twice is returned as the error, never thrown, and nothing is inserted', async () => {
+    let reads = 0;
+    let inserts = 0;
+    const out = await insertAtNextSeq({
+      maxSeq: async () => {
+        reads++;
+        throw { code: '57014', message: 'statement timeout' };
+      },
+      insert: async () => {
+        inserts++;
+        return null;
+      },
+    });
+    expect(out.error).toEqual({ code: '57014', message: 'statement timeout' });
+    expect(reads).toBe(2);
+    expect(inserts).toBe(0);
+    // A bare throw keeps its text.
+    const bare = await insertAtNextSeq({ maxSeq: async () => { throw new Error('fetch failed'); }, insert: async () => null });
+    expect(bare.error).toEqual({ code: null, message: 'fetch failed' });
+  });
+
+  it('the one read retry is for the whole call, not per 23505 attempt', async () => {
+    let reads = 0;
+    const out = await insertAtNextSeq({
+      maxSeq: async () => {
+        reads++;
+        if (reads === 1 || reads === 3) throw { code: '08006', message: 'connection failure' };
+        return 0;
+      },
+      insert: async () => ({ code: '23505' }),
+    });
+    expect(out.error).toEqual({ code: '08006', message: 'connection failure' });
+    expect(reads).toBe(3);
+  });
 });
 
 describe('wiring', () => {

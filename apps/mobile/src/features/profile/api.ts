@@ -201,6 +201,14 @@ export async function deleteAccount(
   const { data, error } = await client
     .schema('app')
     .rpc('delete_my_account', { p_confirm: 'DELETE' });
+  // ALREADY_DELETED is this very account's tombstone: an earlier press went
+  // through but its answer was lost. It is a finished deletion, not a refusal,
+  // so the device is signed out and cleaned up as after a first success
+  // (audit finding 28; it used to leave the phone signed in to a dead account).
+  if (error && error.message === 'ALREADY_DELETED') {
+    await client.auth.signOut({ scope: 'local' });
+    return { deleted: true, apple_revoke_pending: false };
+  }
   if (error) throw error;
 
   // The server-side session is already gone with the auth user, so a normal

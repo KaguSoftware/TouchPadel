@@ -32,6 +32,13 @@ export interface TableSession {
    * not return it: the page keeps the branch it rendered.
    */
   venueId: string | null;
+  /**
+   * How far the server's clock is ahead of this device's, in ms, measured when
+   * the session bound (the route's `serverNow`). The expiry timer counts on
+   * the server's clock: a phone set two hours fast must not see a fresh
+   * session as long expired. 0 when unknown.
+   */
+  clockSkewMs?: number;
 }
 
 /** What the route answers. `none`: there is no table cookie (it aged out, or was cleared). */
@@ -39,7 +46,7 @@ export type BindResult =
   | { name: 'none' }
   | { name: 'invalid' }
   | { name: 'error' }
-  | { name: 'bound'; session: TableSession };
+  | { name: 'bound'; session: TableSession; serverNow?: string };
 
 /** The route, under the guest's locale so proxy.ts passes it through without a locale hop. */
 export function tableSessionPath(locale: string): string {
@@ -87,8 +94,10 @@ export function parseBindResult(body: unknown): BindResult {
       typeof s.tableNumber === 'string' &&
       typeof s.expiresAt === 'string'
     ) {
+      const serverNow = (body as { serverNow?: unknown }).serverNow;
       return {
         name: 'bound',
+        ...(typeof serverNow === 'string' ? { serverNow } : {}),
         session: {
           sessionId: s.sessionId,
           tableId: s.tableId,

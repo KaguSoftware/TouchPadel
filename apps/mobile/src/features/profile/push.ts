@@ -45,6 +45,7 @@ import { isTournamentPushKind } from '../tournaments/pushRoutes';
 import {
   isGuestTap,
   isStaffTap,
+  mayAskForPush,
   shouldPersistToken,
   shouldRouteTap,
   shouldSync,
@@ -157,7 +158,7 @@ async function persistToken(token: string, force = false): Promise<boolean> {
  * app resume — it only repairs a profile whose permission is ALREADY granted.
  */
 export async function registerPushToken(
-  opts: { prompt?: boolean } = {},
+  opts: { prompt?: boolean; askIfNeverAsked?: boolean } = {},
 ): Promise<PushRegistrationResult> {
   const prompt = opts.prompt !== false;
   try {
@@ -173,7 +174,9 @@ export async function registerPushToken(
     const { status: existing } = await Notifications.getPermissionsAsync();
     let status = existing;
     if (existing !== 'granted') {
-      if (!prompt) return status === 'denied' ? 'denied' : 'unavailable';
+      if (!mayAskForPush({ prompt, askIfNeverAsked: opts.askIfNeverAsked === true, status: existing })) {
+        return status === 'denied' ? 'denied' : 'unavailable';
+      }
       const req = await Notifications.requestPermissionsAsync();
       status = req.status;
     }
@@ -214,8 +217,10 @@ export async function registerPushToken(
  * Keep profiles.expo_push_token present and current for as long as there is a
  * session. Called once from the root layout with the live session flag.
  *
- * Three triggers, all silent (never prompts — see registerPushToken's `prompt`):
+ * Three triggers, silent except one (see registerPushToken's `prompt`):
  *   1. sign-in / mount, so a brand-new account has a token before it can book;
+ *      this one shows the OS dialog when this install has never asked
+ *      (`askIfNeverAsked`: a reinstalled app gets its notifications back);
  *   2. every foreground, which catches an OS-level permission grant made in
  *      system settings and a token that rotted while the app was away;
  *   3. Expo's addPushTokenListener, the only authoritative signal that the OS
@@ -235,7 +240,9 @@ export function startPushRegistrationLifecycle(args: { hasSession: () => boolean
     if (!shouldSync({ cancelled, inFlight, hasSession: args.hasSession() })) return;
     inFlight = true;
     void syncPreferredLang();
-    void registerPushToken({ prompt: false })
+    // The sign-in sync asks once when this install never has (a fresh or
+    // reinstalled app); every other sync stays silent.
+    void registerPushToken({ prompt: false, askIfNeverAsked: reason === 'signed-in' })
       .then((state) => addBreadcrumb('push.sync', { reason, state }))
       .finally(() => {
         inFlight = false;

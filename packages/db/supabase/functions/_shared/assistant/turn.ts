@@ -40,7 +40,8 @@
  *                   regenerated answer only for an invented money-sized figure
  *                   or percentage (turnPolicy shouldGateRetry), and not past the
  *                   ceiling or on the last call (the figures stay marked). Every retry emits
- *                   `delta {text:'', reset:true}` so the UI drops the first draft;
+ *                   `delta {text:'', reset:true}` so the UI drops the first draft,
+ *                   and the state drops it too (withdrawDraft), so it is never stored;
  *   cut short       a call that ends `max_tokens` (the output limit) or
  *                   `refusal` ends the loop with that stop reason (2026-11-11;
  *                   it used to fall through as a normal answer): the text it
@@ -56,7 +57,8 @@
  *                   recorded as a call with stop reason `aborted` and priced
  *                   like any other; text it had streamed becomes the turn's
  *                   text, gated (marks only), so the stored turn holds what
- *                   the owner saw. The error then propagates.
+ *                   the owner saw; after a retry withdrew the draft and before
+ *                   any new text, that is nothing. The error then propagates.
  *
  * Every operator instruction goes through `pushSystem`, which folds a second
  * one into a trailing system entry (the API takes a system message after a
@@ -265,6 +267,17 @@ export function hasCitations(content: readonly TurnBlock[]): boolean {
 export const FALSE_REFUSAL_RE = /context is off for this chat|is off for this chat|مغلق لهذ|مغلقة لهذ|السياق.{0,20}(مغلق|معطل|غير مفعل)/i;
 
 /** The operator lines the loop sends, by name, so the tests read the same strings. */
+/**
+ * Tool calls answered in one round (audit finding 30). Nothing capped the
+ * count, and the cost ceiling is only checked after the next call is paid:
+ * 10 to 40 list calls of 500 rows each in one round made that next call
+ * roughly 200k to 800k input tokens, several times the per-message ceiling,
+ * whether the model chose it or text in a guest note asked for it. The calls
+ * past this get a not-run result (every tool_use needs one), and the model
+ * may ask for them again next round, under the ceiling check.
+ */
+export const MAX_TOOL_USES_PER_ROUND = 6;
+
 export const TURN_NOTICES = {
   roundsExhausted: 'Tool rounds exhausted for this message; answer from what you have or propose a job',
   roundsExhaustedSystem: 'No more tools this turn. Answer now from the results you have, or say what is missing.',
@@ -275,6 +288,7 @@ export const TURN_NOTICES = {
   /** What the owner reads (and the stored turn keeps) when the model still asked for more on the last call the loop allows. No figure in it, like costCeilingAnswer. */
   roundsExhaustedAnswer: 'This message ran out of tool rounds before the answer was finished. Ask a narrower question, or propose a job for the rest.',
   searchCap: 'The web searches for this message are used up. Do not search again; answer from what you have.',
+  toolsPerRound: `Not run: at most ${MAX_TOOL_USES_PER_ROUND} tool calls are answered in one round. Ask again for this one in the next round only if you still need it.`,
   falseRefusal:
     'No tool was refused this turn, so do not say that context is off. If the question asks where a page, button or setting is, or how something works, answer with the route (for example /stock/waste) from the search results below or from page_lookup. If it needs a figure, call the tool.',
 } as const;
@@ -474,6 +488,21 @@ async function recordCutCall<B extends TurnBlock>(state: TurnState<B>, input: Tu
   state.gate = gateAnswer(streamed, [...state.allowed, ...state.webNumbers, ...input.previousNumbers], input.userNumbers);
 }
 
+/**
+ * A retry withdraws the draft: the client is told to blank it, and the state
+ * forgets it too. Until 2026-11-12 the draft stayed in finalText, so a
+ * regenerated call that threw before any text (the wall, a Stop, a 429) left
+ * the rejected answer to be stored and replayed to the model next turn. With
+ * it gone, such a turn ends empty and failed (persist's empty block plus
+ * error_code); text the new call streams before a throw is still kept.
+ */
+function withdrawDraft<B extends TurnBlock>(state: TurnState<B>, deps: Pick<TurnDeps<B>, 'emit'>): void {
+  state.finalText = '';
+  state.finalContent = [];
+  state.gate = null;
+  deps.emit('delta', { text: '', reset: true });
+}
+
 /** Once a message has run its searches, say so through the operator channel (after a user turn or a server-tool pause). */
 function noteSearchCap<B extends TurnBlock>(state: TurnState<B>, maxUses: number, messages: TurnMessage<B>[]): void {
   if (state.webCapNoted || state.webSearches < maxUses) return;
@@ -548,7 +577,9 @@ export async function runTurnLoop<B extends TurnBlock>(state: TurnState<B>, inpu
         pushSystem(messages, overCap ? TURN_NOTICES.costCeilingSystem : TURN_NOTICES.roundsExhaustedSystem);
         continue;
       }
-      const results = await Promise.all(uses.map((u) => dispatchTool(state, input, deps, u)));
+      const run = uses.slice(0, MAX_TOOL_USES_PER_ROUND);
+      const results = await Promise.all(run.map((u) => dispatchTool(state, input, deps, u)));
+      const notRun = uses.slice(MAX_TOOL_USES_PER_ROUND).map((u) => toolResultBlock(u.id, cleanedNotice(TURN_NOTICES.toolsPerRound), true));
       const proposed = results.find((r) => r.estimate);
       if (proposed?.estimate) {
         state.jobEstimate = proposed.estimate;
@@ -557,7 +588,7 @@ export async function runTurnLoop<B extends TurnBlock>(state: TurnState<B>, inpu
         break;
       }
       messages.push({ role: 'assistant', content: turn.content });
-      messages.push({ role: 'user', content: results.map((r) => r.result) });
+      messages.push({ role: 'user', content: [...results.map((r) => r.result), ...notRun] });
       noteSearchCap(state, deps.webSearchMaxUses, messages);
       continue;
     }
@@ -601,7 +632,7 @@ export async function runTurnLoop<B extends TurnBlock>(state: TurnState<B>, inpu
         console.error('[assistant-chat] refusal retry search failed', errorText(e));
       }
       pushSystem(messages, `${TURN_NOTICES.falseRefusal}${foundAgain}`);
-      deps.emit('delta', { text: '', reset: true });
+      withdrawDraft(state, deps);
       continue;
     }
 
@@ -625,7 +656,7 @@ export async function runTurnLoop<B extends TurnBlock>(state: TurnState<B>, inpu
       deps.emit('gate', { ...state.gate, retried: true });
       // The answer is not appended (a system message must follow a user turn); the instruction is.
       pushSystem(messages, retryMessage(state.gate.unverified));
-      deps.emit('delta', { text: '', reset: true });
+      withdrawDraft(state, deps);
       continue;
     }
     break;

@@ -188,3 +188,125 @@ export function detailEntries(detail: Record<string, unknown>): { key: string; v
   }));
   return [...entries.filter((e) => e.key !== 'stack'), ...entries.filter((e) => e.key === 'stack')];
 }
+
+// ---------------------------------------------------------------------------
+// The Assistant table (assistant_weekly_page, 0420-0422): one row per complete
+// week, newest first. It does not follow the page's filters: its rows are the
+// venue's business weeks, read by their own RPC.
+// ---------------------------------------------------------------------------
+
+/** How many complete weeks the table asks for. */
+export const ASSISTANT_WEEKS = 12;
+
+export interface AssistantWeek {
+  weekStart: string;
+  weekEnd: string;
+  level: 'info' | 'warn';
+  questions: number;
+  failed: number;
+  failedByCode: Record<string, number>;
+  notSaved: number;
+  marked: number;
+  thumbsDown: number;
+  rated: number;
+  secondsP50: number | null;
+  costPerQuestionMicros: number | null;
+}
+
+const numOrNull = (v: unknown): number | null => (typeof v === 'number' && Number.isFinite(v) ? v : null);
+
+/** `assistant_weekly_page` read defensively: unknown shapes become empty weeks, nulls stay null. */
+export function readAssistantWeekly(raw: unknown): AssistantWeek[] {
+  return arr(obj(raw).weeks).map((w): AssistantWeek => {
+    const x = obj(w);
+    const f = obj(x.figures);
+    const byCode: Record<string, number> = {};
+    for (const [code, n] of Object.entries(obj(f.failedByCode))) if (num(n) > 0) byCode[code] = num(n);
+    return {
+      weekStart: str(x.weekStart) ?? '',
+      weekEnd: str(x.weekEnd) ?? '',
+      level: x.level === 'warn' ? 'warn' : 'info',
+      questions: num(f.questions),
+      failed: num(f.failed),
+      failedByCode: byCode,
+      notSaved: num(f.notSaved),
+      marked: num(f.marked),
+      thumbsDown: num(f.thumbsDown),
+      rated: num(f.rated),
+      secondsP50: numOrNull(f.secondsToAnswerP50),
+      costPerQuestionMicros: numOrNull(f.costPerQuestionMicros),
+    };
+  });
+}
+
+/** The table's empty state: no week of the twelve had a question. */
+export function noAssistantQuestions(weeks: readonly AssistantWeek[]): boolean {
+  return weeks.every((w) => w.questions === 0);
+}
+
+/** The failed cell's tooltip: "UPSTREAM 1, NOT_CONFIGURED 1", most frequent first, ties in the server's order. */
+export function failedCodesTitle(byCode: Record<string, number>): string {
+  return Object.entries(byCode)
+    .filter(([, n]) => n > 0)
+    .sort(([, x], [, y]) => y - x)
+    .map(([code, n]) => `${code} ${n}`)
+    .join(', ');
+}
+
+/** A week's date as a Date the venue formatter reads as that same day (noon UTC is that day in Baghdad). */
+export function weekDate(isoDay: string): Date | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(isoDay)) return null;
+  const d = new Date(`${isoDay}T12:00:00Z`);
+  return Number.isFinite(d.getTime()) ? d : null;
+}
+
+export const DASH = '—';
+
+/** What one row shows, every figure already a string (the page only lays them out). */
+export interface AssistantWeekRow {
+  key: string;
+  week: string;
+  weekTitle: string;
+  warn: boolean;
+  questions: string;
+  failed: string;
+  failedTitle: string;
+  notSaved: string;
+  marked: string;
+  thumbsDown: string;
+  median: string;
+  costPerQuestion: string;
+}
+
+export interface WeekFormatters {
+  number: (n: number) => string;
+  date: (d: Date) => string;
+  usd: (micros: number) => string;
+  /** "{n} of {rated}" in the page's language. */
+  thumbsOf: (n: string, rated: string) => string;
+  /** "{from} to {to}" in the page's language. */
+  range: (from: string, to: string) => string;
+}
+
+/** The weeks as table rows, in the server's order (newest first). */
+export function assistantWeekRows(weeks: readonly AssistantWeek[], fmt: WeekFormatters): AssistantWeekRow[] {
+  return weeks.map((w) => {
+    const start = weekDate(w.weekStart);
+    const end = weekDate(w.weekEnd);
+    const week = start ? fmt.date(start) : w.weekStart;
+    return {
+      key: w.weekStart,
+      week,
+      weekTitle: start && end ? fmt.range(week, fmt.date(end)) : week,
+      warn: w.level === 'warn',
+      questions: fmt.number(w.questions),
+      failed: fmt.number(w.failed),
+      failedTitle: failedCodesTitle(w.failedByCode),
+      notSaved: fmt.number(w.notSaved),
+      marked: fmt.number(w.marked),
+      thumbsDown: w.rated > 0 ? fmt.thumbsOf(fmt.number(w.thumbsDown), fmt.number(w.rated)) : DASH,
+      median: w.secondsP50 === null ? DASH : fmt.number(Math.round(w.secondsP50)),
+      costPerQuestion: w.costPerQuestionMicros === null ? DASH : fmt.usd(w.costPerQuestionMicros),
+    };
+  });
+}

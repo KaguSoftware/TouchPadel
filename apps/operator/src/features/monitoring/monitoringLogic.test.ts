@@ -9,6 +9,13 @@ import {
   levelTone,
   readEventsPage,
   readSummary,
+  DASH,
+  assistantWeekRows,
+  failedCodesTitle,
+  noAssistantQuestions,
+  readAssistantWeekly,
+  weekDate,
+  type WeekFormatters,
 } from './monitoringLogic';
 
 const NOW = new Date('2026-11-01T10:30:00Z');
@@ -77,5 +84,94 @@ describe('monitoring logic', () => {
 
   it('lists the detail with the stack last', () => {
     expect(detailEntries({ stack: 's', route: '/till', n: { a: 1 } }).map((e) => e.key)).toEqual(['route', 'n', 'stack']);
+  });
+});
+
+describe('the Assistant table', () => {
+  const raw = {
+    weeks: [
+      {
+        weekStart: '2026-11-02',
+        weekEnd: '2026-11-08',
+        level: 'warn',
+        figures: {
+          questions: 6,
+          answers: 4,
+          failed: 2,
+          failedByCode: { UPSTREAM: 1, NOT_CONFIGURED: 1 },
+          notSaved: 1,
+          marked: 1,
+          secondsToAnswerP50: 20,
+          secondsToAnswerP95: 29,
+          costMicros: 4700,
+          costPerQuestionMicros: 783,
+          thumbsUp: 1,
+          thumbsDown: 1,
+          rated: 2,
+        },
+      },
+      { weekStart: '2026-10-26', weekEnd: '2026-11-01', level: 'info', figures: { questions: 0, secondsToAnswerP50: null, costPerQuestionMicros: null, rated: 0 } },
+    ],
+    timezone: 'Asia/Baghdad',
+  };
+  const fmt: WeekFormatters = {
+    number: (n) => String(n),
+    date: (d) => d.toISOString().slice(0, 10),
+    usd: (m) => `$${(m / 1e6).toFixed(4)}`,
+    thumbsOf: (n, rated) => `${n} of ${rated}`,
+    range: (from, to) => `${from} to ${to}`,
+  };
+
+  it('reads the weeks newest first, nulls kept as null', () => {
+    const weeks = readAssistantWeekly(raw);
+    expect(weeks.map((w) => w.weekStart)).toEqual(['2026-11-02', '2026-10-26']);
+    expect(weeks[0]).toMatchObject({ level: 'warn', questions: 6, failed: 2, notSaved: 1, marked: 1, thumbsDown: 1, rated: 2, secondsP50: 20, costPerQuestionMicros: 783 });
+    expect(weeks[1]).toMatchObject({ level: 'info', questions: 0, secondsP50: null, costPerQuestionMicros: null });
+    expect(readAssistantWeekly(null)).toEqual([]);
+    expect(readAssistantWeekly({ weeks: 'x' })).toEqual([]);
+  });
+
+  it('shapes rows: "n of rated", dashes for nothing, the range as the title', () => {
+    const rows = assistantWeekRows(readAssistantWeekly(raw), fmt);
+    expect(rows[0]).toMatchObject({
+      key: '2026-11-02',
+      week: '2026-11-02',
+      weekTitle: '2026-11-02 to 2026-11-08',
+      warn: true,
+      questions: '6',
+      failed: '2',
+      failedTitle: 'UPSTREAM 1, NOT_CONFIGURED 1',
+      notSaved: '1',
+      marked: '1',
+      thumbsDown: '1 of 2',
+      median: '20',
+      costPerQuestion: '$0.0008',
+    });
+    expect(rows[1]).toMatchObject({ warn: false, thumbsDown: DASH, median: DASH, costPerQuestion: DASH, failedTitle: '' });
+  });
+
+  it('lists the failed codes, most frequent first, ties in the server order', () => {
+    expect(failedCodesTitle({ UPSTREAM: 1, NOT_CONFIGURED: 1 })).toBe('UPSTREAM 1, NOT_CONFIGURED 1');
+    expect(failedCodesTitle({ TIMEOUT: 1, UPSTREAM: 3, GONE: 0 })).toBe('UPSTREAM 3, TIMEOUT 1');
+    expect(failedCodesTitle({})).toBe('');
+  });
+
+  it('is empty only when no week had a question', () => {
+    const weeks = readAssistantWeekly(raw);
+    expect(noAssistantQuestions(weeks)).toBe(false);
+    expect(noAssistantQuestions(weeks.slice(1))).toBe(true);
+    expect(noAssistantQuestions([])).toBe(true);
+  });
+
+  it('reads a week day as that day in Baghdad', () => {
+    expect(weekDate('2026-11-02')!.toISOString()).toBe('2026-11-02T12:00:00.000Z');
+    expect(weekDate('nope')).toBeNull();
+  });
+
+  it('keeps all twelve weeks in the server order (the page caps them at three)', () => {
+    const many = { weeks: Array.from({ length: 12 }, (_, i) => ({ weekStart: `2026-08-${String(i + 10).padStart(2, '0')}`, weekEnd: '', level: 'info', figures: { questions: 1 } })) };
+    const rows = assistantWeekRows(readAssistantWeekly(many), fmt);
+    expect(rows).toHaveLength(12);
+    expect(rows.slice(0, 3).map((r) => r.key)).toEqual(['2026-08-10', '2026-08-11', '2026-08-12']);
   });
 });

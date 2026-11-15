@@ -37,27 +37,6 @@ export function promotionDiscountIqd(base: number, type: PromotionType, value: n
   throw new RangeError(`promotion type must be percent or amount, got ${String(type)}`);
 }
 
-export interface RankedPromotion {
-  promotionId: string;
-  amountIqd: number;
-}
-
-/**
- * The single best promotion from an eligible list: the largest `amountIqd`,
- * ties broken by list order (the server orders candidates by created_at, id
- * before ranking, so "first" is the oldest). Candidates below 1 IQD are not
- * promotions and are skipped; `null` when nothing qualifies. Twin of the
- * ordering in `app.eligible_promotions` (amountIqd desc, then input order).
- */
-export function pickBestPromotion<T extends RankedPromotion>(candidates: readonly T[]): T | null {
-  let best: T | null = null;
-  for (const c of candidates) {
-    if (!Number.isSafeInteger(c.amountIqd) || c.amountIqd < 1) continue;
-    if (best === null || c.amountIqd > best.amountIqd) best = c;
-  }
-  return best;
-}
-
 /**
  * Code alphabet shared with `app.generate_promo_code`: upper-case, no 0/O/1/I,
  * exactly 32 symbols so a random byte modulo 32 is unbiased.

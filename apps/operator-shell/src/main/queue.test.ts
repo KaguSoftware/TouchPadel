@@ -22,6 +22,8 @@ import {
   setMeta,
   setConnOnline,
   setWorkerUnreachable,
+  pruneAcked,
+  kitchenBacklog,
   QueueEncryptionUnavailableError,
 } from './queue';
 import { observePin, unlockPinOffline } from './pin-cache';
@@ -121,7 +123,7 @@ describe('schema v1 migration', () => {
     expect(cols).toContain('device_id');
     expect(cols).toContain('resolved_by'); // v3: manager dismiss (resolveRow)
     expect(cols).toContain('resolved_at');
-    expect(d.pragma('user_version', { simple: true })).toBe(6);
+    expect(d.pragma('user_version', { simple: true })).toBe(7);
     expect(() => d.exec("INSERT INTO meta (key, value) VALUES ('k','v')")).not.toThrow();
     d.close();
   });
@@ -140,7 +142,7 @@ describe('schema v1 migration', () => {
     const file = legacyDbFile();
     openQueueAt(file).close();
     const d = openQueueAt(file);
-    expect(d.pragma('user_version', { simple: true })).toBe(6);
+    expect(d.pragma('user_version', { simple: true })).toBe(7);
     d.close();
   });
 });
@@ -433,6 +435,45 @@ describe('ack', () => {
   });
 });
 
+describe('pruneAcked', () => {
+  it('drops acked rows older than 30 days and keeps everything still in play', () => {
+    const old = '2026-01-01T09:00:00.000Z';
+    const delivered = unique({ createdAt: old });
+    const recent = unique({ createdAt: '2026-01-30T09:00:00.000Z' });
+    const failed = unique({ createdAt: old });
+    const pending = unique({ createdAt: old });
+    for (const m of [delivered, recent, failed, pending]) enqueue(m);
+    ack(delivered.idempotencyKey, {});
+    ack(recent.idempotencyKey, {});
+    markFailed(failed.idempotencyKey, 'refused');
+
+    expect(pruneAcked(openQueue(), new Date('2026-02-15T00:00:00.000Z'))).toBe(1);
+    const keys = (openQueue().prepare('SELECT idempotency_key FROM mutation_queue').all() as { idempotency_key: string }[])
+      .map((r) => r.idempotency_key);
+    expect(keys).not.toContain(delivered.idempotencyKey);
+    expect(keys).toEqual(expect.arrayContaining([recent.idempotencyKey, failed.idempotencyKey, pending.idempotencyKey]));
+  });
+
+  it('reads state through the index, not a full scan', () => {
+    const plan = openQueue()
+      .prepare(`EXPLAIN QUERY PLAN SELECT * FROM mutation_queue WHERE state IN ('pending','inflight') ORDER BY seq LIMIT 1`)
+      .all() as { detail: string }[];
+    expect(plan.map((p) => p.detail).join(' ')).toContain('mq_state_seq');
+  });
+});
+
+describe('kitchenBacklog', () => {
+  it('lists the undelivered kitchen rows in queue order and nothing else', () => {
+    const order = unique();
+    const bump = unique({ mutationType: 'ticket.status', payload: { ticketIdemKey: order.idempotencyKey, status: 'ready' } });
+    const payment = unique({ mutationType: 'payment.record' });
+    const delivered = unique();
+    for (const m of [order, bump, payment, delivered]) enqueue(m);
+    ack(delivered.idempotencyKey, {});
+    expect(kitchenBacklog().map((r) => r.idempotencyKey)).toEqual([order.idempotencyKey, bump.idempotencyKey]);
+  });
+});
+
 describe('ref_cache', () => {
   it('misses cleanly on an empty cache', () => {
     expect(getCachedRef('menu')).toBeUndefined();
@@ -589,7 +630,7 @@ describe('v4 -> v5 upgrade (pin_cache owner)', () => {
     db.close();
 
     const d = openQueueAt(file);
-    expect(d.pragma('user_version', { simple: true })).toBe(6);
+    expect(d.pragma('user_version', { simple: true })).toBe(7);
     const row = d.prepare('SELECT pin_hash, role, staff_id FROM pin_cache').get() as {
       pin_hash: string;
       role: string;
@@ -654,7 +695,7 @@ describe('v3 -> v4 upgrade (a till updated mid-service)', () => {
 
   it('adds payload_enc without touching the pending row', () => {
     const d = openQueueAt(v3DbFile());
-    expect(d.pragma('user_version', { simple: true })).toBe(6);
+    expect(d.pragma('user_version', { simple: true })).toBe(7);
     const row = d
       .prepare('SELECT state, payload_enc, payload FROM mutation_queue')
       .get() as { state: string; payload_enc: number; payload: string };

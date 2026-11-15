@@ -3,7 +3,7 @@ import { Pressable, ScrollView, View } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { DEFAULT_SCOPES, type AssistantScope } from '@touch/core/assistant/tools';
+import { type AssistantScope } from '@touch/core/assistant/tools';
 import { Text } from '../../src/i18n/text';
 import { useLocale } from '../../src/i18n/LocaleProvider';
 import { radius, space, useTheme } from '../../src/theme';
@@ -32,8 +32,9 @@ import {
   type MessageRow,
 } from '../../src/features/assistant/chat';
 import { useAssistantChat } from '../../src/features/assistant/useAssistantChat';
+import { useRateMessage } from '../../src/features/assistant/useRateMessage';
 import { Answer, Composer, ScopeChips, StoredTurn, UserBubble } from '../../src/features/assistant/parts';
-import { liveEnding, mergeThread, retryTextFor } from '../../src/features/assistant/thread';
+import { endingAllowsRetry, liveEnding, mergeThread, retryTextFor } from '../../src/features/assistant/thread';
 import { useStickToBottom } from '../../src/features/assistant/stickToBottom';
 import { SettingsSheet } from '../../src/features/assistant/SettingsSheet';
 import { FreeThread } from '../../src/features/assistant/FreeThread';
@@ -81,7 +82,9 @@ function AssistantThread({
   const { venueId } = useStaffStatus();
 
   const [conversationId, setConversationId] = useState<string | null>(initialId);
-  const [newScopes, setNewScopes] = useState<AssistantScope[]>(() => normaliseScopes(DEFAULT_SCOPES));
+  const [newScopes, setNewScopes] = useState<AssistantScope[]>([]);
+  // A new chat reads nothing until the owner picks (owner call 2026-10-20, the desktop's
+  // NEW_CHAT_SCOPES): the composer stays locked until a scope is on or a starter is pressed.
   const [draft, setDraft] = useState('');
   // The model a chat that has no row yet will be created with (null = venue default).
   const [newModel, setNewModel] = useState<string | null>(null);
@@ -160,6 +163,8 @@ function AssistantThread({
       toast(t('errors.generic'), 'error');
     },
   });
+
+  const rate = useRateMessage(conversationId, () => toast(t('staff.assistant.feedback.failed'), 'error'));
 
   const send = useCallback(
     (text: string, over?: readonly AssistantScope[]) => {
@@ -324,6 +329,7 @@ function AssistantThread({
             testID={`${T}.answer.${m.id}`}
             retryText={showLive || chat.streaming ? null : retryTextFor(rows, i)}
             onAsk={onAsk}
+            onRate={rate}
           />
         ))}
 
@@ -347,7 +353,11 @@ function AssistantThread({
               }
               onTurnOn={(s) => void turnOn(s)}
               turningOn={turningOn}
-              onRetry={chat.lastQuestion ? () => void chat.ask(chat.lastQuestion!) : undefined}
+              onRetry={
+                chat.lastQuestion && endingAllowsRetry(ending)
+                  ? () => void chat.ask(chat.lastQuestion!)
+                  : undefined
+              }
             />
           </>
         ) : null}
@@ -365,7 +375,9 @@ function AssistantThread({
             missing ||
             (conversationId !== null && !conversation.isSuccess)
           }
-          onToggle={(scope) => changeScopes.mutate(toggleScope(scopes, scope))}
+          onToggle={(scope) =>
+            changeScopes.mutate(toggleScope(scopes, scope, conversationId === null))
+          }
         />
         <Composer
           testID={`${T}.composer`}
@@ -374,6 +386,7 @@ function AssistantThread({
           onSend={() => send(draft)}
           onStop={chat.stop}
           streaming={chat.streaming}
+          locked={conversationId === null && scopes.length === 0}
         />
       </View>
 

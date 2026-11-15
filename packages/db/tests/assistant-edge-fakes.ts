@@ -37,7 +37,8 @@ export interface Op {
 export interface FakeHandlers {
   rpc?(name: string, args: Record<string, unknown>, op: Op): Result | Promise<Result>;
   from?(table: string, op: Op): Result | Promise<Result>;
-  download?(bucket: string, path: string): { data: Blob | null; error: unknown } | Promise<{ data: Blob | null; error: unknown }>;
+  /** `signal` is the download's fetch parameter (storage-js `download(path, options, { signal })`). */
+  download?(bucket: string, path: string, signal?: AbortSignal): { data: Blob | null; error: unknown } | Promise<{ data: Blob | null; error: unknown }>;
 }
 
 const OK: Result = { data: null, error: null };
@@ -89,9 +90,9 @@ export function fakeClient(h: FakeHandlers = {}) {
     from: fromIn('public'),
     storage: {
       from: (bucket: string) => ({
-        download: async (path: string) => {
-          ops.push({ kind: 'download', name: bucket, schema: 'storage', args: path, chain: [] });
-          return h.download ? h.download(bucket, path) : { data: null, error: { message: 'no download handler' } };
+        download: async (path: string, _options?: unknown, parameters?: { signal?: AbortSignal }) => {
+          ops.push({ kind: 'download', name: bucket, schema: 'storage', args: path, chain: [], signal: parameters?.signal });
+          return h.download ? h.download(bucket, path, parameters?.signal) : { data: null, error: { message: 'no download handler' } };
         },
       }),
     },

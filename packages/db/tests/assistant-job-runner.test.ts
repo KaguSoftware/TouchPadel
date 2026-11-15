@@ -34,12 +34,13 @@
  * and textOf, the two values jobRunner.ts takes from it.
  */
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { estimateJob, JOB_EXTRACT_MODEL, type JobEstimate, type JobPlan } from '../supabase/functions/_shared/assistant/estimate.ts';
+import { ceilingTokens, estimateJob, isOverEstimate, JOB_EXTRACT_MODEL, LIVE_MAX_CHUNKS, restEstimate, resumeCeiling, type JobEstimate, type JobPlan } from '../supabase/functions/_shared/assistant/estimate.ts';
 import { newHandleTable, type HandleTable } from '../supabase/functions/_shared/assistant/handles.ts';
 import { buildJobSystem } from '../supabase/functions/_shared/assistant/prompt.ts';
 import { ASSISTANT_TOOLS, LIST_ROW_CAP } from '../supabase/functions/_shared/assistant/tools.ts';
 import { FLOOR_RATES, parseRates, turnEstimateMicros } from '../supabase/functions/_shared/assistant/turnPolicy.ts';
 import { argsOf, denoEnv, eqs, fakeClient, loadDenoModule, type Op, type Result } from './assistant-edge-fakes';
+import { TURN_ERROR_CODES as CORE_TURN_ERROR_CODES } from '../../core/src/assistant/outcome';
 
 const mocks = vi.hoisted(() => {
   class ProviderError extends Error {
@@ -73,19 +74,21 @@ interface JobRow {
   id: string; conversation_id: string; message_id: string | null; status: string;
   plan: JobPlan & { lang?: 'en' | 'ar' }; estimate: JobEstimate; mode: 'live' | 'batch' | null;
   chunks_total: number | null; chunks_done: number; tokens: Record<string, unknown> | null; result: unknown; batch_id: string | null;
+  status_at?: string | null;
 }
 interface Chunk { no: number; spec: { name: string }; args: Record<string, unknown>; offset: number; limit: number }
 interface BookLike {
   price(u: Usage, model: string): Promise<number>;
 }
 interface Runner {
-  Book: new (service: unknown, provider: unknown, extract?: unknown) => BookLike;
+  Book: new (service: unknown, provider: unknown, extract?: unknown, recordRetryMs?: number) => BookLike;
   chunksOf(job: JobRow): Chunk[] | string;
   runLive(book: BookLike, asOwner: unknown, job: JobRow, chunks: Chunk[], handles: HandleTable, tz: string, signal: AbortSignal, started: number): Promise<Response>;
   submitBatch(book: BookLike, asOwner: unknown, job: JobRow, chunks: Chunk[], handles: HandleTable, tz: string): Promise<Response>;
   tick(book: BookLike, signal: AbortSignal, providerOr: (model: string | null | undefined, fallback: unknown) => unknown): Promise<Response>;
   WALL_MS: number;
   TICK_CLAIM_SECONDS: number;
+  TURN_ERROR_CODES: readonly string[];
 }
 
 let R: Runner;
@@ -165,15 +168,31 @@ interface SvcOpts {
   /** llm_price_micros answers null with no error. */
   priceNull?: boolean;
   pricing?: Result;
-  begin?: Result;
+  /** begin()'s answer, or one per call (n counts from 1). */
+  begin?: Result | ((n: number) => Result);
   claim?: Result;
   /** The database's assistant_jobs rows (the tick's read filters them by its chain). */
   jobs?: JobRow[];
   jobsReadError?: unknown;
+  /** The first this-many llm_record_usage calls fail. */
+  recordFails?: number;
+  /** Plain updates of assistant_jobs (patch / save) fail. */
+  jobsUpdateFails?: boolean;
+  /** 0423: app.assistant_job_claim_stuck's answer (the sweeper's claim); none by default. */
+  stuck?: Result;
+  /** 0423: the status a `select('status')` of one job reads (Book.cancelled), by call (n from 1); no row by default. */
+  status?: (n: number, id: string) => string | null;
+  /** 0423: the stored assistant messages a sweep finds by `contains('sources', …)`, or a read error. */
+  answers?: Result;
+  /** 0423: assistant_job_transition answers this error for these statuses. */
+  transitionFails?: { statuses: string[]; error: unknown };
 }
 
 function service(o: SvcOpts = {}) {
   const transitions: { p_id: string; p_status: string; p_patch: Record<string, unknown> }[] = [];
+  let begins = 0;
+  let records = 0;
+  let statusReads = 0;
   const fake = fakeClient({
     rpc: (name, args): Result => {
       if (name === 'llm_price_micros') {
@@ -182,13 +201,23 @@ function service(o: SvcOpts = {}) {
         if (o.priceNull) return { data: null, error: null };
         return { data: PRICE(model, { input: Number(args.p_input), output: Number(args.p_output) }), error: null };
       }
-      if (name === 'llm_begin_request') return o.begin ?? { data: { month_cost_micros: 0, monthly_cap_micros: 1e12 }, error: null };
+      if (name === 'llm_begin_request') {
+        begins++;
+        if (typeof o.begin === 'function') return o.begin(begins);
+        return o.begin ?? { data: { month_cost_micros: 0, monthly_cap_micros: 1e12 }, error: null };
+      }
+      if (name === 'llm_record_usage') {
+        records++;
+        return records <= (o.recordFails ?? 0) ? { data: null, error: { code: '57014', message: 'canceling statement due to statement timeout' } } : { data: null, error: null };
+      }
       if (name === 'assistant_job_transition') {
         // snapshot: the edge serialises the patch at call time, and the spend object keeps growing after
         transitions.push(structuredClone(args) as (typeof transitions)[number]);
+        if (o.transitionFails?.statuses.includes(String(args.p_status))) return { data: null, error: o.transitionFails.error };
         return { data: null, error: null };
       }
       if (name === 'assistant_job_claim_tick') return o.claim ?? { data: [], error: null };
+      if (name === 'assistant_job_claim_stuck') return o.stuck ?? { data: [], error: null };
       return { data: null, error: null };
     },
     from: (table, op: Op): Result => {
@@ -196,6 +225,7 @@ function service(o: SvcOpts = {}) {
       const updating = argsOf(op, 'update') !== undefined;
       if (table === 'assistant_messages') {
         if (inserting) return { data: null, error: null };
+        if (argsOf(op, 'contains')) return o.answers ?? { data: [], error: null };
         return { data: o.maxSeq === undefined ? null : { seq: o.maxSeq }, error: null };
       }
       if (table === 'platform_settings') {
@@ -203,11 +233,19 @@ function service(o: SvcOpts = {}) {
         if (cols.includes('llm_pricing')) return o.pricing ?? { data: { llm_pricing: {}, llm_cost_micros_per_mtok: 0 }, error: null };
         return { data: { timezone: TZ }, error: null };
       }
+      if (table === 'assistant_jobs' && updating && o.jobsUpdateFails) return { data: null, error: { code: '57014', message: 'timeout' } };
       if (table === 'assistant_jobs' && !inserting && !updating) {
+        // Book.cancelled's one-row read of the status (0423)
+        if (String(argsOf(op, 'select')?.[0] ?? '') === 'status') {
+          const st = o.status?.(++statusReads, String(eqs(op).id)) ?? null;
+          return { data: st === null ? null : { status: st }, error: null };
+        }
         if (o.jobsReadError) return { data: null, error: o.jobsReadError };
         const ids = (argsOf(op, 'in')?.[1] as string[] | undefined) ?? [];
         const e = eqs(op);
-        const rows = (o.jobs ?? []).filter((j) => ids.includes(j.id) && (e.status === undefined || j.status === e.status) && (e.mode === undefined || j.mode === e.mode) && j.batch_id !== null);
+        // the tick's read asks for a batch id (`.not('batch_id', 'is', null)`); the sweeper's does not
+        const needsBatch = argsOf(op, 'not')?.[0] === 'batch_id';
+        const rows = (o.jobs ?? []).filter((j) => ids.includes(j.id) && (e.status === undefined || j.status === e.status) && (e.mode === undefined || j.mode === e.mode) && (!needsBatch || j.batch_id !== null));
         return { data: rows, error: null };
       }
       return { data: null, error: null };
@@ -219,9 +257,11 @@ function service(o: SvcOpts = {}) {
 const rowId = (n: number) => `dddddddd-0000-4000-8000-${String(n).padStart(12, '0')}`;
 
 /** The owner's client: assistant_run_tool answers `limit` rows from `offset`, priced 1,000 IQD each. */
-function owner(fail?: (args: Record<string, unknown>) => Result | null) {
+function owner(fail?: (args: Record<string, unknown>) => Result | null, count?: (args: Record<string, unknown>) => Result) {
   return fakeClient({
     rpc: (name, args): Result => {
+      // 0423: the resume's row check, as the owner
+      if (name === 'assistant_count' && count) return count(args);
       if (name !== 'assistant_run_tool') return { data: null, error: { code: 'P0001', message: 'NOT_A_TOOL' } };
       const failed = fail?.(args);
       if (failed) return failed;
@@ -400,8 +440,8 @@ describe('runLive: accept → chunks → reduce → the answer in the chat', () 
     expect(svc.ops.some((o) => JSON.stringify(argsOf(o, 'update') ?? []).includes('tick_claimed_until'))).toBe(false);
   });
 
-  it('a chunk the model refuses fails the job with its code; the chunks that ran are still recorded, nothing is reduced or stored', async () => {
-    const svc = service();
+  it('a chunk the model refuses fails the job with its code; the chunks that ran are still recorded, nothing is reduced, the chat gets a failed message', async () => {
+    const svc = service({ maxSeq: 4 });
     const ex = extractor((no) => (no === 2 ? Promise.reject(new ProviderError('RATE_LIMITED', 'vendor said: slow down, org-secret-42', 429)) : null));
     const rd = reducer();
     const res = await runLive(svc, owner(), threeChunks(), new R.Book(svc.client, rd, ex));
@@ -409,11 +449,20 @@ describe('runLive: accept → chunks → reduce → the answer in the chat', () 
     expect(await res.json()).toEqual({ job_id: JOB, status: 'failed', error: 'RATE_LIMITED', message: 'the model is rate-limited right now; try again in a minute', chunks_done: 2 });
     expect(statuses(svc)).toEqual(['failed']);
     expect(svc.transitions[0]!.p_patch.error).toBe('RATE_LIMITED: the model is rate-limited right now; try again in a minute');
+    // the objects already paid for stay on the job
+    expect((svc.transitions[0]!.p_patch.result as { objects: unknown[] }).objects).toHaveLength(2);
     expect(JSON.stringify(svc.transitions)).not.toContain('org-secret-42');
     expect(logged.join('\n')).toContain(`live job ${JOB} failed (RATE_LIMITED)`);
     expect(svc.rpcs('llm_record_usage')).toHaveLength(2); // spent is spent
     expect(rd.streams).toEqual([]);
-    expect(insertRows(svc, 'assistant_messages')).toEqual([]);
+    // the chat's failed-turn shape (persist.ts): one empty text block, error_code and stop_reason
+    const msgs = insertRows(svc, 'assistant_messages') as Record<string, unknown>[];
+    expect(msgs).toHaveLength(1);
+    expect(msgs[0]).toMatchObject({ conversation_id: CONV, seq: 5, role: 'assistant', content: [{ type: 'text', text: '' }], gate: null, sources: [{ job_id: JOB, chunks: 2, rows: 600 }] });
+    expect(msgs[0]!.tokens).toMatchObject({ error_code: 'RATE_LIMITED', stop_reason: 'RATE_LIMITED', job_error: 'RATE_LIMITED', calls: 2 });
+    expect(JSON.stringify(msgs)).not.toContain('org-secret-42');
+    const [calls] = insertRows(svc, 'assistant_calls') as Record<string, unknown>[][];
+    expect(calls!.map((c) => [c.message_id, c.model])).toEqual([[msgs[0]!.id, SONNET], [msgs[0]!.id, SONNET]]);
   });
 
   it('a database error on a chunk read is UPSTREAM with our sentence; the raw Postgres text reaches the log only', async () => {
@@ -439,13 +488,19 @@ describe('runLive: accept → chunks → reduce → the answer in the chat', () 
   });
 
   it('with calls in flight the cap stops new launches one call short of the month (pool.ts budgetAllows)', async () => {
-    const svc = service({ begin: { data: { month_cost_micros: 999, monthly_cap_micros: 1000 }, error: null } });
+    // the job fits on the first reading; other spending lands before the next begin()
+    const svc = service({ begin: (n) => ({ data: { month_cost_micros: n === 1 ? 0 : 999_999_999, monthly_cap_micros: 1_000_000_000 }, error: null }) });
     const ex = extractor();
     const res = await runLive(svc, owner(), threeChunks(), new R.Book(svc.client, reducer(), ex));
     expect(ex.streams).toHaveLength(1); // the first passes on the reading, the others count it in flight
-    expect(res.status).toBe(429);
-    expect(await res.json()).toMatchObject({ error: 'LLM_MONTHLY_CAP' });
+    // 0423: the chunk already paid for is kept: the job pauses (cap) instead of failing
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ status: 'over_estimate', reason: 'cap', chunks_done: 1 });
+    expect(statuses(svc)).toEqual(['over_estimate']);
+    const pause = (svc.transitions[0]!.p_patch.result as { pause: { reason: string; chunks_left: number[] } }).pause;
+    expect(pause).toMatchObject({ reason: 'cap', chunks_left: [2, 3] });
     expect(svc.rpcs('llm_record_usage')).toHaveLength(1);
+    expect(insertRows(svc, 'assistant_messages')).toEqual([]);
   });
 
   it('past the launch cutoff nothing launches and the job fails as TIMEOUT, re-run as batch', async () => {
@@ -473,17 +528,148 @@ describe('runLive: accept → chunks → reduce → the answer in the chat', () 
     expect(svc.transitions.at(-1)!.p_patch.error).toMatch(/^TIMEOUT: 0 of 3 chunks/);
   });
 
-  it('spend past the accepted estimate × 1.25 pauses the job in over_estimate with the objects kept, no reduce', async () => {
+  it('spend past the estimate × 1.25 with chunks still unread stops the launches and pauses in over_estimate, objects kept, no reduce', async () => {
+    const svc = service();
+    const rd = reducer();
+    const ex = extractor(() => textTurn('{"n":1}', { input: 900_000, cache_write: 0, cache_read: 0, output: 100 }));
+    const job = jobOf({ question: 'Bookings this week', calls: [{ tool: 'bookings_list', args: { ...WEEK } }] }, [1500]); // 6 chunks
+    const res = await runLive(svc, owner(), job, new R.Book(svc.client, rd, ex));
+    const body = (await res.json()) as Record<string, unknown>;
+    expect(body).toMatchObject({ job_id: JOB, status: 'over_estimate', chunks_done: 4 });
+    expect(ex.streams).toHaveLength(4); // the four in flight finished; chunks 5 and 6 never launched
+    expect(statuses(svc)).toEqual(['over_estimate']);
+    const patch = svc.transitions[0]!.p_patch as { result: { objects: unknown[] } };
+    expect(patch.result.objects).toHaveLength(4);
+    expect(rd.streams).toEqual([]);
+  });
+
+  it('an overrun found only once every chunk is read still reduces: the extraction is paid for (review 2026-11-11)', async () => {
     const svc = service();
     const rd = reducer();
     const ex = extractor(() => textTurn('{"n":1}', { input: 900_000, cache_write: 0, cache_read: 0, output: 100 }));
     const res = await runLive(svc, owner(), threeChunks(), new R.Book(svc.client, rd, ex));
-    const body = (await res.json()) as Record<string, unknown>;
-    expect(body).toMatchObject({ job_id: JOB, status: 'over_estimate' });
-    expect(statuses(svc)).toEqual(['over_estimate']);
-    const patch = svc.transitions[0]!.p_patch as { result: { objects: unknown[] } };
-    expect(patch.result.objects.length).toBeGreaterThan(0);
-    expect(rd.streams).toEqual([]);
+    expect(await res.json()).toMatchObject({ job_id: JOB, status: 'done', chunks_done: 3 });
+    expect(statuses(svc)).toEqual(['reducing', 'done']);
+    expect(rd.streams).toHaveLength(1);
+    expect(logged.join('\n')).toContain('reducing anyway');
+  });
+
+  it('the reduce runs past the monthly cap or the daily quota once every chunk is read (begin() is still called)', async () => {
+    for (const code of ['LLM_MONTHLY_CAP', 'LLM_DAILY_QUOTA']) {
+      const svc = service({ begin: (n) => (n <= 3 ? { data: { month_cost_micros: 0, monthly_cap_micros: 1e12 }, error: null } : { data: null, error: { code: 'P0001', message: code } }) });
+      const rd = reducer();
+      const res = await runLive(svc, owner(), threeChunks(), new R.Book(svc.client, rd, extractor()));
+      expect(await res.json(), code).toMatchObject({ status: 'done' });
+      expect(svc.rpcs('llm_begin_request'), code).toHaveLength(4);
+      expect(rd.streams, code).toHaveLength(1);
+      expect(statuses(svc), code).toEqual(['reducing', 'done']);
+    }
+  });
+
+  it('the codes a failed job may store are exactly the ones both clients render (core outcome.ts)', () => {
+    expect([...R.TURN_ERROR_CODES].sort()).toEqual([...CORE_TURN_ERROR_CODES].sort());
+  });
+
+  it('a job whose high-band estimate does not fit what is left of the month never starts: LLM_MONTHLY_CAP, no chunk paid for', async () => {
+    const svc = service({ begin: { data: { month_cost_micros: 990, monthly_cap_micros: 1000 }, error: null } });
+    const ex = extractor();
+    const res = await runLive(svc, owner(), threeChunks(), new R.Book(svc.client, reducer(), ex));
+    expect(res.status).toBe(429);
+    expect(await res.json()).toMatchObject({ status: 'failed', error: 'LLM_MONTHLY_CAP', chunks_done: 0 });
+    expect(ex.streams).toEqual([]);
+    expect(svc.rpcs('llm_record_usage')).toEqual([]);
+    // the failure message carries the cap's own code: both clients have a sentence for it (2026-11-12)
+    const [msg] = insertRows(svc, 'assistant_messages') as Record<string, unknown>[];
+    expect(msg!.tokens).toMatchObject({ error_code: 'LLM_MONTHLY_CAP', stop_reason: 'LLM_MONTHLY_CAP', job_error: 'LLM_MONTHLY_CAP' });
+  });
+
+  it('a chunk cut mid-stream is metered from its partial usage (stop reason aborted), as the chat meters a cut call', async () => {
+    const svc = service();
+    const partial = { usage: { input: 1500, cache_write: 0, cache_read: 0, output: 40 }, ms: 900, webSearches: 0 };
+    const ex = extractor((no) => (no === 2 ? Promise.reject(Object.assign(new ProviderError('UPSTREAM', 'overloaded mid-answer', 529), { partial })) : null));
+    const res = await runLive(svc, owner(), threeChunks(), new R.Book(svc.client, reducer(), ex));
+    expect(await res.json()).toMatchObject({ status: 'failed', error: 'UPSTREAM' });
+    const recs = svc.rpcs('llm_record_usage').map((o) => o.args as Record<string, unknown>);
+    expect(recs).toHaveLength(3);
+    expect(recs).toContainEqual(expect.objectContaining({ p_model: SONNET, p_input: 1500, p_output: 40, p_model_calls: 1 }));
+    const [calls] = insertRows(svc, 'assistant_calls') as Record<string, unknown>[][];
+    expect(calls!.filter((c) => c.stop_reason === 'aborted')).toEqual([expect.objectContaining({ model: SONNET, input_tokens: 1500, output_tokens: 40, ms: 900 })]);
+    expect((svc.transitions.at(-1)!.p_patch.tokens as Record<string, number>).calls).toBe(3);
+  });
+
+  it('chunks cut by the clock are metered too, and the job still ends as TIMEOUT', async () => {
+    vi.useFakeTimers();
+    const svc = service();
+    const partial = { usage: { input: 800, cache_write: 0, cache_read: 0, output: 10 }, ms: 1, webSearches: 0 };
+    const ex = scripted(SONNET, (call) => new Promise<Turn>((_ok, ko) => call.signal.addEventListener('abort', () => ko(Object.assign(new ProviderError('TIMEOUT', 'aborted'), { partial })))));
+    const pending = runLive(svc, owner(), threeChunks(), new R.Book(svc.client, reducer(), ex));
+    await vi.advanceTimersByTimeAsync(R.WALL_MS);
+    expect(await (await pending).json()).toMatchObject({ status: 'failed', error: 'TIMEOUT', chunks_done: 0 });
+    expect(svc.rpcs('llm_record_usage')).toHaveLength(3);
+    const [msg] = insertRows(svc, 'assistant_messages') as Record<string, unknown>[];
+    expect(msg!.tokens).toMatchObject({ error_code: 'TIMEOUT', calls: 3, input: 2400 });
+  });
+
+  it('a reduce cut mid-stream is metered at the job model before the job fails', async () => {
+    const svc = service();
+    const partial = { usage: { input: 3000, cache_write: 0, cache_read: 0, output: 120 }, ms: 4000, webSearches: 0 };
+    const rd = scripted(OPUS, () => Promise.reject(Object.assign(new ProviderError('UPSTREAM', 'connection reset'), { partial })));
+    const res = await runLive(svc, owner(), threeChunks(), new R.Book(svc.client, rd, extractor()));
+    expect(await res.json()).toMatchObject({ status: 'failed', error: 'UPSTREAM', chunks_done: 3 });
+    expect(svc.rpcs('llm_record_usage').map((o) => (o.args as Record<string, unknown>).p_model)).toEqual([SONNET, SONNET, SONNET, OPUS]);
+    expect(statuses(svc)).toEqual(['failed']);
+    expect((svc.transitions[0]!.p_patch.result as { objects: unknown[] }).objects).toHaveLength(3);
+  });
+
+  it('a failed usage record is retried once; a second failure is logged loudly with the amounts', async () => {
+    const once = service({ recordFails: 1 });
+    await runLive(once, owner(), threeChunks(), new R.Book(once.client, reducer(), extractor(), 0));
+    expect(once.rpcs('llm_record_usage')).toHaveLength(5); // four calls, one of them twice
+    expect(logged.join('\n')).toContain('llm_record_usage failed; retrying once');
+    expect(logged.join('\n')).not.toContain('SPEND NOT RECORDED');
+
+    // one chunk, so the two failures are the same record and its retry
+    const twice = service({ recordFails: 2 });
+    const oneChunk = jobOf({ question: 'q', calls: [{ tool: 'bookings_list', args: { ...WEEK } }] }, [250]);
+    const res = await runLive(twice, owner(), oneChunk, new R.Book(twice.client, reducer(), extractor(), 0));
+    expect(await res.json()).toMatchObject({ status: 'done' }); // the job never fails on its bookkeeping
+    expect(twice.rpcs('llm_record_usage')).toHaveLength(3);
+    expect(logged.join('\n')).toMatch(/SPEND NOT RECORDED: llm_record_usage failed twice; reconcile by hand: \{"p_model":"claude-sonnet-5-5","p_input":2000/);
+  });
+
+  it('an empty reduce is never stored as a finished job: failed, with the failure message', async () => {
+    const svc = service();
+    const rd = scripted(OPUS, () => textTurn('', { input: 3000, cache_write: 0, cache_read: 0, output: 4000 }, 'max_tokens'));
+    const res = await runLive(svc, owner(), threeChunks(), new R.Book(svc.client, rd, extractor()));
+    expect(await res.json()).toMatchObject({ status: 'failed', error: 'UPSTREAM' });
+    expect(statuses(svc)).toEqual(['failed']);
+    const msgs = insertRows(svc, 'assistant_messages') as Record<string, unknown>[];
+    expect(msgs).toHaveLength(1);
+    expect(msgs[0]!.tokens).toMatchObject({ error_code: 'UPSTREAM', calls: 4 });
+    expect(logged.join('\n')).toContain('the reduce wrote no text (stop_reason max_tokens)');
+  });
+
+  it('a reduce cut off at max_tokens with text is stored marked as cut off (tokens.stop_reason, as the chat stores it)', async () => {
+    const svc = service();
+    const rd = scripted(OPUS, () => textTurn('Bookings totalled 600 and then', { input: 3000, cache_write: 0, cache_read: 0, output: 4000 }, 'max_tokens'));
+    const res = await runLive(svc, owner(), threeChunks(), new R.Book(svc.client, rd, extractor()));
+    expect(await res.json()).toMatchObject({ status: 'done' });
+    const [msg] = insertRows(svc, 'assistant_messages') as Record<string, unknown>[];
+    expect(msg!.tokens).toMatchObject({ stop_reason: 'max_tokens' });
+    expect(msg!.tokens).not.toHaveProperty('error_code');
+    expect((svc.transitions.at(-1)!.p_patch.result as Record<string, unknown>).stop_reason).toBe('max_tokens');
+    // and an ordinary answer carries end_turn
+    const ok = service();
+    await runLive(ok, owner(), threeChunks(), new R.Book(ok.client, reducer(), extractor()));
+    expect((insertRows(ok, 'assistant_messages')[0] as Record<string, unknown>).tokens).toMatchObject({ stop_reason: 'end_turn' });
+  });
+
+  it('live chunks are offered only up to what the clock finishes (LIVE_MAX_CHUNKS from pool.ts)', () => {
+    const fits = jobOf({ question: 'q', calls: [{ tool: 'bookings_list', args: { ...WEEK } }] }, [250 * 8]);
+    const over = jobOf({ question: 'q', calls: [{ tool: 'bookings_list', args: { ...WEEK } }] }, [250 * 8 + 1]);
+    expect(fits.estimate.modes.live.allowed).toBe(true);
+    expect(over.estimate.chunks).toBe(9);
+    expect(over.estimate.modes.live.allowed).toBe(false);
   });
 });
 
@@ -525,7 +711,7 @@ describe('Book.price: the TypeScript estimate when llm_price_micros cannot say',
     expect(calls!.at(-1)!.cost_micros).toBe(turnEstimateMicros(OPUS, { input: 3000, cache_write: 0, cache_read: 0, output: 400 }, {}, 0));
 
     // a 0 first reading used to switch off the in-flight allowance (review 2026-11-09)
-    const capped = service({ priceFails: true, begin: { data: { month_cost_micros: 999, monthly_cap_micros: 1000 }, error: null } });
+    const capped = service({ priceFails: true, begin: (n) => ({ data: { month_cost_micros: n === 1 ? 0 : 999_999_999, monthly_cap_micros: 1_000_000_000 }, error: null }) });
     const ex = extractor();
     await runLive(capped, owner(), threeChunks(), new R.Book(capped.client, reducer(), ex));
     expect(ex.streams).toHaveLength(1);
@@ -559,7 +745,11 @@ describe('submitBatch: one Batch API request per chunk', () => {
       expect(r.messages[0]!.content).not.toContain(rowId(0));
     }
 
-    const patch = svc.froms('assistant_jobs').find((o) => argsOf(o, 'update'))!;
+    const updates = svc.froms('assistant_jobs').filter((o) => argsOf(o, 'update'));
+    // 0423: the row says a batch is being created before the vendor is asked (the sweeper's stalled_submit reads it)
+    expect(Object.keys(argsOf(updates[0]!, 'update')![0] as object)).toEqual(['result']);
+    expect((argsOf(updates[0]!, 'update')![0] as { result: Record<string, unknown> }).result).toEqual({ submitting_at: expect.any(String) });
+    const patch = updates[1]!;
     expect(eqs(patch)).toEqual({ id: JOB });
     expect(argsOf(patch, 'update')![0]).toEqual({ batch_id: 'msgbatch_01', chunks_total: 3, tokens: { model: OPUS, extract_model: SONNET } });
     const conv = svc.froms('assistant_conversations').find((o) => argsOf(o, 'update'))!;
@@ -590,6 +780,40 @@ describe('submitBatch: one Batch API request per chunk', () => {
     expect(svc.transitions.at(-1)!.p_patch.error).toBe('LLM_MONTHLY_CAP: the monthly assistant budget is used up');
     expect(ex.batchCreate).not.toHaveBeenCalled();
   });
+
+  it('a job whose high-band estimate does not fit what is left of the month is refused before batchCreate, with the same cap refusal', async () => {
+    const job = threeChunks({ mode: 'batch' });
+    // what the job costs at its high band in the fake's prices: the chunks at Sonnet, the reduce at Opus
+    const step = (t: { input: number; output: number }, m: string) => PRICE(m, t);
+    const jobMicros = step(job.estimate.by_step!.extract.tokens_high, SONNET) + step(job.estimate.by_step!.reduce.tokens_high, OPUS);
+    const cap = 1_000_000;
+    const tight = service({ begin: { data: { month_cost_micros: cap - jobMicros + 1, monthly_cap_micros: cap }, error: null } });
+    const ex = extractor();
+    const res = await R.submitBatch(new R.Book(tight.client, reducer(), ex), owner().client, job, chunksFor(job), newHandleTable({}), TZ);
+    expect(res.status).toBe(429);
+    expect(await res.json()).toMatchObject({ status: 'failed', error: 'LLM_MONTHLY_CAP', message: 'the monthly assistant budget is used up' });
+    expect(tight.transitions.at(-1)!.p_patch.error).toBe('LLM_MONTHLY_CAP: the monthly assistant budget is used up');
+    expect(ex.batchCreate).not.toHaveBeenCalled();
+    expect(tight.rpcs('llm_begin_request')).toHaveLength(1);
+
+    // exactly what is left still fits
+    const exact = service({ begin: { data: { month_cost_micros: cap - jobMicros, monthly_cap_micros: cap }, error: null } });
+    const ex2 = extractor();
+    const ok = await R.submitBatch(new R.Book(exact.client, reducer(), ex2), owner().client, job, chunksFor(job), newHandleTable({}), TZ);
+    expect(ok.status).toBe(200);
+    expect(ex2.batchCreate).toHaveBeenCalledTimes(1);
+  });
+
+  it('a batch whose id cannot be saved on the job is cancelled (no tick would ever collect it) and the job fails', async () => {
+    const svc = service({ jobsUpdateFails: true });
+    const ex = extractor();
+    const job = threeChunks({ mode: 'batch' });
+    const res = await R.submitBatch(new R.Book(svc.client, reducer(), ex), owner().client, job, chunksFor(job), newHandleTable({}), TZ);
+    expect(res.status).toBe(502);
+    expect(ex.batchCreate).toHaveBeenCalledTimes(1);
+    expect(ex.batchCancel).toHaveBeenCalledWith('msgbatch_01');
+    expect(statuses(svc)).toEqual(['failed']);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -603,14 +827,15 @@ describe('tick: claim, poll, collect, reduce, release (0405)', () => {
     threeChunks({ id, mode: 'batch', batch_id: batch, tokens });
 
   /** A ended with chunk 1 ok, chunk 2 errored, chunk 3 missing; the others still in flight. */
-  function world(o: { claim?: Result; jobs?: JobRow[] } = {}) {
+  function world(o: { claim?: Result; jobs?: JobRow[]; opus?: ReturnType<typeof scripted>; svc?: SvcOpts } = {}) {
     const svc = service({
       maxSeq: 2,
       claim: o.claim ?? { data: [{ job_id: A, claimed_until: STAMP_A }, { job_id: B, claimed_until: STAMP_B }], error: null },
       jobs: o.jobs ?? [batchJob(A, 'batch_A'), batchJob(B, 'batch_B'), batchJob(C, 'batch_C')],
+      ...o.svc,
     });
     const fallback = scripted('the-tick-default');
-    const opus = reducer('Three chunks read; one errored, one missing.');
+    const opus = o.opus ?? reducer('Three chunks read; one errored, one missing.');
     const sonnet = scripted(SONNET);
     sonnet.batchStatus.mockImplementation(async (id: string) =>
       id === 'batch_A'
@@ -636,7 +861,9 @@ describe('tick: claim, poll, collect, reduce, release (0405)', () => {
     expect(claim[0]!.schema).toBe('app');
     expect(claim[0]!.args).toEqual({ p_seconds: R.TICK_CLAIM_SECONDS });
     expect(R.TICK_CLAIM_SECONDS).toBe(120);
-    expect(w.svc.ops.indexOf(claim[0]!)).toBe(0);
+    // 0423: the sweeper's claim is the one call before it
+    expect(w.svc.ops[0]).toMatchObject({ kind: 'rpc', name: 'assistant_job_claim_stuck', schema: 'app', args: { p_seconds: 120, p_limit: 10 } });
+    expect(w.svc.ops.indexOf(claim[0]!)).toBe(1);
     const read = w.svc.froms('assistant_jobs').find((o) => argsOf(o, 'select'))!;
     expect(argsOf(read, 'in')).toEqual(['id', [A, B]]);
     expect(eqs(read)).toEqual({ status: 'running', mode: 'batch' });
@@ -717,14 +944,142 @@ describe('tick: claim, poll, collect, reduce, release (0405)', () => {
     expect(logged.join('\n')).toContain('tick: running jobs read failed');
   });
 
-  it('a poll that throws fails that job with its code and leaves the claim to lapse', async () => {
-    const w = world({ claim: { data: [{ job_id: A, claimed_until: STAMP_A }], error: null } });
-    w.sonnet.batchStatus.mockRejectedValueOnce(new ProviderError('UPSTREAM', 'vendor 500'));
+  const onlyA = { data: [{ job_id: A, claimed_until: STAMP_A }], error: null };
+  const released = (fake: ReturnType<typeof service>, id: string) =>
+    fake.froms('assistant_jobs').filter((o) => eqs(o).id === id && (argsOf(o, 'update')?.[0] as Record<string, unknown> | undefined)?.tick_claimed_until === null);
+  /** The collected results a tick saved on the job (the plain patch carrying result.collected), last one wins. */
+  const savedOf = (fake: ReturnType<typeof service>, id: string) =>
+    fake.froms('assistant_jobs')
+      .filter((o) => eqs(o).id === id && ((argsOf(o, 'update')?.[0] as { result?: { collected?: unknown } } | undefined)?.result?.collected))
+      .map((o) => argsOf(o, 'update')![0] as { tokens: Record<string, unknown>; result: { collected: { objects: unknown[]; calls: unknown[]; attempts: number } } })
+      .at(-1);
+
+  it('a transient poll error (429, 5xx, a dropped connection, a timeout) leaves the job running: claim released, nothing failed, cancelled or recorded; the next tick finishes it', async () => {
+    for (const err of [new ProviderError('RATE_LIMITED', 'slow down', 429), new ProviderError('UPSTREAM', 'vendor 500', 500), new ProviderError('UPSTREAM', 'socket hang up'), new ProviderError('TIMEOUT', 'aborted')]) {
+      const w = world({ claim: onlyA });
+      w.sonnet.batchStatus.mockRejectedValueOnce(err);
+      const first = (await (await w.tick()).json()) as { jobs: Record<string, unknown>[] };
+      expect(first.jobs, err.message).toEqual([{ job_id: A, status: 'retry', error: err.code }]);
+      expect(w.svc.transitions, err.message).toEqual([]);
+      expect(released(w.svc, A).map(eqs), err.message).toEqual([{ id: A, tick_claimed_until: STAMP_A }]);
+      expect(w.sonnet.batchCancel, err.message).not.toHaveBeenCalled();
+      expect(w.svc.rpcs('llm_record_usage'), err.message).toEqual([]);
+      expect(insertRows(w.svc, 'assistant_messages'), err.message).toEqual([]);
+      expect(logged.join('\n')).toContain(`tick: job ${A} deferred (${err.code}); the next tick retries`);
+
+      // the next minute: the poll answers, the batch is collected and reduced
+      const second = (await (await w.tick()).json()) as { jobs: Record<string, unknown>[] };
+      expect(second.jobs[0], err.message).toMatchObject({ job_id: A, status: 'done' });
+      expect(w.svc.rpcs('llm_record_usage').map((o) => (o.args as Record<string, unknown>).p_model), err.message).toEqual([SONNET, OPUS]);
+    }
+  });
+
+  it('a terminal poll error fails the job for good, cancels the batch still running, and writes the failure into the chat', async () => {
+    for (const err of [new ProviderError('UPSTREAM', 'batch not found', 404), new ProviderError('NOT_CONFIGURED', 'invalid ANTHROPIC_API_KEY', 401)]) {
+      const w = world({ claim: onlyA });
+      w.sonnet.batchStatus.mockRejectedValueOnce(err);
+      const body = (await (await w.tick()).json()) as { jobs: Record<string, unknown>[] };
+      expect(body.jobs).toEqual([{ job_id: A, status: 'failed', error: err.code }]);
+      expect(w.svc.transitions).toEqual([expect.objectContaining({ p_id: A, p_status: 'failed', p_patch: expect.objectContaining({ error: `${err.code}: ${err.code === 'UPSTREAM' ? 'the job failed' : 'the model is not configured'}` }) })]);
+      expect(w.sonnet.batchCancel).toHaveBeenCalledWith('batch_A');
+      expect(released(w.svc, A)).toEqual([]);
+      const [msg] = insertRows(w.svc, 'assistant_messages') as Record<string, unknown>[];
+      expect(msg).toMatchObject({ conversation_id: CONV, seq: 3, role: 'assistant', content: [{ type: 'text', text: '' }] });
+      expect(msg!.tokens).toMatchObject({ error_code: err.code, stop_reason: err.code });
+      expect(logged.join('\n')).toContain(`tick: job ${A} failed (${err.code})`);
+    }
+  });
+
+  it('a batch that ended with no result fails without a reduce call over nothing, and is not cancelled (it has ended)', async () => {
+    const w = world({ claim: onlyA });
+    w.sonnet.batchStatus.mockResolvedValueOnce({ status: 'ended', ended: true, counts: { processing: 0, succeeded: 0, errored: 0, canceled: 0, expired: 3 } });
     const body = (await (await w.tick()).json()) as { jobs: Record<string, unknown>[] };
     expect(body.jobs).toEqual([{ job_id: A, status: 'failed', error: 'UPSTREAM' }]);
-    expect(w.svc.transitions).toEqual([expect.objectContaining({ p_id: A, p_status: 'failed', p_patch: expect.objectContaining({ error: 'UPSTREAM: the job failed' }) })]);
-    expect(w.svc.froms('assistant_jobs').some((o) => (argsOf(o, 'update')?.[0] as Record<string, unknown> | undefined)?.tick_claimed_until === null)).toBe(false);
-    expect(logged.join('\n')).toContain(`tick: job ${A} failed (UPSTREAM)`);
+    expect(w.sonnet.batchResults).not.toHaveBeenCalled();
+    expect(w.opus.streams).toEqual([]);
+    expect(w.sonnet.batchCancel).not.toHaveBeenCalled();
+    expect(statuses(w.svc)).toEqual(['failed']);
+  });
+
+  it('a reduce that fails transiently keeps the collected results on the job; the next tick reduces from them without reading or recording the batch again', async () => {
+    let n = 0;
+    const opus = scripted(OPUS, () => (++n === 1 ? Promise.reject(new ProviderError('RATE_LIMITED', 'slow down', 429)) : textTurn('One chunk summed 250.', { input: 3000, cache_write: 0, cache_read: 0, output: 400 })));
+    const w = world({ claim: onlyA, opus });
+    const first = (await (await w.tick()).json()) as { jobs: Record<string, unknown>[] };
+    expect(first.jobs).toEqual([{ job_id: A, status: 'retry', error: 'RATE_LIMITED' }]);
+    expect(w.svc.transitions).toEqual([]); // still running
+    expect(released(w.svc, A)).toHaveLength(1);
+    expect(w.svc.rpcs('llm_record_usage').map((o) => (o.args as Record<string, unknown>).p_model)).toEqual([SONNET]);
+    const saved = savedOf(w.svc, A)!;
+    expect(saved.result.collected.objects).toHaveLength(3);
+    expect(saved.result.collected.calls).toHaveLength(1);
+    expect(saved.result.collected.attempts).toBe(1);
+    expect(saved.tokens).toMatchObject({ calls: 1, model: OPUS, extract_model: SONNET });
+
+    // the next tick sees the row as saved
+    const again = service({ maxSeq: 2, claim: onlyA, jobs: [{ ...batchJob(A, 'batch_A'), tokens: saved.tokens, result: saved.result }] });
+    const second = (await (await R.tick(new R.Book(again.client, w.fallback), new AbortController().signal, w.providerOr)).json()) as { jobs: Record<string, unknown>[] };
+    expect(second.jobs[0]).toMatchObject({ job_id: A, status: 'done' });
+    expect(w.sonnet.batchStatus).toHaveBeenCalledTimes(1); // collected: no second poll
+    expect(w.sonnet.batchResults).toHaveBeenCalledTimes(1); // nor a second read
+    expect(again.rpcs('llm_record_usage').map((o) => (o.args as Record<string, unknown>).p_model)).toEqual([OPUS]); // the batch is not recorded twice
+    const [calls] = insertRows(again, 'assistant_calls') as Record<string, unknown>[][];
+    expect(calls!.map((c) => [c.call_no, c.model])).toEqual([[1, SONNET], [2, OPUS]]);
+    expect(statuses(again)).toEqual(['reducing', 'done']);
+    const done = again.transitions.at(-1)!.p_patch as { tokens: Record<string, number> };
+    expect(done.tokens.calls).toBe(2);
+  });
+
+  it(`the reduce is tried at most REDUCE_ATTEMPTS times; then the job fails with the objects kept, and the ended batch is not cancelled`, async () => {
+    const collected = { objects: [{ chunk_sum: 250, chunk: 1 }], calls: [{ call_no: 1, model: SONNET, usage: { input: 2000, cache_write: 0, cache_read: 0, output: 300 }, ms: 0, stop_reason: 'end_turn', cost_micros: 2300 }], attempts: 2 };
+    const opus = scripted(OPUS, () => Promise.reject(new ProviderError('UPSTREAM', 'overloaded', 529)));
+    const w = world({ claim: onlyA, opus, jobs: [{ ...batchJob(A, 'batch_A', { model: OPUS, extract_model: SONNET, calls: 1, input: 2000, output: 300, total: 2300, cost_micros: 2300 }), result: { collected } }] });
+    const body = (await (await w.tick()).json()) as { jobs: Record<string, unknown>[] };
+    expect(body.jobs).toEqual([{ job_id: A, status: 'failed', error: 'UPSTREAM' }]);
+    expect(w.sonnet.batchStatus).not.toHaveBeenCalled();
+    expect(w.sonnet.batchCancel).not.toHaveBeenCalled();
+    expect(statuses(w.svc)).toEqual(['failed']);
+    expect(w.svc.transitions[0]!.p_patch.result).toEqual({ objects: collected.objects });
+    // the earlier calls ride on the failure message
+    const [calls] = insertRows(w.svc, 'assistant_calls') as Record<string, unknown>[][];
+    expect(calls).toHaveLength(1);
+  });
+
+  it('an overrun found after the batch is collected (extraction 100% spent) still produces the answer, never over_estimate', async () => {
+    const w = world({ claim: onlyA });
+    w.sonnet.batchResults.mockResolvedValueOnce(new Map<string, unknown>([1, 2, 3].map((no) => [`job:${A}:${no}`, { ok: true, content: [{ type: 'text', text: `{"chunk_sum":${no}}` }], usage: { input: 900_000, cache_write: 0, cache_read: 0, output: 100 }, stop_reason: 'end_turn' }])));
+    const body = (await (await w.tick()).json()) as { jobs: Record<string, unknown>[] };
+    expect(body.jobs[0]).toMatchObject({ job_id: A, status: 'done' });
+    expect(statuses(w.svc)).toEqual(['reducing', 'done']);
+    expect(w.opus.streams).toHaveLength(1);
+    expect(logged.join('\n')).toContain(`tick: job ${A} ran past its estimate × 1.25; reducing anyway`);
+  });
+
+  it('the batch reduce runs past the monthly cap: the extraction is paid for', async () => {
+    const w = world({ claim: onlyA, svc: { begin: { data: null, error: { code: 'P0001', message: 'LLM_MONTHLY_CAP' } } } });
+    const body = (await (await w.tick()).json()) as { jobs: Record<string, unknown>[] };
+    expect(body.jobs[0]).toMatchObject({ job_id: A, status: 'done' });
+    expect(w.svc.rpcs('llm_begin_request')).toHaveLength(1);
+    expect(logged.join('\n')).toContain('the reduce runs past the budget check');
+  });
+
+  it('a failed save of the collected results records nothing and retries next minute', async () => {
+    const w = world({ claim: onlyA, svc: { jobsUpdateFails: true } });
+    const body = (await (await w.tick()).json()) as { jobs: Record<string, unknown>[] };
+    expect(body.jobs).toEqual([{ job_id: A, status: 'retry', error: 'UPSTREAM' }]);
+    expect(w.svc.rpcs('llm_record_usage')).toEqual([]);
+    expect(w.opus.streams).toEqual([]);
+    expect(w.svc.transitions).toEqual([]);
+  });
+
+  it('a tick whose clock has run out starts no job: it releases the claim for the next minute', async () => {
+    const w = world({ claim: onlyA });
+    const gone = new AbortController();
+    gone.abort();
+    const res = await R.tick(new R.Book(w.svc.client, w.fallback), gone.signal, w.providerOr);
+    expect(await res.json()).toEqual({ ok: true, jobs: [{ job_id: A, status: 'retry', error: 'TIMEOUT' }] });
+    expect(w.sonnet.batchStatus).not.toHaveBeenCalled();
+    expect(released(w.svc, A)).toHaveLength(1);
   });
 
   it('a batch submitted before 2026-10-08 (no extract_model) is read and priced at the job model', async () => {
@@ -732,5 +1087,491 @@ describe('tick: claim, poll, collect, reduce, release (0405)', () => {
     await w.tick();
     expect(w.providerOr.mock.calls.slice(0, 2)).toEqual([[SONNET, w.fallback], [SONNET, w.sonnet]]);
     expect(w.svc.rpcs('llm_record_usage').map((o) => (o.args as Record<string, unknown>).p_model)).toEqual([SONNET, SONNET]);
+  });
+
+  // 0423 (review 2026-11-12): counted after the call, a tick killed during a
+  // billed reduce left the count unchanged and the next tick billed it again.
+  it('a reduce try is saved on the job BEFORE the reduce call is made', async () => {
+    let opsAtCall = -1;
+    let w: ReturnType<typeof world> | null = null;
+    const opus = scripted(OPUS, () => {
+      opsAtCall = w!.svc.ops.length;
+      return textTurn('One chunk summed 250.', { input: 3000, cache_write: 0, cache_read: 0, output: 400 });
+    });
+    w = world({ claim: onlyA, opus });
+    await w.tick();
+    const counted = w.svc.ops.findIndex((o) => o.name === 'assistant_jobs' && (argsOf(o, 'update')?.[0] as { result?: { collected?: { attempts?: number } } } | undefined)?.result?.collected?.attempts === 1);
+    expect(counted).toBeGreaterThanOrEqual(0);
+    expect(opsAtCall).toBeGreaterThan(counted);
+  });
+
+  it('a job whose reduce was already tried REDUCE_ATTEMPTS times (ticks killed mid-reduce) fails without another call', async () => {
+    const collected = { objects: [{ chunk_sum: 250, chunk: 1 }], calls: [], attempts: 3 };
+    const w = world({ claim: onlyA, jobs: [{ ...batchJob(A, 'batch_A'), result: { collected } }] });
+    const body = (await (await w.tick()).json()) as { jobs: Record<string, unknown>[] };
+    expect(body.jobs).toEqual([{ job_id: A, status: 'failed', error: 'UPSTREAM' }]);
+    expect(w.opus.streams).toEqual([]);
+    expect(statuses(w.svc)).toEqual(['failed']);
+    expect(logged.join('\n')).toContain('the reduce was tried 3 times');
+  });
+
+  it('a try that cannot be counted is not made: the job waits for the next minute', async () => {
+    const collected = { objects: [{ chunk_sum: 250, chunk: 1 }], calls: [], attempts: 0 };
+    const w = world({ claim: onlyA, jobs: [{ ...batchJob(A, 'batch_A'), result: { collected } }], svc: { jobsUpdateFails: true } });
+    const body = (await (await w.tick()).json()) as { jobs: Record<string, unknown>[] };
+    expect(body.jobs).toEqual([{ job_id: A, status: 'retry', error: 'UPSTREAM' }]);
+    expect(w.opus.streams).toEqual([]);
+    expect(w.svc.transitions).toEqual([]);
+  });
+
+  it('a batch job cancelled before its reduce is not reduced, not failed and its batch not cancelled again', async () => {
+    const w = world({ claim: onlyA, svc: { status: () => 'cancelled' } });
+    const body = (await (await w.tick()).json()) as { jobs: Record<string, unknown>[] };
+    expect(body.jobs).toEqual([{ job_id: A, status: 'cancelled' }]);
+    expect(w.opus.streams).toEqual([]);
+    expect(w.svc.transitions).toEqual([]);
+    expect(w.sonnet.batchCancel).not.toHaveBeenCalled();
+    expect(insertRows(w.svc, 'assistant_messages')).toEqual([]);
+  });
+
+  it('a resumed job: the live part kept in result, only the batch part collected and recorded, the reduce over every chunk in order', async () => {
+    const live = [{ chunk_sum: 100, chunk: 1 }, { chunk_sum: 200, chunk: 2 }];
+    const liveCalls = [1, 2].map((n) => ({ call_no: n, model: SONNET, usage: { input: 2000, cache_write: 0, cache_read: 0, output: 300 }, ms: 7, stop_reason: 'end_turn', cost_micros: 2300 }));
+    const row = { ...batchJob(A, 'batch_A', { model: OPUS, extract_model: SONNET, input: 4000, cache_write: 0, cache_read: 0, output: 600, total: 4600, calls: 2, cost_micros: 4600 }), result: { objects: live, calls: liveCalls, submitting_at: '2026-11-12T10:00:00.000Z' } };
+    const w = world({ claim: onlyA, jobs: [row] });
+    w.sonnet.batchStatus.mockResolvedValueOnce({ status: 'ended', ended: true, counts: { processing: 0, succeeded: 1, errored: 0, canceled: 0, expired: 0 } });
+    w.sonnet.batchResults.mockResolvedValueOnce(new Map<string, unknown>([[`job:${A}:3`, { ok: true, content: [{ type: 'text', text: '{"chunk_sum":300}' }], usage: { input: 2000, cache_write: 0, cache_read: 0, output: 300 }, stop_reason: 'end_turn' }]]));
+    const body = (await (await w.tick()).json()) as { jobs: Record<string, unknown>[] };
+    expect(body.jobs[0]).toMatchObject({ job_id: A, status: 'done' });
+    const polled = w.svc.froms('assistant_jobs').find((o) => eqs(o).id === A && Object.keys((argsOf(o, 'update')?.[0] as object | undefined) ?? {}).join() === 'chunks_done')!;
+    expect(argsOf(polled, 'update')![0]).toEqual({ chunks_done: 3 }); // the two live chunks + the batch's one
+    const data = /<data source="job_chunks" rows="3">\n(.*)\n<\/data>/.exec(w.opus.streams[0]!.messages[0]!.content)![1]!;
+    expect(JSON.parse(data)).toEqual([...live, { chunk_sum: 300, chunk: 3 }]);
+    // the live calls were recorded when they ran: only the batch chunk and the reduce now
+    expect(w.svc.rpcs('llm_record_usage').map((o) => (o.args as Record<string, unknown>).p_model)).toEqual([SONNET, OPUS]);
+    const [calls] = insertRows(w.svc, 'assistant_calls') as Record<string, unknown>[][];
+    expect(calls!.map((c) => [c.call_no, c.model])).toEqual([[1, SONNET], [2, SONNET], [3, SONNET], [4, OPUS]]);
+    expect((w.svc.transitions.at(-1)!.p_patch.tokens as Record<string, number>).calls).toBe(4);
+  });
+});
+
+// ---------------------------------------------------------------------------
+describe('a failed job reaches the Monitoring page (2026-11-12, 0422)', () => {
+  type MonitorEvent = { level: string; kind: string; message: string; detail?: Record<string, unknown> | null };
+  /** Book with the injectable `report` (the fifth argument); the typed Runner above predates it. */
+  const BookWithReport = () => R.Book as unknown as new (service: unknown, provider: unknown, extract: unknown, recordRetryMs: number, report: (e: MonitorEvent) => void) => BookLike;
+
+  it('the monthly cap at begin(): one assistant_job_failed event, info, the code and ids only', async () => {
+    const events: MonitorEvent[] = [];
+    const svc = service({ begin: { data: null, error: { code: 'P0001', message: 'LLM_MONTHLY_CAP' } } });
+    const red = reducer();
+    const book = new (BookWithReport())(svc.client, red, extractor(), 0, (e) => events.push(e));
+    await runLive(svc, owner(), threeChunks(), book);
+    expect(events).toEqual([
+      {
+        level: 'info',
+        kind: 'assistant_job_failed',
+        message: 'assistant-job: job failed (LLM_MONTHLY_CAP)',
+        detail: { jobId: JOB, conversationId: CONV, model: OPUS, status: 'failed', code: 'LLM_MONTHLY_CAP' },
+      },
+    ]);
+  });
+
+  it('a chunk the model refuses (UPSTREAM) is error; a database read error carries no row text', async () => {
+    const events: MonitorEvent[] = [];
+    const svc = service({ maxSeq: 1 });
+    const own = owner(() => ({ data: null, error: { code: '22P02', message: 'invalid input syntax for guest "Zainab Al-Khafaji"' } }));
+    const book = new (BookWithReport())(svc.client, reducer(), extractor(), 0, (e) => events.push(e));
+    await runLive(svc, own, threeChunks(), book);
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({ level: 'error', kind: 'assistant_job_failed', message: 'assistant-job: job failed (UPSTREAM)' });
+    expect(JSON.stringify(events)).not.toContain('Zainab');
+  });
+
+  it('the tick hands its report to the per-job Book: a batch that ended with nothing is one error event', async () => {
+    const A = 'eeeeeeee-0000-4000-8000-00000000000a';
+    const events: MonitorEvent[] = [];
+    const svc = service({ maxSeq: 2, claim: { data: [{ job_id: A, claimed_until: '2026-11-11T10:02:00.000Z' }], error: null }, jobs: [threeChunks({ id: A, mode: 'batch', batch_id: 'batch_A', tokens: { model: OPUS, extract_model: SONNET } })] });
+    const sonnet = scripted(SONNET);
+    sonnet.batchStatus.mockResolvedValueOnce({ status: 'ended', ended: true, counts: { processing: 0, succeeded: 0, errored: 0, canceled: 0, expired: 3 } });
+    const opus = reducer();
+    const providerOr = (model: string | null | undefined, fb: unknown) => (model === OPUS ? opus : model === SONNET ? sonnet : fb);
+    await R.tick(new (BookWithReport())(svc.client, scripted('the-tick-default'), scripted('the-tick-default'), 0, (e) => events.push(e)), new AbortController().signal, providerOr);
+    expect(events).toEqual([
+      { level: 'error', kind: 'assistant_job_failed', message: 'assistant-job: job failed (UPSTREAM)', detail: { jobId: A, conversationId: CONV, model: OPUS, status: 'failed', code: 'UPSTREAM' } },
+    ]);
+  });
+
+  it('a fail() that is not ours (the transition refused: cancelled meanwhile) reports nothing; a reporter that throws changes nothing', async () => {
+    const events: MonitorEvent[] = [];
+    const refused = fakeClient({ rpc: (name): Result => (name === 'assistant_job_transition' ? { data: null, error: { code: 'P0001', message: 'INVALID_TRANSITION' } } : { data: null, error: null }) });
+    const b1 = new (BookWithReport())(refused.client, reducer(), extractor(), 0, (e) => events.push(e)) as unknown as { fail(job: JobRow, error: string, spend: unknown): Promise<void> };
+    await b1.fail(threeChunks(), 'UPSTREAM: the job failed', { input: 0, cache_write: 0, cache_read: 0, output: 0, cost_micros: 0, calls: 0, total: 0 });
+    expect(events).toEqual([]);
+    const svc = service({ maxSeq: 1 });
+    const b2 = new (BookWithReport())(svc.client, reducer(), extractor(), 0, () => {
+      throw new Error('monitoring down');
+    }) as unknown as { fail(job: JobRow, error: string, spend: unknown): Promise<void> };
+    await expect(b2.fail(threeChunks(), 'TIMEOUT: late', { input: 0, cache_write: 0, cache_read: 0, output: 0, cost_micros: 0, calls: 0, total: 0 })).resolves.toBeUndefined();
+    expect(insertRows(svc, 'assistant_messages')).toHaveLength(1); // the failed message still lands
+  });
+});
+
+// ===========================================================================
+// 0423 (2026-11-12): pause instead of losing paid work, resume from it, a
+// cancel that stops the spending, and the stuck-job sweeper.
+// ===========================================================================
+type MonitorEvent0423 = { level: string; kind: string; message: string; detail?: Record<string, unknown> | null };
+type ResumeFn = (
+  book: BookLike, asOwner: unknown, job: JobRow, chunks: Chunk[], handles: HandleTable, tz: string, signal: AbortSignal, started: number,
+  o: { mode: 'live' | 'batch' | null; batchAvailable: boolean },
+) => Promise<Response>;
+const resumeJob = (...a: Parameters<ResumeFn>) => (R as unknown as { resumeJob: ResumeFn }).resumeJob(...a);
+const BookReporting = () => R.Book as unknown as new (service: unknown, provider: unknown, extract: unknown, recordRetryMs: number, report: (e: MonitorEvent0423) => void) => BookLike;
+
+const SPENT = { input: 4000, cache_write: 0, cache_read: 1000, output: 600, total: 5600, calls: 2, cost_micros: 2 * PRICE(SONNET, { input: 2000, output: 300 }), model: OPUS, extract_model: SONNET };
+const liveCall = (n: number) => ({ call_no: n, model: SONNET, usage: { input: 2000, cache_write: 0, cache_read: 500, output: 300 }, ms: 7, stop_reason: 'end_turn', cost_micros: PRICE(SONNET, { input: 2000, output: 300 }) });
+const LIVE_OBJECTS = [{ chunk_sum: 100, chunk: 1, tool: 'bookings_list', rows_read: 250 }, { chunk_sum: 200, chunk: 2, tool: 'bookings_list', rows_read: 250 }];
+/** Three chunks, the first two read live and paid for, paused (`reason`). */
+function pausedJob(reason = 'time', over: Partial<JobRow> = {}): JobRow {
+  const base = threeChunks();
+  const rest = restEstimate(base.estimate, 1, { chunks: 2, used: SPENT });
+  return threeChunks({
+    status: 'over_estimate', mode: 'live', chunks_done: 2, tokens: { ...SPENT },
+    result: { objects: LIVE_OBJECTS, calls: [liveCall(1), liveCall(2)], pause: { reason, at: '2026-11-12T10:00:00.000Z', chunks_left: [3], rest } },
+    ...over,
+  });
+}
+const counting = (rows = 600) => owner(undefined, () => ({ data: rows, error: null }));
+const resumeOf = (svc: { client: unknown }, own: { client: unknown }, job: JobRow, book: BookLike, o: { mode?: 'live' | 'batch' | null; batchAvailable?: boolean } = {}) =>
+  resumeJob(book, own.client, job, chunksFor(job), newHandleTable({}), TZ, new AbortController().signal, Date.now(), { mode: o.mode ?? null, batchAvailable: o.batchAvailable ?? true });
+
+describe('the ceiling and the rest of a paused job (estimate.ts, 0423)', () => {
+  it('the ceiling is the estimate × 1.25 until a resume stores its own', () => {
+    const est = threeChunks().estimate;
+    expect(ceilingTokens(est)).toBe(est.tokens.total * 1.25);
+    expect(ceilingTokens({ ...est, ceiling_tokens: 99 })).toBe(99);
+    expect(isOverEstimate(100, { ...est, ceiling_tokens: 99 })).toBe(true);
+    expect(isOverEstimate(99, { ...est, ceiling_tokens: 99 })).toBe(false);
+  });
+
+  it('the rest prices each unread chunk at the dearer of the estimate and what the finished chunks used, plus the whole reduce', () => {
+    const est = threeChunks().estimate;
+    const perChunk = est.by_step!.extract.tokens.input / est.chunks;
+    // used less than estimated: the estimate stands
+    const low = restEstimate(est, 1, { chunks: 2, used: { input: 10, cache_read: 0, output: 1 } });
+    expect(low.extract.input).toBe(Math.ceil(perChunk));
+    // used far more: the observed figure, so a resume does not pause again at once
+    const high = restEstimate(est, 2, { chunks: 2, used: { input: 2_000_000, cache_write: 0, cache_read: 0, output: 1000 } });
+    expect(high.extract.input).toBe(2_000_000);
+    expect(high.chunks).toBe(2);
+    expect(high.reduce).toEqual(est.by_step!.reduce.tokens);
+    expect(high.extract_high.total).toBeGreaterThan(high.extract.total);
+    expect(resumeCeiling(1000, high)).toBe(Math.ceil(1000 + (high.extract_high.total + high.reduce_high.total) * 1.25));
+    expect(restEstimate(est, 0, { chunks: 3, used: null }).extract.total).toBe(0);
+  });
+});
+
+describe('runLive keeps paid work (0423)', () => {
+  it('out of time with chunks read: paused (time) with the objects, their calls and the rest priced; no reduce, no message', async () => {
+    vi.useFakeTimers();
+    const svc = service();
+    const rd = reducer();
+    const ex = scripted(SONNET, (call) =>
+      chunkNoOf(call) === 3
+        ? new Promise<Turn>((_ok, ko) => call.signal.addEventListener('abort', () => ko(new ProviderError('TIMEOUT', 'aborted'))))
+        : textTurn(JSON.stringify({ chunk_sum: 100 * chunkNoOf(call) })),
+    );
+    const pending = runLive(svc, owner(), threeChunks(), new R.Book(svc.client, rd, ex));
+    await vi.advanceTimersByTimeAsync(R.WALL_MS);
+    const res = await pending;
+    expect(await res.json()).toMatchObject({ job_id: JOB, status: 'over_estimate', reason: 'time', chunks_done: 2 });
+    expect(statuses(svc)).toEqual(['over_estimate']);
+    const r = svc.transitions[0]!.p_patch.result as { objects: { chunk: number }[]; calls: unknown[]; pause: { reason: string; chunks_left: number[]; rest: { chunks: number } } };
+    expect(r.objects.map((o) => o.chunk)).toEqual([1, 2]);
+    expect(r.calls).toHaveLength(2);
+    expect(r.pause).toMatchObject({ reason: 'time', chunks_left: [3], rest: { chunks: 1 } });
+    expect(rd.streams).toEqual([]);
+    expect(insertRows(svc, 'assistant_messages')).toEqual([]);
+  });
+
+  it('every progress write carries the objects and calls so far (a request that dies leaves them on the row)', async () => {
+    const svc = service();
+    await runLive(svc, owner(), threeChunks(), new R.Book(svc.client, reducer(), extractor()));
+    const withResult = svc.froms('assistant_jobs').map((o) => argsOf(o, 'update')?.[0] as { result?: { objects: unknown[]; calls: unknown[] } } | undefined).filter((p) => p?.result);
+    expect(withResult.length).toBe(3);
+    expect(withResult.at(-1)!.result!.objects).toHaveLength(3);
+    // a write's figures are read when its turn comes (Book.progress), so the last may already hold the reduce's call
+    expect(withResult.at(-1)!.result!.calls.length).toBeGreaterThanOrEqual(3);
+  });
+
+  it('a job cancelled before it starts launches nothing: no begin, no call, no message', async () => {
+    const svc = service({ status: () => 'cancelled' });
+    const ex = extractor();
+    const rd = reducer();
+    const res = await runLive(svc, owner(), threeChunks(), new R.Book(svc.client, rd, ex));
+    expect(await res.json()).toEqual({ job_id: JOB, status: 'cancelled', chunks_done: 0 });
+    expect(ex.streams).toEqual([]);
+    expect(svc.rpcs('llm_begin_request')).toEqual([]);
+    expect(svc.transitions).toEqual([]);
+    expect(insertRows(svc, 'assistant_messages')).toEqual([]);
+  });
+
+  it('a job cancelled after its chunks is not reduced (the dearest call is never made) and gets no failed message', async () => {
+    const svc = service({ status: (n) => (n <= 3 ? 'running' : 'cancelled') });
+    const ex = extractor();
+    const rd = reducer();
+    const res = await runLive(svc, owner(), threeChunks(), new R.Book(svc.client, rd, ex));
+    expect(await res.json()).toEqual({ job_id: JOB, status: 'cancelled', chunks_done: 3 });
+    expect(ex.streams).toHaveLength(3);
+    expect(rd.streams).toEqual([]);
+    expect(svc.transitions).toEqual([]);
+    expect(insertRows(svc, 'assistant_messages')).toEqual([]);
+    expect(svc.rpcs('llm_record_usage')).toHaveLength(3);
+  });
+
+  it('a done transition that fails after the answer is stored leaves the answer alone: no failed message, the sweeper finishes it', async () => {
+    const svc = service({ transitionFails: { statuses: ['done'], error: { code: '57014', message: 'canceling statement due to statement timeout' } } });
+    const res = await runLive(svc, owner(), threeChunks(), new R.Book(svc.client, reducer(), extractor()));
+    const body = (await res.json()) as Record<string, unknown>;
+    expect(body).toMatchObject({ status: 'done' });
+    const msgs = insertRows(svc, 'assistant_messages') as Record<string, unknown>[];
+    expect(msgs).toHaveLength(1);
+    expect(msgs[0]!.tokens).not.toHaveProperty('error_code');
+    expect(statuses(svc)).toEqual(['reducing', 'done']);
+    expect(logged.join('\n')).toContain('stored but the job not marked done; the sweeper finishes it');
+  });
+});
+
+describe('resumeJob: a paused job continues from what it paid for (0423)', () => {
+  it('in the background by default: one row check, ONE transition, only the unread chunk read and sent, its own number kept', async () => {
+    const svc = service();
+    const own = counting();
+    const ex = extractor();
+    const rd = reducer();
+    const job = pausedJob();
+    const res = await resumeOf(svc, own, job, new R.Book(svc.client, rd, ex));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ job_id: JOB, status: 'running', mode: 'batch', batch_id: 'msgbatch_01', chunks_total: 3 });
+
+    expect(own.rpcs('assistant_count')).toHaveLength(1);
+    expect(own.rpcs('assistant_count')[0]!.args).toMatchObject({ p_tool: 'bookings_list', p_args: { p_from: WEEK.from, p_to: WEEK.to } });
+    expect(own.rpcs('assistant_run_tool').map((o) => (o.args as { p_args: { p_offset: number } }).p_args.p_offset)).toEqual([500]);
+
+    expect(statuses(svc)).toEqual(['running']);
+    const t = svc.transitions[0]!.p_patch as { mode: string; estimate: JobEstimate & { ceiling_tokens: number; resumes: Record<string, unknown>[] }; result: Record<string, unknown> };
+    expect(t.mode).toBe('batch');
+    expect(t.result).toEqual({ objects: LIVE_OBJECTS, calls: [liveCall(1), liveCall(2)] });
+    const rest = (job.result as { pause: { rest: Parameters<typeof resumeCeiling>[1] } }).pause.rest;
+    expect(t.estimate.ceiling_tokens).toBe(resumeCeiling(SPENT.total, rest));
+    expect(t.estimate.resumes).toEqual([expect.objectContaining({ mode: 'batch', chunks_left: 1, spent_tokens: SPENT.total, spent_micros: SPENT.cost_micros })]);
+    expect(t.estimate.resumes[0]!.rest_micros_high).toBeGreaterThan(0);
+
+    const requests = ex.batchCreate.mock.calls[0]![0] as { custom_id: string; messages: { content: string }[] }[];
+    expect(requests.map((r) => r.custom_id)).toEqual([`job:${JOB}:3`]);
+    expect(requests[0]!.messages[0]!.content).toContain('This is chunk 3 of 3.');
+    expect(ex.streams).toEqual([]);
+    expect(rd.streams).toEqual([]);
+    const updates = svc.froms('assistant_jobs').map((o) => argsOf(o, 'update')?.[0] as Record<string, unknown> | undefined).filter(Boolean);
+    expect(updates[0]).toEqual({ result: { objects: LIVE_OBJECTS, calls: [liveCall(1), liveCall(2)], submitting_at: expect.any(String) } });
+    expect(updates[1]).toMatchObject({ batch_id: 'msgbatch_01', chunks_total: 3, tokens: { calls: 2, cost_micros: SPENT.cost_micros, model: OPUS, extract_model: SONNET } });
+  });
+
+  it('live when asked (the rest fits LIVE_MAX_CHUNKS): only chunk 3 is extracted, the reduce reads all three, every call stored once', async () => {
+    const svc = service({ maxSeq: 3 });
+    const ex = extractor();
+    const rd = reducer();
+    const res = await resumeOf(svc, counting(), pausedJob('over_estimate'), new R.Book(svc.client, rd, ex), { mode: 'live' });
+    expect(await res.json()).toMatchObject({ status: 'done', chunks_done: 3 });
+    expect(ex.streams.map(chunkNoOf)).toEqual([3]);
+    const data = /<data source="job_chunks" rows="3">\n(.*)\n<\/data>/.exec(rd.streams[0]!.messages[0]!.content)![1]!;
+    expect((JSON.parse(data) as { chunk: number }[]).map((o) => o.chunk)).toEqual([1, 2, 3]);
+    expect(statuses(svc)).toEqual(['running', 'reducing', 'done']);
+    expect(svc.rpcs('llm_record_usage').map((o) => (o.args as Record<string, unknown>).p_model)).toEqual([SONNET, OPUS]);
+    const [calls] = insertRows(svc, 'assistant_calls') as Record<string, unknown>[][];
+    expect(calls!.map((c) => [c.call_no, c.model])).toEqual([[1, SONNET], [2, SONNET], [3, SONNET], [4, OPUS]]);
+    expect((svc.transitions.at(-1)!.p_patch.tokens as Record<string, number>).calls).toBe(4);
+  });
+
+  it('a second press (or a second device) is 409 before anything is read or spent', async () => {
+    const svc = service({ transitionFails: { statuses: ['running'], error: { code: 'P0001', message: 'INVALID_TRANSITION', details: 'running -> running' } } });
+    const own = counting();
+    const ex = extractor();
+    const res = await resumeOf(svc, own, pausedJob(), new R.Book(svc.client, reducer(), ex));
+    expect(res.status).toBe(409);
+    expect(await res.json()).toMatchObject({ code: 'INVALID_TRANSITION' });
+    expect(own.rpcs('assistant_run_tool')).toEqual([]);
+    expect(ex.batchCreate).not.toHaveBeenCalled();
+    expect(svc.rpcs('llm_begin_request')).toEqual([]);
+    // and a job that is not paused is refused before the row check
+    const own2 = counting();
+    const again = await resumeOf(service(), own2, pausedJob('time', { status: 'running' }), new R.Book(svc.client, reducer(), extractor()));
+    expect(again.status).toBe(409);
+    expect(own2.rpcs('assistant_count')).toEqual([]);
+  });
+
+  it('rows that changed since the estimate refuse the resume (JOB_DATA_CHANGED); an unreadable count is UPSTREAM; neither moves the job', async () => {
+    const svc = service();
+    const changed = await resumeOf(svc, counting(601), pausedJob(), new R.Book(svc.client, reducer(), extractor()));
+    expect(changed.status).toBe(409);
+    expect(await changed.json()).toMatchObject({ code: 'JOB_DATA_CHANGED' });
+    const unread = await resumeOf(svc, owner(undefined, () => ({ data: null, error: { code: '57014', message: 'timeout' } })), pausedJob(), new R.Book(svc.client, reducer(), extractor()));
+    expect(unread.status).toBe(502);
+    expect(svc.transitions).toEqual([]);
+  });
+
+  it('a vendor that refuses the batch, or the cap at submission, puts the job back to paused with its work; nothing spent, no failed message', async () => {
+    const svc = service();
+    const ex = extractor();
+    ex.batchCreate.mockRejectedValueOnce(new ProviderError('UPSTREAM', 'overloaded', 529));
+    const job = pausedJob();
+    const res = await resumeOf(svc, counting(), job, new R.Book(svc.client, reducer(), ex));
+    expect(res.status).toBe(503);
+    expect(await res.json()).toMatchObject({ status: 'over_estimate', code: 'UPSTREAM' });
+    expect(statuses(svc)).toEqual(['running', 'over_estimate']);
+    expect(svc.transitions[1]!.p_patch).toEqual({ result: { objects: LIVE_OBJECTS, calls: [liveCall(1), liveCall(2)], pause: (job.result as { pause: unknown }).pause } });
+    expect(insertRows(svc, 'assistant_messages')).toEqual([]);
+
+    const capped = service({ begin: { data: null, error: { code: 'P0001', message: 'LLM_MONTHLY_CAP' } } });
+    const ex2 = extractor();
+    const r2 = await resumeOf(capped, counting(), pausedJob(), new R.Book(capped.client, reducer(), ex2));
+    expect(r2.status).toBe(429);
+    expect(statuses(capped)).toEqual(['running', 'over_estimate']);
+    expect(ex2.batchCreate).not.toHaveBeenCalled();
+  });
+
+  it('modes: live refused when the rest is over LIVE_MAX_CHUNKS, batch refused where the vendor has none, only the reduce left runs live', async () => {
+    const big = jobOf({ question: 'q', calls: [{ tool: 'bookings_list', args: { ...WEEK } }] }, [250 * 12], {
+      status: 'over_estimate', tokens: { ...SPENT }, result: { objects: LIVE_OBJECTS, calls: [], pause: null },
+    });
+    const svc = service();
+    const tooMany = await resumeJob(new R.Book(svc.client, reducer(), extractor()), counting(3000).client, big, chunksFor(big), newHandleTable({}), TZ, new AbortController().signal, Date.now(), { mode: 'live', batchAvailable: true });
+    expect(tooMany.status).toBe(400);
+    expect(((await tooMany.json()) as { message: string }).message).toContain(`at most ${LIVE_MAX_CHUNKS}`);
+    const noBatch = await resumeJob(new R.Book(svc.client, reducer(), extractor()), counting(3000).client, big, chunksFor(big), newHandleTable({}), TZ, new AbortController().signal, Date.now(), { mode: 'batch', batchAvailable: false });
+    expect(noBatch.status).toBe(400);
+    expect(svc.transitions).toEqual([]);
+
+    // the sweeper paused a job whose every chunk was read: Continue only reduces
+    const all = pausedJob('stopped', { result: { objects: [...LIVE_OBJECTS, { chunk_sum: 300, chunk: 3 }], calls: [], pause: null } });
+    const s2 = service();
+    const ex = extractor();
+    const rd = reducer();
+    const res = await resumeOf(s2, counting(), all, new R.Book(s2.client, rd, ex));
+    expect(await res.json()).toMatchObject({ status: 'done', chunks_done: 3 });
+    expect((s2.transitions[0]!.p_patch as { mode: string }).mode).toBe('live');
+    expect(ex.streams).toEqual([]);
+    expect(rd.streams).toHaveLength(1);
+  });
+});
+
+describe('the sweeper settles stuck jobs at the top of the tick, with no model call (0423)', () => {
+  const S = 'ffffffff-0000-4000-8000-00000000000';
+  const STAMP = '2026-11-12T10:02:00.000Z';
+  const OLD = '2026-11-12T09:00:00.000Z';
+  function sweepWorld(rows: JobRow[], reasons: [string, string][], svcOpts: SvcOpts = {}) {
+    const events: MonitorEvent0423[] = [];
+    const svc = service({ maxSeq: 5, stuck: { data: reasons.map(([job_id, reason]) => ({ job_id, reason, claimed_until: STAMP })), error: null }, jobs: rows, ...svcOpts });
+    const opus = reducer();
+    const sonnet = scripted(SONNET);
+    const fallback = scripted('the-tick-default');
+    const providerOr = (m: string | null | undefined, fb: unknown) => (m === OPUS ? opus : m === SONNET ? sonnet : fb);
+    const book = new (BookReporting())(svc.client, fallback, fallback, 0, (e) => events.push(e));
+    const noModelCall = () => {
+      for (const p of [opus, sonnet, fallback]) {
+        expect(p.streams).toEqual([]);
+        expect(p.batchCreate).not.toHaveBeenCalled();
+      }
+    };
+    return { svc, opus, sonnet, events, noModelCall, tick: async () => (await (await R.tick(book, new AbortController().signal, providerOr)).json()) as { ok: boolean; jobs: unknown[]; swept?: Record<string, unknown>[] } };
+  }
+  const tokens = { model: OPUS, extract_model: SONNET };
+
+  it('stalled_start: failed with JOB_STALLED on the row, UPSTREAM in the chat (job_error JOB_STALLED), one error event naming the reason', async () => {
+    const w = sweepWorld([threeChunks({ id: `${S}1`, status: 'accepted', status_at: OLD, tokens })], [[`${S}1`, 'stalled_start']]);
+    const body = await w.tick();
+    expect(body).toEqual({ ok: true, jobs: [], swept: [{ job_id: `${S}1`, swept: 'stalled_start', status: 'failed' }] });
+    expect(w.svc.transitions).toEqual([expect.objectContaining({ p_id: `${S}1`, p_status: 'failed', p_patch: expect.objectContaining({ error: 'JOB_STALLED: the job stopped and was ended' }) })]);
+    const [msg] = insertRows(w.svc, 'assistant_messages') as Record<string, unknown>[];
+    expect(msg!.tokens).toMatchObject({ error_code: 'UPSTREAM', stop_reason: 'UPSTREAM', job_error: 'JOB_STALLED' });
+    expect(w.events).toEqual([expect.objectContaining({ level: 'error', kind: 'assistant_job_failed', message: 'assistant-job: job failed (JOB_STALLED)', detail: expect.objectContaining({ jobId: `${S}1`, step: 'stalled_start', code: 'JOB_STALLED' }) })]);
+    w.noModelCall();
+  });
+
+  it('stalled_live with objects saved: paused (stopped) with them, the chunks left and their calls; a warn event, no message', async () => {
+    const row = threeChunks({ id: `${S}2`, status: 'running', mode: 'live', status_at: OLD, tokens: { ...SPENT }, result: { objects: LIVE_OBJECTS, calls: [liveCall(1), liveCall(2)] } });
+    const w = sweepWorld([row], [[`${S}2`, 'stalled_live']]);
+    const body = await w.tick();
+    expect(body.swept).toEqual([{ job_id: `${S}2`, swept: 'stalled_live', status: 'over_estimate' }]);
+    expect(statuses(w.svc)).toEqual(['over_estimate']);
+    const r = w.svc.transitions[0]!.p_patch.result as { objects: unknown[]; calls: unknown[]; pause: { reason: string; chunks_left: number[] } };
+    expect(r.objects).toEqual(LIVE_OBJECTS);
+    expect(r.calls).toHaveLength(2);
+    expect(r.pause).toMatchObject({ reason: 'stopped', chunks_left: [3] });
+    expect(insertRows(w.svc, 'assistant_messages')).toEqual([]);
+    expect(w.events).toEqual([expect.objectContaining({ level: 'warn', kind: 'assistant_job_swept', detail: expect.objectContaining({ step: 'stalled_live', status: 'paused' }) })]);
+    w.noModelCall();
+  });
+
+  it('stalled_live with nothing saved fails; stalled_submit fails, and an error event when it may have created a batch', async () => {
+    const rows = [
+      threeChunks({ id: `${S}3`, status: 'running', mode: 'live', status_at: OLD, tokens }),
+      threeChunks({ id: `${S}4`, status: 'running', mode: 'batch', status_at: OLD, tokens, result: { submitting_at: OLD } }),
+      threeChunks({ id: `${S}5`, status: 'running', mode: 'batch', status_at: OLD, tokens }),
+    ];
+    const w = sweepWorld(rows, [[`${S}3`, 'stalled_live'], [`${S}4`, 'stalled_submit'], [`${S}5`, 'stalled_submit']]);
+    await w.tick();
+    expect(statuses(w.svc)).toEqual(['failed', 'failed', 'failed']);
+    const unrecorded = w.events.filter((e) => e.kind === 'assistant_job_swept');
+    expect(unrecorded).toEqual([expect.objectContaining({ level: 'error', message: 'assistant-job: batch may run unrecorded (JOB_STALLED)', detail: expect.objectContaining({ jobId: `${S}4`, step: 'batch_unrecorded' }) })]);
+    expect(w.sonnet.batchCancel).not.toHaveBeenCalled(); // no id to cancel
+    w.noModelCall();
+  });
+
+  it('batch_overdue cancels the batch still billing and fails; lease_lapsing with its results collected fails keeping them, no cancel', async () => {
+    const collected = { objects: [{ chunk_sum: 1, chunk: 1 }], calls: [liveCall(1)], attempts: 2 };
+    const rows = [
+      threeChunks({ id: `${S}6`, status: 'running', mode: 'batch', batch_id: 'batch_O', status_at: OLD, tokens }),
+      threeChunks({ id: `${S}7`, status: 'running', mode: 'batch', batch_id: 'batch_L', status_at: OLD, tokens, result: { collected } }),
+    ];
+    const w = sweepWorld(rows, [[`${S}6`, 'batch_overdue'], [`${S}7`, 'lease_lapsing']]);
+    await w.tick();
+    expect(w.sonnet.batchCancel.mock.calls).toEqual([['batch_O']]);
+    expect(statuses(w.svc)).toEqual(['failed', 'failed']);
+    expect(w.svc.transitions[1]!.p_patch.result).toEqual({ objects: collected.objects });
+    const callRows = insertRows(w.svc, 'assistant_calls') as Record<string, unknown>[][];
+    expect(callRows).toHaveLength(1); // the collected call rides on the failure message
+    w.noModelCall();
+  });
+
+  it('stalled_reduce: done when its answer is already in the chat (no second message); failed when only a failure is there', async () => {
+    const ANSWER = '99999999-0000-4000-8000-000000000001';
+    const row = threeChunks({ id: `${S}8`, status: 'reducing', status_at: OLD, tokens, result: { objects: LIVE_OBJECTS } });
+    const w = sweepWorld([row], [[`${S}8`, 'stalled_reduce']], { answers: { data: [{ id: ANSWER, tokens: { stop_reason: 'end_turn' } }], error: null } });
+    expect((await w.tick()).swept).toEqual([{ job_id: `${S}8`, swept: 'stalled_reduce', status: 'done', message_id: ANSWER }]);
+    expect(w.svc.transitions).toEqual([expect.objectContaining({ p_status: 'done', p_patch: { result: { message_id: ANSWER, recovered: true, objects: 2 } } })]);
+    expect(insertRows(w.svc, 'assistant_messages')).toEqual([]);
+    const read = w.svc.froms('assistant_messages').find((o) => argsOf(o, 'contains'))!;
+    expect(argsOf(read, 'contains')).toEqual(['sources', [{ job_id: `${S}8` }]]);
+
+    const f = sweepWorld([row], [[`${S}8`, 'stalled_reduce']], { answers: { data: [{ id: ANSWER, tokens: { error_code: 'UPSTREAM' } }], error: null } });
+    await f.tick();
+    expect(statuses(f.svc)).toEqual(['failed']);
+    f.noModelCall();
+  });
+
+  it('a job whose settling cannot finish is released for the next minute; a failed sweep claim never stops the tick', async () => {
+    const row = threeChunks({ id: `${S}9`, status: 'reducing', status_at: OLD, tokens });
+    const w = sweepWorld([row], [[`${S}9`, 'stalled_reduce']], { answers: { data: null, error: { code: '57014', message: 'timeout' } } });
+    expect((await w.tick()).swept).toEqual([{ job_id: `${S}9`, swept: 'stalled_reduce', status: 'retry' }]);
+    expect(w.svc.transitions).toEqual([]);
+    const release = w.svc.froms('assistant_jobs').find((o) => (argsOf(o, 'update')?.[0] as Record<string, unknown> | undefined)?.tick_claimed_until === null)!;
+    expect(eqs(release)).toEqual({ id: `${S}9`, tick_claimed_until: STAMP });
+
+    const broken = service({ stuck: { data: null, error: { code: '42501', message: 'permission denied' } } });
+    const res = await R.tick(new R.Book(broken.client, scripted('x')), new AbortController().signal, (_m, fb) => fb);
+    expect(await res.json()).toEqual({ ok: true, jobs: [] });
+    expect(broken.rpcs('assistant_job_claim_tick')).toHaveLength(1);
+    expect(logged.join('\n')).toContain('sweep: claim failed');
   });
 });

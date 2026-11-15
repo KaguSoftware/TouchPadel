@@ -88,8 +88,12 @@ describe.each(['en', 'ar'])('menu/table route (%s)', (locale) => {
     expect(res.headers.get('referrer-policy')).toBe('no-referrer');
     const text = await res.text();
     expect(text).not.toContain(TOKEN);
-    expect(parseBindResult(JSON.parse(text))).toEqual({
+    const parsed = parseBindResult(JSON.parse(text));
+    // The server's clock rides along, so the page never times the session on the phone's.
+    expect(parsed.name === 'bound' && Number.isFinite(Date.parse(parsed.serverNow ?? ''))).toBe(true);
+    expect(parsed).toEqual({
       name: 'bound',
+      serverNow: expect.any(String),
       session: {
         sessionId: 'sess-1',
         tableId: 'table-1',

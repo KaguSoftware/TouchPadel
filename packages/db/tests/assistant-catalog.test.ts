@@ -8,6 +8,7 @@
  *   * every COUNTABLE_TOOL_NAMES entry has a branch in app.assistant_count;
  *   * no tool names a person-money report or a per-coach pay input, and 0297
  *     deletes the coaching money columns from table_read (C-28, DB-45);
+ *   * app.assistant_set_scopes' known scopes equal ASSISTANT_SCOPES (0421);
  *   * the edge-function copy of tools.ts is byte-identical to the core one
  *     (Deno cannot import a workspace package, so the copy is pinned here).
  */
@@ -15,7 +16,7 @@ import { describe, it, expect } from 'vitest';
 import { readdirSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
-import { ASSISTANT_TOOLS, DISPATCHED_RPCS, COUNTABLE_TOOL_NAMES } from '../../core/src/assistant/tools';
+import { ASSISTANT_SCOPES, ASSISTANT_TOOLS, DISPATCHED_RPCS, COUNTABLE_TOOL_NAMES } from '../../core/src/assistant/tools';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const MIGRATIONS = path.resolve(HERE, '../supabase/migrations');
@@ -99,6 +100,23 @@ describe('assistant catalog ↔ dispatcher', () => {
     // rpc is knowledge or meta.
     for (const t of ASSISTANT_TOOLS.filter((t) => !t.rpc && t.name !== 'posthog')) expect(['knowledge', 'meta']).toContain(t.kind);
     expect(ASSISTANT_TOOLS.find((t) => t.name === 'posthog')?.kind).toBe('aggregate');
+  });
+
+  it('app.assistant_set_scopes knows exactly the catalog scopes, in order (0421: engagement and files were missing)', () => {
+    const files = readdirSync(MIGRATIONS).filter((f) => f.endsWith('.sql')).sort().reverse();
+    let list: string[] | null = null;
+    for (const f of files) {
+      const text = readFileSync(path.join(MIGRATIONS, f), 'utf8');
+      const m = /function app\.assistant_set_scopes\([^$]*\$(assistant_set_scopes_\d{4})\$/.exec(text);
+      if (!m) continue;
+      const body = text.slice(m.index, text.indexOf(`$${m[1]}$;`, m.index + m[0].length));
+      const known = /v_known\s+text\[\]\s*:=\s*array\[([^\]]*)\]/.exec(body);
+      expect(known, `${f}: v_known not found`).not.toBeNull();
+      list = [...known![1]!.matchAll(/'([a-z_]+)'/g)].map((x) => x[1] as string);
+      break;
+    }
+    expect(list, 'no migration defines app.assistant_set_scopes').not.toBeNull();
+    expect(list).toEqual([...ASSISTANT_SCOPES]);
   });
 
   it('the edge-function copy of tools.ts is byte-identical to the core module', () => {

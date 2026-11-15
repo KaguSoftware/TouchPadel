@@ -90,6 +90,7 @@ import {
 } from '../src/components/icons';
 import { EmptyState, ErrorState, SkeletonList } from '../src/components/states';
 import { useToast } from '../src/components/overlays';
+import { serverNow } from '../src/lib/serverClock';
 
 /** Which list the chips under the title are showing. */
 type Tab = 'upcoming' | 'played' | 'cancelled';
@@ -262,9 +263,9 @@ export default function BookingsScreen() {
   // The upcoming/past boundary follows the clock, not the last data change —
   // a booking that ended while the screen was open used to stay "Upcoming".
   // The hero's countdown rides the same minute tick.
-  const [now, setNow] = useState(() => new Date());
+  const [now, setNow] = useState(() => serverNow());
   useEffect(() => {
-    const id = setInterval(() => setNow(new Date()), 60_000);
+    const id = setInterval(() => setNow(serverNow()), 60_000);
     return () => clearInterval(id);
   }, []);
 
@@ -317,12 +318,12 @@ export default function BookingsScreen() {
   // A hold's countdown has to move every second, but re-splitting the whole
   // list that often is waste — so the seconds tick is its own state and runs
   // ONLY while a hold is on screen. It stops on its own when the last one goes.
-  const [holdNow, setHoldNow] = useState(() => new Date());
+  const [holdNow, setHoldNow] = useState(() => serverNow());
   const hasHolds = holds.length > 0;
   useEffect(() => {
     if (!hasHolds) return;
-    setHoldNow(new Date());
-    const id = setInterval(() => setHoldNow(new Date()), 1_000);
+    setHoldNow(serverNow());
+    const id = setInterval(() => setHoldNow(serverNow()), 1_000);
     return () => clearInterval(id);
   }, [hasHolds]);
 
@@ -330,7 +331,7 @@ export default function BookingsScreen() {
   // server-side, so re-split (and refetch, which also frees the grid view).
   useEffect(() => {
     if (holds.some((h) => secondsUntil(h.hold_expires_at ?? null, holdNow) === 0)) {
-      setNow(new Date());
+      setNow(serverNow());
       void bookings.refetch();
     }
     // `bookings` is a stable query object; the tick is what drives this.

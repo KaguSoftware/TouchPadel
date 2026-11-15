@@ -53,6 +53,7 @@ export const assistantFreeEn = {
   /** The free AI's own chat list (2026-10-20), kept on this computer and apart from the paid chats. */
   chats: {
     title: 'Free AI chats',
+    open: 'Chats',
     show: 'Show free AI chats',
     hide: 'Hide free AI chats',
     empty: 'No free AI chats yet. Ask something to start one.',
@@ -82,7 +83,11 @@ export const assistantFreeEn = {
     minuteSoon: "You've asked a lot in a minute; try again shortly.",
     day: "Today's free questions are used up; they come back tomorrow.",
     club: 'The free AI is busy right now; try again in a minute.',
-    notConfigured: "The free AI isn't set up yet (GROQ_API_KEY).",
+    /** Staff read this one: they cannot set a server key, the owner can (2026-11-12). */
+    notConfigured: "The free AI isn't set up yet. Tell the owner.",
+    notConfiguredOwner: "The free AI isn't set up yet: its key (GROQ_API_KEY) is missing on the server.",
+    auth: 'Your session has ended. Sign in again to ask.',
+    forbidden: "This account can't use the free AI.",
     timeout: 'The answer took too long and was stopped.',
     generic: "The free AI didn't answer. Check the connection and try again.",
   },

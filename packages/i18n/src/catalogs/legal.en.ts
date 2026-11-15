@@ -404,7 +404,7 @@ export const legalEn = {
       doneBody: 'You have been signed out everywhere. Thank you for playing at Touch Padel.',
       errors: {
         credentials: 'That phone number or email and password do not match an account.',
-        phone: 'Enter an Iraqi mobile number, for example 0770 123 4567.',
+        phone: 'Enter your mobile number, for example 0770 123 4567. Outside Iraq, start with your country code (+44 …).',
         email: 'Enter a valid email address.',
         staff: 'Staff accounts cannot be deleted here. Ask the venue owner to deactivate yours.',
         already: 'This account has already been deleted.',

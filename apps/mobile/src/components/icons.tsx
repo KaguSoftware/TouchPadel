@@ -155,6 +155,43 @@ export const ArrowUpIcon = (p: IconProps) => (
 );
 /** Stop: the outlined square of a media control. */
 export const StopIcon = (p: IconProps) => <StrokeIcon d={['M7.5 7.5h9v9h-9z']} {...p} />;
+/**
+ * Thumbs up / down: Lucide's `thumbs-up` and `thumbs-down` path data (24 grid, ISC licence).
+ * `filled` solids the thumb (the chosen state, so colour is never the only signal); the cuff
+ * line is dropped then, as it would vanish into the fill. Never mirrored under RTL: a thumb
+ * is not a direction.
+ */
+function ThumbIcon({ body, cuff, filled = false, size = 16, color, strokeWidth = 2 }: IconProps & { body: string; cuff: string; filled?: boolean }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" accessible={false}>
+      <Path
+        d={body}
+        stroke={color}
+        strokeWidth={strokeWidth}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill={filled ? color : 'none'}
+      />
+      {filled ? null : (
+        <Path d={cuff} stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" />
+      )}
+    </Svg>
+  );
+}
+export const ThumbUpIcon = (p: IconProps & { filled?: boolean }) => (
+  <ThumbIcon
+    body="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2a3.13 3.13 0 0 1 3 3.88Z"
+    cuff="M7 10v12"
+    {...p}
+  />
+);
+export const ThumbDownIcon = (p: IconProps & { filled?: boolean }) => (
+  <ThumbIcon
+    body="M9 18.12 10 14H4.17a2 2 0 0 1-1.92-2.56l2.33-8A2 2 0 0 1 6.5 2H20a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2.76a2 2 0 0 0-1.79 1.11L12 22a3.13 3.13 0 0 1-3-3.88Z"
+    cuff="M17 14V2"
+    {...p}
+  />
+);
 export const ChevronIcon = (p: IconProps) => <StrokeIcon d={['M9 6l6 6-6 6']} flip {...p} />;
 export const BackChevronIcon = (p: IconProps) => <StrokeIcon d={['M15 6l-6 6 6 6']} flip {...p} />;
 /** Open / close a row that expands downward; vertical, so never mirrored. */
@@ -447,13 +484,14 @@ export const TabBookIcon = ({ size = 21, color }: TabIconProps) => (
   </Svg>
 );
 /**
- * Rankings (the leaderboard, the bar's first tab since 2026-11-12): a trophy, `TrophyIcon` at the
- * tab bar's weight. An object, so it never mirrors. iOS draws SF Symbols' `trophy`.
+ * Rankings (the leaderboard, the bar's first tab since 2026-11-12): a winners' podium, three
+ * steps with the tallest in the middle. Symmetric enough to never mirror. iOS draws the same
+ * picture from assets/tabs/ranks*.png, since SF Symbols has no podium.
  */
 export const TabRanksIcon = ({ size = 21, color }: TabIconProps) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" accessible={false}>
     <Path
-      d="M7 4h10v5a5 5 0 01-10 0V4zM7 6H4v1.5A3.5 3.5 0 007.3 11M17 6h3v1.5a3.5 3.5 0 01-3.3 3.5M12 14v3.5M8 20.5h8"
+      d="M3 20v-7h5V8h8v7h5v5zM8 13v7M16 15v5"
       stroke={color}
       strokeWidth={2}
       strokeLinecap="round"

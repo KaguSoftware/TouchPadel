@@ -63,13 +63,14 @@ describe('runAccountDeletion — order', () => {
   it('leaves the device completely untouched when the server refuses', async () => {
     // The whole reason the server call is first. A deletion that failed on a
     // flaky connection must not have already ended this guest's notifications
-    // and signed them out of an account they still own.
+    // and signed them out of an account they still own. (ALREADY_DELETED is
+    // not a refusal: deleteAccount turns it into a finished deletion.)
     const fx = effects({
       deleteServerSide: async () => {
-        throw new Error('ALREADY_DELETED');
+        throw new Error('FORBIDDEN');
       },
     });
-    await expect(runAccountDeletion(fx)).rejects.toThrow('ALREADY_DELETED');
+    await expect(runAccountDeletion(fx)).rejects.toThrow('FORBIDDEN');
     expect(fx.calls).toEqual([]);
   });
 });
@@ -238,10 +239,10 @@ describe('runAccountDeletion — Sign in with Apple revocation (Guideline 5.1.1(
   it('a server refusal after a successful revoke still throws and touches nothing local', async () => {
     const fx = appleEffects({
       deleteServerSide: async () => {
-        throw new Error('ALREADY_DELETED');
+        throw new Error('FORBIDDEN');
       },
     });
-    await expect(runAccountDeletion(fx)).rejects.toThrow('ALREADY_DELETED');
+    await expect(runAccountDeletion(fx)).rejects.toThrow('FORBIDDEN');
     expect(fx.calls).toEqual(['apple-reauth', 'apple-revoke:one-time-code']);
   });
 });
@@ -436,5 +437,25 @@ describe('deleteAccount sends the confirmation token', () => {
     // 'local': the server-side session died with the auth user, so a default
     // signOut would POST to /logout with a token GoTrue no longer knows.
     expect(signOut).toHaveBeenCalledWith({ scope: 'local' });
+  });
+
+  it('a second press after a lost answer (ALREADY_DELETED) is a finished deletion: signed out, cleaned up', async () => {
+    const { deleteAccount } = await import('../api');
+    const rpc = vi.fn().mockResolvedValue({ data: null, error: { message: 'ALREADY_DELETED', code: 'P0001' } });
+    const signOut = vi.fn().mockResolvedValue({ error: null });
+    const client = { schema: () => ({ rpc }), auth: { signOut } } as never;
+
+    await expect(deleteAccount(client)).resolves.toEqual({ deleted: true, apple_revoke_pending: false });
+    expect(signOut).toHaveBeenCalledWith({ scope: 'local' });
+  });
+
+  it('any other refusal still throws and keeps the session', async () => {
+    const { deleteAccount } = await import('../api');
+    const rpc = vi.fn().mockResolvedValue({ data: null, error: { message: 'FORBIDDEN', code: 'P0001' } });
+    const signOut = vi.fn();
+    const client = { schema: () => ({ rpc }), auth: { signOut } } as never;
+
+    await expect(deleteAccount(client)).rejects.toMatchObject({ message: 'FORBIDDEN' });
+    expect(signOut).not.toHaveBeenCalled();
   });
 });

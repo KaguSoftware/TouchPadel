@@ -1,5 +1,6 @@
-import { VENUE_TZ, type MessageKey } from '@touch/i18n';
+import type { MessageKey } from '@touch/i18n';
 import { displayWindows } from '@touch/core/time/openingHours';
+import { venueClock } from '../site/openNow';
 import type { VenueOpeningHours } from '../menu';
 
 /**
@@ -33,21 +34,6 @@ export const DAY_LABEL: Record<DayKey, MessageKey> = {
   sun: 'cafe.days.sun',
 };
 
-/** en-CA is the ISO-ish `YYYY-MM-DD` locale — used to read the venue's date. */
-function venueParts(now: Date): { isoDate: string; dayKey: DayKey } {
-  let isoDate: string;
-  let weekday: string;
-  try {
-    isoDate = new Intl.DateTimeFormat('en-CA', { timeZone: VENUE_TZ }).format(now);
-    weekday = new Intl.DateTimeFormat('en-US', { timeZone: VENUE_TZ, weekday: 'short' }).format(now);
-  } catch {
-    isoDate = now.toISOString().slice(0, 10);
-    weekday = now.toUTCString().slice(0, 3);
-  }
-  const key = weekday.slice(0, 3).toLowerCase() as DayKey;
-  return { isoDate, dayKey: DAY_KEYS.includes(key) ? key : 'mon' };
-}
-
 export interface TodayHours {
   dayKey: DayKey;
   /** [] = closed today (no window, or an explicit closed date) */
@@ -64,7 +50,7 @@ export function todayHours(
   venue: VenueOpeningHours | null | undefined,
   now: Date = new Date(),
 ): TodayHours {
-  const { isoDate, dayKey } = venueParts(now);
+  const { isoDate, dayKey } = venueClock(now);
   if (!venue) return { dayKey, windows: [], closed: true };
   if (venue.closed_dates?.includes(isoDate)) return { dayKey, windows: [], closed: true };
   const windows = displayWindows(

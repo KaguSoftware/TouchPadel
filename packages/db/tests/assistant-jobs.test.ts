@@ -378,8 +378,10 @@ describe('assistant-job: every call is priced and recorded at its own model (sta
     expect(live).toMatch(/book\.extract\.stream\(\{[\s\S]*?signal: extractSignal,/);
     expect(live).toMatch(/if \(extractSignal\.aborted\) return null;/);
     expect(live).toMatch(/budgetAllows\(reading, /);
-    expect(live).toMatch(/const reading = await book\.begin\(\);/);
-    expect(live).toMatch(/if \(overBudget\) throw new Error\('LLM_MONTHLY_CAP'\)/);
+    expect(live).toMatch(/reading = await book\.begin\(\);/);
+    // 0423: the refusal that stopped the launches is thrown when no paid object is left to pause with
+    expect(live).toMatch(/let budgetCode = 'LLM_MONTHLY_CAP';/);
+    expect(live).toMatch(/if \(overBudget\) throw new Error\(budgetCode\)/);
     // the reduce keeps the request's own signal (it has the reduce budget left)
     expect(live).toMatch(/book\.reduce\(job, objects, spend, calls, handles, signal\)/);
   });
@@ -442,7 +444,7 @@ describe('assistant-job: the tick works only the jobs it claimed (0405, stackles
     expect(claimAt).toBeGreaterThan(0);
     expect(readAt).toBeGreaterThan(claimAt);
     expect(tickBody.slice(readAt, tickBody.indexOf('\n', readAt))).toMatch(/\.in\('id', \[\.\.\.claimed\.keys\(\)\]\)/);
-    expect(tickBody).toMatch(/if \(claimed\.size === 0\) return json\(\{ ok: true, jobs: \[\] \}\)/);
+    expect(tickBody).toMatch(/if \(claimed\.size === 0\) return json\(\{ ok: true, jobs: \[\], \.\.\.extra \}\)/);
     // the tick is the only reader of running batch jobs in the function
     expect(src.match(/\.eq\('mode', 'batch'\)/g)).toHaveLength(1);
   });
@@ -451,5 +453,63 @@ describe('assistant-job: the tick works only the jobs it claimed (0405, stackles
     expect(runner).toMatch(/\.update\(\{ tick_claimed_until: null \}\)\.eq\('id', jobId\)\.eq\('tick_claimed_until', claimedUntil\)/);
     const notEnded = tickBody.slice(tickBody.indexOf('if (!status.ended) {'), tickBody.indexOf('continue;', tickBody.indexOf('if (!status.ended) {')));
     expect(notEnded).toMatch(/await releaseClaim\(jb\.service, job\.id, claimed\.get\(job\.id\)!\)/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Stackless: the sweeper and the resume (0423). The SQL behaviour is
+// tests/assistant-job-sweep.test.ts (needs 0423 applied); the edge side is
+// tests/assistant-job-runner.test.ts. These read the latest bodies and the
+// source, so a later re-issue cannot drop a piece unnoticed.
+// ---------------------------------------------------------------------------
+describe('assistant-job: the stuck-job sweeper and the resume (0423, stackless)', () => {
+  const runner = readFileSync(JOB_RUNNER, 'utf8');
+  const index = readFileSync(JOB_INDEX, 'utf8');
+
+  it('every move stamps status_at and a move to running resets tick_lapses; the cancel stamps it too', () => {
+    const t = latestBody('assistant_job_transition');
+    expect(t).toMatch(/status_at\s+= now\(\)/);
+    expect(t).toMatch(/tick_lapses\s+= case when p_status = 'running' then 0 else j\.tick_lapses end/);
+    expect(latestBody('assistant_job_cancel')).toMatch(/status_at = now\(\)/);
+  });
+
+  it('the claim counts a lapsed lease it takes over; the nudge expires first and also wakes the tick for a stuck job', () => {
+    expect(latestBody('assistant_job_claim_tick')).toMatch(/tick_lapses\s+= case when j\.tick_claimed_until is not null/);
+    const nudge = latestBody('assistant_job_tick_nudge');
+    expect(nudge.indexOf('perform app.assistant_job_expire()')).toBeGreaterThan(0);
+    expect(nudge.indexOf('perform app.assistant_job_expire()')).toBeLessThan(nudge.indexOf('net.http_post'));
+    expect(nudge).toMatch(/and not app\.assistant_job_stuck_due\(\)/);
+    // 0402's rule for a cron body: the catch-all reports to the Monitoring page
+    expect(nudge).toMatch(/exception when others then[\s\S]*perform app\.monitor\('cron', 'error', 'assistant_job_tick_nudge_failed'/);
+    const stuck = latestBody('assistant_job_claim_stuck');
+    expect(stuck).toMatch(/app\.assistant_job_stuck_reason\(j\) is not null/);
+    expect(stuck).toMatch(/for update of j skip locked/i);
+  });
+
+  it('the tick sweeps before its claim, and the sweeper makes no model call', () => {
+    const tickBody = runner.slice(runner.indexOf('async function tick('));
+    expect(tickBody.indexOf('await sweep(book, providerOr)')).toBeGreaterThan(0);
+    expect(tickBody.indexOf('await sweep(book, providerOr)')).toBeLessThan(tickBody.indexOf(".rpc('assistant_job_claim_tick'"));
+    const sweepBody = runner.slice(runner.indexOf('export async function sweep('), runner.indexOf('export async function tick('));
+    expect(sweepBody).toMatch(/\.rpc\('assistant_job_claim_stuck'/);
+    expect(sweepBody).not.toMatch(/\.stream\(|batchCreate|\.reduce\(|\.generate\(/);
+  });
+
+  it('the reduce try is counted before the call; an answer in the chat is never followed by a failure', () => {
+    const tickBody = runner.slice(runner.indexOf('async function tick('));
+    expect(tickBody.indexOf('const attempts = collected.attempts + 1;')).toBeGreaterThan(0);
+    expect(tickBody.indexOf('const attempts = collected.attempts + 1;')).toBeLessThan(tickBody.indexOf('await jb.reduce('));
+    const reduce = runner.slice(runner.indexOf('  async reduce('), runner.indexOf('  private async insertMessage('));
+    expect(reduce.indexOf('if (await this.cancelled(job.id)) throw new JobGone(')).toBeGreaterThan(0);
+    expect(reduce.indexOf('if (await this.cancelled(job.id))')).toBeLessThan(reduce.indexOf('this.provider.stream('));
+    // after the insert, the done transition sits inside a try that only logs
+    const afterInsert = reduce.slice(reduce.indexOf("if (ins) throw new Error(`answer not stored"));
+    expect(afterInsert).toMatch(/try \{[\s\S]*this\.transition\(job\.id, 'done'[\s\S]*\} catch \(e\) \{\s*logError\(/);
+  });
+
+  it('accept and resume answer a lost race with 409, never the 502 with a Monitoring event', () => {
+    expect(index).toMatch(/action !== 'resume'/);
+    expect(index).toMatch(/if \(isInvalidTransition\(e\)\) return json\(\{ error: 'INVALID_TRANSITION'[^\n]*409\)/);
+    expect(runner).toMatch(/if \(isInvalidTransition\(e\)\) return json\(\{ error: 'INVALID_TRANSITION'[^\n]*409\)/);
   });
 });

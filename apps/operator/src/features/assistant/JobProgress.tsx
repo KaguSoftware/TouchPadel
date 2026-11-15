@@ -5,6 +5,9 @@
  * written by the edge function, so the poll is the truth, not this screen.
  * When it reaches a finished state the chat's messages are read again, so
  * "Finished. The answer is in the chat" is true when it says so.
+ * Since 0423 a paused job says why it paused, what it has cost, what the rest
+ * should cost, and offers one button: Continue, which reads only the parts
+ * left (in the background where the vendor has batch).
  */
 import { useEffect, useRef } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -14,8 +17,9 @@ import { useToast } from '../../components/toast';
 import { useConfirm } from '../../components/ConfirmDialog';
 import { Button, ErrorText } from '../../components/ui';
 import { StatusBadge, type Tone } from '../../components/kit';
-import { formatTokens, formatUsd, priceFor, totalTokens, type PricingMap } from '../../lib/assistantPricing';
-import { QK, TERMINAL_JOB_STATUSES, cancelJob, fetchJob, type JobRow, type JobStatus } from './api';
+import { formatUsd, priceFor, totalTokens, type PricingMap } from '../../lib/assistantPricing';
+import { QK, TERMINAL_JOB_STATUSES, cancelJob, fetchJob, resumeJob, type JobRow, type JobStatus } from './api';
+import { isExpiredPause, jobErrorCode, jobErrorKey, pauseOf, resumeMayHaveStarted, resumePrices, resumesInBackground } from './threadLogic';
 
 export const JOB_POLL_MS = 2_000;
 
@@ -36,7 +40,22 @@ export function isTerminal(status: JobStatus | undefined): boolean {
   return status !== undefined && TERMINAL_JOB_STATUSES.includes(status);
 }
 
-export function JobProgress({ jobId, initial, model, pricing, fallbackMicrosPerMtok }: { jobId: string; initial?: JobRow; model: string; pricing: PricingMap | null | undefined; fallbackMicrosPerMtok: number }) {
+export function JobProgress({
+  jobId,
+  initial,
+  endedAway,
+  model,
+  pricing,
+  fallbackMicrosPerMtok,
+}: {
+  jobId: string;
+  initial?: JobRow;
+  /** It ended while the owner was not watching it here (threadLogic.jobCards): say so. */
+  endedAway?: boolean;
+  model: string;
+  pricing: PricingMap | null | undefined;
+  fallbackMicrosPerMtok: number;
+}) {
   const { tr, locale } = useLocale();
   const toast = useToast();
   const confirm = useConfirm();
@@ -73,6 +92,23 @@ export function JobProgress({ jobId, initial, model, pricing, fallbackMicrosPerM
     },
   });
 
+  // 0423: Continue. A lost race (another press, another device) or a request
+  // that broke may still have started it: the row is the truth, so read it again.
+  const refresh = () => {
+    void qc.invalidateQueries({ queryKey: QK.job(jobId) });
+    if (job?.conversation_id) void qc.invalidateQueries({ queryKey: QK.jobs(job.conversation_id) });
+  };
+  const resume = useMutation({
+    mutationFn: () => resumeJob(jobId),
+    onSuccess: (r) => {
+      if (r?.status === 'running' || r?.status === 'done') toast.ok(tr('ws.owner.assistant.job.resumed'));
+      refresh();
+    },
+    onError: (err) => {
+      if (resumeMayHaveStarted(err)) refresh();
+    },
+  });
+
   if (!job) return null;
   const status = job.status;
   const total = job.chunks_total ?? job.estimate?.chunks ?? 0;
@@ -81,6 +117,9 @@ export function JobProgress({ jobId, initial, model, pricing, fallbackMicrosPerM
   const tokens = totalTokens(job.tokens);
   const micros = job.tokens.cost_micros ?? priceFor({ model: job.tokens.model ?? model, ...job.tokens }, pricing, fallbackMicrosPerMtok);
   const terminal = isTerminal(status);
+  const pause = pauseOf(job);
+  const background = pause ? resumesInBackground(job, pause) : false;
+  const restPrice = pause ? resumePrices(job, pause, background, model, pricing, fallbackMicrosPerMtok) : null;
 
   const onCancel = async () => {
     const ok = await confirm({
@@ -122,20 +161,44 @@ export function JobProgress({ jobId, initial, model, pricing, fallbackMicrosPerM
         </div>
       )}
 
-      {tokens > 0 && (
+      {tokens > 0 && !pause && (
         <p style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>
-          {tr('ws.owner.assistant.job.tokensSoFar', { tokens: iso(formatTokens(tokens)), price: iso(formatUsd(micros)) })}
+          {tr('ws.owner.assistant.job.tokensSoFar', { price: iso(formatUsd(micros)) })}
         </p>
       )}
 
-      {status === 'over_estimate' && <p style={{ color: 'var(--tp-warn-fg)' }}>{tr('ws.owner.assistant.job.overEstimate')}</p>}
-      {status === 'done' && <p style={{ color: 'var(--tp-muted-fg)' }}>{tr('ws.owner.assistant.job.doneNote')}</p>}
+      {pause && restPrice && (
+        <>
+          <p style={{ color: 'var(--tp-warn-fg)' }}>
+            {tr(`ws.owner.assistant.job.paused.${pause.reason}`, { done: iso(formatNumber(pause.done, locale)), total: iso(formatNumber(pause.total, locale)) })}
+          </p>
+          <p style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>
+            {tr('ws.owner.assistant.job.resumeCost', { spent: iso(formatUsd(micros)), rest: iso(formatUsd(restPrice.rest)), high: iso(formatUsd(restPrice.high)) })}
+          </p>
+          <div style={{ display: 'flex', gap: 'var(--tp-sp-3)', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+            <Button size="sm" kind="primary" onClick={() => resume.mutate()} busy={resume.isPending} disabled={cancel.isPending}>
+              {tr(background ? 'ws.owner.assistant.job.resume' : 'ws.owner.assistant.job.resumeLive')}
+            </Button>
+            <p style={{ flex: 1, minInlineSize: '10rem', fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)', marginBlockStart: '0.3rem' }}>
+              {tr(background ? 'ws.owner.assistant.job.resumeHint' : 'ws.owner.assistant.job.resumeLiveHint')}
+            </p>
+          </div>
+        </>
+      )}
+      {isExpiredPause(job) && <p style={{ color: 'var(--tp-muted-fg)' }}>{tr('ws.owner.assistant.job.expired')}</p>}
+      {status === 'done' && (
+        <p data-job-ended={endedAway ? 'away' : 'here'} style={{ color: endedAway ? 'var(--tp-fg)' : 'var(--tp-muted-fg)', fontWeight: endedAway ? 600 : undefined }}>
+          {tr(endedAway ? 'ws.owner.assistant.job.doneAway' : 'ws.owner.assistant.job.doneNote')}
+        </p>
+      )}
+      {/* The stored error is "CODE: the server's English"; only the code is read, the catalog words it. */}
       {status === 'failed' && (
         <p role="alert" style={{ color: 'var(--tp-danger-fg)' }}>
-          {tr('ws.owner.assistant.job.error', { error: job.error ?? '' })}
+          {tr(jobErrorKey(jobErrorCode(job.error)))}
         </p>
       )}
       {cancel.isError && <ErrorText error={cancel.error} />}
+      {resume.isError && !resumeMayHaveStarted(resume.error) && <ErrorText error={resume.error} />}
       {q.isError && !job && <ErrorText error={q.error} />}
     </section>
   );

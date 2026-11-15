@@ -144,3 +144,46 @@ describe('job plans, prices and refusals', () => {
     }
   });
 });
+
+describe('assistant-chat and assistant-job report failures to the Monitoring page (2026-11-12, 0422)', () => {
+  const handler = CHAT_INDEX.slice(CHAT_INDEX.indexOf("Deno.serve(handle('assistant-chat'"));
+  /** The source between `from` and the next `return json(` after it. */
+  const before = (from: string) => {
+    const at = handler.indexOf(from);
+    expect(at, from).toBeGreaterThan(-1);
+    return handler.slice(at, handler.indexOf('return json(', at));
+  };
+
+  it('every refusal and failure before the stream reports, with its code and stage before_stream', () => {
+    expect(before("!venueModel.priced.includes(parsed.model)")).toMatch(/reportTurn\('assistant_refused', 'model not priced', 'ASSISTANT_MODEL_NOT_PRICED', \{ stage: 'before_stream'/);
+    expect(before("logError('assistant-chat', error, 'conversation read failed')")).toMatch(/reportTurn\('assistant_failed', [^)]*'INTERNAL', \{ stage: 'before_stream', step: 'conversation_read'/);
+    expect(before('if (!provider) {')).toMatch(/reportTurn\('assistant_failed', 'model not configured', 'NOT_CONFIGURED', \{ stage: 'before_stream'/);
+    expect(before("const which = code.includes('LLM_MONTHLY_CAP')")).toMatch(/reportTurn\('assistant_refused', 'budget refused', which, \{ stage: 'before_stream'/);
+    expect(before("'budget gate failed');")).toMatch(/reportTurn\('assistant_failed', 'budget gate failed', 'UPSTREAM', \{ stage: 'before_stream', step: 'budget'/);
+    expect(before("'conversation insert failed');")).toMatch(/'INTERNAL', \{ stage: 'before_stream', step: 'conversation_insert'/);
+    expect(before('user message not stored in')).toMatch(/'INTERNAL', \{ stage: 'before_stream', step: 'user_message'/);
+  });
+
+  it('a failed turn is reported after the stream is closed, never on a Stop, never awaited; a persist that throws is assistant_not_saved', () => {
+    const finish = handler.slice(handler.indexOf('const finish = (async () => {'));
+    expect(finish).toMatch(/turnFailed = ending\.code;/);
+    const closed = finish.indexOf('sse.close();');
+    const reported = finish.indexOf("reportTurn('assistant_failed', 'turn failed', turnFailed");
+    expect(closed).toBeGreaterThan(-1);
+    expect(reported).toBeGreaterThan(closed);
+    // turnFailed is set only in the not-stopped branch.
+    const stoppedBranch = finish.slice(finish.indexOf('if (ending.stopped) {'), finish.indexOf('} else {', finish.indexOf('if (ending.stopped) {')));
+    expect(stoppedBranch).not.toContain('turnFailed');
+    expect(finish).toMatch(/kind: 'assistant_not_saved',\s+what: 'persist threw'/);
+    expect(CHAT_INDEX).not.toMatch(/await report(Turn|InBackground)/);
+    expect(CHAT_INDEX).toMatch(/function reportTurn\([^)]*\): void \{\s+reportInBackground\(assistantEvent\(/);
+  });
+
+  it("assistant-job's outer catch and the job's fail() report; the tick passes its report on to each job's Book", () => {
+    const outer = JOB_INDEX.slice(JOB_INDEX.indexOf('} catch (e) {', JOB_INDEX.indexOf("Deno.serve(handle('assistant-job'")));
+    expect(outer).toMatch(/reportInBackground\(\s+assistantEvent\(\{\s+fn: 'assistant-job',\s+kind: 'assistant_job_failed'/);
+    const fail = JOB_RUNNER.slice(JOB_RUNNER.indexOf('\n  async fail('), JOB_RUNNER.indexOf('\n  }\n', JOB_RUNNER.indexOf('\n  async fail(')));
+    expect(fail.indexOf("kind: 'assistant_job_failed'")).toBeGreaterThan(fail.indexOf("this.transition(job.id, 'failed'"));
+    expect(JOB_RUNNER).toMatch(/new Book\(book\.service, jobProvider, [^;]*book\.recordRetryMs, book\.report\)/);
+  });
+});

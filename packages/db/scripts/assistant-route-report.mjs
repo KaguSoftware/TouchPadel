@@ -24,6 +24,10 @@
  *   platform_settings   llm_web_search_micros (the CURRENT per-search price).
  *   assistant_messages  role=user, only for the misroute candidates, to show the
  *                       owner's words (omit with --no-text).
+ *   assistant_messages  role=user, created_at and seq only (2026-11-12): the
+ *                       question each answer follows, for question-to-answer seconds.
+ *   assistant_feedback  rating per answer (0422); the thumbs-down notes are printed
+ *                       only without --no-text.
  *
  * Tiers (mirrors _shared/assistant/route.ts; keep DEEP_REASONS in step):
  *   lookup            tokens.route = 'lookup'
@@ -92,6 +96,13 @@ async function getAll(table, query, max = 50_000) {
   return rows;
 }
 
+/** getAll, or null when the table cannot be read (assistant_feedback before 0422 reaches the project). */
+async function tryGetAll(table, query) {
+  const res = await fetch(`${BASE}/rest/v1/${table}?${query}`, { headers: { ...headers, Range: '0-9999', 'Range-Unit': 'items' } }).catch(() => null);
+  if (!res || !res.ok) return null;
+  return res.json();
+}
+
 // ── formatting ────────────────────────────────────────────────────────────
 const usd = (micros) => `$${(micros / 1e6).toFixed(micros >= 1e6 ? 2 : 3)}`;
 const pct = (n, d) => (d ? `${((100 * n) / d).toFixed(1)}%` : '-');
@@ -119,7 +130,7 @@ const messages = await getAll(
   'assistant_messages',
   `select=id,conversation_id,seq,created_at,tokens,gate,sources&role=eq.assistant&created_at=gte.${since}&order=created_at.asc,id.asc`,
 );
-const calls = await getAll('assistant_calls', `select=message_id,call_no,model,cost_micros,web_searches,stop_reason&created_at=gte.${since}&order=id.asc`);
+const calls = await getAll('assistant_calls', `select=message_id,call_no,model,cost_micros,web_searches,stop_reason,ms&created_at=gte.${since}&order=id.asc`);
 const ps = await getAll('platform_settings', 'select=llm_web_search_micros&id=eq.true').catch(() => []);
 const searchMicros = Number(ps[0]?.llm_web_search_micros ?? 10_000);
 
@@ -275,5 +286,80 @@ console.log('  cannot see: answer quality, so "could Sonnet have answered this a
 console.log('              The aggregate-tool list is a name pattern in this script (AGGREGATE); a new tool is treated as non-aggregate until added.');
 console.log('              A deep reason such as "advice-signal" is the router doing its job even when one tool answered; the candidates show where the');
 console.log('              signal words were weak, not that the route was wrong.');
+
+// ── 2026-11-12: how turns end, how long they take, what the owner thought ──
+section('6. How turns ended (tokens.error_code, tokens.stop_reason)');
+const isJob = (m) => Array.isArray(m.sources) && m.sources.some((x) => x && x.job_id);
+const turns = messages.filter((m) => !isJob(m));
+const countBy = (list, key) => {
+  const out = new Map();
+  for (const m of list) {
+    const k = key(m);
+    if (k) out.set(k, (out.get(k) ?? 0) + 1);
+  }
+  return [...out].sort((a, b) => b[1] - a[1]);
+};
+const failedTurns = turns.filter((m) => m.tokens?.error_code);
+console.log(`${failedTurns.length} of ${turns.length} turns failed (${pct(failedTurns.length, turns.length)}); job answers (${messages.length - turns.length}) are left out.`);
+const codes = countBy(turns, (m) => m.tokens?.error_code);
+if (codes.length) table(['error_code', 'turns', 'share of turns'], codes.map(([k, n]) => [k, n, pct(n, turns.length)]));
+const stops = countBy(turns, (m) => m.tokens?.stop_reason ?? '(none: pre-2026-11-11 row)');
+table(['stop_reason', 'turns', 'share of turns'], stops.map(([k, n]) => [k, n, pct(n, turns.length)]));
+console.log('  cannot see: a turn whose answer was never stored (no row), and refusals before the stream (quota, cap, unpriced model): those are');
+console.log('              Monitoring events (assistant_failed / assistant_refused, 0422), read on the Monitoring page.');
+
+section('7. Seconds');
+const secs = (list) => list.filter((x) => Number.isFinite(x)).sort((a, b) => a - b);
+const callSecs = secs(calls.map((c) => (c.ms == null ? NaN : Number(c.ms) / 1000)));
+const users = await getAll('assistant_messages', `select=conversation_id,seq,created_at&role=eq.user&created_at=gte.${new Date(Date.parse(since) - 3_600_000).toISOString()}&order=created_at.asc`);
+const usersBy = new Map();
+for (const u of users) {
+  if (!usersBy.has(u.conversation_id)) usersBy.set(u.conversation_id, []);
+  usersBy.get(u.conversation_id).push(u);
+}
+const answerSecs = secs(
+  turns
+    .filter((m) => !m.tokens?.error_code && m.tokens?.stop_reason !== 'stopped')
+    .map((m) => {
+      const q = (usersBy.get(m.conversation_id) ?? []).filter((u) => u.seq < m.seq).sort((a, b) => b.seq - a.seq)[0];
+      return q ? (Date.parse(m.created_at) - Date.parse(q.created_at)) / 1000 : NaN;
+    }),
+);
+const fmt = (n) => `${n.toFixed(1)} s`;
+table(
+  ['measure', 'n', 'p50', 'p95', 'max'],
+  [
+    ['one model call (assistant_calls.ms)', callSecs.length, fmt(quantile(callSecs, 0.5)), fmt(quantile(callSecs, 0.95)), fmt(callSecs.at(-1) ?? 0)],
+    ['question to stored answer (ok, not stopped)', answerSecs.length, fmt(quantile(answerSecs, 0.5)), fmt(quantile(answerSecs, 0.95)), fmt(answerSecs.at(-1) ?? 0)],
+  ],
+);
+console.log('  question to answer is the stored answer row minus the question row before it: the whole turn, persist included.');
+
+section('8. Thumbs (assistant_feedback, 0422)');
+const ids = new Set(turns.map((m) => m.id));
+const feedbackRows = await tryGetAll('assistant_feedback', `select=message_id,rating,note,created_at&created_at=gte.${since}&order=created_at.asc`);
+if (feedbackRows === null) console.log('assistant_feedback is not readable on this project (0422 not deployed yet?); counting no ratings.');
+const feedback = (feedbackRows ?? []).filter((f) => ids.has(f.message_id));
+const downs = feedback.filter((f) => Number(f.rating) === -1);
+const ups = feedback.filter((f) => Number(f.rating) === 1);
+table(
+  ['measure', 'count', 'share'],
+  [
+    ['rated answers', feedback.length, pct(feedback.length, turns.length - failedTurns.length)],
+    ['thumbs up', ups.length, pct(ups.length, feedback.length)],
+    ['thumbs down (of rated)', downs.length, pct(downs.length, feedback.length)],
+    ['thumbs down (of all answers)', downs.length, pct(downs.length, turns.length - failedTurns.length)],
+  ],
+);
+if (SHOW_TEXT) {
+  const noted = downs.filter((f) => f.note);
+  if (noted.length) {
+    console.log('\nthumbs-down notes (the owner\'s words; omit with --no-text):');
+    for (const f of noted.slice(0, LIST_LIMIT)) console.log(`  ${f.created_at.slice(0, 16).replace('T', ' ')}  ${f.message_id.slice(0, 8)}  ${String(f.note).replace(/\s+/g, ' ').slice(0, 200)}`);
+    if (noted.length > LIST_LIMIT) console.log(`  … ${noted.length - LIST_LIMIT} more (raise --limit)`);
+  }
+} else {
+  console.log('thumbs-down notes hidden (--no-text).');
+}
 
 console.log('\ndone (read-only).');

@@ -3,7 +3,7 @@ import * as os from 'node:os';
 import { WebSocketServer, type WebSocket } from 'ws';
 import type { LanReach, MutationEnvelope, MutationResult } from '../ipc-channels';
 import { getAuthState } from './auth-state';
-import { enqueue } from './queue';
+import { enqueue, kitchenBacklog } from './queue';
 import { ulid } from './ulid';
 import {
   applyCloudStatuses,
@@ -26,6 +26,14 @@ export const LAN_KDS_PORT = 47810;
 const RING_CAP = 500;
 /** Refs a kitchen screen has acknowledged, newest kept (F-11). */
 const ACK_CAP = 1000;
+/**
+ * Heartbeat: a kitchen screen that answered no ping within one interval is
+ * dropped. ws turns on no TCP keepalive, so a screen that lost power or Wi-Fi
+ * without a reset would otherwise stay "connected" forever.
+ */
+export const LAN_PING_MS = 15_000;
+/** How often the till checks that it still listens on its LAN address. */
+export const LAN_REBIND_MS = 30_000;
 
 export interface LanKdsServer {
   /** Called by the enqueue path for kitchen-bound mutations (order.create/add_items). */
@@ -63,7 +71,9 @@ export function pickLanBind(override?: string): string {
   return '127.0.0.1';
 }
 
-function ticketFromEnvelope(m: MutationEnvelope): LanTicket | null {
+function ticketFromEnvelope(
+  m: Pick<MutationEnvelope, 'mutationType' | 'payload' | 'idempotencyKey' | 'createdAt'>,
+): LanTicket | null {
   if (m.mutationType !== 'order.create' && m.mutationType !== 'order.add_items') return null;
   const p = m.payload as {
     items?: { variantId?: string; qty?: number; notes?: string; modifiers?: { modifierId?: string; qty?: number }[] }[];
@@ -110,12 +120,28 @@ export function startLanKdsServer(
     return null;
   }
 
-  const host = pickLanBind(station.lanBind);
+  const key: string = psk; // narrowed above; the handlers below are hoisted functions
   const port = opts?.port ?? LAN_KDS_PORT;
-  const wss = new WebSocketServer({ host, port });
   const authed = new Set<WebSocket>();
+  const alive = new WeakSet<WebSocket>();
   const ring: LanTicket[] = [];
   const acked = new Set<string>();
+
+  // The ring lives in memory, so a till restarted mid-outage (a crash, Quit,
+  // an update at start) rebuilds it from what its queue still holds for the
+  // kitchen; otherwise every reconnecting screen gets an empty snapshot and
+  // wipes orders nobody has made yet.
+  for (const row of kitchenBacklog()) {
+    if (row.mutationType === 'ticket.status') {
+      const bump = row.payload as { ticketIdemKey?: unknown; status?: unknown } | null;
+      const entry = ring.find((t) => t.ref === bump?.ticketIdemKey);
+      if (entry && typeof bump?.status === 'string') entry.status = bump.status as LanTicket['status'];
+      continue;
+    }
+    const ticket = ticketFromEnvelope(row);
+    if (ticket) ring.push(ticket);
+  }
+  if (ring.length > RING_CAP) ring.splice(0, ring.length - RING_CAP);
 
   function reach(): LanReach {
     return { acked: [...acked], kdsConnected: authed.size };
@@ -134,14 +160,16 @@ export function startLanKdsServer(
     }
   }
 
-  wss.on('connection', (socket: WebSocket, req) => {
+  function onConnection(socket: WebSocket, req: { headers: { authorization?: string } }): void {
     const auth = req.headers.authorization ?? '';
     const presented = auth.startsWith('Bearer ') ? auth.slice(7) : '';
-    if (!presented || !pskMatches(presented, psk)) {
+    if (!presented || !pskMatches(presented, key)) {
       socket.close(4401, 'bad psk');
       return;
     }
     authed.add(socket);
+    alive.add(socket);
+    socket.on('pong', () => alive.add(socket));
     pushReach();
     socket.on('close', () => {
       authed.delete(socket);
@@ -204,10 +232,46 @@ export function startLanKdsServer(
       // Echo the accepted update so every KDS screen converges.
       broadcast({ type: 'status.update', data: { ref: update.ref, status: update.status } });
     });
-  });
+  }
 
-  wss.on('error', (err) => console.error('[lan-kds]', err));
-  console.log(`[lan-kds] listening on ws://${host}:${port}`);
+  // The address is picked again while the till runs: at Windows login the app
+  // often starts before Wi-Fi has an address, and the first pick is then
+  // 127.0.0.1 for the whole day; a DHCP change moves it too. A station
+  // override (lanBind) is fixed and never re-picked.
+  let host = pickLanBind(station.lanBind);
+  let wss: WebSocketServer;
+  function listen(): void {
+    wss = new WebSocketServer({ host, port });
+    wss.on('connection', onConnection);
+    wss.on('error', (err) => console.error('[lan-kds]', err));
+    console.log(`[lan-kds] listening on ws://${host}:${port}`);
+  }
+  listen();
+
+  const rebindTimer = station.lanBind
+    ? null
+    : setInterval(() => {
+        const next = pickLanBind();
+        if (next === host) return;
+        console.log(`[lan-kds] LAN address changed ${host} -> ${next}: listening again`);
+        for (const socket of authed) socket.terminate();
+        wss.close();
+        host = next;
+        listen();
+      }, LAN_REBIND_MS);
+  rebindTimer?.unref();
+
+  const pingTimer = setInterval(() => {
+    for (const socket of authed) {
+      if (!alive.has(socket)) {
+        socket.terminate(); // 'close' fires: dropped from authed, reach pushed
+        continue;
+      }
+      alive.delete(socket);
+      socket.ping();
+    }
+  }, LAN_PING_MS);
+  pingTimer.unref();
 
   return {
     onEnqueued(envelope) {
@@ -239,6 +303,8 @@ export function startLanKdsServer(
     },
     reach,
     close() {
+      clearInterval(pingTimer);
+      if (rebindTimer) clearInterval(rebindTimer);
       for (const socket of authed) socket.close();
       wss.close();
     },

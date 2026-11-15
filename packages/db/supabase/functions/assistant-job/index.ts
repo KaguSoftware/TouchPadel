@@ -3,8 +3,8 @@
  * "assistant-job/index.ts").
  *
  *   POST {action:'accept', job_id, mode:'live'|'batch'}  owner session
- *     estimated → accepted → running. `live` runs the chunks inline (≤ 40
- *     chunks, LIVE_MAX_CHUNKS), JOB_LIVE_CONCURRENCY at a time, and
+ *     estimated → accepted → running. `live` runs the chunks inline (at most
+ *     LIVE_MAX_CHUNKS, what the clock can finish), JOB_LIVE_CONCURRENCY at a time, and
  *     reduces; `batch` reads every chunk's rows now (as the owner), submits
  *     one Batch API request per chunk with custom_id `job:<id>:<chunk>`,
  *     stores batch_id and returns.
@@ -14,14 +14,25 @@
  *     collects results by custom_id, reduces, finishes.
  *   POST {action:'cancel', job_id}                         owner session
  *     app.assistant_job_cancel, and the batch is cancelled when one exists.
+ *   POST {action:'resume', job_id, mode?:'live'|'batch'}   owner session (0423)
+ *     over_estimate (paused) → running: only the chunks no stored object
+ *     covers are read, in the background by default (cost first; live when the
+ *     owner asks and the rest fits LIVE_MAX_CHUNKS, or batch is unavailable).
+ *     409 INVALID_TRANSITION when the job is not paused (a second press),
+ *     409 JOB_DATA_CHANGED when the rows changed since the estimate
+ *     (jobRunner.ts resumeJob).
+ *   The tick settles stuck jobs first (0423 app.assistant_job_claim_stuck,
+ *   jobRunner.ts sweep): no model call, a vendor batch still billing cancelled.
  *
  * Rows never enter the chat (§11.6): each chunk is a fixed extraction prompt
  * over cleaned rows returning a JSON object; only the objects reach the
  * reduce step, whose answer is inserted as an ordinary assistant message
  * with `sources: [{job_id}]`. Rows are read through the owner's JWT client
  * (`assistant_run_tool`), never the service role. Per chunk:
- * `llm_begin_request` (the cap), one model call, `llm_record_usage`; the job
- * pauses in `over_estimate` when spend passes the accepted estimate × 1.25.
+ * `llm_begin_request` (the cap), one model call, `llm_record_usage`; a live
+ * job pauses in `over_estimate` when spend passes the accepted estimate × 1.25
+ * with chunks still unread. Once every chunk is read the reduce always runs:
+ * the extraction is paid for (jobRunner.ts header).
  *
  * Models (2026-10-08): every chunk extraction, live and batch, runs on
  * JOB_EXTRACT_MODEL (Sonnet 5.5, estimate.ts) — pulling counts and sums out
@@ -55,9 +66,10 @@ import { handle, isUuid, json, KB, logError, pgErrorBody, readJsonBody } from '.
 import { JOB_EXTRACT_MODEL, LIVE_MAX_CHUNKS } from '../_shared/assistant/estimate.ts';
 import { newHandleTable } from '../_shared/assistant/handles.ts';
 import { providerFromEnv, type Provider } from '../_shared/assistant/provider.ts';
-import { Book, chunksOf, errorText, jobErrorText, runLive, submitBatch, tick, venueTimezone, WALL_MS, type JobRow } from '../_shared/assistant/jobRunner.ts';
+import { assistantEvent, reportInBackground } from '../_shared/assistant/monitor.ts';
+import { Book, chunksOf, errorText, isInvalidTransition, jobErrorText, resumeJob, runLive, submitBatch, tick, venueTimezone, WALL_MS, type JobRow } from '../_shared/assistant/jobRunner.ts';
 
-/** accept / cancel / tick: a job id and a mode. */
+/** accept / cancel / resume / tick: a job id and a mode. */
 const MAX_BODY = 4 * KB;
 
 /**
@@ -87,7 +99,9 @@ Deno.serve(handle('assistant-job', async (req) => {
   if (!read.ok) return read.response;
   const body = read.value;
   const action = body.action;
-  if (action !== 'accept' && action !== 'tick' && action !== 'cancel') return json({ error: 'INVALID_REQUEST', code: 'INVALID_REQUEST', message: 'action must be accept, tick or cancel' }, 400);
+  if (action !== 'accept' && action !== 'tick' && action !== 'cancel' && action !== 'resume') {
+    return json({ error: 'INVALID_REQUEST', code: 'INVALID_REQUEST', message: 'action must be accept, resume, tick or cancel' }, 400);
+  }
 
   const provider = providerFromEnv((n) => Deno.env.get(n));
   const abort = new AbortController();
@@ -138,6 +152,29 @@ Deno.serve(handle('assistant-job', async (req) => {
       return json({ job_id: job.id, status: 'cancelled' });
     }
 
+    if (action === 'resume') {
+      // The request's own problems first, as for accept: a bad mode is 400 and
+      // a job that is not paused (a second press, another device) 409, with or
+      // without a model key.
+      const asked = body.mode;
+      if (asked !== undefined && asked !== null && asked !== 'live' && asked !== 'batch') {
+        return json({ error: 'INVALID_REQUEST', code: 'INVALID_REQUEST', message: "mode must be 'live' or 'batch' when given" }, 400);
+      }
+      if (job.status !== 'over_estimate') return json({ error: 'INVALID_TRANSITION', code: 'INVALID_TRANSITION', message: `job is ${job.status}` }, 409);
+      if (!provider) return json({ error: 'NOT_CONFIGURED', code: 'NOT_CONFIGURED', message: 'ANTHROPIC_API_KEY is not set' }, 503);
+      const chunks = chunksOf(job);
+      if (typeof chunks === 'string') return json({ error: 'INVALID_REQUEST', code: 'INVALID_REQUEST', message: chunks }, 400);
+      // The model the job was accepted on (tokens.model, 0114), as the tick rebuilds it.
+      const jobProvider = providerOr((job.tokens as { model?: string } | null)?.model, provider);
+      const book = new Book(service, jobProvider, extractProviderOr(jobProvider));
+      const handles = newHandleTable((conv as { handles: unknown }).handles);
+      const tz = await venueTimezone(asOwner, service);
+      return await resumeJob(book, asOwner, job, chunks, handles, tz, abort.signal, started, {
+        mode: asked === 'live' || asked === 'batch' ? asked : null,
+        batchAvailable: extractProviderOr(provider).capabilities.batch,
+      });
+    }
+
     // accept — the request's own problems (mode, state) answer before the
     // runtime's: a double accept is 409 with or without a model key
     // (review 2026-11-09; it used to hide behind the 503).
@@ -161,7 +198,15 @@ Deno.serve(handle('assistant-job', async (req) => {
     const jobModel = (conv as { model?: string | null }).model ?? (vs as { llm_default_model?: string | null } | null)?.llm_default_model ?? null;
     const jobProvider = providerOr(jobModel, provider);
     const book = new Book(service, jobProvider, extractProviderOr(jobProvider));
-    await book.transition(job.id, 'accepted', { mode, tokens: { ...(job.tokens ?? {}), model: jobProvider.model } });
+    try {
+      await book.transition(job.id, 'accepted', { mode, tokens: { ...(job.tokens ?? {}), model: jobProvider.model } });
+    } catch (e) {
+      // Two presses (or two devices) passed the status check together; the
+      // row lock let one through. The other is the 409 the client watches the
+      // row on, never a 502 with a Monitoring event (review 2026-11-12).
+      if (isInvalidTransition(e)) return json({ error: 'INVALID_TRANSITION', code: 'INVALID_TRANSITION', message: 'job already accepted' }, 409);
+      throw e;
+    }
     // started_at is stamped by the SQL on the first 'running' (0112), never patched:
     // passing it raised INVALID_ARGUMENT and left the job stuck in 'accepted'.
     await book.transition(job.id, 'running', { chunks_total: chunks.length });
@@ -172,8 +217,18 @@ Deno.serve(handle('assistant-job', async (req) => {
 
     return mode === 'live' ? await runLive(book, asOwner, job, chunks, handles, tz, abort.signal, started) : await submitBatch(book, asOwner, job, chunks, handles, tz);
   } catch (e) {
-    // Logged in full; the owner gets the code and our sentence.
+    // Logged in full; the owner gets the code and our sentence. The Monitoring
+    // page gets the code and the ids (2026-11-12), in the background.
     logError('assistant-job', errorText(e), `${action} failed`);
+    reportInBackground(
+      assistantEvent({
+        fn: 'assistant-job',
+        kind: 'assistant_job_failed',
+        what: `${action} failed`,
+        code: 'UPSTREAM',
+        detail: { step: action, jobId: isUuid(body.job_id) ? body.job_id : undefined },
+      }),
+    );
     return json({ error: 'UPSTREAM', code: 'UPSTREAM', message: jobErrorText('UPSTREAM') }, 502);
   } finally {
     clearTimeout(wall);

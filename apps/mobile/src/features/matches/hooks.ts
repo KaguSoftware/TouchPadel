@@ -159,14 +159,16 @@ function detailPoll(data: MatchView | undefined): number | false {
  * `restricted: true` card (R32); a match the guest may not see is
  * MATCH_NOT_FOUND, a refusal the query client never retries.
  */
-export function useMatch(id: string | null | undefined, token?: string | null) {
+export function useMatch(id: string | null | undefined, token?: string | null, inFront = true) {
   const { session } = useAuth();
   return useQuery({
     queryKey: matchKeys.one(id ?? '', token ?? ''),
     queryFn: () => fetchMatchDetail(supabase, { matchId: id, token }),
     enabled: !!session && !!id,
     staleTime: 5_000,
-    refetchInterval: (query) => detailPoll(query.state.data),
+    // Only while the screen is in front: a pushed screen (the start flow, a
+    // report) leaves this one mounted, and its 20 s poll used to run behind it.
+    refetchInterval: (query) => (inFront ? detailPoll(query.state.data) : false),
   });
 }
 

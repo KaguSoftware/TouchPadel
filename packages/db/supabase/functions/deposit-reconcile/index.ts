@@ -15,7 +15,10 @@
  *   refund  refund_pending: send the refund with the request id minted when
  *           it was requested (so a retry is the same refund), then
  *           app.deposit_refund_apply. A refund the gateway says it already
- *           has, but whose outcome we never saw, is refund_failed: a manager
+ *           has (our earlier send: an answer that said "pending", or one we
+ *           lost) is looked up on the payment (its `cancels`, by our refund
+ *           request id) and applied as what the gateway says became of it;
+ *           only when the payment does not say is it refund_failed: a manager
  *           checks the gateway's dashboard instead of us guessing.
  *
  * Bounded: 50 rows and a 45 s budget, under the cron's 60 s lease.
@@ -109,6 +112,28 @@ Deno.serve(handle('deposit-reconcile', async (req) => {
     }
   }
 
+  /**
+   * What the gateway's payment says became of our refund: its `cancels` list
+   * carries each refund's requestId and `successfully`. Null when it does not
+   * say (no entry, no flag, or the status call failed).
+   */
+  async function refundOnPayment(
+    provider: ReturnType<typeof providerFor>,
+    row: DueRow,
+  ): Promise<'succeeded' | 'failed' | null> {
+    try {
+      const p = await provider.status(row.provider_payment_id!, row.request_id);
+      const cancels = Array.isArray(p.raw.cancels) ? (p.raw.cancels as Record<string, unknown>[]) : [];
+      const mine = cancels.find((c) => c && c.requestId === row.refund_request_id);
+      if (mine?.successfully === true) return 'succeeded';
+      if (mine?.successfully === false) return 'failed';
+      return null;
+    } catch (error) {
+      console.warn(`[deposit-reconcile] refund ${row.request_id}: status look-up failed: ${describe(error)}`);
+      return null;
+    }
+  }
+
   async function refund(row: DueRow, t: typeof tally) {
     const outcome = async (o: 'succeeded' | 'failed' | 'pending' | 'unknown', providerStatus: string | null, refundId: string | null, raw: Record<string, unknown>) => {
       const res = await service.schema('app').rpc('deposit_refund_apply', {
@@ -139,6 +164,16 @@ Deno.serve(handle('deposit-reconcile', async (req) => {
       await outcome(s === 'SUCCESS' ? 'succeeded' : s === 'FAILED' ? 'failed' : 'pending', r.status, r.refundId, r.raw);
     } catch (error) {
       if (error instanceof PaymentProviderError) {
+        if (error.kind === 'already_used') {
+          // A "pending" answer is re-sent with the same id 30 s later and meets
+          // this; calling it failed invited a manual refund on top of the
+          // gateway's own (audit finding 13).
+          const seen = await refundOnPayment(provider, row);
+          if (seen) {
+            await outcome(seen, `CANCEL_${seen.toUpperCase()}`, null, { error: error.message, looked_up: true });
+            return;
+          }
+        }
         if (error.kind === 'refused' || error.kind === 'already_used' || error.kind === 'not_found') {
           await outcome('failed', `CODE_${error.code ?? error.kind}`, null, { error: error.message });
           return;

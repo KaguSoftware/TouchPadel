@@ -11,14 +11,7 @@
  * Pure and client-safe.
  */
 import { t, type Locale } from '@touch/i18n';
-
-/** Arabic-Indic (٠–٩) and Extended Arabic-Indic (۰–۹) digits, typed in the operator app. */
-function asciiDigits(value: string): string {
-  return value.replace(/[٠-٩۰-۹]/g, (d) => {
-    const code = d.charCodeAt(0);
-    return String(code >= 0x06f0 ? code - 0x06f0 : code - 0x0660);
-  });
-}
+import { westernDigits } from '@touch/core/staff/requests';
 
 /**
  * The phone as international digits with no prefix (`9647701234567`), the form both
@@ -34,7 +27,7 @@ function asciiDigits(value: string): string {
  *   anywhere but the front, or a result outside E.164's 8–15 digits → null.
  */
 export function internationalDigits(phone: string | null | undefined): string | null {
-  const raw = asciiDigits(phone?.trim() ?? '');
+  const raw = westernDigits(phone?.trim() ?? '');
   if (!raw || !/^\+?[\d\s().-]+$/.test(raw)) return null;
   let digits = raw.replace(/\(0\)/g, '').replace(/[\s().-]/g, '');
   if (digits.startsWith('+')) digits = digits.slice(1);

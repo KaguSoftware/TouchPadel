@@ -37,6 +37,14 @@ const psql = (sql) =>
  * `name` alone is allowed: `item_name`, `category_name` and `day_name` are the
  * substance of a sales report. What must never appear is a key naming a PERSON
  * or carrying a handle back to one.
+ *
+ * 2026-11-12 (0421, Majed's decision): the OWNER assistant's five tools
+ * (cash_closes, costs_summary, safe_summary, wages_summary,
+ * attendance_summary) read the safe ledger, wages, advances, deductions,
+ * reward bonuses and attendance by name. They are app.assistant_* functions
+ * with no client grant, reached only through app.assistant_run_tool, so this
+ * gate does not scan them, and these patterns stay as they are: what goes to
+ * analytics-insights and release-review is still walled off.
  */
 const FORBIDDEN = [
   /guest_id/i, /guest_name/i, /guest_phone/i,

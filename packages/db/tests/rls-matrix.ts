@@ -7677,6 +7677,35 @@ export const matrix: MatrixRule[] = [
     note: '0405: no client UPDATE grant, owner included (0108 granted title, scopes, range, handles, tokens, updated_at): an owner session could rewrite the chat\'s spend or its handle table; scopes, model and archiving move through definer RPCs, the rest through the service role. Discriminating: with the old column grant every authenticated principal got RLS silence on the NIL_UUID row (no error, read as allowed); without it PostgREST answers 42501. tests/assistant-rls.test.ts ("0405: nobody, the owner included…") updates a real conversation',
     drop: 38,
   },
+  // ── 0422 assistant_feedback_monitoring (assistant-feedback.test.ts, assistant-weekly.test.ts) ──
+  {
+    kind: 'rpc', schema: 'app', name: 'assistant_rate_message',
+    args: { p_message_id: NIL_UUID, p_rating: 1 }, expect: OWNER_ONLY,
+    note: '0422: the owner rates an answer of their own chat; the nil message is ASSISTANT_MESSAGE_NOT_FOUND past the guard, nothing written',
+    drop: 38,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'assistant_weekly_page',
+    args: { p_weeks: 1 }, expect: { ...OWNER_ONLY, dev: 'execute' },
+    note: '0422: the dev role and the owner: the Monitoring page\'s assistant weeks, computed live; read-only',
+    drop: 38,
+  },
+  {
+    kind: 'select',
+    name: 'assistant_feedback',
+    expect: ex<SelectExpectation>('silence', { anon: 'denied' }),
+    note: '0422: granted to authenticated; the policy shows the owner only the rows they rated (no probe row is planted, so the owner reads silence too); anon has no grant',
+    drop: 38,
+  },
+  {
+    kind: 'write',
+    name: 'assistant_feedback',
+    op: 'insert',
+    payload: { message_id: NIL_UUID, rated_by: NIL_UUID, rating: 1 },
+    expect: ex<WriteExpectation>('denied'),
+    note: '0422: no client write grant, owner included: app.assistant_rate_message is the only writer. Not discriminating for the owner (the NIL_UUID message fails the FK too); tests/assistant-feedback.test.ts asserts 42501 on insert, update and delete',
+    drop: 38,
+  },
   // ── 0410 loyalty_deals_perks (loyalty-deals-perks.test.ts) ──
   {
     kind: 'select',

@@ -41,12 +41,26 @@ export function phoneDigits(raw: unknown): string {
 
 /**
  * The identity form: digits, minus an international prefix written as 00,
- * minus ONE leading 964 or trunk 0 — so 07701234567, 009647701234567 and
- * +964 770 123 4567 all become 7701234567. A number from any other country
+ * minus a leading 964, minus a trunk 0 — so 07701234567, 009647701234567,
+ * +964 770 123 4567 and +964 0770 123 4567 all become 7701234567. A number from any other country
  * keeps its own code and still compares with itself consistently.
  */
 export function phoneCanon(raw: unknown): string {
-  return phoneDigits(raw).replace(/^00/, '').replace(/^(964|0)/, '');
+  return phoneDigits(raw).replace(/^00/, '').replace(/^964/, '').replace(/^0/, '');
+}
+
+/**
+ * E.164 for the number an account signs in with: an Iraqi mobile in any local
+ * spelling (`toE164Iraq`), or, written with its country code (`+` or `00`),
+ * a number from any other country (8–15 digits; phone sign-in is open
+ * worldwide, owner decision 2026-09-15). Null when it is neither.
+ */
+export function toE164Any(raw: unknown): string | null {
+  const iraqi = toE164Iraq(raw);
+  if (iraqi) return iraqi;
+  if (typeof raw !== 'string' || !/^\s*(\+|00)/.test(raw)) return null;
+  const digits = phoneDigits(raw).replace(/^00/, '');
+  return /^[1-9][0-9]{7,14}$/.test(digits) ? `+${digits}` : null;
 }
 
 /**

@@ -14,13 +14,15 @@
  * row at the foot of the answer card: Go to, Re-check, Pin, Copy, and an "i"
  * that opens a box with what it read (each row's "Open" works) and its cost.
  */
-import { Fragment, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { useRouter } from '@tanstack/react-router';
 import type { AssistantScope } from '@touch/core/assistant/tools';
+import { nextRating, type Rating } from '@touch/core/assistant/feedback';
 import { useLocale } from '../../lib/i18n';
-import { Button, Spinner } from '../../components/ui';
+import { Button, Spinner, inputStyle } from '../../components/ui';
+import { NOTE_MAX, noteOpenAfter, shortNote, type FeedbackView, type RateOutcome } from './feedbackLogic';
 import type { GatePayload, RecheckResult, UsagePayload } from './api';
-import { canAskAgain, errorSentenceKey, type ChatErrorCode, type OutcomeView } from './threadLogic';
+import { canAskAgain, errorSentenceKey, jobErrorKey, pendingToolScopes, type ChatErrorCode, type OutcomeView } from './threadLogic';
 import { RecheckControl, hasRecheckableTools, rawsForValues } from './RecheckControl';
 import { PinControl, hasPinnableTools } from './PinControl';
 import { SourcesBox, scopeLabel, type SourceRow } from './Sources';
@@ -36,17 +38,25 @@ import { formatUsd, priceFor, totalTokens, type PricingMap } from '../../lib/ass
 // ---------------------------------------------------------------------------
 
 type Block =
+  | { kind: 'h'; text: string }
   | { kind: 'p'; lines: string[] }
   | { kind: 'ul'; items: string[] }
-  | { kind: 'ol'; items: string[] }
+  | { kind: 'ol'; items: string[]; start: number }
   | { kind: 'table'; header: string[]; rows: string[][] };
 
 const BULLET = /^\s*[-*•]\s+(.*)$/;
-const NUMBERED = /^\s*\d+[.)]\s+(.*)$/;
+const NUMBERED = /^\s*(\d+)[.)]\s+(.*)$/;
+const HEADING = /^\s{0,3}#{1,6}\s+(.*?)\s*#*\s*$/;
 const TABLE_ROW = /^\s*\|.*\|\s*$/;
 const TABLE_SEP = /^\s*\|?[\s:|-]+\|?\s*$/;
 
-/** Split assistant text into blocks. Exported for the test. */
+/**
+ * Split assistant text into blocks, as the phone does (apps/mobile
+ * src/features/assistant/blocks.ts; parity since 2026-11-12): a `#` heading is
+ * a bold line without its hashes; a numbered list keeps counting across the
+ * blank lines between its items; only the row right under a table's header is
+ * a separator, so `| - | - |` further down is a data row. Exported for the test.
+ */
 export function parseBlocks(text: string): Block[] {
   const lines = text.replace(/\r\n?/g, '\n').split('\n');
   const blocks: Block[] = [];
@@ -57,10 +67,18 @@ export function parseBlocks(text: string): Block[] {
       i += 1;
       continue;
     }
+    const heading = HEADING.exec(line);
+    if (heading) {
+      blocks.push({ kind: 'h', text: heading[1]! });
+      i += 1;
+      continue;
+    }
     if (TABLE_ROW.test(line)) {
       const rows: string[][] = [];
+      let n = 0;
       while (i < lines.length && TABLE_ROW.test(lines[i]!)) {
-        if (!TABLE_SEP.test(lines[i]!)) rows.push(splitRow(lines[i]!));
+        if (!(n === 1 && TABLE_SEP.test(lines[i]!))) rows.push(splitRow(lines[i]!));
+        n += 1;
         i += 1;
       }
       if (rows.length > 0) blocks.push({ kind: 'table', header: rows[0]!, rows: rows.slice(1) });
@@ -77,21 +95,37 @@ export function parseBlocks(text: string): Block[] {
     }
     if (NUMBERED.test(line)) {
       const items: string[] = [];
-      while (i < lines.length && NUMBERED.test(lines[i]!)) {
-        items.push(NUMBERED.exec(lines[i]!)![1]!);
-        i += 1;
+      const start = Number(NUMBERED.exec(line)![1]);
+      while (i < lines.length) {
+        // Blank lines between items do not end the list: the next non-blank line decides.
+        let j = i;
+        while (j < lines.length && lines[j]!.trim() === '') j += 1;
+        if (j >= lines.length || !NUMBERED.test(lines[j]!)) break;
+        items.push(NUMBERED.exec(lines[j]!)![2]!);
+        i = j + 1;
       }
-      blocks.push({ kind: 'ol', items });
+      blocks.push({ kind: 'ol', items, start: Number.isSafeInteger(start) && start > 0 ? start : 1 });
       continue;
     }
     const para: string[] = [];
-    while (i < lines.length && lines[i]!.trim() !== '' && !TABLE_ROW.test(lines[i]!) && !BULLET.test(lines[i]!) && !NUMBERED.test(lines[i]!)) {
+    while (i < lines.length && lines[i]!.trim() !== '' && !HEADING.test(lines[i]!) && !TABLE_ROW.test(lines[i]!) && !BULLET.test(lines[i]!) && !NUMBERED.test(lines[i]!)) {
       para.push(lines[i]!);
       i += 1;
     }
     blocks.push({ kind: 'p', lines: para });
   }
   return blocks;
+}
+
+/**
+ * Markdown links, images and code as plain text. A link or an image becomes
+ * its words only: an answer never carries a clickable address or a picture
+ * from the model (either could carry the club's data out to a server), and the
+ * router-checked "Go to" buttons stay the only way out of an answer. Backticks
+ * are dropped. Exported for the test.
+ */
+export function plainInline(text: string): string {
+  return text.replace(/!?\[([^\]\n]*)\]\(\s*[^)\s]*(?:\s+"[^"\n]*")?\s*\)/g, '$1').replace(/`([^`\n]+)`/g, '$1');
 }
 
 function splitRow(line: string): string[] {
@@ -120,7 +154,7 @@ export function renderInline(text: string, unverified: readonly string[], key: s
   // sentence is not.
   const markRe = raws.length > 0 ? new RegExp(`(?<!\\d|\\d[.,])(${raws.map(escapeRe).join('|')})(?!\\d|[.,]\\d)`, 'g') : null;
   const out: ReactNode[] = [];
-  const boldParts = text.split(/(\*\*[^*]+\*\*)/g);
+  const boldParts = plainInline(text).split(/(\*\*[^*]+\*\*)/g);
   boldParts.forEach((part, bi) => {
     if (part === '') return;
     const isBold = part.startsWith('**') && part.endsWith('**') && part.length > 4;
@@ -141,15 +175,25 @@ export function renderInline(text: string, unverified: readonly string[], key: s
 }
 
 export function AssistantText({ text, unverified, changed = [] }: { text: string; unverified: readonly string[]; changed?: readonly string[] }) {
-  const blocks = parseBlocks(text);
+  const blocks = useMemo(() => parseBlocks(text), [text]);
   return (
+    // Each block takes its direction from its own words (dir="auto"): an English
+    // answer in the Arabic app, or the reverse, kept its text and list numbers on
+    // the wrong side (".1" for "1.", screen check 2026-11-12).
     <div style={{ display: 'grid', gap: 'var(--tp-sp-2)', overflowWrap: 'anywhere' }}>
       {blocks.map((b, i) => {
         const k = `b${i}`;
         switch (b.kind) {
+          case 'h':
+            // A bold line, not a document heading: the answer sits inside the thread's own outline.
+            return (
+              <p key={k} dir="auto" data-answer-heading="" style={{ margin: 0, marginBlockStart: i > 0 ? 'var(--tp-sp-1)' : 0, fontWeight: 700, fontSize: 'var(--tp-fs-md)', lineHeight: 1.4 }}>
+                {renderInline(b.text, unverified, k, changed)}
+              </p>
+            );
           case 'p':
             return (
-              <p key={k} style={{ margin: 0, lineHeight: 1.5 }}>
+              <p key={k} dir="auto" style={{ margin: 0, lineHeight: 1.5 }}>
                 {b.lines.map((line, li) => (
                   <Fragment key={li}>
                     {li > 0 && <br />}
@@ -159,20 +203,25 @@ export function AssistantText({ text, unverified, changed = [] }: { text: string
               </p>
             );
           case 'ul':
-          case 'ol': {
-            const Tag = b.kind;
             return (
-              <Tag key={k} style={{ margin: 0, paddingInlineStart: '1.25rem', display: 'grid', gap: '0.2rem', lineHeight: 1.5 }}>
+              <ul key={k} dir="auto" style={{ margin: 0, paddingInlineStart: '1.25rem', display: 'grid', gap: '0.2rem', lineHeight: 1.5 }}>
                 {b.items.map((item, li) => (
                   <li key={li}>{renderInline(item, unverified, `${k}-${li}`, changed)}</li>
                 ))}
-              </Tag>
+              </ul>
             );
-          }
+          case 'ol':
+            return (
+              <ol key={k} dir="auto" start={b.start !== 1 ? b.start : undefined} style={{ margin: 0, paddingInlineStart: '1.5rem', display: 'grid', gap: '0.2rem', lineHeight: 1.5 }}>
+                {b.items.map((item, li) => (
+                  <li key={li}>{renderInline(item, unverified, `${k}-${li}`, changed)}</li>
+                ))}
+              </ol>
+            );
           case 'table':
             return (
               <div key={k} style={{ overflowX: 'auto', maxInlineSize: '100%' }}>
-                <table className="tp-table" style={{ inlineSize: 'auto', minInlineSize: '50%', borderCollapse: 'collapse', fontSize: 'var(--tp-fs-sm)' }}>
+                <table className="tp-table" dir="auto" style={{ inlineSize: 'auto', minInlineSize: '50%', borderCollapse: 'collapse', fontSize: 'var(--tp-fs-sm)' }}>
                   <thead>
                     <tr>
                       {b.header.map((h, ci) => (
@@ -240,6 +289,149 @@ export interface MessageProps {
   fromJob?: boolean;
   compact?: boolean;
   onNavigate?: () => void;
+  /**
+   * The owner's thumb on this stored answer (0422). The thumbs show only when
+   * both this and `onRate` are given, which Thread does when the shared
+   * `canRate(row)` allows it (feedbackLogic.feedbackView); never on a live
+   * answer, a job answer or the free assistant.
+   */
+  feedback?: FeedbackView | null;
+  /** Saves a thumb (0 clears); the cache changes at once and is put back on failure. */
+  onRate?: (rating: Rating, note: string | null) => Promise<RateOutcome>;
+}
+
+/** The thumbs' own ink: muted until chosen, accent when chosen, and never animated (DESIGN.md, Motion). */
+function thumbStyle(chosen: boolean): CSSProperties {
+  return chosen
+    ? // The kit paints an aria-pressed button as a soft chip; the thumbs stay quiet: the filled glyph carries the state.
+      { color: 'var(--tp-accent)', background: 'transparent', borderColor: 'transparent', transition: 'none' }
+    : { color: 'var(--tp-muted-fg)', transition: 'none' };
+}
+
+const feedbackLine: CSSProperties = {
+  margin: 0,
+  fontSize: 'var(--tp-fs-xs)',
+  color: 'var(--tp-muted-fg)',
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap',
+};
+
+/**
+ * The thumbs under a finished answer, low-key by the owner's word: two
+ * icon-only ghost buttons after Copy, and under the row one optional
+ * single-line "What was wrong?" field after a thumbs-down. Enter sends the
+ * note with the -1, Escape closes the field and keeps the rating, blur leaves
+ * it open. Nothing here animates or spins: the change is optimistic.
+ */
+function useThumbs(messageId: string | undefined, feedback: FeedbackView | null | undefined, onRate: MessageProps['onRate']) {
+  const { tr } = useLocale();
+  const [noteOpen, setNoteOpen] = useState(false);
+  const [draft, setDraft] = useState('');
+  const [failed, setFailed] = useState(false);
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
+  useEffect(() => {
+    setNoteOpen(false);
+    setDraft('');
+    setFailed(false);
+  }, [messageId]);
+
+  if (!feedback || !onRate) return { buttons: null, below: null };
+  const rating = feedback.rating;
+
+  const send = (next: Rating, note: string | null, openBefore: boolean) => {
+    setFailed(false);
+    void onRate(next, note).then((outcome) => {
+      if (!mounted.current) return;
+      if (outcome === 'failed') {
+        setFailed(true);
+        setNoteOpen(false);
+      } else if (outcome === 'skipped') {
+        setNoteOpen(openBefore);
+      }
+    });
+  };
+  const press = (pressed: 1 | -1) => {
+    const next = nextRating(rating, pressed);
+    const openBefore = noteOpen;
+    setNoteOpen(noteOpenAfter(next));
+    setDraft('');
+    send(next, null, openBefore);
+  };
+  const thumb = (pressed: 1 | -1) => {
+    const chosen = rating === pressed;
+    const label = tr(pressed === 1 ? 'ws.owner.assistant.message.feedback.good' : 'ws.owner.assistant.message.feedback.bad');
+    const base = pressed === 1 ? 'thumbsUp' : 'thumbsDown';
+    return (
+      <Button
+        kind="ghost"
+        size="sm"
+        icon={chosen ? (`${base}Filled` as const) : base}
+        aria-pressed={chosen}
+        aria-label={label}
+        title={label}
+        data-testid={pressed === 1 ? 'assistant-thumbs-up' : 'assistant-thumbs-down'}
+        style={thumbStyle(chosen)}
+        onClick={() => press(pressed)}
+      />
+    );
+  };
+
+  const buttons = (
+    <span data-answer-thumbs="" style={{ display: 'inline-flex', gap: '0.125rem' }}>
+      {thumb(1)}
+      {thumb(-1)}
+    </span>
+  );
+  const noted = rating === -1 && feedback.note && !noteOpen ? feedback.note : null;
+  const below =
+    noteOpen || noted || failed ? (
+      <div data-answer-feedback="" style={{ display: 'grid', gap: 'var(--tp-sp-1)', paddingInline: 'var(--tp-sp-2)', paddingBlockEnd: 'var(--tp-sp-1-5)', background: 'var(--tp-surface-2)' }}>
+        {noteOpen && (
+          <input
+            type="text"
+            data-testid="assistant-feedback-note"
+            autoFocus
+            dir="auto"
+            value={draft}
+            maxLength={NOTE_MAX}
+            placeholder={tr('ws.owner.assistant.message.feedback.notePlaceholder')}
+            aria-label={tr('ws.owner.assistant.message.feedback.notePlaceholder')}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                setNoteOpen(false);
+                if (draft.trim() !== '') send(-1, draft, true);
+              } else if (e.key === 'Escape') {
+                // Closes the field only: not the drawer around it, and the rating stays.
+                e.preventDefault();
+                e.stopPropagation();
+                setNoteOpen(false);
+              }
+            }}
+            style={{ ...inputStyle, minBlockSize: '2rem', paddingBlock: '0.3rem', fontSize: 'var(--tp-fs-sm)' }}
+          />
+        )}
+        {noted && (
+          <p data-answer-feedback-noted="" title={noted} style={feedbackLine}>
+            {tr('ws.owner.assistant.message.feedback.noted', { note: `⁨${shortNote(noted)}⁩` })}
+          </p>
+        )}
+        {failed && (
+          <p data-answer-feedback-failed="" role="status" style={feedbackLine}>
+            {tr('ws.owner.assistant.message.feedback.failed')}
+          </p>
+        )}
+      </div>
+    ) : null;
+  return { buttons, below };
 }
 
 /**
@@ -289,6 +481,8 @@ export function Message(props: MessageProps) {
   useEffect(() => setRecheck(null), [props.messageId]);
   const [copied, setCopied] = useState(false);
   const [details, setDetails] = useState(false);
+  const rateable = !!props.onRate && !streaming && finished && !!props.messageId && !props.fromJob;
+  const thumbs = useThumbs(props.messageId, rateable ? props.feedback : null, props.onRate);
 
   if (role === 'user') {
     return (
@@ -416,10 +610,10 @@ export function Message(props: MessageProps) {
       {/* Tool rows while the answer is being read: the pending ones, in words. */}
       {streaming && pendingTools.length > 0 && (
         <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: '0.15rem', fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>
-          {pendingTools.map((t) => (
-            <li key={t.call_id} style={{ display: 'flex', gap: 'var(--tp-sp-1)', alignItems: 'center' }}>
+          {pendingToolScopes(pendingTools.map((t) => t.name)).map((scope) => (
+            <li key={scope ?? 'any'} style={{ display: 'flex', gap: 'var(--tp-sp-1)', alignItems: 'center' }}>
               <Spinner size="xs" />
-              <span>{tr('ws.owner.assistant.message.toolPending', { name: `⁨${t.name}⁩` })}</span>
+              <span>{scope ? tr('ws.owner.assistant.message.toolReading', { scope: scopeLabel(tr, scope) }) : tr('ws.owner.assistant.message.toolReadingAny')}</span>
             </li>
           ))}
         </ul>
@@ -471,9 +665,11 @@ export function Message(props: MessageProps) {
               <Button size="sm" kind="ghost" icon={copied ? 'check' : 'fileText'} onClick={() => void copy()}>
                 {tr(copied ? 'ws.owner.assistant.message.copied' : 'ws.owner.assistant.message.copy')}
               </Button>
+              {thumbs.buttons}
               {detailsButton}
             </div>
           )}
+          {showFooter && thumbs.below}
         </div>
       )}
       {!showFooter && detailsButton && <div style={{ display: 'flex' }}>{detailsButton}</div>}
@@ -497,7 +693,8 @@ export function Message(props: MessageProps) {
       {outcome.kind === 'error' && (
         <div data-turn-outcome="error" style={{ display: 'grid', gap: 'var(--tp-sp-1)', justifyItems: 'start' }}>
           <p role="alert" style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-danger-fg)' }}>
-            {tr(`ws.owner.assistant.message.errors.${errorSentenceKey(outcome.code)}`)}
+            {/* A job's failed message (the server writes one, 2026-11-12) is worded for a job: its time-out is not the chat's 50 seconds. */}
+            {props.fromJob ? tr(jobErrorKey(outcome.code)) : tr(`ws.owner.assistant.message.errors.${errorSentenceKey(outcome.code)}`)}
           </p>
           {props.onAskAgain && canAskAgain(outcome.code) && (
             <Button kind="soft" size="sm" icon="refresh" onClick={props.onAskAgain} disabled={props.askAgainDisabled} title={tr('ws.owner.assistant.message.askAgainHint')}>

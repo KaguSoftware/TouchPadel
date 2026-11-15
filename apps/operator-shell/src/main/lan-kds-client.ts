@@ -1,5 +1,5 @@
 import WebSocket from 'ws';
-import { LAN_KDS_PORT } from './lan-kds-server';
+import { LAN_KDS_PORT, LAN_PING_MS } from './lan-kds-server';
 import type { LanStatusUpdate } from './lan-frames';
 import type { StationConfig } from './station';
 
@@ -49,10 +49,28 @@ export function startLanKdsClient(
       headers: { authorization: `Bearer ${station.lanPsk}` },
     });
     socket = ws;
+    // Heartbeat: a till that lost power or Wi-Fi sends no reset, and without
+    // this the screen stays "connected" to nothing, never reconnects and gets
+    // no new tickets. No pong within one interval ends the socket, and the
+    // close handler below reconnects.
+    let answered = true;
+    let heartbeat: ReturnType<typeof setInterval> | null = null;
+    ws.on('pong', () => {
+      answered = true;
+    });
     ws.on('open', () => {
       backoffMs = 2_000;
       setLink(true);
       console.log('[lan-kds-client] connected to till', station.tillHost);
+      heartbeat = setInterval(() => {
+        if (!answered) {
+          ws.terminate();
+          return;
+        }
+        answered = false;
+        ws.ping();
+      }, LAN_PING_MS);
+      heartbeat.unref();
     });
     ws.on('message', (raw) => {
       try {
@@ -62,6 +80,7 @@ export function startLanKdsClient(
       }
     });
     ws.on('close', () => {
+      if (heartbeat) clearInterval(heartbeat);
       if (socket === ws) setLink(false);
       if (closed) return;
       setTimeout(connect, backoffMs);

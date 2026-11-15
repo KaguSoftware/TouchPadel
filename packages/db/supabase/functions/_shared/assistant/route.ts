@@ -12,7 +12,8 @@
  *
  * 2026-10-09: ANALYSIS is split by how hard it is (see DEEP_REASONS): advice,
  * why and long asks stay on the chat's default at medium; comparisons,
- * trends, asks for a plan, judgement questions and "what happened" run on LOOKUP_MODEL at medium; plain figure
+ * trends, asks to analyse / review / break down, asks for a plan, judgement questions and "what happened" /
+ * "how are we doing" (reason recap-signal, code and header agree since 2026-11-12) run on LOOKUP_MODEL at medium; plain figure
  * questions run on LOOKUP_MODEL at low. The owner's own model pick still wins.
  *
  * Conservative by construction: a question is a lookup only when a positive
@@ -178,11 +179,22 @@ const HARD: readonly Signal[] = [
   ['who-signal', /\b(?:who|whom|whose)\b/],
   ['who-signal', ar('مين|منو|منهو')],
   ['who-signal', /^ (?:و)?من /],
-  ['event-signal', /\b(?:what happened|what's happening|what is happening|what's going on|what is going on|how are we doing|how's business|how is business|how did we do|how did|did we|did the|did anyone|has anyone|have we|have any|were there|was there|which (?:customers?|players?|staff|employees?|waiters?|courts?|items?|products?|days?|hours?|coach(?:es)?|cashiers?|members?|bookings?|orders?|tabs?))\b/],
-  ['event-signal', /(?<=\s)(?:ماذا|شنو|شو|ايش|وش) (?:حدث|صار|يحدث|يصير)(?=\s)|(?<=\s)(?:شصار|حدث|هل تم|هل تمت|هل كان|هل كانت|كيف حال|كيف كانت|كيف كان|كيف الاداء|كيف الوضع|شلون الوضع|شلون الاداء|شلون كانت|شلون كان)(?=\s)/],
+  // 2026-11-12: a recap ask ("what happened", "how are we doing") reads several figures: MEDIUM on Sonnet, as the header says
+  ['recap-signal', /\b(?:what happened|what's happening|what is happening|what's going on|what is going on|how are we doing|how's business|how is business|how did we do)\b/],
+  ['recap-signal', /(?<=\s)(?:ماذا|شنو|شو|ايش|وش) (?:حدث|صار|يحدث|يصير)(?=\s)|(?<=\s)(?:شصار|كيف حال|كيف الاداء|كيف الوضع|شلون الوضع|شلون الاداء)(?=\s)/],
+  ['event-signal', /\b(?:how did|did we|did the|did anyone|has anyone|have we|have any|were there|was there|which (?:customers?|players?|staff|employees?|waiters?|courts?|items?|products?|days?|hours?|coach(?:es)?|cashiers?|members?|bookings?|orders?|tabs?))\b/],
+  ['event-signal', /(?<=\s)(?:حدث|هل تم|هل تمت|هل كان|هل كانت|كيف كانت|كيف كان|شلون كانت|شلون كان)(?=\s)/],
+  // 2026-11-12: an ask to analyse (analyse, breakdown, review, deep dive): MEDIUM on Sonnet like compare / trend, never deep.
+  // classifyPart skips it inside an app how-to ("how do I review a request"); "review" needs an object so "the review page" stays a page.
+  ['analyse-signal', /\b(?:analy[sz]e|analy[sz]ing|analysis|analyses|breakdown|break down|deep dive|dig into|review(?:ing)? (?:the|our|my|last|this|all|how|each|every|these|those|what))\b/],
+  ['analyse-signal', ar('حلل|حللي|تحليل|راجع|راجعلي|مراجعه|تفصيل|تفصيلي')],
   // advice
   ['advice-signal', /\b(?:should i|should we|what should|recommend|recommendation|suggest|suggestion|advice|advise|ideas?|opportunit(?:y|ies)|improve|optimi[sz]e|strategy|worth it|better to|what do you think|your opinion|make money|more money|more customers|more bookings|cut costs|save money|reduce costs|increase (?:our |the |my )?(?:revenue|sales|profit|income|bookings|occupancy|business|numbers|footfall))\b/],
-  ['advice-signal', /(?<=\s)(?:شنو|ماذا|شو|ايش|وش) (?:اسوي|افعل|اعمل|الافضل|ينبغي|تنصح|تقترح|لازم اسوي|نسوي|نفعل|نعمل)(?=\s)|(?<=\s)(?:هل يجب|هل الافضل|هل ينبغي|هل يستاهل|يستاهل|انصحني|ننصح|نصيحه|نصائح|اقتراح|اقترح|افكار|فكره|تحسين|احسن|اطور|اوفر|اقلل|ازيد|اربح|اكسب|ارباح اكثر|نزيد|نربح|نكسب|نحسن|نطور|نوفر|نقلل|نكبر|نوسع|نشجع|نجيب|نجذب|نرجع|نملي|نبيع|نزود|نرفع|نخفض|اجيب|اجذب|ارجع|املي|ابيع|ازود|ارفع|اخفض)(?=\s)/],
+  ['advice-signal', /(?<=\s)(?:شنو|ماذا|شو|ايش|وش) (?:اسوي|افعل|اعمل|الافضل|ينبغي|تنصح|تقترح|لازم اسوي|نسوي|نفعل|نعمل)(?=\s)|(?<=\s)(?:هل يجب|هل الافضل|هل ينبغي|هل يستاهل|يستاهل|انصحني|ننصح|نصيحه|نصائح|اقتراح|اقترح|افكار|فكره|تحسين|احسن|اطور|اوفر|اقلل|ازيد|اربح|اكسب|ارباح اكثر|نزيد|نربح|نكسب|نحسن|نطور|نوفر|نقلل|نكبر|نوسع|نشجع|نجيب|نجذب|نرجع|نملي|نبيع|نزود|نرفع|نخفض|اجذب|املي|ازود|اخفض)(?=\s)/],
+  // 2026-11-12: ارجع / ارفع / ابيع / اجيب are advice alone ("هل ارفع الاسعار") but an app how-to after a how-word
+  // ("كيف ارجع فلوس الزبون": refund); a growth object (customers, players, bookings) keeps even the how-word form advice.
+  ['advice-signal', /(?<!(?:كيف|شلون|اشلون|ازاي|كيفيه|طريقه) (?:(?:ممكن|اقدر|اكدر|لازم|احتاج|اريد) )*)(?<=\s)(?:ارجع|ارفع|ابيع|اجيب)(?=\s)/],
+  ['advice-signal', /(?<=\s)(?:ارجع|ارفع|ابيع|اجيب) (?:ال)?(?:زباين|زبائن|عملاء|لاعبين|ناس|زوار|ضيوف|اعضاء|حجوزات|ايرادات|مبيعات|ارباح)(?=\s)/],
   // growth asked as a how-to: "how can we attract more players", "how do we fill empty courts"
   ['advice-signal', /\bhow (?:do|can|could|would|should|might) (?:i|we|you|one) (?:attract|fill|grow|retain|encourage|persuade|convince|motivate|win|boost|drive|expand|upsell|sell|bring (?:back|in|more|people|players|customers|guests|them)|get (?:more|new|players|customers|guests|people|members|clients|them)|keep (?:players|customers|guests|people|members|clients|them))\b/],
   // asks for a plan: an ask (verb + a plan), never the bare word, so a page named plan stays a lookup.
@@ -273,7 +285,7 @@ const HOWTO: readonly (readonly [string, RegExp])[] = [
   ['where-pattern', new RegExp(String.raw`(?<=\s)(?:وين|اين|فين|منين|واين|ووين) ${AR_FILL}(?:${AR_VERB})(?=\s)`)],
   ['how-pattern', /\bhow to\b/],
   ['how-pattern', /\bhow (?:does|do|is|are) (?:the |this |that |a |an |my |our )?[\w' -]{1,40}? (?:work|works|calculated|computed|determined|set|configured|used|applied|counted|shown|displayed)\b/],
-  ['how-pattern', new RegExp(String.raw`(?<=\s)(?:كيف|شلون|ازاي|كيفيه) ${AR_FILL}(?:${AR_VERB}|${AR_MASDAR}|ا(?!ل)(?!(?:ايراد|ايام|اسعار|ارباح|اجمالي|افضل|اكثر|اقل|اعلي|اسوا|اخر|اول|احد|اغلب|اشكد|اذا|اداء|انواع|اسماء)\S*)\S{2,})(?=\s)`)],
+  ['how-pattern', new RegExp(String.raw`(?<=\s)(?:كيف|شلون|اشلون|ازاي|كيفيه|طريقه) ${AR_FILL}(?:${AR_VERB}|${AR_MASDAR}|ا(?!ل)(?!(?:ايراد|ايام|اسعار|ارباح|اجمالي|افضل|اكثر|اقل|اعلي|اسوا|اخر|اول|احد|اغلب|اشكد|اذا|اداء|انواع|اسماء)\S*)\S{2,})(?=\s)`)],
   ['how-pattern', /(?<=\s)(?:كيف|شلون) (?:يعمل|تعمل|يشتغل|تشتغل|يتم|تتم|يحسب|تحسب|يحتسب|تحتسب|يضبط|تضبط|تنضبط|ينضبط)(?=\s)/],
   ['can-pattern', /\b(?:can|could) (?:i|we) (?:change|set|edit|add|remove|delete|create|enable|disable|turn|configure|customi[sz]e|rename|export|print|assign|schedule|reset|undo|cancel|merge|split|move|hide|show|find|see|switch|select|choose|upload|import|link|connect|invite|deactivate|activate|block|unblock|pause|resume|override|approve|decline|reject|refund|void|close|open|start|stop|send|record|log|register|book|apply|attach)\b/],
   // "can you ..." asks the assistant to do something: only a configuration verb is a how-to ("can you show me the sales" is a data request)
@@ -312,6 +324,9 @@ const FILLER_WORDS: ReadonlySet<string> = new Set([
   'شكرا', 'شكرن', 'مرحبا', 'هلا', 'هلو', 'اهلا', 'السلام', 'عليكم', 'سلام', 'تمام', 'اوكي', 'ok', 'يعطيك', 'العافيه', 'لو', 'سمحت', 'من', 'فضلك', 'ممتاز', 'حلو', 'زين', 'صباح', 'الخير', 'مساء', 'النور',
 ]);
 
+/** "how do I ..." / "where is ..." / "كيف ..." / "وين ...": the person asks about using the app. */
+const HOW_ASK = /\bhow (?:do|can|could|would|should|might) (?:i|we|you|one)\b|\bhow to\b|\bwhere\b|(?<=\s)(?:كيف|شلون|اشلون|ازاي|كيفيه|طريقه|وين|اين|فين|منين) /;
+
 type Part = { kind: TurnKind | 'neutral'; reason: string };
 
 function classifyPart(padded: string): Part {
@@ -325,7 +340,9 @@ function classifyPart(padded: string): Part {
 
   // Every hard signal that matches, so the tier follows the hardest one: "why did revenue drop last week" is a why (deep), not just a period.
   let hard: string | null = null;
-  for (const [reason, re] of HARD) if (re.test(padded) && (hard === null || hardRank(reason) > hardRank(hard))) hard = reason;
+  // An app how-to that names "review"/"analysis" ("how do I review a request") is a lookup, not an analyse ask.
+  const howTo = HOW_ASK.test(padded);
+  for (const [reason, re] of HARD) if (re.test(padded) && !(howTo && reason === 'analyse-signal') && (hard === null || hardRank(reason) > hardRank(hard))) hard = reason;
   if (hard !== null) return { kind: 'analysis', reason: hard };
 
   const soft = SOFT.some((re) => re.test(padded));
@@ -378,7 +395,7 @@ function splitParts(normalized: string): string[] {
  * When unsure, MEDIUM on Sonnet, never DEEP by default.
  */
 const DEEP_REASONS: ReadonlySet<string> = new Set(['advice-signal', 'why-signal', 'outside-signal', 'long-question', 'empty']);
-const MEDIUM_REASONS: ReadonlySet<string> = new Set(['compare-signal', 'trend-signal', 'no-lookup-pattern', 'plan-signal', 'judgement-signal']);
+const MEDIUM_REASONS: ReadonlySet<string> = new Set(['compare-signal', 'trend-signal', 'no-lookup-pattern', 'plan-signal', 'judgement-signal', 'analyse-signal', 'recap-signal']);
 
 function analysisRank(reason: string): number {
   return DEEP_REASONS.has(reason) ? 2 : MEDIUM_REASONS.has(reason) ? 1 : 0;

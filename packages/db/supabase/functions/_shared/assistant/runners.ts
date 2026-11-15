@@ -127,7 +127,10 @@ export async function runFileRead(ctx: DispatchCtx, spec: ToolSpec, input: Recor
 
   let text: string;
   try {
-    const { data: blob, error: dlError } = await ctx.asOwner.storage.from(FILES_BUCKET).download(textPath);
+    // The turn's signal (the wall, a Stop) ends a stalled download too: the
+    // loop awaits every tool of a round together, so one hung file_read used
+    // to hold the turn past its wall clock.
+    const { data: blob, error: dlError } = await ctx.asOwner.storage.from(FILES_BUCKET).download(textPath, {}, ctx.signal ? { signal: ctx.signal } : undefined);
     if (dlError || !blob) {
       logError('assistant-chat', dlError ?? new Error('empty download'), `file_read download failed`);
       return { cleaned: cleanedNotice('the file text could not be downloaded'), isError: true, row_count: null };
@@ -135,6 +138,7 @@ export async function runFileRead(ctx: DispatchCtx, spec: ToolSpec, input: Recor
     text = await gunzipText(blob);
   } catch (e) {
     if (e instanceof FileTextTooLarge) return { cleaned: cleanedNotice(e.message), isError: true, row_count: null };
+    if (ctx.signal?.aborted) return { cleaned: cleanedNotice('the file read was stopped with the turn'), isError: true, row_count: null };
     logError('assistant-chat', e, 'file_read unzip failed');
     return { cleaned: cleanedNotice('the file text could not be read'), isError: true, row_count: null };
   }
@@ -375,7 +379,10 @@ export async function runProposeJob(ctx: DispatchCtx, provider: Provider, input:
   const counts: number[] = [];
   for (const call of calls) {
     const spec = toolByName(call.tool)!;
-    const { data, error } = await aborting(ctx.asOwner.schema('app').rpc('assistant_count', { p_tool: spec.rpc, p_args: rpcArgs(spec, call.args) }), ctx.signal);
+    // app.assistant_count's CASE takes the CATALOG name (COUNTABLE_TOOL_NAMES,
+    // 0109), not the rpc: `assistant_bookings_list` raised
+    // ASSISTANT_NOT_COUNTABLE, so seven list tools could never be estimated.
+    const { data, error } = await aborting(ctx.asOwner.schema('app').rpc('assistant_count', { p_tool: spec.name, p_args: rpcArgs(spec, call.args) }), ctx.signal);
     if (error) {
       return { cleaned: cleanedNotice(`${call.tool}: ${safePgMessage(error, 'assistant-chat')}`), isError: true, row_count: null };
     }

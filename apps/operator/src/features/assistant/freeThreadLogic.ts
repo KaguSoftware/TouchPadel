@@ -16,6 +16,10 @@ export type FreeErrorInfo =
   | { kind: 'club' }
   | { kind: 'notConfigured' }
   | { kind: 'timeout' }
+  /** The session ended: sign in again (not "check the connection"). */
+  | { kind: 'auth' }
+  /** This account may not use it. */
+  | { kind: 'forbidden' }
   | { kind: 'generic' };
 
 /** One question and its answer. */
@@ -55,6 +59,8 @@ export function freeErrorOf(err: unknown): FreeErrorInfo {
       return { kind: 'club' };
     }
     if (code === 'NOT_CONFIGURED' || err.kind === 'NOT_CONFIGURED') return { kind: 'notConfigured' };
+    if (err.status === 401 || code === 'AUTH_REQUIRED') return { kind: 'auth' };
+    if (err.status === 403 || code === 'FORBIDDEN') return { kind: 'forbidden' };
     return { kind: 'generic' };
   }
   return { kind: 'generic' };
@@ -73,6 +79,10 @@ function kindOfCode(error: FreeError): FreeErrorInfo {
       return { kind: 'timeout' };
     case 'NOT_CONFIGURED':
       return { kind: 'notConfigured' };
+    case 'AUTH_REQUIRED':
+      return { kind: 'auth' };
+    case 'FORBIDDEN':
+      return { kind: 'forbidden' };
     default:
       return { kind: 'generic' };
   }
@@ -106,14 +116,19 @@ export function historyOf(exchanges: readonly FreeExchange[]): FreeTurn[] {
 }
 
 /** The i18n key (under ws.assistantFree.errors) and its params. */
-export function freeErrorMessage(info: FreeErrorInfo): { key: 'minute' | 'minuteSoon' | 'day' | 'club' | 'notConfigured' | 'timeout' | 'generic'; seconds?: number } {
+export function freeErrorMessage(
+  info: FreeErrorInfo,
+  opts: { owner?: boolean } = {},
+): { key: 'minute' | 'minuteSoon' | 'day' | 'club' | 'notConfigured' | 'notConfiguredOwner' | 'timeout' | 'auth' | 'forbidden' | 'generic'; seconds?: number } {
   if (info.kind === 'minute') return info.seconds ? { key: 'minute', seconds: info.seconds } : { key: 'minuteSoon' };
+  // Staff cannot set a server key: they are told to tell the owner; the owner is told which key.
+  if (info.kind === 'notConfigured' && opts.owner) return { key: 'notConfiguredOwner' };
   return { key: info.kind };
 }
 
-/** A retry makes sense unless the day's allowance is gone or the key is missing. */
+/** A retry makes sense unless the day's allowance is gone, the key is missing, or the person must sign in or may not ask. */
 export function canRetry(info: FreeErrorInfo): boolean {
-  return info.kind !== 'day' && info.kind !== 'notConfigured';
+  return info.kind !== 'day' && info.kind !== 'notConfigured' && info.kind !== 'auth' && info.kind !== 'forbidden';
 }
 
 // ---------------------------------------------------------------------------

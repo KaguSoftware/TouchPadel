@@ -1,7 +1,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { BrowserWindow, app, dialog, globalShortcut, ipcMain, screen, shell } from 'electron';
+import { BrowserWindow, Menu, app, dialog, globalShortcut, ipcMain, screen, shell } from 'electron';
 import { IPC, type LeaveRefusal, type PrintResult, type SupplierPageResult } from '../ipc-channels';
 import {
   enqueue,
@@ -387,6 +387,10 @@ function createWindow(): BrowserWindow {
       // hosted project 2026-09-04: 10s beats while focused, then a 48s gap
       // while backgrounded, with is_degraded() true for the tail of it.
       backgroundThrottling: false,
+      // A packaged station has no DevTools: from its console anyone at the
+      // till could call window.touch directly (pinObserved files any PIN as a
+      // manager's). Dev builds keep them.
+      devTools: !app.isPackaged,
     },
   });
 
@@ -521,6 +525,16 @@ function createWindow(): BrowserWindow {
 if (gotTheLock) {
   app.whenReady().then(async () => {
     bootstrapStationFromArgv();
+
+    // Electron's default menu carries Ctrl+Shift+I (DevTools) and Ctrl+R
+    // (reload) as accelerators that work with the menu bar hidden. A packaged
+    // station gets no menu at all; macOS keeps only the Edit roles, without
+    // which copy and paste stop working in text fields there.
+    if (app.isPackaged) {
+      Menu.setApplicationMenu(
+        process.platform === 'darwin' ? Menu.buildFromTemplate([{ role: 'editMenu' }]) : null,
+      );
+    }
 
     // Auto-update (updater.ts): silent download; installed at the next start,
     // from the rail's control, or by Quit to desktop. Started before anything
@@ -825,9 +839,11 @@ if (gotTheLock) {
     // Quit to desktop (design-arch §2.5): the ONLY way a production window
     // closes. Behind a manager PIN again (owner call, 2026-09-23, reversing the
     // earlier no-PIN request), and not the signed-in person's own: staff are
-    // kept inside the app. Re-checked here against the offline cache so a
-    // compromised renderer cannot end service on its own word; the renderer
-    // verifies online first and tags the PIN with its owner (pinObserved).
+    // kept inside the app. Re-checked here against the offline cache, which
+    // the renderer fills (it verifies online first and tags the PIN with its
+    // owner, pinObserved): main trusts the page for that, so the page must stay
+    // ours. A packaged station has no DevTools and no menu accelerators
+    // (createWindow, whenReady) and navigates only to file: (audit finding 2).
     //
     // The owner is the exception (owner call, 2026-09-27): an empty PIN asks
     // main to let the signed-in person out as the owner, which main confirms

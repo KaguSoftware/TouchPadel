@@ -21,6 +21,10 @@ describe('scopes', () => {
     expect(toggleScope(['money'], 'cafe')).toEqual(['cafe', 'money']);
   });
 
+  it('lets a new chat be emptied (it then reads nothing and the composer is locked)', () => {
+    expect(toggleScope(['howto'], 'howto', true)).toEqual([]);
+  });
+
   it('keeps a scope the phone does not offer when another is toggled', () => {
     expect(toggleScope(['audit', 'money'], 'money')).toEqual(['audit']);
     expect(toggleScope(['audit'], 'money')).toEqual(['money', 'audit']);

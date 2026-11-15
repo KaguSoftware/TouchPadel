@@ -203,6 +203,9 @@ report_revenue: aggregate, money, /reports/revenue
 report_compare: aggregate, money, /reports/revenue
 report_drill: list, money, /panel
 payments_list: list, money, /reports/revenue
+cash_closes: aggregate, money, /admin/day-close
+costs_summary: aggregate, money, /safe
+safe_summary: aggregate, money, /safe
 report_cafe: aggregate, cafe, /reports/cafe
 analytics_daily_sales: aggregate, cafe, /analytics/cafe
 analytics_sold_items: aggregate, cafe, /analytics/cafe
@@ -212,6 +215,7 @@ analytics_price_bands: aggregate, cafe, /analytics/cafe
 analytics_hourly: aggregate, cafe, /analytics/cafe
 analytics_bought_together: aggregate, cafe, /analytics/cafe
 analytics_menu_snapshot: aggregate, cafe, /admin/menu
+cafe_history: aggregate, cafe, /analytics/cafe
 tabs_list: list, cafe, /observation/tills
 report_courts: aggregate, courts, /reports/courts
 analytics_courts_summary: aggregate, courts, /analytics/courts
@@ -220,6 +224,7 @@ analytics_courts_endings: aggregate, courts, /analytics/courts
 analytics_courts_guests: aggregate, courts, /analytics/courts
 analytics_courts_cafe: aggregate, courts, /analytics/courts
 bookings_list: list, courts, /observation/courts
+unpaid_played_bookings: aggregate, courts, /admin/day-close
 booking_bill: lookup, courts, /desk
 series_detail: lookup, courts, /desk/series/new
 courts_and_rates: aggregate, courts, /admin/rates
@@ -230,6 +235,8 @@ list_staff: list, staff, /admin/staff
 staff_requests_page: list, staff, /observation/requests
 report_staff_activity: aggregate, staff, /reports/staff
 break_history: list, staff, /admin/staff
+wages_summary: aggregate, staff, /wages
+attendance_summary: aggregate, staff, /attendance
 audit_page: list, audit, /admin/audit
 customer_search: list, customers, /desk/customers
 customer_record: lookup, customers, /desk/customers

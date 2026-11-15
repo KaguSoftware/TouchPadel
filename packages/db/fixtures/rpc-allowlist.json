@@ -647,6 +647,8 @@
     "redeem_reward",
     "cancel_reward_voucher",
     "my_reward_vouchers",
-    "use_reward_voucher"
+    "use_reward_voucher",
+    "assistant_rate_message",
+    "assistant_weekly_page"
   ]
 }

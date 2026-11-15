@@ -23,7 +23,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { execFileSync } from 'node:child_process';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { stackAvailable, serviceClient, signedInClient, appRpc, outcome, SEED_STAFF } from './helpers';
+import { stackAvailable, serviceClient, signedInClient, appRpc, outcome, SEED_STAFF, VENUE_A_ID } from './helpers';
 import { DISPATCHED_RPCS } from '../../core/src/assistant/tools';
 
 const up = await stackAvailable();
@@ -56,17 +56,21 @@ describe.skipIf(!up)('0109 assistant read-only wall', () => {
   beforeAll(async () => {
     svc = serviceClient();
     owner = await signedInClient(SEED_STAFF.owner);
-    const one = async (table: string, filter?: [string, string]) => {
-      let q = svc.from(table).select('id').limit(1);
-      if (filter) q = q.eq(filter[0], filter[1]);
+    // A row with a branch is picked in the seeded branch A, by id. Other files
+    // (branch-create, coaching-booking, coaching-races) close the branches they
+    // make; a row of a closed branch answers VENUE_MISMATCH to the owner too
+    // (0228), and an unordered pick could land on one.
+    const one = async (table: string, filters: [string, string][] = []) => {
+      let q = svc.from(table).select('id').order('id').limit(1);
+      for (const [column, value] of filters) q = q.eq(column, value);
       const { data } = await q;
       return (data?.[0] as { id: string } | undefined)?.id ?? null;
     };
     ids = {
-      booking: await one('reservations', ['kind', 'booking']),
-      series: await one('reservation_series'),
+      booking: await one('reservations', [['kind', 'booking'], ['venue_id', VENUE_A_ID]]),
+      series: await one('reservation_series', [['venue_id', VENUE_A_ID]]),
       profile: await one('profiles'),
-      campaign: await one('marketing_campaigns'),
+      campaign: await one('marketing_campaigns', [['venue_id', VENUE_A_ID]]),
     };
   });
 

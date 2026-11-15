@@ -39,6 +39,7 @@ import {
 import { ConfirmAlert, useToast } from '../../src/components/overlays';
 import { CalendarIcon, ClockIcon, StopwatchIcon, TagIcon } from '../../src/components/icons';
 import { ErrorState, SkeletonList } from '../../src/components/states';
+import { serverNow } from '../../src/lib/serverClock';
 
 /**
  * Booking detail (design 2026-08-31) — the ONLY place a guest cancels.
@@ -84,9 +85,9 @@ function BookingDetailScreen() {
   const [error, setError] = useState<string | null>(null);
 
   // Eligibility follows the clock: the window can close while the guest looks.
-  const [now, setNow] = useState(() => new Date());
+  const [now, setNow] = useState(() => serverNow());
   useEffect(() => {
-    const tick = setInterval(() => setNow(new Date()), 60_000);
+    const tick = setInterval(() => setNow(serverNow()), 60_000);
     return () => clearInterval(tick);
   }, []);
 

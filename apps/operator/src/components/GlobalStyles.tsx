@@ -1155,14 +1155,28 @@ button.tp-nav-item { background: transparent; }
    accent-soft blue, so its scope dots and its text read clearly on it. */
 :root[data-theme='operator'][data-mode='blue'] .tp-chat-row[data-active] { background: color-mix(in oklab, var(--tp-brand-green) 14%, var(--tp-surface)); }
 /* Hover (or keyboard focus) swaps the row's end column as drawn: the action
-   takes the cost's place at the top, the cost moves down over the time. */
-.tp-chat-act, .tp-chat-cost-low { visibility: hidden; }
-.tp-chat-row:hover .tp-chat-act, .tp-chat-row:focus-within .tp-chat-act,
+   takes the cost's place at the top, the cost moves down over the time.
+   The action is transparent, not hidden (2026-11-12): a hidden button is out
+   of the Tab order, so Shift+Tab from the next row skipped it. A touch screen
+   has no hover, so there the action always shows (and a larger target on a
+   coarse pointer); the time stays unless a cost has to move over it. */
+.tp-chat-act { opacity: 0; }
+.tp-chat-cost-low { visibility: hidden; }
+.tp-chat-row:hover .tp-chat-act, .tp-chat-row:focus-within .tp-chat-act { opacity: 1; }
 .tp-chat-row:hover .tp-chat-cost-low, .tp-chat-row:focus-within .tp-chat-cost-low { visibility: visible; }
 .tp-chat-row:hover .tp-chat-cost, .tp-chat-row:focus-within .tp-chat-cost,
 .tp-chat-row:hover .tp-chat-time, .tp-chat-row:focus-within .tp-chat-time { visibility: hidden; }
+@media (hover: none) {
+  .tp-chat-act { opacity: 1; }
+  .tp-chat-cost { visibility: hidden; }
+  .tp-chat-row .tp-chat-cost-low:not(:empty) { visibility: visible; }
+  .tp-chat-row .tp-chat-cost-low:empty { visibility: hidden; }
+  .tp-chat-row .tp-chat-time { visibility: visible; }
+  .tp-chat-row .tp-chat-time:has(+ .tp-chat-cost-low:not(:empty)) { visibility: hidden; }
+}
 .tp-chat-act-btn { inline-size: 26px; block-size: 26px; border-radius: 8px; border: none; background: color-mix(in oklab, currentColor 10%, transparent); color: inherit; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; transition: background-color var(--tp-dur-fast) var(--tp-ease-out); }
 .tp-chat-act-btn:hover { background: color-mix(in oklab, currentColor 18%, transparent); }
+@media (pointer: coarse) { .tp-chat-act-btn { inline-size: 36px; block-size: 36px; } }
 
 /* "Ask next" (Thread): an accent-outlined pill that fills softly on hover. */
 .tp-follow-up { border: 1px solid var(--tp-accent); background: var(--tp-surface); color: var(--tp-accent-active); transition: background-color var(--tp-dur-fast) var(--tp-ease-out); }

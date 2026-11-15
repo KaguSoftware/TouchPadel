@@ -22,7 +22,6 @@ import {
 import { activeVouchers, formatCountdown } from '../src/features/loyalty/vouchers';
 import { DealsSection } from '../src/features/loyalty/DealCards';
 import { NextCardBlock } from '../src/features/loyalty/NextCardBlock';
-import { TierLadder } from '../src/features/loyalty/TierLadder';
 import { useBack, useReturnTo } from '../src/navigation/back';
 import {
   LEDGER_KIND_KEYS,
@@ -320,8 +319,13 @@ function LoyaltyScreen() {
           ) : null}
         </View>
 
-        {/* 2. The way to the next card and what it gives (0410), in that card's own colour. */}
-        <NextCardBlock testID={l.next_tier ? 'loyalty.next-card' : 'loyalty.top-card'} loyalty={l} />
+        {/* 2. The way to the next card in that card's own colour, and every card under it with
+            what each gives, the next one in full (0410; one part since 2026-11-15). */}
+        <NextCardBlock
+          testID={l.next_tier ? 'loyalty.next-card' : 'loyalty.top-card'}
+          route="loyalty"
+          loyalty={l}
+        />
 
         {/* 3. Deals (0410): picked here, applied by the cashier's scan of the member card. */}
         <DealsSection
@@ -488,10 +492,7 @@ function LoyaltyScreen() {
           />
         </View>
 
-        {/* 5. The cards (0410): every tier from the base up, the member's own marked. */}
-        <TierLadder testID="loyalty" loyalty={l} />
-
-        {/* 6. History: the 50 newest ledger rows, newest first, as the server sends them. With
+        {/* 5. History: the 50 newest ledger rows, newest first, as the server sends them. With
             none yet, the three steps that start it. */}
         <View style={{ gap: 7, marginTop: space.s }}>
           <MicroLabel>

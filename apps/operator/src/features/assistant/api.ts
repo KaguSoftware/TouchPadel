@@ -26,7 +26,7 @@ import {
   type ModelsPayload,
   type StoredSources,
 } from '@touch/core/assistant/client';
-import { toAppRpcError } from '../../lib/appRpc';
+import { appRpc, toAppRpcError } from '../../lib/appRpc';
 import { callEdge, streamEdge, type StreamEdgeOptions } from '../../lib/edge';
 import { supabase } from '../../lib/supabase';
 import { currentBranchId } from '../../lib/venueScope';
@@ -85,6 +85,43 @@ export interface JobRow {
   created_at: string;
   started_at: string | null;
   finished_at: string | null;
+  /** 0423: when the job entered its status; not in the generated types until db:types regenerates. */
+  status_at?: string | null;
+}
+
+/** 0423: a token figure by kind, as estimate.ts writes it into result.pause.rest. */
+export interface JobTokenBreakdown {
+  input: number;
+  cache_read: number;
+  output: number;
+  total: number;
+}
+
+/** 0423: why a live job paused with parts unread (jobRunner.ts PauseReason). */
+export type JobPauseReason = 'over_estimate' | 'time' | 'cap' | 'stopped';
+
+/**
+ * 0423: `result.pause` on a paused job ('over_estimate'): the reason, the chunk
+ * numbers still unread and what they and the answer should cost
+ * (estimate.ts restEstimate). Read defensively: `result` is untyped jsonb.
+ */
+export interface JobPause {
+  reason: JobPauseReason;
+  at: string;
+  chunks_left: number[];
+  rest: { chunks: number; extract: JobTokenBreakdown; extract_high: JobTokenBreakdown; reduce: JobTokenBreakdown; reduce_high: JobTokenBreakdown };
+}
+
+/** 0423: what `POST {action:'resume'}` answers (batch, or the live run's end). */
+export interface ResumeResponse {
+  job_id: string;
+  status: JobStatus;
+  mode?: JobMode;
+  batch_id?: string;
+  chunks_total?: number;
+  chunks_done?: number;
+  reason?: JobPauseReason;
+  message_id?: string;
 }
 
 /** `assistant_usage(p_from, p_to)` (0111). */
@@ -222,7 +259,8 @@ export async function fetchConversation(id: string): Promise<ConversationRow | n
 export async function fetchMessages(conversationId: string): Promise<MessageRow[]> {
   const data = await rows(
     table<MessageRow>('assistant_messages')
-      .select('id, conversation_id, seq, role, content, sources, gate, tokens, created_at')
+      // `feedback` (0422): the owner's thumb on an answer, null when not rated.
+      .select('id, conversation_id, seq, role, content, sources, gate, tokens, created_at, feedback:assistant_feedback(rating,note)')
       .eq('conversation_id', conversationId)
       .order('seq', { ascending: true }),
   );
@@ -272,12 +310,48 @@ export function setMonthlyCap(capMicros: number): Promise<{ monthly_cap_micros: 
   return assistantRpc('assistant_set_monthly_cap', { p_cap_micros: capMicros });
 }
 
+/** What `assistant_rate_message` answers: the stored thumb (0 = cleared) and the note it kept. */
+export interface RateResult {
+  messageId: string;
+  rating: -1 | 0 | 1;
+  note: string | null;
+}
+
+/**
+ * The owner's thumb on a stored answer (0422). `rating` 0 clears it; a note is
+ * kept only with -1. Refused as FORBIDDEN, ASSISTANT_MESSAGE_NOT_FOUND,
+ * ASSISTANT_NOT_RATEABLE or INVALID_ARGUMENT. Typed: the generated types carry it.
+ */
+export async function rateMessage(messageId: string, rating: -1 | 0 | 1, note: string | null = null): Promise<RateResult> {
+  const raw = await appRpc<Partial<RateResult> | null>('assistant_rate_message', {
+    p_message_id: messageId,
+    p_rating: rating,
+    ...(note !== null ? { p_note: note } : {}),
+  });
+  const r = raw?.rating;
+  return {
+    messageId: typeof raw?.messageId === 'string' ? raw.messageId : messageId,
+    rating: r === 1 || r === -1 ? r : 0,
+    note: typeof raw?.note === 'string' && raw.note !== '' ? raw.note : null,
+  };
+}
+
 export function acceptJob(jobId: string, mode: JobMode): Promise<unknown> {
   return callEdge('assistant-job', { action: 'accept', job_id: jobId, mode }, { ttlMs: 0 });
 }
 
 export function cancelJob(jobId: string): Promise<unknown> {
   return callEdge('assistant-job', { action: 'cancel', job_id: jobId }, { ttlMs: 0 });
+}
+
+/**
+ * 0423: a paused job continues from the parts it already paid for. No mode:
+ * the server runs the rest in the background when the vendor has batch (cost
+ * first), live otherwise. 409 INVALID_TRANSITION when it is no longer paused
+ * (another press won), 409 JOB_DATA_CHANGED when its records moved.
+ */
+export function resumeJob(jobId: string): Promise<ResumeResponse> {
+  return callEdge<{ action: 'resume'; job_id: string }, ResumeResponse>('assistant-job', { action: 'resume', job_id: jobId }, { ttlMs: 0 });
 }
 
 // ---------------------------------------------------------------------------

@@ -182,7 +182,7 @@ export const ASSISTANT_TOOLS: readonly ToolSpec[] = [
     scope: 'money',
     kind: 'aggregate',
     description:
-      'The management panel headline figures for a date range: revenue, padel revenue, cafe revenue and net, cash, card, bookings, orders, average order value, discounts, refunds, waste, no-shows, ticket sales, refunds, forfeits and liability, online deposits, written-off match shares, then lesson revenue and the share owed to coaches (lessonRevenue, owedToCoaches; what the coaches are owed is information, never cash); optionally against a comparison period. Prefer this for any "how much did we make" question.',
+      'The management panel headline figures for a date range: revenue, padel revenue, cafe revenue and net, cash, card, bookings, orders, average order value, discounts, refunds, waste, no-shows, ticket sales, refunds, forfeits and liability, online deposits, written-off match shares, then lesson revenue and the share owed to coaches (lessonRevenue, owedToCoaches; what the coaches are owed is information, never cash); optionally against a comparison period. Prefer this for any "how much did we make" question. revenue is booked value, not money in: padelRevenue (price of confirmed, arrived and completed bookings starting in the range, played, paid or not) + cafeNet + lessonRevenue; cash and card are money collected, less refunds; discounts and refunds are on bills settled in the range (court-fee discounts not included). Pre-system monthly padel reports count only for a whole month in the range (history); old café till days (2026-06-02 to 2026-10-31) count day by day in revenue, cafe figures, orders and discounts, never cash or card (history.period.cafe).',
     route: '/panel',
     rpc: 'panel_headline',
     args: {
@@ -198,7 +198,7 @@ export const ASSISTANT_TOOLS: readonly ToolSpec[] = [
     scope: 'money',
     kind: 'aggregate',
     description:
-      'The revenue report: padel, cafe (gross and net), tax, discounts, orders, cash, card and refunds per day, week or month over a range. Use for trends over time.',
+      'The revenue report: padel, cafe (gross and net), tax, discounts, orders, cash, card and refunds per day, week or month over a range, on panel_headline\'s basis but without the pre-system monthly reports. Use for trends over time.',
     route: '/reports/revenue',
     rpc: 'report_revenue',
     args: {
@@ -262,13 +262,59 @@ export const ASSISTANT_TOOLS: readonly ToolSpec[] = [
     chunk_rows: 250,
     tokens_per_row: null,
   },
+  // ── Day closes, costs, the safe (0421) ──────────────────────────────────
+  {
+    name: 'cash_closes',
+    scope: 'money',
+    kind: 'aggregate',
+    description:
+      'Day closes in a range (up to 400 days), per branch: cash expected, counted and variance, short and over days, card terminal gap, till shift variance, and each drawer box\'s cash against its hand-in to the safe. detail: days (default) lists days, shifts adds each till shift and who held it, none gives totals only. The tool for cash variance.',
+    route: '/admin/day-close',
+    rpc: 'assistant_cash_closes',
+    args: {
+      ...RANGE,
+      detail: { type: 'enum', description: 'Rows to add (default days).', values: ['days', 'shifts', 'none'] },
+    },
+    result: { rows_path: 'days', id_keys: ['staff_id'] },
+    core: true,
+    tokens_per_row: null,
+  },
+  {
+    name: 'costs_summary',
+    scope: 'money',
+    kind: 'aggregate',
+    description:
+      'Costs on a cash basis: paid from the safe or by bank in a range (up to 400 days), by category, branch and bucket, with panel_headline\'s revenue and cash_result_iqd (revenue minus costs). Deliveries and supplier receipts are stock coming in, not costs. A cash result, never accounting profit; null with a note when pre-system reports or old café till days are in the revenue.',
+    route: '/safe',
+    rpc: 'assistant_costs_summary',
+    args: {
+      ...RANGE,
+      group: { type: 'enum', description: 'Bucket size (default month, at most 31 buckets).', values: ['day', 'week', 'month'] },
+    },
+    result: { rows_path: 'by_category' },
+    core: true,
+    tokens_per_row: null,
+  },
+  {
+    name: 'safe_summary',
+    scope: 'money',
+    kind: 'aggregate',
+    description:
+      'The safe per branch over a range: balance now, opening and closing, cash in (day-close hand-ins by box, owner, bank) and out (costs paid from the safe, floats to drawers, owner, bank), count adjustments and the last count. rows=true adds the ledger rows (latest 200) with payee and note, wage and advance payments included.',
+    route: '/safe',
+    rpc: 'assistant_safe_summary',
+    args: { ...RANGE, rows: { type: 'boolean', description: 'Also the ledger rows (default false).' } },
+    result: { rows_path: 'rows' },
+    core: false,
+    tokens_per_row: null,
+  },
 
   // ── Cafe ─────────────────────────────────────────────────────────────────
   {
     name: 'report_cafe',
     scope: 'cafe',
     kind: 'aggregate',
-    description: 'The cafe report for a range: sales, items sold, tabs, refunds, voids and waste, with per-day rows.',
+    description: 'The cafe report for a range: sales, items sold, tabs, refunds, voids and waste, with per-day rows. Touch Shop sales included.',
     route: '/reports/cafe',
     rpc: 'report_cafe',
     args: { ...RANGE, filters: FILTERS },
@@ -280,7 +326,8 @@ export const ASSISTANT_TOOLS: readonly ToolSpec[] = [
     name: 'analytics_daily_sales',
     scope: 'cafe',
     kind: 'aggregate',
-    description: 'Cafe sales per business day over a range (revenue, orders, tabs, average order value).',
+    description:
+      'Cafe sales per business day over a range (revenue, orders, tabs, average order value). Café only: Touch Shop sales are left out (report_cafe includes them). Old café till days (2026-06-02 to 2026-10-31) are rows too: old_till_iqd is their part of revenue_iqd, old_till_discount_known false where their discounts are unknown; they have no cash, card, refunds or waste.',
     route: '/analytics/cafe',
     rpc: 'analytics_daily_sales',
     args: RANGE,
@@ -292,7 +339,7 @@ export const ASSISTANT_TOOLS: readonly ToolSpec[] = [
     name: 'analytics_sold_items',
     scope: 'cafe',
     kind: 'aggregate',
-    description: 'Every menu item sold in a range with units and revenue.',
+    description: 'Every menu item sold in a range with units and revenue. System sales only (none before November 2026); older café products: cafe_history.',
     route: '/analytics/cafe',
     rpc: 'analytics_sold_items',
     args: { ...RANGE, basis: BASIS },
@@ -304,7 +351,7 @@ export const ASSISTANT_TOOLS: readonly ToolSpec[] = [
     name: 'analytics_best_sellers',
     scope: 'cafe',
     kind: 'aggregate',
-    description: 'The top-selling menu items in a range by units and revenue.',
+    description: 'The top-selling menu items in a range by units and revenue. System sales only (none before November 2026); older café products: cafe_history.',
     route: '/analytics/cafe',
     rpc: 'analytics_best_sellers',
     args: { ...RANGE, limit: { type: 'integer', description: 'How many items (default 10).', min: 1, max: 100 }, basis: BASIS },
@@ -316,7 +363,7 @@ export const ASSISTANT_TOOLS: readonly ToolSpec[] = [
     name: 'analytics_item_margins',
     scope: 'cafe',
     kind: 'aggregate',
-    description: 'Margin per menu item in a range: price, cost, margin and units. Answers "what earns us the most".',
+    description: 'Margin per menu item in a range: price, cost, margin and units. Answers "what earns us the most". System sales only (none before November 2026); older café products: cafe_history.',
     route: '/analytics/cafe',
     rpc: 'analytics_item_margins',
     args: { ...RANGE, basis: BASIS },
@@ -328,7 +375,7 @@ export const ASSISTANT_TOOLS: readonly ToolSpec[] = [
     name: 'analytics_price_bands',
     scope: 'cafe',
     kind: 'aggregate',
-    description: 'Cafe sales grouped by price band in a range.',
+    description: 'Cafe sales grouped by price band in a range. System sales only (none before November 2026); older café products: cafe_history.',
     route: '/analytics/cafe',
     rpc: 'analytics_price_bands',
     args: { ...RANGE, basis: BASIS },
@@ -340,7 +387,7 @@ export const ASSISTANT_TOOLS: readonly ToolSpec[] = [
     name: 'analytics_hourly',
     scope: 'cafe',
     kind: 'aggregate',
-    description: 'Cafe orders and revenue by hour of day over a range; the busiest hours.',
+    description: 'Cafe orders and revenue by hour of day over a range; the busiest hours. Old café till hours (to 2026-10-31) included.',
     route: '/analytics/cafe',
     rpc: 'analytics_hourly',
     args: RANGE,
@@ -352,7 +399,7 @@ export const ASSISTANT_TOOLS: readonly ToolSpec[] = [
     name: 'analytics_bought_together',
     scope: 'cafe',
     kind: 'aggregate',
-    description: 'Pairs of menu items bought together in a range, with support.',
+    description: 'Pairs of menu items bought together in a range, with support. System sales only (none before November 2026); older café products: cafe_history.',
     route: '/analytics/cafe',
     rpc: 'analytics_bought_together',
     args: {
@@ -374,6 +421,19 @@ export const ASSISTANT_TOOLS: readonly ToolSpec[] = [
     rpc: 'analytics_menu_snapshot',
     args: {},
     result: { rows_path: null, id_keys: ['id', 'category_id', 'item_id'] },
+    core: false,
+    tokens_per_row: null,
+  },
+  {
+    name: 'cafe_history',
+    scope: 'cafe',
+    kind: 'aggregate',
+    description:
+      "The old café till before the system (2026-06-02 to 2026-10-31) in a range: totals (days, gross, discounts, net, orders, units, discountUnknownDays), months, product groups, and products by gross with units and the owner's stated unit cost where known. Product names are the till's own, not menu items; the groups are ours; item money is before order discounts. These days are already in panel_headline, history_figures and analytics_daily_sales: never add them again.",
+    route: '/analytics/cafe',
+    rpc: 'analytics_cafe_history',
+    args: RANGE,
+    result: { rows_path: 'products' },
     core: false,
     tokens_per_row: null,
   },
@@ -491,6 +551,19 @@ export const ASSISTANT_TOOLS: readonly ToolSpec[] = [
     result: { rows_path: 'rows', id_keys: ['id', 'court_id', 'guest_id', 'series_id', 'created_by_staff_id', 'rate_rule_id'] },
     core: true,
     chunk_rows: 250,
+    tokens_per_row: null,
+  },
+  {
+    name: 'unpaid_played_bookings',
+    scope: 'courts',
+    kind: 'aggregate',
+    description:
+      'Bookings played but not fully paid in a range (at most 92 days): arrived, completed, or confirmed and already over, with court fee still owed. total and remaining_iqd cover every match; rows (largest debt first, up to limit) give business date, time, court, guest name, price and what is still owed. The day-close warning, for any range.',
+    route: '/admin/day-close',
+    rpc: 'assistant_unpaid_played_bookings',
+    args: { ...RANGE, limit: { type: 'integer', description: 'Rows to return (default 50).', min: 1, max: 200 } },
+    result: { rows_path: 'rows', id_keys: ['id'] },
+    core: false,
     tokens_per_row: null,
   },
   {
@@ -622,13 +695,40 @@ export const ASSISTANT_TOOLS: readonly ToolSpec[] = [
     name: 'break_history',
     scope: 'staff',
     kind: 'list',
-    description: 'Staff breaks in a range: who, station, start, end, length, who covered.',
+    description: 'Staff breaks in a range: who, station, start, end, length, who covered. Breaks left the product on 2026-11-01; rows stop there.',
     route: '/admin/staff',
     rpc: 'assistant_break_history',
     args: { ...RANGE, staff: { type: 'id', description: 'Only this staff member (id or handle).', param: 'p_staff_id' }, ...PAGE },
     result: { rows_path: 'rows', id_keys: ['id', 'staff_id', 'covered_by'] },
     core: false,
     chunk_rows: 250,
+    tokens_per_row: null,
+  },
+  // ── Wages and attendance (0421) ─────────────────────────────────────────
+  {
+    name: 'wages_summary',
+    scope: 'staff',
+    kind: 'aggregate',
+    description:
+      'Wages for the pay months a range touches (at most 12), as the Wages page: salary, deductions, lateness penalties, bonuses, advances, net, paid, still to pay, statuses, paid from safe or bank, per branch and month and per person in name order. detail=true adds each person\'s deductions, lateness and advances with their notes. Never rank people by these figures.',
+    route: '/wages',
+    rpc: 'assistant_wages_summary',
+    args: { ...RANGE, detail: { type: 'boolean', description: 'Also each person\'s deduction, lateness and advance lines (default false).' } },
+    result: { rows_path: 'people', id_keys: ['staff_id'] },
+    core: false,
+    tokens_per_row: null,
+  },
+  {
+    name: 'attendance_summary',
+    scope: 'staff',
+    kind: 'aggregate',
+    description:
+      'Lateness and early leaving that managers typed in over a range: per person in name order (days, minutes, penalties) with totals, plus till-shift presence for cash staff. There is no clock-in and no rota: say only what was recorded (coverage), never imply a full attendance record, never rank people.',
+    route: '/attendance',
+    rpc: 'assistant_attendance_summary',
+    args: RANGE,
+    result: { rows_path: 'people', id_keys: ['staff_id'] },
+    core: false,
     tokens_per_row: null,
   },
 
@@ -638,12 +738,12 @@ export const ASSISTANT_TOOLS: readonly ToolSpec[] = [
     scope: 'audit',
     kind: 'list',
     description:
-      'The audit log: who did what, when, to which record, with the reason code and the changed fields. Filter by time, actor, action prefix (e.g. "tab.", "reservation.") and free text. Answers "who changed X".',
+      'The audit log: who did what, when, to which record, with the reason code and which fields changed (changed_keys: names only, never the old or new values; read a current value with table_read). Filter by time, actor, action prefix (e.g. "tab.", "reservation.") and free text. Answers "who changed X".',
     route: '/admin/audit',
     rpc: 'assistant_audit_page',
     args: {
-      from: { type: 'timestamp', description: 'Earliest event time, ISO 8601.' },
-      to: { type: 'timestamp', description: 'Latest event time, ISO 8601 (exclusive).' },
+      from: { type: 'timestamp', description: 'Earliest event time, ISO 8601 with an explicit offset (Baghdad: 2026-11-01T00:00:00+03:00).' },
+      to: { type: 'timestamp', description: 'Latest event time, ISO 8601 with an explicit offset (exclusive).' },
       actor: { type: 'id', description: 'Only this staff member (id or handle).', param: 'p_actor_id' },
       action_prefix: { type: 'string', description: 'Only actions starting with this (e.g. "tab.discount").' },
       text: { type: 'string', description: 'Free text matched against action, entity, reason and the changed keys.' },
@@ -943,7 +1043,7 @@ export const ASSISTANT_TOOLS: readonly ToolSpec[] = [
     scope: 'money',
     kind: 'aggregate',
     description:
-      'The headline figures bucketed by day, week or month over a range (at most 31 buckets, up to 400 days), with totals: revenue, padel, cafe gross and net, cash, card, bookings, orders, average order value, discounts, refunds, waste, no-shows. extra=true adds online deposits, ticket sales, lessons and the coaches\' share. Closed days come from a stored copy and only the recent days are read live, with the same numbers as panel_headline, so this is the cheapest way to see a trend or a long range: use it instead of report_revenue, report_cafe or several panel_headline calls. The cache field says how many days came from the stored copy.',
+      'The headline figures bucketed by day, week or month over a range (at most 31 buckets, up to 400 days), with totals: revenue, padel, cafe gross and net, cash, card, bookings, orders, average order value, discounts, refunds, waste, no-shows. extra=true adds online deposits, ticket sales, lessons and the coaches\' share. Closed days come from a stored copy and only the recent days are read live, so this is the cheapest way to see a trend or a long range: use it instead of report_revenue, report_cafe or several panel_headline calls. totals equal panel_headline for the same range: pre-system padel reports are in the totals and, with group=month, in their month\'s row only (history.inRows); old café till days (to 2026-10-31) are in the totals and every row (history.cafe). The cache field says how many days came from the stored copy.',
     route: '/panel',
     rpc: 'assistant_history_figures',
     args: {
@@ -960,7 +1060,7 @@ export const ASSISTANT_TOOLS: readonly ToolSpec[] = [
     scope: 'cafe',
     kind: 'aggregate',
     description:
-      'The top café items over a range (up to 400 days) by revenue or quantity, each with its share of the café total, plus the total items, quantity and revenue. Closed days come from a stored copy, so this is the cheap tool for best sellers, what is dying, or a month of the menu; use it instead of analytics_best_sellers or analytics_sold_items for any range longer than a few days. The cache field says how many days came from the stored copy.',
+      'The top café items over a range (up to 400 days) by revenue or quantity, each with its share of the café total, plus the total items, quantity and revenue. Closed days come from a stored copy, so this is the cheap tool for best sellers, what is dying, or a month of the menu; use it instead of analytics_best_sellers or analytics_sold_items for any range longer than a few days. System sales only (none before November 2026); older café products: cafe_history. The cache field says how many days came from the stored copy.',
     route: '/analytics/cafe',
     rpc: 'assistant_history_items',
     args: {
@@ -977,7 +1077,7 @@ export const ASSISTANT_TOOLS: readonly ToolSpec[] = [
     scope: 'courts',
     kind: 'aggregate',
     description:
-      'Court use over a range (up to 400 days), all courts of the branches in scope: bookings, no-shows, cancellations, booked and open hours, occupancy and revenue, per day, week or month (at most 31 buckets) or as one range, with totals; hours=true adds the same by hour of the day (peak against off-peak). Closed days come from a stored copy, so use it instead of report_courts or analytics_courts_summary for trends and long ranges. The cache field says how many days came from the stored copy.',
+      'Court use over a range (up to 400 days), all courts of the analysed branch: bookings, no-shows, cancellations, booked and open hours, occupancy (booked plus lesson hours over open hours, as the courts page) and revenue, per day, week or month (at most 31 buckets) or as one range, with totals; hours=true adds bookings, booked_pct and revenue by hour of the day (peak against off-peak). Only the system\'s own bookings: pre-system monthly reports are never added, history names them. Closed days come from a stored copy, so use it instead of report_courts or analytics_courts_summary for trends and long ranges. The cache field says how many days came from the stored copy.',
     route: '/reports/courts',
     rpc: 'assistant_history_courts',
     args: {

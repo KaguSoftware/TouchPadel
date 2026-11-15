@@ -89,6 +89,7 @@
     "assistant_conversations": "analytics and assistant use",
     "assistant_day_detail": "analytics and assistant use",
     "assistant_day_facts": "analytics and assistant use",
+    "assistant_feedback": "analytics and assistant use",
     "assistant_jobs": "analytics and assistant use",
     "assistant_messages": "analytics and assistant use",
     "audit_log": "logs, alerts, outboxes and replays",

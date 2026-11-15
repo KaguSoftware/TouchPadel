@@ -82,7 +82,11 @@ export async function POST(req: NextRequest, ctx: Ctx): Promise<NextResponse> {
       return answer({ name: 'error' });
     }
     const session = parseOpenTableSession(data);
-    return session ? answer({ name: 'bound', session }) : answer({ name: 'error' });
+    // serverNow: this server's clock, so the page times the session on it and
+    // not on the phone's (which may be set hours off).
+    return session
+      ? answer({ name: 'bound', session, serverNow: new Date().toISOString() })
+      : answer({ name: 'error' });
   } catch (e) {
     // No Supabase env on this deployment, or the server client failed: the menu
     // stays a walk-in's, with the chip's "try again".

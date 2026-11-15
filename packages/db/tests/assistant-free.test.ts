@@ -33,6 +33,8 @@ import {
   aboutLine,
   buildFreeSystem,
   createLimiter,
+  createReplyGuard,
+  stripReplyMarkup,
   freeModel,
   listedPages,
   mobilePages,
@@ -409,5 +411,94 @@ describe('readGroqStream: a streamed answer from a fake Groq', () => {
     await readGroqStream(new Response('data: {oops\n\n' + frame({ choices: [{ delta: { content: 'ok' } }] })), acc, (t) => deltas.push(t));
     expect(deltas).toEqual(['ok']);
     await expect(readGroqStream(new Response(null), newAccumulator(), () => {})).rejects.toMatchObject({ code: 'UPSTREAM' });
+  });
+});
+
+describe('plain text only and no invented steps (2026-11-12, live run)', () => {
+  const sys = () => buildFreeSystem({ lang: 'ar', app: 'operator', role: 'cashier', current: null, detailed: [], listed: [] });
+
+  it('the prompt forbids HTML and links and asks for steps from the page text only', () => {
+    const s = sys();
+    expect(s).toMatch(/no HTML/);
+    expect(s).toMatch(/markdown links/);
+    expect(s).toMatch(/only steps that appear in the page text/);
+    expect(s).toMatch(/do not know the exact steps, say so/);
+  });
+
+  it('the prompt stays short (the model is small, the prompt is paid on every call)', () => {
+    expect(sys().length).toBeLessThan(1500);
+  });
+
+  it('stripReplyMarkup drops HTML tags and markdown link syntax and keeps the text', () => {
+    expect(stripReplyMarkup('افتح <a href="/till/tabs">الحسابات</a> الان')).toBe('افتح الحسابات الان');
+    expect(stripReplyMarkup('Open [Orders](/till/orders) now')).toBe('Open Orders now');
+    expect(stripReplyMarkup('Go to [/till/tabs](/till/tabs "Tabs").')).toBe('Go to /till/tabs.');
+    expect(stripReplyMarkup('a<br/>b <b>bold</b>')).toBe('ab bold');
+  });
+
+  it('stripReplyMarkup leaves ordinary text alone', () => {
+    for (const t of ['Open /till/tabs, then press Save.', 'if a < b and c > d', 'item [1] and (2)', 'Step 1) pick a table', '[note] only']) {
+      expect(stripReplyMarkup(t)).toBe(t);
+    }
+  });
+
+  it('the stream guard strips a tag or link split across deltas, and holds nothing back at the end', () => {
+    const g = createReplyGuard();
+    const pieces = ['Open <a hr', 'ef="/x">Tab', 's</a> or [Ord', 'ers](/till/or', 'ders) now <', 'b'];
+    const out = pieces.map((p) => g.push(p)).join('') + g.flush();
+    expect(out).toBe('Open Tabs or Orders now <b');
+  });
+
+  it('the stream guard passes plain text through at once', () => {
+    const g = createReplyGuard();
+    expect(g.push('Open /till/tabs. ')).toBe('Open /till/tabs. ');
+    expect(g.push('Then press Save.')).toBe('Then press Save.');
+    expect(g.flush()).toBe('');
+  });
+
+  it('readGroqStream sends the cleaned text to the client', async () => {
+    const frame = (o: unknown) => `data: ${JSON.stringify(o)}\n\n`;
+    const frames = [
+      frame({ choices: [{ delta: { content: 'Open <a href="/till/tabs">' } }] }),
+      frame({ choices: [{ delta: { content: 'Tabs</a> and [Or' } }] }),
+      frame({ choices: [{ delta: { content: 'ders](/till/orders).' } }] }),
+      frame({ choices: [{ delta: {}, finish_reason: 'stop' }] }),
+      'data: [DONE]\n\n',
+    ].join('');
+    const deltas: string[] = [];
+    await readGroqStream(new Response(frames), newAccumulator(), (t) => deltas.push(t));
+    expect(deltas.join('')).toBe('Open Tabs and Orders.');
+  });
+});
+
+// ---------------------------------------------------------------------------
+describe('assistant-free reports its failures to the Monitoring page (2026-11-12, 0422)', () => {
+  const src = readFileSync(new URL('../supabase/functions/assistant-free/index.ts', import.meta.url), 'utf8');
+  const handler = src.slice(src.indexOf("Deno.serve(handle('assistant-free'"));
+
+  it('a missing key, a failed first request and a failed stream each call reportFreeFailure (throttled in monitor.ts)', () => {
+    expect(src).toMatch(/import \{ reportFreeFailure \} from '\.\.\/_shared\/assistant\/monitor\.ts';/);
+    const key = handler.slice(handler.indexOf('if (!apiKey)'), handler.indexOf("'GROQ_API_KEY is not set'"));
+    expect(key).toMatch(/reportFreeFailure\(\{ code: 'NOT_CONFIGURED', stage: 'before_stream'/);
+    const first = handler.slice(handler.indexOf('upstream = await postGroq('), handler.indexOf('freeFailureReply(code)'));
+    expect(first).toMatch(/reportFreeFailure\(\{ code, stage: 'before_stream'/);
+    expect(handler).toMatch(/if \(errorCode && !left\) reportFreeFailure\(\{ code: errorCode, stage: 'stream'/);
+  });
+
+  it("a person over their own allowance reports nothing, and the stream's report comes after the stream is closed", () => {
+    const allowance = handler.slice(handler.indexOf('const allowance = limiter.take('), handler.indexOf('const model = freeModel('));
+    expect(allowance).toContain('RATE_LIMITED');
+    expect(allowance).not.toMatch(/report/i);
+    const tail = handler.slice(handler.indexOf('sse.close();'));
+    expect(tail).toMatch(/reportFreeFailure\(/);
+    // Never awaited: reporting adds no latency.
+    expect(handler).not.toMatch(/await reportFreeFailure/);
+  });
+
+  it('only codes, the role, the app, the model and a duration go in: no question, history or page text', () => {
+    for (const call of handler.match(/reportFreeFailure\(\{[^}]*\}\)/g) ?? []) {
+      expect(call).not.toMatch(/parsed\.text|history|pages|system|messages|acc\.text/);
+    }
+    expect((handler.match(/reportFreeFailure\(/g) ?? []).length).toBe(3);
   });
 });

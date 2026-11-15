@@ -148,7 +148,17 @@ function migrate(d: Database.Database): void {
       d.exec('ALTER TABLE mutation_queue ADD COLUMN venue_scope TEXT');
     }
   }
-  d.pragma('user_version = 6');
+  if (version < 7) {
+    // v7: a pending row the server refused as FORBIDDEN for the person signed
+    // in when it replayed, while someone else queued it (a manager's change
+    // sent with a cashier's session). held_by is that signed-in person: the
+    // row waits, still pending, until someone else signs in (releaseHeld).
+    const cols = d.pragma('table_info(mutation_queue)') as { name: string }[];
+    if (!cols.some((c) => c.name === 'held_by')) {
+      d.exec('ALTER TABLE mutation_queue ADD COLUMN held_by TEXT');
+    }
+  }
+  d.pragma('user_version = 7');
 }
 
 /** Open (or create) a queue db at an explicit path — the testable seam. */
@@ -158,7 +168,27 @@ export function openQueueAt(file: string): Database.Database {
   d.pragma('synchronous = FULL');
   d.exec(BASE_DDL);
   migrate(d);
+  // Every hot read (peekNext, queueStatus, listBlockingRows, kitchenBacklog)
+  // filters on state: without this each one scans every row ever queued.
+  d.exec('CREATE INDEX IF NOT EXISTS mq_state_seq ON mutation_queue(state, seq)');
+  pruneAcked(d);
   return d;
+}
+
+/** How long a delivered row stays in queue.db. Nothing reads an acked row. */
+export const ACKED_KEEP_DAYS = 30;
+
+/**
+ * Acked rows are on the server and nothing reads them back, so they go once
+ * they are a month old; queue.db no longer grows by every sale forever.
+ * conflict, failed and resolved rows stay: they are the manager's record of
+ * what this station could not deliver.
+ */
+export function pruneAcked(d: Database.Database, now: Date = new Date()): number {
+  const cutoff = new Date(now.getTime() - ACKED_KEEP_DAYS * 86_400_000).toISOString();
+  return d
+    .prepare(`DELETE FROM mutation_queue WHERE state = 'acked' AND created_at < ?`)
+    .run(cutoff).changes;
 }
 
 export function openQueue(): Database.Database {
@@ -284,7 +314,8 @@ export function peekNext(): QueueRow | undefined {
   for (;;) {
     const r = openQueue()
       .prepare(
-        `SELECT * FROM mutation_queue WHERE state IN ('pending','inflight') ORDER BY seq LIMIT 1`,
+        `SELECT * FROM mutation_queue
+         WHERE state IN ('pending','inflight') AND held_by IS NULL ORDER BY seq LIMIT 1`,
       )
       .get() as Record<string, unknown> | undefined;
     if (!r) return undefined;
@@ -334,6 +365,28 @@ export function markFailed(idempotencyKey: string, error: string): void {
        WHERE idempotency_key = @key`,
     )
     .run({ key: idempotencyKey, error });
+}
+
+/**
+ * The server refused this row for the person signed in now, but someone else
+ * queued it (replay answered `hold`): it stays pending, still blocks day
+ * close, and the worker skips it until a different person signs in.
+ */
+export function markHeld(idempotencyKey: string, heldBy: string): void {
+  openQueue()
+    .prepare(
+      `UPDATE mutation_queue SET state = 'pending', held_by = @by,
+         last_error = 'waiting for someone allowed to send it'
+       WHERE idempotency_key = @key`,
+    )
+    .run({ key: idempotencyKey, by: heldBy });
+}
+
+/** A different person signed in: the rows held for the last one try again. */
+export function releaseHeld(signedIn: string): number {
+  return openQueue()
+    .prepare(`UPDATE mutation_queue SET held_by = NULL WHERE held_by IS NOT NULL AND held_by <> ?`)
+    .run(signedIn).changes;
 }
 
 export function ack(idempotencyKey: string, serverResult: unknown): void {
@@ -398,6 +451,33 @@ export function listBlockingRows(): QueueRow[] {
 }
 
 /**
+ * What the kitchen still has to see from this till: the orders not yet on the
+ * server (pending, inflight) and the kitchen screens' bumps still queued
+ * behind them, in queue order. The LAN server rebuilds its ticket list from
+ * this at start, so a till restarted mid-outage does not wipe the board.
+ * A row that cannot be decrypted is skipped (it still blocks day close).
+ */
+export function kitchenBacklog(): QueueRow[] {
+  const rows = openQueue()
+    .prepare(
+      `SELECT * FROM mutation_queue
+       WHERE state IN ('pending','inflight')
+         AND mutation_type IN ('order.create','order.add_items','ticket.status')
+       ORDER BY seq`,
+    )
+    .all() as Record<string, unknown>[];
+  const out: QueueRow[] = [];
+  for (const r of rows) {
+    try {
+      out.push(toRow(r));
+    } catch (err) {
+      if (!(err instanceof QueuePayloadUnreadableError)) throw err;
+    }
+  }
+  return out;
+}
+
+/**
  * uploadBlocked inputs — two independent witnesses, either one flips the flag:
  * the renderer's heartbeat verdict (pushed over touch:conn-state after every
  * beat) and the sync worker's own state (transport failures, or a 401 that
@@ -417,18 +497,17 @@ export function setWorkerUnreachable(unreachable: boolean): void {
 }
 
 export function queueStatus(): QueueStatus {
-  const row = openQueue()
+  // Grouped over the state index: only the rows still in play are counted.
+  const counts = openQueue()
     .prepare(
-      `SELECT
-         SUM(CASE WHEN state IN ('pending','inflight') THEN 1 ELSE 0 END) AS depth,
-         SUM(CASE WHEN state = 'conflict' THEN 1 ELSE 0 END) AS conflicts,
-         SUM(CASE WHEN state = 'failed' THEN 1 ELSE 0 END) AS failed
-       FROM mutation_queue`,
+      `SELECT state, COUNT(*) AS n FROM mutation_queue
+       WHERE state IN ('pending','inflight','conflict','failed') GROUP BY state`,
     )
-    .get() as { depth: number | null; conflicts: number | null; failed: number | null };
-  const depth = row.depth ?? 0;
-  const conflicts = row.conflicts ?? 0;
-  const failed = row.failed ?? 0;
+    .all() as { state: QueueRow['state']; n: number }[];
+  const n = (state: QueueRow['state']) => counts.find((c) => c.state === state)?.n ?? 0;
+  const depth = n('pending') + n('inflight');
+  const conflicts = n('conflict');
+  const failed = n('failed');
   return {
     depth,
     conflicts,

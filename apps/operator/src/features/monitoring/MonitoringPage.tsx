@@ -5,7 +5,8 @@
  *
  * Top: the filters (period, app, level, kind, "reported by a person"), then
  * the period's totals and a bar per hour (24 hours) or per day (longer), and
- * the most frequent kinds. Below: the events, newest first, 50 at a time; a
+ * the most frequent kinds; then the assistant's last 12 weeks (one quiet
+ * table, AssistantWeeksPanel). Below: the events, newest first, 50 at a time; a
  * row opens its detail in a dialog. Everything refreshes every minute
  * (REFRESH_MS) and on demand.
  */
@@ -16,6 +17,7 @@ import { useLocale } from '../../lib/i18n';
 import { Button, Modal, Select, Skeleton } from '../../components/ui';
 import { AsyncStateWrapper, DataTable, EmptyState, PageHeader, Panel, SegmentedControl, StatusBadge, type Column } from '../../components/kit';
 import { MK, fetchEvents, fetchSummary } from './api';
+import { AssistantWeeksPanel } from './AssistantWeeksPanel';
 import {
   DEFAULT_FILTERS,
   LEVELS,
@@ -119,6 +121,8 @@ export function MonitoringPageScreen() {
       >
         {summary.data && <SummaryPanels summary={summary.data} filters={filters} onKind={(k) => set('kind', k)} />}
       </AsyncStateWrapper>
+
+      <AssistantWeeksPanel />
 
       <Panel title={tr('ws.monitoring.list.title')} data-testid="monitoring-events">
         <AsyncStateWrapper

@@ -21,6 +21,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  mayAskForPush,
   permissionStateAfter,
   shouldPersistToken,
   shouldRouteTap,
@@ -64,6 +65,18 @@ describe('shouldPersistToken', () => {
     // the next sign-in would skip the rewrite as redundant and the profile
     // would stay unreachable for every booking made afterwards.
     expect(shouldPersistToken({ token: 'ExponentPushToken[a]', lastWritten: null })).toBe(true);
+  });
+});
+
+describe('mayAskForPush (delete + reinstall gets notifications back)', () => {
+  it('the sign-in sync asks only when this install never has', () => {
+    expect(mayAskForPush({ prompt: false, askIfNeverAsked: true, status: 'undetermined' })).toBe(true);
+    expect(mayAskForPush({ prompt: false, askIfNeverAsked: true, status: 'denied' })).toBe(false);
+    expect(mayAskForPush({ prompt: false, askIfNeverAsked: true, status: 'granted' })).toBe(false);
+  });
+  it('every other silent sync never asks; the Settings button always may', () => {
+    expect(mayAskForPush({ prompt: false, askIfNeverAsked: false, status: 'undetermined' })).toBe(false);
+    expect(mayAskForPush({ prompt: true, askIfNeverAsked: false, status: 'denied' })).toBe(true);
   });
 });
 

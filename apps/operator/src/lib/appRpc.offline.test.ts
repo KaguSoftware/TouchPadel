@@ -35,12 +35,15 @@ describe('appRpc offline (F-23)', () => {
     expect(queueRpc).toHaveBeenCalledWith('set_venue_details', { p_patch: { name: 'x' } });
   });
 
-  it('a call that could not connect is queued, and the station is marked offline', async () => {
+  it('a call that failed in transport is never queued (it may have landed), but the next save is', async () => {
     rpc.mockResolvedValue({ data: null, error: { message: 'TypeError: Failed to fetch', code: '' }, status: 0 });
     queueRpc.mockResolvedValue({ queued: true, localId: 'L', idempotencyKey: 'k', result: null });
     const err = await appRpc('upsert_court', { p_name: 'C1' }).catch((e: unknown) => e);
-    expect(isSavedOffline(err)).toBe(true);
+    expect(isSavedOffline(err)).toBe(false);
+    expect(queueRpc).not.toHaveBeenCalled();
     expect(isStationOffline()).toBe(true);
+    const next = await appRpc('upsert_court', { p_name: 'C1' }).catch((e: unknown) => e);
+    expect(isSavedOffline(next)).toBe(true);
   });
 
   it('when the queue reaches the server inside the wait after all, the answer comes back as success', async () => {

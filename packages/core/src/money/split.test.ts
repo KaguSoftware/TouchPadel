@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { MoneyError, iqd, sumIqd } from './iqd';
-import { splitByItems, splitEvenly } from './split';
+import { MoneyError, iqd } from './iqd';
+import { splitEvenly } from './split';
 
 /** Deterministic PRNG (mulberry32) so property failures are reproducible. */
 function mulberry32(seed: number): () => number {
@@ -65,46 +65,6 @@ describe('splitEvenly — largest remainder (plan override, NO 250 rounding)', (
       }
       // every share is a non-negative integer
       expect(shares.every((s) => Number.isSafeInteger(s) && s >= 0)).toBe(true);
-    }
-  });
-});
-
-describe('splitByItems', () => {
-  it('sums each payer’s lines exactly (no rounding involved)', () => {
-    const shares = splitByItems([
-      [iqd(4000), iqd(1500)],
-      [iqd(2500)],
-      [],
-    ]);
-    expect(shares).toEqual([5500, 2500, 0]);
-  });
-
-  it('enforces the total when provided', () => {
-    const byPayer = [[iqd(4000)], [iqd(6000)]];
-    expect(splitByItems(byPayer, iqd(10000))).toEqual([4000, 6000]);
-    try {
-      splitByItems(byPayer, iqd(10001));
-      expect.unreachable();
-    } catch (e) {
-      expect((e as MoneyError).code).toBe('SPLIT_MISMATCH');
-    }
-  });
-
-  it('rejects an empty payer list and non-integer lines', () => {
-    expect(() => splitByItems([])).toThrowError(MoneyError);
-    expect(() => splitByItems([[10.5]])).toThrowError(MoneyError);
-  });
-
-  it('property: Σ shares === Σ all lines', () => {
-    const rand = mulberry32(7);
-    for (let i = 0; i < 300; i++) {
-      const payers = 1 + Math.floor(rand() * 6);
-      const byPayer = Array.from({ length: payers }, () =>
-        Array.from({ length: Math.floor(rand() * 5) }, () => iqd(Math.floor(rand() * 50_000))),
-      );
-      const total = sumIqd(byPayer.flat());
-      const shares = splitByItems(byPayer, total);
-      expect(sumIqd(shares)).toBe(total);
     }
   });
 });

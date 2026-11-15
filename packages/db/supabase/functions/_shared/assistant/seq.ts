@@ -25,16 +25,41 @@ export interface SeqPorts {
 /** Enough for any realistic burst of sends into one conversation. */
 export const SEQ_ATTEMPTS = 5;
 
+/** A thrown read as a SeqError, keeping a database error's code and message. */
+function asSeqError(e: unknown): SeqError {
+  const o = e && typeof e === 'object' ? (e as { code?: unknown; message?: unknown }) : {};
+  return {
+    code: typeof o.code === 'string' ? o.code : null,
+    message: typeof o.message === 'string' ? o.message : String(e),
+  };
+}
+
 /**
  * Insert at max(seq) + 1, re-reading and retrying on a unique violation.
  * Resolves with the seq the row landed at, or the last error (a non-23505
- * error is returned at once; 23505 after SEQ_ATTEMPTS tries).
+ * error is returned at once; 23505 after SEQ_ATTEMPTS tries). Never throws:
+ * a failed max(seq) read is retried once in the whole call (a SELECT, so
+ * cheap and safe to repeat), then returned as the error. Until 2026-11-12 it
+ * threw, and the chat's persist skipped the spend with the message.
  */
 export async function insertAtNextSeq(ports: SeqPorts, attempts: number = SEQ_ATTEMPTS): Promise<{ seq: number; error: SeqError | null }> {
   let seq = 0;
   let error: SeqError | null = null;
+  let readRetried = false;
+  const readMax = async (): Promise<number | SeqError> => {
+    for (;;) {
+      try {
+        return await ports.maxSeq();
+      } catch (e) {
+        if (readRetried) return asSeqError(e);
+        readRetried = true;
+      }
+    }
+  };
   for (let i = 0; i < Math.max(1, attempts); i++) {
-    seq = (await ports.maxSeq()) + 1;
+    const max = await readMax();
+    if (typeof max !== 'number') return { seq, error: max };
+    seq = max + 1;
     error = await ports.insert(seq);
     if (!error) return { seq, error: null };
     if (error.code !== '23505') return { seq, error };
