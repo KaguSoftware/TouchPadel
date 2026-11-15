@@ -498,10 +498,13 @@ describe.each(LOCALES)('loyalty states in %s', (locale) => {
     try {
       // The top card (0410) says so, has no bar, and lists everything the card holds.
       const top = screen.getByTestId('loyalty.top-card');
-      expect(within(top).getByText(t('loyalty.guest.next.topLabel'))).toBeTruthy();
+      // "Your card" twice: the head's label and the mark on its own row in the cards under it.
+      expect(within(top).getAllByText(t('loyalty.guest.next.topLabel'))).toHaveLength(2);
       expect(within(top).getByText(t('loyalty.guest.next.top'))).toBeTruthy();
       // Its cards are in the same block: its own row marked, the ones under it included.
-      expect(within(top).getByTestId('loyalty.tier-yours')).toBeTruthy();
+      expect(
+        within(within(top).getByTestId('loyalty.tier.tier-2')).getByTestId('loyalty.tier-yours'),
+      ).toBeTruthy();
       expect(within(top).getByText(locale === 'ar' ? 'كل الإضافات مجانًا' : 'Every add-on free')).toBeTruthy();
       expect(within(top).getByText(locale === 'ar' ? 'نكهة مجانية' : 'Free syrup')).toBeTruthy();
       expect(screen.queryByTestId('loyalty.next-card')).toBeNull();
