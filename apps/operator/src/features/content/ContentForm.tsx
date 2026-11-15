@@ -58,6 +58,7 @@ import {
   type ContentIssueCode,
   type ContentRow,
 } from './contentLogic';
+import { keyForValues } from '../../lib/valueKeys';
 
 /** What the form is doing: a new item (possibly prefilled from a closed one), or the next version of one. */
 export type ContentFormMode =
@@ -85,12 +86,9 @@ export function ContentForm({ mode, onClose }: { mode: ContentFormMode; onClose:
   const revising = mode.kind === 'revise';
   const idea = mode.kind === 'new' ? (mode.idea ?? null) : null;
   /** One key per post as sent: kept for a retry of it, renewed by an edit (claim_replay compares no payload). */
-  const key = useRef<{ sig: string; key: string } | null>(null);
-  const keyFor = (args: unknown): string => {
-    const sig = JSON.stringify(args);
-    if (key.current?.sig !== sig) key.current = { sig, key: `${revising ? 'content.revise' : 'content.submit'}:${crypto.randomUUID()}` };
-    return key.current.key;
-  };
+  const keys = useRef(new Map<string, string>());
+  const keyFor = (args: unknown): string =>
+    keyForValues(keys.current, [revising, args], () => `${revising ? 'content.revise' : 'content.submit'}:${crypto.randomUUID()}`);
 
   const aboutKind = draft.about === 'none' ? null : draft.about;
   const aboutQ = useQuery({

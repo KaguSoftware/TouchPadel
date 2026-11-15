@@ -21,7 +21,7 @@
  * of charging an amount the cashier never showed the guest (offlineSettlePayload).
  */
 import type { OfflineAdjustment, OfflineTab } from '../../lib/offlineTabs';
-import { computeTabTotals, type TabTotals, type TaxContext, type TotalsInput } from './tabTotals';
+import { computeTabTotals, roundDiv, type TabTotals, type TaxContext, type TotalsInput } from './tabTotals';
 
 /** The offline tab as compute_tab_totals would see it after replay: one order, live lines, whole-tab discounts. */
 export function offlineTotalsInput(tab: Pick<OfflineTab, 'lines' | 'adjustments'>): TotalsInput {
@@ -45,11 +45,6 @@ export function offlineTotalsInput(tab: Pick<OfflineTab, 'lines' | 'adjustments'
 export function offlineTabTotals(tab: Pick<OfflineTab, 'lines' | 'adjustments'>, tax: TaxContext | null): TabTotals {
   // No court fee: a tab opened offline is never charged to a booking.
   return computeTabTotals(offlineTotalsInput(tab), tax, 0);
-}
-
-/** round(a / b) half away from zero for non-negative integers, as Postgres rounds numeric. */
-function roundDiv(a: number, b: number): number {
-  return Math.floor((2 * a + b) / (2 * b));
 }
 
 /**

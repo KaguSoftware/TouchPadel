@@ -839,9 +839,11 @@ if (gotTheLock) {
     // Quit to desktop (design-arch §2.5): the ONLY way a production window
     // closes. Behind a manager PIN again (owner call, 2026-09-23, reversing the
     // earlier no-PIN request), and not the signed-in person's own: staff are
-    // kept inside the app. Re-checked here against the offline cache so a
-    // compromised renderer cannot end service on its own word; the renderer
-    // verifies online first and tags the PIN with its owner (pinObserved).
+    // kept inside the app. Re-checked here against the offline cache, which
+    // the renderer fills (it verifies online first and tags the PIN with its
+    // owner, pinObserved): main trusts the page for that, so the page must stay
+    // ours. A packaged station has no DevTools and no menu accelerators
+    // (createWindow, whenReady) and navigates only to file: (audit finding 2).
     //
     // The owner is the exception (owner call, 2026-09-27): an empty PIN asks
     // main to let the signed-in person out as the owner, which main confirms

@@ -20,7 +20,7 @@
  * the balance right.
  */
 import { useId, useRef, useState, type FormEvent, type ReactNode } from 'react';
-import { keyForValues } from '../wages/wagesLogic';
+import { keyForValues } from '../../lib/valueKeys';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { countPhrase, formatDate, formatIQD, formatTime, isolate, type MessageKey } from '@touch/i18n';

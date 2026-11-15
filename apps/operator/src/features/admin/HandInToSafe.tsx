@@ -43,6 +43,7 @@ import {
   type HandInOverlay,
   type HandInRow,
 } from './handInLogic';
+import { keyForValues } from '../../lib/valueKeys';
 
 interface HandInResult {
   handed_in: number;
@@ -73,9 +74,10 @@ export function HandInToSafe({ daySessionId, mode }: { daySessionId: string; mod
   const [collapsed, setCollapsed] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
-  // One key per attempt: a retry of the same submit reuses it (the server
-  // replays a call that landed but whose answer was lost); a success replaces it.
-  const keyRef = useRef(newHandInKey());
+  // One key per set of amounts sent: a retry of the same submit reuses it (the
+  // server replays a call that landed but whose answer was lost), changed
+  // amounts get their own (keyForValues, F-13), a success starts afresh.
+  const keys = useRef(new Map<string, string>());
 
   const day = boxesQ.data ?? null;
   const pending = mode === 'pending';
@@ -143,9 +145,9 @@ export function HandInToSafe({ daySessionId, mode }: { daySessionId: string; mod
       const res = await appRpc<HandInResult>('main_cash_hand_in_day', {
         p_day_session_id: daySessionId,
         p_boxes: payload,
-        p_idempotency_key: keyRef.current,
+        p_idempotency_key: keyForValues(keys.current, [daySessionId, payload], newHandInKey),
       });
-      keyRef.current = newHandInKey();
+      keys.current = new Map();
       const handed = { ...overlay.handed };
       for (const p of payload) handed[p.box] = p.amount_iqd;
       setOverlay({ handed, kept: [...overlay.kept, ...keptBoxes(rows)] });

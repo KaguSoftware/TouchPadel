@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ScrollView, Share, StyleSheet, Pressable, View } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -157,13 +157,20 @@ function MatchDetailScreen() {
       : null;
   const token = isMatchToken(params.t) ? params.t : null;
 
-  const match = useMatch(id, token);
+  const inFront = useScreenFocused();
+  const match = useMatch(id, token, inFront);
+  // Back in front after another screen covered it: the poll paused, so read now.
+  const wasInFront = useRef(inFront);
+  useEffect(() => {
+    if (inFront && !wasInFront.current) void match.refetch();
+    wasInFront.current = inFront;
+  }, [inFront, match]);
   const view = match.data ?? null;
   const detail: MatchDetail | null = view && !view.restricted ? view : null;
   const venueId = detail?.venueId ?? null;
   // Never the stored branch (DF-1): the match's own branch, or nothing yet.
   // Only while in front; coming back re-reads what was missed.
-  useCourtsBroadcast(venueId, useScreenFocused());
+  useCourtsBroadcast(venueId, inFront);
   const settings = useVenueSettings(venueId);
   const branches = useBranches();
   const courts = useAllCourts();

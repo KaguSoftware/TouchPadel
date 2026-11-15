@@ -38,7 +38,7 @@ import { useMemo, useRef, useState, type ReactNode } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { formatIQD, formatNumber } from '@touch/i18n';
 import { AppRpcError, appRpc } from '../../../lib/appRpc';
-import { keyForValues } from '../../wages/wagesLogic';
+import { keyForValues } from '../../../lib/valueKeys';
 import { useLocale, pickName } from '../../../lib/i18n';
 import { can, useAuth } from '../../../lib/auth';
 import { useToast } from '../../../components/toast';

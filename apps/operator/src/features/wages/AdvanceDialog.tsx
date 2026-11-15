@@ -38,7 +38,6 @@ import {
   UNDO_REASON_MAX,
   advanceMaxFromHint,
   isWageStale,
-  keyForValues,
   safeShort,
   undoReasonIssue,
   validateAdvanceDraft,
@@ -46,6 +45,7 @@ import {
   type PaidFrom,
   type WageAdvance,
 } from './wagesLogic';
+import { keyForValues } from '../../lib/valueKeys';
 
 const AMOUNT_ISSUE = {
   required: 'ws.wages.give.issue.required',

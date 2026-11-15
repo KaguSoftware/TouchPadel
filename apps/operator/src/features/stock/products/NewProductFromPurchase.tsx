@@ -23,7 +23,7 @@ import { useToast } from '../../../components/toast';
 import { Button, ErrorText, Field, Modal, Select, inputStyle } from '../../../components/ui';
 import { BilingualFields } from '../../../components/inputs';
 import { MessagePresenter } from '../../../components/kit';
-import { keyForValues } from '../../wages/wagesLogic';
+import { keyForValues } from '../../../lib/valueKeys';
 import { SK, fetchShopCatalogue } from '../stockKeys';
 import type { PurchaseLine } from '../driverPurchasesLogic';
 import { createProductArgs, sizeProblem, type SizeDraft } from './productsLogic';

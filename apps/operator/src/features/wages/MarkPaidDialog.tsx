@@ -35,9 +35,10 @@ import { refusalCode } from '../protocols/errors';
 import { dayLabel, monthLabel } from '../deductions/venueDate';
 import { WK } from './api';
 import { useSafeBalance } from '../safe/api';
-import { isWageStale, keyForValues, safeShort, type PaidFrom, type WageLine } from './wagesLogic';
+import { isWageStale, safeShort, type PaidFrom, type WageLine } from './wagesLogic';
 import { BonusList } from './BonusList';
 import { PaidFromField } from './PaidFromField';
+import { keyForValues } from '../../lib/valueKeys';
 
 export interface PayTarget extends WageLine {
   staffId: string;

@@ -46,6 +46,7 @@ import {
   type ProposeField,
   type ProposeIssueCode,
 } from './deductionsLogic';
+import { keyForValues } from '../../lib/valueKeys';
 
 const EMPTY: ProposeDraft = { staffId: '', amount: null, date: '', reason: '' };
 
@@ -70,7 +71,7 @@ export function ProposeDeduction({
   const [draft, setDraft] = useState<ProposeDraft>({ ...EMPTY, staffId: initialStaffId ?? '', date: today });
   const [tried, setTried] = useState(false);
   /** One key per proposal as sent: kept for a retry of it, renewed by an edit or a success. */
-  const key = useRef<{ sig: string; key: string } | null>(null);
+  const keys = useRef(new Map<string, string>());
 
   const targetsQ = useQuery({ queryKey: DK.targets, queryFn: () => appRpc<unknown>('deduction_targets', {}) });
   const targets = readDeductionTargets(targetsQ.data);
@@ -78,12 +79,11 @@ export function ProposeDeduction({
   const send = useMutation({
     mutationFn: () => {
       const args = { p_staff_id: draft.staffId, p_amount_iqd: draft.amount, p_date: draft.date, p_reason: draft.reason.trim() };
-      const sig = JSON.stringify(args);
-      if (key.current?.sig !== sig) key.current = { sig, key: `deduction.propose:${crypto.randomUUID()}` };
-      return appRpc('propose_deduction', { ...args, p_idempotency_key: key.current.key });
+      const key = keyForValues(keys.current, [args], () => `deduction.propose:${crypto.randomUUID()}`);
+      return appRpc('propose_deduction', { ...args, p_idempotency_key: key });
     },
     onSuccess: () => {
-      key.current = null;
+      keys.current = new Map();
       toast.ok(tr(atOnce ? 'ws.deductions.propose.recorded' : 'ws.deductions.propose.sent'));
       // An owner's entry already comes off a wage: the Wages reads refetch too.
       if (atOnce) refreshAfterWrite(qc);
