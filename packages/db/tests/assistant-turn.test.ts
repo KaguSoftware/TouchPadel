@@ -564,6 +564,35 @@ describe('the round loop: a call cut mid-stream', () => {
     expect(h.state.gate).toBeNull();
   });
 
+  // A retry withdraws the draft (the reset delta); the regenerated call then
+  // throws. The withdrawn draft must never become the stored answer (2026-11-12).
+  const DRAFT_MONEY = 'Revenue this week was 4,500,000 IQD.';
+  const DRAFT_REFUSAL = 'The money context is off for this chat.';
+
+  for (const [why, draft] of [['gate retry', DRAFT_MONEY], ['false-refusal retry', DRAFT_REFUSAL]] as const) {
+    it(`${why}: the regenerated call throws before any text, so the turn is empty (not the withdrawn draft)`, async () => {
+      const h = harness([]);
+      cutStream(h, '', PARTIAL, [answer(draft)]);
+      await expect(h.run()).rejects.toThrow('aborted');
+      expect(resets(h.events)).toBe(1);
+      expect(h.state.finalText).toBe('');
+      expect(h.state.finalContent).toEqual([]);
+      expect(h.state.gate).toBeNull();
+      // Both calls are still billed: the draft's and the cut one's partial usage.
+      expect(h.state.calls.map((c) => c.stop_reason)).toEqual(['end_turn', 'aborted']);
+    });
+
+    it(`${why}: the regenerated call throws after some text, so the turn is that new text, gated for marks`, async () => {
+      const h = harness([]);
+      cutStream(h, 'Revenue was 9,999,999 IQD and', PARTIAL, [answer(draft)]);
+      await expect(h.run()).rejects.toThrow('aborted');
+      expect(h.state.finalText).toBe('Revenue was 9,999,999 IQD and');
+      expect(h.state.finalText).not.toContain(draft);
+      expect(h.state.finalContent).toEqual([]);
+      expect(h.state.gate).toMatchObject({ status: 'unverified', unverified: [{ value: 9999999 }] });
+    });
+  }
+
   it('partialCallOf reads the shape structurally and refuses anything else', () => {
     expect(partialCallOf({ partial: PARTIAL })).toEqual(PARTIAL);
     expect(partialCallOf({ partial: { usage: { input: -3, output: 'x' }, ms: Number.NaN } })).toEqual({ usage: { input: 0, cache_write: 0, cache_read: 0, output: 0 }, ms: 0, webSearches: 0 });

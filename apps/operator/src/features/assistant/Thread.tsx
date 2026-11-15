@@ -10,7 +10,10 @@
  * before the stream) stays with its error sentence until the next question.
  * Each answer says how it ended (stopped, cut short, declined, failed) the
  * same way live and stored. A job estimate is rebuilt from its stored row
- * while the job waits for a press, so the owner never pays for it twice.
+ * while the job waits for a press, so the owner never pays for it twice; a job
+ * that ended is rebuilt from its row too (threadLogic.jobCards, 2026-11-12):
+ * once when it ended while the owner was away, and for as long as a failure
+ * has no stored message of its own.
  *
  * Layout since 2026-10-20 (owner picked C for a new chat, D for the rest):
  * an open chat has one toolbar on top (the caller's controls and the cost),
@@ -18,7 +21,7 @@
  * (StartScreen), and the newest answer ends with "Ask next" buttons. A new
  * chat reads nothing until the owner picks, so its composer stays locked.
  */
-import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Fragment, memo, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Link } from '@tanstack/react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ASSISTANT_SCOPES, type AssistantScope } from '@touch/core/assistant/tools';
@@ -35,6 +38,9 @@ import { Composer } from './Composer';
 import { JobEstimateCard } from './JobEstimateCard';
 import { JobProgress } from './JobProgress';
 import { Message } from './Message';
+import { feedbackView, useRateMessage, type RateOutcome } from './feedbackLogic';
+import type { Rating } from '@touch/core/assistant/feedback';
+import { useStickToBottom } from './stickToBottom';
 import { MODEL_TRIGGER_STYLE, ModelSwitch, modelName, takePendingNewChatModel, takePendingQuestion } from './ModelSwitch';
 import { scopeLabel } from './Sources';
 import { ScopeStrip } from './ScopeStrip';
@@ -44,7 +50,7 @@ import { StartScreen } from './StartScreen';
 import { ToolbarPopover } from './ToolbarPopover';
 import { followUpsFor } from './starters';
 import { errorCodeOf, useAssistantChat } from './useAssistantChat';
-import { acceptMayHaveStarted, errorSentenceKey, estimateOf, liveOutcome, loadDismissedJobs, placeEstimates, reconcileLive, saveDismissedJobs, storedOutcome, storedText } from './threadLogic';
+import { acceptMayHaveStarted, askedByAnswer, errorSentenceKey, estimateOf, jobCards, liveOutcome, loadDismissedJobs, loadSeenJobs, placeEstimates, reconcileLive, saveDismissedJobs, saveSeenJobs, scopesToRestore, storedOutcome, storedText } from './threadLogic';
 import { useAssistantMode } from './useAssistantMode';
 import { monthSoFar } from './usageDates';
 
@@ -96,6 +102,8 @@ export function Thread({
     queryFn: () => fetchMessages(conversationId!),
     enabled: conversationId !== null,
   });
+  // The owner's thumbs (0422): optimistic on the messages query above.
+  const rate = useRateMessage(conversationId);
   const acceptWatchUntil = useRef(0);
   const jobs = useQuery({
     queryKey: QK.jobs(conversationId ?? ''),
@@ -168,6 +176,26 @@ export function Thread({
     lang: locale,
   });
 
+  // A new chat whose first question failed while the drawer was closed: the
+  // reopened drawer forgot its checked set, which locked the composer under the
+  // failed turn. Its question's own scopes come back, so the owner can go on.
+  const restoreScopes = scopesToRestore(conversationId, newScopes, chat.lastScopes);
+  useEffect(() => {
+    if (restoreScopes) onNewScopesChange(normaliseScopes(restoreScopes));
+  }, [restoreScopes, onNewScopesChange]);
+
+  // Follow the foot only while the owner is there (stickToBottom.ts); a press that asks follows again.
+  const stuck = useStickToBottom<HTMLDivElement>();
+  const { follow } = stuck;
+  const chatAsk = chat.ask;
+  const askNow = useCallback(
+    (text: string, opts?: { scopes?: readonly AssistantScope[] }) => {
+      follow();
+      return chatAsk(text, opts);
+    },
+    [follow, chatAsk],
+  );
+
   const changeScopes = useMutation({
     mutationFn: async (next: AssistantScope[]) => {
       if (conversationId) await setScopes(conversationId, next, conversation.data?.range ?? null);
@@ -189,11 +217,15 @@ export function Thread({
     setTurningOn(true);
     try {
       await changeScopes.mutateAsync(normaliseScopes([...scopes, scope]));
-      if (chat.lastQuestion) void chat.ask(chat.lastQuestion);
+      if (chat.lastQuestion) void askNow(chat.lastQuestion);
     } finally {
       setTurningOn(false);
     }
   };
+  // Stable for the memoised stored rows: the latest turnOn, read through a ref.
+  const turnOnRef = useRef(turnOn);
+  turnOnRef.current = turnOn;
+  const onTurnOn = useCallback((s: AssistantScope) => void turnOnRef.current(s), []);
   const scopeLabels = useMemo(() => {
     const out = {} as Record<AssistantScope, string[]>;
     for (const s of ASSISTANT_SCOPES) out[s] = [s, tr(`ws.owner.assistant.scopes.${s}`)];
@@ -239,29 +271,48 @@ export function Thread({
   };
   const aggregate = (jobId: string, tools: string[]) => {
     dismissJob(jobId);
-    void chat.ask(tr('ws.owner.assistant.job.aggregateAsk', { tools: tools.join(', ') }));
+    void askNow(tr('ws.owner.assistant.job.aggregateAsk', { tools: tools.join(', ') }));
   };
 
   // The live turn gives way once it ended and its stored answer is in the
   // list, whatever the outcome; until then its stored copies are hidden.
-  const allRows: MessageRow[] = messages.data ?? [];
+  const allRows: MessageRow[] = useMemo(() => messages.data ?? [], [messages.data]);
   const live = chat.live;
   const recon = reconcileLive(live, allRows);
   const showLive = recon.showLive;
-  const rows = recon.hiddenRowIds.size > 0 ? allRows.filter((m) => !recon.hiddenRowIds.has(m.id)) : allRows;
+  // Memoised on the hidden ids, so a token does not hand every stored row a new list.
+  const hiddenKey = [...recon.hiddenRowIds].join(',');
+  const rows = useMemo(() => {
+    const hidden = new Set(hiddenKey === '' ? [] : hiddenKey.split(','));
+    return hidden.size > 0 ? allRows.filter((m) => !hidden.has(m.id)) : allRows;
+  }, [allRows, hiddenKey]);
+  // The question each stored answer replies to, in one pass (was a reverse search per row, per render).
+  const askedFor = useMemo(() => askedByAnswer(allRows), [allRows]);
   const liveView = live ? liveOutcome(live) : null;
 
-  // Keep the newest thing in view as it arrives.
-  const scroller = useRef<HTMLDivElement>(null);
+  // Keep the newest thing in view as it arrives, while the owner is at the foot.
+  const { stick } = stuck;
   useEffect(() => {
-    const el = scroller.current;
-    if (el) el.scrollTop = el.scrollHeight;
-  }, [rows.length, live?.text, live?.tools.length, live?.jobEstimate]);
+    stick();
+  }, [stick, rows.length, live?.text, live?.tools.length, live?.jobEstimate]);
 
   // The model that priced the live answer beats the one the next answer will
   // use, which beats what the chat last paid, which beats any priced model.
   const model = live?.model ?? live?.usage?.model ?? chosenModel ?? modelsQ.data?.default_model ?? conversation.data?.tokens.model ?? Object.keys(pricing ?? {})[0] ?? '';
-  const visibleJobs = (jobs.data ?? []).filter((j) => j.status !== 'estimated' && (!TERMINAL_JOB_STATUSES.includes(j.status) || watchedJobs.includes(j.id)));
+  // Job cards (threadLogic.jobCards): running ones, ones watched here, a failure no
+  // stored message explains, and, once, one that ended while the owner was away.
+  const [seenJobs] = useState<ReadonlySet<string>>(() => loadSeenJobs());
+  const jobIdsInMessages = useMemo(() => new Set(allRows.flatMap((m) => (m.role === 'assistant' ? sourcesOf(m).jobIds : []))), [allRows]);
+  const cards = jobCards(jobs.data ?? [], { watched: watchedJobs, seen: seenJobs, jobIdsInMessages, now: Date.now() });
+  // Shown once: remembered on this computer, but kept on screen for as long as this view is open.
+  const endedIds = cards.filter((c) => TERMINAL_JOB_STATUSES.includes(c.job.status)).map((c) => c.job.id).join(',');
+  useEffect(() => {
+    if (endedIds === '') return;
+    const next = loadSeenJobs();
+    const before = next.size;
+    for (const id of endedIds.split(',')) next.add(id);
+    if (next.size !== before) saveSeenJobs(next);
+  }, [endedIds]);
   // The live turn's estimate while it is on screen, then the stored row's: an
   // estimate stays pressable after a reload, a chat switch or the next question.
   const liveJobStatus = live?.jobEstimate ? jobs.data?.find((j) => j.id === live.jobEstimate!.job_id)?.status : undefined;
@@ -346,7 +397,7 @@ export function Thread({
   const askStarter = (picked: readonly AssistantScope[], question: string) => {
     const next = normaliseScopes(picked);
     onNewScopesChange(next);
-    void chat.ask(question, { scopes: next });
+    void askNow(question, { scopes: next });
   };
 
   // "Ask next" under the newest answer that finished cleanly.
@@ -447,7 +498,7 @@ export function Thread({
 
   const composer = (
     <Composer
-      onAsk={(q) => void chat.ask(q)}
+      onAsk={(q) => void askNow(q)}
       onStop={chat.stop}
       streaming={chat.streaming}
       autoFocus={autoFocus && !locked}
@@ -689,7 +740,8 @@ export function Thread({
       {/* In the drawer the panel is itself --tp-surface, so the thread gets the
           page ground as a well; otherwise the answer bubbles would vanish into it. */}
       <div
-        ref={scroller}
+        ref={stuck.ref}
+        onScroll={stuck.onScroll}
         data-thread-scroll=""
         style={{
           flex: 1,
@@ -725,37 +777,28 @@ export function Thread({
             )}
             {messages.isError && <ErrorText error={messages.error} />}
             {conversationId && conversation.isSuccess && conversation.data === null && <p style={{ color: 'var(--tp-muted-fg)' }}>{tr('ws.owner.assistant.notFound')}</p>}
+            {/* Each stored row is memoised: a streaming answer re-renders itself, not the thread. */}
             {rows.map((m) => {
-              if (m.role === 'user') return <Message key={m.id} role="user" text={textOfContent(m.content)} compact={compact} />;
-              const src = sourcesOf(m);
-              const text = storedText(m);
-              const askedRow = [...allRows].reverse().find((r) => r.role === 'user' && r.seq < m.seq);
-              const asked = askedRow ? textOfContent(askedRow.content) : undefined;
+              if (m.role === 'user') return <UserRow key={m.id} text={textOfContent(m.content)} compact={compact} />;
               const below = estimates.byMessage.get(m.id);
               return (
                 <Fragment key={m.id}>
-                <Message
-                  messageId={m.id}
-                  question={asked}
-                  role="assistant"
-                  text={text}
-                  outcome={storedOutcome(m)}
-                  onAskAgain={asked ? () => void chat.ask(asked) : undefined}
-                  askAgainDisabled={chat.streaming}
-                  tools={src.items}
-                  scopes={src.scopes.length > 0 ? src.scopes : null}
-                  gate={m.gate}
-                  usage={m.tokens}
-                  pricing={pricing}
-                  fallbackMicrosPerMtok={fallback}
-                  fromJob={src.jobIds.length > 0}
-                  compact={compact}
-                  onNavigate={onNavigate}
-                  turnOn={refusedScopes(text, src.items.map((t) => t.error ?? '').filter(Boolean), scopeLabels, scopes)}
-                  onTurnOn={(s) => void turnOn(s)}
-                  turningOn={turningOn}
-                />
-                {below?.map((j) => estimateCard(estimateOf(j)))}
+                  <StoredAnswer
+                    row={m}
+                    asked={askedFor.get(m.id)}
+                    onAsk={askNow}
+                    busy={chat.streaming}
+                    pricing={pricing}
+                    fallback={fallback}
+                    compact={compact}
+                    onNavigate={onNavigate}
+                    scopeLabels={scopeLabels}
+                    scopes={scopes}
+                    onTurnOn={onTurnOn}
+                    turningOn={turningOn}
+                    onRate={rate}
+                  />
+                  {below?.map((j) => estimateCard(estimateOf(j)))}
                 </Fragment>
               );
             })}
@@ -776,12 +819,16 @@ export function Thread({
                   fallbackMicrosPerMtok={fallback}
                   streaming={!live.done}
                   outcome={liveView ?? undefined}
-                  onAskAgain={() => void chat.ask(live.userText)}
+                  // The same question with the scopes and model it was asked with (a failed first question too).
+                  onAskAgain={() => {
+                    follow();
+                    void chat.askAgain(live.userText);
+                  }}
                   askAgainDisabled={chat.streaming}
                   compact={compact}
                   onNavigate={onNavigate}
                   turnOn={live.done ? refusedScopes(live.text, live.tools.map((t) => t.error ?? '').filter(Boolean), scopeLabels, scopes) : []}
-                  onTurnOn={(s) => void turnOn(s)}
+                  onTurnOn={onTurnOn}
                   turningOn={turningOn}
                 />
               </>
@@ -790,8 +837,8 @@ export function Thread({
             {liveEstimate && estimateCard(liveEstimate)}
             {estimates.trailing.map((j) => estimateCard(estimateOf(j)))}
 
-            {visibleJobs.map((j) => (
-              <JobProgress key={j.id} jobId={j.id} initial={j} model={j.tokens.model ?? model} pricing={pricing} fallbackMicrosPerMtok={fallback} />
+            {cards.map(({ job, endedAway }) => (
+              <JobProgress key={job.id} jobId={job.id} initial={job} endedAway={endedAway} model={job.tokens.model ?? model} pricing={pricing} fallbackMicrosPerMtok={fallback} />
             ))}
 
             {followUps.length > 0 && (
@@ -811,7 +858,7 @@ export function Thread({
                       key={key}
                       type="button"
                       title={tr('ws.owner.assistant.followUps.hint')}
-                      onClick={() => void chat.ask(tr(`ws.owner.assistant.followUps.${key}` as never))}
+                      onClick={() => void askNow(tr(`ws.owner.assistant.followUps.${key}` as never))}
                       className="tp-follow-up"
                       style={{
                         minBlockSize: '2.375rem',
@@ -835,3 +882,76 @@ export function Thread({
     </div>
   );
 }
+
+/** The owner's stored question; memoised so a streaming answer leaves it alone. */
+const UserRow = memo(function UserRow({ text, compact }: { text: string; compact?: boolean }) {
+  return <Message role="user" text={text} compact={compact} />;
+});
+
+/**
+ * One stored answer, memoised (2026-11-12): every prop is stable while another
+ * answer streams (the row object comes from the messages query, the callbacks
+ * are stable), so a token re-renders the live answer only.
+ */
+const StoredAnswer = memo(function StoredAnswer({
+  row,
+  asked,
+  onAsk,
+  busy,
+  pricing,
+  fallback,
+  compact,
+  onNavigate,
+  scopeLabels,
+  scopes,
+  onTurnOn,
+  turningOn,
+  onRate,
+}: {
+  row: MessageRow;
+  asked: string | undefined;
+  onAsk: (text: string) => Promise<void>;
+  busy: boolean;
+  pricing: PricingMap | null;
+  fallback: number;
+  compact?: boolean;
+  onNavigate?: () => void;
+  scopeLabels: Record<AssistantScope, string[]>;
+  scopes: readonly AssistantScope[];
+  onTurnOn: (scope: AssistantScope) => void;
+  turningOn: boolean;
+  /** The thread's thumb writer (feedbackLogic.useRateMessage), one identity per chat. */
+  onRate: (messageId: string, rating: Rating, note?: string | null) => Promise<RateOutcome>;
+}) {
+  const src = useMemo(() => sourcesOf(row), [row]);
+  // Thumbs only where the shared canRate allows (a stored, finished, non-job answer).
+  const feedback = useMemo(() => feedbackView(row), [row]);
+  const rateThis = useCallback((rating: Rating, note: string | null) => onRate(row.id, rating, note), [onRate, row.id]);
+  const text = storedText(row);
+  const turnOn = useMemo(() => refusedScopes(text, src.items.map((t) => t.error ?? '').filter(Boolean), scopeLabels, scopes), [text, src, scopeLabels, scopes]);
+  return (
+    <Message
+      messageId={row.id}
+      question={asked}
+      role="assistant"
+      text={text}
+      outcome={storedOutcome(row)}
+      onAskAgain={asked ? () => void onAsk(asked) : undefined}
+      askAgainDisabled={busy}
+      tools={src.items}
+      scopes={src.scopes.length > 0 ? src.scopes : null}
+      gate={row.gate}
+      usage={row.tokens}
+      pricing={pricing}
+      fallbackMicrosPerMtok={fallback}
+      fromJob={src.jobIds.length > 0}
+      compact={compact}
+      onNavigate={onNavigate}
+      turnOn={turnOn}
+      onTurnOn={onTurnOn}
+      turningOn={turningOn}
+      feedback={feedback}
+      onRate={feedback ? rateThis : undefined}
+    />
+  );
+});

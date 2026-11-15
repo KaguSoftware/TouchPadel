@@ -539,3 +539,84 @@ describe('plan asks, judgement questions and Arabic outside-signal (2026-11-11)'
     });
   }
 });
+
+describe('analyse asks, recap asks and Arabic how-tos (2026-11-12 review)', () => {
+  const route = (text: string) => routeTurn({ text, scopes: FULL, explicitModel: null });
+  const MED = { kind: 'analysis', model: LOOKUP_MODEL, effort: 'medium' } as const;
+  const DEEP = { kind: 'analysis', model: null, effort: 'medium' } as const;
+  const CHEAP = { kind: 'analysis', model: LOOKUP_MODEL, effort: 'low' } as const;
+  const LOOK = { kind: 'lookup', model: LOOKUP_MODEL, effort: 'low' } as const;
+
+  // 1: analyse / breakdown / review / deep dive are medium on Sonnet, never Opus
+  for (const q of [
+    'Analyse the café for the past 3 months',
+    'analyze last week',
+    'give me an analysis of the courts',
+    'a breakdown of the cafe',
+    'break down the revenue by court',
+    'review the bookings',
+    'deep dive into the cafe',
+    'حلل الكافيه اخر ٣ اشهر',
+    'اريد تحليل للملاعب',
+    'راجع المبيعات',
+    'تفصيل المصاريف',
+  ]) {
+    it(`1: analyse ask -> medium on Sonnet: ${q}`, () => {
+      const r = route(q);
+      expect(r, `[${r.reason}]`).toMatchObject(MED);
+      expect(r.web).toBeUndefined();
+    });
+  }
+  for (const q of ['how do I review a refund request', 'where is the review page', 'where can I review the checklist', 'شلون اراجع الطلب', 'وين صفحة التحليل']) {
+    it(`1: an app how-to or page ask naming review stays a lookup: ${q}`, () => {
+      const r = route(q);
+      expect(r, `[${r.reason}]`).toMatchObject(LOOK);
+    });
+  }
+  it('1: a deep reason still beats an analyse ask', () => {
+    expect(route('analyse why sales dropped')).toMatchObject(DEEP);
+  });
+
+  // 2: "what happened" and "how are we doing" are medium, as the header says
+  for (const q of ['What happened yesterday?', 'how are we doing', "what's going on with the cafe", 'ماذا حدث في الصندوق أمس؟', 'شصار بالصندوق البارحة', 'شلون الوضع']) {
+    it(`2: recap ask -> medium on Sonnet: ${q}`, () => {
+      const r = route(q);
+      expect(r, `[${r.reason}]`).toMatchObject(MED);
+      expect(r.reason).toBe('recap-signal');
+    });
+  }
+  it('2: the other event questions stay on the cheap tier', () => {
+    expect(route('did we have any refunds')).toMatchObject(CHEAP);
+    expect(route('which courts were busy')).toMatchObject(CHEAP);
+  });
+
+  // 3: Arabic how-tos with a verb that doubles as growth advice
+  for (const q of [
+    'كيف ارجع فلوس الزبون',
+    'شلون ارجع فلوس الزبون',
+    'اشلون ارجع فلوس الزبون',
+    'طريقة ارجع فلوس الزبون',
+    'شلون ابيع منتج بالكاشير',
+    'كيف اجيب تقرير الحجوزات',
+    'شلون ارفع سعر الملعب',
+    'how do I refund a customer',
+  ]) {
+    it(`3: how-to stays a lookup: ${q}`, () => {
+      const r = route(q);
+      expect(r, `[${r.reason}]`).toMatchObject(LOOK);
+    });
+  }
+  for (const q of ['شلون ارجع الزباين؟', 'كيف اجيب لاعبين اكثر', 'هل ارفع الاسعار؟', 'هل ارفع سعر الملعب', 'شنو رأيك بالاسعار؟', 'should I raise prices', 'نرفع الاسعار؟', 'شنو اسوي حتى اجيب زباين', 'ارجع الزباين القدام']) {
+    it(`3: real Arabic advice is not a lookup: ${q}`, () => {
+      const r = route(q);
+      expect(r.kind, `[${r.reason}]`).toBe('analysis');
+    });
+  }
+  it('3: Iraqi question words keep their tiers', () => {
+    expect(route('شكد دخل الكافيه')).toMatchObject(CHEAP);
+    expect(route('ليش قلت الحجوزات')).toMatchObject(DEEP);
+    expect(route('وين اضيف ملعب')).toMatchObject(LOOK);
+    expect(route('شنو يعني اغلاق اليوم')).toMatchObject(LOOK);
+    expect(route('شنو رأيك بالكافيه')).toMatchObject(MED);
+  });
+});

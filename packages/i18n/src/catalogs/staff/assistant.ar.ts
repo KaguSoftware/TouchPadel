@@ -24,6 +24,8 @@ export const staffAssistantAr: DeepMessages<typeof staffAssistantEn> = {
     stop: 'إيقاف',
     stopped: 'أُوقفت الإجابة قبل اكتمالها. ما قُرئ محفوظ.',
     billed: 'يُخصم كل سؤال من رصيد الذكاء الاصطناعي للمكان.',
+    locked: 'اختر ما تقرؤه هذه المحادثة لتكتب سؤالك',
+    lockedHint: 'لا يقرأ المساعد إلا ما تختاره، فلا يُرسل شيء حتى تختار شيئًا واحدًا على الأقل.',
   },
   model: {
     title: 'النموذج',
@@ -77,6 +79,11 @@ export const staffAssistantAr: DeepMessages<typeof staffAssistantEn> = {
     cutShort: 'انقطعت هذه الإجابة قبل أن تكتمل. اطلب البقية.',
     refused: 'امتنع المساعد عن الإجابة عن هذا.',
   },
+  feedback: {
+    good: 'إجابة جيدة',
+    bad: 'خاطئة أو غير مفيدة',
+    failed: 'تعذّر حفظ تقييمك. حاول مرة أخرى.',
+  },
   errors: {
     AUTH_REQUIRED: 'انتهت جلستك. سجّل الدخول مرة أخرى للسؤال.',
     FORBIDDEN: 'المساعد متاح للمالك وحده.',
@@ -88,6 +95,7 @@ export const staffAssistantAr: DeepMessages<typeof staffAssistantEn> = {
     TIMEOUT: 'استغرقت الإجابة أكثر من 50 ثانية فأُوقفت. ما قُرئ محفوظ.',
     INVALID_REQUEST: 'تعذّر إرسال السؤال كما كُتب.',
     ASSISTANT_MODEL_NOT_PRICED: 'لا توجد أسعار للنموذج المختار في جدول التسعير، فلم يُرسل السؤال ولم يُحاسَب عليه شيء.',
+    NOT_SAVED: 'كُتبت هذه الإجابة لكن تعذّر حفظها، فلن تجدها في المحادثة لاحقًا. اسأل مرة أخرى لتحتفظ بها.',
     UNKNOWN: 'تعذّر على المساعد الإجابة. اسأل مرة أخرى.',
     CONNECTION: 'انقطع الاتصال قبل أن تكتمل الإجابة. اسأل مرة أخرى.',
   },

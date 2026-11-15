@@ -9,7 +9,13 @@
  *   stop_reason   end_turn | job_proposed | max_tokens | refusal | stopped |
  *                 cost_capped | rounds_exhausted (the last two already carry
  *                 the server's own closing sentence in the text)
- *   error_code    TIMEOUT | UPSTREAM | RATE_LIMITED | NOT_CONFIGURED
+ *   error_code    TIMEOUT | UPSTREAM | RATE_LIMITED | NOT_CONFIGURED, and
+ *                 LLM_MONTHLY_CAP | LLM_DAILY_QUOTA on the failed message a
+ *                 job writes into its chat (2026-11-12)
+ *
+ * A row with no text and an error_code this file does not know is a failure
+ * all the same (`UNKNOWN`): there is no answer to show. With text it stays
+ * `ok`, so a new code never hides an answer.
  *
  * Rows stored before these fields existed have neither. A failed turn with no
  * text was then stored as the literal text "[CODE] sentence"; `turnOutcome`
@@ -18,8 +24,9 @@
  * Pure: no imports.
  */
 
-export const TURN_ERROR_CODES = ['TIMEOUT', 'UPSTREAM', 'RATE_LIMITED', 'NOT_CONFIGURED'] as const;
-export type TurnErrorCode = (typeof TURN_ERROR_CODES)[number];
+export const TURN_ERROR_CODES = ['TIMEOUT', 'UPSTREAM', 'RATE_LIMITED', 'NOT_CONFIGURED', 'LLM_MONTHLY_CAP', 'LLM_DAILY_QUOTA'] as const;
+/** A stored failure's code; UNKNOWN for an empty row whose error_code is not one of TURN_ERROR_CODES. */
+export type TurnErrorCode = (typeof TURN_ERROR_CODES)[number] | 'UNKNOWN';
 
 export type TurnOutcome =
   /** A finished answer (also one the cost ceiling or the round limit closed with its own sentence). */
@@ -41,11 +48,16 @@ function asErrorCode(v: unknown): TurnErrorCode | null {
   return typeof v === 'string' && (TURN_ERROR_CODES as readonly string[]).includes(v) ? (v as TurnErrorCode) : null;
 }
 
+function hasErrorCode(v: unknown): boolean {
+  return typeof v === 'string' && v.trim() !== '';
+}
+
 /** The outcome of a stored assistant message from its `tokens` and its text. Anything unknown is `ok`. */
 export function turnOutcome(tokens: unknown, text: string): TurnOutcome {
   const t = tokens && typeof tokens === 'object' && !Array.isArray(tokens) ? (tokens as { stop_reason?: unknown; error_code?: unknown }) : {};
   const code = asErrorCode(t.error_code);
   if (code) return { kind: 'error', code };
+  if (hasErrorCode(t.error_code) && text.trim() === '') return { kind: 'error', code: 'UNKNOWN' };
   const legacy = LEGACY_ERROR_RE.exec(text.trim());
   if (legacy) return { kind: 'error', code: legacy[1] as TurnErrorCode };
   switch (t.stop_reason) {

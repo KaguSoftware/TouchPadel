@@ -98,6 +98,24 @@ export function liveClock(started: number, wallMs: number): LiveClock {
   return { extractBy, launchBy: Math.max(started, extractBy - LIVE_CHUNK_BUDGET_MS) };
 }
 
+/** assistant-job's request wall clock (jobRunner.ts WALL_MS); here so the pure estimator can size live jobs from it. */
+export const JOB_WALL_MS = 50_000;
+
+/**
+ * The chunks a live job is sure to finish inside `wallMs`: each of the
+ * `concurrency` workers launches a chunk, at worst LIVE_CHUNK_BUDGET_MS long,
+ * one after another while the clock is before launchBy (runLive's shouldStop
+ * refuses a launch at launchBy itself). 50 s and 4 workers give a 23 s window,
+ * two launches a worker, 8 chunks. estimate.ts offers live mode up to this
+ * figure: a larger live job ran into the TIMEOUT failure (terminal) with its
+ * finished chunks paid and thrown away (review 2026-11-11).
+ */
+export function liveChunkCapacity(wallMs: number, concurrency: number): number {
+  const window = liveClock(0, wallMs).launchBy;
+  if (window <= 0) return 0;
+  return Math.max(0, Math.floor(concurrency)) * Math.ceil(window / LIVE_CHUNK_BUDGET_MS);
+}
+
 /**
  * The monthly cap with calls in flight. `app.llm_begin_request` (0207) refuses
  * when month-to-date `llm_usage.cost_micros` has reached the cap, but that
@@ -117,6 +135,22 @@ export function budgetAllows(reading: unknown, othersUnrecorded: number, perCall
   const cap = Number(r?.monthly_cap_micros);
   if (r?.month_cost_micros == null || r?.monthly_cap_micros == null || !Number.isFinite(month) || !Number.isFinite(cap)) return true;
   return month + Math.max(0, othersUnrecorded) * Math.max(0, perCallMicros) < cap;
+}
+
+/**
+ * Whether a whole job, `jobMicros` at its high band, fits what is left of the
+ * month in begin()'s `reading`. Checked once before a job spends anything:
+ * begin() alone passes any job while the month is under the cap, so a job far
+ * larger than what was left ran until the cap stopped it and its chunks were
+ * paid for nothing (review 2026-11-11). A reading without the two figures
+ * allows, as budgetAllows does.
+ */
+export function budgetFits(reading: unknown, jobMicros: number): boolean {
+  const r = reading && typeof reading === 'object' ? (reading as Record<string, unknown>) : null;
+  const month = Number(r?.month_cost_micros);
+  const cap = Number(r?.monthly_cap_micros);
+  if (r?.month_cost_micros == null || r?.monthly_cap_micros == null || !Number.isFinite(month) || !Number.isFinite(cap)) return true;
+  return month + Math.max(0, jobMicros) <= cap;
 }
 
 /**

@@ -21,7 +21,7 @@ import { Text } from '../../i18n/text';
 import { useLocale } from '../../i18n/LocaleProvider';
 import { brand, radius, space, useTheme } from '../../theme';
 import { Button, SegmentedControl } from '../../components/ui';
-import { ArrowUpIcon, ChevronIcon, StopIcon } from '../../components/icons';
+import { ArrowUpIcon, ChevronIcon, StopIcon, ThumbDownIcon, ThumbUpIcon } from '../../components/icons';
 import {
   DEFAULT_MODEL_VALUE,
   PHONE_SCOPES,
@@ -33,6 +33,7 @@ import {
   type SourceItem,
 } from './chat';
 import { outcomeText } from '@touch/core/assistant/outcome';
+import { canRate, ratingOf, type Rating } from '@touch/core/assistant/feedback';
 import { parseBlocks, splitInline } from './blocks';
 import { endingErrorKey, storedEnding, type Ending } from './thread';
 
@@ -217,6 +218,10 @@ export interface AnswerProps {
   turningOn?: boolean;
   /** Ask again after an error; sends a new message only when pressed. */
   onRetry?: () => void;
+  /** The owner's thumb on this stored answer (-1, 0, 1); drawn with `onRate` only. */
+  rating?: Rating;
+  /** A press on a thumb. Present only on a rateable stored answer. */
+  onRate?: (pressed: 1 | -1) => void;
 }
 
 export function Answer(props: AnswerProps) {
@@ -345,7 +350,48 @@ export function Answer(props: AnswerProps) {
         </View>
       ) : null}
 
-      {!streaming && tools.length > 0 ? <SourcesRow testID={props.testID} tools={tools} /> : null}
+      {!streaming && (tools.length > 0 || props.onRate) ? (
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space.s }}>
+          <View style={{ flexShrink: 1 }}>
+            {tools.length > 0 ? <SourcesRow testID={props.testID} tools={tools} /> : null}
+          </View>
+          {props.onRate ? <Thumbs testID={props.testID} rating={props.rating ?? 0} onRate={props.onRate} /> : null}
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+/**
+ * Two small thumbs at the end of a stored answer's footer. Quiet by design: muted until chosen,
+ * then the brand blue and the FILLED shape (colour alone is too weak in the blue theme); no
+ * green or red, no animation, no text field on the phone. The glyph is 17 and the touch area
+ * 44 (30 + hitSlop 7 each side); the pair is 14 apart so the two areas never overlap.
+ * Not mirrored under RTL: a thumb is not a direction.
+ */
+function Thumbs({ testID, rating, onRate }: { testID: string; rating: Rating; onRate: (pressed: 1 | -1) => void }) {
+  const { t } = useLocale();
+  const { colors } = useTheme();
+  const one = (value: 1 | -1, id: string, label: string, Icon: typeof ThumbUpIcon) => {
+    const selected = rating === value;
+    return (
+      <Pressable
+        testID={`${testID}.${id}`}
+        accessibilityRole="button"
+        accessibilityLabel={label}
+        accessibilityState={{ selected }}
+        hitSlop={7}
+        onPress={() => onRate(value)}
+        style={{ width: 30, height: 30, alignItems: 'center', justifyContent: 'center' }}
+      >
+        <Icon size={17} color={selected ? colors.blue : colors.mut} filled={selected} />
+      </Pressable>
+    );
+  };
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+      {one(1, 'thumbs-up', t('staff.assistant.feedback.good'), ThumbUpIcon)}
+      {one(-1, 'thumbs-down', t('staff.assistant.feedback.bad'), ThumbDownIcon)}
     </View>
   );
 }
@@ -410,12 +456,15 @@ export const StoredTurn = memo(function StoredTurn({
   testID,
   retryText,
   onAsk,
+  onRate,
 }: {
   m: MessageRow;
   testID: string;
   /** The question to ask again, on the last row of a thread that failed; else null. */
   retryText: string | null;
   onAsk: (text: string) => void;
+  /** The thumbs' write (stable identity, or every row re-renders); absent = no thumbs. */
+  onRate?: (messageId: string, pressed: 1 | -1) => void;
 }) {
   const view = useMemo(() => {
     const text = textOfContent(m.content);
@@ -424,6 +473,7 @@ export const StoredTurn = memo(function StoredTurn({
       shown: m.role === 'assistant' ? outcomeText(text) : text,
       tools: sourcesOf(m.sources).items,
       ending: m.role === 'assistant' ? storedEnding(m) : ({ kind: 'ok' } as Ending),
+      rateable: m.role === 'assistant' && canRate(m),
     };
   }, [m]);
   if (m.role === 'user') return <UserBubble text={view.text} />;
@@ -437,6 +487,8 @@ export const StoredTurn = memo(function StoredTurn({
       // A stored answer never offers "turn on": the question it would re-ask is only
       // known for the turn in front of the owner.
       onRetry={retryText !== null ? () => onAsk(retryText) : undefined}
+      rating={ratingOf(m.feedback)}
+      onRate={onRate && view.rateable ? (pressed) => onRate(m.id, pressed) : undefined}
     />
   );
 });
@@ -562,6 +614,7 @@ export function Composer({
   onSend,
   onStop,
   streaming,
+  locked,
 }: {
   testID: string;
   value: string;
@@ -569,10 +622,12 @@ export function Composer({
   onSend: () => void;
   onStop: () => void;
   streaming: boolean;
+  /** A new chat with nothing ticked: it reads nothing, so nothing can be asked yet (as on the desktop). */
+  locked?: boolean;
 }) {
   const { t } = useLocale();
   const { colors, fonts } = useTheme();
-  const canSend = value.trim() !== '';
+  const canSend = value.trim() !== '' && !locked;
   return (
     <View
       style={{
@@ -593,10 +648,11 @@ export function Composer({
         testID={`${testID}.input`}
         value={value}
         onChangeText={onChange}
-        placeholder={t('staff.assistant.composer.placeholder')}
+        placeholder={locked ? t('staff.assistant.composer.locked') : t('staff.assistant.composer.placeholder')}
         placeholderTextColor={colors.fnt}
         multiline
-        editable={!streaming}
+        accessibilityHint={locked ? t('staff.assistant.composer.lockedHint') : undefined}
+        editable={!streaming && !locked}
         // A thumb's keyboard has a Return key: it is a new line here, and Send is
         // the button, so a long question is never fired half-written.
         style={{

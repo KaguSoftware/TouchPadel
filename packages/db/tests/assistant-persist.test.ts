@@ -16,7 +16,9 @@
  *     `tokens.error_code` (and `stop_reason`) and the text that had arrived,
  *     or one EMPTY text block (no longer "[CODE] sentence"), and still stores
  *     and records what it spent; a message that could not be stored writes no
- *     calls but the spend is still recorded;
+ *     calls but the spend is still recorded, a failed seq read included (it
+ *     used to throw past the spend), and persistTurn answers `saved: false`
+ *     so the chat ends the turn on NOT_SAVED_CODE (2026-11-12);
  *   * how the turn ended (2026-11-11, packages/core outcome.ts): every row
  *     carries `stop_reason`; a Stop is `stopped` with no error_code, never
  *     TIMEOUT; a failed spend record is retried once, then logged loudly
@@ -28,6 +30,9 @@
  *
  * The SQL side of the persist RPC is tests/assistant-concurrency.test.ts.
  */
+import { readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { newHandleTable, handleFor, type HandleTable } from '../supabase/functions/_shared/assistant/handles.ts';
 import { titleFrom } from '../supabase/functions/_shared/assistant/prompt.ts';
@@ -62,9 +67,12 @@ interface PersistInput {
   reusedFrom: string | null;
   gateSign: ((input: string) => Promise<string>) | null;
   emit: Emit;
+  report?: (event: MonitorEvent) => void;
 }
+type MonitorEvent = { level: string; kind: string; message: string; detail?: Record<string, unknown> | null };
 interface Persist {
-  persistTurn(d: PersistInput): Promise<void>;
+  persistTurn(d: PersistInput): Promise<{ saved: boolean }>;
+  NOT_SAVED_CODE: string;
   gateSigner(): ((input: string) => Promise<string>) | null;
   priceOf(service: unknown, model: string, u: { input: number; cache_write: number; cache_read: number; output: number }): Promise<number | null>;
   webSearchPricer(service: unknown): () => Promise<number>;
@@ -102,10 +110,13 @@ interface ServiceOpts {
   priceFails?: number[];
   msgInsertError?: unknown;
   jobInsertError?: unknown;
+  /** How many max(seq) reads of assistant_messages fail before one answers. */
+  seqReadFails?: number;
 }
 
 /** A service client: prices are p_input × 50 micros, assistant_messages holds seq `maxSeq`, jobs get JOB. */
 function service(o: ServiceOpts = {}) {
+  let seqReads = 0;
   return fakeClient({
     rpc: (name, args): Result => {
       if (name === 'llm_price_micros') {
@@ -118,6 +129,7 @@ function service(o: ServiceOpts = {}) {
       const inserting = argsOf(op, 'insert') !== undefined;
       if (table === 'assistant_messages') {
         if (inserting) return { data: null, error: o.msgInsertError ?? null };
+        if (seqReads++ < (o.seqReadFails ?? 0)) return { data: null, error: { code: '57014', message: 'canceling statement due to statement timeout' } };
         return { data: o.maxSeq === undefined ? null : { seq: o.maxSeq }, error: null };
       }
       if (table === 'assistant_jobs' && inserting) return o.jobInsertError ? { data: null, error: o.jobInsertError } : { data: { id: JOB }, error: null };
@@ -345,11 +357,93 @@ describe('persistTurn: the error frame', () => {
   it('a message that could not be stored writes no calls, but the spend is still recorded and the chat updated', async () => {
     const svc = service({ msgInsertError: { code: '42501', message: 'permission denied for table assistant_messages' } });
     const { d } = input(svc.client);
-    await P.persistTurn(d);
+    expect(await P.persistTurn(d)).toEqual({ saved: false });
     expect(svc.froms('assistant_calls')).toEqual([]);
     expect(svc.rpcs('llm_record_usage')).toHaveLength(1);
     expect(svc.rpcs('assistant_conversation_persist')).toHaveLength(1);
     expect(logged.join('\n')).toContain(`assistant message ${MSG} not stored in ${CONV}`);
+  });
+});
+
+// ---------------------------------------------------------------------------
+describe('persistTurn: an answer that could not be stored (2026-11-12)', () => {
+  it('a turn that was stored says so', async () => {
+    const svc = service({ maxSeq: 4 });
+    expect(await P.persistTurn(input(svc.client).d)).toEqual({ saved: true });
+  });
+
+  it('one failed seq read is retried once and the turn lands as usual', async () => {
+    const svc = service({ maxSeq: 4, seqReadFails: 1 });
+    expect(await P.persistTurn(input(svc.client).d)).toEqual({ saved: true });
+    expect(svc.ops.map(opName)).toEqual([
+      'llm_price_micros',
+      'llm_price_micros',
+      'assistant_messages.select',
+      'assistant_messages.select',
+      'assistant_messages.insert',
+      'assistant_calls.insert',
+      'llm_record_usage',
+      'llm_record_web_search',
+      'assistant_conversation_persist',
+    ]);
+    expect(storedRow(svc.ops).seq).toBe(5);
+  });
+
+  it('a seq read that fails twice no longer throws: no row and no calls, but the spend, the searches and the chat are still recorded', async () => {
+    const svc = service({ seqReadFails: 2 });
+    const { d, events } = input(svc.client);
+    expect(await P.persistTurn(d)).toEqual({ saved: false });
+    expect(svc.ops.map(opName)).toEqual([
+      'llm_price_micros',
+      'llm_price_micros',
+      'assistant_messages.select',
+      'assistant_messages.select',
+      'llm_record_usage',
+      'llm_record_web_search',
+      'assistant_conversation_persist',
+    ]);
+    expect(svc.rpcs('llm_record_usage')[0]!.args).toMatchObject({ p_input: 1400, p_output: 240, p_model_calls: 2 });
+    expect(logged.join('\n')).toContain(`assistant message ${MSG} not stored in ${CONV}`);
+    expect(events.map(([e]) => e)).toEqual(['sources', 'gate', 'usage']);
+  });
+
+  it('a client that throws on the insert is caught the same way', async () => {
+    const svc = service();
+    const client = svc.client as { from: (t: string) => unknown };
+    const from = client.from;
+    let messageOps = 0;
+    // The seq read answers; the insert itself throws (seq.ts does not catch an insert port).
+    client.from = (t: string) => {
+      if (t === 'assistant_messages' && messageOps++ === 1) throw new Error('socket hang up');
+      return from(t);
+    };
+    expect(await P.persistTurn(input(svc.client).d)).toEqual({ saved: false });
+    expect(svc.rpcs('llm_record_usage')).toHaveLength(1);
+    expect(svc.rpcs('assistant_conversation_persist')).toHaveLength(1);
+  });
+
+  it('a proposed job is not inserted against a message that was not stored (no FK orphan, no second error frame)', async () => {
+    const svc = service({ msgInsertError: { code: '57014', message: 'timeout' } });
+    const estimate = { rows: 1, chunks: 1, plan: { question: 'q', calls: [], aggregate_alternative: null } };
+    const { d, events } = input(svc.client, { turn: turnWith({ jobEstimate: estimate as never }) });
+    expect(await P.persistTurn(d)).toEqual({ saved: false });
+    expect(svc.froms('assistant_jobs')).toEqual([]);
+    expect(events.map(([e]) => e)).toEqual(['sources', 'usage']);
+  });
+
+  it('the chat ends a not-stored turn on NOT_SAVED_CODE (NOT_SAVED): error and done both carry it, a Stop excepted', () => {
+    expect(P.NOT_SAVED_CODE).toBe('NOT_SAVED');
+    const src = readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), '../supabase/functions/assistant-chat/index.ts'), 'utf8');
+    const finish = src.slice(src.indexOf('const finish = (async () => {'));
+    const saved = finish.indexOf('saved = (await persist()).saved;');
+    const override = finish.indexOf('if (!saved && !stopped) errorOut = { code: NOT_SAVED_CODE, message: turnErrorText(NOT_SAVED_CODE) };');
+    const error = finish.indexOf("if (errorOut) emit('error', errorOut);");
+    const done = finish.indexOf("emit('done', { message_id: assistantMessageId, stop_reason: errorOut ? errorOut.code");
+    expect(saved).toBeGreaterThan(-1);
+    expect(override).toBeGreaterThan(saved);
+    expect(error).toBeGreaterThan(override);
+    expect(done).toBeGreaterThan(error);
+    expect(src).toMatch(/\[NOT_SAVED_CODE\]: '/);
   });
 });
 
@@ -563,5 +657,80 @@ describe('gateSigner, priceOf, webSearchPricer, insertMessage', () => {
     expect(out).toEqual({ seq: 8, error: null });
     const rows = svc.froms('assistant_messages').filter((o) => argsOf(o, 'insert')).map((o) => (argsOf(o, 'insert')![0] as { seq: number }).seq);
     expect(rows).toEqual([7, 8]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+describe('persistTurn: what was not stored reaches the Monitoring page (2026-11-12, 0422)', () => {
+  const GUEST = 'Zainab Al-Khafaji';
+  function recorder() {
+    const events: MonitorEvent[] = [];
+    return { events, report: (e: MonitorEvent) => events.push(e) };
+  }
+
+  it('a turn stored whole reports nothing', async () => {
+    const svc = service({ maxSeq: 2 });
+    const rec = recorder();
+    await P.persistTurn(input(svc.client, { report: rec.report }).d);
+    expect(rec.events).toEqual([]);
+  });
+
+  it('a message not stored is one assistant_not_saved event, step message, error, the SQLSTATE and ids only (no guest name from the error text)', async () => {
+    const svc = service({ maxSeq: 2, msgInsertError: { code: '23503', message: `insert or update violates foreign key for guest ${GUEST}` } });
+    const rec = recorder();
+    const out = await P.persistTurn(input(svc.client, { report: rec.report, ownerText: `What did ${GUEST} order?` }).d);
+    expect(out.saved).toBe(false);
+    expect(rec.events).toEqual([
+      {
+        level: 'error',
+        kind: 'assistant_not_saved',
+        message: 'assistant-chat: message not stored (23503)',
+        detail: { step: 'message', conversationId: CONV, messageId: MSG, model: MODEL, route: 'analysis', code: '23503' },
+      },
+    ]);
+    expect(JSON.stringify(rec.events)).not.toContain('Zainab');
+  });
+
+  it('calls not stored and the chat not updated are warn; a lost spend record and a lost job row are error', async () => {
+    const rec = recorder();
+    const svc = fakeClient({
+      rpc: (name, args): Result => {
+        if (name === 'llm_price_micros') return { data: Number(args.p_input) * 50, error: null };
+        if (name === 'llm_record_usage' || name === 'llm_record_web_search') return { data: null, error: { code: '57014', message: 'timeout' } };
+        if (name === 'assistant_conversation_persist') return { data: null, error: { code: 'P0001', message: 'CONVERSATION_NOT_FOUND' } };
+        return { data: null, error: null };
+      },
+      from: (table, op): Result => {
+        const inserting = argsOf(op, 'insert') !== undefined;
+        if (table === 'assistant_calls' && inserting) return { data: null, error: { code: '42501', message: 'denied' } };
+        if (table === 'assistant_jobs' && inserting) return { data: null, error: { code: '23514', message: 'check' } };
+        if (table === 'assistant_messages' && !inserting) return { data: { seq: 1 }, error: null };
+        return { data: null, error: null };
+      },
+    });
+    const turn = turnWith();
+    turn.jobEstimate = { plan: { question: 'q', calls: [] }, chunks: 2, rows: 10 } as unknown as TurnState<Block>['jobEstimate'];
+    await P.persistTurn(input(svc.client, { report: rec.report, recordRetryMs: 0, turn }).d);
+    expect(rec.events.map((e) => [e.detail?.step, e.level, e.message])).toEqual([
+      ['calls', 'warn', 'assistant-chat: calls not stored (42501)'],
+      ['usage', 'error', 'assistant-chat: usage not stored'],
+      ['web_search', 'error', 'assistant-chat: web_search not stored'],
+      ['conversation', 'warn', 'assistant-chat: conversation not stored (P0001)'],
+      ['job', 'error', 'assistant-chat: job not stored (23514)'],
+    ]);
+    for (const e of rec.events) expect(e.kind).toBe('assistant_not_saved');
+  });
+
+  it('a report that throws never fails the turn', async () => {
+    const svc = service({ maxSeq: 2, msgInsertError: { code: '23503', message: 'fk' } });
+    const out = await P.persistTurn(
+      input(svc.client, {
+        report: () => {
+          throw new Error('monitoring down');
+        },
+      }).d,
+    );
+    expect(out).toEqual({ saved: false });
+    expect(svc.rpcs('assistant_conversation_persist')).toHaveLength(1);
   });
 });

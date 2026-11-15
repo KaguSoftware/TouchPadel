@@ -9,7 +9,10 @@
  *     batch, batch_id set: 0113's predicate) to exactly one tick, skips a live
  *     claim, re-claims a lapsed one and never returns another job; the edge's
  *     release (matched on the stamp) clears only its own claim;
- *   * both are service-role only.
+ *   * both are service-role only;
+ *   * 0423: taking over a lapsed claim counts a lapse (tick_lapses), a released
+ *     one does not, and the sweeper's claim is service-role only too (the rest
+ *     of the sweeper's SQL is tests/assistant-job-sweep.test.ts).
  *
  * The client UPDATE revoke (part A) is proven by tests/assistant-rls.test.ts
  * and the rls-matrix rule `update assistant_conversations`.
@@ -203,6 +206,19 @@ describe.skipIf(!up)('0405 assistant concurrency', () => {
     expect(until).toBeLessThan(Date.now() + 60_000); // p_seconds = 30
   });
 
+  // 0423: a stamp still there when a tick takes the job was never released (the
+  // tick holding it died). Three such lapses make the job stuck (lease_lapsing).
+  it('taking over a lapsed claim counts a lapse; a released one does not (0423)', async () => {
+    const conv = await newConversation();
+    const lapsed = await runningBatch(conv, { tick_claimed_until: new Date(Date.now() - 1000).toISOString() });
+    const released = await runningBatch(conv);
+    const got = (await claim(svc, 30)).map((c) => c.job_id);
+    expect(got).toEqual(expect.arrayContaining([lapsed, released]));
+    const { data } = await svc.from('assistant_jobs').select('id, tick_lapses').in('id', [lapsed, released]);
+    const lapses = Object.fromEntries(((data ?? []) as { id: string; tick_lapses: number }[]).map((r) => [r.id, r.tick_lapses]));
+    expect(lapses).toEqual({ [lapsed]: 1, [released]: 0 });
+  });
+
   it('never returns a job that is not a running batch with a batch id', async () => {
     const conv = await newConversation();
     const others = await Promise.all([
@@ -253,6 +269,8 @@ describe.skipIf(!up)('0405 assistant concurrency', () => {
     for (const [fn, args] of [
       ['assistant_conversation_persist', { p_conversation_id: id, p_handles: {}, p_usage: { input: 1 } }],
       ['assistant_job_claim_tick', { p_seconds: 60 }],
+      // 0423: the sweeper's claim, service role only as well
+      ['assistant_job_claim_stuck', { p_seconds: 60, p_limit: 1 }],
     ] as const) {
       const res = await appRpc(owner, fn, args as Record<string, unknown>).then(outcome);
       expect(res.ok, `${fn} must not be callable by the owner`).toBe(false);

@@ -11,9 +11,12 @@
  * picks, so the line is shut and says why. `hideHint` keeps the hint for
  * screen readers only (the start screen and the thread say it elsewhere).
  */
-import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { useLocale } from '../../lib/i18n';
 import { Button } from '../../components/ui';
+
+/** The tallest the question box grows before it scrolls: about six lines at the box's type size. */
+export const COMPOSER_MAX_REM = 12;
 
 export function Composer({
   onAsk,
@@ -60,6 +63,15 @@ export function Composer({
     if (autoFocus) ref.current?.focus();
   }, [autoFocus]);
 
+  // The box grows with the question up to COMPOSER_MAX_REM, then scrolls (2026-11-12): a
+  // long question was one line wide and scrolled out of sight as it was typed.
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.blockSize = 'auto';
+    el.style.blockSize = `${el.scrollHeight}px`;
+  }, [text]);
+
   const send = () => {
     const q = text.trim();
     if (q === '' || streaming || disabled || locked) return;
@@ -84,7 +96,8 @@ export function Composer({
         style={{
           display: 'flex',
           gap: 'var(--tp-sp-2)',
-          alignItems: 'center',
+          // Ask stays at the foot of a box that grew.
+          alignItems: 'flex-end',
           background: 'var(--tp-surface)',
           // Edge and glow: .tp-assistant-box (green in dark mode, blue in light).
           borderRadius: 'calc(var(--tp-radius-panel) + 4px)',
@@ -105,7 +118,7 @@ export function Composer({
           aria-label={tr('ws.owner.assistant.composer.ask')}
           aria-describedby={hintId}
           className="tp-assistant-input"
-          style={{ resize: 'none', flex: 1, minInlineSize: 0, border: 'none', background: 'transparent', color: locked ? 'var(--tp-muted-fg)' : 'var(--tp-fg)', font: 'inherit', fontSize: 'var(--tp-fs-lg)', lineHeight: 1.5, paddingBlock: 'var(--tp-sp-2)' }}
+          style={{ resize: 'none', flex: 1, minInlineSize: 0, maxBlockSize: `${COMPOSER_MAX_REM}rem`, overflowY: 'auto', border: 'none', background: 'transparent', color: locked ? 'var(--tp-muted-fg)' : 'var(--tp-fg)', font: 'inherit', fontSize: 'var(--tp-fs-lg)', lineHeight: 1.5, paddingBlock: 'var(--tp-sp-2)' }}
         />
         {actions}
         {streaming ? (

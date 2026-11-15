@@ -494,3 +494,71 @@ describe('small counts beside a discipline word', () => {
     expect(gateAnswer('He logged 5 entries over the week plus refunds', [], []).status).toBe('ok');
   });
 });
+
+describe('money figures in the year range (2026-11-12 review)', () => {
+  it('"2000 IQD", "2,000 دينار" style amounts are checked, not dropped as a year', () => {
+    for (const txt of ['Revenue was 2000 IQD', 'Revenue was IQD 2000', 'الايراد 2000 دينار', 'الايراد ٢٠٠٠ د.ع', 'the price is 1950 dinars', 'الاجمالي 2000 الف']) {
+      const g = gateAnswer(txt, [], []);
+      expect(g.status, txt).toBe('unverified');
+    }
+  });
+
+  it('a given 2000 IQD verifies', () => {
+    expect(gateAnswer('Revenue was 2000 IQD', [2000], []).status).toBe('ok');
+    expect(gateAnswer('الايراد ٢٠٠٠ د.ع', [2000], []).status).toBe('ok');
+    expect(gateAnswer('الاجمالي 2000 الف', [2000000], []).status).toBe('ok');
+  });
+
+  it('a year-range number in a tool result is allowed, so its own money use is not falsely marked', () => {
+    expect(numbersIn('price_iqd\t2000')).toContain(2000);
+    expect(numbersIn('p1\t2026-09-20 14:30')).toEqual([]);
+  });
+
+  it('a year with no money word stays a year', () => {
+    expect(tokenizeNumbers('In 2025 we opened; since 1999 and 2026.')).toEqual([]);
+    expect(gateAnswer('In 2025 and 2026 we grew', [], []).status).toBe('ok');
+    expect(tokenizeNumbers('Season 2026 revenue')).toEqual([]);
+  });
+
+  it('a money-sized year-range figure only marks, it never buys the paid retry', () => {
+    const g = gateAnswer('Revenue was 2000 IQD', [], []);
+    expect(g.status).toBe('unverified');
+    expect(g.unverified[0]?.markOnly).toBe(true);
+    expect(shouldRetry(g)).toBe(false);
+    // beside a figure that does retry, the retry still happens (for that figure)
+    expect(shouldRetry(gateAnswer('Revenue was 2000 IQD and 5,550,000 more', [], []))).toBe(true);
+  });
+});
+
+describe('quantities written as words (ربع مليون, half a million)', () => {
+  it('reads them as scaled figures', () => {
+    expect(tokenizeNumbers('ربع مليون').map((t) => t.value)).toEqual([250000]);
+    expect(tokenizeNumbers('نصف مليون دينار').map((t) => t.value)).toEqual([500000]);
+    expect(tokenizeNumbers('نص مليون').map((t) => t.value)).toEqual([500000]);
+    expect(tokenizeNumbers('half a million IQD').map((t) => t.value)).toEqual([500000]);
+    expect(tokenizeNumbers('about a quarter of a million').map((t) => t.value)).toEqual([250000]);
+    expect(tokenizeNumbers('نصف مليار').map((t) => t.value)).toEqual([5e8]);
+    expect(tokenizeNumbers('ربع مليون')[0]?.raw).toBe('ربع مليون');
+  });
+
+  it('marks an unverified one and never retries it', () => {
+    for (const txt of ['الايراد ربع مليون', 'Revenue was half a million', 'نص مليون دينار']) {
+      const g = gateAnswer(txt, [123456], []);
+      expect(g.status, txt).toBe('unverified');
+      expect(g.unverified[0]?.scaled, txt).toBe(true);
+      expect(shouldRetry(g), txt).toBe(false);
+    }
+  });
+
+  it('passes when the figure was given', () => {
+    expect(gateAnswer('الايراد ربع مليون', [250000], []).status).toBe('ok');
+    expect(gateAnswer('Revenue was half a million', [500000], []).status).toBe('ok');
+  });
+
+  it('bare half / double / ربع / ضعف with no unit stay unseen', () => {
+    for (const txt of ['sales doubled, up by half', 'the price is double', 'ضعف المبلغ', 'ربع الحجوزات', 'نصف الملاعب']) {
+      expect(tokenizeNumbers(txt), txt).toEqual([]);
+      expect(gateAnswer(txt, [], []).status, txt).toBe('ok');
+    }
+  });
+});

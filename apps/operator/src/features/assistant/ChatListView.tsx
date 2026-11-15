@@ -3,10 +3,11 @@
  * (ConversationList) and the free AI's (FreeChatList): a search field, the
  * chats grouped Today / Yesterday / Earlier this week / Earlier, each row its
  * title and cost over what it reads (coloured dots) and its time, the open one
- * marked with a bar; its action (archive, delete) shows on hover or focus;
+ * marked with a bar; its action (archive, delete) shows on hover or focus,
+ * and always on a touch screen or the open row (GlobalStyles, 2026-11-12);
  * a footer bar closes the drawer.
  */
-import { useMemo, useState, type ReactNode } from 'react';
+import { useId, useMemo, useState, type ReactNode } from 'react';
 import { useLocale } from '../../lib/i18n';
 import { scopeLabel } from './Sources';
 import { groupByDay, matchesQuery, rowTime } from './chatListLogic';
@@ -47,6 +48,8 @@ export function ChatListView({
 }) {
   const { tr, locale } = useLocale();
   const [query, setQuery] = useState('');
+  // One per list: the drawer's free chats and the page's chat drawer can both be mounted.
+  const searchId = `tp-chat-search-${useId()}`;
   const groups = useMemo(() => {
     const now = new Date();
     return groupByDay(
@@ -59,11 +62,11 @@ export function ChatListView({
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--tp-sp-2-5)', minBlockSize: 0, flex: 1 }}>
-      <label htmlFor="tp-chat-search" style={{ position: 'absolute', inlineSize: 1, blockSize: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap' }}>
+      <label htmlFor={searchId} style={{ position: 'absolute', inlineSize: 1, blockSize: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap' }}>
         {tr('ws.owner.assistant.conversations.search')}
       </label>
       <input
-        id="tp-chat-search"
+        id={searchId}
         type="search"
         value={query}
         onChange={(e) => setQuery(e.target.value)}

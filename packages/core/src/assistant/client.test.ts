@@ -122,6 +122,9 @@ describe('error codes', () => {
       expect(fold([['error', { code }]]).error?.code).toBe(code);
     }
     expect(asAssistantErrorCode('METHOD_NOT_ALLOWED')).toBe('UNKNOWN');
+    // An answer written but not stored has its own code and its own sentence.
+    expect(asAssistantErrorCode('NOT_SAVED')).toBe('NOT_SAVED');
+    expect(assistantErrorSentence('NOT_SAVED')).toBe('NOT_SAVED');
     expect(asAssistantErrorCode(42)).toBe('UNKNOWN');
   });
 

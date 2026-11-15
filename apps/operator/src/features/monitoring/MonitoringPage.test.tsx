@@ -11,12 +11,17 @@ vi.mock('../../lib/supabase', () => ({ supabase: {}, supabaseUrl: '', supabaseAn
 
 const rpc: Array<{ fn: string; args: Record<string, unknown> }> = [];
 let events: Record<string, unknown>[] = [];
+let weekly: { weeks: Record<string, unknown>[] } | Error = { weeks: [] };
 
 vi.mock('../../lib/appRpc', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
   appRpc: vi.fn(async (fn: string, args: Record<string, unknown> = {}) => {
     rpc.push({ fn, args });
     if (fn === 'monitoring_events_page') return { rows: events, nextBeforeId: null };
+    if (fn === 'assistant_weekly_page') {
+      if (weekly instanceof Error) throw weekly;
+      return weekly;
+    }
     if (fn === 'monitoring_summary')
       return {
         bucket: 'hour',
@@ -61,6 +66,7 @@ function renderPage() {
 beforeEach(() => {
   rpc.length = 0;
   events = [];
+  weekly = { weeks: [] };
   try {
     localStorage.clear();
   } catch {
@@ -112,5 +118,61 @@ describe('MonitoringPageScreen', () => {
     await waitFor(() =>
       expect(rpc.filter((c) => c.fn === 'monitoring_summary').at(-1)!.args).toMatchObject({ p_bucket: 'day' }),
     );
+  });
+});
+
+describe('the Assistant table', () => {
+  const week = (weekStart: string, over: Record<string, unknown> = {}, figures: Record<string, unknown> = {}) => ({
+    weekStart,
+    weekEnd: weekStart,
+    level: 'info',
+    figures: { questions: 3, failed: 0, failedByCode: {}, notSaved: 0, marked: 0, thumbsDown: 0, rated: 0, secondsToAnswerP50: 12, costPerQuestionMicros: 210_000, ...figures },
+    ...over,
+  });
+
+  it('shows the weeks newest first, three at a time, with the warn badge and the failed codes', async () => {
+    weekly = {
+      weeks: [
+        week('2026-11-02', { weekEnd: '2026-11-08', level: 'warn' }, { questions: 6, failed: 2, failedByCode: { UPSTREAM: 1, NOT_CONFIGURED: 1 }, thumbsDown: 1, rated: 2, secondsToAnswerP50: 20 }),
+        week('2026-10-26', {}, { secondsToAnswerP50: null, costPerQuestionMicros: null }),
+        week('2026-10-19'),
+        week('2026-10-12'),
+      ],
+    };
+    renderPage();
+    const panel = await screen.findByTestId('monitoring-assistant');
+    expect(within(panel).getByRole('heading', { name: 'Assistant' })).toBeTruthy();
+    await within(panel).findByText('1 of 2');
+    expect(rpc.find((c) => c.fn === 'assistant_weekly_page')!.args).toEqual({ p_weeks: 12 });
+    const body = within(panel).getAllByRole('row').slice(1);
+    expect(body).toHaveLength(3);
+    expect(within(body[0]!).getByText('Warning')).toBeTruthy();
+    expect(within(body[0]!).getByText('2').getAttribute('title')).toBe('UPSTREAM 1, NOT_CONFIGURED 1');
+    expect(within(body[0]!).getByTitle(/to/).textContent).toContain('2026');
+    expect(within(body[1]!).getAllByText('—')).toHaveLength(3);
+    expect(within(body[1]!).queryByText('Warning')).toBeNull();
+    // It does not move with the page's filters.
+    await userEvent.click(screen.getByTestId('monitoring-period-7d'));
+    expect(rpc.filter((c) => c.fn === 'assistant_weekly_page')).toHaveLength(1);
+    await userEvent.click(within(panel).getByRole('button', { name: /View more/ }));
+    expect(within(panel).getAllByRole('row').slice(1)).toHaveLength(4);
+  });
+
+  it('says so in one line when no week had a question', async () => {
+    weekly = { weeks: [week('2026-11-02', {}, { questions: 0 })] };
+    renderPage();
+    const panel = await screen.findByTestId('monitoring-assistant');
+    expect(await within(panel).findByText('No assistant questions in the last 12 weeks.')).toBeTruthy();
+    expect(within(panel).queryByRole('table')).toBeNull();
+  });
+
+  it('offers a retry when the weeks cannot be read', async () => {
+    weekly = new Error('boom');
+    renderPage();
+    const panel = await screen.findByTestId('monitoring-assistant');
+    const retry = await within(panel).findByRole('button', { name: /Try again|Retry/ });
+    weekly = { weeks: [week('2026-11-02', {}, { thumbsDown: 0, rated: 1 })] };
+    await userEvent.click(retry);
+    expect(await within(panel).findByText('0 of 1')).toBeTruthy();
   });
 });

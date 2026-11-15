@@ -27,6 +27,13 @@
  * The spend is never dropped silently: `llm_record_usage` and
  * `llm_record_web_search` are retried once after `recordRetryMs`, then logged
  * loudly with the amounts ("SPEND NOT RECORDED") for a reconcile by hand.
+ * They run whether or not the message row was stored (a failed seq read used
+ * to throw past them, 2026-11-12). A row that could not be stored is
+ * reported back (`saved: false`); the chat function then ends the turn on
+ * NOT_SAVED_CODE, so the owner is told instead of watching it vanish.
+ * Each part that was not stored (the row, its calls, a spend record, the
+ * chat's counters, a job row) is also one `assistant_not_saved` event on the
+ * Monitoring page (monitor.ts, 2026-11-12), posted in the background.
  * Nothing here is cancelled by the turn's abort signal: the service client
  * carries none, and `signal` is read only to keep a stopped or timed-out
  * turn's freshly built context out of the conversation (contextStorable).
@@ -35,6 +42,7 @@
  */
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2';
 import { logError } from '../http.ts';
+import { assistantEvent, dbCode, reportInBackground, type Report } from './monitor.ts';
 import { insertAtNextSeq } from './seq.ts';
 import { contextStorable, gateSignatureInput, type FrozenContext } from './turnPolicy.ts';
 import { errorText, hasCitations, type TurnState } from './turn.ts';
@@ -57,6 +65,14 @@ const WEB_SEARCH_MICROS_FALLBACK = 10_000;
 
 /** The pause before the one retry of a spend record (llm_record_usage, llm_record_web_search). */
 export const RECORD_RETRY_MS = 750;
+
+/**
+ * The code a turn ends on when its answer row could not be stored. Both apps
+ * know NOT_SAVED (packages/core client.ts ASSISTANT_ERROR_CODES, 2026-11-12):
+ * they say the answer was written but will not be in the chat later, and
+ * offer Ask again.
+ */
+export const NOT_SAVED_CODE = 'NOT_SAVED';
 
 /**
  * One spend RPC, retried once after `retryMs` when it fails; a second failure
@@ -129,13 +145,20 @@ export function gateSigner(): ((input: string) => Promise<string>) | null {
  * longer between rounds). Null when the RPC fails; the call keeps its estimate.
  */
 export async function priceOf(service: SupabaseClient, model: string, u: ProviderUsage): Promise<number | null> {
-  const { data, error } = await service.schema('app').rpc('llm_price_micros', {
-    p_model: model,
-    p_input: u.input,
-    p_cache_write: u.cache_write,
-    p_cache_read: u.cache_read,
-    p_output: u.output,
-  });
+  let data: unknown;
+  let error: unknown;
+  try {
+    ({ data, error } = await service.schema('app').rpc('llm_price_micros', {
+      p_model: model,
+      p_input: u.input,
+      p_cache_write: u.cache_write,
+      p_cache_read: u.cache_read,
+      p_output: u.output,
+    }));
+  } catch (e) {
+    // A throw here must not skip the message and the spend after it.
+    error = e ?? 'threw';
+  }
   if (error) {
     logError('assistant-chat', error, 'llm_price_micros');
     return null;
@@ -188,13 +211,39 @@ export interface PersistInput {
   reusedFrom: string | null;
   gateSign: ((input: string) => Promise<string>) | null;
   emit: (event: AssistantEvent, data: unknown) => void;
+  /** Where a part of the turn that was not stored is reported (monitor.ts); reportInBackground by default, tests pass a recorder. */
+  report?: Report;
 }
 
 
-export async function persistTurn(d: PersistInput): Promise<void> {
+/** What the end of a turn reports back: whether the assistant row was stored. */
+export interface PersistOutcome {
+  saved: boolean;
+}
+
+export async function persistTurn(d: PersistInput): Promise<PersistOutcome> {
   const { service, model, route, turn, convId, convTitle, assistantMessageId, handles, scopes, ownerText, freshContext, signal, errorOut, reusedFrom, gateSign, emit } = d;
   const stopped = d.stopped === true && !errorOut;
   const retryMs = d.recordRetryMs ?? RECORD_RETRY_MS;
+  // 2026-11-12: every part that was not stored is one assistant_not_saved
+  // event (ids and codes only), posted in the background: it adds no wait and
+  // can never fail the turn.
+  const report = d.report ?? reportInBackground;
+  const notSaved = (step: string, code: string | null = null): void => {
+    try {
+      report(
+        assistantEvent({
+          fn: 'assistant-chat',
+          kind: 'assistant_not_saved',
+          what: `${step} not stored`,
+          code,
+          detail: { step, conversationId: convId, messageId: assistantMessageId, model, route: route.kind },
+        }),
+      );
+    } catch {
+      // An injected reporter that throws must not end the persist either.
+    }
+  };
   const { calls, sources, allowed } = turn;
   // The loop has ended (or thrown): its state is final from here on.
   const { webSearches, costCapped, finalContent, finalText, gate, gateRetried, jobEstimate } = turn;
@@ -251,16 +300,28 @@ export async function persistTurn(d: PersistInput): Promise<void> {
 
   // At the next seq, not userSeq + 1: a concurrent send into this chat may
   // have taken that number meanwhile (assistant/seq.ts re-reads and retries).
-  const msg = await insertMessage(service, convId, {
-    id: assistantMessageId,
-    role: 'assistant',
-    content: stored,
-    sources,
-    gate: storedGate,
-    tokens,
-  });
-  if (msg.error) logError('assistant-chat', msg.error, `assistant message ${assistantMessageId} not stored in ${convId}`);
-  else if (calls.length) {
+  // insertAtNextSeq no longer throws; the catch is for a client that does, so
+  // nothing below (above all the spend) is ever skipped.
+  let msgError: unknown = null;
+  try {
+    msgError = (
+      await insertMessage(service, convId, {
+        id: assistantMessageId,
+        role: 'assistant',
+        content: stored,
+        sources,
+        gate: storedGate,
+        tokens,
+      })
+    ).error;
+  } catch (e) {
+    msgError = e ?? 'threw';
+  }
+  const saved = !msgError;
+  if (!saved) {
+    logError('assistant-chat', msgError, `assistant message ${assistantMessageId} not stored in ${convId}`);
+    notSaved('message', dbCode(msgError));
+  } else if (calls.length) {
     const rows = calls.map((c) => ({
       message_id: assistantMessageId,
       call_no: c.call_no,
@@ -274,22 +335,31 @@ export async function persistTurn(d: PersistInput): Promise<void> {
       ms: c.ms,
       stop_reason: c.stop_reason,
     }));
-    const ins = await service.from('assistant_calls').insert(rows);
-    if (ins.error) logError('assistant-chat', ins.error, 'calls not stored');
+    try {
+      const ins = await service.from('assistant_calls').insert(rows);
+      if (ins.error) {
+        logError('assistant-chat', ins.error, 'calls not stored');
+        notSaved('calls', dbCode(ins.error));
+      }
+    } catch (e) {
+      logError('assistant-chat', errorText(e), 'calls not stored');
+      notSaved('calls');
+    }
   }
   if (calls.length) {
     // In every path, like analytics-insights: a timed-out or stopped turn still spent the money.
-    await recordSpend(
+    const spent = await recordSpend(
       service,
       'llm_record_usage',
       { p_model: model, p_input: usage.input, p_cache_write: usage.cache_write, p_cache_read: usage.cache_read, p_output: usage.output, p_model_calls: calls.length, p_surface: SURFACE },
       retryMs,
       assistantMessageId,
     );
+    if (!spent) notSaved('usage');
   }
   if (webSearches) {
     // Searches are billed apart from tokens; the cap must see them too (0324).
-    await recordSpend(service, 'llm_record_web_search', { p_searches: webSearches }, retryMs, assistantMessageId);
+    if (!(await recordSpend(service, 'llm_record_web_search', { p_searches: webSearches }, retryMs, assistantMessageId))) notSaved('web_search');
   }
   // 0405: THIS turn's delta, added to the stored tokens in SQL on the locked
   // row. Until 2026-11-09 the edge wrote conv.tokens (read at turn start) +
@@ -305,9 +375,14 @@ export async function persistTurn(d: PersistInput): Promise<void> {
     // (header) — only a whole one from a turn that finished (review 2026-10-08).
     p_context: freshContext && contextStorable({ aborted: signal.aborted, turnFailed: errorOut !== null }) ? freshContext : null,
   });
-  if (upd.error) logError('assistant-chat', upd.error, 'conversation not updated');
+  if (upd.error) {
+    logError('assistant-chat', upd.error, 'conversation not updated');
+    notSaved('conversation', dbCode(upd.error));
+  }
 
-  if (jobEstimate) {
+  // A job row hangs off the message (message_id); with no message there is
+  // nothing to hang it on, and the not-saved error the chat sends covers it.
+  if (jobEstimate && saved) {
     const { plan, ...estimate } = jobEstimate;
     const ins = await service
       .from('assistant_jobs')
@@ -316,6 +391,7 @@ export async function persistTurn(d: PersistInput): Promise<void> {
       .single();
     if (ins.error || !ins.data) {
       logError('assistant-chat', ins.error ?? 'no row', 'job not stored');
+      notSaved('job', dbCode(ins.error));
       emit('error', { code: 'UPSTREAM', message: 'the job estimate could not be stored' });
     } else {
       const job_id = (ins.data as { id: string }).id;
@@ -328,4 +404,5 @@ export async function persistTurn(d: PersistInput): Promise<void> {
   emit('sources', { items: sources, scopes });
   if (gate && !jobEstimate) emit('gate', { ...gate, retried: gateRetried });
   emit('usage', { ...usage, cost_micros, calls: calls.length, model: model, web_searches: webSearches });
+  return { saved };
 }

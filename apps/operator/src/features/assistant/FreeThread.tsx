@@ -30,6 +30,7 @@ import { useAssistantMode } from './useAssistantMode';
 import { MODEL_TRIGGER_STYLE, ModelSwitch, setPendingNewChatModel, setPendingQuestion } from './ModelSwitch';
 import { ToolbarPopover } from './ToolbarPopover';
 import { newChat, useFreeChats } from './freeChats';
+import { useStickToBottom } from './stickToBottom';
 import {
   FREE_TOPICS,
   applyFreeEvent,
@@ -116,7 +117,7 @@ function FreeAnswer({
 }) {
   const { tr, locale } = useLocale();
   const [copied, setCopied] = useState(false);
-  const err = ex.error ? freeErrorMessage(ex.error) : null;
+  const err = ex.error ? freeErrorMessage(ex.error, { owner: !!onAskPaid }) : null;
   const done = !streaming && ex.answer !== '';
   const showNeedsData = done && !!onAskPaid && needsData(ex.answer);
   const copy = async () => {
@@ -244,10 +245,15 @@ export function FreeThread({
 
   useEffect(() => () => controller.current?.abort(), []);
 
+  const stuck = useStickToBottom<HTMLDivElement>();
+  const { stick, follow } = stuck;
+
   const ask = useCallback(
     async (text: string, base?: FreeExchange[]) => {
       const question = text.trim().slice(0, FREE_TEXT_MAX);
       if (question === '' || controller.current) return;
+      // A question asked: show it and follow its answer.
+      follow();
       const before = base ?? exchangesRef.current;
       // The first question of a new chat makes the chat; later ones go to the open one.
       let chatId = activeRef.current;
@@ -280,7 +286,7 @@ export function FreeThread({
         patch((cur) => (cur.done ? cur : { ...cur, done: true }));
       }
     },
-    [locale, create, update],
+    [locale, create, update, follow],
   );
 
   const stop = useCallback(() => controller.current?.abort(), []);
@@ -299,13 +305,15 @@ export function FreeThread({
     startNew();
   };
 
-  // Keep the newest thing in view as it arrives.
-  const scroller = useRef<HTMLDivElement>(null);
+  // Keep the newest thing in view as it arrives, only while the reader is at the foot (stickToBottom.ts).
   const last = exchanges[exchanges.length - 1];
   useEffect(() => {
-    const el = scroller.current;
-    if (el) el.scrollTop = el.scrollHeight;
-  }, [exchanges.length, last?.answer]);
+    stick();
+  }, [stick, exchanges.length, last?.answer]);
+  // Opening another saved chat starts at its foot.
+  useEffect(() => {
+    follow();
+  }, [follow, free.activeId]);
 
   const streaming = streamingId !== null;
   const [modelOpen, setModelOpen] = useState(false);
@@ -406,7 +414,8 @@ export function FreeThread({
       )}
 
       <div
-        ref={scroller}
+        ref={stuck.ref}
+        onScroll={stuck.onScroll}
         data-thread-scroll=""
         style={{
           flex: 1,

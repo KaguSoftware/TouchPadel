@@ -1,9 +1,12 @@
 /**
  * The estimate before a job runs (plan §6.3). Three ways when the aggregate
- * path exists — aggregate first, live, batch — each button carrying the
- * calculator's price, and "Not now". Nothing runs until a press. Live is
- * disabled with the server's reason when the job is too big for one function
- * run; the batch button stays.
+ * path exists (the totals first, then read everything now, then in the
+ * background), each button carrying the calculator's price, and "Not now".
+ * Nothing runs until a press. Read-now is disabled with the catalog's sentence
+ * when the job is too big for one function run; the background button stays.
+ * Since 2026-11-12 the face of the card is in the owner's words (what each
+ * choice does, how long, where the answer lands); tokens and per-tool counts
+ * live under "How this was estimated".
  */
 import { formatNumber } from '@touch/i18n';
 import { useLocale } from '../../lib/i18n';
@@ -82,14 +85,14 @@ export function JobEstimateCard({
     >
       <h3 style={{ fontSize: 'var(--tp-fs-md)', fontWeight: 700, margin: 0 }}>{tr('ws.owner.assistant.job.title')}</h3>
       <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>
-        {tr('ws.owner.assistant.job.lead', { rows: iso(formatNumber(estimate.rows, locale)), chunks: iso(formatNumber(estimate.chunks, locale)) })}
+        {tr('ws.owner.assistant.job.lead', { rows: iso(formatNumber(estimate.rows, locale)) })}
       </p>
 
       <div style={{ display: 'grid', gap: 'var(--tp-sp-2)' }}>
         {agg && (
           <Way
             title={tr('ws.owner.assistant.job.aggregate')}
-            hint={tr('ws.owner.assistant.job.aggregateHint', { n: iso(String(agg.calls.length)), tokens: iso(formatTokens(agg.tokens_est)) })}
+            hint={tr('ws.owner.assistant.job.aggregateHint')}
             price={prices.aggregate ?? 0}
             priceFrom
             kind="primary"
@@ -100,12 +103,13 @@ export function JobEstimateCard({
         )}
         <Way
           title={tr('ws.owner.assistant.job.live')}
-          hint={tr('ws.owner.assistant.job.liveHint', { rows: iso(formatNumber(estimate.rows, locale)), tokens: iso(formatTokens(estimate.tokens.total)) })}
+          hint={tr('ws.owner.assistant.job.liveHint', { rows: iso(formatNumber(estimate.rows, locale)) })}
           price={prices.live}
           kind={agg ? 'default' : 'primary'}
           busy={busy === 'live'}
           disabled={!!busy || !liveAllowed}
-          disabledReason={!liveAllowed ? tr('ws.owner.assistant.job.liveDisabled', { reason: estimate.modes.live.reason ?? '' }) : undefined}
+          // The catalog's sentence, not the server's English reason (it would show inside the Arabic UI).
+          disabledReason={!liveAllowed ? tr('ws.owner.assistant.job.liveDisabled') : undefined}
           onPress={() => onAccept('live')}
         />
         <Way
@@ -121,10 +125,10 @@ export function JobEstimateCard({
 
       <p style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>
         {tr('ws.owner.assistant.job.high', { price: iso(formatUsd(prices.high)) })}
-        {estimate.first_chunk_exact != null && <> {tr('ws.owner.assistant.job.firstChunk', { tokens: iso(formatTokens(estimate.first_chunk_exact)) })}</>}
       </p>
 
-      {estimate.assumptions.length > 0 && (
+      {/* The working behind the prices, for whoever wants it; the card's face says none of it. */}
+      {(estimate.assumptions.length > 0 || estimate.per_tool.length > 0 || estimate.first_chunk_exact != null) && (
         <details style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>
           <summary style={{ cursor: 'pointer' }}>{tr('ws.owner.assistant.job.assumptions')}</summary>
           <ul style={{ margin: 0, marginBlockStart: 'var(--tp-sp-1)', paddingInlineStart: '1.25rem', display: 'grid', gap: '0.15rem' }}>
@@ -142,6 +146,7 @@ export function JobEstimateCard({
                 })}
               </li>
             ))}
+            {estimate.first_chunk_exact != null && <li>{tr('ws.owner.assistant.job.firstChunk', { tokens: iso(formatTokens(estimate.first_chunk_exact)) })}</li>}
           </ul>
         </details>
       )}

@@ -1,7 +1,8 @@
 /**
  * The job estimator (plan §6.2, _shared/assistant/estimate.ts) against the
  * plan's worked example: 10,000 rows at 250 per chunk → 40 chunks, a +15 %
- * band, live allowed up to 40 chunks and refused above. Since 2026-10-08 the
+ * band, live allowed up to LIVE_MAX_CHUNKS (what the runner's clock finishes,
+ * 8 since 2026-11-12) and refused above. Since 2026-10-08 the
  * same figures also come split by step (`by_step`): the chunks read on
  * JOB_EXTRACT_MODEL, the reduce on the job's model.
  */
@@ -20,6 +21,7 @@ import {
   REDUCE_PROMPT_TOKENS,
   type JobPlan,
 } from '../supabase/functions/_shared/assistant/estimate.ts';
+import { JOB_WALL_MS, LIVE_CHUNK_BUDGET_MS, liveChunkCapacity, liveClock } from '../supabase/functions/_shared/assistant/pool.ts';
 import { ASSISTANT_TOOLS, TOKENS_PER_ROW_FALLBACK, type ToolSpec } from '../supabase/functions/_shared/assistant/tools.ts';
 
 /** The two models the assistant may use (owner rule 0307/0312; provider.ts ASSISTANT_MODELS). */
@@ -49,10 +51,12 @@ describe('estimateJob — the worked example', () => {
     const chunkInput = 40 * CHUNK_PROMPT_TOKENS + 10_000 * 23; // 48,000 + 230,000
     const reduceInput = 40 * CHUNK_OUTPUT_TOKENS + REDUCE_PROMPT_TOKENS; // 16,000 + 800
     expect(e.tokens.input).toBe(chunkInput + reduceInput);
-    expect(e.tokens.cache_read).toBe(39 * CHUNK_PROMPT_TOKENS);
+    // the chunk prompt once per chunk, as input; never again as cache reads (review 2026-11-11)
+    expect(e.tokens.cache_read).toBe(0);
     expect(e.tokens.output).toBe(40 * CHUNK_OUTPUT_TOKENS + REDUCE_OUTPUT_TOKENS);
     expect(e.tokens.total).toBe(e.tokens.input + e.tokens.cache_read + e.tokens.output);
-    // the plan's "~250k shaped (+~40k cache reads), ~25k output" order of magnitude
+    expect(e.tokens.total).toBe(chunkInput + reduceInput + 40 * CHUNK_OUTPUT_TOKENS + REDUCE_OUTPUT_TOKENS);
+    // the plan's "~250k shaped, ~25k output" order of magnitude
     expect(e.tokens.input).toBeGreaterThan(240_000);
     expect(e.tokens.input).toBeLessThan(320_000);
     expect(e.tokens.output).toBeLessThan(25_000);
@@ -65,9 +69,13 @@ describe('estimateJob — the worked example', () => {
     expect(e.tokens_high.total).toBe(e.tokens_high.input + e.tokens_high.cache_read + e.tokens_high.output);
   });
 
-  it('offers all three ways when an aggregate alternative exists', () => {
-    expect(e.modes.aggregate).toEqual({ calls: plan.aggregate_alternative!.calls, tokens_est: 2 * AGGREGATE_CALL_TOKENS });
-    expect(e.modes.live).toEqual({ allowed: true });
+  it('offers all three ways when an aggregate alternative exists and the job fits the live window', () => {
+    const small = estimateJob(plan, [LIVE_MAX_CHUNKS * 250], measured);
+    expect(small.modes.aggregate).toEqual({ calls: plan.aggregate_alternative!.calls, tokens_est: 2 * AGGREGATE_CALL_TOKENS });
+    expect(small.modes.live).toEqual({ allowed: true });
+    expect(small.modes.batch).toEqual({ allowed: true });
+    // 40 chunks is past what one request can finish live: batch only
+    expect(e.modes.live.allowed).toBe(false);
     expect(e.modes.batch).toEqual({ allowed: true });
   });
 
@@ -79,13 +87,26 @@ describe('estimateJob — the worked example', () => {
 });
 
 describe('estimateJob — edges', () => {
-  it('refuses live above 40 chunks and says why; batch stays allowed', () => {
-    const e = estimateJob(plan, [10_250], measured); // 41 chunks
-    expect(e.chunks).toBe(41);
+  it('refuses live above LIVE_MAX_CHUNKS and says why; batch stays allowed', () => {
+    const e = estimateJob(plan, [LIVE_MAX_CHUNKS * 250 + 1], measured);
+    expect(e.chunks).toBe(LIVE_MAX_CHUNKS + 1);
     expect(e.modes.live.allowed).toBe(false);
     expect(e.modes.live.reason).toContain(`${LIVE_MAX_CHUNKS}`);
     expect(e.modes.batch.allowed).toBe(true);
-    expect(estimateJob(plan, [40 * 250], measured).modes.live.allowed).toBe(true);
+    expect(estimateJob(plan, [LIVE_MAX_CHUNKS * 250], measured).modes.live.allowed).toBe(true);
+  });
+
+  it('LIVE_MAX_CHUNKS is what the runner clock finishes: each worker launches one worst-case chunk per LIVE_CHUNK_BUDGET_MS of the launch window', () => {
+    const window = liveClock(0, JOB_WALL_MS).launchBy;
+    expect(window).toBe(23_000);
+    expect(LIVE_MAX_CHUNKS).toBe(liveChunkCapacity(JOB_WALL_MS, JOB_LIVE_CONCURRENCY));
+    expect(LIVE_MAX_CHUNKS).toBe(JOB_LIVE_CONCURRENCY * Math.ceil(window / LIVE_CHUNK_BUDGET_MS));
+    expect(LIVE_MAX_CHUNKS).toBe(8);
+    // a launch AT launchBy is refused (runLive's shouldStop), so a window of exactly two budgets is two launches
+    expect(liveChunkCapacity(15_000 + 12_000 + 24_000, 1)).toBe(2);
+    expect(liveChunkCapacity(15_000 + 12_000 + 24_001, 1)).toBe(3);
+    // a wall too short for any launch window offers nothing live
+    expect(liveChunkCapacity(20_000, 4)).toBe(0);
   });
 
   it('falls back to TOKENS_PER_ROW_FALLBACK for an unmeasured tool and says so', () => {
@@ -131,9 +152,9 @@ describe('estimateJob — by step (extraction on the cheaper model)', () => {
   it('splits the §6.2 arithmetic: chunks to extract, the reduce call to reduce', () => {
     expect(steps.extract.tokens).toEqual({
       input: 40 * CHUNK_PROMPT_TOKENS + 10_000 * 23,
-      cache_read: 39 * CHUNK_PROMPT_TOKENS,
+      cache_read: 0,
       output: 40 * CHUNK_OUTPUT_TOKENS,
-      total: 40 * CHUNK_PROMPT_TOKENS + 10_000 * 23 + 39 * CHUNK_PROMPT_TOKENS + 40 * CHUNK_OUTPUT_TOKENS,
+      total: 40 * CHUNK_PROMPT_TOKENS + 10_000 * 23 + 40 * CHUNK_OUTPUT_TOKENS,
     });
     expect(steps.reduce.tokens).toEqual({
       input: 40 * CHUNK_OUTPUT_TOKENS + REDUCE_PROMPT_TOKENS,

@@ -24,11 +24,18 @@
  *     cannot use up the club's free tier; Groq's own 429 is the backstop.
  *
  * Wall clock 25 s; the answer is at most FREE_MAX_OUTPUT_TOKENS.
+ *
+ * Monitoring (2026-11-12, 0422): a missing key, a failed Groq request and a
+ * failed stream are assistant_free_failed events (_shared/assistant/monitor.ts
+ * reportFreeFailure): codes, the role and the app only, throttled per isolate
+ * because the free tier serves every staff member, posted in the background.
+ * A person over their own allowance and a client that left report nothing.
  */
 import { createServiceClient } from '../_shared/supabase.ts';
 import { requireStaffRole } from '../_shared/auth.ts';
 import { handle, json, KB, logError, readJsonBody } from '../_shared/http.ts';
 import { mapChunks } from '../_shared/assistant/map.ts';
+import { reportFreeFailure } from '../_shared/assistant/monitor.ts';
 import { SSE_HEADERS, sseStream } from '../_shared/assistant/sse.ts';
 import { GROQ_URL, newAccumulator, stopReasonFromOai, supportsReasoningEffort, usageFromOai } from '../_shared/assistant/groqWire.ts';
 import {
@@ -91,7 +98,10 @@ Deno.serve(handle('assistant-free', async (req) => {
   if (typeof parsed === 'string') return json({ error: 'INVALID_REQUEST', code: 'INVALID_REQUEST', message: parsed }, 400);
 
   const apiKey = (Deno.env.get('GROQ_API_KEY') ?? '').trim();
-  if (!apiKey) return json({ error: 'NOT_CONFIGURED', code: 'NOT_CONFIGURED', message: 'GROQ_API_KEY is not set' }, 503);
+  if (!apiKey) {
+    reportFreeFailure({ code: 'NOT_CONFIGURED', stage: 'before_stream', role: auth.role, app: parsed.app });
+    return json({ error: 'NOT_CONFIGURED', code: 'NOT_CONFIGURED', message: 'GROQ_API_KEY is not set' }, 503);
+  }
 
   const allowance = limiter.take(auth.userId, Date.now());
   if ('scope' in allowance) {
@@ -117,6 +127,7 @@ Deno.serve(handle('assistant-free', async (req) => {
 
   const abort = new AbortController();
   const wall = setTimeout(() => abort.abort(), WALL_MS);
+  const requested = Date.now();
   // The first request is made before the stream opens, so a refusal (the
   // club's free tier used up) answers as JSON the clients already map.
   let upstream: Response;
@@ -124,12 +135,22 @@ Deno.serve(handle('assistant-free', async (req) => {
     upstream = await postGroq(groq, apiKey, groqBody, abort.signal);
   } catch (e) {
     clearTimeout(wall);
-    const reply = freeFailureReply(e instanceof FreeError ? e.code : 'UPSTREAM');
+    const code = e instanceof FreeError ? e.code : 'UPSTREAM';
+    reportFreeFailure({ code, stage: 'before_stream', role: auth.role, app: parsed.app, model, ms: Date.now() - requested });
+    const reply = freeFailureReply(code);
     return json(reply.body, reply.status);
   }
 
   // The shared scaffold (sse.ts sseStream): a client that leaves aborts the Groq read.
-  const sse = sseStream({ heartbeatMs: HEARTBEAT_MS, onCancel: () => abort.abort() });
+  // `left`: the client went away (not a failure, so not reported).
+  let left = false;
+  const sse = sseStream({
+    heartbeatMs: HEARTBEAT_MS,
+    onCancel: () => {
+      left = true;
+      abort.abort();
+    },
+  });
   const emit = sse.emit;
 
   (async () => {
@@ -150,6 +171,8 @@ Deno.serve(handle('assistant-free', async (req) => {
     emit('done', { stop_reason: errorCode ?? stopReasonFromOai(acc.finish) });
     clearTimeout(wall);
     sse.close();
+    // After the stream is closed: the person waits for nothing.
+    if (errorCode && !left) reportFreeFailure({ code: errorCode, stage: 'stream', role: auth.role, app: parsed.app, model, ms: Date.now() - started });
   })();
 
   return new Response(sse.stream, { status: 200, headers: { ...SSE_HEADERS } });

@@ -40,7 +40,8 @@
  *                   regenerated answer only for an invented money-sized figure
  *                   or percentage (turnPolicy shouldGateRetry), and not past the
  *                   ceiling or on the last call (the figures stay marked). Every retry emits
- *                   `delta {text:'', reset:true}` so the UI drops the first draft;
+ *                   `delta {text:'', reset:true}` so the UI drops the first draft,
+ *                   and the state drops it too (withdrawDraft), so it is never stored;
  *   cut short       a call that ends `max_tokens` (the output limit) or
  *                   `refusal` ends the loop with that stop reason (2026-11-11;
  *                   it used to fall through as a normal answer): the text it
@@ -56,7 +57,8 @@
  *                   recorded as a call with stop reason `aborted` and priced
  *                   like any other; text it had streamed becomes the turn's
  *                   text, gated (marks only), so the stored turn holds what
- *                   the owner saw. The error then propagates.
+ *                   the owner saw; after a retry withdrew the draft and before
+ *                   any new text, that is nothing. The error then propagates.
  *
  * Every operator instruction goes through `pushSystem`, which folds a second
  * one into a trailing system entry (the API takes a system message after a
@@ -474,6 +476,21 @@ async function recordCutCall<B extends TurnBlock>(state: TurnState<B>, input: Tu
   state.gate = gateAnswer(streamed, [...state.allowed, ...state.webNumbers, ...input.previousNumbers], input.userNumbers);
 }
 
+/**
+ * A retry withdraws the draft: the client is told to blank it, and the state
+ * forgets it too. Until 2026-11-12 the draft stayed in finalText, so a
+ * regenerated call that threw before any text (the wall, a Stop, a 429) left
+ * the rejected answer to be stored and replayed to the model next turn. With
+ * it gone, such a turn ends empty and failed (persist's empty block plus
+ * error_code); text the new call streams before a throw is still kept.
+ */
+function withdrawDraft<B extends TurnBlock>(state: TurnState<B>, deps: Pick<TurnDeps<B>, 'emit'>): void {
+  state.finalText = '';
+  state.finalContent = [];
+  state.gate = null;
+  deps.emit('delta', { text: '', reset: true });
+}
+
 /** Once a message has run its searches, say so through the operator channel (after a user turn or a server-tool pause). */
 function noteSearchCap<B extends TurnBlock>(state: TurnState<B>, maxUses: number, messages: TurnMessage<B>[]): void {
   if (state.webCapNoted || state.webSearches < maxUses) return;
@@ -601,7 +618,7 @@ export async function runTurnLoop<B extends TurnBlock>(state: TurnState<B>, inpu
         console.error('[assistant-chat] refusal retry search failed', errorText(e));
       }
       pushSystem(messages, `${TURN_NOTICES.falseRefusal}${foundAgain}`);
-      deps.emit('delta', { text: '', reset: true });
+      withdrawDraft(state, deps);
       continue;
     }
 
@@ -625,7 +642,7 @@ export async function runTurnLoop<B extends TurnBlock>(state: TurnState<B>, inpu
       deps.emit('gate', { ...state.gate, retried: true });
       // The answer is not appended (a system message must follow a user turn); the instruction is.
       pushSystem(messages, retryMessage(state.gate.unverified));
-      deps.emit('delta', { text: '', reset: true });
+      withdrawDraft(state, deps);
       continue;
     }
     break;

@@ -92,7 +92,12 @@ export const opErrorsCodesEn = {
   ASSISTANT_UNKNOWN_SCOPE:
     'This chat cannot read that. Refresh the page and choose again from the list.',
   CONVERSATION_NOT_FOUND: 'That chat no longer exists. Refresh the page.',
+  // 0422: rating an answer.
+  ASSISTANT_MESSAGE_NOT_FOUND: 'That answer no longer exists. Refresh the chat.',
+  ASSISTANT_NOT_RATEABLE: 'Only a finished answer in the chat can be rated.',
   JOB_NOT_FOUND: 'That job no longer exists. Refresh the page.',
+  // 0423: a paused job's records changed before Continue.
+  JOB_DATA_CHANGED: 'The records changed since the job paused, so the parts already read no longer match. Cancel the job and ask the question again.',
   COMPONENT_NOT_FOUND: 'That card no longer exists. Refresh the page.',
   COMPONENT_BUILTIN: 'Built-in cards cannot be archived.',
   COMPONENT_KEY_TAKEN: 'A built-in card already uses this name. Choose another.',

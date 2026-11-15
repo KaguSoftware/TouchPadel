@@ -13,7 +13,7 @@
  *     download, a body that is not gzip and a text past the unpacked cap each
  *     end in their own fixed sentence; a real gzipped fixture built here is
  *     unpacked, windowed by offset/chars, and the storage path never reaches
- *     the model;
+ *     the model; the turn's signal rides on the download (2026-11-12);
  *   * runPosthog: the business day start hour from the branch in scope (the
  *     0029 default on a failed read), the caller's Authorization forwarded,
  *     and every failure a fixed sentence — an HTTP status (never the body),
@@ -22,7 +22,8 @@
  *   * runSearch: a degraded (text-only) search keeps its figures (withNote);
  *   * checkPlanCalls / runProposeJob: refusals for both slots (not a list
  *     tool, unknown tool, malformed args, scope off, unknown handle), paging
- *     stripped from steps, counts as the owner, the estimate, batch off on a
+ *     stripped from steps, counts as the owner by the CATALOG name (the fake
+ *     refuses anything else, as 0109's assistant_count does), the estimate, batch off on a
  *     provider without it, the first chunk measured on the counter without
  *     minting a handle, and a failed count or measurement;
  *   * runStoredTool: posthog, file_read, else the RPC dispatcher.
@@ -33,7 +34,7 @@
 import { gzipSync } from 'node:zlib';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { handleFor, newHandleTable, toJson, type HandleTable } from '../supabase/functions/_shared/assistant/handles.ts';
-import { LIST_ROW_CAP, toolByName, type AssistantScope, type ToolSpec } from '../supabase/functions/_shared/assistant/tools.ts';
+import { ASSISTANT_SCOPES, ASSISTANT_TOOLS, COUNTABLE_TOOL_NAMES, LIST_ROW_CAP, toolByName, type AssistantScope, type ToolSpec } from '../supabase/functions/_shared/assistant/tools.ts';
 import type { Dispatched } from '../supabase/functions/_shared/assistant/turn.ts';
 import { denoEnv, eqs, fakeClient, loadDenoModule, type FakeHandlers } from './assistant-edge-fakes';
 
@@ -226,6 +227,24 @@ describe('runFileRead', () => {
     expect(logged.join('\n')).toContain('file_read download failed');
   });
 
+  it('the turn signal rides on the download, so a stalled download ends with the turn (wall or Stop)', async () => {
+    const abort = new AbortController();
+    // A download that never answers on its own: only the signal ends it, as fetch does.
+    const stalled = (_b: string, _p: string, signal?: AbortSignal) =>
+      new Promise<{ data: Blob | null; error: unknown }>((_resolve, reject) => {
+        signal?.addEventListener('abort', () => reject(new DOMException('The operation was aborted.', 'AbortError')));
+      });
+    const { ctx, fake } = ctxWith({ rpc: () => meta({ text_path: 'p.txt.gz' }), download: stalled }, { signal: abort.signal });
+    const pending = R.runFileRead(ctx, spec('file_read'), { file_id: FILE });
+    await vi.waitFor(() => expect(fake.ops.some((o) => o.kind === 'download')).toBe(true));
+    expect(fake.ops.find((o) => o.kind === 'download')!.signal).toBe(abort.signal);
+    abort.abort();
+    const out = await pending;
+    expect(out).toMatchObject({ isError: true, row_count: null });
+    expect(out.cleaned.text).toBe('the file read was stopped with the turn');
+    expect(logged.join('\n')).not.toContain('file_read unzip failed');
+  });
+
   it('a body that is not gzip is "could not be read", logged', async () => {
     const { ctx } = ctxWith({ rpc: () => meta({ text_path: 'p.txt.gz' }), download: () => ({ data: new Blob(['plain, not gzip']), error: null }) });
     const out = await R.runFileRead(ctx, spec('file_read'), { file_id: FILE });
@@ -389,8 +408,39 @@ describe('runProposeJob', () => {
     steps: { calls: [{ tool: 'bookings_list', args: { ...RANGE, limit: 3, offset: 9 } }], extract: 'count per guest', reduce: 'top 10' },
     ...extra,
   });
+  /**
+   * app.assistant_count as 0109 has it: the CATALOG tool name (COUNTABLE_TOOL_NAMES)
+   * or P0001 ASSISTANT_NOT_COUNTABLE. A fake that answered any name hid the
+   * rpc-name bug (runners.ts passed `assistant_bookings_list`) until 2026-11-12.
+   */
   const jobRpc = (count: number, firstChunk: unknown = { data: { rows: [{ id: GUEST, guest_id: GUEST, status: 'confirmed', price_iqd: 30_000 }], total: count } }): FakeHandlers => ({
-    rpc: (name) => (name === 'assistant_count' ? { data: count, error: null } : { data: firstChunk, error: null }),
+    rpc: (name, args) => {
+      if (name !== 'assistant_count') return { data: firstChunk, error: null };
+      if (!COUNTABLE_TOOL_NAMES.includes(String(args.p_tool))) return { data: null, error: { code: 'P0001', message: 'ASSISTANT_NOT_COUNTABLE', details: String(args.p_tool ?? 'null'), hint: null } };
+      return { data: count, error: null };
+    },
+  });
+
+  it('every countable list tool is counted by its catalog name, which assistant_count accepts', async () => {
+    const value = (a: ToolSpec['args'][string]) => (a.type === 'date' ? '2026-11-01' : a.values ? a.values[0] : 'bookings');
+    const countable = ASSISTANT_TOOLS.filter((t) => t.kind === 'list' && t.rpc);
+    expect(countable.map((t) => t.name).sort()).toEqual([...COUNTABLE_TOOL_NAMES].sort());
+    for (const t of countable) {
+      const args = Object.fromEntries(Object.entries(t.args).filter(([, a]) => a.required).map(([k, a]) => [k, value(a)]));
+      const { ctx, fake } = ctxWith(jobRpc(10), { scopes: [...ASSISTANT_SCOPES] });
+      const out = await R.runProposeJob(ctx, provider(), input({ steps: { calls: [{ tool: t.name, args }] } }), 'en');
+      expect(out.isError, `${t.name}: ${out.cleaned.text}`).toBe(false);
+      expect((fake.rpcs('assistant_count')[0]!.args as { p_tool: string }).p_tool, t.name).toBe(t.name);
+      expect(out.estimate!.rows, t.name).toBe(10);
+    }
+  });
+
+  it('the fake refuses an rpc name the way 0109 does, so the old bug would surface as a refusal', async () => {
+    const { ctx } = ctxWith(jobRpc(10));
+    const refused = await (ctx.asOwner as { schema(s: string): { rpc(n: string, a: unknown): PromiseLike<{ error: { message: string } | null }> } })
+      .schema('app')
+      .rpc('assistant_count', { p_tool: 'assistant_bookings_list', p_args: {} });
+    expect(refused.error?.message).toBe('ASSISTANT_NOT_COUNTABLE');
   });
 
   it('a steps refusal comes back as an is_error notice, nothing counted', async () => {
@@ -433,7 +483,7 @@ describe('runProposeJob', () => {
     expect(out.isError).toBe(false);
     const [count] = fake.rpcs('assistant_count');
     expect(count!.schema).toBe('app');
-    expect(count!.args).toEqual({ p_tool: 'assistant_bookings_list', p_args: { p_from: RANGE.from, p_to: RANGE.to, p_customer_id: GUEST } });
+    expect(count!.args).toEqual({ p_tool: 'bookings_list', p_args: { p_from: RANGE.from, p_to: RANGE.to, p_customer_id: GUEST } });
     expect(count!.signal).toBe(signal);
     const [first] = fake.rpcs('assistant_run_tool');
     expect(first!.args).toEqual({ p_tool: 'assistant_bookings_list', p_args: { p_from: RANGE.from, p_to: RANGE.to, p_customer_id: GUEST, p_limit: 250, p_offset: 0 } });

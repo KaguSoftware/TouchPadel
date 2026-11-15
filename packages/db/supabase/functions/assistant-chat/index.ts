@@ -30,6 +30,12 @@
  * `EdgeRuntime.waitUntil` when it exists (feature-detected through globalThis),
  * so a client that disconnects does not let the runtime drop the promise
  * before the spend is recorded.
+ *
+ * Monitoring (2026-11-12, 0422): every refusal and failure before the stream,
+ * and a turn that failed (reported after the stream closes; a Stop is not a
+ * failure), is one assistant_refused / assistant_failed event through
+ * _shared/assistant/monitor.ts: ids and codes only, posted in the background,
+ * never awaited, never throttled (the weekly report counts them).
  */
 
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2';
@@ -76,7 +82,8 @@ import { SSE_HEADERS, sseStream, type AssistantEvent } from '../_shared/assistan
 import { toolByName, toolsForScopes, wireTools, type AssistantScope, type ToolSpec, type WireTool } from '../_shared/assistant/tools.ts';
 import { runFileRead, runKnowledgeOrMeta, runPosthog, runProposeJob, runRpcTool, runSearch, runStoredTool, type DispatchCtx } from '../_shared/assistant/runners.ts';
 import { latestAnswer, readConversation, readTail, recheckReads, reuseReads, tailToMessages, venueModels, venueTimezone, type ConvRow } from '../_shared/assistant/reads.ts';
-import { gateSigner, insertMessage, persistTurn, webSearchPricer } from '../_shared/assistant/persist.ts';
+import { gateSigner, insertMessage, NOT_SAVED_CODE, persistTurn, webSearchPricer } from '../_shared/assistant/persist.ts';
+import { assistantEvent, reportInBackground } from '../_shared/assistant/monitor.ts';
 
 // ---------------------------------------------------------------------------
 // Config
@@ -103,6 +110,7 @@ const TURN_ERROR_TEXT: Record<string, string> = {
   RATE_LIMITED: 'the model is rate-limited right now; try again in a minute',
   NOT_CONFIGURED: 'the model is not configured',
   TIMEOUT: `the turn did not finish inside ${WALL_MS / 1000} s`,
+  [NOT_SAVED_CODE]: 'the answer could not be saved; ask again',
 };
 const turnErrorText = (code: string) => TURN_ERROR_TEXT[code] ?? TURN_ERROR_TEXT.UPSTREAM!;
 
@@ -218,6 +226,16 @@ function handleRecheck(req: Request, ownerId: string, recheck: unknown, venueSco
   );
 }
 
+/**
+ * One failed or refused turn on the Monitoring page (monitor.ts, 2026-11-12):
+ * a fixed sentence, ids and codes only, posted in the background so it adds no
+ * wait and never fails the request. The paid chat is never throttled: the
+ * weekly report counts these events.
+ */
+function reportTurn(kind: 'assistant_failed' | 'assistant_refused', what: string, code: string, detail: Record<string, unknown>): void {
+  reportInBackground(assistantEvent({ fn: 'assistant-chat', kind, what, code, detail }));
+}
+
 // ---------------------------------------------------------------------------
 Deno.serve(handle('assistant-chat', async (req) => {
   if (req.method !== 'POST') return json({ error: 'METHOD_NOT_ALLOWED', code: 'METHOD_NOT_ALLOWED', message: 'POST only' }, 405);
@@ -278,6 +296,7 @@ Deno.serve(handle('assistant-chat', async (req) => {
 
   // 0114: a model named by the request must be one the pricing table can bill.
   if (parsed.model && !venueModel.priced.includes(parsed.model)) {
+    reportTurn('assistant_refused', 'model not priced', 'ASSISTANT_MODEL_NOT_PRICED', { stage: 'before_stream', model: parsed.model, conversationId: parsed.conversation_id });
     return json({ error: 'ASSISTANT_MODEL_NOT_PRICED', code: 'ASSISTANT_MODEL_NOT_PRICED', message: `${parsed.model} is not in platform_settings.llm_pricing` }, 400);
   }
   // The conversation, checked FIRST: the caller must own it before anything
@@ -289,6 +308,7 @@ Deno.serve(handle('assistant-chat', async (req) => {
     const { data, error } = convRead;
     if (error) {
       logError('assistant-chat', error, 'conversation read failed');
+      reportTurn('assistant_failed', 'conversation read failed', 'INTERNAL', { stage: 'before_stream', step: 'conversation_read', conversationId: parsed.conversation_id });
       return json({ error: 'INTERNAL', code: 'INTERNAL' }, 500);
     }
     if (!data) return json({ error: 'NOT_FOUND', code: 'NOT_FOUND', message: 'conversation not found' }, 404);
@@ -319,6 +339,7 @@ Deno.serve(handle('assistant-chat', async (req) => {
   const chatModel = route.model ?? explicitModel ?? venueModel.default_model;
   const provider = providerFromEnv(env, chatModel);
   if (!provider) {
+    reportTurn('assistant_failed', 'model not configured', 'NOT_CONFIGURED', { stage: 'before_stream', model: chatModel, route: route.kind, routeReason: route.reason, conversationId: existing?.id });
     return json({ error: 'NOT_CONFIGURED', code: 'NOT_CONFIGURED', message: notConfiguredMessage(env, chatModel) }, 503);
   }
 
@@ -331,9 +352,11 @@ Deno.serve(handle('assistant-chat', async (req) => {
     const code = budget.error.message ?? 'LLM_BUDGET';
     if (code.includes('LLM_DAILY_QUOTA') || code.includes('LLM_MONTHLY_CAP')) {
       const which = code.includes('LLM_MONTHLY_CAP') ? 'LLM_MONTHLY_CAP' : 'LLM_DAILY_QUOTA';
+      reportTurn('assistant_refused', 'budget refused', which, { stage: 'before_stream', model: provider.model, conversationId: existing?.id });
       return json({ error: which, code: which, message: budget.error.details ?? code, hint: budget.error.hint ?? null }, 429);
     }
     logError('assistant-chat', budget.error, 'budget gate failed');
+    reportTurn('assistant_failed', 'budget gate failed', 'UPSTREAM', { stage: 'before_stream', step: 'budget', model: provider.model, conversationId: existing?.id });
     return json({ error: 'UPSTREAM', code: 'UPSTREAM' }, 502);
   }
 
@@ -361,6 +384,7 @@ Deno.serve(handle('assistant-chat', async (req) => {
       .single();
     if (error || !data) {
       logError('assistant-chat', error ?? 'no row', 'conversation insert failed');
+      reportTurn('assistant_failed', 'conversation not created', 'INTERNAL', { stage: 'before_stream', step: 'conversation_insert', model: provider.model });
       return json({ error: 'INTERNAL', code: 'INTERNAL' }, 500);
     }
     conv = data as Conv;
@@ -383,6 +407,7 @@ Deno.serve(handle('assistant-chat', async (req) => {
   });
   if (userInsert.error) {
     logError('assistant-chat', userInsert.error, `user message not stored in ${conv.id}`);
+    reportTurn('assistant_failed', 'question not stored', 'INTERNAL', { stage: 'before_stream', step: 'user_message', model: provider.model, conversationId: conv.id });
     return json({ error: 'INTERNAL', code: 'INTERNAL' }, 500);
   }
   const userSeq = userInsert.seq;
@@ -433,6 +458,9 @@ Deno.serve(handle('assistant-chat', async (req) => {
   let errorOut: { code: string; message: string } | null = null;
   /** The client left before the turn ended (Stop, page closed): stored as stopped, not as a failure. */
   let stopped = false;
+  /** The turn's own failure code (never the not-saved one, which persist reports), for the Monitoring page. */
+  let turnFailed: string | null = null;
+  const turnStarted = Date.now();
 
   /**
    * One checked tool as the owner, injected into the loop's dispatchTool
@@ -614,18 +642,47 @@ Deno.serve(handle('assistant-chat', async (req) => {
         // The owner sees a fixed sentence per code (the stored turn keeps the
         // code); the vendor's or the runtime's own text goes to the log only.
         errorOut = { code: ending.code, message: turnErrorText(ending.code) };
+        turnFailed = ending.code;
         logError('assistant-chat', errorText(e), `turn failed (${ending.code})`);
       }
     }
+    let saved = false;
     try {
-      await persist();
+      saved = (await persist()).saved;
     } catch (e) {
       logError('assistant-chat', errorText(e), 'persist failed');
+      reportInBackground(
+        assistantEvent({
+          fn: 'assistant-chat',
+          kind: 'assistant_not_saved',
+          what: 'persist threw',
+          detail: { step: 'persist', conversationId: conv.id, messageId: assistantMessageId, model: provider.model, route: route.kind },
+        }),
+      );
     }
+    // An answer that was not stored is gone on the next refetch: say so on the
+    // stream (error and done carry the code) instead of ending as if all was
+    // well. It replaces an earlier failure's code, whose sentence promises
+    // that what arrived is kept. A Stop has nobody listening.
+    if (!saved && !stopped) errorOut = { code: NOT_SAVED_CODE, message: turnErrorText(NOT_SAVED_CODE) };
     if (errorOut) emit('error', errorOut);
     emit('done', { message_id: assistantMessageId, stop_reason: errorOut ? errorOut.code : stopped ? 'stopped' : turn.stopReason });
     clearTimeout(wall);
     sse.close();
+    // After the stream is closed, so the owner waits for nothing: the turn's
+    // own failure (a Stop is not one, and a lost answer is persist's event).
+    if (turnFailed) {
+      reportTurn('assistant_failed', 'turn failed', turnFailed, {
+        stage: 'turn',
+        conversationId: conv.id,
+        messageId: assistantMessageId,
+        model: provider.model,
+        route: route.kind,
+        routeReason: route.reason,
+        stopReason: turn.stopReason,
+        ms: Date.now() - turnStarted,
+      });
+    }
   })();
   // After a disconnect the runtime may drop a promise nobody awaits; waitUntil
   // keeps it alive until persist has recorded the spend (header).

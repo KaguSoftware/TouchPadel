@@ -396,12 +396,12 @@
       }
     },
     {
-      "id": "n17-break-minutes-en",
+      "id": "n17-cash-short-en",
       "kind": "numeric",
       "lang": "en",
-      "question": "How many minutes of staff breaks were taken in total between 4 and 10 March 2024?",
+      "question": "How much cash were the tills short in total at the day closes between 4 and 10 March 2024?",
       "scopes": [
-        "staff",
+        "money",
         "howto"
       ],
       "range": {
@@ -410,12 +410,12 @@
       },
       "expect": {
         "tools_any_of": [
-          "break_history"
+          "cash_closes"
         ],
-        "value": 40,
-        "sql": "select coalesce(sum(round(extract(epoch from (coalesce(ended_at, now()) - started_at)) / 60)),0)::bigint from staff_breaks where business_date between '2024-03-04' and '2024-03-10'",
+        "value": 2000,
+        "sql": "select coalesce(-sum(cash_variance_iqd) filter (where cash_variance_iqd < 0), 0)::bigint from day_sessions where status = 'closed' and business_date between '2024-03-04' and '2024-03-10'",
         "run": {
-          "rpc": "assistant_break_history",
+          "rpc": "assistant_cash_closes",
           "args": {
             "p_from": "2024-03-04",
             "p_to": "2024-03-10"

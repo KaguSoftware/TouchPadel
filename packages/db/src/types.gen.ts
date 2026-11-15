@@ -661,6 +661,10 @@ export type Database = {
         }
       }
       assistant_archive_conversation: { Args: { p_id: string }; Returns: Json }
+      assistant_attendance_summary: {
+        Args: { p_from: string; p_to: string }
+        Returns: Json
+      }
       assistant_audit_page: {
         Args: {
           p_action_prefix?: string
@@ -707,6 +711,10 @@ export type Database = {
       }
       assistant_cache_scope: { Args: { p_venues: string[] }; Returns: string }
       assistant_cache_status: { Args: never; Returns: Json }
+      assistant_cash_closes: {
+        Args: { p_detail?: string; p_from: string; p_to: string }
+        Returns: Json
+      }
       assistant_chunk_source: {
         Args: { p_kind: string; p_ref: string }
         Returns: Json
@@ -728,6 +736,10 @@ export type Database = {
           p_title?: string
           p_usage: Json
         }
+        Returns: Json
+      }
+      assistant_costs_summary: {
+        Args: { p_from: string; p_group?: string; p_to: string }
         Returns: Json
       }
       assistant_count: {
@@ -816,12 +828,26 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      assistant_job_claim_stuck: {
+        Args: { p_limit?: number; p_seconds?: number }
+        Returns: {
+          claimed_until: string
+          job_id: string
+          reason: string
+        }[]
+      }
       assistant_job_claim_tick: {
         Args: { p_seconds?: number }
         Returns: {
           claimed_until: string
           job_id: string
         }[]
+      }
+      assistant_job_expire: { Args: never; Returns: number }
+      assistant_job_stuck_due: { Args: never; Returns: boolean }
+      assistant_job_stuck_reason: {
+        Args: { p_job: Database["public"]["Tables"]["assistant_jobs"]["Row"] }
+        Returns: string
       }
       assistant_job_tick_nudge: { Args: never; Returns: undefined }
       assistant_job_transition: {
@@ -873,12 +899,20 @@ export type Database = {
         }
       }
       assistant_prewarm_nudge: { Args: never; Returns: undefined }
+      assistant_rate_message: {
+        Args: { p_message_id: string; p_note?: string; p_rating: number }
+        Returns: Json
+      }
       assistant_run_tool: {
         Args: { p_args?: Json; p_tool: string }
         Returns: Json
       }
       assistant_run_tool_prewarm: {
         Args: { p_args?: Json; p_tool: string }
+        Returns: Json
+      }
+      assistant_safe_summary: {
+        Args: { p_from: string; p_rows?: boolean; p_to: string }
         Returns: Json
       }
       assistant_search: {
@@ -952,11 +986,27 @@ export type Database = {
         Returns: Json
       }
       assistant_tsquery: { Args: { p_query: string }; Returns: unknown }
+      assistant_unpaid_played_bookings: {
+        Args: { p_from: string; p_limit?: number; p_to: string }
+        Returns: Json
+      }
       assistant_upsert_chunk: { Args: { p: Json }; Returns: number }
       assistant_usage: {
         Args: { p_from?: string; p_to?: string }
         Returns: Json
       }
+      assistant_wages_summary: {
+        Args: { p_detail?: boolean; p_from: string; p_to: string }
+        Returns: Json
+      }
+      assistant_week_clock: { Args: never; Returns: Record<string, unknown> }
+      assistant_week_figures: {
+        Args: { p_from: string; p_to: string }
+        Returns: Json
+      }
+      assistant_week_level: { Args: { p_figures: Json }; Returns: string }
+      assistant_weekly_page: { Args: { p_weeks?: number }; Returns: Json }
+      assistant_weekly_report: { Args: never; Returns: Json }
       attendance_month: {
         Args: { p_month?: string; p_venue_id?: string }
         Returns: Json
@@ -6983,6 +7033,48 @@ export type Database = {
         }
         Relationships: []
       }
+      assistant_feedback: {
+        Row: {
+          created_at: string
+          message_id: string
+          note: string | null
+          rated_by: string
+          rating: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          message_id: string
+          note?: string | null
+          rated_by: string
+          rating: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          message_id?: string
+          note?: string | null
+          rated_by?: string
+          rating?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assistant_feedback_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: true
+            referencedRelation: "assistant_messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assistant_feedback_rated_by_fkey"
+            columns: ["rated_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       assistant_index_queue: {
         Row: {
           attempts: number
@@ -7033,7 +7125,9 @@ export type Database = {
           result: Json | null
           started_at: string | null
           status: string
+          status_at: string | null
           tick_claimed_until: string | null
+          tick_lapses: number
           tokens: Json
         }
         Insert: {
@@ -7052,7 +7146,9 @@ export type Database = {
           result?: Json | null
           started_at?: string | null
           status?: string
+          status_at?: string | null
           tick_claimed_until?: string | null
+          tick_lapses?: number
           tokens?: Json
         }
         Update: {
@@ -7071,7 +7167,9 @@ export type Database = {
           result?: Json | null
           started_at?: string | null
           status?: string
+          status_at?: string | null
           tick_claimed_until?: string | null
+          tick_lapses?: number
           tokens?: Json
         }
         Relationships: [

@@ -1,8 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { QueryClient } from '@tanstack/react-query';
 import type { StreamEdgeOptions } from '../../lib/edge';
-import { StreamStalledError } from '../../lib/edge';
-import { errorCodeOf } from './useAssistantChat';
+import type { AssistantScope } from '@touch/core/assistant/tools';
+import { EdgeError, StreamStalledError } from '../../lib/edge';
+import { errorCodeOf, retryOptions } from './useAssistantChat';
 import { liveOutcome } from './threadLogic';
 
 /** Each sendMessage call parks here until the test feeds it events and ends it. */
@@ -27,7 +28,7 @@ vi.mock('./api', () => ({
     }),
 }));
 
-const { askInChat, chatEntry, followChat, keyOf, resetChatStreams, settleAlias, stopChat, LATE_REFETCH_MS } = await import('./chatStreams');
+const { askInChat, chatEntry, followChat, keyOf, resetChatStreams, resetNewChat, settleAlias, stopChat, LATE_REFETCH_MS, NEW_KEY } = await import('./chatStreams');
 
 const calls = () => h.calls as Call[];
 
@@ -109,6 +110,84 @@ describe('chat streams: each conversation owns its stream state', () => {
     calls()[0]!.end();
     await p;
     expect(chatEntry('C9').streaming).toBe(false);
+  });
+});
+
+describe('a first question that fails is never a dead end (2026-11-12)', () => {
+  function askNew(question: string, scopes: readonly AssistantScope[], model: string | null = null) {
+    return askInChat({ conversationId: null, question, scopes, model, lang: 'en', qc: new QueryClient(), codeOf: errorCodeOf });
+  }
+
+  it('New chat forgets a first question refused before the stream: the start screen comes back', async () => {
+    const p = askNew('First?', ['cafe']);
+    calls()[0]!.fail(new EdgeError(429, 'RATE_LIMITED', 'cap', 'LLM_MONTHLY_CAP'));
+    await p;
+    expect(chatEntry(NEW_KEY).live!.error!.code).toBe('LLM_MONTHLY_CAP');
+    resetNewChat();
+    // Thread's isNew is `conversationId === null && live === null`.
+    expect(chatEntry(NEW_KEY).live).toBeNull();
+    expect(chatEntry(NEW_KEY).streaming).toBe(false);
+  });
+
+  it('New chat while a first question runs moves it aside: it keeps streaming and lands on its own chat', async () => {
+    const qc = new QueryClient();
+    const followed: string[] = [];
+    const unfollow = followChat(keyOf(null), (id) => followed.push(id));
+    const p = askInChat({ conversationId: null, question: 'Long one?', scopes: ['cafe'], lang: 'en', qc, codeOf: errorCodeOf });
+    resetNewChat();
+    expect(chatEntry(NEW_KEY).live).toBeNull();
+    // The new chat's composer is free: a second first question can be asked at once.
+    const second = askNew('Another?', ['courts']);
+    expect(calls()).toHaveLength(2);
+    calls()[0]!.opts.onEvent('message_start', { conversation_id: 'C1', user_message_id: 'u', assistant_message_id: 'a' });
+    calls()[0]!.opts.onEvent('delta', { text: 'Still going' });
+    // The moved question did not drag the new chat's view along, and reads on its own chat.
+    expect(followed).toEqual([]);
+    expect(chatEntry('C1').live!.text).toBe('Still going');
+    expect(chatEntry(NEW_KEY).live!.userText).toBe('Another?');
+    // Stop on its chat still stops it.
+    stopChat('C1');
+    await p;
+    expect(chatEntry('C1').live!.stopped).toBe(true);
+    calls()[1]!.opts.onEvent('done', {});
+    calls()[1]!.end();
+    await second;
+    unfollow();
+  });
+
+  it('a moved-aside question refused before it named a chat is forgotten (nobody can see it)', async () => {
+    const p = askNew('Refused?', ['cafe']);
+    resetNewChat();
+    calls()[0]!.fail(new EdgeError(503, 'NOT_CONFIGURED', 'no key'));
+    await p;
+    expect(chatEntry(NEW_KEY).live).toBeNull();
+  });
+
+  it('keeps the scopes and model the first question was asked with, so Ask again re-asks exactly that', async () => {
+    const p = askNew('Sales?', ['cafe', 'money'], 'claude-sonnet-5-5');
+    calls()[0]!.fail(new TypeError('Failed to fetch'));
+    await p;
+    const entry = chatEntry(NEW_KEY);
+    expect(entry.lastScopes).toEqual(['cafe', 'money']);
+    expect(retryOptions(entry)).toEqual({ scopes: ['cafe', 'money'], model: 'claude-sonnet-5-5' });
+    // The drawer was closed and reopened: its checked set is empty again. Asking with it sends nothing…
+    expect(await askNew('Sales?', [])).toBe(false);
+    // …but Ask again uses the question's own set and model.
+    const retry = retryOptions(entry);
+    const again = askNew('Sales?', retry.scopes!, retry.model ?? null);
+    expect(calls()).toHaveLength(2);
+    expect(calls()[1]!.body).toMatchObject({ conversation_id: null, text: 'Sales?', scopes: ['cafe', 'money'], model: 'claude-sonnet-5-5' });
+    calls()[1]!.opts.onEvent('done', {});
+    calls()[1]!.end();
+    expect(await again).toBe(true);
+  });
+
+  it('an existing chat keeps no scopes of its own (its row has them)', async () => {
+    const p = ask('A', 'Q?');
+    calls()[0]!.end();
+    await p;
+    expect(chatEntry('A').lastScopes).toBeNull();
+    expect(retryOptions(chatEntry('A'))).toEqual({});
   });
 });
 

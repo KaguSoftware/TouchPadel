@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { emptyTurn, type LiveTurn } from '@touch/core/assistant/client';
 import type { MessageRow } from '../chat';
-import { NO_END, endingErrorKey, liveEnding, mergeThread, retryTextFor, storedEnding } from '../thread';
+import { NO_END, canAskAgain, endingAllowsRetry, endingErrorKey, liveEnding, mergeThread, retryTextFor, storedEnding } from '../thread';
 
 const row = (id: string, role: 'user' | 'assistant', text: string, extra: Partial<MessageRow> = {}): MessageRow => ({
   id,
@@ -121,5 +121,57 @@ describe('endingErrorKey', () => {
     expect(endingErrorKey('INTERNAL')).toBe('UNKNOWN');
     expect(endingErrorKey('TIMEOUT')).toBe('TIMEOUT');
     expect(endingErrorKey('CONNECTION')).toBe('CONNECTION');
+  });
+});
+
+describe('mergeThread: a turn whose connection dropped before message_start but was stored', () => {
+  const earlier = [row('u0', 'user', 'Hi'), row('a0', 'assistant', 'Hello')];
+  const knownIds = ['u0', 'a0'];
+
+  it('retires the live turn when its question and answer are both stored (no second question, no Ask again)', () => {
+    const stored = [...earlier, row('u1', 'user', 'How much?'), row('a1', 'assistant', 'A lot')];
+    const m = mergeThread(stored, { ...live({ done: true, error: { code: 'UNKNOWN', message: '' } }), knownIds });
+    expect(m).toEqual({ rows: stored, showLive: false });
+  });
+
+  it('drops the stored question and keeps the live turn when only the question is stored', () => {
+    const stored = [...earlier, row('u1', 'user', 'How much?')];
+    const m = mergeThread(stored, { ...live({ done: true, error: { code: 'UNKNOWN', message: '' } }), knownIds });
+    expect(m.showLive).toBe(true);
+    expect(m.rows.map((r) => r.id)).toEqual(['u0', 'a0']);
+  });
+
+  it('does not mistake an earlier identical question for the live one', () => {
+    const stored = [row('u0', 'user', 'How much?'), row('a0', 'assistant', 'Old answer')];
+    const m = mergeThread(stored, { ...live({ done: true, error: { code: 'AUTH_REQUIRED', message: '' } }), knownIds });
+    expect(m).toEqual({ rows: stored, showLive: true });
+  });
+
+  it('finds the new copy among rows that repeat the words', () => {
+    const stored = [row('u0', 'user', 'How much?'), row('a0', 'assistant', 'Old'), row('u1', 'user', 'How much?'), row('a1', 'assistant', 'New')];
+    const m = mergeThread(stored, { ...live({ done: true }), knownIds });
+    expect(m).toEqual({ rows: stored, showLive: false });
+  });
+});
+
+describe('canAskAgain', () => {
+  it.each(['AUTH_REQUIRED', 'FORBIDDEN', 'NOT_CONFIGURED', 'LLM_DAILY_QUOTA', 'LLM_MONTHLY_CAP', 'ASSISTANT_MODEL_NOT_PRICED', 'INVALID_REQUEST'] as const)(
+    'refuses %s',
+    (code) => expect(canAskAgain(code)).toBe(false),
+  );
+  it.each(['UPSTREAM', 'TIMEOUT', 'RATE_LIMITED', 'NOT_SAVED', 'UNKNOWN', 'CONNECTION'] as const)('offers %s', (code) =>
+    expect(canAskAgain(code)).toBe(true),
+  );
+  it('gates a stored failure and a live ending', () => {
+    const failed = (code: string) => [
+      row('u', 'user', 'Q'),
+      row('a', 'assistant', '', { tokens: { stop_reason: 'error', error_code: code } }),
+    ];
+    expect(retryTextFor(failed('UPSTREAM'), 1)).toBe('Q');
+    expect(retryTextFor(failed('LLM_MONTHLY_CAP'), 1)).toBeNull();
+    expect(endingAllowsRetry({ kind: 'connection' })).toBe(true);
+    expect(endingAllowsRetry({ kind: 'error', code: 'FORBIDDEN' })).toBe(false);
+    expect(endingAllowsRetry({ kind: 'ok' })).toBe(false);
+    expect(endingAllowsRetry(null)).toBe(false);
   });
 });

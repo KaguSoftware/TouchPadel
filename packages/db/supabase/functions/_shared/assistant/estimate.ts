@@ -13,8 +13,9 @@
  * `tokens` / `tokens_high` stay the sums, so older readers and the
  * over-estimate pause (token totals, model-blind) are unchanged.
  *
- * Pure: imports only the catalog.
+ * Pure: imports only the catalog and pool.ts's clock constants.
  */
+import { JOB_WALL_MS, liveChunkCapacity } from './pool.ts';
 import { TOKENS_PER_ROW_FALLBACK, type ToolSpec } from './tools.ts';
 
 /** Fixed prompt around one chunk's rows (system + extraction instruction). */
@@ -27,8 +28,6 @@ export const REDUCE_PROMPT_TOKENS = 800;
 export const REDUCE_OUTPUT_TOKENS = 1500;
 /** One aggregate tool call read by the model, prompt and answer (the "aggregate first" way). */
 export const AGGREGATE_CALL_TOKENS = 2000;
-/** Live jobs must finish inside the edge function's wall clock (§4.3): at most this many chunks. */
-export const LIVE_MAX_CHUNKS = 40;
 /**
  * The model every chunk extraction runs on, live and batch (owner rule
  * 0307/0312: only claude-opus-5-5 and claude-sonnet-5-5). The reduce step is
@@ -37,6 +36,13 @@ export const LIVE_MAX_CHUNKS = 40;
 export const JOB_EXTRACT_MODEL = 'claude-sonnet-5-5';
 /** Live chunks in flight at once (assistant-job runLive, _shared/assistant/pool.ts). */
 export const JOB_LIVE_CONCURRENCY = 4;
+/**
+ * Live jobs must finish inside the edge function's wall clock (§4.3): at most
+ * this many chunks, the count the runner's own clock is sure to finish
+ * (pool.ts liveChunkCapacity, 8 today). It was a flat 40, five times what the
+ * 23 s launch window holds, so a big live job ended in TIMEOUT (review 2026-11-11).
+ */
+export const LIVE_MAX_CHUNKS = liveChunkCapacity(JOB_WALL_MS, JOB_LIVE_CONCURRENCY);
 /** The range shown on the card: the multiplication, and the same +15 %. */
 export const HIGH_BAND = 1.15;
 /** Rows per chunk when a list tool has no `chunk_rows` in the catalog. */
@@ -89,6 +95,25 @@ export interface JobEstimate {
   };
   assumptions: string[];
   first_chunk_exact: number | null;
+  /**
+   * 0423: the token total a resumed job pauses at (the owner agreed to the rest
+   * when they pressed Continue); absent until the first resume, when the
+   * ceiling is `tokens.total` × OVER_ESTIMATE_FACTOR (ceilingTokens).
+   */
+  ceiling_tokens?: number;
+  /** 0423: one entry per resume, what the owner saw when they pressed. */
+  resumes?: ResumeRecord[];
+}
+
+/** What a resume recorded on the estimate (assistant-job resumeJob). */
+export interface ResumeRecord {
+  at: string;
+  mode: 'live' | 'batch';
+  chunks_left: number;
+  spent_tokens: number;
+  spent_micros: number;
+  rest_micros_high: number;
+  ceiling_tokens: number;
 }
 
 export type EstimateBody = Omit<JobEstimate, 'job_id' | 'first_chunk_exact'>;
@@ -136,8 +161,13 @@ export function estimateJob(plan: JobPlan, counts: readonly number[], catalog: r
   }
 
   // §6.2, split by step: every chunk is an extraction call, the reduce one call.
+  // The chunk prompt is billed once per chunk, as input. It used to be counted
+  // again as cache reads for every chunk after the first, so the total ran
+  // (chunks - 1) x CHUNK_PROMPT_TOKENS high (review 2026-11-11); nor is it read
+  // from cache: the part chunks share (buildJobSystem, the question) is under
+  // the vendor's minimum cacheable prefix, and the rest differs per chunk.
   const exInput = chunks * CHUNK_PROMPT_TOKENS + rowTokens;
-  const exCacheRead = Math.max(0, chunks - 1) * CHUNK_PROMPT_TOKENS;
+  const exCacheRead = 0;
   const exOutput = chunks * CHUNK_OUTPUT_TOKENS;
   const extract: TokenBreakdown = { input: exInput, cache_read: exCacheRead, output: exOutput, total: exInput + exCacheRead + exOutput };
   const rdInput = chunks > 0 ? chunks * CHUNK_OUTPUT_TOKENS + REDUCE_PROMPT_TOKENS : 0;
@@ -147,7 +177,7 @@ export function estimateJob(plan: JobPlan, counts: readonly number[], catalog: r
 
   assumptions.push(
     `chunk prompt ${CHUNK_PROMPT_TOKENS} tokens, chunk output ${CHUNK_OUTPUT_TOKENS}, reduce prompt ${REDUCE_PROMPT_TOKENS}, reduce output ${REDUCE_OUTPUT_TOKENS}`,
-    `the prompt prefix is cached after the first chunk`,
+    `no cache reads: each chunk's prompt is billed as input`,
     `each chunk is read by ${JOB_EXTRACT_MODEL}; the final answer is written by the chat's model`,
     `high band is +${Math.round((HIGH_BAND - 1) * 100)} %`,
   );
@@ -198,6 +228,63 @@ export function extractCallTokens(estimate: Pick<JobEstimate, 'chunks' | 'tokens
 /** Actual spend may exceed the accepted estimate by this factor before the job pauses (§6.4). */
 export const OVER_ESTIMATE_FACTOR = 1.25;
 
-export function isOverEstimate(actualTotal: number, estimate: { tokens: TokenBreakdown }): boolean {
-  return actualTotal > estimate.tokens.total * OVER_ESTIMATE_FACTOR;
+/** The token total a running job pauses past: a resume's own ceiling, else the accepted estimate × 1.25. */
+export function ceilingTokens(estimate: { tokens: TokenBreakdown; ceiling_tokens?: number | null }): number {
+  const c = Number(estimate.ceiling_tokens);
+  return estimate.ceiling_tokens != null && Number.isFinite(c) && c > 0 ? c : estimate.tokens.total * OVER_ESTIMATE_FACTOR;
+}
+
+export function isOverEstimate(actualTotal: number, estimate: { tokens: TokenBreakdown; ceiling_tokens?: number | null }): boolean {
+  return actualTotal > ceilingTokens(estimate);
+}
+
+/**
+ * What the unread part of a paused job is expected to cost (0423): the chunks
+ * left at the dearer of the estimate's per-chunk extraction and what the
+ * finished chunks actually used (a job pauses over its estimate because its
+ * rows ran longer than measured, so the estimate alone would pause it again at
+ * once), plus the reduce, which runs once over every chunk's object. The high
+ * band is the card's +15 %. Pure, so the card's figures and the server's cap
+ * check come from the one stored object (result.pause.rest).
+ */
+export interface RestEstimate {
+  chunks: number;
+  extract: TokenBreakdown;
+  extract_high: TokenBreakdown;
+  reduce: TokenBreakdown;
+  reduce_high: TokenBreakdown;
+}
+
+export function restEstimate(
+  estimate: Pick<JobEstimate, 'chunks' | 'tokens' | 'by_step'>,
+  chunksLeft: number,
+  done: { chunks: number; used: { input: number; cache_write?: number; cache_read: number; output: number } | null },
+): RestEstimate {
+  const total = Math.max(1, Math.floor(estimate.chunks) || 1);
+  const left = Math.max(0, Math.floor(chunksLeft));
+  const ex = estimate.by_step?.extract.tokens ?? estimate.tokens;
+  const est = { input: ex.input / total, cache_read: ex.cache_read / total, output: ex.output / total };
+  const n = Math.max(0, Math.floor(done.chunks));
+  const u = done.used;
+  const seen = n > 0 && u
+    ? { input: (Math.max(0, u.input) + Math.max(0, u.cache_write ?? 0)) / n, cache_read: Math.max(0, u.cache_read) / n, output: Math.max(0, u.output) / n }
+    : { input: 0, cache_read: 0, output: 0 };
+  const per = { input: Math.max(est.input, seen.input), cache_read: Math.max(est.cache_read, seen.cache_read), output: Math.max(est.output, seen.output) };
+  const input = Math.ceil(per.input * left);
+  const cache_read = Math.ceil(per.cache_read * left);
+  const output = Math.ceil(per.output * left);
+  const extract: TokenBreakdown = { input, cache_read, output, total: input + cache_read + output };
+  const rd = estimate.by_step?.reduce.tokens ?? {
+    input: total * CHUNK_OUTPUT_TOKENS + REDUCE_PROMPT_TOKENS,
+    cache_read: 0,
+    output: REDUCE_OUTPUT_TOKENS,
+    total: total * CHUNK_OUTPUT_TOKENS + REDUCE_PROMPT_TOKENS + REDUCE_OUTPUT_TOKENS,
+  };
+  const reduce: TokenBreakdown = { input: rd.input, cache_read: rd.cache_read, output: rd.output, total: rd.input + rd.cache_read + rd.output };
+  return { chunks: left, extract, extract_high: band(extract), reduce, reduce_high: band(reduce) };
+}
+
+/** The ceiling a resume sets: what is spent plus the rest's high band, with the same 25 % room. */
+export function resumeCeiling(spentTokens: number, rest: Pick<RestEstimate, 'extract_high' | 'reduce_high'>): number {
+  return Math.ceil(Math.max(0, spentTokens) + (rest.extract_high.total + rest.reduce_high.total) * OVER_ESTIMATE_FACTOR);
 }

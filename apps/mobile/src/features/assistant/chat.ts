@@ -138,11 +138,14 @@ export function normaliseScopes(scopes: Iterable<string>): AssistantScope[] {
   return ASSISTANT_SCOPES.filter((s) => set.has(s));
 }
 
-/** `scopes` with `scope` flipped. Never empties the set: a chat with nothing on can read nothing. */
-export function toggleScope(scopes: readonly string[], scope: AssistantScope): AssistantScope[] {
+/**
+ * `scopes` with `scope` flipped. A stored chat is never emptied (the server would put Help back);
+ * a NEW chat may be, like the desktop's (`allowEmpty`): it reads nothing until the owner picks.
+ */
+export function toggleScope(scopes: readonly string[], scope: AssistantScope, allowEmpty = false): AssistantScope[] {
   const on = scopes.includes(scope);
   const next = on ? scopes.filter((s) => s !== scope) : [...scopes, scope];
-  return normaliseScopes(next.length === 0 ? ['howto'] : next);
+  return normaliseScopes(next.length === 0 && !allowEmpty ? ['howto'] : next);
 }
 
 /** The tool error the edge function writes: `Scope "cafe" is off for this chat`. */

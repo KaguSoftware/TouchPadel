@@ -72,6 +72,21 @@ export const monitoringEn = {
     filteredBody: 'Try another period, app or level.',
     older: 'Show older events',
   },
+  // The Assistant table (0420-0422): one row per complete week, newest first.
+  assistant: {
+    title: 'Assistant',
+    week: 'Week',
+    weekRange: '{from} to {to}',
+    questions: 'Questions',
+    failed: 'Failed',
+    notSaved: 'Not saved',
+    marked: 'Marked answers',
+    thumbsDown: 'Thumbs down',
+    thumbsOf: '{n} of {rated}',
+    median: 'Median seconds',
+    costPerQuestion: 'Cost per question',
+    empty: 'No assistant questions in the last 12 weeks.',
+  },
   detail: {
     title: 'Event #{id}',
     when: 'When',

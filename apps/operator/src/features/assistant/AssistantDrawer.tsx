@@ -26,7 +26,9 @@ import { useOwnsScreen } from '../../lib/screenOwner';
 import { Thread } from './Thread';
 import { FreeThread } from './FreeThread';
 import { useAssistantMode } from './useAssistantMode';
-import { resetChatStreams } from './chatStreams';
+import { resetChatStreams, resetNewChat } from './chatStreams';
+import { FreeChatList } from './FreeChatList';
+import { useFreeChats } from './freeChats';
 import { NEW_CHAT_SCOPES, loadSessionConversation, saveSessionConversation } from './scopes';
 
 interface DrawerContextValue {
@@ -119,8 +121,20 @@ function DrawerSheet({ open, onClose, onExited }: { open: boolean; onClose: () =
   const pick = (id: string | null) => {
     setConversationId(id);
     saveSessionConversation(id);
-    if (id === null) setNewScopes([...NEW_CHAT_SCOPES]);
+    if (id === null) {
+      setNewScopes([...NEW_CHAT_SCOPES]);
+      // New chat is the start screen, even after a first question that failed (chatStreams.resetNewChat).
+      resetNewChat();
+    }
   };
+
+  // The free AI's saved chats (freeChats.ts, this person's, on this computer):
+  // the drawer is where staff meet the free AI, so they open and delete them
+  // here too, not only on the owner's /assistant page (2026-11-12).
+  const { staff } = useAuth();
+  const free = useFreeChats(staff?.id ?? '');
+  const [freeChatsOpen, setFreeChatsOpen] = useState(false);
+  const freeChatsLabel = tr('ws.assistantFree.chats.open');
 
   // The exit animation. `open` has already flipped false by the time we see
   // it here — AssistantDrawer holds us mounted for exactly this long — so the
@@ -221,6 +235,20 @@ function DrawerSheet({ open, onClose, onExited }: { open: boolean; onClose: () =
           <Icon name="spark" size={18} />
           <h2 style={{ fontSize: 'var(--tp-fs-lg)', fontWeight: 700, margin: 0, flex: 1 }}>{tr('ws.owner.assistant.title')}</h2>
           {paid && <Button size="sm" kind="ghost" icon="plus" onClick={() => pick(null)} title={tr('ws.owner.assistant.newChat')} aria-label={tr('ws.owner.assistant.newChat')} />}
+          {!paid && (
+            <Button
+              size="sm"
+              kind={freeChatsOpen ? 'soft' : 'ghost'}
+              icon={freeChatsOpen ? 'panelClose' : 'panelOpen'}
+              onClick={() => setFreeChatsOpen((o) => !o)}
+              aria-pressed={freeChatsOpen}
+              title={tr(freeChatsOpen ? 'ws.assistantFree.chats.hide' : 'ws.assistantFree.chats.show')}
+              data-testid="assistant.free.chats"
+            >
+              {freeChatsLabel}
+              {free.chats.length > 0 && <span style={{ color: 'var(--tp-muted-fg)', fontWeight: 400 }}>{`⁨${free.chats.length}⁩`}</span>}
+            </Button>
+          )}
           {/* The full page is the owner's; FreeThread carries its own "New chat". */}
           {canUsePaid && (
             <Link
@@ -239,6 +267,35 @@ function DrawerSheet({ open, onClose, onExited }: { open: boolean; onClose: () =
         <div style={{ flex: 1, minBlockSize: 0 }}>
           {paid ? (
             <Thread conversationId={conversationId} onConversation={(id) => pick(id)} newScopes={newScopes} onNewScopesChange={setNewScopes} compact autoFocus onNavigate={onClose} />
+          ) : freeChatsOpen ? (
+            // The list in place of the thread (not a dialog over it): pick one to go back to it, or start a new one.
+            <div data-free-chats-panel="" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--tp-sp-2)', blockSize: '100%', minBlockSize: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-2)' }}>
+                <h3 style={{ margin: 0, flex: 1, fontSize: 'var(--tp-fs-md)', fontWeight: 700 }}>{tr('ws.assistantFree.chats.title')}</h3>
+                <Button
+                  kind="primary"
+                  size="sm"
+                  icon="plus"
+                  className="tp-assistant-green tp-assistant-new"
+                  onClick={() => {
+                    free.startNew();
+                    setFreeChatsOpen(false);
+                  }}
+                  data-testid="assistant.free.chats.new"
+                >
+                  {tr('ws.assistantFree.newChat')}
+                </Button>
+              </div>
+              <FreeChatList
+                chats={free.chats}
+                activeId={free.activeId}
+                onSelect={(id) => {
+                  free.select(id);
+                  setFreeChatsOpen(false);
+                }}
+                onDelete={free.remove}
+              />
+            </div>
           ) : (
             <FreeThread compact autoFocus onNavigate={onClose} />
           )}

@@ -743,8 +743,13 @@ export const ERROR_CODE_KEYS = {
   ASSISTANT_UNKNOWN_TOOL: 'ws.owner.assistant.message.errors.UNKNOWN',
   ASSISTANT_MODEL_NOT_PRICED: 'ws.owner.assistant.model.notPriced',
   ASSISTANT_UNKNOWN_SCOPE: 'op.errors.ASSISTANT_UNKNOWN_SCOPE',
+  // 0422: rating an answer (assistant_rate_message).
+  ASSISTANT_MESSAGE_NOT_FOUND: 'op.errors.ASSISTANT_MESSAGE_NOT_FOUND',
+  ASSISTANT_NOT_RATEABLE: 'op.errors.ASSISTANT_NOT_RATEABLE',
   CONVERSATION_NOT_FOUND: 'op.errors.CONVERSATION_NOT_FOUND',
   JOB_NOT_FOUND: 'op.errors.JOB_NOT_FOUND',
+  // 0423: assistant-job resume refuses when the rows moved under a paused job.
+  JOB_DATA_CHANGED: 'op.errors.JOB_DATA_CHANGED',
   COMPONENT_NOT_FOUND: 'op.errors.COMPONENT_NOT_FOUND',
   COMPONENT_BUILTIN: 'op.errors.COMPONENT_BUILTIN',
   COMPONENT_KEY_TAKEN: 'op.errors.COMPONENT_KEY_TAKEN',

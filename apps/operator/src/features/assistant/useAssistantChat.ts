@@ -19,7 +19,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import type { AssistantScope } from '@touch/core/assistant/tools';
 import { asAssistantErrorCode, type DateRange } from '@touch/core/assistant/client';
 import { EdgeError } from '../../lib/edge';
-import { askInChat, chatEntry, followChat, keyOf, settleAlias, stopChat, subscribeChats } from './chatStreams';
+import { askInChat, chatEntry, followChat, keyOf, settleAlias, stopChat, subscribeChats, type ChatEntry } from './chatStreams';
 import type { ChatErrorCode, ChatTurn } from './threadLogic';
 
 export interface UseAssistantChatOptions {
@@ -39,12 +39,20 @@ export interface UseAssistantChat {
   /** This conversation is answering; another chat's stream never sets it. */
   streaming: boolean;
   lastQuestion: string | null;
+  /** The checked set this chat's last question was asked with, when it was a new chat's first. */
+  lastScopes: readonly AssistantScope[] | null;
   /**
    * Ask a question. `scopes` replaces the checked set for a NEW chat (a
    * starter question carries its own); an existing chat keeps its row's. A new
    * chat with nothing checked sends nothing: the owner picks first.
    */
-  ask: (text: string, opts?: { scopes?: readonly AssistantScope[] }) => Promise<void>;
+  ask: (text: string, opts?: { scopes?: readonly AssistantScope[]; model?: string | null }) => Promise<void>;
+  /**
+   * "Ask again" on the live turn: the same question with the scopes and model
+   * it was asked with (retryOptions), so a failed first question re-asks even
+   * after the drawer forgot its checked set.
+   */
+  askAgain: (text: string) => Promise<void>;
   stop: () => void;
 }
 
@@ -62,6 +70,11 @@ export function errorCodeOf(err: unknown): ChatErrorCode {
   }
   if (err instanceof TypeError) return 'CONNECTION';
   return 'UNKNOWN';
+}
+
+/** What "Ask again" re-sends with: the entry's own scopes and model, when its question was a new chat's. */
+export function retryOptions(entry: Pick<ChatEntry, 'lastScopes' | 'lastModel'>): { scopes?: readonly AssistantScope[]; model?: string | null } {
+  return entry.lastScopes && entry.lastScopes.length > 0 ? { scopes: entry.lastScopes, model: entry.lastModel } : {};
 }
 
 export function useAssistantChat(opts: UseAssistantChatOptions): UseAssistantChat {
@@ -82,13 +95,13 @@ export function useAssistantChat(opts: UseAssistantChatOptions): UseAssistantCha
   const stop = useCallback(() => stopChat(keyOf(optsRef.current.conversationId)), []);
 
   const ask = useCallback(
-    async (text: string, askOpts?: { scopes?: readonly AssistantScope[] }) => {
+    async (text: string, askOpts?: { scopes?: readonly AssistantScope[]; model?: string | null }) => {
       const { conversationId, range, model, lang } = optsRef.current;
       await askInChat({
         conversationId,
         question: text.trim(),
         scopes: askOpts?.scopes ?? optsRef.current.scopes,
-        model,
+        model: askOpts && 'model' in askOpts ? askOpts.model : model,
         range,
         lang,
         qc,
@@ -98,5 +111,7 @@ export function useAssistantChat(opts: UseAssistantChatOptions): UseAssistantCha
     [qc],
   );
 
-  return { live: entry.live, streaming: entry.streaming, lastQuestion: entry.lastQuestion, ask, stop };
+  const askAgain = useCallback((text: string) => ask(text, retryOptions(chatEntry(keyOf(optsRef.current.conversationId)))), [ask]);
+
+  return { live: entry.live, streaming: entry.streaming, lastQuestion: entry.lastQuestion, lastScopes: entry.lastScopes, ask, askAgain, stop };
 }

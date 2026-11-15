@@ -30,6 +30,7 @@ import { Thread } from './Thread';
 import { FreeThread } from './FreeThread';
 import { useAssistantMode } from './useAssistantMode';
 import { NEW_CHAT_SCOPES, saveSessionConversation } from './scopes';
+import { resetNewChat } from './chatStreams';
 
 export function AssistantPageScreen() {
   const { tr } = useLocale();
@@ -53,6 +54,8 @@ export function AssistantPageScreen() {
     if (next) void navigate({ to: '/assistant/$id', params: { id: next } as never });
     else {
       setNewScopes([...NEW_CHAT_SCOPES]);
+      // New chat is the start screen, even after a first question that failed (chatStreams.resetNewChat).
+      resetNewChat();
       void navigate({ to: '/assistant' });
     }
   };

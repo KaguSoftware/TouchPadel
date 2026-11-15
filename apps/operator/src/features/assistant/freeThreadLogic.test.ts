@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { FREE_HISTORY_MAX } from '@touch/core/assistant/free';
+import { catalogs } from '@touch/i18n';
 import { EdgeError } from '../../lib/edge';
 import {
   FREE_THREAD_SESSION_KEY,
@@ -84,6 +85,28 @@ describe('errors', () => {
     expect(canRetry({ kind: 'notConfigured' })).toBe(false);
     expect(canRetry({ kind: 'club' })).toBe(true);
     expect(canRetry({ kind: 'generic' })).toBe(true);
+  });
+
+  // 2026-11-12: an ended session or a refused account is not "check the connection".
+  it('an ended session and a refused account have their own sentences, and no retry', () => {
+    expect(freeErrorOf(new EdgeError(401, 'AUTH_REQUIRED', 'x'))).toEqual({ kind: 'auth' });
+    expect(freeErrorOf(new EdgeError(403, 'FORBIDDEN', 'x', 'FORBIDDEN'))).toEqual({ kind: 'forbidden' });
+    expect(freeErrorFromEvent({ code: 'AUTH_REQUIRED' })).toEqual({ kind: 'auth' });
+    expect(freeErrorFromEvent({ code: 'FORBIDDEN' })).toEqual({ kind: 'forbidden' });
+    expect(freeErrorMessage({ kind: 'auth' })).toEqual({ key: 'auth' });
+    expect(canRetry({ kind: 'auth' })).toBe(false);
+    expect(canRetry({ kind: 'forbidden' })).toBe(false);
+  });
+
+  it('staff are told to tell the owner when the free AI has no key; the owner is told which key', () => {
+    expect(freeErrorMessage({ kind: 'notConfigured' })).toEqual({ key: 'notConfigured' });
+    expect(freeErrorMessage({ kind: 'notConfigured' }, { owner: true })).toEqual({ key: 'notConfiguredOwner' });
+    expect(catalogs.en.ws.assistantFree.errors.notConfigured).not.toMatch(/GROQ/);
+    expect(catalogs.ar.ws.assistantFree.errors.notConfigured).not.toMatch(/GROQ/);
+    for (const key of ['auth', 'forbidden', 'notConfiguredOwner'] as const) {
+      expect(typeof catalogs.en.ws.assistantFree.errors[key]).toBe('string');
+      expect(typeof catalogs.ar.ws.assistantFree.errors[key]).toBe('string');
+    }
   });
 });
 
