@@ -17,6 +17,14 @@ is a line in that file.
 
 ## Migrations
 
+- **0431 (2026-11-15, match_guest_lock; audit finding 27):** while matches are paid at the desk
+  (0370), `ticket_pick` locked no ticket rows, so two joins by one guest at two branches at once
+  both passed the cross-branch clash check (R41). The internal `app.lock_match_guest(p_guest)`
+  (advisory key `app.matches:guest:<id>`) is taken in `ticket_pick`'s two pay-at-desk branches
+  only. It is a LEAF in `scripts/lib/lock-order.mjs` (`LEAF_ADVISORY`, not ranked): in that mode
+  these flows lock no `match_tickets` rows and the holder takes only its own branch's keys, which
+  it already holds. **0431 holds `ticket_pick`** (0370 no longer).
+  `tests/match-guest-lock-0431.test.ts` (two sessions).
 - **0430 (2026-11-15, audit_fixes; Majed: fix the audit's findings 4, 7 and 11):** the internal
   `app.loyalty_picked_deal_on(p_profile, p_tab)` is `loyalty_picked_deal` minus a pick already
   redeemed on ANOTHER open or awaiting-payment bill of the member (one pick, one use, even with a

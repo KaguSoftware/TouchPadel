@@ -2893,6 +2893,7 @@ export type Database = {
         Returns: undefined
       }
       lock_main_cash: { Args: { p_venue: string }; Returns: undefined }
+      lock_match_guest: { Args: { p_guest: string }; Returns: undefined }
       lock_match_money: { Args: { p_match_id: string }; Returns: undefined }
       lock_match_venue: { Args: { p_venue: string }; Returns: undefined }
       lock_principal: {

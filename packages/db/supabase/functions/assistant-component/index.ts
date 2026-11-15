@@ -440,15 +440,26 @@ interface Generated {
   ms: number;
 }
 
-async function generate(provider: Provider, component: ComponentRow, params: Params, runs: readonly ToolRun[], rejections: readonly string[], signal: AbortSignal): Promise<Generated> {
+/**
+ * What the model calls of one fill cost, owned by the CALLER: a call that
+ * ends in a throw (a refusal, an answer cut off at max_tokens with no JSON,
+ * a retry that fails) has been paid for and is recorded all the same (audit
+ * finding 25: it used to vanish with generate's own counter, so the monthly
+ * cap never saw it).
+ */
+interface Meter {
+  usage: ProviderUsage;
+  calls: number;
+}
+
+async function generate(provider: Provider, component: ComponentRow, params: Params, runs: readonly ToolRun[], rejections: readonly string[], signal: AbortSignal, meter: Meter): Promise<Generated> {
   const system = buildSystem(params.lang);
   const allowed = runs.flatMap((r) => [...r.cleaned.numbers]);
   const messages: ProviderMessage[] = [
     { role: 'user', content: [...runs.map((r) => cleanedText(r.cleaned)), { type: 'text', text: questionTurn(component, params, rejections) }] },
   ];
-  const usage: ProviderUsage = { input: 0, cache_write: 0, cache_read: 0, output: 0 };
+  const usage = meter.usage;
   let ms = 0;
-  let calls = 0;
   const add = (u: ProviderUsage) => {
     usage.input += u.input;
     usage.cache_write += u.cache_write;
@@ -458,7 +469,7 @@ async function generate(provider: Provider, component: ComponentRow, params: Par
 
   const once = async (): Promise<{ raw: string; content: Record<string, unknown> }> => {
     const turn = await provider.generate({ system, messages, maxTokens: MAX_TOKENS, effort: 'medium', schema: component.output_schema, signal });
-    calls += 1;
+    meter.calls += 1;
     ms += turn.ms;
     add(turn.usage);
     if (turn.stop_reason === 'refusal') throw new ProviderError('UPSTREAM', 'the model declined this request');
@@ -483,7 +494,7 @@ async function generate(provider: Provider, component: ComponentRow, params: Par
     ({ raw, content } = await once());
     gate = gateAnswer(leavesText(content), allowed, []);
   }
-  return { content: normaliseContent(component, content), gate: { ...gate, retried }, usage, calls, ms };
+  return { content: normaliseContent(component, content), gate: { ...gate, retried }, usage, calls: meter.calls, ms };
 }
 
 // ---------------------------------------------------------------------------
@@ -548,29 +559,39 @@ async function fill(ctx: Ctx, component: ComponentRow, params: Params, force: bo
   }
 
   const rejections = component.key.endsWith('_findings') ? await ctx.reader.rejections() : [];
+  const meter: Meter = { usage: { input: 0, cache_write: 0, cache_read: 0, output: 0 }, calls: 0 };
+  const provider = ctx.provider;
+  // Record usage once (priced by the database), whether the fill succeeds or not.
+  const record = async (): Promise<number> => {
+    if (meter.calls === 0) return 0;
+    const rec = await ctx.service.schema('app').rpc('llm_record_usage', {
+      p_model: provider.model,
+      p_input: meter.usage.input,
+      p_cache_write: meter.usage.cache_write,
+      p_cache_read: meter.usage.cache_read,
+      p_output: meter.usage.output,
+      p_model_calls: meter.calls,
+      p_surface: `component:${component.key}`,
+    });
+    if (rec.error) {
+      console.error(`[${ctx.log}] usage not recorded`, rec.error.message);
+      return 0;
+    }
+    return Number(rec.data ?? 0) || 0;
+  };
   let gen: Generated;
   try {
-    gen = await generate(ctx.provider, component, params, runs, rejections, ctx.signal);
+    gen = await generate(provider, component, params, runs, rejections, ctx.signal, meter);
   } catch (e) {
+    await record(); // paid calls count against the cap even when no card comes of them
     const pe = e instanceof ProviderError ? e : new ProviderError('UPSTREAM', errorText(e));
     const status = pe.code === 'NOT_CONFIGURED' ? 503 : pe.code === 'RATE_LIMITED' ? 429 : 502;
     logError(ctx.log, pe, `generate ${component.key} failed (${pe.code})`);
     return { status, body: { error: pe.code, code: pe.code, message: fillErrorText(pe.code) } };
   }
 
-  // Record usage once (priced by the database), then store the row with the cost it reported.
-  let cost_micros = 0;
-  const rec = await ctx.service.schema('app').rpc('llm_record_usage', {
-    p_model: ctx.provider.model,
-    p_input: gen.usage.input,
-    p_cache_write: gen.usage.cache_write,
-    p_cache_read: gen.usage.cache_read,
-    p_output: gen.usage.output,
-    p_model_calls: gen.calls,
-    p_surface: `component:${component.key}`,
-  });
-  if (rec.error) console.error(`[${ctx.log}] usage not recorded`, rec.error.message);
-  else cost_micros = Number(rec.data ?? 0) || 0;
+  // Then store the row with the cost the database reported.
+  const cost_micros = await record();
 
   const tokens: Tokens = { ...gen.usage, model: ctx.provider.model, cost_micros, calls: gen.calls };
   const up = await ctx.service.schema('app').rpc('assistant_component_upsert', {

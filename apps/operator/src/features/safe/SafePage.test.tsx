@@ -134,6 +134,30 @@ describe('SafePageScreen', () => {
     await waitFor(() => expect(calls.find((c) => c.fn === 'main_cash_pay')?.args).toMatchObject({ p_paid_from: 'bank', p_category: 'rent' }));
   });
 
+  it('a retry after a lost answer keeps its key, and a corrected amount gets its own (finding 26)', async () => {
+    payResult = () => {
+      throw new TypeError('Failed to fetch');
+    };
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByTestId('safe.today');
+    const amountBox = within(screen.getByTestId('safe.pay')).getAllByRole('textbox')[0]!;
+    await user.type(amountBox, '250000');
+    await user.click(screen.getByTestId('safe.pay.category.other'));
+    await user.click(screen.getByTestId('safe.pay.submit'));
+    await waitFor(() => expect(within(screen.getByTestId('safe.pay')).getByRole('alert')).toBeTruthy());
+    await user.click(screen.getByTestId('safe.pay.submit'));
+    await waitFor(() => expect(calls.filter((c) => c.fn === 'main_cash_pay')).toHaveLength(2));
+    await user.clear(amountBox);
+    await user.type(amountBox, '25000');
+    await user.click(screen.getByTestId('safe.pay.submit'));
+    await waitFor(() => expect(calls.filter((c) => c.fn === 'main_cash_pay')).toHaveLength(3));
+    const [first, retry, corrected] = calls.filter((c) => c.fn === 'main_cash_pay').map((c) => c.args);
+    expect(retry!.p_idempotency_key).toBe(first!.p_idempotency_key);
+    expect(corrected!.p_idempotency_key).not.toBe(first!.p_idempotency_key);
+    expect(corrected!.p_amount_iqd).toBe(25000);
+  });
+
   it('shows a refusal beside the form', async () => {
     payResult = () => {
       throw new AppRpcError('FORBIDDEN', 'FORBIDDEN');

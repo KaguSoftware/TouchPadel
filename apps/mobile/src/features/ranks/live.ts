@@ -50,8 +50,15 @@ const channels = createCourtsChannels({
   },
 });
 
-/** Joins the board and the guest's own topic while mounted and signed in. */
-export function useRanksLive(): void {
+/**
+ * Joins the board and the guest's own topic while signed in and `active` (the
+ * Rankings screen is in front). The tab stays mounted behind the others, and
+ * holding two private channels for the whole session, re-reading the board on
+ * every point written anywhere, spent the plan's realtime connections on
+ * screens nobody was looking at (audit finding 31; the courts channels already
+ * join only while in front). Coming back re-reads once for what was missed.
+ */
+export function useRanksLive(active = true): void {
   const queryClient = useQueryClient();
   const { session } = useAuth();
   const token = session?.access_token ?? null;
@@ -73,9 +80,12 @@ export function useRanksLive(): void {
     if (token) channels.setToken(token);
   }, [token]);
 
+  const joinedBefore = useRef(false);
   useEffect(() => {
     const current = tokenRef.current;
-    if (!userId || !current) return;
+    if (!active || !userId || !current) return;
+    if (joinedBefore.current) reread.current();
+    joinedBefore.current = true;
     const listener = { onSlot: () => reread.current(), onRecover: () => reread.current() };
     const leaveBoard = channels.join(RANKS_BOARD_TOPIC, current, listener);
     const leaveMine = channels.join(ranksPlayerTopic(userId), current, listener);
@@ -83,7 +93,7 @@ export function useRanksLive(): void {
       leaveBoard();
       leaveMine();
     };
-  }, [userId]);
+  }, [userId, active]);
 
   useEffect(
     () => () => {

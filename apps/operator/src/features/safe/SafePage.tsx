@@ -20,6 +20,7 @@
  * the balance right.
  */
 import { useId, useRef, useState, type FormEvent, type ReactNode } from 'react';
+import { keyForValues } from '../wages/wagesLogic';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { countPhrase, formatDate, formatIQD, formatTime, isolate, type MessageKey } from '@touch/i18n';
@@ -251,17 +252,20 @@ function PayForm({ ov }: { ov: SafeOverview }) {
   const ids = useId();
   const amountBox = useRef<HTMLDivElement>(null);
   const [draft, setDraft] = useState<PayDraft>(EMPTY_PAY);
-  const [key, setKey] = useState(() => newKey('pay'));
+  // The key is bound to the values sent (keyForValues, F-13): a retry after a
+  // lost answer with a corrected amount is its own write, never a replay of
+  // the first one that the toast would misname (audit finding 26).
+  const keys = useRef(new Map<string, string>());
   const set = (patch: Partial<PayDraft>) => setDraft((d) => ({ ...d, ...patch }));
 
   const pay = useMutation({
-    mutationFn: () => payCost(payArgs(draft, key)),
+    mutationFn: () => payCost(payArgs(draft, keyForValues(keys.current, [draft], () => newKey('pay')))),
     onSuccess: () => {
       const amount = formatIQD(draft.amount ?? 0, locale);
       toast.ok(draft.paidFrom === 'safe' ? tr('ws.safe.pay.doneSafe', { amount }) : tr('ws.safe.pay.doneBank', { amount }));
       // Ready for the next one: the same source, a fresh key, the cursor back on the amount.
       setDraft({ ...EMPTY_PAY, paidFrom: draft.paidFrom });
-      setKey(newKey('pay'));
+      keys.current = new Map();
       void qc.invalidateQueries({ queryKey: SK.all });
       requestAnimationFrame(() => amountBox.current?.querySelector('input')?.focus());
     },
@@ -385,15 +389,15 @@ function MoveForm({ ov }: { ov: SafeOverview }) {
   const qc = useQueryClient();
   const ids = useId();
   const [draft, setDraft] = useState<MoveDraft>(EMPTY_MOVE);
-  const [key, setKey] = useState(() => newKey('move'));
+  const keys = useRef(new Map<string, string>()); // bound to the values sent, as PayForm
   const set = (patch: Partial<MoveDraft>) => setDraft((d) => ({ ...d, ...patch }));
 
   const move = useMutation({
-    mutationFn: () => moveCash(moveArgs(draft, key)),
+    mutationFn: () => moveCash(moveArgs(draft, keyForValues(keys.current, [draft], () => newKey('move')))),
     onSuccess: () => {
       toast.ok(tr('ws.safe.move.done', { amount: formatIQD(draft.amount ?? 0, locale) }));
       setDraft({ ...EMPTY_MOVE, direction: draft.direction });
-      setKey(newKey('move'));
+      keys.current = new Map();
       void qc.invalidateQueries({ queryKey: SK.all });
     },
   });

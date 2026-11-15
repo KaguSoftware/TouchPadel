@@ -750,6 +750,7 @@
     "lock_main_cash": "excluded: service_role only — the safe's lock (0343), taken by every main cash writer, never by a client",
     "lock_match_money": "excluded: service_role only — the open-match seat-money lock (0260, R19), taken by the desk and money writers, never by a client",
     "lock_match_venue": "excluded: service_role only — the open-match branch mutex (0260), taken by match bodies, the reservation trigger and the sweep, never by a client",
+    "lock_match_guest": "excluded: service_role only — one guest's open-match seats across branches (0431), taken by ticket_pick at the desk, never by a client",
     "lock_principal": "excluded: service_role only — the per-principal advisory lock a cap takes before it counts (0269), reached by hold_slot, scan_take_reading and the guest-order trigger, never by a client",
     "lock_stock_ingredients": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client",
     "lock_wage": "excluded: service_role only — the wage lock (0271), taken by the pay, attendance and deduction writers, never by a client",

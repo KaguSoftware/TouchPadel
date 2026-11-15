@@ -28,6 +28,7 @@ import { PayAtDeskCard, SummaryGrid } from '../src/components/booking';
 import { ConfirmAlert } from '../src/components/overlays';
 import { CalendarIcon, ClockIcon, StopwatchIcon, TagIcon } from '../src/components/icons';
 import { requestBookingSheet } from '../src/features/courtTransition/openIntent';
+import { serverNow } from '../src/lib/serverClock';
 
 /**
  * Review & confirm (design 2026-08-31): navy hold card with live countdown and
@@ -126,7 +127,7 @@ function ReviewScreen() {
       params: { returnTo: 'back', phone: profile.data?.phone ?? '' },
     });
   const [secondsLeft, setSecondsLeft] = useState<number | null>(() =>
-    secondsUntil(expiresAt, new Date()),
+    secondsUntil(expiresAt, serverNow()),
   );
   // Progress bar baseline: the remaining time when this screen mounted.
   const initialSeconds = useRef(Math.max(secondsLeft ?? 0, 1)).current;
@@ -145,7 +146,7 @@ function ReviewScreen() {
   // Tick only while there is a live countdown.
   useEffect(() => {
     if (expiresAt === null || confirmed || expired) return;
-    const id = setInterval(() => setSecondsLeft(secondsUntil(expiresAt, new Date())), 1000);
+    const id = setInterval(() => setSecondsLeft(secondsUntil(expiresAt, serverNow())), 1000);
     return () => clearInterval(id);
   }, [expiresAt, confirmed, expired]);
 

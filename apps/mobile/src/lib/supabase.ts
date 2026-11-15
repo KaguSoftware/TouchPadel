@@ -5,6 +5,7 @@ import { timeoutFetch } from '@touch/core';
 import { requestTimeoutMs } from './requestTimeout';
 import { chunkedSecureStore } from './secureStorage';
 import { addBreadcrumb, captureException } from './telemetry';
+import { noteServerDate } from './serverClock';
 
 // NOTE: `react-native-url-polyfill/auto` used to be imported here. Expo's winter
 // runtime ships URL/URLSearchParams natively as of SDK 51+, so the polyfill now
@@ -49,7 +50,18 @@ export const supabase = createClient<Database>(
     // carry it too and the server records nothing for them.
     global: {
       headers: { 'x-touch-app': 'mobile' },
-      fetch: timeoutFetch((input, init) => fetch(input, init), requestTimeoutMs),
+      // Each response's Date header keeps lib/serverClock on the server's clock.
+      fetch: timeoutFetch(async (input, init) => {
+        const res = await fetch(input, init);
+        // Never lets a request fail: a response without readable headers just
+        // leaves the clock where it was.
+        try {
+          noteServerDate(res.headers?.get?.('date') ?? null);
+        } catch {
+          /* the clock is a nicety; the response is what matters */
+        }
+        return res;
+      }, requestTimeoutMs),
     },
   },
 );

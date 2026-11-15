@@ -143,6 +143,20 @@ export const ADVISORY = [
 ];
 
 /**
+ * Leaf advisory locks: a call is neither emitted nor expanded. Each entry says
+ * why no wait cycle can pass through it; the gate cannot see that reason, so
+ * a new entry needs one as strong.
+ *   lock_match_guest (0431): one guest's open-match seats across branches,
+ *     taken by app.ticket_pick only while matches are paid at the desk
+ *     (match_pay_at_desk()). In that mode the open-match flows lock no
+ *     match_tickets rows at all (every seat's ticket is NULL), and the holder
+ *     goes on to take only its own branch's keys, which it already holds
+ *     (match_venue_advisory is once per sequence). So nothing a holder waits
+ *     for after it can be held by a transaction waiting for the same guest.
+ */
+export const LEAF_ADVISORY = new Set(['lock_match_guest']);
+
+/**
  * Keys a blocking body holds at most once: a later occurrence is dropped
  * (open-matches db.md §2.6 rule 3; coaching db.md §2.5 item 3). 0291: the
  * branch's venues row too (a lesson body locks one branch's row, then takes
@@ -319,6 +333,7 @@ export function createWalker({ fns, triggers }) {
       for (const m of stmt.matchAll(advisoryRe)) out.push({ lock: advisoryLock.get(m[1].toLowerCase()) });
       for (const m of stmt.matchAll(/\bapp\.([a-z_][a-z0-9_]*)\s*\(/gi)) {
         if (advisoryLock.has(m[1].toLowerCase())) continue; // already emitted as a lock
+        if (LEAF_ADVISORY.has(m[1].toLowerCase())) continue; // a leaf: see LEAF_ADVISORY
         out.push({ call: m[1].toLowerCase() });
       }
       const wr = new RegExp(String.raw`\b(?:insert\s+into|update|delete\s+from)\s+(${WRITABLE})\b`, 'gi');
