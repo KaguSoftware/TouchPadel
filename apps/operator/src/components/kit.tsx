@@ -205,12 +205,14 @@ export function Panel({
   return (
     <section
       data-testid={testId}
-      className={className}
+      className={flat ? className : ['tp-panel-framed', className].filter(Boolean).join(' ')}
       style={{
-        background: muted ? 'var(--tp-surface-2)' : 'var(--tp-panel-body)',
+        background: flat ? 'transparent' : muted ? 'var(--tp-surface-2)' : 'var(--tp-panel-body)',
         border: flat ? undefined : '1px solid var(--tp-panel-edge)',
         borderRadius: 'var(--tp-radius-panel)',
-        overflow: 'hidden',
+        // A flat panel has no card edge to round off, and clipping would cut
+        // button borders and focus rings at its edge.
+        overflow: flat ? 'visible' : 'hidden',
         ...(fill ? { display: 'flex', flexDirection: 'column', minBlockSize: 0 } : null),
         ...style,
       }}
@@ -533,10 +535,16 @@ export function StatusBadge({
         ...style,
       }}
     >
+      {/* The label's capitals sit above the middle of its line box (the font
+          reserves room below for descenders), so a mark centred on the box rode
+          about a pixel under the middle of the letters. 0.08em lifts it onto
+          the middle of the capitals. */}
       {icon ? (
-        <Icon name={icon} size={size === 'sm' ? 12 : 14} />
+        <span aria-hidden="true" style={{ display: 'inline-flex', position: 'relative', insetBlockStart: '-0.08em' }}>
+          <Icon name={icon} size={size === 'sm' ? 12 : 14} />
+        </span>
       ) : dot ? (
-        <span aria-hidden="true" style={{ inlineSize: '0.45rem', blockSize: '0.45rem', borderRadius: '50%', background: t.dot }} />
+        <span aria-hidden="true" style={{ inlineSize: '0.45rem', blockSize: '0.45rem', borderRadius: '50%', background: t.dot, position: 'relative', insetBlockStart: '-0.08em' }} />
       ) : null}
       {/* The label is a SPAN, not a bare text node, and it carries the
           line-height. A bare text node inside this inline-flex forms an
@@ -742,6 +750,7 @@ export function DataTable<T>({
   sort,
   onSort,
   onRowClick,
+  onRowDrop,
   selectedKey,
   emptyContent,
   dense,
@@ -759,6 +768,12 @@ export function DataTable<T>({
   sort?: SortState | null;
   onSort?: (next: SortState) => void;
   onRowClick?: (row: T) => void;
+  /**
+   * Rows can be dragged: dropping `fromKey` on `toKey` is the caller's to
+   * apply. A line shows where it will land. Opt-in; the caller also offers a
+   * keyboard way to move a row, since a drag needs a pointer.
+   */
+  onRowDrop?: (fromKey: string, toKey: string) => void;
   selectedKey?: string | null;
   emptyContent?: ReactNode;
   dense?: boolean;
@@ -841,6 +856,18 @@ export function DataTable<T>({
     target.addEventListener('pointercancel', stop);
   };
 
+  const [dragKey, setDragKey] = useState<string | null>(null);
+  const [overKey, setOverKey] = useState<string | null>(null);
+  const keys = rows.map((r, i) => rowKey(r, i));
+  const dropAt = (key: string): 'before' | 'after' | undefined => {
+    if (dragKey === null || overKey !== key || dragKey === key) return undefined;
+    return keys.indexOf(dragKey) < keys.indexOf(key) ? 'after' : 'before';
+  };
+  const endDrag = () => {
+    setDragKey(null);
+    setOverKey(null);
+  };
+
   const grouping = Boolean(groupBy && groupColumn);
   const span = columns.length + (grouping ? 1 : 0);
 
@@ -857,6 +884,38 @@ export function DataTable<T>({
                 data-group-end={lead?.end ? 'true' : undefined}
                 data-clickable={onRowClick ? 'true' : undefined}
                 data-selected={selectedKey === key ? 'true' : undefined}
+                data-dragging={dragKey === key ? 'true' : undefined}
+                data-drop={onRowDrop ? dropAt(key) : undefined}
+                draggable={onRowDrop ? true : undefined}
+                onDragStart={
+                  onRowDrop
+                    ? (e) => {
+                        e.dataTransfer.effectAllowed = 'move';
+                        e.dataTransfer.setData('text/plain', key);
+                        setDragKey(key);
+                      }
+                    : undefined
+                }
+                onDragOver={
+                  onRowDrop
+                    ? (e) => {
+                        if (dragKey === null) return;
+                        e.preventDefault();
+                        e.dataTransfer.dropEffect = 'move';
+                        if (overKey !== key) setOverKey(key);
+                      }
+                    : undefined
+                }
+                onDrop={
+                  onRowDrop
+                    ? (e) => {
+                        e.preventDefault();
+                        if (dragKey !== null && dragKey !== key) onRowDrop(dragKey, key);
+                        endDrag();
+                      }
+                    : undefined
+                }
+                onDragEnd={onRowDrop ? endDrag : undefined}
                 tabIndex={onRowClick ? 0 : undefined}
                 onClick={
                   onRowClick

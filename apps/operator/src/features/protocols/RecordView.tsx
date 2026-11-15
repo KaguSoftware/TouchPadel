@@ -17,6 +17,7 @@ import { fieldLabelKey, optionLabelKey } from './labels';
 import { isObj, isPurged, pickText } from './protocolLogic';
 import { useCafeCategories, useCourts, useIngredients, useTargets } from './api';
 import { PhotoStrip } from './PhotoField';
+import { Card } from './ReleaseSteps';
 import { lessonTargetNames } from './priceTargets';
 import { renameKeyOf, renameReadBack } from './renames';
 
@@ -31,12 +32,15 @@ export function RecordView({
   variant,
   record,
   names,
+  cards,
 }: {
   kind: ProtocolKind;
   stepKey: string | null;
   variant: TournamentVariant | null;
   record: Record<string, unknown>;
   names?: NameBook;
+  /** A release proposal drawn as cards (item, recipe, sizes, story), as in the run wizard. */
+  cards?: boolean;
 }) {
   const { tr, locale } = useLocale();
   const change = typeof record.change === 'string' ? (record.change as PriceChangeKind) : null;
@@ -119,7 +123,7 @@ export function RecordView({
       case 'priceMap':
         if (!isObj(value)) return null;
         return (
-          <ul style={{ margin: 0, paddingInlineStart: '1.1rem' }}>
+          <ul className="tp-record-list">
             {Object.entries(value)
               .sort(([a], [b]) => Number(a) - Number(b))
               .map(([m, p]) => (
@@ -143,7 +147,7 @@ export function RecordView({
         const renameKey = path.length === 1 && def.name === 'renames' ? renameKeyOf(change) : null;
         if (renameKey) {
           return (
-            <ul style={{ margin: 0, paddingInlineStart: '1.1rem', display: 'grid', gap: 'var(--tp-sp-0)' }}>
+            <ul className="tp-record-list">
               {value.map((el, i) => {
                 const r = isObj(el) ? renameReadBack(el, renameKey, book) : null;
                 if (!r) return null;
@@ -157,7 +161,7 @@ export function RecordView({
           );
         }
         return (
-          <ul style={{ margin: 0, paddingInlineStart: '1.1rem', display: 'grid', gap: 'var(--tp-sp-0)' }}>
+          <ul className="tp-record-list">
             {value.map((el, i) => {
               if (!isObj(el)) return null;
               // A recipe line reads as "Whole milk · 200 ml".
@@ -199,10 +203,123 @@ export function RecordView({
     }
   }
 
+  if (cards && kind === 'product_release' && stepKey === 'propose') {
+    const lines = (Array.isArray(record.lines) ? record.lines : []).filter(isObj);
+    const sizes = (Array.isArray(record.sizes) ? record.sizes : []).filter(isObj);
+    const itemKind = typeof record.item_kind === 'string' ? record.item_kind : null;
+    const category = nameOf(record.category_id);
+    const readOnly = (text: ReactNode, dir?: 'ltr' | 'rtl') => (
+      <div className="tp-rel-in" dir={dir} style={{ display: 'flex', alignItems: 'center' }}>
+        <bdi dir="auto">{text}</bdi>
+      </div>
+    );
+    const field = (name: string, dir?: 'ltr' | 'rtl') => {
+      const v = record[name];
+      if (typeof v !== 'string' || v === '') return null;
+      return (
+        <div className="tp-rel-f" key={name}>
+          <label>{label([name])}</label>
+          {readOnly(v, dir)}
+        </div>
+      );
+    };
+    const story = ['audience', 'inspiration', 'link', 'notes']
+      .map((n) => ({ n, v: record[n] }))
+      .filter((x): x is { n: string; v: string } => typeof x.v === 'string' && x.v.trim() !== '');
+    return (
+      <>
+        <div className="tp-rel-propose">
+          <Card title={tr('ws.protocols.rel.item')}>
+            {field('name_en', 'ltr')}
+            {field('name_ar', 'rtl')}
+            {itemKind && (
+              <div className="tp-rel-chips">
+                {(['drink', 'dessert', 'food'] as const).map((k) => (
+                  <span key={k} className="tp-rel-chip" data-on={k === itemKind || undefined} data-off={k !== itemKind || undefined}>
+                    {tr(`work.item.kind.${k}`)}
+                  </span>
+                ))}
+              </div>
+            )}
+          </Card>
+          {(sizes.length > 0 || category) && (
+            <Card title={tr('ws.protocols.rel.sizes')}>
+              {sizes.map((el, i) => {
+                const en = typeof el.name_en === 'string' ? el.name_en : '';
+                const ar = typeof el.name_ar === 'string' ? el.name_ar : '';
+                return (
+                  <div key={i} style={{ display: 'grid', gap: 12 }}>
+                    {en && (
+                      <div className="tp-rel-f">
+                        <label>{label(['sizes', 'name_en'])}</label>
+                        {readOnly(en, 'ltr')}
+                      </div>
+                    )}
+                    {ar && (
+                      <div className="tp-rel-f">
+                        <label>{label(['sizes', 'name_ar'])}</label>
+                        {readOnly(ar, 'rtl')}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+              {category && (
+                <div className="tp-rel-f">
+                  <label>{label(['category_id'])}</label>
+                  {readOnly(category)}
+                </div>
+              )}
+            </Card>
+          )}
+        </div>
+        {lines.length > 0 && (
+              <Card title={tr('ws.protocols.rel.recipe')}>
+                <div className="tp-rel-ledger">
+                  {lines.map((el, i) => {
+                    const name = nameOf(el.ingredient_id) ?? (typeof el.label === 'string' ? el.label : '—');
+                    const unitKey = optionLabelKey(['lines', 'unit'], String(el.unit));
+                    return (
+                      <div key={i}>
+                        <bdi>{name}</bdi>
+                        <b dir="ltr">
+                          {typeof el.qty === 'number' ? formatNumber(el.qty, locale) : ''} {unitKey ? tr(unitKey) : String(el.unit ?? '')}
+                        </b>
+                      </div>
+                    );
+                  })}
+                </div>
+              </Card>
+            )}
+        {story.length > 0 && (
+          <Card title={tr('ws.protocols.rel.story')}>
+            {story.map((x) => (
+              <div className="tp-rel-f" key={x.n}>
+                <label>{label([x.n])}</label>
+                <div style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
+                  <bdi dir="auto">{x.v}</bdi>
+                </div>
+              </div>
+            ))}
+          </Card>
+        )}
+      </>
+    );
+  }
   const fields = form?.fields ?? [];
   const items = fields
-    .map((f) => ({ label: label([f.name]), value: show(f, record[f.name], [f.name]) }))
+    .map((f) => ({ label: label([f.name]), value: show(f, record[f.name], [f.name]), raw: record[f.name] }))
     .filter((x) => x.value !== null);
   if (items.length === 0) return <p style={{ margin: 0, color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>{tr('ws.protocols.view.nothingTyped')}</p>;
-  return <DescriptionList columns={items.length > 4 ? 2 : 1} items={items} />;
+  // Short answers sit in a grid of facts; lists and long text take a row of their own.
+  return (
+    <dl className="tp-record">
+      {items.map((it, i) => (
+        <div key={i} data-wide={Array.isArray(it.raw) || isObj(it.raw) || (typeof it.raw === 'string' && it.raw.length > 48)}>
+          <dt>{it.label}</dt>
+          <dd>{it.value}</dd>
+        </div>
+      ))}
+    </dl>
+  );
 }

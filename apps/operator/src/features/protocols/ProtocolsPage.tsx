@@ -39,6 +39,7 @@ import {
   type Column,
 } from '../../components/kit';
 import type { IconName } from '../../components/icons';
+import { InfoTip } from '../../components/InfoTip';
 import { CardTitle, MARK_FG } from '../ops/OpsVisuals';
 import { ChecklistsCard } from '../checklists/ChecklistsCard';
 import { IdeasFromTeamButton } from '../roleExtras/Ideas';
@@ -92,7 +93,7 @@ export function ProtocolsPageScreen() {
             standing lists below are a different kind of card (a day's lists,
             a queue of requests), so they take their own row and share its
             whole width rather than leaving a hole beside them. */}
-        <div style={{ display: 'grid', gap: 'var(--tp-sp-3)', gridTemplateColumns: 'repeat(auto-fill, minmax(16rem, 1fr))' }}>
+        <div style={{ display: 'grid', gap: 'var(--tp-sp-3)', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))' }}>
           {cards.map((c) => (
             <ProtocolCardView
               key={c.kind}
@@ -163,49 +164,66 @@ function ProtocolCardView({
   const { tr, locale } = useLocale();
   const kindName = tr(`work.protocol.kind.${card.kind}`);
   return (
-    <Panel fill title={<CardTitle icon={CARD_ICON[card.kind]}>{kindName}</CardTitle>} data-testid={`protocol-card-${card.kind}`}>
+    <Panel
+      fill
+      title={<CardTitle icon={CARD_ICON[card.kind]}>{kindName}</CardTitle>}
+      // The one-line hint lives in a tip at the far end of the header, not in the body.
+      actions={<InfoTip content={tr(`ws.protocols.cards.lead.${card.kind}` as MessageKey)} label={tr('ws.analytics.tips.about', { title: kindName })} style={{ marginBlock: '-0.4rem' }} />}
+      data-testid={`protocol-card-${card.kind}`}>
       {/* The buttons sit at the foot of every card, level across the row. */}
-      <div style={{ display: 'grid', gap: 'var(--tp-sp-2)', flex: 1, alignContent: 'space-between' }}>
-        <div style={{ display: 'grid', gap: 'var(--tp-sp-1-5)' }}>
-          <p style={{ margin: 0, color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>{tr(`ws.protocols.cards.lead.${card.kind}` as MessageKey)}</p>
+      <div style={{ display: 'grid', gap: 'var(--tp-sp-2)', flex: 1, gridTemplateRows: '1fr auto' }}>
+        <div style={{ display: 'grid', gap: 'var(--tp-sp-1-5)', alignContent: 'center' }}>
           {loading ? (
             <p style={{ margin: 0, color: 'var(--tp-muted-fg)' }}>{tr('common.loading')}</p>
           ) : (
-            <p style={{ margin: 0, display: 'flex', gap: 'var(--tp-sp-1-5)', flexWrap: 'wrap', alignItems: 'baseline' }}>
-              <span style={{ fontWeight: 600 }}>{tr('ws.protocols.cards.running', { count: formatNumber(card.running, locale) })}</span>
-              <span aria-hidden="true" style={{ color: 'var(--tp-muted-fg)' }}>
-                ·
-              </span>
-              {card.waiting > 0 ? (
-                <button
-                  type="button"
-                  onClick={onWaiting}
-                  style={{ border: 'none', background: 'none', padding: 0, font: 'inherit', fontWeight: 700, color: MARK_FG.warn, cursor: 'pointer', textDecoration: 'underline' }}
-                >
-                  {tr('ws.protocols.cards.waiting', { count: formatNumber(card.waiting, locale) })}
-                </button>
-              ) : (
-                <span style={{ color: 'var(--tp-muted-fg)' }}>{tr('ws.protocols.cards.waiting', { count: formatNumber(0, locale) })}</span>
-              )}
-            </p>
+            <div style={{ display: 'grid' }}>
+              {/* One ruled row each, always all three, so the cards stay level. The dot is the only colour. */}
+              <CountRow first color="var(--tp-info-fg)">
+                <span style={{ fontWeight: 600 }}>{tr('ws.protocols.cards.running', { count: formatNumber(card.running, locale) })}</span>
+              </CountRow>
+              <CountRow color={card.waiting > 0 ? MARK_FG.warn : 'var(--tp-muted-fg)'}>
+                {card.waiting > 0 ? (
+                  <button
+                    type="button"
+                    onClick={onWaiting}
+                    style={{ border: 'none', background: 'none', padding: 0, font: 'inherit', fontWeight: 700, color: MARK_FG.warn, cursor: 'pointer', textDecoration: 'underline' }}
+                  >
+                    {tr('ws.protocols.cards.waiting', { count: formatNumber(card.waiting, locale) })}
+                  </button>
+                ) : (
+                  <span style={{ color: 'var(--tp-muted-fg)' }}>{tr('ws.protocols.cards.waiting', { count: formatNumber(0, locale) })}</span>
+                )}
+              </CountRow>
+              <CountRow color={card.finished30d > 0 ? MARK_FG.success : 'var(--tp-muted-fg)'}>
+                <span style={{ color: 'var(--tp-muted-fg)' }}>{tr('ws.protocols.cards.finished', { count: formatNumber(card.finished30d, locale) })}</span>
+              </CountRow>
+            </div>
           )}
-          {card.finished30d > 0 && (
-            <p style={{ margin: 0, color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>{tr('ws.protocols.cards.finished', { count: formatNumber(card.finished30d, locale) })}</p>
-          )}
-          {extra && <div>{extra}</div>}
         </div>
-        <div style={{ display: 'flex', gap: 'var(--tp-sp-1-5)', justifyContent: 'flex-end', flexWrap: 'wrap', marginBlockStart: 'var(--tp-sp-1)' }}>
+        <div style={{ display: 'flex', gap: 'var(--tp-sp-1-5)', alignItems: 'center', flexWrap: 'wrap', marginBlockStart: 'var(--tp-sp-1)' }}>
+          {extra}
+          <span style={{ flex: 1 }} />
           {owner && (
             <Button size="sm" kind="ghost" icon="settings" disabled={card.templates.length === 0} onClick={onHow} data-testid={`how-${card.kind}`}>
               {tr('ws.protocols.cards.howItWorks')}
             </Button>
           )}
-          <Button size="sm" kind="primary" icon="play" onClick={onStart} aria-label={tr('ws.protocols.cards.startKind', { kind: kindName })} data-testid={`start-${card.kind}`}>
+          <Button size="sm" kind="primary" icon="play" className="tp-start-btn" onClick={onStart} aria-label={tr('ws.protocols.cards.startKind', { kind: kindName })} data-testid={`start-${card.kind}`}>
             {tr('work.protocol.action.start')}
           </Button>
         </div>
       </div>
     </Panel>
+  );
+}
+
+/** A ruled row of a card's counts, led by a coloured dot. The first row has no rule above it. */
+function CountRow({ color, first, children }: { color: string; first?: boolean; children: ReactNode }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-2)', paddingBlock: 'var(--tp-sp-1-5)', borderBlockStart: first ? undefined : '1px solid var(--tp-border)', fontSize: 'var(--tp-fs-sm)' }}>
+      <span aria-hidden="true" style={{ inlineSize: '0.6rem', blockSize: '0.6rem', borderRadius: '50%', background: color, flex: '0 0 auto' }} />
+      {children}
+    </div>
   );
 }
 

@@ -11,6 +11,7 @@ splash are baked into the binary; an OTA update never changes them.
 | `notification-icon.png` (96², white on alpha) | `expo-notifications` plugin `icon` (Android status bar) | `brand/notification.svg` |
 | `logo-white.png` (900×332) | splash image (`expo-splash-screen` plugin) and the Welcome screen | brand lockup, white — its vector twin is `src/features/courtTransition/logoPaths.ts` (same crop; the boot loading screen draws that at the splash width, so the two must stay identical) |
 | `logo.png` (900×332) | in-app wordmark (courts + profile headers) | brand lockup, colour |
+| `court/racket.png` (256², alpha) | the taken seats of the open-match screen's court on a phone with no GL (`SeatRacket`, `src/components/match.tsx`); with GL the court draws the live racket | the join court's own racket, rendered by `pnpm --filter @touch/mobile racket` (`scripts/render-racket.mjs`) |
 | `fonts/LamaSans-*.ttf` | `BRAND_FONTS` (`src/theme/fonts.ts`) | `docs/brand/lama-sans` |
 
 The launcher icon is the full-colour Touch Padel lockup on white — the same mark

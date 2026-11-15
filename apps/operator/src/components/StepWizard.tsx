@@ -9,7 +9,7 @@
  * and of the progress count (four steps and Review read "Step 1 of 4"). The
  * last step's button reads "Review →"; the Review page holds the submit.
  */
-import { useEffect, useId, useState, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { formatNumber } from '@touch/i18n';
 import { useLocale } from '../lib/i18n';
 import { Icon } from './icons';
@@ -29,6 +29,17 @@ export type WizardStep = {
   problems?: readonly string[];
   /** A refusal named a field on this step: the menu marks it with "!". */
   flagged?: boolean;
+  /**
+   * The caller knows whether the step is finished (a run's steps are done by
+   * other people, on other days). Replaces the "passed it, so ticked" rule.
+   */
+  done?: boolean;
+  /** A line under the step's name, whether or not it is ticked: where the step stands. */
+  status?: ReactNode;
+  /** A pill beside the step's name in the page heading (a run step's status). */
+  badge?: ReactNode;
+  /** Not open yet: the menu shows a lock where the number is. The step can still be looked at. */
+  locked?: boolean;
   content: ReactNode;
 };
 
@@ -50,7 +61,14 @@ export function StepWizard({
   at: atProp,
   onAtChange,
   finished = false,
+  onBlocked,
   testId,
+  reviewLabel,
+  reviewLead,
+  footerStart,
+  footerEnd,
+  progressAfter,
+  eyebrow,
 }: {
   title: string;
   lead?: ReactNode;
@@ -71,18 +89,37 @@ export function StepWizard({
   onAtChange?: (at: WizardAt) => void;
   /** Sent: the dialog leaves through its exit, then `onClose` runs (a toast after it never overlaps it). */
   finished?: boolean;
+  /** Moving on stopped at this step (its `problems` are listed): a caller marks its fields. */
+  onBlocked?: (key: string) => void;
   testId?: string;
+  /** Names the last page (a run's "Summary") in place of "Review". */
+  reviewLabel?: string;
+  /** The line under the last page's name, in place of "All n steps done". */
+  reviewLead?: string;
+  /** Replaces the footer's Back / Cancel button (a run's red "Stop this protocol"). */
+  footerStart?: ReactNode;
+  /** Sits before the Next button (a run's green "Send this step"). */
+  footerEnd?: ReactNode;
+  /** Sits after "n of N done" in the progress card (a run's status pill). */
+  progressAfter?: ReactNode;
+  /** A small line above the title (what kind of thing this is). */
+  eyebrow?: ReactNode;
 }) {
   const { tr, locale } = useLocale();
   const headingId = useId();
   const [ownAt, setOwnAt] = useState<WizardAt>(0);
   const at = atProp ?? ownAt;
   const [seen, setSeen] = useState(0);
+  // A new step opens at its top, not where the last one was scrolled to.
+  const bodyRef = useRef<HTMLElement>(null);
   const [shown, setShown] = useState<readonly string[]>([]);
 
   const total = steps.length;
   const idx = at === 'review' ? total : Math.min(at, total - 1);
   const step = at === 'review' ? null : steps[idx];
+  useEffect(() => {
+    if (bodyRef.current) bodyRef.current.scrollTop = 0;
+  }, [idx]);
 
   const move = (next: WizardAt) => {
     const to = next === 'review' ? total : next;
@@ -93,6 +130,7 @@ export function StepWizard({
         if (p.length > 0) {
           if (i !== idx) set(i);
           setShown(p);
+          onBlocked?.(steps[i]!.key);
           return;
         }
       }
@@ -112,7 +150,9 @@ export function StepWizard({
   };
 
   // Ticked once passed (behind the open step, or seen before) and finished.
-  const ticked = (i: number) => i !== idx && (i < idx || i <= seen) && (steps[i]?.problems?.length ?? 0) === 0;
+  const ticked = (i: number) =>
+    steps[i]?.done ??
+    (i !== idx && (i < idx || i <= seen) && (steps[i]?.problems?.length ?? 0) === 0);
   const done = steps.filter((_, i) => ticked(i)).length;
   const prev = idx > 0 ? steps[idx - 1] : null;
   const next = step ? (steps[idx + 1] ?? null) : null;
@@ -129,6 +169,7 @@ export function StepWizard({
         <form
           noValidate
           className="tp-tour-start tp-wiz"
+          data-sidecard="true"
           data-testid={testId}
           onSubmit={(e) => {
             e.preventDefault();
@@ -143,6 +184,7 @@ export function StepWizard({
             if (open >= 0) {
               set(open);
               setShown(steps[open]!.problems!);
+              onBlocked?.(steps[open]!.key);
               return;
             }
             onSubmit();
@@ -150,11 +192,36 @@ export function StepWizard({
         >
           {finished && <CloseNow close={close} />}
           <aside className="tp-tour-start-side">
-            <div style={{ display: 'grid', gap: 'var(--tp-sp-1)', paddingInline: 'var(--tp-sp-3)', marginBlockEnd: 'var(--tp-sp-4)' }}>
-              <h2 style={{ margin: 0, fontSize: 'var(--tp-fs-2xl)', fontWeight: 800, lineHeight: 1.2, textWrap: 'balance' }}>{title}</h2>
-              {lead && <p style={{ margin: 0, fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>{lead}</p>}
+            <div
+              style={{
+                display: 'grid',
+                gap: 'var(--tp-sp-1)',
+                paddingInline: 'var(--tp-sp-3)',
+                marginBlockEnd: 'var(--tp-sp-4)',
+              }}
+            >
+              {eyebrow && <p className="tp-wiz-eyebrow">{eyebrow}</p>}
+              <h2
+                style={{
+                  margin: 0,
+                  fontSize: 'var(--tp-fs-2xl)',
+                  fontWeight: 800,
+                  lineHeight: 1.2,
+                  textWrap: 'balance',
+                }}
+              >
+                {title}
+              </h2>
+              {lead && (
+                <p style={{ margin: 0, fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>
+                  {lead}
+                </p>
+              )}
             </div>
-            <nav aria-label={tr('ws.kit.wizard.menu')} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--tp-sp-1)' }}>
+            <nav
+              aria-label={tr('ws.kit.wizard.menu')}
+              style={{ display: 'flex', flexDirection: 'column', gap: 'var(--tp-sp-1)' }}
+            >
               {steps.map((s, i) => {
                 const now = i === idx;
                 const ok = ticked(i);
@@ -168,12 +235,28 @@ export function StepWizard({
                     onClick={() => move(i)}
                     data-testid={testId ? `${testId}.step.${s.key}` : undefined}
                   >
-                    <span className="tp-wiz-n" data-state={warn ? 'warn' : ok ? 'done' : now ? 'now' : undefined} aria-hidden="true">
-                      {warn ? '!' : ok ? <Icon name="check" size={14} strokeWidth={3} /> : formatNumber(i + 1, locale)}
+                    <span
+                      className="tp-wiz-n"
+                      data-state={warn ? 'warn' : ok ? 'done' : now ? 'now' : undefined}
+                      aria-hidden="true"
+                    >
+                      {warn ? (
+                        '!'
+                      ) : ok ? (
+                        <Icon name="check" size={14} strokeWidth={3} />
+                      ) : s.locked ? (
+                        <Icon name="lock" size={13} strokeWidth={2.6} />
+                      ) : (
+                        formatNumber(i + 1, locale)
+                      )}
                     </span>
                     <span className="tp-wiz-label">
                       <span>{s.label}</span>
-                      {ok && s.note && <bdi className="tp-wiz-note">{s.note}</bdi>}
+                      {s.status ? (
+                        <bdi className="tp-wiz-note">{s.status}</bdi>
+                      ) : (
+                        ok && s.note && <bdi className="tp-wiz-note">{s.note}</bdi>
+                      )}
                     </span>
                   </button>
                 );
@@ -190,38 +273,118 @@ export function StepWizard({
                   <Icon name="list" size={14} strokeWidth={2.6} />
                 </span>
                 <span className="tp-wiz-label">
-                  <span>{tr('ws.kit.wizard.review')}</span>
+                  <span>{reviewLabel ?? tr('ws.kit.wizard.review')}</span>
                 </span>
               </button>
             </nav>
+            <div className="tp-wiz-sidecard">
+            <div className="tp-wiz-progress">
+              {progressAfter ? (
+                <span
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: 'var(--tp-sp-2)',
+                    flexWrap: 'wrap',
+                  }}
+                >
+                  <strong>
+                    {tr('ws.kit.wizard.progress', {
+                      done: formatNumber(done, locale),
+                      total: formatNumber(total, locale),
+                    })}
+                  </strong>
+                  {progressAfter}
+                </span>
+              ) : (
+                <strong>
+                  {tr('ws.kit.wizard.progress', {
+                    done: formatNumber(done, locale),
+                    total: formatNumber(total, locale),
+                  })}
+                </strong>
+              )}
+              <div className="tp-wiz-bar">
+                <i style={{ inlineSize: `${Math.round((done / Math.max(total, 1)) * 100)}%` }} />
+              </div>
+            </div>
+          </div>
           </aside>
 
           <div className="tp-tour-start-main">
-            <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 'var(--tp-sp-4)', padding: 'var(--tp-sp-5) var(--tp-sp-6) 0' }}>
+            <header
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'flex-start',
+                gap: 'var(--tp-sp-4)',
+                padding: 'var(--tp-sp-5) var(--tp-sp-6) var(--tp-sp-4)',
+                borderBlockEnd: '1px solid var(--tp-border)',
+              }}
+            >
               <div style={{ display: 'grid', gap: 'var(--tp-sp-1)', minInlineSize: 0 }}>
-                <h3 id={headingId} style={{ margin: 0, fontSize: 'var(--tp-fs-3xl)', fontWeight: 700, lineHeight: 1.2, textWrap: 'balance' }}>
-                  {step ? step.label : tr('ws.kit.wizard.review')}
-                </h3>
-                <span
+                <div
                   style={{
-                    fontSize: 'var(--tp-fs-sm)',
-                    fontWeight: 700,
-                    color: 'var(--tp-accent)',
-                    // Capitals and tracking for Latin script only: they break Arabic's joins.
-                    textTransform: latin ? 'uppercase' : undefined,
-                    letterSpacing: latin ? '0.06em' : undefined,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 'var(--tp-sp-3)',
+                    flexWrap: 'wrap',
                   }}
                 >
-                  {step
-                    ? tr('ws.kit.wizard.stepOf', { n: formatNumber(idx + 1, locale), total: formatNumber(total, locale) })
-                    : tr('ws.kit.wizard.allDone', { total: formatNumber(total, locale) })}
-                </span>
+                  <h3
+                    id={headingId}
+                    style={{
+                      margin: 0,
+                      fontSize: 'var(--tp-fs-3xl)',
+                      fontWeight: 700,
+                      lineHeight: 1.2,
+                      textWrap: 'balance',
+                    }}
+                  >
+                    {step ? step.label : (reviewLabel ?? tr('ws.kit.wizard.review'))}
+                  </h3>
+                </div>
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 'var(--tp-sp-3)',
+                    flexWrap: 'wrap',
+                  }}
+                >
+                  <span
+                    style={{
+                      fontSize: 'var(--tp-fs-sm)',
+                      fontWeight: 700,
+                      color: 'var(--tp-accent)',
+                      // Capitals and tracking for Latin script only: they break Arabic's joins.
+                      textTransform: latin ? 'uppercase' : undefined,
+                      letterSpacing: latin ? '0.06em' : undefined,
+                    }}
+                  >
+                    {step
+                      ? tr('ws.kit.wizard.stepOf', {
+                          n: formatNumber(idx + 1, locale),
+                          total: formatNumber(total, locale),
+                        })
+                      : (reviewLead ??
+                        tr('ws.kit.wizard.allDone', { total: formatNumber(total, locale) }))}
+                  </span>
+                  {step?.badge}
+                </div>
               </div>
               <Button
                 size="lg"
                 icon="x"
                 // A square box, as tall as the footer's buttons.
-                style={{ inlineSize: '3rem', blockSize: '3rem', padding: 0, justifyContent: 'center', flexShrink: 0 }}
+                style={{
+                  inlineSize: '3rem',
+                  blockSize: '3rem',
+                  padding: 0,
+                  justifyContent: 'center',
+                  flexShrink: 0,
+                }}
                 aria-label={tr('common.close')}
                 title={tr('common.close')}
                 disabled={busy}
@@ -230,14 +393,30 @@ export function StepWizard({
             </header>
 
             <section
+              ref={bodyRef}
               aria-labelledby={headingId}
-              style={{ flex: 1, minBlockSize: 0, overflowY: 'auto', padding: 'var(--tp-sp-5) var(--tp-sp-6)', display: 'grid', alignContent: 'start', gap: 'var(--tp-sp-4)' }}
+              style={{
+                flex: 1,
+                minBlockSize: 0,
+                overflowY: 'auto',
+                padding: 'var(--tp-sp-5) var(--tp-sp-6)',
+                display: 'grid',
+                alignContent: 'start',
+                gap: 'var(--tp-sp-4)',
+              }}
             >
               {step ? step.content : review(goTo)}
             </section>
 
             {(shown.length > 0 || notice) && (
-              <div style={{ display: 'grid', gap: 'var(--tp-sp-2)', paddingInline: 'var(--tp-sp-6)', paddingBlockEnd: 'var(--tp-sp-4)' }}>
+              <div
+                style={{
+                  display: 'grid',
+                  gap: 'var(--tp-sp-2)',
+                  paddingInline: 'var(--tp-sp-6)',
+                  paddingBlockEnd: 'var(--tp-sp-4)',
+                }}
+              >
                 {shown.length > 0 && (
                   <MessagePresenter
                     rise
@@ -250,7 +429,11 @@ export function StepWizard({
                         ))}
                       </span>
                     }
-                    style={{ border: '1px solid var(--tp-danger-mark)', alignItems: 'center', paddingBlock: 'var(--tp-sp-2-5)' }}
+                    style={{
+                      border: '1px solid var(--tp-danger-mark)',
+                      alignItems: 'center',
+                      paddingBlock: 'var(--tp-sp-2-5)',
+                    }}
                   />
                 )}
                 {notice}
@@ -258,17 +441,10 @@ export function StepWizard({
             )}
           </div>
 
-          <div className="tp-tour-start-sidefoot">
-            <div className="tp-wiz-progress">
-              <strong>{tr('ws.kit.wizard.progress', { done: formatNumber(done, locale), total: formatNumber(total, locale) })}</strong>
-              <div className="tp-wiz-bar">
-                <i style={{ inlineSize: `${Math.round((done / Math.max(total, 1)) * 100)}%` }} />
-              </div>
-            </div>
-          </div>
-
           <footer className="tp-tour-start-foot">
-            {step && prev ? (
+            {footerStart !== undefined ? (
+              footerStart
+            ) : step && prev ? (
               <Button size="lg" icon="arrowStart" disabled={busy} onClick={() => move(idx - 1)}>
                 {prev.label}
               </Button>
@@ -282,9 +458,18 @@ export function StepWizard({
               </Button>
             )}
             {step ? (
-              <Button size="lg" kind="primary" iconEnd="arrowEnd" disabled={busy} onClick={() => move(next ? idx + 1 : 'review')}>
-                {next ? next.label : tr('ws.kit.wizard.review')}
-              </Button>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-3)' }}>
+                {footerEnd}
+                <Button
+                  size="lg"
+                  kind="primary"
+                  iconEnd="arrowEnd"
+                  disabled={busy}
+                  onClick={() => move(next ? idx + 1 : 'review')}
+                >
+                  {next ? next.label : (reviewLabel ?? tr('ws.kit.wizard.review'))}
+                </Button>
+              </span>
             ) : (
               <Button
                 size="lg"
@@ -318,7 +503,15 @@ function CloseNow({ close }: { close: () => void }) {
 /** One answer on the Review page: its name, what was given, and Change to open its step. */
 export type ReviewRow = { label: string; value: ReactNode; step?: string };
 
-export function ReviewList({ rows, goTo, busy }: { rows: readonly ReviewRow[]; goTo: (key: string) => void; busy?: boolean }) {
+export function ReviewList({
+  rows,
+  goTo,
+  busy,
+}: {
+  rows: readonly ReviewRow[];
+  goTo: (key: string) => void;
+  busy?: boolean;
+}) {
   const { tr } = useLocale();
   return (
     <dl className="tp-wiz-review">
@@ -327,7 +520,12 @@ export function ReviewList({ rows, goTo, busy }: { rows: readonly ReviewRow[]; g
           <dt>{r.label}</dt>
           <dd>{r.value}</dd>
           {r.step ? (
-            <Button size="sm" disabled={busy} onClick={() => goTo(r.step!)} aria-label={tr('ws.kit.wizard.changeLabel', { what: r.label })}>
+            <Button
+              size="sm"
+              disabled={busy}
+              onClick={() => goTo(r.step!)}
+              aria-label={tr('ws.kit.wizard.changeLabel', { what: r.label })}
+            >
               {tr('ws.kit.wizard.change')}
             </Button>
           ) : (
@@ -358,7 +556,14 @@ export function WizardChoice({
   testId?: string;
 }) {
   return (
-    <button type="button" className="tp-tour-choice tp-wiz-choice" aria-pressed={on} disabled={disabled} onClick={onPick} data-testid={testId}>
+    <button
+      type="button"
+      className="tp-tour-choice tp-wiz-choice"
+      aria-pressed={on}
+      disabled={disabled}
+      onClick={onPick}
+      data-testid={testId}
+    >
       {on && (
         <span className="tp-wiz-tick" aria-hidden="true">
           <Icon name="check" size={14} strokeWidth={3} />
@@ -372,9 +577,22 @@ export function WizardChoice({
 }
 
 /** A row of choice cards: as many to a row as fit; `small` for short names. */
-export function WizardChoices({ small, label, children }: { small?: boolean; label?: string; children: ReactNode }) {
+export function WizardChoices({
+  small,
+  label,
+  children,
+}: {
+  small?: boolean;
+  label?: string;
+  children: ReactNode;
+}) {
   return (
-    <div className="tp-wiz-choices" data-small={small ? 'true' : undefined} role="group" aria-label={label}>
+    <div
+      className="tp-wiz-choices"
+      data-small={small ? 'true' : undefined}
+      role="group"
+      aria-label={label}
+    >
       {children}
     </div>
   );
@@ -396,7 +614,14 @@ export function WizardChips<T extends string>({
   return (
     <div className="tp-wiz-chips" role="group" aria-label={label}>
       {options.map((o) => (
-        <button key={o.value} type="button" className="tp-wiz-chip" aria-pressed={picked(o.value)} disabled={o.disabled} onClick={() => onChange(o.value)}>
+        <button
+          key={o.value}
+          type="button"
+          className="tp-wiz-chip"
+          aria-pressed={picked(o.value)}
+          disabled={o.disabled}
+          onClick={() => onChange(o.value)}
+        >
           {o.label}
         </button>
       ))}
@@ -418,9 +643,22 @@ export function WizardPrice({ figure, line }: { figure: ReactNode; line?: ReactN
  * A note on a step, as the approved preview draws it: a soft box, no icon.
  * Tones follow MessagePresenter's names so a call site swaps one for the other.
  */
-export function WizardNote({ tone = 'info', children, testId }: { tone?: 'info' | 'refused' | 'error' | 'success'; children: ReactNode; testId?: string }) {
+export function WizardNote({
+  tone = 'info',
+  children,
+  testId,
+}: {
+  tone?: 'info' | 'refused' | 'error' | 'success';
+  children: ReactNode;
+  testId?: string;
+}) {
   return (
-    <div className="tp-wiz-msg" data-tone={tone} role={tone === 'error' ? 'alert' : 'status'} data-testid={testId}>
+    <div
+      className="tp-wiz-msg"
+      data-tone={tone}
+      role={tone === 'error' ? 'alert' : 'status'}
+      data-testid={testId}
+    >
       {children}
     </div>
   );
@@ -460,7 +698,15 @@ export function WizardChecks({
 }: {
   label?: string;
   optional?: boolean;
-  items: readonly { key: string; label: ReactNode; tag?: ReactNode; checked: boolean; disabled?: boolean; onChange: (next: boolean) => void; testId?: string }[];
+  items: readonly {
+    key: string;
+    label: ReactNode;
+    tag?: ReactNode;
+    checked: boolean;
+    disabled?: boolean;
+    onChange: (next: boolean) => void;
+    testId?: string;
+  }[];
   hint?: ReactNode;
 }) {
   const { tr } = useLocale();
@@ -473,8 +719,18 @@ export function WizardChecks({
         </legend>
       )}
       {items.map((it) => (
-        <label key={it.key} className="tp-wiz-check" data-disabled={it.disabled ? 'true' : undefined}>
-          <input type="checkbox" checked={it.checked} disabled={it.disabled} onChange={(e) => it.onChange(e.target.checked)} data-testid={it.testId} />
+        <label
+          key={it.key}
+          className="tp-wiz-check"
+          data-disabled={it.disabled ? 'true' : undefined}
+        >
+          <input
+            type="checkbox"
+            checked={it.checked}
+            disabled={it.disabled}
+            onChange={(e) => it.onChange(e.target.checked)}
+            data-testid={it.testId}
+          />
           <span className="tp-wiz-check-label">{it.label}</span>
           {it.tag && <span className="tp-wiz-tag">{it.tag}</span>}
         </label>

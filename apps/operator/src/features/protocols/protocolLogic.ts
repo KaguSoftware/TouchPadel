@@ -718,6 +718,16 @@ export const OWNER_STEP_ROLES: readonly StaffRole[] = HIREABLE_ROLES;
  * what a decision would carry (a new item's section, §2.8); who may press
  * anything is the engine's `can`, never this.
  */
+/**
+ * TEMPORARY, while the step screens are being redesigned: false shows every
+ * step's screen (a step that has not opened is shown read-only), so each one
+ * can be looked at. Set it back to true when the UI work is done: a step that
+ * has not opened then shows only a lock, "This step is locked" and when it
+ * opens, with no lock-free preview (StepPanel `locked`, RunSheet's pill and
+ * menu lock).
+ */
+export const LOCK_UNOPENED_STEPS = false;
+
 export function decidesStep(role: StaffWho, needsOwnerOk: boolean): boolean {
   return can(role ?? undefined, needsOwnerOk ? 'decideOwnerOkSteps' : 'decideSteps');
 }

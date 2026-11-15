@@ -16,6 +16,7 @@
     "build": "expo export --platform ios --platform android --output-dir dist",
     "doctor": "npx --yes expo-doctor@latest",
     "icons": "node scripts/make-icons.mjs",
+    "racket": "node scripts/render-racket.mjs",
     "store": "node store/render.mjs",
     "store:copy-check": "node store/copy-check.mjs",
     "store:strings-check": "node store/strings-check.mjs",

@@ -55,11 +55,18 @@ export function useRunDetail(runId: string | null) {
   });
 }
 
+/** One step's read: shared by the hook and by the run sheet, which loads every step up front so moving between them does not wait. */
+export function stepDetailQuery(stepId: string) {
+  return {
+    queryKey: PK.step(stepId),
+    queryFn: async () => readStepDetail(await appRpc<unknown>('protocol_step_detail', { p_run_step_id: stepId })),
+  };
+}
+
 export function useStepDetail(stepId: string | null) {
   return useQuery({
-    queryKey: PK.step(stepId ?? ''),
+    ...stepDetailQuery(stepId ?? ''),
     enabled: Boolean(stepId),
-    queryFn: async () => readStepDetail(await appRpc<unknown>('protocol_step_detail', { p_run_step_id: stepId })),
     refetchInterval: PROTOCOL_REFETCH_MS,
   });
 }

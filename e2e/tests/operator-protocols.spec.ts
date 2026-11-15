@@ -129,7 +129,7 @@ test.describe('operator protocols', () => {
     await expect(list).toBeVisible();
     // Nothing to send until someone is picked.
     await expect(panel.getByTestId('interviews-state')).toHaveText('Add the candidates you interviewed, then pick one.');
-    await expect(panel.getByTestId('step-send')).toBeDisabled();
+    await expect(page.getByTestId('step-send')).toBeDisabled();
 
     for (const [name, phone] of [
       ['Ali Hassan', '0770 123 4567'],
@@ -143,7 +143,7 @@ test.describe('operator protocols', () => {
     await expect(panel.getByTestId('interviews-state')).toHaveText('Pick the candidate you want to hire first.');
     await list.getByRole('button', { name: 'Pick' }).nth(1).click();
     await expect(panel.getByTestId('interviews-state')).toContainText('Sends 2 candidates, with');
-    await panel.getByTestId('step-send').click();
+    await page.getByTestId('step-send').click();
     await expect(page.getByText('Sent.', { exact: true })).toBeVisible();
 
     await expect.poll(async () => (await openStep(svc, runId, 'interviews')).status).toBe('submitted');

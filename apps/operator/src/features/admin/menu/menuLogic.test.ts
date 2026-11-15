@@ -15,6 +15,7 @@ import {
   nextDayIso,
   nextSortOrder,
   orderableState,
+  movedIds,
   reorderedIds,
   runTitle,
   sortRows,
@@ -65,6 +66,28 @@ describe('matchesSearch', () => {
     expect(matchesSearch(row, 'مثلج')).toBe(true);
     expect(matchesSearch(row, 'mocha')).toBe(false);
     expect(matchesSearch(row, '   ')).toBe(true);
+  });
+});
+
+describe('movedIds (drag and drop)', () => {
+  const rows = [
+    { id: 'a', sort_order: 0, name_en: 'A' },
+    { id: 'b', sort_order: 1, name_en: 'B' },
+    { id: 'c', sort_order: 2, name_en: 'C' },
+    { id: 'd', sort_order: 3, name_en: 'D' },
+  ];
+  it('drops a row onto one below it: it takes that place', () => {
+    expect(movedIds(rows, 'a', 'c')).toEqual(['b', 'c', 'a', 'd']);
+  });
+  it('drops a row onto one above it: it takes that place', () => {
+    expect(movedIds(rows, 'd', 'b')).toEqual(['a', 'd', 'b', 'c']);
+  });
+  it('does nothing for the same row or an unknown one', () => {
+    expect(movedIds(rows, 'b', 'b')).toEqual([]);
+    expect(movedIds(rows, 'b', 'zz')).toEqual([]);
+  });
+  it('orders from the sorted view, not the input order', () => {
+    expect(movedIds([rows[2]!, rows[0]!, rows[1]!], 'a', 'c')).toEqual(['b', 'c', 'a']);
   });
 });
 

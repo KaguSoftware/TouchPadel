@@ -265,43 +265,15 @@ export function ReportIncidentDialog({ onClose }: { onClose: () => void }) {
                 const note = stepNote(s);
                 return (
                   <button key={s} type="button" className="tp-tour-start-nav" aria-current={now ? 'step' : undefined} onClick={() => goTo(s)} data-testid={`incidents.form.step.${s}`}>
-                    <span
-                      aria-hidden="true"
-                      style={{
-                        inlineSize: '1.75rem',
-                        blockSize: '1.75rem',
-                        flexShrink: 0,
-                        borderRadius: 'var(--tp-radius-pill)',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        fontSize: 'var(--tp-fs-xs)',
-                        fontWeight: 800,
-                        lineHeight: 1,
-                        fontVariantNumeric: 'tabular-nums',
-                        background: warn ? 'var(--tp-danger)' : ok ? 'var(--tp-accent-2)' : now ? 'var(--tp-accent-contrast)' : 'var(--tp-surface-3)',
-                        color: warn ? 'var(--tp-danger-contrast)' : ok ? 'var(--tp-accent-2-contrast)' : now ? 'var(--tp-accent)' : 'var(--tp-muted-fg)',
-                      }}
-                    >
+                    <span aria-hidden="true" className="tp-wiz-n" data-state={warn ? 'warn' : ok ? 'done' : now ? 'now' : undefined}>
                       {warn ? '!' : ok ? <Icon name="check" size={14} strokeWidth={3} /> : formatNumber(i + 1, locale)}
                     </span>
                     <span style={{ flex: 1, minInlineSize: 0 }}>{stepLabel(s)}</span>
                     {warn ? (
-                      <span style={{ fontSize: 'var(--tp-fs-xs)', color: now ? 'var(--tp-accent-contrast)' : 'var(--tp-danger-fg)', fontWeight: 600 }}>{tr('ws.incidents.form.needsLook')}</span>
+                      <span className="tp-wiz-note" style={{ fontWeight: 700, color: now ? 'var(--tp-rail-active-fg)' : 'var(--tp-rail-fg)' }}>{tr('ws.incidents.form.needsLook')}</span>
                     ) : (
                       note && (
-                        <bdi
-                          style={{
-                            fontSize: 'var(--tp-fs-xs)',
-                            // White on the open step's blue row, grey elsewhere.
-                            color: now ? 'var(--tp-accent-contrast)' : 'var(--tp-muted-fg)',
-                            fontWeight: now ? 600 : 500,
-                            maxInlineSize: '8rem',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
-                          }}
-                        >
+                        <bdi className="tp-wiz-note" style={{ maxInlineSize: '8rem' }}>
                           {note}
                         </bdi>
                       )

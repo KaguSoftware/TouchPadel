@@ -5,7 +5,7 @@
  * and removing the previous object are the CALLER's job — this field only
  * moves bytes. Remove asks for confirmation and emits `onChange(null)`.
  */
-import { useRef, useState, type CSSProperties, type DragEvent } from 'react';
+import { useRef, useState, type CSSProperties, type DragEvent, type ReactNode } from 'react';
 import { useLocale } from '../lib/i18n';
 import { compressToWebp, isImageFile, isVideoFile } from '../lib/image';
 import {
@@ -17,10 +17,34 @@ import {
 } from '../lib/storage';
 import { useToast } from './toast';
 import { useConfirm } from './ConfirmDialog';
+import { Icon } from './icons';
 import { Button, Spinner } from './ui';
 
 export interface ImageFieldProps {
   label: string;
+  /** The caller draws the label itself; this one stays for screen readers. */
+  hideLabel?: boolean;
+  /**
+   * Item-editor style: no Upload button while empty (the drop zone is the
+   * upload, and says so), and Replace / Remove wear a border instead of
+   * reading as bare text.
+   */
+  framed?: boolean;
+  /**
+   * Item-editor stage: the photo fills the width and carries its own controls
+   * on top of it. `topStart` and `bottomStart` are the caller's overlays;
+   * Replace and Remove sit at the bottom end. `ring` draws a coloured ring
+   * around the photo (the highlight). Implies `framed`.
+   */
+  stage?: {
+    topStart?: ReactNode;
+    bottomStart?: ReactNode;
+    ring?: string | null;
+    /** The photo is the top of a card the caller draws: no ring, no rounding, full width. */
+    flush?: boolean;
+    /** Replace and Remove at the top end instead of the bottom end. */
+    actionsTop?: boolean;
+  };
   /** Stored bucket path (not a URL) or null. */
   value: string | null;
   onChange: (path: string | null) => void;
@@ -43,6 +67,9 @@ export interface ImageFieldProps {
 
 export function ImageField({
   label,
+  hideLabel,
+  framed,
+  stage,
   value,
   onChange,
   folder,
@@ -125,18 +152,7 @@ export function ImageField({
 
   const preview = value ? publicUrl(value) : null;
 
-  return (
-    <div style={{ marginBlockEnd: '0.6rem', ...style }}>
-      <span
-        style={{
-          display: 'block',
-          fontSize: 'var(--tp-fs-sm)',
-          color: 'var(--tp-muted-fg)',
-          marginBlockEnd: '0.2rem',
-        }}
-      >
-        {label}
-      </span>
+  const zone = (
       <div
         role="button"
         tabIndex={disabled ? -1 : 0}
@@ -169,6 +185,7 @@ export function ImageField({
           overflow: 'hidden',
           cursor: disabled ? 'not-allowed' : 'pointer',
           opacity: disabled ? 'var(--tp-opacity-disabled)' : 1,
+          ...(stage ? { maxInlineSize: 'none', aspectRatio: 'auto', inlineSize: '100%', blockSize: '13.125rem', borderRadius: stage.flush ? 0 : '1.25rem', border: preview ? 'none' : `2px dashed ${dragOver ? 'var(--tp-accent)' : 'var(--tp-border-strong)'}` } : null),
           // No `outline: 'none'`. This is a role="button" tabIndex={0} drop
           // zone, so removing its ring left the only keyboard-reachable control
           // in the app with no visible focus — a flat accessibility failure.
@@ -208,10 +225,59 @@ export function ImageField({
               paddingInline: '0.8rem',
             }}
           >
-            {tr('op.common.dragHere')}
+            {framed ? (
+              <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 'var(--tp-sp-1)', inlineSize: '100%', blockSize: '100%', textAlign: 'center' }}>
+                <span aria-hidden="true" style={{ display: 'inline-flex', marginBlockEnd: 'var(--tp-sp-1)', color: 'var(--tp-accent)' }}>
+                  <Icon name="plus" size={28} strokeWidth={2.4} />
+                </span>
+                <span>{tr('op.common.dragHereTop')}</span>
+                <span style={{ fontSize: 'var(--tp-fs-sm)' }}>{tr('op.common.dragHereOr')}</span>
+                <span>{tr('op.common.dragHereBottom')}</span>
+              </span>
+            ) : (
+              tr('op.common.dragHere')
+            )}
           </span>
         )}
       </div>
+  );
+  const actions = value ? (
+    <div data-no-print style={{ display: 'flex', gap: 'var(--tp-sp-2)', pointerEvents: 'auto' }}>
+      <StageButton icon="upload" label={tr('op.common.replace')} disabled={disabled || uploading} onClick={() => inputRef.current?.click()} />
+      <StageButton icon="trash" label={tr('op.common.remove')} danger disabled={disabled || uploading} onClick={() => void remove()} />
+    </div>
+  ) : null;
+
+  return (
+    <div style={{ marginBlockEnd: '0.6rem', ...style }}>
+      <span
+        className={hideLabel ? 'tp-sr-only' : undefined}
+        style={{
+          display: 'block',
+          fontSize: 'var(--tp-fs-sm)',
+          color: 'var(--tp-muted-fg)',
+          marginBlockEnd: '0.2rem',
+        }}
+      >
+        {label}
+      </span>
+      {stage ? (
+        <div style={{ position: 'relative', ...(stage.flush ? null : { inlineSize: '100%', maxInlineSize: '27.5rem', marginInline: 'auto', borderRadius: '1.25rem', outline: `4px solid ${stage.ring ?? 'transparent'}`, outlineOffset: '5px', transition: 'outline-color var(--tp-dur-fast) var(--tp-ease-out)' }) }}>
+          {zone}
+          <div style={{ position: 'absolute', inset: 'var(--tp-sp-3)', pointerEvents: 'none', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 'var(--tp-sp-3)' }}>
+              <div style={{ display: 'flex', pointerEvents: 'auto' }}>{stage.topStart}</div>
+              {stage.actionsTop && actions}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 'var(--tp-sp-3)', flexWrap: 'wrap' }}>
+              <div style={{ pointerEvents: 'auto' }}>{stage.bottomStart}</div>
+              {!stage.actionsTop && actions}
+            </div>
+          </div>
+        </div>
+      ) : (
+        zone
+      )}
       <input
         ref={inputRef}
         type="file"
@@ -223,20 +289,74 @@ export function ImageField({
           if (file) void handleFile(file);
         }}
       />
-      <div data-no-print style={{ display: 'flex', gap: '0.4rem', marginBlockStart: '0.4rem' }}>
-        <Button
-          kind="ghost"
-          disabled={disabled || uploading}
-          onClick={() => inputRef.current?.click()}
+      {!stage && (value || !framed) && (
+        <div
+          data-no-print
+          style={{
+            display: 'flex',
+            gap: framed ? 'var(--tp-sp-2)' : '0.4rem',
+            marginBlockStart: framed ? 'var(--tp-sp-2-5)' : '0.4rem',
+            // Framed: the two buttons together are exactly as wide as the photo box.
+            ...(framed ? { inlineSize: '100%', maxInlineSize: aspect === '16:9' ? '22rem' : '14rem' } : null),
+          }}
         >
-          {value ? tr('op.common.replace') : tr('op.common.upload')}
-        </Button>
-        {value && (
-          <Button kind="ghost" disabled={disabled || uploading} onClick={() => void remove()}>
-            {tr('op.common.remove')}
+          <Button
+            kind={framed ? undefined : 'ghost'}
+            size={framed ? 'lg' : undefined}
+            style={framed ? { flex: '1 1 0', minInlineSize: 0, justifyContent: 'center' } : undefined}
+            disabled={disabled || uploading}
+            onClick={() => inputRef.current?.click()}
+          >
+            {value ? tr('op.common.replace') : tr('op.common.upload')}
           </Button>
-        )}
-      </div>
+          {value && (
+            <Button
+              kind={framed ? undefined : 'ghost'}
+              size={framed ? 'lg' : undefined}
+              style={framed ? { flex: '1 1 0', minInlineSize: 0, justifyContent: 'center' } : undefined}
+              disabled={disabled || uploading}
+              onClick={() => void remove()}
+            >
+              {tr('op.common.remove')}
+            </Button>
+          )}
+        </div>
+      )}
     </div>
+  );
+}
+
+/** A white round button laid over the photo: Replace or Remove (named for screen readers). */
+function StageButton({ icon, label, danger, disabled, onClick }: { icon: 'upload' | 'trash'; label: string; danger?: boolean; disabled?: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      aria-label={label}
+      title={label}
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick();
+      }}
+      style={{
+        display: 'inline-grid',
+        placeItems: 'center',
+        blockSize: '2.75rem',
+        inlineSize: '2.75rem',
+        padding: 0,
+        border: 'none',
+        borderRadius: 'var(--tp-radius-pill)',
+        background: 'color-mix(in oklab, var(--tp-surface) 94%, transparent)',
+        boxShadow: '0 0.25rem 0.9rem color-mix(in oklab, var(--tp-fg) 25%, transparent)',
+        color: danger ? 'var(--tp-danger-fg)' : 'var(--tp-fg)',
+        font: 'inherit',
+        fontWeight: 600,
+        fontSize: 'var(--tp-fs-sm)',
+        cursor: disabled ? 'not-allowed' : 'pointer',
+        opacity: disabled ? 'var(--tp-opacity-disabled)' : 1,
+      }}
+    >
+      <Icon name={icon} size={17} strokeWidth={2.4} />
+    </button>
   );
 }

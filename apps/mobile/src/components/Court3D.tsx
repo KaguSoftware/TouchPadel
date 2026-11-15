@@ -266,6 +266,14 @@ export interface Court3DProps {
    */
   join?: JoinSeats;
   /**
+   * The page draws the field: a TRANSPARENT surface with only the rackets and
+   * the ball on it (phoneCourt `overlay`), laid over the page's own court.
+   * Fixed for the life of the mount. It is built here, never taken from the
+   * tabs' background builds, and has no stale-frame cover: it has no page
+   * colour in it to go stale.
+   */
+  overlay?: boolean;
+  /**
    * How the court is seen, fixed for the life of the mount: `book` (the
    * default: the Book tab's orbit, pitching with `progress`) or `top` (the Play
    * and Coaches tabs: straight down and horizontal, never pitched, drawn at
@@ -476,6 +484,7 @@ export function Court3D({
   quality: qualityProp,
   scene: sceneProp,
   join,
+  overlay,
   view: viewProp,
   onSize,
   onUnavailable,
@@ -500,6 +509,7 @@ export function Court3D({
   const [sceneKind] = useState<CourtSceneKind>(() => sceneProp ?? 'rally');
   const restT = restTimeFor(sceneKind);
   const [courtView] = useState<CourtView>(() => viewProp ?? 'book');
+  const [overlayCourt] = useState(() => overlay === true);
   const framePeriodMs = courtView === 'top' ? TOP_FRAME_PERIOD_MS : 0;
   /** One GL surface, not two: the top view has no button for the ball to fly over (ONE_SURFACE). */
   const oneSurface = courtView === 'top';
@@ -1156,13 +1166,13 @@ export function Court3D({
               // passed (WebGLRenderer, r160), and expo-gl's getContextAttributes
               // hardcodes alpha: true. The clear alpha below is what actually
               // decides whether a surface composites over what is behind it.
-              alpha: kind === 'ball',
+              alpha: kind === 'ball' || overlayCourt,
             }),
         );
         renderer.setPixelRatio(1); // drawingBuffer* are already device pixels
         renderer.setSize(w, h, false);
         if (kind === 'court') {
-          renderer.setClearColor(clear.current, 1); // opaque: see the header
+          renderer.setClearColor(clear.current, overlayCourt ? 0 : 1); // opaque: see the header
           renderer.shadowMap.enabled = quality === 'full';
           renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         } else {
@@ -1176,12 +1186,15 @@ export function Court3D({
           const spec = { scene: sceneKind, view: courtView, quality, lean: COURT_LEAN };
           // Built in the background ahead of this tab (courtPrewarm.ts) if it
           // could be; otherwise built here, as it always was.
+          // An overlay is its own scene: it neither takes a tab's background build nor
+          // marks that key as taken.
           court.current =
-            takePrebuiltCourt(courtKey(spec, instancing)) ??
+            (overlayCourt ? null : takePrebuiltCourt(courtKey(spec, instancing))) ??
             buildPhoneCourt(quality, COURT_LEAN, {
               scene: sceneKind,
               view: courtView,
               instancing,
+              overlay: overlayCourt,
             });
           // A fresh scene starts in the seats as they are now, nothing to play.
           court.current.setJoin(joinRef.current, false);
@@ -1284,6 +1297,7 @@ export function Court3D({
       quality,
       sceneKind,
       courtView,
+      overlayCourt,
       ink,
       pushViewport,
       armReveal,
@@ -1478,8 +1492,10 @@ export function Court3D({
   // demand and does not start the loop, which is exactly what that path wants.
   useEffect(() => {
     clear.current = hexToInt(colors.page);
-    surfaces.current.court?.renderer.setClearColor(clear.current, 1);
+    surfaces.current.court?.renderer.setClearColor(clear.current, overlayCourt ? 0 : 1);
     court.current?.setBackdropInk(ink);
+    // A transparent overlay carries no page colour: nothing goes stale, nothing to cover.
+    if (overlayCourt) return;
     // Staged, and only cleared once a frame has actually gone out with these
     // colours.
     //
@@ -1513,7 +1529,7 @@ export function Court3D({
       setStale(false);
       setCovering(false);
     }
-  }, [colors.page, ink, requestOnce, staleCover]);
+  }, [colors.page, ink, overlayCourt, requestOnce, staleCover]);
 
   /**
    * Take the cover away once the surface has repainted. A short dissolve, not a

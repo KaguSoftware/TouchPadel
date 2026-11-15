@@ -153,6 +153,9 @@ input:disabled, select:disabled, textarea:disabled {
 .tp-btn[data-kind='primary']:hover:not(:disabled) { background: var(--tp-accent-hover); border-color: var(--tp-accent-hover); color: var(--tp-accent-contrast); }
 /* --tp-accent-active existed in the token file and was used by zero rules. */
 .tp-btn[data-kind='primary']:active:not(:disabled) { background: var(--tp-accent-active); border-color: var(--tp-accent-active); }
+/* A protocol card's Start: Padel Green with dark blue ink. */
+.tp-btn.tp-start-btn[data-kind='primary'], .tp-btn.tp-start-btn[data-kind='primary']:hover:not(:disabled), .tp-btn.tp-start-btn[data-kind='primary']:active:not(:disabled) { background: var(--tp-brand-green); border-color: var(--tp-brand-green); color: color-mix(in oklab, var(--tp-brand-blue) 35%, black); }
+.tp-btn.tp-start-btn[data-kind='primary']:hover:not(:disabled) { filter: brightness(1.06); }
 .tp-btn[data-kind='danger'] { background: var(--tp-danger); border-color: var(--tp-danger); color: var(--tp-danger-contrast); }
 /* The background is RE-DECLARED, not merely darkened. The plain hover rule above
    scores one pseudo-class higher than the bare [data-kind='danger'] attribute, so
@@ -911,6 +914,8 @@ button.tp-nav-item { background: transparent; }
 #analytics-bar .tp-seg-btn, .tp-filter-line .tp-seg-btn { padding-block: 0.2rem; }
 .tp-seg[data-size='sm'] .tp-seg-btn { padding-block: 0.2rem; padding-inline: 0.55rem; font-size: var(--tp-fs-sm); }
 .tp-seg[data-block='true'] .tp-seg-btn { flex: 1 1 0; justify-content: center; min-inline-size: 0; min-block-size: var(--tp-touch); border-radius: var(--tp-radius-pill); }
+/* A track a parent stretches (a grid or column-flex row) shares its extra width among the segments, centred, instead of leaving them bunched at one end and the track empty. A track that hugs its buttons has no extra to share. */
+.tp-seg:not([data-block='true']) .tp-seg-btn { flex: 1 1 auto; justify-content: center; }
 /* A link strip (family tabs) drawn as the segmented control: aria-current marks the page. */
 .tp-seg-btn { text-decoration: none; }
 .tp-seg:not([data-thumb='true']) .tp-seg-btn[aria-current='page'] { background: var(--tp-seg-on); color: var(--tp-seg-on-fg); font-weight: 700; }
@@ -1232,6 +1237,13 @@ button.tp-nav-item { background: transparent; }
   color: var(--tp-fg);
 }
 .tp-breakdown-head { background: var(--tp-bd); color: var(--tp-bd-fg); }
+/* A list of rows in a body: a line between each option. Drawn as a pseudo-element, because a row sets its own inline border (transparent, rounded) that a border rule here would lose to. */
+.tp-ruled-rows > * + * { position: relative; }
+.tp-ruled-rows > * + *::before { content: ''; position: absolute; inset-inline: var(--tp-sp-2); inset-block-start: 0; border-block-start: 1px solid var(--tp-border); pointer-events: none; }
+/* The checks list spaces its lines by a 1rem gap, so its rule sits in the middle of the gap, edge to edge. */
+.tp-ruled-checks > * + *::before { inset-inline: 0; inset-block-start: calc(-0.5 * var(--tp-sp-4)); }
+/* The manager's floor cards: every band as tall as one holding a button (Kitchen has none), so the three line up. */
+.tp-floor-cards .tp-breakdown-head { box-sizing: border-box; min-block-size: calc(2.25rem + 2 * var(--tp-sp-3)); }
 /* Blue mode: a table inside a coloured card (the analytics cards) wears the
    card's colours, its band for the column band, its wash for the body and its
    edge for the frame, instead of the navy panel's (Sait, 2026-10-21). */
@@ -1239,6 +1251,10 @@ button.tp-nav-item { background: transparent; }
   --tp-table-head: var(--tp-bd); --tp-table-head-fg: var(--tp-bd-fg);
   --tp-table-edge: var(--tp-bd-edge); --tp-table-body: transparent;
 }
+/* A table that wears a card colour (data-tone via .tp-tone): its column band is the colour's band, its frame the colour's edge. First used by Who worked today (Sait, 2026-11-14). */
+.tp-table-tone { --tp-table-head: var(--tp-bd); --tp-table-head-fg: var(--tp-bd-fg); --tp-table-edge: var(--tp-bd-edge); }
+/* A table in a main panel (the framed one with a title band) is green too, unless a coloured card or .tp-tone already hands it a colour (Sait, 2026-11-14). */
+.tp-panel-framed .tp-table-frame:not(.tp-breakdown-card .tp-table-frame, .tp-tone .tp-table-frame) { --tp-table-head: var(--tp-breakdown-green); --tp-table-head-fg: var(--tp-breakdown-green-fg); --tp-table-edge: var(--tp-breakdown-green-edge); }
 /* The "i" in any coloured band (a card's, a panel's) wears the band's own text colour, like its title, instead of the muted grey. */
 .tp-breakdown-head .tp-infotip-trigger, .tp-breakdown-head .tp-infotip-trigger:focus-visible,
 .tp-band-title .tp-infotip-trigger, .tp-band-title .tp-infotip-trigger:focus-visible { color: inherit; }
@@ -1482,6 +1498,9 @@ button.tp-nav-item { background: transparent; }
   grid-area: side; display: flex; flex-direction: column; gap: var(--tp-sp-1); padding: var(--tp-sp-5) var(--tp-sp-3);
   background: var(--tp-surface-2); border-inline-end: 1px solid var(--tp-border); overflow-y: auto;
 }
+/* The stepped wizard keeps its progress card in the left column, under the steps; the footer then spans the right column only. */
+.tp-tour-start[data-sidecard='true'] { grid-template-areas: 'side main' 'side foot'; }
+.tp-wiz-sidecard { margin-block-start: auto; padding-block-start: var(--tp-sp-4); }
 .tp-tour-start-main { grid-area: main; display: flex; flex-direction: column; min-inline-size: 0; min-block-size: 0; }
 /* One bottom row across both columns: the progress card and the buttons
    centre on the same line; only the buttons' side has a divider above. */
@@ -1501,15 +1520,42 @@ button.tp-nav-item { background: transparent; }
   }
   .tp-tour-start-sidefoot { border-inline-end: 0; }
   .tp-tour-start-side { border-inline-end: 0; border-block-end: 1px solid var(--tp-border); }
+  .tp-tour-start[data-sidecard='true'] { grid-template-rows: auto minmax(0, 1fr) auto; grid-template-areas: 'side' 'main' 'foot'; }
 }
 .tp-tour-start-nav {
   display: flex; align-items: center; gap: var(--tp-sp-3); min-block-size: 3.25rem; padding: 0 var(--tp-sp-3); font-size: var(--tp-fs-lg);
   border: 0; border-radius: var(--tp-radius-panel); background: transparent; color: var(--tp-fg);
   font: inherit; font-weight: 600; text-align: start; inline-size: 100%; cursor: pointer;
 }
-.tp-tour-start-nav:hover { background: var(--tp-accent-soft); }
-.tp-tour-start-nav[aria-current='step'] { background: var(--tp-accent); color: var(--tp-accent-contrast); font-weight: 700; }
-.tp-tour-start-nav[aria-current='step']:hover { background: var(--tp-accent-hover); }
+/* The dialog's outline would run white along the rail-coloured left column, so the wizard's panel drops it and the main column draws its own edge (top, end and bottom). */
+.tp-rise:has(> .tp-tour-start) { border-width: 0 !important; }
+.tp-tour-start .tp-tour-start-main { border-block-start: 1px solid var(--tp-border); border-inline-end: 1px solid var(--tp-border); }
+.tp-tour-start .tp-tour-start-foot { border-inline-end: 1px solid var(--tp-border); border-block-end: 1px solid var(--tp-border); }
+/* Every stepped dialog's left column (steps menu and the strip under it) takes the rail's colours. */
+.tp-tour-start .tp-tour-start-sidefoot { background: var(--tp-rail); color: var(--tp-rail-fg); border-inline-end: 0; }
+/* The cards in that strip (progress, unsaved note) keep their own light or dark panel, so their text stays the normal text color. */
+.tp-tour-start .tp-tour-start-sidefoot > div { color: var(--tp-fg); }
+.tp-tour-start .tp-tour-start-side { background: var(--tp-rail); color: var(--tp-rail-fg); border-inline-end: 0; }
+.tp-tour-start .tp-tour-start-side :is(h2, .tp-tour-start-nav) { color: var(--tp-rail-fg); }
+.tp-wiz-eyebrow { margin: 0; font-size: var(--tp-fs-xs); font-weight: 700; color: var(--tp-muted-fg); text-transform: uppercase; letter-spacing: 0.08em; }
+:lang(ar) .tp-wiz-eyebrow { letter-spacing: 0; text-transform: none; }
+.tp-tour-start .tp-tour-start-side > div > p { color: var(--tp-rail-muted) !important; }
+.tp-tour-start .tp-tour-start-nav[aria-current='step'] { color: var(--tp-rail-active-fg); }
+.tp-tour-start .tp-wiz-note { color: var(--tp-rail-muted); }
+.tp-tour-start .tp-tour-start-nav[aria-current='step'] .tp-wiz-note { color: var(--tp-rail-active-fg); }
+.tp-tour-start .tp-wiz-n:not([data-state]) { background: var(--tp-rail-2); color: var(--tp-rail-fg); }
+.tp-tour-start .tp-wiz-n[data-state='review'] { color: var(--tp-rail-fg); border-color: color-mix(in srgb, var(--tp-rail-fg) 55%, transparent); }
+.tp-tour-start [aria-current='step'] > .tp-wiz-n[data-state='review'] { color: var(--tp-rail-active); border-color: var(--tp-rail-active-fg); }
+/* Circles: dark blue at rest, white on the current step. */
+.tp-tour-start [aria-current='step'] > .tp-wiz-n { background: var(--tp-brand-white); border-color: var(--tp-brand-white); color: var(--tp-brand-blue); }
+.tp-tour-start .tp-wiz-sep { border-block-start: 1px solid color-mix(in srgb, var(--tp-rail-fg) 14%, transparent); }
+/* The steps menu moves like the rail: a raised ink on hover, the Padel Green pill for the current step, and the rail's focus ring. */
+.tp-tour-start-nav { transition: background var(--tp-dur-fast) var(--tp-ease-out), color var(--tp-dur-fast) var(--tp-ease-out); }
+.tp-tour-start-nav:hover { background: var(--tp-rail-2); }
+.tp-tour-start-nav[aria-current='step'] { background: var(--tp-rail-active); color: var(--tp-rail-active-fg); font-weight: 700; }
+.tp-tour-start-nav[aria-current='step']:hover { background: var(--tp-rail-active); }
+.tp-tour-start-nav:focus-visible { outline: 2px solid var(--tp-rail-green); outline-offset: -2px; }
+.tp-tour-start-nav[aria-current='step']:focus-visible { outline-color: var(--tp-rail-active-fg); }
 .tp-tour-choice {
   display: grid; row-gap: var(--tp-sp-4); align-content: start; align-items: start; padding: var(--tp-sp-4); text-align: start;
   border: 1px solid var(--tp-border-strong); border-radius: var(--tp-radius-dialog); background: var(--tp-surface);
@@ -1530,19 +1576,29 @@ button.tp-nav-item { background: transparent; }
   display: inline-flex; align-items: center; justify-content: center; font-size: var(--tp-fs-xs); font-weight: 800; line-height: 1;
   font-variant-numeric: tabular-nums; background: var(--tp-surface-3); color: var(--tp-muted-fg);
 }
+/* The digits' ink sits about 1.7px above the middle of their line box (the font reserves room below for descenders), so the number is pushed down by half of that padding; the tick is lowered a pixel for the same reason. */
+.tp-wiz-n:not([data-state='done'], [data-state='review']) { padding-block-start: 0.24em; }
+.tp-wiz-n[data-state='done'] > svg { transform: translateY(1px); }
 .tp-wiz-n[data-state='done'] { background: var(--tp-accent-2); color: var(--tp-accent-2-contrast); }
-.tp-wiz-n[data-state='now'] { background: var(--tp-accent-contrast); color: var(--tp-accent); }
+.tp-wiz-n[data-state='now'], [aria-current='step'] > .tp-wiz-n[data-state='done'] { background: var(--tp-rail-active-fg); color: var(--tp-rail-active); }
 .tp-wiz-n[data-state='warn'] { background: var(--tp-danger); color: var(--tp-danger-contrast); }
 .tp-wiz-n[data-state='review'] { background: transparent; border: 2px solid var(--tp-border-strong); }
-[aria-current='step'] > .tp-wiz-n[data-state='review'] { background: var(--tp-accent-contrast); border-color: var(--tp-accent-contrast); color: var(--tp-accent); }
+[aria-current='step'] > .tp-wiz-n[data-state='review'] { background: var(--tp-rail-active-fg); border-color: var(--tp-rail-active-fg); color: var(--tp-rail-active); }
 .tp-wiz-label { flex: 1; min-inline-size: 0; display: grid; gap: 1px; padding-block: var(--tp-sp-1-5); }
 .tp-wiz-note { font-size: var(--tp-fs-xs); font-weight: 500; color: var(--tp-muted-fg); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-[aria-current='step'] .tp-wiz-note { color: var(--tp-accent-contrast); font-weight: 600; }
+[aria-current='step'] .tp-wiz-note { color: var(--tp-rail-active-fg); font-weight: 600; }
 .tp-wiz-sep { border: 0; border-block-start: 1px dashed var(--tp-border-strong); margin: var(--tp-sp-1-5) var(--tp-sp-3); }
 .tp-wiz-progress {
   padding: var(--tp-sp-3); border-radius: var(--tp-radius-panel); background: var(--tp-surface); border: 1px solid var(--tp-border);
-  display: grid; gap: var(--tp-sp-1-5); font-size: var(--tp-fs-sm);
+  display: grid; gap: var(--tp-sp-3); font-size: var(--tp-fs-sm);
 }
+.tp-table tr[data-dragging='true'] { opacity: 0.45; }
+.tp-table tr[data-drop='before'] > td { box-shadow: inset 0 2px 0 var(--tp-accent); }
+.tp-table tr[data-drop='after'] > td { box-shadow: inset 0 -2px 0 var(--tp-accent); }
+.tp-dnd[data-dragging='true'] { opacity: 0.45; }
+.tp-dnd[data-drop='before'] { box-shadow: inset 0 2px 0 var(--tp-accent); }
+.tp-dnd[data-drop='after'] { box-shadow: inset 0 -2px 0 var(--tp-accent); }
+.tp-tour-start .tp-wiz-progress { color: var(--tp-fg); }
 .tp-wiz-bar { block-size: 0.375rem; border-radius: var(--tp-radius-pill); background: var(--tp-surface-3); overflow: hidden; }
 .tp-wiz-bar > i { display: block; block-size: 100%; background: var(--tp-accent-2); transition: inline-size var(--tp-dur-base) var(--tp-ease-out); }
 .tp-btn.tp-wiz-go { background: var(--tp-accent-2); border-color: var(--tp-accent-2); color: var(--tp-accent-2-contrast); }
@@ -1556,6 +1612,97 @@ button.tp-nav-item { background: transparent; }
 .tp-wiz-review dt { color: var(--tp-muted-fg); font-size: var(--tp-fs-sm); font-weight: 600; }
 .tp-wiz-review dd { margin: 0; font-weight: 600; min-inline-size: 0; overflow-wrap: anywhere; }
 @media (max-width: 30rem) { .tp-wiz-review > div { grid-template-columns: minmax(0, 1fr) auto; } .tp-wiz-review dd { grid-column: 1; } }
+/* Release steps (the run wizard), drawn to the approved mockup "Release step screens". */
+.tp-rel { display: grid; gap: 16px; }
+.tp-rel-card { background: var(--tp-surface); border: 1px solid var(--tp-border); border-radius: 14px; padding: 16px; display: grid; gap: 12px; min-inline-size: 0; }
+.tp-rel-card[data-flat='true'] { background: var(--tp-surface-2); border-color: transparent; }
+.tp-rel-h { margin: 0; font-size: 13px; font-weight: 700; color: var(--tp-fg); text-transform: uppercase; letter-spacing: 0.02em; }
+:lang(ar) .tp-rel-h { letter-spacing: 0; }
+.tp-rel-h em, .tp-rel-f > label em { color: var(--tp-danger-fg); font-style: normal; }
+.tp-rel-row { display: flex; gap: 10px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+.tp-rel-g2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.tp-rel-g4 { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+@media (max-width: 40rem) { .tp-rel-g2 { grid-template-columns: minmax(0, 1fr); } .tp-rel-g4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.tp-rel-f { display: grid; gap: 5px; min-inline-size: 0; }
+.tp-rel-f > label { font-size: 12px; font-weight: 700; color: var(--tp-fg); }
+.tp-rel-in { inline-size: 100%; box-sizing: border-box; border: 1px solid var(--tp-border); background: var(--tp-surface-2); color: var(--tp-fg); border-radius: 10px; padding: 10px 12px; min-block-size: 42px; font: inherit; font-size: 14px; }
+.tp-rel-in:focus-visible { outline: 2px solid var(--tp-accent); outline-offset: 1px; }
+.tp-rel-in[aria-invalid='true'] { border-color: var(--tp-danger); }
+textarea.tp-rel-in { min-block-size: 76px; resize: none; line-height: 1.5; }
+.tp-rel-form textarea { resize: none !important; }
+.tp-rel-in[data-big='true'] { font-size: 22px; font-weight: 700; min-block-size: 56px; }
+.tp-rel-money { position: relative; display: block; }
+.tp-rel-unit { position: absolute; inset-inline-end: 12px; inset-block-start: 50%; transform: translateY(-50%); color: var(--tp-muted-fg); font-size: 13px; font-weight: 600; pointer-events: none; }
+.tp-rel-err { font-size: 12px; color: var(--tp-danger-fg); }
+.tp-rel-sub { display: flex; justify-content: space-between; gap: 12px; font-size: 12px; font-weight: 700; color: var(--tp-fg); }
+.tp-rel-cnt { font-size: 11px; font-weight: 700; color: var(--tp-fg); text-align: end; }
+.tp-rel-note { border-radius: 12px; padding: 12px 14px; background: color-mix(in srgb, var(--tp-accent-soft) 45%, var(--tp-surface-2)); color: var(--tp-accent-soft-fg); font-size: 13px; }
+.tp-rel-chip { display: inline-flex; align-items: center; gap: 6px; border-radius: var(--tp-radius-pill); padding: 5px 14px; background: color-mix(in srgb, var(--tp-accent-soft) 70%, var(--tp-surface-2)); color: var(--tp-accent-soft-fg); font-weight: 600; font-size: 13px; }
+.tp-rel-chip[data-on='true'] { background: var(--tp-accent-soft); color: var(--tp-accent-soft-fg); }
+.tp-rel-chip[data-off='true'] { background: var(--tp-surface-2); color: var(--tp-muted-fg); border: 1px solid var(--tp-border); }
+.tp-rel-chips { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.tp-rel-pill { display: inline-flex; align-items: center; border-radius: var(--tp-radius-pill); padding: 3px 12px; font-size: 13px; font-weight: 600; white-space: nowrap; }
+.tp-rel-pill[data-tone='ok'] { background: var(--tp-success-soft); color: var(--tp-success-fg); }
+.tp-rel-pill[data-tone='warn'] { background: var(--tp-warn-soft); color: var(--tp-warn-fg); }
+.tp-rel-ledger { border: 1px solid var(--tp-border); border-radius: 12px; overflow: hidden; display: grid; }
+.tp-rel-ledger > div { display: flex; justify-content: space-between; gap: 12px; padding: 11px 14px; background: var(--tp-surface-2); border-block-start: 1px solid var(--tp-border); }
+.tp-rel-ledger > div:first-child { border-block-start: 0; }
+.tp-rel-ck { display: flex; gap: 12px; align-items: center; padding: 12px 14px; border-radius: 12px; background: var(--tp-surface-2); }
+.tp-rel-ck > u { color: var(--tp-accent-2); display: grid; place-items: center; text-decoration: none; flex: none; }
+.tp-rel-ck > u[data-warn='true'] { color: var(--tp-warn-mark); }
+button.tp-rel-ck { inline-size: 100%; border: 0; font: inherit; color: inherit; text-align: start; cursor: pointer; }
+button.tp-rel-ck:focus-visible { outline: 2px solid var(--tp-accent); outline-offset: 2px; }
+/* A fold: opens by growing its row from 0fr to 1fr; the negative margin takes back the card's row gap while shut. */
+.tp-rel-fold { display: grid; grid-template-rows: 0fr; margin-block-start: -12px; opacity: 0; transition: grid-template-rows var(--tp-dur-base) var(--tp-ease-out), margin-block-start var(--tp-dur-base) var(--tp-ease-out), opacity var(--tp-dur-base) var(--tp-ease-out); }
+.tp-rel-fold[data-open='true'] { grid-template-rows: 1fr; margin-block-start: 0; opacity: 1; }
+.tp-rel-fold > div { overflow: hidden; min-block-size: 0; display: grid; gap: 12px; }
+.tp-rel-chev > svg { transition: transform var(--tp-dur-base) var(--tp-ease-out); }
+.tp-rel-chev[data-open='true'] > svg { transform: rotate(180deg); }
+@media (prefers-reduced-motion: reduce) { .tp-rel-fold, .tp-rel-chev > svg { transition: none; } }
+.tp-rel-list { display: grid; border-radius: 12px; padding-inline: 12px; background: var(--tp-surface-2); }
+.tp-rel-list .tp-rel-ck { border-radius: 0; background: transparent; padding-inline: 2px; border-block-start: 1px solid color-mix(in srgb, var(--tp-border) 55%, transparent); }
+.tp-rel-list > :first-child { border-block-start: 0; }
+.tp-rel-list .tp-rel-fold { margin-block-start: 0; }
+.tp-rel-list .tp-rel-fold > div { gap: 0; }
+.tp-rel-plain { display: grid; }
+.tp-rel-rule { border: 0; border-block-start: 1px solid color-mix(in srgb, var(--tp-border) 55%, transparent); margin: 4px 0; inline-size: 100%; }
+.tp-rel-plain > div { display: flex; justify-content: space-between; gap: 12px; padding-block: 10px; font-weight: 600; border-block-start: 1px solid color-mix(in srgb, var(--tp-border) 55%, transparent); }
+.tp-rel-plain > div:first-child { border-block-start: 0; padding-block-start: 0; }
+.tp-rel-plain > div:last-child { padding-block-end: 0; }
+.tp-rel-go { margin-inline-start: auto; color: var(--tp-accent-soft-fg); font-size: 13px; font-weight: 600; background: none; border: 0; padding: 0; font-family: inherit; display: inline-flex; gap: 4px; align-items: center; }
+button.tp-rel-go { cursor: pointer; }
+.tp-rel-choice { border: 2px solid var(--tp-border); border-radius: 14px; padding: 16px; display: grid; gap: 4px; background: var(--tp-surface-2); text-align: start; font: inherit; color: inherit; cursor: pointer; position: relative; min-inline-size: 0; }
+.tp-rel-choice[aria-pressed='true'] { border-color: var(--tp-accent-soft); background: color-mix(in srgb, var(--tp-accent-soft) 60%, var(--tp-surface-2)); }
+.tp-rel-choice:focus-visible { outline: 2px solid var(--tp-accent); outline-offset: 2px; }
+.tp-rel-choice > b { font-size: 17px; }
+.tp-rel-choice > span { color: var(--tp-fg); font-weight: 700; font-size: 14px; }
+.tp-rel-choice[aria-pressed='true'] > span { color: inherit; opacity: 0.85; }
+.tp-rel-minus { position: absolute; inset-inline-end: 10px; inset-block-start: 10px; inline-size: 28px; block-size: 28px; border-radius: 50%; border: 1px solid var(--tp-border); background: var(--tp-surface); color: var(--tp-fg); display: grid; place-items: center; cursor: pointer; padding: 0; }
+.tp-rel-tile { aspect-ratio: 4 / 3; border-radius: 12px; overflow: hidden; position: relative; padding: 0; border: 0; background: var(--tp-surface-2); display: grid; place-items: center; color: var(--tp-muted-fg); min-inline-size: 0; }
+.tp-rel-tile > img { display: block; inline-size: 100%; block-size: 100%; object-fit: cover; }
+.tp-rel-tile[data-add='true'] { background: transparent; border: 2px dashed var(--tp-border); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; gap: 4px; text-align: center; align-content: center; }
+.tp-rel-tile[data-cam='true'] { border-color: var(--tp-accent-soft); color: var(--tp-accent-soft-fg); }
+.tp-rel-tile[data-sel='true'] { outline: 3px solid var(--tp-accent-2); }
+.tp-rel-tile[data-bad='true'] { border-color: var(--tp-danger); }
+.tp-rel-tile > button.tp-rel-x, .tp-rel-pick { position: absolute; inset-inline-end: 8px; inset-block-start: 8px; inline-size: 22px; block-size: 22px; border-radius: 50%; display: grid; place-items: center; padding: 0; border: 0; font-size: 12px; }
+.tp-rel-pick { background: var(--tp-accent-soft); color: var(--tp-accent-soft-fg); pointer-events: none; }
+.tp-rel-tile > button.tp-rel-x { background: var(--tp-danger); color: var(--tp-danger-contrast); cursor: pointer; z-index: 1; }
+.tp-rel-propose { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; align-items: start; }
+@media (max-width: 40rem) { .tp-rel-propose { grid-template-columns: minmax(0, 1fr); } }
+/* The generic step form (tournament, hiring, price and promo steps): its boxes take the same look. Inline styles win, hence !important. */
+.tp-rel-form { gap: 16px; }
+.tp-rel-form :is(input:not([type='checkbox'], [type='radio'], [type='file'], [type='range']), textarea, select)[style] { background: var(--tp-surface-2) !important; border: 1px solid var(--tp-border) !important; border-radius: 10px !important; padding-block: 10px !important; padding-inline: 12px !important; min-block-size: 42px !important; font-size: 14px !important; }
+.tp-rel-form legend { font-size: 12px; font-weight: 700; color: var(--tp-fg); }
+.tp-rel-sender { display: flex; gap: 12px; align-items: center; }
+.tp-rel-stack { display: grid; gap: 14px; align-content: start; min-inline-size: 0; }
+/* A sent record (RecordView): short answers in a grid, lists as chips on a row of their own. */
+.tp-record { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr)); gap: var(--tp-sp-4) var(--tp-sp-6); margin: 0; }
+.tp-record > div { display: grid; gap: var(--tp-sp-1); align-content: start; min-inline-size: 0; }
+.tp-record > div[data-wide='true'] { grid-column: 1 / -1; }
+.tp-record dt { color: var(--tp-muted-fg); font-size: var(--tp-fs-sm); font-weight: 600; }
+.tp-record dd { margin: 0; font-size: var(--tp-fs-lg); font-weight: 600; overflow-wrap: anywhere; }
+.tp-record-list { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--tp-sp-1-5); }
+.tp-record-list > li { padding: 0.2rem var(--tp-sp-3); border-radius: var(--tp-radius-pill); background: var(--tp-accent-soft); color: var(--tp-accent-soft-fg); font-size: var(--tp-fs-sm); font-weight: 600; }
 .tp-wiz-choices { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 1fr)); gap: var(--tp-sp-3); }
 .tp-wiz-choices[data-small='true'] { grid-template-columns: repeat(auto-fit, minmax(min(100%, 8.5rem), 1fr)); }
 .tp-wiz-choice { position: relative; row-gap: var(--tp-sp-2); }

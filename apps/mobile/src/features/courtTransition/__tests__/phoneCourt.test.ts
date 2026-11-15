@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import * as THREE from 'three';
 import { MACHINE } from '@touch/court3d/drill';
+import { buildCourtScene } from '@touch/court3d/scene';
 import { buildPhoneCourt } from '../phoneCourt';
 
 /** The logo: the last thing the phone court adds to the scene. */
@@ -42,4 +43,13 @@ describe('the phone court', () => {
       book.dispose();
     },
   );
+
+  it('an overlay is only the rackets and the ball: no field, no pattern, no logo', () => {
+    const court = buildPhoneCourt('lite', false, { scene: 'join', view: 'top', overlay: true });
+    const plain = buildCourtScene('lite', { scene: 'join', view: 'top', field: false });
+    expect(court.camera.children).toHaveLength(0);
+    expect(court.scene.children).toHaveLength(plain.scene.children.length);
+    court.dispose();
+    plain.dispose();
+  });
 });

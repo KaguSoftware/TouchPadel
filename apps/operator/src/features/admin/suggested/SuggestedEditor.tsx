@@ -20,9 +20,9 @@ import { usePermissions } from '../../../lib/auth';
 import { Button, Field, Select, inputStyle } from '../../../components/ui';
 import { AsyncStateWrapper, EmptyState, MessagePresenter, PageHeader, Panel, StatusBadge, asyncStatus } from '../../../components/kit';
 import { ChevronForward } from '../../../components/icons';
-import { SortButtons } from '../../../components/inputs';
+import { DragHandle, useDragReorder } from '../../../components/DragReorder';
 import { useToast } from '../../../components/toast';
-import { moveInList, sameOrder } from '../addons/addonsLogic';
+import { moveInList, moveToIndex, sameOrder } from '../addons/addonsLogic';
 import { sortRows } from '../menu/menuLogic';
 import { SUGGESTION_CAP, canAddSuggestion, suggestionCandidates, suggestionCounts } from './suggestedLogic';
 
@@ -175,6 +175,7 @@ function SuggestionList({
     .sort((a, b) => a.sort_order - b.sort_order)
     .map((s) => s.suggested_item_id);
   const [list, setList] = useState<string[]>(saved);
+  const rowProps = useDragReorder(list, (from, to) => setList(moveToIndex(list, list.indexOf(from), list.indexOf(to))), can.editMenu);
   const [query, setQuery] = useState('');
   const byId = new Map(items.map((i) => [i.id, i]));
   const dirty = !sameOrder(saved, list);
@@ -216,14 +217,13 @@ function SuggestionList({
       ) : (
         <ol style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--tp-sp-1)' }}>
           {list.map((id, index) => (
-            <li key={id} style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-2)', paddingBlock: 'var(--tp-sp-1)', borderBlockEnd: '1px solid var(--tp-border)' }}>
+            <li key={id} {...rowProps(id)} style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-2)', paddingBlock: 'var(--tp-sp-1)', borderBlockEnd: '1px solid var(--tp-border)' }}>
               <span style={{ inlineSize: '1.5rem', color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)', fontVariantNumeric: 'tabular-nums' }}>{formatNumber(index + 1, locale)}</span>
               <bdi style={{ flex: 1, minInlineSize: 0 }}>{pickName(locale, byId.get(id)) || id}</bdi>
-              <SortButtons
-                onUp={() => setList(moveInList(list, index, 'up'))}
-                onDown={() => setList(moveInList(list, index, 'down'))}
-                disabledUp={index === 0 || !can.editMenu}
-                disabledDown={index === list.length - 1 || !can.editMenu}
+              <DragHandle
+                label={`${tr('op.common.moveUp')} / ${tr('op.common.moveDown')}`}
+                disabled={!can.editMenu}
+                onMove={(direction) => setList(moveInList(list, index, direction))}
               />
               <Button kind="ghost" size="sm" icon="x" disabled={!can.editMenu} onClick={() => setList(list.filter((s) => s !== id))}>
                 {tr('op.common.remove')}

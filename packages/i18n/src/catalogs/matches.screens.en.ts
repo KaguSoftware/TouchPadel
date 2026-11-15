@@ -165,6 +165,21 @@ export const matchesScreensEn = {
     removed: 'Player removed',
     blocked: 'Player blocked',
     notFoundTitle: "This match isn't available",
+    // The tidy-up (2026-11-07): the screen's groups and rows, the total, the
+    // seats alert, and the one rule the old hint lines moved into.
+    groupSeat: 'Your seat',
+    groupAbout: 'About',
+    rowJoin: 'Joining',
+    rowVisibility: 'Visibility',
+    rowPrice: 'Price',
+    total: 'Total for {seats}',
+    fillsByShort: 'Fills by {time}',
+    takeTitle: 'You are taking {taking}',
+    takeBodyMen: "This is a men's match. Are you all men?",
+    takeBodyWomen: "This is a women's match. Are you all women?",
+    takeConfirmMen: 'Yes, all men',
+    takeConfirmWomen: 'Yes, all women',
+    rulesCalledOff: "Not full by the deadline? It's called off and tickets come back.",
   },
   // §4.17 app/match-report.tsx
   report: {
@@ -205,6 +220,8 @@ export const matchesScreensEn = {
     bringBalls: "Who's bringing balls?",
     line: '{name} · {label} · {time}',
     sent: 'Sent to the players',
+    last: '{name} · {label}',
+    sendHint: 'Tap to send to the players',
     empty: 'No messages yet.',
   },
   // §4.9 GenderAsk: the question itself is in the player questionnaire (play-survey).

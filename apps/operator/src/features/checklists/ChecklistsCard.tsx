@@ -35,6 +35,7 @@ import { pickName, useLocale } from '../../lib/i18n';
 import { useBusinessToday } from '../../lib/settings';
 import { Button, ErrorText, Skeleton } from '../../components/ui';
 import { EmptyState, Panel, SegmentedControl, StatusBadge } from '../../components/kit';
+import { BrandBall } from '../../components/brand';
 import { CardTitle, MARK, MARK_FG } from '../ops/OpsVisuals';
 import type { EditorState } from './ChecklistEditor';
 import { ChecklistsSheet, type SheetTab } from './ChecklistsSheet';
@@ -118,8 +119,30 @@ export function ChecklistsCard() {
     </span>
   );
 
+  // The day's tally, plain white text, on the header line beside the title.
+  const tally =
+    q.isSuccess && summary.total > 0 ? (
+      <span
+        style={{
+          fontWeight: 600,
+          fontSize: 'var(--tp-fs-sm)',
+          color: 'var(--tp-panel-head-fg)',
+          whiteSpace: 'nowrap',
+        }}
+      >
+        {summary.finished === summary.total
+          ? tr('ws.supplies.checklists.allDone')
+          : tr('ws.supplies.checklists.summary', { done: formatNumber(summary.finished, locale), total: formatNumber(summary.total, locale) })}
+      </span>
+    ) : undefined;
+
   return (
-    <Panel title={<CardTitle icon="checkCircle">{tr('ws.supplies.checklists.title')}</CardTitle>} data-testid="checklists-card">
+    <Panel
+      title={<CardTitle icon="checkCircle">{tr('ws.supplies.checklists.title')}</CardTitle>}
+      actions={tally}
+      fill
+      data-testid="checklists-card"
+    >
       {q.isError ? (
         <div style={{ display: 'grid', gap: 'var(--tp-sp-2)', justifyItems: 'start' }}>
           <ErrorText error={q.error} style={{ marginBlock: 0 }} />
@@ -144,18 +167,14 @@ export function ChecklistsCard() {
           }
         />
       ) : (
-        <div style={{ display: 'grid', gap: 'var(--tp-sp-2)' }}>
-          <p style={{ margin: 0, fontWeight: 600, color: summary.finished === summary.total ? MARK_FG.success : undefined }}>
-            {summary.finished === summary.total
-              ? tr('ws.supplies.checklists.allDone')
-              : tr('ws.supplies.checklists.summary', { done: formatNumber(summary.finished, locale), total: formatNumber(summary.total, locale) })}
-          </p>
+        <div style={{ flex: 1, marginBlockEnd: 'var(--tp-sp-3)', display: 'grid', gap: 'var(--tp-sp-2)', gridTemplateRows: shown.length === 0 ? 'auto 1fr' : undefined }}>
           {/* An unfinished list is not yet a problem: a closing list is 0 of 5 all
               afternoon. So progress is neutral and only Finished takes a colour,
               until the list is past its due time: then it is Overdue, in danger,
               and the server put it first. Nothing is blocked by it. */}
           <SegmentedControl
             size="sm"
+            block
             value={filter}
             onChange={setFilter}
             aria-label={tr('ws.supplies.checklists.filter.label')}
@@ -165,23 +184,26 @@ export function ChecklistsCard() {
               label: (
                 <span style={{ display: 'inline-flex', gap: 'var(--tp-sp-1)', alignItems: 'baseline' }}>
                   {tr(`ws.supplies.checklists.filter.${f}`)}
-                  <span style={{ fontVariantNumeric: 'tabular-nums', color: 'var(--tp-muted-fg)' }}>{formatNumber(counts[f], locale)}</span>
+                  <span style={{ fontVariantNumeric: 'tabular-nums' }}>{formatNumber(counts[f], locale)}</span>
                 </span>
               ),
             }))}
           />
           {shown.length === 0 ? (
             // "All" always has a row here: the empty day is the EmptyState above.
-            <p data-testid="checklists-filter-none" style={{ margin: 0, fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>
-              {tr(`ws.supplies.checklists.filter.none.${filter === 'all' ? 'todo' : filter}`)}
-            </p>
+            <div style={{ display: 'grid', justifyItems: 'center', alignContent: 'center', gap: 'var(--tp-sp-2)', paddingBlock: 'var(--tp-sp-3)', textAlign: 'center' }}>
+              <BrandBall size={56} seam="var(--tp-surface)" />
+              <p data-testid="checklists-filter-none" style={{ margin: 0, color: MARK_FG.success, fontWeight: 600 }}>
+                {tr(`ws.supplies.checklists.filter.none.${filter === 'all' ? 'todo' : filter}`)}
+              </p>
+            </div>
           ) : (
             <ul
               data-testid="checklists-card-list"
               aria-label={tr('ws.supplies.checklists.title')}
               // Scrolls inside the card, so a branch with many lists keeps the page's other cards in view.
               tabIndex={0}
-              style={{ listStyle: 'none', margin: 0, padding: 0, paddingInlineEnd: 'var(--tp-sp-1)', display: 'grid', gap: 'var(--tp-sp-2)', maxBlockSize: '22rem', overflowY: 'auto', overscrollBehavior: 'contain' }}
+              style={{ listStyle: 'none', margin: 0, padding: 0, paddingInlineEnd: 'var(--tp-sp-3)', display: 'grid', gap: 'var(--tp-sp-2)', maxBlockSize: '22rem', overflowY: 'auto', overscrollBehavior: 'contain' }}
             >
               {shown.map((l) => {
                 const open = isUnfinished(l);
@@ -194,7 +216,7 @@ export function ChecklistsCard() {
                 const due = dueLabel(l.due_at, now, tr, locale);
                 const meta = [who, t ? repeatSummary(t, tr, locale) : '', due ?? ''].filter((x) => x !== '');
                 return (
-                  <li key={dayListKey(l)} data-list={dayListKey(l)} data-overdue={late ? 'true' : undefined} style={{ display: 'grid', gap: 'var(--tp-sp-0)', fontSize: 'var(--tp-fs-sm)' }}>
+                  <li key={dayListKey(l)} data-list={dayListKey(l)} data-overdue={late ? 'true' : undefined} style={{ display: 'grid', gap: 'var(--tp-sp-1)', fontSize: 'var(--tp-fs-sm)', padding: 'var(--tp-sp-3)', border: '1px solid var(--tp-border)', borderRadius: 'var(--tp-radius-panel)', background: 'var(--tp-surface)' }}>
                     <span style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 'var(--tp-sp-2)' }}>
                       <span style={{ fontWeight: 600, minInlineSize: 0, overflowWrap: 'anywhere' }}>
                         <bdi>{pickName(locale, l) || tr(`work.checklist.slot.${l.slot}`)}</bdi>
@@ -228,7 +250,7 @@ export function ChecklistsCard() {
           )}
         </div>
       )}
-      <div style={{ marginBlockStart: 'var(--tp-sp-3)' }}>{actions}</div>
+      <div style={{ marginBlockStart: 'auto', paddingBlockStart: 'var(--tp-sp-3)', borderBlockStart: '1px solid var(--tp-border)' }}>{actions}</div>
 
       {sheet && (
         <ChecklistsSheet

@@ -6,6 +6,7 @@ import {
   canStartAt,
   chipCellKeys,
   chipKey,
+  courtPlaces,
   displayName,
   displaySeat,
   freeCourtsAt,
@@ -23,9 +24,11 @@ import {
   parseOpenMatches,
   parseTicketBegin,
   parseTicketWallet,
+  PRESET_MESSAGE_CODES,
   seatsOfLabel,
   slotActions,
   slotMatchesByStart,
+  totalShareIqd,
   tradingNightOf,
   type MatchSeat,
   type MyMatchRow,
@@ -551,5 +554,49 @@ describe('mergeReservationLists', () => {
   it('lists a match once when both scopes carried it', () => {
     const out = mergeReservationLists([], [filling, filling], now, null);
     expect(out.openMatches).toHaveLength(1);
+  });
+});
+
+// ── The total, the presets and the court's places ───────────────────────────
+
+describe('totalShareIqd', () => {
+  it('adds the next seats off the four shares', () => {
+    expect(totalShareIqd([12500, 12500, 12500, 12500], 2, 1)).toBe(12500);
+    expect(totalShareIqd([12500, 12500, 12500, 12500], 2, 2)).toBe(25000);
+  });
+
+  it('follows the 1 IQD difference between shares', () => {
+    expect(totalShareIqd([12501, 12500, 12500, 12499], 1, 2)).toBe(25000);
+    expect(totalShareIqd([12501, 12500, 12500, 12499], 0, 3)).toBe(37501);
+  });
+
+  it('never reads past the last share, and says nothing without shares', () => {
+    expect(totalShareIqd([100, 100], 1, 3)).toBe(300);
+    expect(totalShareIqd([], 0, 2)).toBeNull();
+    expect(totalShareIqd([100], 0, 0)).toBeNull();
+  });
+});
+
+describe('PRESET_MESSAGE_CODES', () => {
+  it('holds back the balls question and keeps the rest in the bar order', () => {
+    expect(PRESET_MESSAGE_CODES).toEqual(['on_my_way', 'running_late', 'cant_make_it']);
+  });
+});
+
+describe('courtPlaces', () => {
+  it('puts the taken seats first, in seat order, then the open ones', () => {
+    const places = courtPlaces([
+      seat({ seatNo: 3, name: 'Omar R.' }),
+      seat({ seatNo: 1, name: 'Ahmed K.' }),
+      seat({ seatNo: 2, name: null, open: true }),
+    ]);
+    expect(places.map((p) => p?.name ?? null)).toEqual(['Ahmed K.', 'Omar R.', null, null]);
+    expect(places[2]?.open).toBe(true);
+    expect(places[3]).toBeNull();
+  });
+
+  it('is always four places', () => {
+    expect(courtPlaces([])).toHaveLength(4);
+    expect(courtPlaces([1, 2, 3, 4, 5].map((n) => seat({ seatNo: n })))).toHaveLength(4);
   });
 });

@@ -140,9 +140,21 @@ export interface CourtStageProps {
   scene?: CourtSceneKind;
   /** The `join` scene's seats (Court3D's `join`). */
   join?: JoinSeats;
+  /** Court3D's `overlay`: only the rackets and the ball, on a transparent surface. */
+  overlay?: boolean;
+  /** Told once when this phone has no GL court, so the page can draw its own stand-in. */
+  onUnavailable?: () => void;
 }
 
-export function CourtStage({ top, height, patternBox, scene, join }: CourtStageProps) {
+export function CourtStage({
+  top,
+  height,
+  patternBox,
+  scene,
+  join,
+  overlay,
+  onUnavailable,
+}: CourtStageProps) {
   const reduceMotion = useReduceMotion();
   // Court3D reads progress every frame; the top view never moves it off 0.
   const [progress] = useState(() => new Animated.Value(0));
@@ -163,8 +175,12 @@ export function CourtStage({ top, height, patternBox, scene, join }: CourtStageP
         view={STAGE_VIEW}
         scene={scene}
         join={join}
+        overlay={overlay}
         quality={STAGE_QUALITY}
-        onUnavailable={() => setUnavailable(true)}
+        onUnavailable={() => {
+          setUnavailable(true);
+          onUnavailable?.();
+        }}
         patternBox={patternBox}
         style={{ flex: 1 }}
       />

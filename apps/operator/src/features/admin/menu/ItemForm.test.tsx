@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { LocaleProvider } from '../../../lib/i18n';
@@ -92,17 +92,22 @@ function renderForm(item: ItemRow | null, kind: 'cafe' | 'shop' = 'cafe', locale
     <QueryClientProvider client={client}>
       <LocaleProvider>
         <ToastProvider>
-          <ItemForm item={item} categoryId="cat-1" categoryKind={kind} groups={[]} modifiers={[]} cost={null} today="2026-09-25" onSaved={() => {}} />
+          <ItemForm item={item} categoryId="cat-1" categoryKind={kind} groups={[]} modifiers={[]} cost={null} today="2026-09-25" onSaved={() => {}} onClose={() => {}} />
         </ToastProvider>
       </LocaleProvider>
     </QueryClientProvider>,
   );
 }
 
+/** The form is a dialog of sections: open one from the side menu, like a person would. */
+function openSection(name: string) {
+  fireEvent.click(screen.getByRole('button', { name }));
+  return screen;
+}
+
 function sizesPanel(): HTMLElement {
-  const section = screen.getByRole('heading', { name: 'Sizes and prices' }).closest('section');
-  if (!section) throw new Error('no Sizes and prices panel');
-  return section;
+  openSection('Sizes and prices');
+  return screen.getByRole('region', { name: 'Sizes and prices' });
 }
 
 beforeEach(() => {
@@ -148,8 +153,11 @@ describe('ItemForm: prices on sale', () => {
         ],
       }),
     );
+    sizesPanel();
     await user.click(screen.getByRole('radio', { name: 'Default: Large' }));
-    await user.click(within(sizesPanel()).getByRole('button', { name: 'Save' }));
+    // No Save on the size: the form's own Save sends it.
+    expect(within(sizesPanel()).queryByRole('button', { name: 'Save' })).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Save' }));
     expect(
       await screen.findAllByText('Renaming a size or an option that is on sale goes through “Change the price”, with the owner’s OK.'),
     ).not.toHaveLength(0);
@@ -171,8 +179,11 @@ describe('ItemForm: prices on sale', () => {
         ],
       }),
     );
+    sizesPanel();
     await user.click(screen.getByRole('radio', { name: 'Default: Large' }));
-    await user.click(within(sizesPanel()).getByRole('button', { name: 'Save' }));
+    // No Save on the size: the form's own Save sends it.
+    expect(within(sizesPanel()).queryByRole('button', { name: 'Save' })).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Save' }));
     expect(rpc.appRpc).toHaveBeenCalledWith('upsert_variant', expect.objectContaining({ p_id: 'v-2', p_price_iqd: 6500, p_is_default: true }));
   });
 
@@ -187,7 +198,7 @@ describe('ItemForm: prices on sale', () => {
 
   it('lets a manager switch a launched item that is off back on', () => {
     renderForm(itemRow({ is_active: false }));
-    expect((screen.getByRole('switch', { name: 'Active' }) as HTMLButtonElement).disabled).toBe(false);
+    expect((openSection('Cost and status').getByRole('switch', { name: 'Active' }) as HTMLButtonElement).disabled).toBe(false);
   });
 });
 
@@ -204,7 +215,7 @@ describe('ItemForm: an item in release', () => {
   it('cannot be switched on or repriced by anyone (ITEM_IN_RELEASE)', () => {
     auth.role = 'owner';
     renderForm(itemRow(IN_RELEASE));
-    expect((screen.getByRole('switch', { name: 'Active' }) as HTMLButtonElement).disabled).toBe(true);
+    expect((openSection('Cost and status').getByRole('switch', { name: 'Active' }) as HTMLButtonElement).disabled).toBe(true);
     expect(screen.getByText('Goes on sale when the owner launches its release.')).toBeTruthy();
     const panel = within(sizesPanel());
     expect(panel.queryByLabelText('Price (IQD): Regular')).toBeNull();
@@ -229,7 +240,7 @@ describe('ItemForm: an item in release', () => {
 describe('ItemForm: drafts and new items', () => {
   it("sends a manager's cafe draft to the owner's launch, prices still editable", () => {
     renderForm(itemRow(DRAFT));
-    expect((screen.getByRole('switch', { name: 'Active' }) as HTMLButtonElement).disabled).toBe(true);
+    expect((openSection('Cost and status').getByRole('switch', { name: 'Active' }) as HTMLButtonElement).disabled).toBe(true);
     expect(screen.getByText('Goes on sale when the owner launches it.')).toBeTruthy();
     expect(within(sizesPanel()).getByLabelText('Price (IQD): Regular')).toBeTruthy();
   });
@@ -237,7 +248,7 @@ describe('ItemForm: drafts and new items', () => {
   it("offers Put on sale on a manager's hidden shop product", async () => {
     const user = userEvent.setup();
     renderForm(itemRow(DRAFT), 'shop');
-    expect((screen.getByRole('switch', { name: 'Active' }) as HTMLButtonElement).disabled).toBe(true);
+    expect((openSection('Cost and status').getByRole('switch', { name: 'Active' }) as HTMLButtonElement).disabled).toBe(true);
     expect(screen.getByText('Saved hidden until the owner approves its price.')).toBeTruthy();
     await user.click(screen.getByRole('button', { name: 'Put on sale' }));
     expect(router.navigate).toHaveBeenCalledWith({ to: '/protocols', search: { start: 'price_promo', change: 'shop_launch', item: ITEM_ID } });
@@ -246,7 +257,7 @@ describe('ItemForm: drafts and new items', () => {
   it('lets the owner switch a draft on directly', () => {
     auth.role = 'owner';
     renderForm(itemRow(DRAFT));
-    expect((screen.getByRole('switch', { name: 'Active' }) as HTMLButtonElement).disabled).toBe(false);
+    expect((openSection('Cost and status').getByRole('switch', { name: 'Active' }) as HTMLButtonElement).disabled).toBe(false);
     expect(screen.queryByText('Goes on sale when the owner launches it.')).toBeNull();
   });
 
@@ -254,12 +265,13 @@ describe('ItemForm: drafts and new items', () => {
     const user = userEvent.setup();
     rpc.appRpc.mockResolvedValue(ITEM_ID);
     renderForm(null, 'shop');
-    const active = screen.getByRole('switch', { name: 'Active' });
+    const active = openSection('Cost and status').getByRole('switch', { name: 'Active' });
     expect(active.getAttribute('aria-checked')).toBe('false');
     expect((active as HTMLButtonElement).disabled).toBe(true);
     expect(screen.queryByText('Unsaved changes')).toBeNull();
-    await user.type(screen.getAllByLabelText('English')[0]!, 'Grip tape');
-    await user.type(screen.getAllByLabelText('Arabic')[0]!, 'شريط قبضة');
+    openSection('Details');
+    await user.type(screen.getByLabelText('Name: English'), 'Grip tape');
+    await user.type(screen.getByLabelText(/Name: Arabic/), 'شريط قبضة');
     await user.click(screen.getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(rpc.appRpc).toHaveBeenCalledWith('upsert_menu_item', expect.objectContaining({ p_id: null, p_is_active: false })));
   });
@@ -268,7 +280,7 @@ describe('ItemForm: drafts and new items', () => {
     const user = userEvent.setup();
     rpc.appRpc.mockRejectedValue(new AppRpcError('ITEM_VIA_RELEASE', 'ITEM_VIA_RELEASE'));
     renderForm(itemRow(DRAFT));
-    await user.type(screen.getAllByLabelText('English')[0]!, ' v2');
+    await user.type(screen.getByLabelText('Name: English'), ' v2');
     await user.click(screen.getByRole('button', { name: 'Save' }));
     expect(await screen.findAllByText('New menu items start as “Propose a new item”, and the owner launches them.')).not.toHaveLength(0);
   });

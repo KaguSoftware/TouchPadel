@@ -231,6 +231,15 @@ function renderPage(locale: 'en' | 'ar' = 'en') {
   );
 }
 
+/** The stepped start sheet: open a step from its menu, or go to Review and send. */
+async function gotoStep(user: ReturnType<typeof userEvent.setup>, key: string) {
+  await user.click(await screen.findByTestId(`start-sheet.step.${key}`));
+}
+async function sendStart(user: ReturnType<typeof userEvent.setup>) {
+  await gotoStep(user, 'review');
+  await user.click(await screen.findByTestId('start-sheet.submit'));
+}
+
 describe('/protocols', () => {
   it('shows the four protocols with their counts, then what waits on you, and opens a run from the list', async () => {
     const user = userEvent.setup();
@@ -260,7 +269,7 @@ describe('/protocols', () => {
     search.run = R1;
     renderPage();
     const sheet = await screen.findByTestId('run-sheet');
-    expect(within(sheet).getAllByTestId('run-step')).toHaveLength(5);
+    expect(sheet.querySelectorAll('[data-testid^="run-sheet.step."]')).toHaveLength(6); // five steps and the Summary page
     const panel = await screen.findByTestId('step-panel');
     expect(within(panel).getByText('Rose latte')).toBeTruthy();
     expect(within(panel).getByText(/For spring/)).toBeTruthy();
@@ -328,21 +337,22 @@ describe('/protocols', () => {
     search.start = 'hiring';
     renderPage();
     const sheet = await screen.findByTestId('start-sheet');
-    expect(await within(sheet).findByText('Starting sends this first step for a decision.')).toBeTruthy();
 
-    // Nothing filled: marked, not sent.
-    await user.click(screen.getByTestId('start-send'));
+    // Nothing filled: the title step stops the way forward, nothing is sent.
+    await gotoStep(user, 'details');
     expect(await within(sheet).findByText('Check the marked fields.')).toBeTruthy();
     expect(rpc).not.toHaveBeenCalledWith('start_protocol', expect.anything());
 
     await user.type(within(sheet).getByTestId('title-en'), 'A second barista');
+    await gotoStep(user, 'details');
+    expect(await within(sheet).findByText('Starting sends this first step for a decision.')).toBeTruthy();
     await user.click(within(sheet).getByRole('combobox', { name: 'Role' }));
     await user.click(await screen.findByRole('option', { name: 'Barista' }));
     const textareas = within(sheet).getAllByRole('textbox').filter((el) => el.tagName === 'TEXTAREA');
     await user.type(textareas[0]!, 'Weekend mornings are short');
     await user.type(textareas[1]!, 'Fri and Sat, 7 to 3');
     fireEvent.change(sheet.querySelector('input[type="date"]')!, { target: { value: '2026-10-15' } });
-    await user.click(screen.getByTestId('start-send'));
+    await sendStart(user);
 
     await waitFor(() => expect(rpc).toHaveBeenCalledWith('start_protocol', expect.objectContaining({ p_kind: 'hiring', p_variant: null, p_title_en: 'A second barista', p_title_ar: null })));
     const args = rpc.mock.calls.find(([fn]) => fn === 'start_protocol')![1] as Record<string, unknown>;
@@ -354,13 +364,27 @@ describe('/protocols', () => {
     expect(next).toEqual({ run: R1 });
   });
 
+  it('walks a new item through its steps and stops on the one that is unfinished', async () => {
+    const user = userEvent.setup();
+    search.start = 'product_release';
+    renderPage();
+    const sheet = await screen.findByTestId('start-sheet');
+    for (const k of ['item', 'recipe', 'sizes', 'about', 'title', 'review']) expect(screen.getByTestId(`start-sheet.step.${k}`)).toBeTruthy();
+    expect(within(sheet).getByText('Step 1 of 5')).toBeTruthy();
+    // Nothing named yet: Recipe is not opened, and the item step says why.
+    await gotoStep(user, 'recipe');
+    expect(await within(sheet).findAllByText('Check the marked fields.')).not.toHaveLength(0);
+    expect(within(sheet).getByText('Step 1 of 5')).toBeTruthy();
+    expect(rpc).not.toHaveBeenCalledWith('start_protocol', expect.anything());
+  });
+
   it('says who decides a new item’s proposal from the venue’s template, not the built-in default', async () => {
     search.start = 'product_release';
     const first = renderPage();
     let sheet = await screen.findByTestId('start-sheet');
-    // Default: the manager decides the proposal, so it passes at once and asks for the menu section.
-    expect(await within(sheet).findByText('You decide this first step, so it passes as soon as you start.')).toBeTruthy();
-    expect(within(sheet).getByText('Menu category')).toBeTruthy();
+    // Default: the manager decides the proposal, so it passes at once and nothing is said about it.
+    await waitFor(() => expect(rpc).toHaveBeenCalledWith('protocol_template_detail', { p_template_id: TPL }));
+    expect(within(sheet).queryByText('You decide this first step, so it passes as soon as you start.')).toBeNull();
     first.unmount();
 
     // The owner turned "Needs my OK" on for it: the manager's start waits for the owner.
@@ -369,7 +393,6 @@ describe('/protocols', () => {
     sheet = await screen.findByTestId('start-sheet');
     expect(await within(sheet).findByText('Starting sends this first step for a decision.')).toBeTruthy();
     expect(within(sheet).queryByText('You decide this first step, so it passes as soon as you start.')).toBeNull();
-    expect(within(sheet).queryByText('Menu category')).toBeNull();
     expect(rpc).toHaveBeenCalledWith('protocol_template_detail', { p_template_id: TPL });
   });
 
@@ -448,12 +471,12 @@ describe('/protocols', () => {
     const form = await screen.findByTestId('step-form');
     // Nobody picked yet: Send waits for a pick.
     await waitFor(() => expect(within(form).getByTestId('interviews-state').textContent).toBe('Pick the candidate you want to hire first.'));
-    expect((within(form).getByTestId('step-send') as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByTestId('step-send') as HTMLButtonElement).disabled).toBe(true);
 
     const list = screen.getByTestId('candidates');
     await user.click(within(list).getAllByRole('button', { name: 'Pick' })[1]!);
     await waitFor(() => expect(within(form).getByTestId('interviews-state').textContent).toMatch(/Sends 2 candidates, with .*Sara.* picked/));
-    await user.click(within(form).getByTestId('step-send'));
+    await user.click(screen.getByTestId('step-send'));
     await waitFor(() => expect(rpc).toHaveBeenCalledWith('submit_step', expect.objectContaining({ p_run_step_id: INTERVIEWS, p_record: { candidate_ids: [C1, C2], picked_id: C2 } })));
     // The record carries ids only; the names stay in the list.
     const sent = rpc.mock.calls.find(([fn]) => fn === 'submit_step')![1] as Record<string, unknown>;
@@ -500,6 +523,9 @@ describe('/protocols', () => {
     search.item = ITEM;
     renderPage();
     const sheet = await screen.findByTestId('start-sheet');
+    await gotoStep(user, 'title');
+    await user.type(within(sheet).getByTestId('title-en'), 'Cup names');
+    await gotoStep(user, 'details');
     await user.click(await within(sheet).findByRole('button', { name: 'Rename Regular' }));
     const en = within(sheet).getByRole('textbox', { name: /New name \(English\)/ });
     expect((en as HTMLInputElement).value).toBe('Regular');
@@ -509,11 +535,10 @@ describe('/protocols', () => {
     expect(within(sheet).getByText(renamed('Regular → Small'))).toBeTruthy();
     // A second size opened and left as it is renames nothing.
     await user.click(within(sheet).getByRole('button', { name: 'Rename Large' }));
-    await user.type(within(sheet).getByTestId('title-en'), 'Cup names');
     const textareas = within(sheet).getAllByRole('textbox').filter((el) => el.tagName === 'TEXTAREA');
     await user.type(textareas[0]!, 'The cups are printed Small and Large');
     await user.type(textareas[1]!, 'Guests find the size they want');
-    await user.click(screen.getByTestId('start-send'));
+    await sendStart(user);
     await waitFor(() => expect(rpc).toHaveBeenCalledWith('start_protocol', expect.objectContaining({ p_kind: 'price_promo' })));
     const args = rpc.mock.calls.find(([fn]) => fn === 'start_protocol')![1] as Record<string, unknown>;
     expect(args.p_first_record).toMatchObject({
@@ -552,6 +577,9 @@ describe('/protocols', () => {
     search.item = ITEM;
     renderPage();
     const sheet = await screen.findByTestId('start-sheet');
+    await gotoStep(user, 'title');
+    await user.type(within(sheet).getByTestId('title-en'), 'Cup names');
+    await gotoStep(user, 'details');
     await user.click(await within(sheet).findByRole('button', { name: 'Rename Regular' }));
     // Typed a word at a time: the space after "Regular" (today's name, whitespace
     // aside) must not snap the box back before "cup".
@@ -584,6 +612,9 @@ describe('/protocols', () => {
     search.lessonType = LT;
     renderPage();
     const sheet = await screen.findByTestId('start-sheet');
+    await gotoStep(user, 'title');
+    await user.type(within(sheet).getByTestId('title-en'), 'Beginners price');
+    await gotoStep(user, 'details');
     expect((await within(sheet).findByTestId('lesson-now')).textContent).toBe('Now: price 25,000 IQD · court share 5,000 IQD');
     expect(within(sheet).getByText('Beginners · Group 90 min')).toBeTruthy();
     expect(rpc).toHaveBeenCalledWith('price_promo_targets', { p_change: 'lesson_price', p_venue_id: null });
@@ -591,11 +622,10 @@ describe('/protocols', () => {
     expect(within(sheet).getByDisplayValue('5000')).toBeTruthy();
     await user.clear(price);
     await user.type(price, '30000');
-    await user.type(within(sheet).getByTestId('title-en'), 'Beginners price');
     const textareas = within(sheet).getAllByRole('textbox').filter((el) => el.tagName === 'TEXTAREA');
     await user.type(textareas[0]!, 'Every session is full');
     await user.type(textareas[1]!, 'The same fill at a better price');
-    await user.click(screen.getByTestId('start-send'));
+    await sendStart(user);
     await waitFor(() => expect(rpc).toHaveBeenCalledWith('start_protocol', expect.objectContaining({ p_kind: 'price_promo' })));
     const args = rpc.mock.calls.find(([fn]) => fn === 'start_protocol')![1] as Record<string, unknown>;
     // The court share left as it was is not sent (the server refuses the stored figure), nor the client's `before`.
@@ -631,6 +661,9 @@ describe('/protocols', () => {
     search.change = 'coach_price';
     renderPage();
     const sheet = await screen.findByTestId('start-sheet');
+    await gotoStep(user, 'title');
+    await user.type(within(sheet).getByTestId('title-en'), 'Sara price');
+    await gotoStep(user, 'details');
     expect(await within(sheet).findByText('Pick the coach first.')).toBeTruthy();
     await user.click(within(sheet).getByRole('combobox', { name: 'Coach' }));
     await user.click(await screen.findByRole('option', { name: 'Sara' }));
@@ -710,7 +743,7 @@ describe('/protocols', () => {
     expect(lines.textContent).not.toMatch(/coach/i);
     const form = await screen.findByTestId('step-form');
     await user.click(within(form).getByRole('button', { name: 'Now' }));
-    await user.click(within(form).getByTestId('step-send'));
+    await user.click(screen.getByTestId('step-send'));
     expect(
       await within(form).findByText('This lesson type changed after the proposal (price, length, sessions or party size). Start a new proposal.'),
     ).toBeTruthy();

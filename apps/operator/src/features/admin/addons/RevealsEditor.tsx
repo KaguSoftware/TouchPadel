@@ -9,7 +9,8 @@ import { useMutation } from '@tanstack/react-query';
 import { appRpc } from '../../../lib/appRpc';
 import { useLocale, pickName } from '../../../lib/i18n';
 import { Button, inputStyle } from '../../../components/ui';
-import { BilingualFields, SortButtons, digitsOnly } from '../../../components/inputs';
+import { BilingualFields, digitsOnly } from '../../../components/inputs';
+import { DragHandle, useDragReorder } from '../../../components/DragReorder';
 import { useToast } from '../../../components/toast';
 import { useConfirm } from '../../../components/ConfirmDialog';
 import {
@@ -17,6 +18,7 @@ import {
   isRequiredAddonRefusal,
   minMaxError,
   moveInList,
+  moveToIndex,
   revealedGroupIds,
   sameOrder,
 } from './addonsLogic';
@@ -37,6 +39,7 @@ export function RevealsEditor({ modifier, data }: { modifier: ModifierRow; data:
   const ownGroupIsTarget = data.reveals.some((r) => r.group_id === modifier.group_id);
   const available = eligible.filter((g) => !selected.includes(g.id));
   const dirty = !sameOrder(saved, selected);
+  const rowProps = useDragReorder(selected, (from, to) => setSelected(moveToIndex(selected, selected.indexOf(from), selected.indexOf(to))));
 
   const save = useMutation({
     mutationFn: (ids: string[]) =>
@@ -103,7 +106,7 @@ export function RevealsEditor({ modifier, data }: { modifier: ModifierRow; data:
 
       {/* ordered, selected */}
       {selected.map((id, index) => (
-        <div key={id} style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-1-5)', marginBlockStart: 'var(--tp-sp-1)' }}>
+        <div key={id} {...rowProps(id)} style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-1-5)', marginBlockStart: 'var(--tp-sp-1)' }}>
           <input
             type="checkbox"
             checked
@@ -111,11 +114,9 @@ export function RevealsEditor({ modifier, data }: { modifier: ModifierRow; data:
             onChange={() => setSelected(selected.filter((s) => s !== id))}
           />
           <span style={{ flex: 1 }}>{pickName(locale, byId.get(id)) || id}</span>
-          <SortButtons
-            onUp={() => setSelected(moveInList(selected, index, 'up'))}
-            onDown={() => setSelected(moveInList(selected, index, 'down'))}
-            disabledUp={index === 0}
-            disabledDown={index === selected.length - 1}
+          <DragHandle
+            label={`${tr('op.common.moveUp')} / ${tr('op.common.moveDown')}`}
+            onMove={(direction) => setSelected(moveInList(selected, index, direction))}
           />
         </div>
       ))}

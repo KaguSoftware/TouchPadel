@@ -107,11 +107,14 @@ function mount() {
 
 const closeButton = () => screen.getByRole('button', { name: 'Close the day' }) as HTMLButtonElement;
 
+/** The close is three screens (cash, card, close): type the count, go on twice, land on the one with the button. */
 async function countTheCash() {
+  if (!screen.queryByRole('button', { name: 'Close the day' })) {
+    await userEvent.type(await screen.findByLabelText('Counted cash (IQD)'), '125000');
+    await userEvent.click(screen.getByRole('button', { name: 'Next' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Next' }));
+  }
   await screen.findByRole('button', { name: 'Close the day' });
-  // Only the count holds it at this point: the tabs are closed and the queue is empty.
-  expect(closeButton().disabled).toBe(true);
-  await userEvent.type(screen.getByLabelText('Counted cash (IQD)'), '125000');
   // Re-read each time: the button is rendered anew once its disabled reason goes.
   await waitFor(() => expect(closeButton().disabled).toBe(false));
 }
@@ -218,6 +221,7 @@ describe('Day close ▸ Till shifts', () => {
       cross_day: [{ day_session_id: 'ds1', business_date: '2026-09-24', earlier_days_cash_refunds_iqd: 30000, earlier_days_card_refunds_iqd: 0, later_cash_refunds_iqd: 0, later_card_refunds_iqd: 0 }],
     };
     mount();
+    await countTheCash();
     const step = await screen.findByTestId('day-close-shifts');
     expect(screen.getByText('Cashier shifts')).toBeTruthy();
     expect(await screen.findByText('1 still open')).toBeTruthy();
@@ -248,6 +252,7 @@ describe('Day close ▸ Till shifts', () => {
     };
     online = { refunds_dated_by_shift: true };
     mount();
+    await countTheCash();
     const step = await screen.findByTestId('day-close-shifts');
     await waitFor(() => expect(step.textContent).toContain('They count in this day’s expected cash.'));
     expect(step.textContent).toContain('Refunds made on this day for earlier days’ payments: 30,000 IQD in cash');
@@ -265,6 +270,7 @@ describe('Day close ▸ Till shifts', () => {
     };
     online = { refunds_dated_by_shift: false };
     mount();
+    await countTheCash();
     const step = await screen.findByTestId('day-close-shifts');
     await waitFor(() => expect(calls.some((c) => c.fn === 'day_close_online')).toBe(true));
     expect(step.textContent).toContain('The day’s expected cash leaves them out.');
@@ -275,6 +281,7 @@ describe('Day close ▸ Till shifts', () => {
     checklists = { business_date: '2026-09-24', lists: [] };
     shifts = new AppRpcError('UNKNOWN', 'network down');
     mount();
+    await countTheCash();
     const step = await screen.findByTestId('day-close-shifts');
     expect(within(step).getByRole('button', { name: 'Try again' })).toBeTruthy();
     await countTheCash();
@@ -283,6 +290,7 @@ describe('Day close ▸ Till shifts', () => {
   it('says so plainly when there were no shifts', async () => {
     checklists = { business_date: '2026-09-24', lists: [] };
     mount();
+    await countTheCash();
     expect(await screen.findByText('No shifts')).toBeTruthy();
     expect(screen.queryByTestId('day-close-shifts')).toBeNull();
     await countTheCash();
@@ -426,5 +434,28 @@ describe('Day close ▸ Money outside the drawer', () => {
     expect(await screen.findByText((text) => text.replace(/[⁦-⁩]/g, '') === 'Open match · Sara Karim')).toBeTruthy();
     expect(calls.find((c) => c.fn === 'desk_match_states')?.args).toEqual({ p_reservation_ids: ['r1'] });
     await countTheCash();
+  });
+});
+
+describe('Day close ▸ the three screens', () => {
+  it('holds the way on until the cash is counted, and keeps the count when going back', async () => {
+    checklists = { business_date: '2026-09-24', lists: [] };
+    mount();
+    const next = (await screen.findByRole('button', { name: 'Next' })) as HTMLButtonElement;
+    expect(next.disabled).toBe(true);
+    // Blind count: no expected amount and no difference before the close.
+    expect(screen.queryByText(/Over by|Short by|Expected/)).toBeNull();
+    await userEvent.type(screen.getByLabelText('Counted cash (IQD)'), '125000');
+    await waitFor(() => expect((screen.getByRole('button', { name: 'Next' }) as HTMLButtonElement).disabled).toBe(false));
+    await userEvent.click(screen.getByRole('button', { name: 'Next' }));
+    // Card screen, then the close screen listing both figures.
+    expect(await screen.findByLabelText('Card terminal total (IQD)')).toBeTruthy();
+    await userEvent.click(screen.getByRole('button', { name: 'Next' }));
+    expect(await screen.findByText('Cash counted')).toBeTruthy();
+    expect(screen.getByText('not entered')).toBeTruthy();
+    await userEvent.click(screen.getByRole('button', { name: 'Back' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Back' }));
+    // The count is still in the field.
+    expect(await screen.findByDisplayValue(/125/)).toBeTruthy();
   });
 });

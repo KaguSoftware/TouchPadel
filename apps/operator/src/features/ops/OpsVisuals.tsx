@@ -85,7 +85,7 @@ const ChevronColumn = createContext(false);
 export function RowList({ chevrons, children }: { chevrons: boolean; children: ReactNode }) {
   return (
     <ChevronColumn.Provider value={chevrons}>
-      <div style={{ display: 'grid', gap: 'var(--tp-sp-0)', marginInline: 'calc(-1 * var(--tp-sp-2))' }}>{children}</div>
+      <div className="tp-ruled-rows" style={{ display: 'grid', gap: 0, marginInline: 'calc(-1 * var(--tp-sp-2))' }}>{children}</div>
     </ChevronColumn.Provider>
   );
 }

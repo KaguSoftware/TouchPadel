@@ -24,6 +24,7 @@ import { STAFF_ROLES, type StaffRole } from '../../lib/roleResolution';
 import { Button } from '../../components/ui';
 import { DataTable, EmptyState, Money, Panel, StatusBadge, ViewMore, LIST_CAP, useListCap, type Column } from '../../components/kit';
 import { Icon } from '../../components/icons';
+import { BreakdownCard, type BreakdownTone } from '../../components/BreakdownCards';
 import { CardTitle, FigureRow, MARK, MARK_FG, MARK_SOFT, RowList, type MarkTone } from './OpsVisuals';
 import {
   DAY_CLOSE_TONE,
@@ -70,11 +71,12 @@ function PanelLinks({ links, go }: { links: readonly { label: string; href: stri
  * as a card of its own built like every other card on the page: the title
  * band, its way to the screen it reads from at the band's end, then the rows.
  */
-function Group({ title, link, children }: { title: string; link?: ReactNode; children: ReactNode }) {
+function Group({ title, tone, link, children }: { title: string; tone: BreakdownTone; link?: ReactNode; children: ReactNode }) {
+  // The owner's coloured card (Breakdown): a band and outline in its colour, a wash behind the rows.
   return (
-    <Panel level={3} title={title} actions={link} style={{ minInlineSize: 0 }}>
-      {children}
-    </Panel>
+    <BreakdownCard alone tone={tone} title={title} action={link}>
+      <div style={{ padding: 'var(--tp-sp-3) var(--tp-sp-4)', flex: 1 }}>{children}</div>
+    </BreakdownCard>
   );
 }
 
@@ -90,8 +92,8 @@ export function FloorPanel({ data, go }: { data: OpsOverview; go: Go }) {
   const next = b.nextArrivalAt ? [formatTime(new Date(b.nextArrivalAt), locale), court, b.nextArrivalLabel].filter(Boolean).join(' · ') : null;
   return (
     <Panel data-testid="floor-now" title={<CardTitle icon="court">{tr('ws.manager.ops.floor.title')}</CardTitle>}>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(12rem, 1fr))', gap: 'var(--tp-sp-4)' }}>
-        <Group title={tr('ws.manager.ops.floor.courts')} link={<GroupLink label={tr('ws.manager.ops.floor.courtsLink')} href="/desk" go={go} />}>
+      <div className="tp-floor-cards" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(12rem, 1fr))', gap: 'var(--tp-sp-4)', alignItems: 'stretch' }}>
+        <Group tone="green" title={tr('ws.manager.ops.floor.courts')} link={<GroupLink label={tr('ws.manager.ops.floor.courtsLink')} href="/desk" go={go} />}>
           <RowList chevrons={false}>
             <FigureRow label={tr('ws.manager.ops.floor.booked')} value={b.today} />
             <FigureRow label={tr('ws.manager.ops.floor.arrived')} value={b.arrived} />
@@ -106,7 +108,7 @@ export function FloorPanel({ data, go }: { data: OpsOverview; go: Go }) {
             )}
           </p>
         </Group>
-        <Group title={tr('ws.manager.ops.floor.cafe')} link={<GroupLink label={tr('ws.manager.ops.floor.cafeLink')} href="/till/tabs" go={go} />}>
+        <Group tone="violet" title={tr('ws.manager.ops.floor.cafe')} link={<GroupLink label={tr('ws.manager.ops.floor.cafeLink')} href="/till/tabs" go={go} />}>
           <RowList chevrons={false}>
             <FigureRow label={tr('ws.manager.ops.floor.openTabs')} value={c.openTabs} />
             <FigureRow label={tr('ws.manager.ops.floor.orders')} value={c.ordersToday} />
@@ -115,7 +117,7 @@ export function FloorPanel({ data, go }: { data: OpsOverview; go: Go }) {
         {/* Late orders are a row of "Needs you" when there are any. These two
             overlap with them (a late order is also waiting or being made), so
             the kitchen is never added up. */}
-        <Group title={tr('ws.manager.ops.floor.kitchen')}>
+        <Group tone="gold" title={tr('ws.manager.ops.floor.kitchen')}>
           <RowList chevrons={false}>
             <FigureRow label={tr('ws.manager.ops.floor.waiting')} value={c.ticketsQueued} />
             <FigureRow label={tr('ws.manager.ops.floor.preparing')} value={c.ticketsPreparing} />
@@ -168,7 +170,7 @@ export function BeforeYouClose({ data, queued, go }: { data: OpsOverview; queued
       title={<CardTitle icon="sun">{tr('ws.manager.ops.close.title')}</CardTitle>}
       actions={<StatusBadge tone={DAY_CLOSE_TONE[state]} label={tr(`ws.manager.dayClose.state.${state}`)} />}
     >
-      <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--tp-sp-4)' }}>
+      <ul className="tp-ruled-rows tp-ruled-checks" style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--tp-sp-4)' }}>
         <Check
           done={tabsClear}
           tone="danger"
@@ -312,7 +314,9 @@ export function WhoWorked({ rows }: { rows: OpsStaffRow[] }) {
         <EmptyState compact kind="nothingToDo" icon="users" title={tr('ws.manager.ops.staff.empty')} titleAs="h3" />
       ) : (
         <>
-          <DataTable columns={columns} rows={cap.shown} rowKey={(r, i) => r.staffId || String(i)} dense aria-label={tr('ws.manager.ops.staff.title')} />
+          <div className="tp-tone tp-table-tone" data-tone="green">
+            <DataTable columns={columns} rows={cap.shown} rowKey={(r, i) => r.staffId || String(i)} dense aria-label={tr('ws.manager.ops.staff.title')} />
+          </div>
           <ViewMore hidden={cap.hidden} open={cap.open} onToggle={cap.toggle} />
         </>
       )}
