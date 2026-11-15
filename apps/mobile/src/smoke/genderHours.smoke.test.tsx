@@ -9,13 +9,13 @@
  *   - Sign up asks it under the name and refuses without it.
  *   - The booking sheet tags a kept time and greys it for the other gender.
  *
- * Not route cases (complete-profile and sign-up are auth.smoke's, the Book tab
+ * Not route cases (sign-up is auth.smoke's, the Book tab
  * tabs.smoke's): this suite walks the behaviour.
  */
 import { useState } from 'react';
 import { Animated } from 'react-native';
 import { afterEach, describe, expect, it, jest } from '@jest/globals';
-import { act, fireEvent, waitFor, within } from '@testing-library/react-native';
+import { fireEvent, within } from '@testing-library/react-native';
 import { wallTimeToUtc, type GenderRuleLike } from '@touch/core';
 import { makeT, type Locale } from '@touch/i18n';
 import { expectAlerted } from '../test/alertState';
@@ -34,9 +34,8 @@ import { listBookableDates } from '../features/availability/assemble';
 import { clearPendingSlot } from '../features/booking/pendingSlot';
 import { clearPendingJoin } from '../features/matches/pendingJoin';
 import { BookingSheet } from '../components/BookingSheet';
-import CompleteProfileScreen from '../../app/complete-profile';
 import SignUpScreen from '../../app/sign-up';
-import { resetSignUpDraft } from '../features/auth/signUpDraft';
+import { patchSignUpDraft, resetSignUpDraft } from '../features/auth/signUpDraft';
 import { onlinePaymentsOnForFile } from '../test/onlinePaymentsEnv';
 
 onlinePaymentsOnForFile();
@@ -48,98 +47,19 @@ afterEach(() => {
   clearPendingJoin();
 });
 
-const checked = (node: { props: { accessibilityState?: { checked?: boolean } } }) =>
-  node.props.accessibilityState?.checked === true;
-
 describe.each<Locale>(['en', 'ar'])('a gender for every account in %s', (locale) => {
   const t = makeT(locale);
 
-  it('complete-profile asks it with nothing picked, and Save refuses until one is', async () => {
-    const screen = renderRoute(CompleteProfileScreen, {
-      locale,
-      session: 'in',
-      params: { returnTo: 'back' },
-      queryData: [[profileKeys.own, profileFixture({ gender: null })]],
-    });
-    try {
-      expect(screen.getByTestId('complete-profile.gender')).toBeTruthy();
-      expect(checked(screen.getByTestId('complete-profile.gender.female'))).toBe(false);
-      expect(checked(screen.getByTestId('complete-profile.gender.male'))).toBe(false);
-      // The phone and name are there: the body asks only for the one answer.
-      expect(screen.getByText(t('guestGender.completeBody'))).toBeTruthy();
-      expect(within(screen.getByTestId('complete-profile.gender.female')).getByText(t('matches.gender.female'))).toBeTruthy();
-
-      fireEvent.press(screen.getByTestId('complete-profile.submit'));
-      await expectAlerted(t('guestGender.required'));
-
-      fireEvent.press(screen.getByTestId('complete-profile.gender.male'));
-      expect(checked(screen.getByTestId('complete-profile.gender.male'))).toBe(true);
-    } finally {
-      screen.unmount();
-    }
-  });
-
-  it('saves the profile, then the gender once', async () => {
-    jest
-      .spyOn(supabase.auth, 'getUser')
-      .mockResolvedValue({ data: { user: { id: profileFixture().id } }, error: null } as never);
-    const update = jest.fn(() => ({ eq: () => Promise.resolve({ error: null }) }));
-    const query: Record<string, unknown> = {};
-    query.update = update;
-    query.select = () => query;
-    query.eq = () => query;
-    query.maybeSingle = () => Promise.resolve({ data: profileFixture({ gender: 'female' }), error: null });
-    jest.spyOn(supabase, 'from').mockReturnValue(query as never);
-    const rpc = jest.fn((_name: string, _args?: unknown) =>
-      Promise.resolve({ data: { gender: 'female', duplicate: false }, error: null }),
-    );
-    Object.assign(supabase, { schema: () => ({ rpc }) });
-
-    const screen = renderRoute(CompleteProfileScreen, {
-      locale,
-      session: 'in',
-      params: { returnTo: 'back' },
-      queryData: [[profileKeys.own, profileFixture({ gender: null })]],
-    });
-    try {
-      fireEvent.press(screen.getByTestId('complete-profile.gender.female'));
-      await act(async () => {
-        fireEvent.press(screen.getByTestId('complete-profile.submit'));
-      });
-      await waitFor(() => expect(rpc).toHaveBeenCalledWith('set_my_gender', { p_gender: 'female' }));
-      expect(update).toHaveBeenCalled();
-      expect(rpc.mock.calls.filter(([name]) => name === 'set_my_gender')).toHaveLength(1);
-    } finally {
-      screen.unmount();
-    }
-  });
-
-  it('a set gender is not asked again', () => {
-    const screen = renderRoute(CompleteProfileScreen, {
-      locale,
-      session: 'in',
-      params: { returnTo: 'back' },
-      queryData: [[profileKeys.own, profileFixture({ phone: null, gender: 'male' })]],
-    });
-    try {
-      expect(screen.getByTestId('complete-profile.submit')).toBeTruthy();
-      expect(screen.queryByTestId('complete-profile.gender')).toBeNull();
-      expect(screen.getByText(t('auth.completeProfileBody'))).toBeTruthy();
-    } finally {
-      screen.unmount();
-    }
-  });
-
-  it('sign up asks it under the name and refuses without it', async () => {
-    // Step 2 of create account: the code has made the account, so a session exists.
-    // The draft is module state, shared by the steps: start each case clean.
+  it('sign up asks it after the name and refuses without it', async () => {
+    // Step 2 of create account (gender, birth, language, Terms): nothing exists
+    // yet, so nobody is signed in. The draft is module state, shared by the
+    // steps: start each case clean, with the name step already done.
     resetSignUpDraft();
-    const screen = renderRoute(SignUpScreen, { locale, session: 'in', params: { step: '1' } });
+    patchSignUpDraft({ firstName: 'Sara', lastName: 'Ali' });
+    const screen = renderRoute(SignUpScreen, { locale, params: { step: '1' } });
     try {
       const picker = screen.getByTestId('sign-up.gender');
       expect(picker).toBeTruthy();
-      fireEvent.changeText(screen.getByTestId('sign-up.first-name'), 'Sara');
-      fireEvent.changeText(screen.getByTestId('sign-up.last-name'), 'Ali');
       fireEvent.press(screen.getByTestId('sign-up.submit'));
       await expectAlerted(t('guestGender.required'));
       fireEvent.press(screen.getByTestId('sign-up.gender.female'));

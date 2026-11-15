@@ -17,7 +17,6 @@ import { useState } from 'react';
 import { formatNumber, formatTime } from '@touch/i18n';
 import { useLocale } from '../../lib/i18n';
 import { Button, ErrorText, Modal } from '../../components/ui';
-import { MessagePresenter } from '../../components/kit';
 import { Icon } from '../../components/icons';
 import { formatElapsed } from './elapsed';
 import { openTabOn } from './NewTabDialog';
@@ -42,7 +41,7 @@ export function SpotDialog({
   onOpened: (tabId: string) => void;
   onPickTab: (tabId: string) => void;
   /** A free table: start the order at the counter instead (0352). */
-  onNewOrder: () => void;
+  onNewOrder: (table: { id: string; tableNumber: string }) => void;
 }) {
   const { tr } = useLocale();
   const tableName = target.kind === 'table' ? `${tr('op.till.table')} ${target.spot.table.table_number}` : '';
@@ -74,6 +73,7 @@ export function SpotDialog({
     <Modal
       title={title}
       size="sm"
+      closeButton={false}
       onClose={onClose}
       footer={(close) =>
         target.kind === 'booking' ? (
@@ -88,7 +88,7 @@ export function SpotDialog({
         ) : free ? (
           <>
             <Button onClick={close}>{tr('common.cancel')}</Button>
-            <Button kind="primary" icon="plus" onClick={onNewOrder} autoFocus>
+            <Button kind="primary" icon="plus" onClick={() => target.kind === 'table' && onNewOrder({ id: target.spot.table.id, tableNumber: target.spot.table.table_number })} autoFocus>
               {tr('ws.cashier.newTab.orderTitle')}
             </Button>
           </>
@@ -104,7 +104,9 @@ export function SpotDialog({
       )}
 
       {target.kind === 'table' && free && (
-        <MessagePresenter tone="info" icon="info" message={tr('ws.cashier.floor.spot.orderFirst', { table: tableName })} />
+        <p style={{ margin: 0, fontSize: 'var(--tp-fs-md)', lineHeight: 1.5, color: 'var(--tp-text-muted, inherit)' }}>
+          {tr('ws.cashier.floor.spot.orderFirst', { table: tableName })}
+        </p>
       )}
 
       {target.kind === 'table' && !free && <TabChooser tabs={target.spot.tabs} onPick={onPickTab} />}

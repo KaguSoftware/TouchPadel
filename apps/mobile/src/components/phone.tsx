@@ -39,6 +39,7 @@ import { useLocale, useLocaleSwitch } from '../i18n/LocaleProvider';
 import { brand, radius, space, useTheme } from '../theme';
 import { SearchIcon } from './icons';
 import { Field, LINE } from './ui';
+import { FloatingLabel } from './FloatingLabel';
 import {
   COUNTRIES,
   countryByIso,
@@ -84,6 +85,7 @@ export function PhoneField({
   const { colors, fonts } = useTheme();
   const { t } = useLocale();
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [focused, setFocused] = useState(false);
   const shown = formatNational(iso, national);
   // The formatted width of a COMPLETE number for this country: the cap the
   // native field enforces. Derived from a dummy full-length number rather than
@@ -135,7 +137,10 @@ export function PhoneField({
   // proportionally lower on one screen than the other.
   const dividerInset = (dense ? 13 : 14) - DIVIDER_TRIM;
 
-  return (
+  // A placeholder-labelled field (sign-up, complete-profile) floats it like the
+  // name fields; a labelled one (edit profile) keeps its label above the box.
+  const floating = !!placeholder && !label;
+  const field = (
     <>
       {/*
        * `ltrBox`: the BOX is held left-to-right, the LABEL above it still
@@ -171,7 +176,9 @@ export function PhoneField({
         // from a full-length number for this country so it does not shrink as
         // the guest types.
         maxLength={maxLength}
-        placeholder={placeholder}
+        placeholder={floating ? undefined : placeholder}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
         keyboardType="phone-pad"
         autoComplete="tel"
         textContentType="telephoneNumber"
@@ -260,6 +267,22 @@ export function PhoneField({
           </Pressable>
         }
       />
+    </>
+  );
+
+  return (
+    <>
+      {floating ? (
+        <FloatingLabel
+          label={placeholder}
+          floated={focused || national.length > 0}
+          inset={floatingInset(country.dial, !!flag)}
+        >
+          {field}
+        </FloatingLabel>
+      ) : (
+        field
+      )}
 
       <CountryPicker
         testID={`${testID}.country`}
@@ -303,6 +326,20 @@ export function PhoneField({
  * which the width was still 0 and the digits sat underneath the chip. A flex
  * row has neither problem: the input simply takes the width that is left.
  */
+/**
+ * Where the floating label rests: after the chip (border, flag, "+code",
+ * caret, the chip's trailing padding and the gap after it). Worked out, not
+ * measured: a measured width is 0 on the first render and put the label under
+ * the chip. The code's digits are the only part that varies, and a couple of
+ * points either way is invisible on a label that rests in an empty box.
+ */
+function floatingInset(dial: string, hasFlag: boolean): number {
+  const DIGIT = 8.4;
+  return (
+    2 + space.m + (hasFlag ? 20 + 6 : 0) + (1 + dial.length) * DIGIT + 6 + 7 + CHIP_GAP + CHEVRON_BLEED + 10
+  );
+}
+
 const CHIP_GAP = 10;
 /**
  * How far the rotated caret overhangs its own layout box, per side:

@@ -1539,7 +1539,7 @@ button.tp-nav-item { background: transparent; }
 .tp-tour-start .tp-tour-start-side :is(h2, .tp-tour-start-nav) { color: var(--tp-rail-fg); }
 .tp-wiz-eyebrow { margin: 0; font-size: var(--tp-fs-xs); font-weight: 700; color: var(--tp-muted-fg); text-transform: uppercase; letter-spacing: 0.08em; }
 :lang(ar) .tp-wiz-eyebrow { letter-spacing: 0; text-transform: none; }
-.tp-tour-start .tp-tour-start-side > div > p { color: var(--tp-rail-muted) !important; }
+.tp-tour-start .tp-tour-start-side > div > :is(p, div:not(.tp-wiz-progress)) { color: var(--tp-rail-muted) !important; }
 .tp-tour-start .tp-tour-start-nav[aria-current='step'] { color: var(--tp-rail-active-fg); }
 .tp-tour-start .tp-wiz-note { color: var(--tp-rail-muted); }
 .tp-tour-start .tp-tour-start-nav[aria-current='step'] .tp-wiz-note { color: var(--tp-rail-active-fg); }

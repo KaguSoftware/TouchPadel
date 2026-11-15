@@ -24,7 +24,16 @@ export function useBottomBarPad(): number {
   return Math.max(useSafeAreaInsets().bottom, space.m);
 }
 
-export function BottomBar({ children, error }: { children: ReactNode; error?: string | null }) {
+export function BottomBar({
+  children,
+  error,
+  gutter = space.l,
+}: {
+  children: ReactNode;
+  error?: string | null;
+  /** The enclosing Screen's side gutter, which the bar bleeds through (auth screens use 20). */
+  gutter?: number;
+}) {
   const { colors } = useTheme();
   const pad = useBottomBarPad();
   return (
@@ -32,8 +41,8 @@ export function BottomBar({ children, error }: { children: ReactNode; error?: st
       style={{
         paddingTop: space.sm,
         paddingBottom: pad,
-        paddingHorizontal: space.l,
-        marginHorizontal: -space.l,
+        paddingHorizontal: gutter,
+        marginHorizontal: -gutter,
         gap: space.s,
         borderTopWidth: 1,
         borderTopColor: colors.line,
@@ -49,6 +58,7 @@ export function BottomBar({ children, error }: { children: ReactNode; error?: st
 export function ScreenWithBar({
   bar,
   error,
+  gutter,
   children,
   contentContainerStyle,
   ...scrollProps
@@ -57,6 +67,8 @@ export function ScreenWithBar({
   bar: ReactNode | null;
   /** The form's line over the button: a server refusal, or what is missing. */
   error?: string | null;
+  /** The enclosing Screen's side gutter (see BottomBar). */
+  gutter?: number;
   children: ReactNode;
 }) {
   // The floating assistant button rides above the bar instead of covering it.
@@ -73,7 +85,7 @@ export function ScreenWithBar({
       >
         {children}
       </ScrollView>
-      {bar ? <BottomBar error={error}>{bar}</BottomBar> : null}
+      {bar ? <BottomBar error={error} gutter={gutter}>{bar}</BottomBar> : null}
     </KeyboardAvoid>
   );
 }

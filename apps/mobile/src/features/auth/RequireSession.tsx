@@ -15,17 +15,24 @@
  *   session      → the screen
  */
 import type { ReactNode } from 'react';
-import { Redirect } from 'expo-router';
+import { Redirect, useNavigation } from 'expo-router';
 import { useAuth } from './context';
 import { sessionGate } from './gate';
 import { Loading } from '../../components/ui';
 
 export function RequireSession({ children }: { children: ReactNode }) {
   const { session, initializing } = useAuth();
+  const navigation = useNavigation();
+  // Screens buried in the stack stay mounted. When the session ends (account
+  // deletion, sign-out) each would fire its own redirect and stack one welcome
+  // screen per gated screen, swipeable back to profile-edit. Only the focused
+  // screen redirects; the rest render nothing and go with the replace.
+  const focused = navigation.isFocused();
   switch (sessionGate({ initializing, hasSession: session !== null })) {
     case 'loading':
       return <Loading />;
     case 'redirect':
+      if (!focused) return null;
       return <Redirect href="/welcome" />;
     default:
       return <>{children}</>;

@@ -34,11 +34,14 @@ import { chime, StartShiftBanner } from '../../lib/audio';
 import { TillShiftPanel } from '../tillShift/TillShiftPanel';
 import { useConfirm } from '../../components/ConfirmDialog';
 import { useLocale, pickName } from '../../lib/i18n';
-import { formatTime } from '@touch/i18n';
+import { formatNumber, formatTime } from '@touch/i18n';
 import { Button, Skeleton, inputStyle } from '../../components/ui';
-import { AsyncStateWrapper, EmptyState, Kbd } from '../../components/kit';
+import { AsyncStateWrapper, EmptyState, Kbd, SegmentedControl } from '../../components/kit';
 import { WAITER_CALLS_QUERY, WaiterCallsPanel } from './WaiterCallsPanel';
 import { FloorView, OtherTabsList, useCourtBookings, type FloorMode, type OtherTab } from './FloorView';
+import { useTaxContext } from './useTaxContext';
+import { computeTabTotals } from './tabTotals';
+import { offlineTabTotals } from './offlineTotals';
 import { SpotDialog, type SpotTarget } from './SpotDialog';
 import { courtBoards, courtTabCount, otherOpenTabs, placeCafe, type BoardBooking, type CafeSpot, type CourtRow } from './floorPlan';
 import { CategoryStrip, MenuItemGrid, TileLegend } from './TillGrid';
@@ -94,7 +97,8 @@ export function TillScreen() {
      the tab so moving to another tab starts that tab on its own default
      rather than carrying a choice made for someone else. */
   const [serviceChoice, setServiceChoice] = useState<{ tabId: string; service: OrderService } | null>(null);
-  const [newTab, setNewTab] = useState<{ reservationId?: string } | null>(null);
+  const [railView, setRailView] = useState<'calls' | 'tabs'>('calls');
+  const [newTab, setNewTab] = useState<{ reservationId?: string; table?: { id: string; tableNumber: string } } | null>(null);
   const [helpOpen, setHelpOpen] = useState(false);
   const [floorMode, setFloorMode] = useState<FloorMode>('cafe');
   const [spotTarget, setSpotTarget] = useState<SpotTarget | null>(null);
@@ -240,17 +244,18 @@ export function TillScreen() {
     [tablesQ.data, tabsQ.data, offlineTabs, callsQ.data],
   );
   const boards = useMemo(() => courtBoards(courtsQ.data?.courts ?? [], courtsQ.data?.bookings ?? [], now), [courtsQ.data, now]);
+  const taxCtx = useTaxContext();
   const others = useMemo<OtherTab[]>(() => {
     const ids = otherOpenTabs(tabsQ.data ?? [], offlineTabs, spots, boards);
     return ids.flatMap((id): OtherTab[] => {
       if (id.startsWith(LOCAL_TAB_PREFIX)) {
         const ot = offlineTabs.find((t) => `${LOCAL_TAB_PREFIX}${t.idemKey}` === id);
-        return ot ? [{ id, label: ot.label ?? '—', status: 'open', offline: true, offlineState: offlineTabState(ot) }] : [];
+        return ot ? [{ id, label: ot.label ?? '—', status: 'open', offline: true, openedAt: ot.openedAt, offlineState: offlineTabState(ot), total: taxCtx ? offlineTabTotals(ot, taxCtx).total : null }] : [];
       }
       const t = (tabsQ.data ?? []).find((x) => x.id === id);
-      return t ? [{ id, label: tabAnchorLabel(t, tr('op.till.table'), tr('op.till.forReservation')), status: t.status, offline: false, offlineState: null }] : [];
+      return t ? [{ id, label: tabAnchorLabel(t, tr('op.till.table'), tr('op.till.forReservation')), status: t.status, offline: false, openedAt: t.opened_at, offlineState: null, total: t.total_iqd ?? computeTabTotals(t, taxCtx).total }] : [];
     });
-  }, [tabsQ.data, offlineTabs, spots, boards, tr]);
+  }, [tabsQ.data, offlineTabs, spots, boards, tr, taxCtx]);
 
   /** One tab on the table: straight to it. None, or several: the spot dialog asks. */
   function pressTable(spot: CafeSpot) {
@@ -564,15 +569,16 @@ export function TillScreen() {
             setSpotTarget(null);
             openedTab(tabId);
           }}
-          onNewOrder={() => {
+          onNewOrder={(table) => {
             setSpotTarget(null);
-            setNewTab({});
+            setNewTab({ table });
           }}
         />
       )}
       {newTab && (
         <NewTabDialog
           initialReservationId={newTab.reservationId}
+          table={newTab.table}
           onClose={() => setNewTab(null)}
           onOpened={(tabId) => {
             setNewTab(null);
@@ -616,10 +622,10 @@ export function TillScreen() {
         />
         {/* The screen's own action, top of the end column like every page's
             header button, with the calls to answer right under it. */}
-        <span style={{ gridColumn: 2, gridRow: 1, alignSelf: 'start', justifySelf: 'end', display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-1)' }}>
-          <Kbd>F6</Kbd>
-          <Button kind="primary" size="lg" icon="plus" onClick={() => setNewTab({})}>
+        <span style={{ gridColumn: 2, gridRow: 1, alignSelf: 'start', justifySelf: 'end', display: 'inline-flex', alignItems: 'center' }}>
+          <Button kind="primary" size="lg" icon="plus" onClick={() => setNewTab({})} aria-keyshortcuts="F6">
             {tr('ws.cashier.till.rail.newTab')}
+            <Kbd>F6</Kbd>
           </Button>
         </span>
         {/* The service rail (owner's pick, 2026-10-13): where the work waiting
@@ -647,11 +653,37 @@ export function TillScreen() {
             padding: 'var(--tp-sp-3)',
           }}
         >
-          <WaiterCallsPanel status={floorStatus} />
-          <ScannedSlipsPanel />
-          {/* Wave 5 (§5.1): the till shift's start panel while none is open, else the sound strip. */}
-          <TillShiftPanel fallback={<StartShiftBanner />} />
-          <OtherTabsList tabs={others} onPick={(id) => void selectTab(id)} />
+          <SegmentedControl<'calls' | 'tabs'>
+            block
+            value={railView}
+            onChange={setRailView}
+            aria-label={tr('ws.cashier.floor.railSwitch')}
+            options={[
+              { value: 'calls', label: tr('ws.cashier.floor.railCalls'), icon: 'bell' },
+              {
+                value: 'tabs',
+                icon: 'receipt',
+                label: (
+                  <>
+                    {tr('ws.cashier.floor.railTabs')}{' '}
+                    <span style={{ fontVariantNumeric: 'tabular-nums', opacity: 0.8 }}>{formatNumber(others.length, locale)}</span>
+                  </>
+                ),
+              },
+            ]}
+          />
+          {railView === 'calls' ? (
+            <>
+              <WaiterCallsPanel status={floorStatus} />
+              <ScannedSlipsPanel />
+              {/* Wave 5 (§5.1): the till shift's start panel while none is open, else the sound strip. */}
+              <TillShiftPanel fallback={<StartShiftBanner />} />
+            </>
+          ) : others.length > 0 ? (
+            <OtherTabsList tabs={others} onPick={(id) => void selectTab(id)} />
+          ) : (
+            <p style={{ opacity: 0.8, margin: 0 }}>{tr('ws.cashier.floor.railNoTabs')}</p>
+          )}
         </aside>
         {overlays}
       </div>

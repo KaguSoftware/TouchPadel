@@ -150,7 +150,7 @@ export const ar: Messages = {
     continueWithGoogleInBrowser: 'تواجه مشكلة مع Google؟ تابع في المتصفح',
     signingIn: 'جارٍ تسجيل دخولك…',
     completeProfileTitle: 'إكمال الملف الشخصي',
-    completeProfileBody: 'خطوة أخيرة قبل الحجز. نحتاج إلى رقم هاتف ليتصل بك عليه موظفو الاستقبال.',
+    completeProfileBody: 'خطوة أخيرة قبل الحجز. نحتاج إلى معلوماتك ليتمكن الموظفون من التواصل معك بسهولة.',
     phoneRationale: 'يتصل بك موظفو الاستقبال على هذا الرقم بشأن حجزك.',
     completeProfileCta: 'حفظ ومتابعة',
     profileIncompleteNotice: 'أضف رقم هاتفك لإتمام الحجز. يحتاجه موظفو الاستقبال لتأكيد حجزك.',

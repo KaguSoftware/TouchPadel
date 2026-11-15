@@ -88,6 +88,7 @@ import { CourtStage, topStageFor } from '../../src/components/CourtStage';
 import { Frost, PinnedTitle } from '../../src/components/scrollFrost';
 import { StickyOffset, StickyUnder } from '../../src/components/stickyUnder';
 import {
+  CAPTION_HANDOFF_AT,
   COURT_CAPTION_H,
   CourtCaption,
   NightHeader,
@@ -134,6 +135,13 @@ const TITLE_GROUND_FADE = 40;
 /** The fade's ease-in-out, sampled for the interpolation (smoothstep). */
 const EASE_STEPS = [0, 0.25, 0.5, 0.75, 1];
 const EASE_OUT = EASE_STEPS.map((x) => x * x * (3 - 2 * x));
+/**
+ * How far the page scrolls while the caption flies up into the title row and
+ * becomes the Start button (owner, 2026-11-15), and the ease's samples.
+ */
+const FLIGHT_RANGE = 110;
+const FLIGHT_STEPS = [0.125, 0.25, 0.375, 0.5, 0.625, 0.75, 0.875, 1];
+const smooth = (x: number) => x * x * (3 - 2 * x);
 /** A finger's target over each open spot on the court (the drawn spot is about 25 pt across). */
 const SPOT_TARGET = 48;
 
@@ -283,7 +291,13 @@ export default function PlayScreen() {
 
   // A side that is off leaves the other: no switch, and no empty "Matches" view.
   const kind: PlayKind =
-    matchesState === 'off' ? 'tournaments' : toursState === 'off' ? 'matches' : kindPick;
+    matchesState === 'off'
+      ? 'tournaments'
+      : toursState === 'off'
+        ? 'matches'
+        : kindPick === 'all'
+          ? 'matches'
+          : kindPick;
   const bothOn = matchesState !== 'off' && toursState !== 'off';
 
   // ── The timeline ──────────────────────────────────────────────────────────
@@ -637,11 +651,10 @@ export default function PlayScreen() {
       <SegmentedControl<PlayKind>
         testID="play.kind"
         options={[
-          { value: 'all', label: t('matches.list.filterAll') },
           { value: 'matches', label: t('play.kindMatches') },
           { value: 'tournaments', label: t('tournaments.guest.list.title') },
         ]}
-        value={kindPick}
+        value={kind}
         onChange={setKindPick}
         activeColor={colors.gstrong}
       />
@@ -907,6 +920,115 @@ export default function PlayScreen() {
       }),
     [scroll.y, sheetAt],
   );
+  // ── The caption's flight into the title row ────────────────────────────
+  // The caption rides the scroll with the sheet, then, near the title, glides
+  // up and becomes the Start button (owner, 2026-11-15). It is drawn over the
+  // page, not in it, so its place follows the scroll by transform alone.
+  const [titleGroup, setTitleGroup] = useState<{ x: number; y: number } | null>(null);
+  const [startBox, setStartBox] = useState<LayoutRectangle | null>(null);
+  const [flyBox, setFlyBox] = useState<{ x: number; width: number } | null>(null);
+  const [landed, setLanded] = useState(false);
+  const hasCaption = caption !== null;
+  const flight = useMemo(() => {
+    if (!hasCaption || !canStart || heroY === null || !titleGroup || !startBox) return null;
+    if (!flyBox || flyBox.width <= 0 || startBox.width <= 0) return null;
+    // Centres, in the screen's frame: the caption's at rest, the button's.
+    const restY = titleH + heroY + heroH - PLAY_SHEET_OVERLAP;
+    const targetY = titleGroup.y + startBox.y + startBox.height / 2;
+    const s0 = Math.max(1, restY - targetY - FLIGHT_RANGE);
+    const toTarget = targetY - restY;
+    const at = (x: number) => s0 + FLIGHT_RANGE * x;
+    const p = scroll.y.interpolate({
+      inputRange: [s0, ...FLIGHT_STEPS.map(at)],
+      outputRange: [0, ...FLIGHT_STEPS.map(smooth)],
+      extrapolate: 'clamp',
+    });
+    return {
+      dx: titleGroup.x + startBox.x + startBox.width / 2 - (flyBox.x + flyBox.width / 2),
+      btnW: startBox.width,
+      natW: flyBox.width,
+      landedAt: at(0.97),
+      // The page's own pace until the flight, then the ease up to the button.
+      y: scroll.y.interpolate({
+        inputRange: [0, s0, ...FLIGHT_STEPS.map(at)],
+        outputRange: [0, -s0, ...FLIGHT_STEPS.map((x) => -s0 + (toTarget + s0) * smooth(x))],
+        extrapolateLeft: 'extend',
+        extrapolateRight: 'clamp',
+      }),
+      p,
+      // The button takes over exactly as the caption lets go.
+      buttonOpacity: p.interpolate({
+        inputRange: [CAPTION_HANDOFF_AT, 1],
+        outputRange: [0, 1],
+        extrapolate: 'clamp',
+      }),
+    };
+  }, [hasCaption, canStart, heroY, heroH, titleH, titleGroup, startBox, flyBox, scroll.y]);
+  // Once it has landed the caption steps aside for touch and for screen readers.
+  useEffect(() => {
+    if (!flight) return;
+    const landedAt = flight.landedAt;
+    const id = scroll.y.addListener(({ value }) => {
+      const next = value >= landedAt;
+      setLanded((prev) => (prev === next ? prev : next));
+    });
+    return () => {
+      scroll.y.removeListener(id);
+      setLanded(false);
+    };
+  }, [flight, scroll.y]);
+  const scrollsAway = useMemo(() => Animated.multiply(scroll.y, -1), [scroll.y]);
+  const captionLayer =
+    caption && heroY !== null ? (
+      <Animated.View
+        pointerEvents={landed ? 'none' : 'box-none'}
+        accessibilityElementsHidden={landed}
+        importantForAccessibility={landed ? 'no-hide-descendants' : 'auto'}
+        style={{
+          position: 'absolute',
+          top: titleH + heroY + heroH - PLAY_SHEET_OVERLAP - COURT_CAPTION_H / 2,
+          start: space.l,
+          end: space.l,
+          alignItems: 'center',
+          transform: [{ translateY: flight ? flight.y : scrollsAway }],
+        }}
+      >
+        <View
+          onLayout={(e) => {
+            const { x, width } = e.nativeEvent.layout;
+            setFlyBox((prev) =>
+              prev && prev.width === width && prev.x === space.l + x
+                ? prev
+                : { x: space.l + x, width },
+            );
+          }}
+          style={{ maxWidth: '100%' }}
+        >
+          <Rise index={1} style={{ maxWidth: '100%' }}>
+            <CourtCaption
+              testID="play.court.caption"
+              lead={caption.lead}
+              action={caption.action}
+              hint={caption.hint}
+              green={court.show === 'none'}
+              onPress={goToCourt}
+              morph={
+                flight
+                  ? {
+                      p: flight.p,
+                      dx: flight.dx,
+                      btnW: flight.btnW,
+                      natW: flight.natW,
+                      label: t('play.start'),
+                    }
+                  : undefined
+              }
+            />
+          </Rise>
+        </View>
+      </Animated.View>
+    ) : null;
+
   const titleRow = (
     <PinnedTitle onHeight={setTitleH}>
       <Animated.View
@@ -932,6 +1054,10 @@ export default function PlayScreen() {
         {/* Start, filter and account as one group, centred on the title's text
             line (AccountButton's own centring would leave the other two high). */}
         <View
+          onLayout={(e) => {
+            const { x, y } = e.nativeEvent.layout;
+            setTitleGroup((prev) => (prev && prev.x === x && prev.y === y ? prev : { x, y }));
+          }}
           style={{
             flexDirection: 'row',
             alignItems: 'center',
@@ -941,7 +1067,15 @@ export default function PlayScreen() {
           }}
         >
           {canStart ? (
-            <StartMatchButton testID="play.start" label={t('play.start')} onPress={startOne} />
+            // While the caption is still on the sheet this button waits; it
+            // takes over as the caption lands on it (`flight`).
+            <Animated.View
+              onLayout={(e) => setStartBox(e.nativeEvent.layout)}
+              pointerEvents={flight && !landed ? 'none' : 'auto'}
+              style={{ opacity: flight ? flight.buttonOpacity : 1 }}
+            >
+              <StartMatchButton testID="play.start" label={t('play.start')} onPress={startOne} />
+            </Animated.View>
           ) : null}
           {filter}
           <AccountButton testID="play.account" centred={false} />
@@ -1000,31 +1134,6 @@ export default function PlayScreen() {
         {notices}
         {state}
       </Rise>
-      {/* The court's caption: last, so it lies over the sheet's edge it hangs
-          across, and takes touches there on Android too (inside this view). */}
-      {caption && heroY !== null ? (
-        <View
-          pointerEvents="box-none"
-          style={{
-            position: 'absolute',
-            top: heroY + heroH - PLAY_SHEET_OVERLAP - COURT_CAPTION_H / 2,
-            start: space.l,
-            end: space.l,
-            alignItems: 'center',
-          }}
-        >
-          <Rise index={1} style={{ maxWidth: '100%' }}>
-            <CourtCaption
-              testID="play.court.caption"
-              lead={caption.lead}
-              action={caption.action}
-              hint={caption.hint}
-              green={court.show === 'none'}
-              onPress={goToCourt}
-            />
-          </Rise>
-        </View>
-      ) : null}
     </View>
   );
 
@@ -1138,6 +1247,7 @@ export default function PlayScreen() {
           ) : null}
         </View>
         {titleRow}
+        {captionLayer}
       </View>
     </Screen>
   );

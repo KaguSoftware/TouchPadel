@@ -239,10 +239,22 @@ export function WaiterCallsPanel({ status, layout = 'panel' }: { status?: Broadc
       </div>
 
       {callsQ.isSuccess && calls.length === 0 && (
-        <p style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-1-5)', color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>
-          <Icon name="checkCircle" size={16} style={{ flexShrink: 0 }} />
-          {tr('op.floor.noCalls')}
-        </p>
+        strip ? (
+          <p style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-1-5)', color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>
+            <Icon name="checkCircle" size={16} style={{ flexShrink: 0 }} />
+            {tr('op.floor.noCalls')}
+          </p>
+        ) : (
+          // The brand padel ball, as the mobile app's empty states draw it,
+          // in the middle of the rail.
+          <div style={{ display: 'grid', placeItems: 'center', alignContent: 'center', gap: 'var(--tp-sp-3)', minBlockSize: '14rem', textAlign: 'center' }}>
+            <svg width={64} height={64} viewBox="0 0 48 48" fill="none" aria-hidden="true" style={{ opacity: 0.85 }}>
+              <circle cx={24} cy={24} r={21} fill="var(--tp-brand-green)" />
+              <path d="M10 7.5c7.5 9 7.5 24 0 33M38 7.5c-7.5 9-7.5 24 0 33" stroke="var(--tp-brand-white)" strokeWidth={2.4} />
+            </svg>
+            <p style={{ margin: 0, color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-md)' }}>{tr('op.floor.noCalls')}</p>
+          </div>
+        )
       )}
 
       {recent.length > 0 && (

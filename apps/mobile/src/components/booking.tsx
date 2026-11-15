@@ -2032,13 +2032,21 @@ export function MenuRow({
 }) {
   const { colors, fonts } = useTheme();
   const chip = useIconChip();
+  // A double tap would push the destination twice; ignore taps right after one.
+  const lastPress = useRef(0);
+  const guardedPress = () => {
+    const now = Date.now();
+    if (now - lastPress.current < 800) return;
+    lastPress.current = now;
+    onPress();
+  };
   return (
     <Pressable
       testID={testID}
       accessibilityRole="button"
       accessibilityState={{ disabled: !!disabled }}
       disabled={disabled}
-      onPress={onPress}
+      onPress={guardedPress}
       style={({ pressed }) => ({
         flexDirection: 'row',
         justifyContent: 'space-between',

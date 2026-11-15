@@ -108,7 +108,7 @@ const CASES: SmokeCase[] = [
   {
     route: 'complete-profile',
     Component: CompleteProfileScreen,
-    labelKey: 'auth.completeProfileCta',
+    labelKey: 'common.next',
     // Without a profile row the screen is a skeleton: it renders the form only
     // once `useOwnProfile` has settled. Seeded rather than fetched, so the
     // assertion is about the form and not about a request's timing.

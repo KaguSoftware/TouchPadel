@@ -1,4 +1,4 @@
-import { Children, cloneElement, isValidElement, useState, type ReactElement, type ReactNode } from 'react';
+import { Children, cloneElement, isValidElement, useRef, useState, type ReactElement, type ReactNode } from 'react';
 import { Alert, Image, Pressable, ScrollView, View } from 'react-native';
 import { Text } from '../src/i18n/text';
 import { Stack, useRouter } from 'expo-router';
@@ -98,6 +98,18 @@ export default function ProfileScreen() {
   const { colors, fonts, appearance } = useTheme();
   const chip = useIconChip();
   const router = useRouter();
+  // A double tap would open the edit form twice; ignore taps right after one.
+  const lastEditTap = useRef(0);
+  const openEdit = (params?: { section: string } | 'complete') => {
+    const now = Date.now();
+    if (now - lastEditTap.current < 800) return;
+    lastEditTap.current = now;
+    if (params === 'complete') {
+      router.push({ pathname: '/complete-profile', params: { returnTo: 'back' } });
+      return;
+    }
+    router.push(params ? { pathname: '/profile-edit', params } : '/profile-edit');
+  };
   const resetTo = useResetTo();
   const downToTab = useDownToTab();
   const insets = useSafeAreaInsets();
@@ -279,7 +291,7 @@ export default function ProfileScreen() {
             testID="profile.edit-profile"
             accessibilityRole="button"
             accessibilityLabel={t('profile.editProfile')}
-            onPress={() => router.push('/profile-edit')}
+            onPress={() => openEdit()}
             style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
           >
           <Card style={{ flexDirection: 'row', direction: 'ltr', gap: 13, alignItems: 'center' }}>
@@ -410,7 +422,7 @@ export default function ProfileScreen() {
                     label={t(profile.data?.phone ? 'auth.addNameLink' : 'auth.addPhoneLink')}
                     variant="secondary"
                     size="compact"
-                    onPress={() => router.push({ pathname: '/complete-profile', params: { returnTo: 'back' } })}
+                    onPress={() => openEdit('complete')}
                     labelColor={colors.ambstrong}
                     style={{ backgroundColor: 'transparent', borderColor: colors.ambstrong }}
                   />
@@ -421,7 +433,7 @@ export default function ProfileScreen() {
                     label={t('profile.usernameNudgeAction')}
                     variant="secondary"
                     size="compact"
-                    onPress={() => router.push({ pathname: '/profile-edit', params: { section: 'username' } })}
+                    onPress={() => openEdit({ section: 'username' })}
                     labelColor={incomplete ? colors.ambstrong : undefined}
                     style={incomplete ? { backgroundColor: 'transparent', borderColor: colors.ambstrong } : undefined}
                   />

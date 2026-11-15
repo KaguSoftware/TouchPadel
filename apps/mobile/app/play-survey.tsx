@@ -491,20 +491,6 @@ function PlaySurvey() {
             </Rise>
           ) : (
             <Rise>
-              {phase === 'level' && !editing ? (
-                <Text
-                  style={{
-                    marginBottom: space.xs,
-                    fontFamily: fonts.body400,
-                    fontSize: 13.5,
-                    lineHeight: 19,
-                    color: colors.mut,
-                    textAlign: 'auto',
-                  }}
-                >
-                  {t('playProfile.survey.intro')}
-                </Text>
-              ) : null}
               <Text
                 accessibilityRole="header"
                 style={{
@@ -516,6 +502,20 @@ function PlaySurvey() {
               >
                 {t(question[phase])}
               </Text>
+              {phase === 'level' && !editing ? (
+                <Text
+                  style={{
+                    marginTop: space.xs,
+                    fontFamily: fonts.body400,
+                    fontSize: 13.5,
+                    lineHeight: 19,
+                    color: colors.mut,
+                    textAlign: 'auto',
+                  }}
+                >
+                  {t('playProfile.survey.intro')}
+                </Text>
+              ) : null}
               {hint[phase] ? (
                 <Text
                   style={{
