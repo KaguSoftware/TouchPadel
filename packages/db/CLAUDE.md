@@ -40,6 +40,32 @@ is a line in that file.
   `attendance_month`** (0271 no longer: `source`). `app.access_area_rpcs` rows for attendance and
   admin. Rule drop 42. Contract `docs/design/clock-in/contracts-2026-11-15.md`;
   `tests/staff-clock.test.ts`.
+- **0443–0444 (2026-11-16, ranks_touch_level + ranks_boards; Majed: "just playing shouldn't make
+  them top", every number changeable in the operator; plan `docs/design/ranks/plan-2026-11-13.md`):**
+  two numbers per player. The **Touch Level** (1.0–7.0) is DERIVED: `app.ranks_rebuild()` replays
+  every `ranks_level_checks` row and confirmed `game_results` row in time order (checks first, in
+  `seq` order) into `ranks_player_levels` and `ranks_result_scores` (both emptied first), under
+  `app.ranks_rules()` = `app.ranks_rules_default()` || `ranks_settings.rules` (the owner's
+  overrides only; `app.ranks_rules_check` validates, detail = the key). It runs from the statement
+  triggers `game_results_ranks_rebuild_ins/_upd` (a confirm, a void, a merge repoint), from
+  `profiles_ranks_level_check` (any write of `profiles.level_confirmed` is a Level check:
+  advanced = A, intermediate = B, beginner = C) and from `set_ranks_rules`; it takes
+  `ranks_rebuild_state` FOR UPDATE first (unranked, taken last). A win never lowers a level and a
+  loss never raises one. The **Season Race** (season = `ranks_settings.period`, quarter by default)
+  is read live by `app.ranks_race`: best `race_best_matches` `ranks_result_scores.race_points`
+  (tournament matches score 0 there) + best `race_best_tournaments` finishes
+  (`app.ranks_tournament_points`, `tournament_standings`) + `ranks_ledger` adjusts. The 0364
+  ledger is still written (lifetime, Season 0). **0444 holds `ranks_board`, `my_ranks`,
+  `ranks_result_json`, `ranks_levels_json`, `ranks_admin`, `set_ranks_levels`** (0364 no longer);
+  new client RPCs `set_ranks_rules` (owner), `ranks_level_checks_list` (manager, owner),
+  `ranks_results_to_check`, `ranks_staff_confirm`, `ranks_edit_result` (court desk, manager, owner;
+  an edit voids the old row "edited: <reason>" and inserts a corrected confirmed desk row),
+  `ranks_coach_record` (a coach, `app.coach_self`; source desk) and `set_my_play_level` (the
+  player's own type while no check counted and under provisional_games games, else
+  `RANKS_LEVEL_LOCKED`; trigger `profiles_ranks_self_level` replays on a play_level change). `ranks_levels.min_level` (tiers by level;
+  `min_points` = min_level × 100 for older builds). No FK to profiles on the new tables, so
+  `profile_merge_columns` is not re-issued. No index beyond primary keys.
+  `tests/ranks-touch-level.test.ts`; `tests/ranks-leaderboard.test.ts` updated (points = Race).
 - **0431 (2026-11-15, match_guest_lock; audit finding 27):** while matches are paid at the desk
   (0370), `ticket_pick` locked no ticket rows, so two joins by one guest at two branches at once
   both passed the cross-branch clash check (R41). The internal `app.lock_match_guest(p_guest)`

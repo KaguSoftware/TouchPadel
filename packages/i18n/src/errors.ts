@@ -552,6 +552,8 @@ export const ERROR_CODE_KEYS = {
   RANKS_ALREADY_REPORTED: 'op.errors.RANKS_ALREADY_REPORTED',
   RANKS_NOT_YOURS: 'op.errors.RANKS_NOT_YOURS',
   RANKS_RESULT_CLOSED: 'op.errors.RANKS_RESULT_CLOSED',
+  // 0444: a player changing their own type after a Level check counted or after their first games.
+  RANKS_LEVEL_LOCKED: 'op.errors.RANKS_LEVEL_LOCKED',
 
   // ── Guest refusals the desk never meets (the phone's lines) ───────────────
   // 0048/C1 + 0058: raised by app.hold_slot from the day it was hardened; the

@@ -9,11 +9,25 @@
  * A reader (anyone without judgePlayerLevel) sees the same dialog with every
  * control off, because knowing a player's level is useful even when setting it
  * is not yours.
+ *
+ * Since 0443 a confirmed level is a Level check: it sets the player's Touch
+ * Level to the type's starting level (Majed 2026-11-13: "type a b c and each
+ * starts at a certain number of points, a starts highest"). A manager or the
+ * owner, who can read the ranking rules, sees each type's starting level on
+ * its button; the desk sees the order without the numbers.
+ *
+ * Majed 2026-11-16: the player picks their own type and it stands; staff
+ * confirm, change or set it. So the dialog says plainly whether the type was
+ * picked by the player or checked by staff, and a pick nobody has checked yet
+ * is confirmed in one tap (staff_set_customer_level with the player's value).
  */
 import { useState } from 'react';
 import { formatDate, formatNumber, isolate } from '@touch/i18n';
 import { PICKABLE_LEVELS, levelForPick, sameType } from '@touch/core';
 import { useLocale } from '../../lib/i18n';
+import { can, useAuth } from '../../lib/auth';
+import { useRanksAdmin } from '../ranks/useRanks';
+import { levelText } from '../ranks/ranksLogic';
 import { useStationReach } from '../../lib/stationReach';
 import { useToast } from '../../components/toast';
 import { Button, ErrorText, Field, Modal, inputStyle } from '../../components/ui';
@@ -23,6 +37,8 @@ import {
   AGE_BANDS,
   INTEREST_TAGS,
   NOTE_MAX,
+  claimToConfirm,
+  levelSource,
   draftDirty,
   draftErrors,
   draftOf,
@@ -60,6 +76,32 @@ export function PlayerFactsDialog({
   const busy = save.isPending;
   const offline = tr(`${K}.offline`);
   const disabled = !canJudge || busy || !reachable;
+  const { staff } = useAuth();
+  // The starting level of each type, when this person may read the ranking rules.
+  const rules = useRanksAdmin(can(staff, 'readRanksAdmin')).data?.rules;
+  const starts: Partial<Record<PlayLevel, string>> = rules
+    ? { advanced: levelText(rules.start_a), intermediate: levelText(rules.start_b), beginner: levelText(rules.start_c) }
+    : {};
+  const pickLabel = (l: PlayLevel) => {
+    const name = tr(`${K}.level.${l}`);
+    const start = starts[l];
+    return start ? tr(`${K}.dialog.levelWithStart`, { level: name, start }) : name;
+  };
+
+  const source = levelSource(facts);
+  const claim = claimToConfirm(facts);
+
+  async function confirmClaim() {
+    if (!claim) return;
+    setError(null);
+    try {
+      await save.mutateAsync({ band: 'keep', level: { level: claim, note: null } });
+      toast.ok(tr(`${K}.dialog.claimConfirmed`, { name: isolate(customerName), level: tr(`${K}.level.${claim}`) }));
+      onClose();
+    } catch (e) {
+      setError(e);
+    }
+  }
 
   async function write() {
     if (!dirty || errors.note) return;
@@ -119,6 +161,34 @@ export function PlayerFactsDialog({
         {/* The level, and whether the club has judged it. */}
         <section style={{ display: 'grid', gap: 'var(--tp-sp-2)' }}>
           <h3 style={{ margin: 0, fontSize: 'var(--tp-fs-sm)', fontWeight: 700 }}>{tr(`${K}.dialog.level`)}</h3>
+          {/* Where the type on record came from: checked by staff, picked by the player, or neither. */}
+          <p style={{ margin: 0, fontSize: 'var(--tp-fs-sm)', fontWeight: 600 }} data-testid="player-level-source">
+            {source === 'checked'
+              ? tr(`${K}.card.confirmedBy`, {
+                  who: isolate(facts.confirmedByName ?? tr(`${K}.card.someone`)),
+                  role: tr(`${K}.role.${facts.confirmedRole ?? 'court_desk'}`),
+                  date: facts.confirmedAt ? formatDate(new Date(facts.confirmedAt), locale, tz) : '',
+                })
+              : source === 'picked' && facts.claimedLevel
+                ? tr(`${K}.dialog.pickedByPlayer`, { level: tr(`${K}.level.${facts.claimedLevel}`) })
+                : tr(`${K}.dialog.noPick`)}
+          </p>
+          {claim && canJudge && draft.level === null && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-3)', flexWrap: 'wrap' }}>
+              <Button
+                kind="primary"
+                icon="check"
+                busy={busy}
+                disabled={!reachable}
+                disabledReason={!reachable ? offline : undefined}
+                onClick={() => void confirmClaim()}
+                data-testid="player-confirm-claim"
+              >
+                {tr(`${K}.dialog.confirmClaim`, { level: tr(`${K}.level.${claim}`) })}
+              </Button>
+              <span style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>{tr(`${K}.dialog.confirmClaimHint`)}</span>
+            </div>
+          )}
           <p style={{ margin: 0, fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>
             {facts.claimedLevel
               ? tr(`${K}.dialog.levelHint`, { level: tr(`${K}.level.${facts.claimedLevel}`) })
@@ -133,9 +203,14 @@ export function PlayerFactsDialog({
             }
             options={[
               { value: 'none', label: tr(`${K}.dialog.notConfirmed`), disabled, testId: 'player-level-none' },
-              ...PICKABLE_LEVELS.map((l) => ({ value: l, label: tr(`${K}.level.${l}`), disabled, testId: `player-level-${l}` })),
+              ...PICKABLE_LEVELS.map((l) => ({ value: l, label: pickLabel(l), disabled, testId: `player-level-${l}` })),
             ]}
           />
+          <p style={{ margin: 0, fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }} data-testid="player-level-starts">
+            {rules
+              ? tr(`${K}.dialog.checkStarts`, { a: levelText(rules.start_a), b: levelText(rules.start_b), c: levelText(rules.start_c) })
+              : tr(`${K}.dialog.checkStartsPlain`)}
+          </p>
           {facts.suggested && (
             <p style={{ margin: 0, fontSize: 'var(--tp-fs-sm)' }}>
               {tr(`${K}.dialog.suggested`, {
@@ -163,15 +238,6 @@ export function PlayerFactsDialog({
               data-testid="player-note"
             />
           </Field>
-          {facts.confirmedAt && (
-            <p style={{ margin: 0, fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>
-              {tr(`${K}.card.confirmedBy`, {
-                who: isolate(facts.confirmedByName ?? tr(`${K}.card.someone`)),
-                role: tr(`${K}.role.${facts.confirmedRole ?? 'court_desk'}`),
-                date: formatDate(new Date(facts.confirmedAt), locale, tz),
-              })}
-            </p>
-          )}
         </section>
 
         {/* What the club worked out on its own: read-only, and it says so. */}

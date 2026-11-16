@@ -1,5 +1,5 @@
 {
-  "generated_from": "a5b48f84ebe8e7127cfdf9c459fa5414f03be8d0",
+  "generated_from": "e92a8011b264af70a12adafc9b8d31606c750b96",
   "chunks": [
     {
       "kind": "page",
@@ -7453,16 +7453,24 @@
       "kind": "action",
       "ref": "action:app.my_ranks",
       "lang": "en",
-      "title": "app.my_ranks (part 1 of 2)",
-      "body": "0364. The signed-in player's own leaderboard page: {enabled:false} while off, else {enabled, period, from, size, points (this period), lifetime, rank (their place in the period, null with no points; theirs alone), level, next_level (null at the top), rules {win, loss, draw, report_hours, reports}, username, results (app.ranks_result_json, the ones waiting on them first), to_report (their played bookings with no live result, inside report_hours), recent (usernames they played with lately)}.\nSignature: app.my_ranks() returns jsonb.\nGranted to: authenticated. Guard: not detected by pattern — read the migration.",
+      "title": "app.my_ranks (part 1 of 3)",
+      "body": "0444. The signed-in player's own page: {enabled:false} while off, else 0364's keys (points and rank are now this season's Race, level and next_level the tier their Touch Level reaches, rules the Race's win/loss/draw) plus headline, touch {level, show_level, rated, games, provisional_left, games_window, opponents_window, reliable, needs_games, needs_opponents, reliable_days, class, tier, next_tier, to_next, rank (on the Touch Level board, reliable only), higher_than_pct (share of players with a rated game in reliable_days whose level is below theirs), history [{played_at, level}] last 20, self_type (what they picked:",
       "route": null
     },
     {
       "kind": "action",
       "ref": "action:app.my_ranks~2",
       "lang": "en",
-      "title": "app.my_ranks (part 2 of 2)",
-      "body": "0364. The signed-in player's own leaderboard page: {enabled:false} while off, else {enabled, period, from, size, points (this period), lifetime, rank (their pla\nSignature: app.my_ranks() returns jsonb.\nGranted to: authenticated. Guard: not detected by pattern — read the migration.\nWrites no audit row of its own (or via a helper).\nError codes: AUTH_REQUIRED.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0364 (last definition). The assistant cannot call this; it only explains it.",
+      "title": "app.my_ranks (part 2 of 3)",
+      "body": "0444. The signed-in player's own page: {enabled:false} while off, else 0364's keys (points and rank are now this season's Race, level and next_level the tier th\nnew|beginner|intermediate|advanced), checked {type, role, at} (the last Level check that counted, or null), can_change_type (set_my_play_level is open to them)} and race {points, rank, matches, matches_counted, best_matches, tournaments, best_tournaments, boosts_used, boosts_max} and public_rules (app.ranks_public_rules; my_ranks keeps 0364's `rules` key for older builds). Theirs alone.\nSignature: app.my_ranks() returns jsonb.\nGranted to: authenticated. Guard: not detected by pattern — read the migration.\nWrites no audit row of its own (or via a helper).\nError codes: AUTH_REQUIRED.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.my_ranks~3",
+      "lang": "en",
+      "title": "app.my_ranks (part 3 of 3)",
+      "body": "0444. The signed-in player's own page: {enabled:false} while off, else 0364's keys (points and rank are now this season's Race, level and next_level the tier th\nSignature: app.my_ranks() returns jsonb.\nGranted to: authenticated. Guard: not detected by pattern — read the migration.\nWrites no audit row of its own (or via a helper).\nError codes: AUTH_REQUIRED.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0444 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -7966,15 +7974,39 @@
       "ref": "action:app.ranks_admin",
       "lang": "en",
       "title": "app.ranks_admin",
-      "body": "0364. Manager or owner: {settings (ranks_settings), levels [{name_en, name_ar, min_points}] lowest first}.\nSignature: app.ranks_admin() returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager, owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0364 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "0444 (0364 + rules). Manager or owner: {settings (ranks_settings), levels [{name_en, name_ar, min_level, min_points}] lowest first, rules (in force), defaults, overrides (what the owner changed), rebuild {at, results, ms}}.\nSignature: app.ranks_admin() returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager, owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0444 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
       "kind": "action",
       "ref": "action:app.ranks_board",
       "lang": "en",
-      "title": "app.ranks_board",
-      "body": "0364. Public (anon). The leaderboard: {enabled:false} while the owner has it off, else {enabled, period, from (null for all time), size, rows: [{rank, name (\"First L.\" or null), points, level {name_en, name_ar, min_points}, mine}]}, the top board_size players by points earned in the period, a tie sharing a rank. Nobody below the board is read, and no id, phone or full name leaves it.\nSignature: app.ranks_board() returns jsonb.\nGranted to: anon, authenticated. Guard: not detected by pattern — read the migration.\nWrites no audit row of its own (or via a helper).\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0364 (last definition). The assistant cannot call this; it only explains it.",
+      "title": "app.ranks_board (part 1 of 2)",
+      "body": "0444. Public (anon). {enabled:false} while off, else {enabled, headline (race | level, the owner's switch), show_level, period, from (null for all time), size, race [{rank, name, mine, points, level, tier, class}] (Race points this season), level [{rank, name, mine, level, tier, class}] (reliable players by Touch Level), classes {A, B, C: [{rank, name, mine, level, tier}]}, improved [{rank, name, mine, gain, level, tier}] over improved_days, improved_days, rules (app.ranks_public_rules), rows (0364's shape: the Race board)}. level is null on every row while show_level is off. At most size rows a board; nobody below a board is",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.ranks_board~2",
+      "lang": "en",
+      "title": "app.ranks_board (part 2 of 2)",
+      "body": "0444. Public (anon). {enabled:false} while off, else {enabled, headline (race | level, the owner's switch), show_level, period, from (null for all time), size, \nread, and no id, phone or full name leaves it.\nSignature: app.ranks_board() returns jsonb.\nGranted to: anon, authenticated. Guard: not detected by pattern — read the migration.\nWrites no audit row of its own (or via a helper).\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0444 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.ranks_coach_record",
+      "lang": "en",
+      "title": "app.ranks_coach_record (part 1 of 2)",
+      "body": "0444. A coach (app.coach_self, else FORBIDDEN) enters a game they watched, by the players' usernames (a second seat may be empty): confirmed at once at the coach's first active branch, played now, counted like a desk entry (trust_desk); the levels replay. RANKS_OFF, INVALID_ARGUMENT (p_winner), INVALID_VALUE (p_score), RANKS_PLAYER_NOT_FOUND, RANKS_PLAYERS_INVALID (one person twice). Audited ranks.record with by = coach.\nSignature: app.ranks_coach_record(p_a1 text, p_a2 text, p_b1 text, p_b2 text, p_winner text, p_score text) returns jsonb.\nGranted to: authenticated. Guard: not detected by pattern — read the migration.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.ranks_coach_record~2",
+      "lang": "en",
+      "title": "app.ranks_coach_record (part 2 of 2)",
+      "body": "0444. A coach (app.coach_self, else FORBIDDEN) enters a game they watched, by the players' usernames (a second seat may be empty): confirmed at once at the coac\nGranted to: authenticated. Guard: not detected by pattern — read the migration.\nAudit actions written: ranks.record.\nError codes: FORBIDDEN, RANKS_OFF, INVALID_ARGUMENT, INVALID_VALUE, RANKS_PLAYER_NOT_FOUND, RANKS_PLAYERS_INVALID.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0444 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -8019,10 +8051,34 @@
     },
     {
       "kind": "action",
+      "ref": "action:app.ranks_edit_result",
+      "lang": "en",
+      "title": "app.ranks_edit_result (part 1 of 2)",
+      "body": "0444. Court desk, manager or owner: corrects a pending or confirmed result (the players, the winner, the score) with a reason: the old row is voided (\"edited: <reason>\", its points taken off) and a corrected desk result takes its place at the same time and booking, confirmed, its points written; the levels replay. A second seat may be NULL. A tournament match is corrected on the tournament (RANKS_NOT_ELIGIBLE). REASON_REQUIRED, INVALID_ARGUMENT (p_winner), INVALID_VALUE (p_score), RANKS_PLAYER_NOT_FOUND, RANKS_PLAYERS_INVALID, NOT_FOUND, RANKS_RESULT_CLOSED. Audited ranks.edit. Returns {id, status, replaces}.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.ranks_edit_result~2",
+      "lang": "en",
+      "title": "app.ranks_edit_result (part 2 of 2)",
+      "body": "0444. Court desk, manager or owner: corrects a pending or confirmed result (the players, the winner, the score) with a reason: the old row is voided (\"edited: <\nSignature: app.ranks_edit_result(p_result_id uuid, p_a1 uuid, p_a2 uuid, p_b1 uuid, p_b2 uuid, p_winner text, p_score text, p_reason text) returns jsonb.\nGranted to: authenticated. Guard: staff role in (court_desk, manager, owner).\nAudit actions written: ranks.edit.\nError codes: FORBIDDEN, REASON_REQUIRED, INVALID_ARGUMENT, INVALID_VALUE, RANKS_PLAYER_NOT_FOUND, NOT_FOUND, RANKS_RESULT_CLOSED, RANKS_NOT_ELIGIBLE, RANKS_PLAYERS_INVALID.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0444 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
       "ref": "action:app.ranks_find_player",
       "lang": "en",
       "title": "app.ranks_find_player",
       "body": "0364. A signed-in player looks a username up, exactly (no search, no list): {username, name, me} or NULL.\nSignature: app.ranks_find_player(p_username text) returns jsonb.\nGranted to: authenticated. Guard: a signed-in session.\nWrites no audit row of its own (or via a helper).\nError codes: AUTH_REQUIRED.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0364 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.ranks_level_checks_list",
+      "lang": "en",
+      "title": "app.ranks_level_checks_list",
+      "body": "0444. Manager or owner: the Level checks, newest first (p_limit 1-300, default 100): [{id, player (app.ranks_staff_player_json), class A|B|C|new, role, checked_by (name), checked_at, note, applied (the rules let it move the level), level_set, games_after (up to 20), level_after (after those games), drift (level_after - level_set: a checker whose players keep falling rates too high)}].\nSignature: app.ranks_level_checks_list(p_limit int) returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager, owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0444 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -8039,6 +8095,30 @@
       "lang": "en",
       "title": "app.ranks_report (part 2 of 2)",
       "body": "0364. The booker reports a game they played: their booking (played at least 30 minutes, ended no more than report_hours ago, no live result), their partner and \nSignature: app.ranks_report(p_reservation_id uuid, p_partner text, p_opponent1 text, p_opponent2 text, p_won boolean, p_score text) returns jsonb.\nGranted to: authenticated. Guard: not detected by pattern — read the migration.\nWrites no audit row of its own (or via a helper).\nError codes: AUTH_REQUIRED, RANKS_OFF, INVALID_ARGUMENT, RANKS_NOT_ELIGIBLE, RANKS_PLAYER_NOT_FOUND, RANKS_PLAYERS_INVALID, RANKS_ALREADY_REPORTED, INVALID_VALUE.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0364 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.ranks_results_to_check",
+      "lang": "en",
+      "title": "app.ranks_results_to_check (part 1 of 2)",
+      "body": "0444. Court desk, manager or owner: pairs of confirmed results at the branches in scope (last p_days, 7-365, default 60) where the same two pairs played within 7 days and the winner flipped (a sign two pairs are trading wins), newest first: [{first, second: {id, played_at, score, source, winner, a [2], b [2] (app.ranks_staff_player_json)}}]. A manager or the owner voids a traded result with ranks_void.\nSignature: app.ranks_results_to_check(p_days int) returns jsonb.\nGranted to: authenticated. Guard: staff role in (court_desk, manager, owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.ranks_results_to_check~2",
+      "lang": "en",
+      "title": "app.ranks_results_to_check (part 2 of 2)",
+      "body": "0444. Court desk, manager or owner: pairs of confirmed results at the branches in scope (last p_days, 7-365, default 60) where the same two pairs played within \nGranted to: authenticated. Guard: staff role in (court_desk, manager, owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0444 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.ranks_staff_confirm",
+      "lang": "en",
+      "title": "app.ranks_staff_confirm",
+      "body": "0444. Court desk, manager or owner: confirms a player report still pending (also one whose window lapsed but was never closed), as an opponent would; its points are written and the levels replay. NOT_FOUND (or another branch's), RANKS_RESULT_CLOSED (not pending). Audited ranks.confirm.\nSignature: app.ranks_staff_confirm(p_result_id uuid) returns jsonb.\nGranted to: authenticated. Guard: staff role in (court_desk, manager, owner).\nAudit actions written: ranks.confirm.\nError codes: FORBIDDEN, NOT_FOUND, RANKS_RESULT_CLOSED.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0444 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -9243,6 +9323,22 @@
     },
     {
       "kind": "action",
+      "ref": "action:app.set_my_play_level",
+      "lang": "en",
+      "title": "app.set_my_play_level (part 1 of 2)",
+      "body": "0444. The signed-in player picks their own type (new, beginner = C, intermediate = B, advanced = A); it is their starting level until a Level check. Allowed only while no check of theirs was applied and they have played fewer than provisional_games rated games: after that RANKS_LEVEL_LOCKED (the desk or a coach changes it). AUTH_REQUIRED, ACCOUNT_REQUIRED (an anonymous session or a deleted account), INVALID_PLAY_PROFILE (detail p_level). The levels replay (profiles_ranks_self_level). Returns {play_level}.\nSignature: app.set_my_play_level(p_level text) returns jsonb.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.set_my_play_level~2",
+      "lang": "en",
+      "title": "app.set_my_play_level (part 2 of 2)",
+      "body": "0444. The signed-in player picks their own type (new, beginner = C, intermediate = B, advanced = A); it is their starting level until a Level check. Allowed onl\nSignature: app.set_my_play_level(p_level text) returns jsonb.\nGranted to: authenticated. Guard: not detected by pattern — read the migration.\nWrites no audit row of its own (or via a helper).\nError codes: AUTH_REQUIRED, ACCOUNT_REQUIRED, INVALID_PLAY_PROFILE, RANKS_LEVEL_LOCKED.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0444 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
       "ref": "action:app.set_my_play_profile",
       "lang": "en",
       "title": "app.set_my_play_profile (part 1 of 2)",
@@ -9334,7 +9430,15 @@
       "ref": "action:app.set_ranks_levels",
       "lang": "en",
       "title": "app.set_ranks_levels",
-      "body": "0364. Owner: replaces the levels with p_levels, [{name_en, name_ar, min_points}], 1 to 10 of them, one at 0, no two at the same points, names 1-24 characters. INVALID_VALUE (detail count, base or the refusal). Returns the levels. Audited ranks.levels.\nSignature: app.set_ranks_levels(p_levels jsonb) returns jsonb.\nGranted to: authenticated. Guard: staff role in (owner).\nAudit actions written: ranks.levels.\nError codes: FORBIDDEN, INVALID_ARGUMENT, INVALID_VALUE.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0364 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "0444 (0364, tiers by Touch Level). Owner: replaces the tiers with p_levels, [{name_en, name_ar, min_level}] (min_points of an older build is read as hundredths of a level), 1 to 10 of them, one at 0, no two at the same level (one decimal), names 1-24 characters. INVALID_VALUE (detail count, base or the refusal). Returns the tiers. Audited ranks.levels.\nSignature: app.set_ranks_levels(p_levels jsonb) returns jsonb.\nGranted to: authenticated. Guard: staff role in (owner).\nAudit actions written: ranks.levels.\nError codes: FORBIDDEN, INVALID_ARGUMENT, INVALID_VALUE.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0444 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.set_ranks_rules",
+      "lang": "en",
+      "title": "app.set_ranks_rules",
+      "body": "0444. Owner: replaces the ranking rule overrides with p_rules (only keys of app.ranks_rules_default(); a key left out is its default; a value equal to the default is not kept), checked by app.ranks_rules_check (INVALID_ARGUMENT / INVALID_VALUE, detail the key), then replays every Touch Level and Race score under the new rules. Returns app.ranks_admin(). Audited ranks.rules.\nSignature: app.set_ranks_rules(p_rules jsonb) returns jsonb.\nGranted to: authenticated. Guard: staff role in (owner).\nAudit actions written: ranks.rules.\nError codes: FORBIDDEN.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0444 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -14203,10 +14307,58 @@
     },
     {
       "kind": "table",
+      "ref": "table:ranks_level_checks",
+      "lang": "en",
+      "title": "table ranks_level_checks (part 1 of 2)",
+      "body": "0443. Every Level check (seq = the order given, so two checks in one moment replay in order), appended by the profiles_ranks_level_check trigger when profiles.level_confirmed is written (a coach, the court desk, a manager or the owner): the class (advanced = A, intermediate = B, beginner = C, new), who, their role, when and the note. The replay (app.ranks_rebuild) decides whether each one moves the Touch Level and writes applied / applied_level (the level it set) back on every replay. No foreign key to profiles (the cache is rebuilt from game_results); no client grant.\nCreated in migration 0443.\nColumns:",
+      "route": null
+    },
+    {
+      "kind": "table",
+      "ref": "table:ranks_level_checks~2",
+      "lang": "en",
+      "title": "table ranks_level_checks (part 2 of 2)",
+      "body": "0443. Every Level check (seq = the order given, so two checks in one moment replay in order), appended by the profiles_ranks_level_check trigger when profiles.l\nCreated in migration 0443.\nColumns:\n  id uuid primary key default gen_random_uuid()\n  seq bigint generated by default as identity\n  profile_id uuid not null\n  level text not null check (level in ('new', 'beginner', 'intermediate', 'advanced'))\n  checked_by uuid\n  role text check (role is null or role in ('coach', 'court_desk', 'manager', 'owner'))\n  checked_at timestamptz not null default now()\n  note text check (note is null or char_length(note) <= 120)\n  applied boolean not null default false\n  applied_level numeric(5,3)",
+      "route": null
+    },
+    {
+      "kind": "table",
       "ref": "table:ranks_levels",
       "lang": "en",
       "title": "table ranks_levels",
-      "body": "0364. The leaderboard's levels (owner, app.set_ranks_levels replaces the list): a player is at the highest level whose min_points their lifetime points reach. The first level always starts at 0.\nCreated in migration 0364.\nColumns:\n  id uuid primary key default gen_random_uuid()\n  name_en text not null\n  name_ar text not null\n  min_points int not null\n  created_at timestamptz not null default now()",
+      "body": "0364. The leaderboard's levels (owner, app.set_ranks_levels replaces the list): a player is at the highest level whose min_points their lifetime points reach. The first level always starts at 0.\nCreated in migration 0364.\nColumns:\n  id uuid primary key default gen_random_uuid()\n  name_en text not null\n  name_ar text not null\n  min_points int not null\n  created_at timestamptz not null default now()\n  min_level numeric(3,1) — 0443. The Touch Level a player needs for this tier; the lowest tier starts at 0. min_points (0364) is kept for older builds and written as min_level x 100.",
+      "route": null
+    },
+    {
+      "kind": "table",
+      "ref": "table:ranks_player_levels",
+      "lang": "en",
+      "title": "table ranks_player_levels",
+      "body": "0443. Derived by app.ranks_rebuild, never written otherwise: each player's Touch Level after every confirmed result and Level check, where they started, how many rated games, how many provisional games are left, their first and last rated game and their last applied check. No client grant.\nCreated in migration 0443.\nColumns:\n  profile_id uuid primary key\n  level numeric(5,3) not null\n  start_level numeric(5,3) not null\n  games int not null default 0\n  provisional_left int not null default 0\n  first_game_at timestamptz\n  last_game_at timestamptz\n  last_check_at timestamptz\n  updated_at timestamptz not null default now()",
+      "route": null
+    },
+    {
+      "kind": "table",
+      "ref": "table:ranks_rebuild_state",
+      "lang": "en",
+      "title": "table ranks_rebuild_state",
+      "body": "0443. One row: when the Touch Level was last replayed, over how many results, in how many milliseconds. app.ranks_rebuild takes it FOR UPDATE first, so two replays never interleave. No client grant.\nCreated in migration 0443.\nColumns:\n  id boolean primary key default true check (id)\n  rebuilt_at timestamptz\n  results int not null default 0\n  ms int not null default 0",
+      "route": null
+    },
+    {
+      "kind": "table",
+      "ref": "table:ranks_result_scores",
+      "lang": "en",
+      "title": "table ranks_result_scores (part 1 of 2)",
+      "body": "0443. Derived by app.ranks_rebuild: one row a player a confirmed result: the Touch Level before and after, what the levels expected (expected, their side's chance), the Race points (0 for a tournament match: a tournament scores by its finish) after any boost, the boost and why, the season it counts in, and the opponents' ids (for the distinct-opponent count). No client grant.\nCreated in migration 0443.\nColumns:\n  result_id uuid not null\n  profile_id uuid not null\n  played_at timestamptz not null\n  source text not null\n  won text not null check (won in ('won', 'lost', 'draw'))\n  level_before numeric(5,3) not null",
+      "route": null
+    },
+    {
+      "kind": "table",
+      "ref": "table:ranks_result_scores~2",
+      "lang": "en",
+      "title": "table ranks_result_scores (part 2 of 2)",
+      "body": "0443. Derived by app.ranks_rebuild: one row a player a confirmed result: the Touch Level before and after, what the levels expected (expected, their side's chan\n  profile_id uuid not null\n  played_at timestamptz not null\n  source text not null\n  won text not null check (won in ('won', 'lost', 'draw'))\n  level_before numeric(5,3) not null\n  level_after numeric(5,3) not null\n  expected numeric(5,4) not null\n  race_points numeric(8,2) not null default 0\n  boost numeric(4,2) not null default 1\n  boost_kind text check (boost_kind is null or boost_kind in ('offpeak', 'welcome'))\n  season_start timestamptz not null\n  opponents uuid[] not null default '{}'",
       "route": null
     },
     {
@@ -14230,7 +14382,7 @@
       "ref": "table:ranks_settings~3",
       "lang": "en",
       "title": "table ranks_settings (part 3 of 3)",
-      "body": "0364. The leaderboard's rules, one business-wide row (owner, app.set_ranks_settings): points for a win, a loss and a draw (written to the ledger when a result i\n  board_size int not null default 10 check (board_size between 3 and 25)\n  count_reported boolean not null default true\n  count_tournaments boolean not null default true\n  report_hours int not null default 48 check (report_hours between 1 and 336)\n  updated_at timestamptz not null default now()\n  updated_by uuid references staff(id)",
+      "body": "0364. The leaderboard's rules, one business-wide row (owner, app.set_ranks_settings): points for a win, a loss and a draw (written to the ledger when a result i\n  board_size int not null default 10 check (board_size between 3 and 25)\n  count_reported boolean not null default true\n  count_tournaments boolean not null default true\n  report_hours int not null default 48 check (report_hours between 1 and 336)\n  updated_at timestamptz not null default now()\n  updated_by uuid references staff(id)\n  rules jsonb not null default '{}'::jsonb — 0443. The owner's changes to the ranking rules, key by key (app.ranks_rules_default() lists every key and its default). A key absent here is its default; app.ranks_rules() merges the two. Written by app.set_ranks_rules only.",
       "route": null
     },
     {
@@ -21423,6 +21575,22 @@
       "lang": "en",
       "title": "purchases.venue_id",
       "body": "uuid not null references venues(id)\nThe venue the purchase was for.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:ranks_levels.min_level",
+      "lang": "en",
+      "title": "ranks_levels.min_level",
+      "body": "numeric(3,1)\n0443. The Touch Level a player needs for this tier; the lowest tier starts at 0. min_points (0364) is kept for older builds and written as min_level x 100.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:ranks_settings.rules",
+      "lang": "en",
+      "title": "ranks_settings.rules",
+      "body": "jsonb not null default '{}'::jsonb\n0443. The owner's changes to the ranking rules, key by key (app.ranks_rules_default() lists every key and its default). A key absent here is its default; app.ranks_rules() merges the two. Written by app.set_ranks_rules only.",
       "route": null
     },
     {
@@ -39014,7 +39182,7 @@
       "ref": "label:ws.players.card",
       "lang": "ar",
       "title": "ws.players.card (packages/i18n/src/catalogs/ws/players.ar.ts)",
-      "body": "title: اللاعب\nopen: تحديد\nview: عرض\nnoBand: العمر غير محدد\nnoLevel: لا مستوى بعد\nbyClub: مؤكَّد من النادي\nbyPlayer: كما أخبرنا اللاعب\nconfirmedBy: أكّده {who} ({role})، {date}\nclaimed: ذكر اللاعب {level}\nsomeone: أحد الزملاء\nsuggests: المباريات ترجّح {level}: {wins} فوزاً من {games}\nnoInterests: لا شيء نبني عليه بعد: بزيارات قليلة أخرى يكتمل هذا.\nmoreTags: +{n} أخرى",
+      "body": "title: اللاعب\nopen: تحديد\nview: عرض\nnoBand: العمر غير محدد\nnoLevel: لا مستوى بعد\nbyClub: قيّمه النادي\nbyPlayer: اختاره اللاعب\nconfirmedBy: قيّمه {who} ({role})، {date}\nclaimed: ذكر اللاعب {level}\nsomeone: أحد الزملاء\nsuggests: المباريات ترجّح {level}: {wins} فوزاً من {games}\nnoInterests: لا شيء نبني عليه بعد: بزيارات قليلة أخرى يكتمل هذا.\nmoreTags: +{n} أخرى",
       "route": null
     },
     {
@@ -39022,7 +39190,7 @@
       "ref": "label:ws.players.card",
       "lang": "en",
       "title": "ws.players.card (packages/i18n/src/catalogs/ws/players.en.ts)",
-      "body": "title: Player\nopen: Set\nview: View\nnoBand: Age not given\nnoLevel: No level yet\nbyClub: confirmed by the club\nbyPlayer: as the player told us\nconfirmedBy: Confirmed by {who} ({role}), {date}\nclaimed: The player said {level}\nsomeone: a colleague\nsuggests: The games suggest {level}: {wins} wins of {games}\nnoInterests: Nothing to go on yet: a few more visits and this fills in.\nmoreTags: +{n} more",
+      "body": "title: Player\nopen: Set\nview: View\nnoBand: Age not given\nnoLevel: No level yet\nbyClub: checked by the club\nbyPlayer: picked by the player\nconfirmedBy: Checked by {who} ({role}), {date}\nclaimed: The player said {level}\nsomeone: a colleague\nsuggests: The games suggest {level}: {wins} wins of {games}\nnoInterests: Nothing to go on yet: a few more visits and this fills in.\nmoreTags: +{n} more",
       "route": null
     },
     {
@@ -39045,24 +39213,40 @@
       "kind": "label",
       "ref": "label:ws.players.dialog",
       "lang": "ar",
-      "title": "ws.players.dialog (packages/i18n/src/catalogs/ws/players.ar.ts)",
-      "body": "title: اللاعب\nband: العمر\nbandHint: اسأل مرة واحدة، والمس خياراً. يخبر المالك والتسويق بمن يلعب هنا فعلاً.\nlevel: المستوى\nlevelHint: ذكر اللاعب {level}. أكّد ما رأيته؛ جوابك هو ما نرتّب له المباريات على أساسه.\nlevelHintNoClaim: لم يذكر اللاعب مستوى. أكّد ما رأيته.\nnotConfirmed: غير مؤكَّد\nsuggested: مبارياته ترجّح {level}: {games} مباراة، فاز {wins}، خسر {losses}.\nnote: ملاحظة\nnotePlaceholder: إرسال قوي، يرتبك عند الحائط الخلفي\nnoteHint: للموظفين فقط. لا يراها اللاعب.\nnoteLong: اجعل الملاحظة في سطر واحد.\nnoteNoLevel: اختر مستوى قبل كتابة ملاحظة عنه.\ninterests: ما يهمّه\ninterestsHint: مستخلص من أفعاله هنا: الملاعب، المباريات، الدروس، المقهى، ساعات اللعب. لا نسأله، ولا يُعدّل أحد هذا.\nreaderOnly: يؤكّد المستوى مدرّب أو موظف الاستقبال أو المدير أو المالك.\nsaved: حُفظ لـ {name}.",
+      "title": "ws.players.dialog (packages/i18n/src/catalogs/ws/players.ar.ts) (part 1 of 2)",
+      "body": "title: اللاعب\nband: العمر\nbandHint: اسأل مرة واحدة، والمس خياراً. يخبر المالك والتسويق بمن يلعب هنا فعلاً.\nlevel: المستوى\nlevelHint: ذكر اللاعب {level}. أكّد ما رأيته؛ جوابك هو ما نرتّب له المباريات على أساسه.\nlevelHintNoClaim: لم يذكر اللاعب مستوى. أكّد ما رأيته.\nnotConfirmed: غير مؤكَّد\ncheckStarts: يحدّد التقييم مستوى تتش للاعب: تبدأ الفئة A من {a}، والفئة B من {b}، والفئة C من {c}. ثم تحرّكه مبارياته.\ncheckStartsPlain: يحدّد التقييم مستوى تتش للاعب: تبدأ الفئة A من الأعلى، ثم B، ثم C. ثم تحرّكه مبارياته.\nlevelWithStart: {level} · {start}\npickedByPlayer: اختار اللاعب: {level}. لم يقيّمه أحد من الموظفين بعد.\nnoPick: لم يختر اللاعب فئة، ولم يقيّمه أحد بعد.\nconfirmClaim: تأكيد {level}\nconfirmClaimHint: لمسة واحدة إن طابق اختياره ما رأيته.",
       "route": null
     },
     {
       "kind": "label",
       "ref": "label:ws.players.dialog",
       "lang": "en",
-      "title": "ws.players.dialog (packages/i18n/src/catalogs/ws/players.en.ts) (part 1 of 2)",
-      "body": "title: Player\nband: Age\nbandHint: Ask once, tap one. It tells the owner and marketing who actually plays here.\nlevel: Level\nlevelHint: The player said {level}. Confirm what you have seen; your answer is what we match them at.\nlevelHintNoClaim: The player never gave a level. Confirm what you have seen.\nnotConfirmed: Not confirmed\nsuggested: Their games suggest {level}: {games} games, {wins} won, {losses} lost.\nnote: Note\nnotePlaceholder: Strong serve, struggles at the back wall\nnoteHint: Staff only. The player never sees it.\nnoteLong: Keep the note to one line.\nnoteNoLevel: Pick a level before writing a note about it.\ninterests: What they are into",
+      "title": "ws.players.dialog (packages/i18n/src/catalogs/ws/players.en.ts) (part 1 of 3)",
+      "body": "title: Player\nband: Age\nbandHint: Ask once, tap one. It tells the owner and marketing who actually plays here.\nlevel: Level\nlevelHint: The player said {level}. Confirm what you have seen; your answer is what we match them at.\nlevelHintNoClaim: The player never gave a level. Confirm what you have seen.\nnotConfirmed: Not confirmed\ncheckStarts: A check sets their Touch Level: Type A starts at {a}, Type B at {b}, Type C at {c}. Their games move it from there.\ncheckStartsPlain: A check sets their Touch Level: Type A starts highest, then B, then C. Their games move it from there.\nlevelWithStart: {level} · {start}\npickedByPlayer: Picked by the player: {level}. No staff check yet.\nnoPick: The player has not picked a type, and nobody has checked one.\nconfirmClaim: Confirm {level}",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.players.dialog~2",
+      "lang": "ar",
+      "title": "ws.players.dialog (packages/i18n/src/catalogs/ws/players.ar.ts) (part 2 of 2)",
+      "body": "title: اللاعب\nnoPick: لم يختر اللاعب فئة، ولم يقيّمه أحد بعد.\nconfirmClaim: تأكيد {level}\nconfirmClaimHint: لمسة واحدة إن طابق اختياره ما رأيته.\nclaimConfirmed: {name} في {level}، بتقييمك.\nsuggested: مبارياته ترجّح {level}: {games} مباراة، فاز {wins}، خسر {losses}.\nnote: ملاحظة\nnotePlaceholder: إرسال قوي، يرتبك عند الحائط الخلفي\nnoteHint: للموظفين فقط. لا يراها اللاعب.\nnoteLong: اجعل الملاحظة في سطر واحد.\nnoteNoLevel: اختر مستوى قبل كتابة ملاحظة عنه.\ninterests: ما يهمّه\ninterestsHint: مستخلص من أفعاله هنا: الملاعب، المباريات، الدروس، المقهى، ساعات اللعب. لا نسأله، ولا يُعدّل أحد هذا.\nreaderOnly: يؤكّد المستوى مدرّب أو موظف الاستقبال أو المدير أو المالك.\nsaved: حُفظ لـ {name}.",
       "route": null
     },
     {
       "kind": "label",
       "ref": "label:ws.players.dialog~2",
       "lang": "en",
-      "title": "ws.players.dialog (packages/i18n/src/catalogs/ws/players.en.ts) (part 2 of 2)",
-      "body": "title: Player\nnoteHint: Staff only. The player never sees it.\nnoteLong: Keep the note to one line.\nnoteNoLevel: Pick a level before writing a note about it.\ninterests: What they are into\ninterestsHint: Worked out from what they did here: courts, matches, lessons, the café, the hours they play. Nobody asks them, and nobody edits this.\nreaderOnly: A coach, the front desk, a manager or the owner confirms a level.\nsaved: Saved for {name}.",
+      "title": "ws.players.dialog (packages/i18n/src/catalogs/ws/players.en.ts) (part 2 of 3)",
+      "body": "title: Player\npickedByPlayer: Picked by the player: {level}. No staff check yet.\nnoPick: The player has not picked a type, and nobody has checked one.\nconfirmClaim: Confirm {level}\nconfirmClaimHint: One tap if what they picked matches what you have seen.\nclaimConfirmed: {name} is {level}, checked by you.\nsuggested: Their games suggest {level}: {games} games, {wins} won, {losses} lost.\nnote: Note\nnotePlaceholder: Strong serve, struggles at the back wall\nnoteHint: Staff only. The player never sees it.\nnoteLong: Keep the note to one line.\nnoteNoLevel: Pick a level before writing a note about it.\ninterests: What they are into\ninterestsHint: Worked out from what they did here: courts, matches, lessons, the café, the hours they play. Nobody asks them, and nobody edits this.",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.players.dialog~3",
+      "lang": "en",
+      "title": "ws.players.dialog (packages/i18n/src/catalogs/ws/players.en.ts) (part 3 of 3)",
+      "body": "title: Player\ninterests: What they are into\ninterestsHint: Worked out from what they did here: courts, matches, lessons, the café, the hours they play. Nobody asks them, and nobody edits this.\nreaderOnly: A coach, the front desk, a manager or the owner confirms a level.\nsaved: Saved for {name}.",
       "route": null
     },
     {
@@ -40014,7 +40198,7 @@
       "ref": "label:ws.ranks",
       "lang": "ar",
       "title": "ws.ranks (packages/i18n/src/catalogs/ws/ranks.ar.ts)",
-      "body": "title: ترتيب اللاعبين\nlead: نقاط على كل مباراة، ولوحة صدارة يراها الجميع، ومستويات يرتقي فيها اللاعبون.\nownerOnly: المالك وحده يغيّر القواعد والمستويات. يمكنك الاطلاع عليها وتسجيل النتائج وإبطالها.\nsaved: تم الحفظ.\nsave: حفظ\ncancel: إلغاء\npoints: {points} نقطة\npointsLong: {points} نقطة",
+      "body": "title: ترتيب اللاعبين\nlead: مستوى تتش لكل لاعب، وسباق الموسم، ولوحات الصدارة العامة.\nownerOnly: المالك وحده يغيّر القواعد والدرجات. يمكنك الاطلاع عليها وتسجيل النتائج وإبطالها.\nsaved: تم الحفظ.\nsave: حفظ\ncancel: إلغاء\npoints: {points} نقطة\npointsLong: {points} نقطة",
       "route": null
     },
     {
@@ -40022,7 +40206,7 @@
       "ref": "label:ws.ranks",
       "lang": "en",
       "title": "ws.ranks (packages/i18n/src/catalogs/ws/ranks.en.ts)",
-      "body": "title: Player ranks\nlead: Points for every game played, a public top list, and levels players climb.\nownerOnly: Only the owner changes the rules and levels. You can read them, record results and void them.\nsaved: Saved.\nsave: Save\ncancel: Cancel\npoints: {points} pts\npointsLong: {points} points",
+      "body": "title: Player ranks\nlead: Every player's Touch Level, the Season Race, and the public boards.\nownerOnly: Only the owner changes the rules and tiers. You can read them, record results and void them.\nsaved: Saved.\nsave: Save\ncancel: Cancel\npoints: {points} pts\npointsLong: {points} points",
       "route": null
     },
     {
@@ -40046,7 +40230,7 @@
       "ref": "label:ws.ranks.board",
       "lang": "ar",
       "title": "ws.ranks.board (packages/i18n/src/catalogs/ws/ranks.ar.ts)",
-      "body": "title: لوحة الصدارة\nlead: ما يراه اللاعبون في التطبيق الآن.\noff: الترتيب متوقف، ولا يرى اللاعبون أي لوحة.\nempty: لا نقاط بعد في هذه الفترة. أول مباراة تُؤكَّد تضع لاعبيها هنا.\nall: كل الأوقات\nmonth: هذا الشهر\nquarter: هذا الربع\nsince: منذ {date}\ntop: أفضل {count}\nplayer: لاعب\nunnamed: لاعب",
+      "body": "title: لوحة الصدارة\nlead: ما يراه اللاعبون في التطبيق الآن.\noff: الترتيب متوقف، ولا يرى اللاعبون أي لوحة.\nempty: لا نقاط في السباق بعد هذا الموسم. أول مباراة تُؤكَّد تضع لاعبيها هنا.\nlevelEmpty: لا يملك أي لاعب مستوى تتش موثوقًا بعد. يحتاج اللاعبون إلى مباريات كافية أمام خصوم مختلفين.\nleadsRace: سباق الموسم في الصدارة\nleadsLevel: مستوى تتش في الصدارة\nall: كل الأوقات\nmonth: هذا الشهر\nquarter: هذا الربع\nsince: منذ {date}\ntop: أفضل {count}\nplayer: لاعب\nunnamed: لاعب\nlevel: المستوى {level}",
       "route": null
     },
     {
@@ -40054,7 +40238,119 @@
       "ref": "label:ws.ranks.board",
       "lang": "en",
       "title": "ws.ranks.board (packages/i18n/src/catalogs/ws/ranks.en.ts)",
-      "body": "title: Public board\nlead: What players see in the app right now.\noff: Ranks are off. Players do not see a board.\nempty: No points yet in this period. The first confirmed game puts players here.\nall: All time\nmonth: This month\nquarter: This quarter\nsince: Since {date}\ntop: Top {count}\nplayer: Player\nunnamed: Player",
+      "body": "title: Public board\nlead: What players see in the app right now.\noff: Ranks are off. Players do not see a board.\nempty: No Race points yet this season. The first confirmed game puts players here.\nlevelEmpty: No player has a reliable Touch Level yet. They need enough games against enough different opponents.\nleadsRace: Season Race leads\nleadsLevel: Touch Level leads\nall: All time\nmonth: This month\nquarter: This quarter\nsince: Since {date}\ntop: Top {count}\nplayer: Player\nunnamed: Player\nlevel: Level {level}",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.ranks.checks",
+      "lang": "ar",
+      "title": "ws.ranks.checks (packages/i18n/src/catalogs/ws/ranks.ar.ts)",
+      "body": "title: تقييمات المستوى\nlead: كل فئة منحها مدرّب أو موظف الاستقبال، وإلى أين أخذت مباريات اللاعب مستواه بعدها. إن ظلّ لاعبو مقيّم ما يتراجعون فهو يقيّم بأعلى من اللازم.\nempty: لا تقييمات بعد\nemptyBody: حين يحدّد مدرّب أو موظف الاستقبال فئة لاعب، تظهر هنا.\nby: {name}، {role}\nskipped: لم تطبّقه القواعد\nskippedHint: جاء بعد التقييم السابق بمدة قصيرة، أو أن هذا الدور لا يحق له التقييم.\nset: حُدّد عند {level}\nafter: {level} بعد {games} مباراة\nnoGames: لا مباريات منذ ذلك\ndrift: تحرّك {drift}\nnote: ملاحظة: {note}\nunknownChecker: أحد الزملاء\nclass.A: فئة A\nclass.B: فئة B\nclass.C: فئة C\nclass.new: جديد\nrole.coach: مدرّب\nrole.court_desk: الاستقبال\nrole.manager: مدير\nrole.owner: المالك",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.ranks.checks",
+      "lang": "en",
+      "title": "ws.ranks.checks (packages/i18n/src/catalogs/ws/ranks.en.ts)",
+      "body": "title: Level checks\nlead: Every Type a coach or the desk gave, and where the player's games took the level afterwards. A checker whose players keep falling is rating too high.\nempty: No Level checks yet\nemptyBody: When a coach or the desk sets a player's type, it shows here.\nby: {name}, {role}\nskipped: Skipped by the rules\nskippedHint: Too soon after the last check, or that role may not run checks.\nset: Set at {level}\nafter: {level} after {games} games\nnoGames: No games since\ndrift: Moved {drift}\nnote: Note: {note}\nunknownChecker: A colleague\nclass.A: Type A\nclass.B: Type B\nclass.C: Type C\nclass.new: New\nrole.coach: coach\nrole.court_desk: front desk\nrole.manager: manager\nrole.owner: owner",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.ranks.editor",
+      "lang": "ar",
+      "title": "ws.ranks.editor (packages/i18n/src/catalogs/ws/ranks.ar.ts) (part 1 of 4)",
+      "body": "on: مفعّل\noff: متوقف\nnoneShort: لا شيء\nserverRefused: رفض الخادم هذه القيمة. تحقّق من حدودها.\ntitle: قواعد الترتيب\nlead: يمكن تغيير كل رقم هنا. ويسري التغيير على المباريات السابقة أيضًا، إذ يُعاد حساب المستويات ونقاط السباق من النتائج.\ndefaultIs: الافتراضي {value}\nbackToDefault: إرجاع الافتراضي\nsave: حفظ القواعد\ndiscard: تجاهل التغييرات\nunsaved: تغييرات غير محفوظة\nsaved: حُفظت القواعد.\nconfirmTitle: إعادة حساب مستوى كل اللاعبين؟\nconfirmBody: يعيد هذا حساب مستوى كل لاعب من جميع المباريات السابقة، وقد تتغيّر اللوحات والدرجات. قد يستغرق ذلك لحظات.\nconfirmSave: الحفظ وإعادة الحساب\nrebuilt: آخر حساب للمستويات {date}: {results} نتيجة في {ms} ملّي ثانية.\nerrorFix: صحّح الحقول المعلَّمة بالأحمر أولًا.\nsections.boards.title: اللوحات",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.ranks.editor",
+      "lang": "en",
+      "title": "ws.ranks.editor (packages/i18n/src/catalogs/ws/ranks.en.ts) (part 1 of 4)",
+      "body": "on: On\noff: Off\nnoneShort: None\nserverRefused: The server refused this value. Check its range.\ntitle: Ranking rules\nlead: Every number here can be changed. A change applies to past games too: levels and Race points are worked out again from the results.\ndefaultIs: Default {value}\nbackToDefault: Back to default\nsave: Save rules\ndiscard: Discard changes\nunsaved: Unsaved changes\nsaved: Rules saved.\nconfirmTitle: Re-score every player's level?\nconfirmBody: This re-scores every player's level from all past games. Boards and tiers may change. It can take a moment.\nconfirmSave: Save and re-score\nrebuilt: Levels last worked out {date}: {results} results in {ms} ms.\nerrorFix: Fix the fields marked in red first.\nsections.boards.title: Boards",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.ranks.editor#2",
+      "lang": "ar",
+      "title": "ws.ranks.editor (packages/i18n/src/catalogs/ws/ranks.ar.ts) (part 1 of 2)",
+      "body": "unit.games: مباراة\nunit.points: نقطة\nunit.times: ×\nunit.opponents: خصمًا\nunit.results: نتيجة\nerror.range: بين {min} و{max}.\nerror.whole: عدد صحيح بين {min} و{max}.\nerror.class_a_from: يجب أن يكون أعلى من الفئة B.\nerror.level_max: يجب أن يكون أعلى من أدنى مستوى.\nerror.repeat_zero_from: يجب أن تكون المباراة نفسها التي يبدأ عندها نصف الوزن أو بعدها.\nerror.settling_games: يجب ألا يقلّ عن عدد المباريات الأولى.\nerror.place: لا يزيد على المركز الذي فوقه.\noffpeak.add: إضافة أوقات\noffpeak.remove: حذف هذه الأوقات\noffpeak.days: الأيام\noffpeak.from: من\noffpeak.to: إلى\noffpeak.midnight: منتصف الليل\noffpeak.none: لا أوقات هدوء بعد. تنال المباريات في أي وقت نقاط السباق المعتادة.\noffpeak.errorDays: اختر يومًا واحدًا على الأقل.\noffpeak.errorTime: يجب أن ينتهي بعد أن يبدأ.",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.ranks.editor#2",
+      "lang": "en",
+      "title": "ws.ranks.editor (packages/i18n/src/catalogs/ws/ranks.en.ts) (part 1 of 2)",
+      "body": "role.court_desk: Front desk\nrole.manager: Managers\nrole.owner: Owner\nunit.days: days\nunit.games: games\nunit.points: points\nunit.times: ×\nunit.opponents: opponents\nunit.results: results\nerror.range: Between {min} and {max}.\nerror.whole: A whole number between {min} and {max}.\nerror.class_a_from: Must be above class B.\nerror.level_max: Must be above the lowest level.\nerror.repeat_zero_from: Must be the same game as half weight, or later.\nerror.settling_games: Must be at least the number of first games.\nerror.place: No more than the place above it.\noffpeak.add: Add hours\noffpeak.remove: Remove these hours\noffpeak.days: Days\noffpeak.from: From\noffpeak.to: To\noffpeak.midnight: Midnight\noffpeak.none: No off-peak hours yet. Games at any time earn normal Race points.",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.ranks.editor#2~2",
+      "lang": "ar",
+      "title": "ws.ranks.editor (packages/i18n/src/catalogs/ws/ranks.ar.ts) (part 2 of 2)",
+      "body": "unit.games: مباراة\noffpeak.none: لا أوقات هدوء بعد. تنال المباريات في أي وقت نقاط السباق المعتادة.\noffpeak.errorDays: اختر يومًا واحدًا على الأقل.\noffpeak.errorTime: يجب أن ينتهي بعد أن يبدأ.\noffpeak.max: عشرون كحد أقصى.\nweekday.d0: أحد\nweekday.d1: إثنين\nweekday.d2: ثلاثاء\nweekday.d3: أربعاء\nweekday.d4: خميس\nweekday.d5: جمعة\nweekday.d6: سبت\nweekdayLong.d0: الأحد\nweekdayLong.d1: الإثنين\nweekdayLong.d2: الثلاثاء\nweekdayLong.d3: الأربعاء\nweekdayLong.d4: الخميس\nweekdayLong.d5: الجمعة\nweekdayLong.d6: السبت",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.ranks.editor#2~2",
+      "lang": "en",
+      "title": "ws.ranks.editor (packages/i18n/src/catalogs/ws/ranks.en.ts) (part 2 of 2)",
+      "body": "role.court_desk: Front desk\noffpeak.remove: Remove these hours\noffpeak.days: Days\noffpeak.from: From\noffpeak.to: To\noffpeak.midnight: Midnight\noffpeak.none: No off-peak hours yet. Games at any time earn normal Race points.\noffpeak.errorDays: Pick at least one day.\noffpeak.errorTime: Must end after it starts.\noffpeak.max: Up to 20.\nweekday.d0: Sun\nweekday.d1: Mon\nweekday.d2: Tue\nweekday.d3: Wed\nweekday.d4: Thu\nweekday.d5: Fri\nweekday.d6: Sat\nweekdayLong.d0: Sunday\nweekdayLong.d1: Monday\nweekdayLong.d2: Tuesday\nweekdayLong.d3: Wednesday\nweekdayLong.d4: Thursday\nweekdayLong.d5: Friday\nweekdayLong.d6: Saturday",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.ranks.editor~2",
+      "lang": "ar",
+      "title": "ws.ranks.editor (packages/i18n/src/catalogs/ws/ranks.ar.ts) (part 2 of 4)",
+      "body": "on: مفعّل\nconfirmSave: الحفظ وإعادة الحساب\nrebuilt: آخر حساب للمستويات {date}: {results} نتيجة في {ms} ملّي ثانية.\nerrorFix: صحّح الحقول المعلَّمة بالأحمر أولًا.\nsections.boards.title: اللوحات\nsections.boards.lead: ما تعرضه لوحات الصدارة العامة ومن يظهر فيها.\nsections.start.title: من أين يبدأ اللاعبون\nsections.start.lead: مستوى تتش الذي يبدأ منه اللاعب قبل أن تحرّكه مبارياته.\nsections.moves.title: كيف تحرّك المباراة المستوى\nsections.moves.lead: الحسابات التي يقوم عليها مستوى تتش. القيم الافتراضية مأخوذة من Playtomic وDUPR وAFPadel، فلا تغيّرها إلا لسبب.\nsections.levelBoard.title: لوحة مستوى تتش\nsections.levelBoard.lead: لا يظهر فيها إلا اللاعبون الذين لديهم مستوى موثوق.\nsections.checks.title: تقييم المستوى",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.ranks.editor~2",
+      "lang": "en",
+      "title": "ws.ranks.editor (packages/i18n/src/catalogs/ws/ranks.en.ts) (part 2 of 4)",
+      "body": "on: On\nconfirmSave: Save and re-score\nrebuilt: Levels last worked out {date}: {results} results in {ms} ms.\nerrorFix: Fix the fields marked in red first.\nsections.boards.title: Boards\nsections.boards.lead: What the public boards show and who is on them.\nsections.start.title: Where players start\nsections.start.lead: The Touch Level a player starts at, before their games move it.\nsections.moves.title: How a game moves the level\nsections.moves.lead: The maths behind the Touch Level. The defaults follow Playtomic, DUPR and AFPadel; change them only with a reason.\nsections.levelBoard.title: Touch Level board\nsections.levelBoard.lead: Only players with a reliable level appear on it.\nsections.checks.title: Level checks",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.ranks.editor~3",
+      "lang": "ar",
+      "title": "ws.ranks.editor (packages/i18n/src/catalogs/ws/ranks.ar.ts) (part 3 of 4)",
+      "body": "on: مفعّل\nsections.levelBoard.title: لوحة مستوى تتش\nsections.levelBoard.lead: لا يظهر فيها إلا اللاعبون الذين لديهم مستوى موثوق.\nsections.checks.title: تقييم المستوى\nsections.checks.lead: يختار المدرّب أو موظف الاستقبال الفئة A أو B أو C بعد مشاهدة اللاعب.\nsections.race.title: سباق الموسم\nsections.race.lead: نقاط كل موسم من أفضل النتائج، فكثرة اللعب لا تتفوّق على جودته.\nsections.boosts.title: المضاعفات\nsections.boosts.lead: نقاط إضافية في السباق تجذب اللاعبين حين يحتاجهم النادي، ولا تمسّ مستوى تتش أبدًا.\nstartCheck: بعد تقييم المستوى\nstartSignup: من التسجيل\nracePlaces: المركز في البطولة\nracePlacesHint: ينال كل مركز نقاطًا لا تقلّ عن المركز الذي يليه.\nheadline.race: سباق الموسم\nheadline.level: مستوى تتش\nperiod.all: بلا مواسم (كل الأوقات)\nperiod.month: شهر\nperiod.quarter: ربع سنة",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.ranks.editor~3",
+      "lang": "en",
+      "title": "ws.ranks.editor (packages/i18n/src/catalogs/ws/ranks.en.ts) (part 3 of 4)",
+      "body": "on: On\nsections.levelBoard.title: Touch Level board\nsections.levelBoard.lead: Only players with a reliable level appear on it.\nsections.checks.title: Level checks\nsections.checks.lead: A coach or the desk picks Type A, B or C after seeing someone play.\nsections.race.title: Season Race\nsections.race.lead: Points per season from the best results. Playing more does not beat playing better.\nsections.boosts.title: Boosts\nsections.boosts.lead: Extra Race points that bring players in when the club needs them. They never touch the Touch Level.\nstartCheck: After a Level check\nstartSignup: From sign-up\nracePlaces: Tournament finish\nracePlacesHint: Each place earns at least as much as the place after it.\nheadline.race: Season Race\nheadline.level: Touch Level\nperiod.all: No seasons (all time)",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.ranks.editor~4",
+      "lang": "ar",
+      "title": "ws.ranks.editor (packages/i18n/src/catalogs/ws/ranks.ar.ts) (part 4 of 4)",
+      "body": "on: مفعّل\nracePlacesHint: ينال كل مركز نقاطًا لا تقلّ عن المركز الذي يليه.\nheadline.race: سباق الموسم\nheadline.level: مستوى تتش\nperiod.all: بلا مواسم (كل الأوقات)\nperiod.month: شهر\nperiod.quarter: ربع سنة\nrole.coach: المدرّبون\nrole.court_desk: الاستقبال\nrole.manager: المديرون\nrole.owner: المالك\nunit.days: يومًا",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.ranks.editor~4",
+      "lang": "en",
+      "title": "ws.ranks.editor (packages/i18n/src/catalogs/ws/ranks.en.ts) (part 4 of 4)",
+      "body": "on: On\nracePlaces: Tournament finish\nracePlacesHint: Each place earns at least as much as the place after it.\nheadline.race: Season Race\nheadline.level: Touch Level\nperiod.all: No seasons (all time)\nperiod.month: Month\nperiod.quarter: Quarter\nrole.coach: Coaches",
       "route": null
     },
     {
@@ -40062,7 +40358,7 @@
       "ref": "label:ws.ranks.levels",
       "lang": "ar",
       "title": "ws.ranks.levels (packages/i18n/src/catalogs/ws/ranks.ar.ts)",
-      "body": "title: المستويات\nlead: يُحدَّد مستوى اللاعب من كل النقاط التي جمعها منذ البداية، فلا ينزل أحد مستوى مع بداية شهر جديد.\nnameEn: الاسم بالإنجليزية\nnameAr: الاسم بالعربية\nfrom: يبدأ من\nfromPoints: نقطة\nbase: يبدأ منه الجميع\nadd: إضافة مستوى\nremove: حذف المستوى\nmax: عشرة مستويات كحد أقصى.\nsaveLevels: حفظ المستويات\nerrorNames: يحتاج كل مستوى إلى اسم بالإنجليزية وآخر بالعربية، لا يتجاوز 24 حرفًا.\nerrorPoints: يبدأ كل مستوى فوق المستوى الذي قبله.",
+      "body": "title: الدرجات\nlead: تُحدَّد درجة اللاعب من مستوى تتش، فتتبع جودة لعبه لا عدد مبارياته.\nnameEn: الاسم بالإنجليزية\nnameAr: الاسم بالعربية\nfrom: من المستوى\nbase: يبدأ منها الجميع\nadd: إضافة درجة\nremove: حذف الدرجة\nmax: عشر درجات كحد أقصى.\nsaveLevels: حفظ الدرجات\nerrorNames: تحتاج كل درجة إلى اسم بالإنجليزية وآخر بالعربية، لا يتجاوز 24 حرفًا.\nerrorLevel: تبدأ كل درجة فوق التي قبلها، عند مستوى لا يتجاوز 10 (برقم عشري واحد).",
       "route": null
     },
     {
@@ -40070,7 +40366,7 @@
       "ref": "label:ws.ranks.levels",
       "lang": "en",
       "title": "ws.ranks.levels (packages/i18n/src/catalogs/ws/ranks.en.ts)",
-      "body": "title: Levels\nlead: A player's level comes from all the points they have ever earned, so nobody drops a level when a new month starts.\nnameEn: Name in English\nnameAr: Name in Arabic\nfrom: From\nfromPoints: points\nbase: Everyone starts here\nadd: Add level\nremove: Remove level\nmax: Up to 10 levels.\nsaveLevels: Save levels\nerrorNames: Each level needs a name in English and in Arabic, up to 24 characters.\nerrorPoints: Each level starts above the one before it.",
+      "body": "title: Tiers\nlead: A player's tier comes from their Touch Level, so it follows how well they play, not how often.\nnameEn: Name in English\nnameAr: Name in Arabic\nfrom: From level\nbase: Everyone starts here\nadd: Add tier\nremove: Remove tier\nmax: Up to 10 tiers.\nsaveLevels: Save tiers\nerrorNames: Each tier needs a name in English and in Arabic, up to 24 characters.\nerrorLevel: Each tier starts above the one before it, at a level up to 10 (one decimal).",
       "route": null
     },
     {
@@ -40078,7 +40374,7 @@
       "ref": "label:ws.ranks.record",
       "lang": "ar",
       "title": "ws.ranks.record (packages/i18n/src/catalogs/ws/ranks.ar.ts) (part 1 of 2)",
-      "body": "title: تسجيل نتيجة\ntitleBooking: تسجيل نتيجة هذه المباراة\nlead: تُحتسب فورًا وتُضاف النقاط مباشرة.\nreplaces: إن سجّل لاعب نتيجة لهذا الحجز وما زالت بانتظار التأكيد، فهذه تحلّ محلّها.\nsideA: الفريق أ\nsideB: الفريق ب\nplayer: اللاعب\npartner: الشريك\npartnerHint: اتركه فارغًا إن لم يكن للشريك حساب.\nsearch: الاسم أو رقم الهاتف\nsearching: جارٍ البحث…\nnoMatches: لا يوجد زبون مطابق.\nchange: تغيير\nwinner: من فاز\nwinnerA: الفريق أ\nwinnerB: الفريق ب\nwinnerDraw: تعادل\nscore: النتيجة\nscoreHint: اختياري. الأشواط التي فاز بها كل فريق في كل مجموعة، الفريق أ أولًا.\nset: المجموعة {n}\naddSet: إضافة مجموعة\nremoveSet: حذف المجموعة {n}\nsubmit: تسجيل النتيجة\nrecorded: سُجّلت النتيجة وأُضيفت النقاط.\nerrorSides: يحتاج كل فريق إلى لاعب واحد على الأقل.",
+      "body": "title: تسجيل نتيجة\ntitleBooking: تسجيل نتيجة هذه المباراة\ntitleEdit: تعديل هذه النتيجة\nleadEdit: تُبطَل النتيجة القديمة وتحلّ هذه محلّها مؤكَّدةً فورًا.\nreason: سبب التعديل\nreasonHint: 3 أحرف على الأقل. يُحفظ في سجل التغييرات.\nerrorReason: اكتب سببًا من 3 أحرف على الأقل.\nsubmitEdit: حفظ التصحيح\nedited: صُحّحت النتيجة.\nlead: تُحتسب فورًا وتُضاف النقاط مباشرة.\nreplaces: إن سجّل لاعب نتيجة لهذا الحجز وما زالت بانتظار التأكيد، فهذه تحلّ محلّها.\nsideA: الفريق أ\nsideB: الفريق ب\nplayer: اللاعب\npartner: الشريك\npartnerHint: اتركه فارغًا إن لم يكن للشريك حساب.\nsearch: الاسم أو رقم الهاتف\nsearching: جارٍ البحث…\nnoMatches: لا يوجد زبون مطابق.\nchange: تغيير\nwinner: من فاز\nwinnerA: الفريق أ\nwinnerB: الفريق ب\nwinnerDraw: تعادل\nscore: النتيجة",
       "route": null
     },
     {
@@ -40086,7 +40382,7 @@
       "ref": "label:ws.ranks.record",
       "lang": "en",
       "title": "ws.ranks.record (packages/i18n/src/catalogs/ws/ranks.en.ts) (part 1 of 2)",
-      "body": "title: Record a result\ntitleBooking: Record this game's result\nlead: It counts at once and the points are added straight away.\nreplaces: A result a player reported for this booking and that is still waiting is replaced by this one.\nsideA: Side A\nsideB: Side B\nplayer: Player\npartner: Partner\npartnerHint: Leave empty for a partner with no account.\nsearch: Name or phone\nsearching: Searching…\nnoMatches: No customer matches.\nchange: Change\nwinner: Who won\nwinnerA: Side A\nwinnerB: Side B\nwinnerDraw: Draw\nscore: Score\nscoreHint: Optional. Games won in each set, side A first.\nset: Set {n}\naddSet: Add a set\nremoveSet: Remove set {n}\nsubmit: Record result\nrecorded: Result recorded. Points added.\nerrorSides: Each side needs at least one player.",
+      "body": "title: Record a result\ntitleBooking: Record this game's result\ntitleEdit: Edit this result\nleadEdit: The old result is voided and this one takes its place, confirmed at once.\nreason: Reason for the change\nreasonHint: At least 3 characters. Kept in the change history.\nerrorReason: Write a reason of at least 3 characters.\nsubmitEdit: Save correction\nedited: Result corrected.\nlead: It counts at once and the points are added straight away.\nreplaces: A result a player reported for this booking and that is still waiting is replaced by this one.\nsideA: Side A\nsideB: Side B\nplayer: Player\npartner: Partner\npartnerHint: Leave empty for a partner with no account.\nsearch: Name or phone\nsearching: Searching…\nnoMatches: No customer matches.\nchange: Change\nwinner: Who won",
       "route": null
     },
     {
@@ -40094,7 +40390,7 @@
       "ref": "label:ws.ranks.record~2",
       "lang": "ar",
       "title": "ws.ranks.record (packages/i18n/src/catalogs/ws/ranks.ar.ts) (part 2 of 2)",
-      "body": "title: تسجيل نتيجة\nset: المجموعة {n}\naddSet: إضافة مجموعة\nremoveSet: حذف المجموعة {n}\nsubmit: تسجيل النتيجة\nrecorded: سُجّلت النتيجة وأُضيفت النقاط.\nerrorSides: يحتاج كل فريق إلى لاعب واحد على الأقل.\nerrorTwice: لا يمكن أن يظهر اللاعب في الملعب أكثر من مرة.\nerrorWinner: اختر من فاز.\nerrorScore: املأ طرفي المجموعة برقم من 0 إلى 99، أو اتركها فارغة.\ndeskAction: تسجيل النتيجة\ndeskActionHint: من لعب ومن فاز، لترتيب اللاعبين.",
+      "body": "title: تسجيل نتيجة\nsearch: الاسم أو رقم الهاتف\nsearching: جارٍ البحث…\nnoMatches: لا يوجد زبون مطابق.\nchange: تغيير\nwinner: من فاز\nwinnerA: الفريق أ\nwinnerB: الفريق ب\nwinnerDraw: تعادل\nscore: النتيجة\nscoreHint: اختياري. الأشواط التي فاز بها كل فريق في كل مجموعة، الفريق أ أولًا.\nset: المجموعة {n}\naddSet: إضافة مجموعة\nremoveSet: حذف المجموعة {n}\nsubmit: تسجيل النتيجة\nrecorded: سُجّلت النتيجة وأُضيفت النقاط.\nerrorSides: يحتاج كل فريق إلى لاعب واحد على الأقل.\nerrorTwice: لا يمكن أن يظهر اللاعب في الملعب أكثر من مرة.\nerrorWinner: اختر من فاز.\nerrorScore: املأ طرفي المجموعة برقم من 0 إلى 99، أو اتركها فارغة.\ndeskAction: تسجيل النتيجة\ndeskActionHint: من لعب ومن فاز، لترتيب اللاعبين.",
       "route": null
     },
     {
@@ -40102,7 +40398,7 @@
       "ref": "label:ws.ranks.record~2",
       "lang": "en",
       "title": "ws.ranks.record (packages/i18n/src/catalogs/ws/ranks.en.ts) (part 2 of 2)",
-      "body": "title: Record a result\nset: Set {n}\naddSet: Add a set\nremoveSet: Remove set {n}\nsubmit: Record result\nrecorded: Result recorded. Points added.\nerrorSides: Each side needs at least one player.\nerrorTwice: A player can be on the court only once.\nerrorWinner: Choose who won.\nerrorScore: Fill both sides of a set with 0 to 99, or leave the set empty.\ndeskAction: Record result\ndeskActionHint: Who played and who won, for the player ranks.",
+      "body": "title: Record a result\nplayer: Player\npartner: Partner\npartnerHint: Leave empty for a partner with no account.\nsearch: Name or phone\nsearching: Searching…\nnoMatches: No customer matches.\nchange: Change\nwinner: Who won\nwinnerA: Side A\nwinnerB: Side B\nwinnerDraw: Draw\nscore: Score\nscoreHint: Optional. Games won in each set, side A first.\nset: Set {n}\naddSet: Add a set\nremoveSet: Remove set {n}\nsubmit: Record result\nrecorded: Result recorded. Points added.\nerrorSides: Each side needs at least one player.\nerrorTwice: A player can be on the court only once.\nerrorWinner: Choose who won.\nerrorScore: Fill both sides of a set with 0 to 99, or leave the set empty.\ndeskAction: Record result\ndeskActionHint: Who played and who won, for the player ranks.",
       "route": null
     },
     {
@@ -40126,7 +40422,7 @@
       "ref": "label:ws.ranks.results~2",
       "lang": "ar",
       "title": "ws.ranks.results (packages/i18n/src/catalogs/ws/ranks.ar.ts) (part 2 of 2)",
-      "body": "title: النتائج\nsource.tournament: بطولة\nwon: فاز\ndraw: تعادل\nversus: ضد\npair: {a}، {b}\nformer: لاعب سابق\nnoBooking: بلا حجز\nvoidReason: أُبطلت: {reason}\nvoid: إبطال\nvoidTitle: إبطال هذه النتيجة؟\nvoidBody: تُخصم النقاط التي منحتها، ويراها اللاعبون نتيجة مُبطلة.\nreason: السبب\nreasonHint: 3 أحرف على الأقل. يُحفظ في سجل التغييرات.\nvoidConfirm: إبطال النتيجة\nvoided: أُبطلت النتيجة وخُصمت نقاطها.",
+      "body": "title: النتائج\nsource.tournament: بطولة\nwon: فاز\ndraw: تعادل\nversus: ضد\npair: {a}، {b}\nformer: لاعب سابق\nnoBooking: بلا حجز\nvoidReason: أُبطلت: {reason}\nvoid: إبطال\nvoidTitle: إبطال هذه النتيجة؟\nvoidBody: تُخصم نقاطها في السباق، ويُعاد حساب كل المستويات من دونها. ويراها اللاعبون نتيجة مُبطلة.\nreason: السبب\nreasonHint: 3 أحرف على الأقل. يُحفظ في سجل التغييرات.\nvoidConfirm: إبطال النتيجة\nconfirm: تأكيد\nconfirmHint: أكّد هذه النتيجة نيابةً عن الخصمين، فتُحتسب نقاطها فورًا.\nconfirmedToast: أُكّدت النتيجة، وتُحتسب نقاطها الآن.\nedit: تعديل\nvoided: أُبطلت النتيجة.",
       "route": null
     },
     {
@@ -40134,39 +40430,207 @@
       "ref": "label:ws.ranks.results~2",
       "lang": "en",
       "title": "ws.ranks.results (packages/i18n/src/catalogs/ws/ranks.en.ts) (part 2 of 2)",
-      "body": "title: Results\nsource.desk: Entered by staff\nsource.tournament: Tournament\nwon: Won\ndraw: Draw\nversus: vs\npair: {a} & {b}\nformer: Former player\nnoBooking: No booking\nvoidReason: Voided: {reason}\nvoid: Void\nvoidTitle: Void this result?\nvoidBody: The points it gave come off again. The players see it as voided.\nreason: Reason\nreasonHint: At least 3 characters. Kept in the change history.\nvoidConfirm: Void result\nvoided: Result voided. Its points came off.",
+      "body": "title: Results\nsource.desk: Entered by staff\nsource.tournament: Tournament\nwon: Won\ndraw: Draw\nversus: vs\npair: {a} & {b}\nformer: Former player\nnoBooking: No booking\nvoidReason: Voided: {reason}\nvoid: Void\nvoidTitle: Void this result?\nvoidBody: Its Race points come off and every level is worked out again without it. The players see it as voided.\nreason: Reason\nreasonHint: At least 3 characters. Kept in the change history.\nvoidConfirm: Void result\nconfirm: Confirm\nconfirmHint: Confirm this report for the opponents. Its points count at once.\nconfirmedToast: Result confirmed. Its points count now.\nedit: Edit\nvoided: Result voided.",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.ranks.rule",
+      "lang": "ar",
+      "title": "ws.ranks.rule (packages/i18n/src/catalogs/ws/ranks.ar.ts) (part 1 of 4)",
+      "body": "headline.label: أي لوحة في الصدارة\nheadline.hint: اللوحة التي يراها اللاعبون أولًا في التطبيق.\nshow_level.label: إظهار رقم المستوى\nshow_level.hint: عند الإيقاف تظهر الأسماء والدرجات فقط، مثل «علي ك. · نخبة».\nclass_b_from.label: الفئة B من المستوى\nclass_b_from.hint: من هم دونه في الفئة C.\nclass_a_from.label: الفئة A من المستوى\nclass_a_from.hint: يجب أن يكون أعلى من الفئة B.\nimproved_days.label: الأكثر تحسّنًا: خلال\nimproved_days.hint: المدة التي يُقاس فيها أكبر تقدّم في المستوى.\nimproved_min_games.label: الأكثر تحسّنًا: على الأقل\nimproved_min_games.hint: عدد المباريات في تلك المدة ليظهر اللاعب.\nstart_a.label: فئة A\nstart_a.hint: تبدأ من الأعلى.\nstart_b.label: فئة B\nstart_b.hint: تبدأ من الوسط.\nstart_c.label: فئة C\nstart_c.hint: الأدنى بين الثلاث.",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.ranks.rule",
+      "lang": "en",
+      "title": "ws.ranks.rule (packages/i18n/src/catalogs/ws/ranks.en.ts) (part 1 of 4)",
+      "body": "headline.label: Which board leads\nheadline.hint: The board players see first in the app.\nshow_level.label: Show the level number\nshow_level.hint: Off shows names and tiers only, for example \"Ali K. · Elite\".\nclass_b_from.label: Class B from level\nclass_b_from.hint: Players below this are class C.\nclass_a_from.label: Class A from level\nclass_a_from.hint: Must be above class B.\nimproved_days.label: Most improved: over\nimproved_days.hint: The window the biggest level gain is measured in.\nimproved_min_games.label: Most improved: at least\nimproved_min_games.hint: Games in that window to be listed.\nstart_a.label: Type A\nstart_a.hint: Starts highest.\nstart_b.label: Type B\nstart_b.hint: Starts in the middle.\nstart_c.label: Type C",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.ranks.rule#2",
+      "lang": "ar",
+      "title": "ws.ranks.rule (packages/i18n/src/catalogs/ws/ranks.ar.ts) (part 1 of 4)",
+      "body": "settling_games.hint: من هذا العدد من المباريات تسري سرعة الاستقرار.\ntrust_tournament.label: الثقة: نتائج البطولات\ntrust_tournament.hint: 1 يعني الوزن الكامل.\ntrust_desk.label: الثقة: ما يسجّله الموظفون\ntrust_desk.hint: 1 يعني الوزن الكامل.\ntrust_player.label: الثقة: ما يسجّله اللاعبون\ntrust_player.hint: أقل، لأن اللاعبين يسجّلونها بأنفسهم.\nrepeat_days.label: اللاعبون الأربعة أنفسهم: خلال\nrepeat_days.hint: تُحتسب المباريات المتكرّرة في هذه المدة بوزن أقل.\nrepeat_half_from.label: نصف الوزن من المباراة\nrepeat_half_from.hint: 3 تعني أن المباراة الثالثة للأربعة أنفسهم تُحتسب بنصف الوزن.\nrepeat_zero_from.label: بلا وزن من المباراة\nrepeat_zero_from.hint: من هذه المباراة فصاعدًا لا يتحرّك شيء للأربعة أنفسهم.",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.ranks.rule#2",
+      "lang": "en",
+      "title": "ws.ranks.rule (packages/i18n/src/catalogs/ws/ranks.en.ts) (part 1 of 4)",
+      "body": "settling_games.label: Settled after\nsettling_games.hint: From this many games the settled speed applies.\ntrust_tournament.label: Trust: tournament results\ntrust_tournament.hint: 1 is full weight.\ntrust_desk.label: Trust: entered by staff\ntrust_desk.hint: 1 is full weight.\ntrust_player.label: Trust: reported by players\ntrust_player.hint: Lower, because players post these themselves.\nrepeat_days.label: Same four players: within\nrepeat_days.hint: Repeat games inside this window count for less.\nrepeat_half_from.label: Half weight from game\nrepeat_half_from.hint: 3 means the 3rd game of the same four counts half.\nrepeat_zero_from.label: No weight from game\nrepeat_zero_from.hint: From this game on, the same four move nothing.",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.ranks.rule#2~2",
+      "lang": "ar",
+      "title": "ws.ranks.rule (packages/i18n/src/catalogs/ws/ranks.ar.ts) (part 2 of 4)",
+      "body": "settling_games.hint: من هذا العدد من المباريات تسري سرعة الاستقرار.\nrepeat_zero_from.label: بلا وزن من المباراة\nrepeat_zero_from.hint: من هذه المباراة فصاعدًا لا يتحرّك شيء للأربعة أنفسهم.\nsoft_loss_below.label: خسارة أخفّ تحت المستوى\nsoft_loss_below.hint: تشجّع المبتدئين على مواصلة اللعب.\nsoft_loss_factor.label: معامل الخسارة الأخفّ\nsoft_loss_factor.hint: 0.6 تعني أن الخسارة تكلّف 60% من المعتاد.\nmax_move.label: أكبر تحرّك من مباراة واحدة\nmax_move.hint: لا يقفز أحد درجة كاملة في ليلة حظ واحدة.\nlevel_min.label: أدنى مستوى\nlevel_min.hint: لا ينزل أي مستوى تحته.\nlevel_max.label: أعلى مستوى\nlevel_max.hint: لا يتجاوزه أي مستوى.\nreturn_games.label: مباريات بعد الانقطاع\nreturn_games.hint: بعد مدة الغياب عن اللوحة، تحرّك هذه المباريات المستوى بسرعة الاستقرار.",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.ranks.rule#2~2",
+      "lang": "en",
+      "title": "ws.ranks.rule (packages/i18n/src/catalogs/ws/ranks.en.ts) (part 2 of 4)",
+      "body": "settling_games.label: Settled after\nrepeat_half_from.hint: 3 means the 3rd game of the same four counts half.\nrepeat_zero_from.label: No weight from game\nrepeat_zero_from.hint: From this game on, the same four move nothing.\nsoft_loss_below.label: Softer losses below level\nsoft_loss_below.hint: Keeps beginners playing.\nsoft_loss_factor.label: Softer loss factor\nsoft_loss_factor.hint: 0.6 means a loss costs 60% of the usual.\nmax_move.label: Biggest move from one game\nmax_move.hint: Nobody jumps a tier on one lucky night.\nlevel_min.label: Lowest level\nlevel_min.hint: No level goes below this.\nlevel_max.label: Highest level\nlevel_max.hint: No level goes above this.\nreturn_games.label: Games after a break",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.ranks.rule#2~3",
+      "lang": "ar",
+      "title": "ws.ranks.rule (packages/i18n/src/catalogs/ws/ranks.ar.ts) (part 3 of 4)",
+      "body": "settling_games.hint: من هذا العدد من المباريات تسري سرعة الاستقرار.\nlevel_max.label: أعلى مستوى\nlevel_max.hint: لا يتجاوزه أي مستوى.\nreturn_games.label: مباريات بعد الانقطاع\nreturn_games.hint: بعد مدة الغياب عن اللوحة، تحرّك هذه المباريات المستوى بسرعة الاستقرار.\nreliable_games.label: المباريات المطلوبة\nreliable_games.hint: خلال المدة أدناه، ليظهر اللاعب في اللوحة.\nreliable_days.label: المدة\nreliable_days.hint: إلى أي مدى تُحتسب المباريات والخصوم.\nreliable_opponents.label: خصوم مختلفون\nreliable_opponents.hint: يمنع صديقين من دخول اللوحة باللعب ضد بعضهما فقط.\ninactive_days.label: يغيب عن اللوحة بعد\ninactive_days.hint: أيام بلا مباراة. يبقى المستوى كما هو ولا ينخفض.\ncheck_roles.label: من يحق له التقييم\ncheck_roles.hint: المستوى الذي يحدّده غيرهم يُحفظ، لكنه لا يحرّك مستوى تتش.",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.ranks.rule#2~3",
+      "lang": "en",
+      "title": "ws.ranks.rule (packages/i18n/src/catalogs/ws/ranks.en.ts) (part 3 of 4)",
+      "body": "settling_games.label: Settled after\nlevel_min.label: Lowest level\nlevel_min.hint: No level goes below this.\nlevel_max.label: Highest level\nlevel_max.hint: No level goes above this.\nreturn_games.label: Games after a break\nreturn_games.hint: After the off-the-board gap, this many games move the level at the settling speed.\nreliable_games.label: Games needed\nreliable_games.hint: In the window below, to appear on the board.\nreliable_days.label: Window\nreliable_days.hint: How far back games and opponents are counted.\nreliable_opponents.label: Different opponents\nreliable_opponents.hint: Stops two friends playing only each other onto the board.\ninactive_days.label: Off the board after\ninactive_days.hint: Days without a game. The level is kept, never lowered.",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.ranks.rule#2~4",
+      "lang": "ar",
+      "title": "ws.ranks.rule (packages/i18n/src/catalogs/ws/ranks.ar.ts) (part 4 of 4)",
+      "body": "settling_games.hint: من هذا العدد من المباريات تسري سرعة الاستقرار.\ninactive_days.hint: أيام بلا مباراة. يبقى المستوى كما هو ولا ينخفض.\ncheck_roles.label: من يحق له التقييم\ncheck_roles.hint: المستوى الذي يحدّده غيرهم يُحفظ، لكنه لا يحرّك مستوى تتش.\ncheck_days.label: الأيام بين تقييمين\ncheck_days.hint: التقييم الثاني للاعب نفسه قبل هذه المدة يُحفظ ولا يُطبَّق.\ncheck_max_change.label: أكبر تغيير للاعب موثوق",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.ranks.rule#2~4",
+      "lang": "en",
+      "title": "ws.ranks.rule (packages/i18n/src/catalogs/ws/ranks.en.ts) (part 4 of 4)",
+      "body": "settling_games.label: Settled after\nreliable_opponents.hint: Stops two friends playing only each other onto the board.\ninactive_days.label: Off the board after\ninactive_days.hint: Days without a game. The level is kept, never lowered.\ncheck_roles.label: Who may run a check\ncheck_roles.hint: A level set by anyone else is kept, but it does not move the Touch Level.\ncheck_days.label: Days between checks",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.ranks.rule#3",
+      "lang": "ar",
+      "title": "ws.ranks.rule (packages/i18n/src/catalogs/ws/ranks.ar.ts) (part 1 of 3)",
+      "body": "check_max_change.hint: إلى أي حدّ يحرّك تقييم واحد لاعبًا مستواه موثوق.\nrace_win.label: فوز\nrace_win.hint: قبل مكافأة القوة.\nrace_strength_max.label: مكافأة القوة حتى\nrace_strength_max.hint: الفوز على ثنائي أقوى يساوي حتى هذا العدد من أضعاف نقاط الفوز.\nrace_loss.label: خسارة\nrace_loss.hint: للحضور واللعب.\nrace_draw.label: تعادل\nrace_draw.hint: لمباراة تنتهي بالتعادل.\nrace_best_matches.label: أفضل المباريات المحتسبة\nrace_best_matches.hint: لا تُجمع إلا أفضل نتائج هذا الموسم.\nrace_best_tournaments.label: أفضل البطولات المحتسبة\nrace_best_tournaments.hint: لا تُجمع إلا أفضل المراكز هذا الموسم.\nt_first.label: البطل\nt_first.hint: فاز بالبطولة.\nt_second.label: النهائي\nt_second.hint: خسر النهائي.\nt_semi.label: نصف النهائي",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.ranks.rule#3",
+      "lang": "en",
+      "title": "ws.ranks.rule (packages/i18n/src/catalogs/ws/ranks.en.ts) (part 1 of 4)",
+      "body": "check_days.hint: A second check of the same player sooner than this is kept but skipped.\ncheck_max_change.label: Biggest change on a reliable player\ncheck_max_change.hint: How far one check may move a player whose level is already reliable.\nrace_win.label: Win\nrace_win.hint: Before the strength bonus.\nrace_strength_max.label: Strength bonus up to\nrace_strength_max.hint: A win over a stronger pair is worth up to this many times the win.\nrace_loss.label: Loss\nrace_loss.hint: For turning up and playing.\nrace_draw.label: Draw\nrace_draw.hint: For a game that ends level.\nrace_best_matches.label: Best matches counted\nrace_best_matches.hint: Only the best results this season add up.",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.ranks.rule#3~2",
+      "lang": "ar",
+      "title": "ws.ranks.rule (packages/i18n/src/catalogs/ws/ranks.ar.ts) (part 2 of 3)",
+      "body": "check_max_change.hint: إلى أي حدّ يحرّك تقييم واحد لاعبًا مستواه موثوق.\nrace_best_tournaments.hint: لا تُجمع إلا أفضل المراكز هذا الموسم.\nt_first.label: البطل\nt_first.hint: فاز بالبطولة.\nt_second.label: النهائي\nt_second.hint: خسر النهائي.\nt_semi.label: نصف النهائي\nt_semi.hint: المركز الثالث أو الرابع.\nt_top_half.label: النصف الأعلى\nt_top_half.hint: أنهى البطولة في النصف الأعلى.\nt_played.label: شارك\nt_played.hint: شارك ولم ينسحب.\nboost_offpeak.label: مضاعف أوقات الهدوء\nboost_offpeak.hint: يضاعف نقاط السباق لمباراة في أوقات الهدوء.\nboost_event.label: مضاعف الفعاليات\nboost_event.hint: لنتائج البطولات المصنّفة فعاليات للنادي.\nboost_welcome.label: مضاعف الترحيب\nboost_welcome.hint: لمباراة يلعب فيها أحد الأربعة أول مباراة محتسبة له.\nboost_max_per_season.label: النتائج المضاعفة في الموسم",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.ranks.rule#3~2",
+      "lang": "en",
+      "title": "ws.ranks.rule (packages/i18n/src/catalogs/ws/ranks.en.ts) (part 2 of 4)",
+      "body": "check_days.hint: A second check of the same player sooner than this is kept but skipped.\nrace_draw.label: Draw\nrace_draw.hint: For a game that ends level.\nrace_best_matches.label: Best matches counted\nrace_best_matches.hint: Only the best results this season add up.\nrace_best_tournaments.label: Best tournaments counted\nrace_best_tournaments.hint: Only the best finishes this season add up.\nt_first.label: Winner\nt_first.hint: Won the tournament.\nt_second.label: Final\nt_second.hint: Lost the final.\nt_semi.label: Semi-final\nt_semi.hint: Third or fourth.\nt_top_half.label: Top half\nt_top_half.hint: Finished in the top half.\nt_played.label: Played\nt_played.hint: Took part and did not withdraw.\nboost_offpeak.label: Off-peak boost",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.ranks.rule#3~3",
+      "lang": "ar",
+      "title": "ws.ranks.rule (packages/i18n/src/catalogs/ws/ranks.ar.ts) (part 3 of 3)",
+      "body": "check_max_change.hint: إلى أي حدّ يحرّك تقييم واحد لاعبًا مستواه موثوق.\nboost_welcome.label: مضاعف الترحيب\nboost_welcome.hint: لمباراة يلعب فيها أحد الأربعة أول مباراة محتسبة له.\nboost_max_per_season.label: النتائج المضاعفة في الموسم\nboost_max_per_season.hint: بعد هذا العدد تُحتسب النتائج بلا مضاعفة.\noffpeak.label: أوقات الهدوء\noffpeak.hint: تنال المباريات في حجوزات تبدأ في هذه الأوقات مضاعف أوقات الهدوء.\nperiod.label: مدة الموسم\nperiod.hint: يبدأ السباق من جديد مع بداية كل موسم.",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.ranks.rule#3~3",
+      "lang": "en",
+      "title": "ws.ranks.rule (packages/i18n/src/catalogs/ws/ranks.en.ts) (part 3 of 4)",
+      "body": "check_days.hint: A second check of the same player sooner than this is kept but skipped.\nt_top_half.label: Top half\nt_top_half.hint: Finished in the top half.\nt_played.label: Played\nt_played.hint: Took part and did not withdraw.\nboost_offpeak.label: Off-peak boost\nboost_offpeak.hint: Multiplies the Race points of a game in off-peak hours.\nboost_event.label: Event boost\nboost_event.hint: For results in tournaments flagged as club events.\nboost_welcome.label: Welcome boost\nboost_welcome.hint: A game where one of the four plays their first rated game.\nboost_max_per_season.label: Boosted results per season\nboost_max_per_season.hint: After this many, results count without a boost.\noffpeak.label: Off-peak hours\noffpeak.hint: Games on bookings that start in these hours get the off-peak boost.",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.ranks.rule#3~4",
+      "lang": "en",
+      "title": "ws.ranks.rule (packages/i18n/src/catalogs/ws/ranks.en.ts) (part 4 of 4)",
+      "body": "check_days.hint: A second check of the same player sooner than this is kept but skipped.\nboost_max_per_season.hint: After this many, results count without a boost.\noffpeak.label: Off-peak hours\noffpeak.hint: Games on bookings that start in these hours get the off-peak boost.\nperiod.label: Season length\nperiod.hint: The Race starts again at the start of each season.",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.ranks.rule~2",
+      "lang": "ar",
+      "title": "ws.ranks.rule (packages/i18n/src/catalogs/ws/ranks.ar.ts) (part 2 of 4)",
+      "body": "headline.label: أي لوحة في الصدارة\nstart_a.label: فئة A\nstart_a.hint: تبدأ من الأعلى.\nstart_b.label: فئة B\nstart_b.hint: تبدأ من الوسط.\nstart_c.label: فئة C\nstart_c.hint: الأدنى بين الثلاث.\nstart_new.label: جديد على البادل\nstart_new.hint: قُيّم على أنه لم يلعب من قبل.\nself_advanced.label: سجّل على أنه فئة A\nself_advanced.hint: تصحّحه مبارياته بسرعة.\nself_intermediate.label: سجّل على أنه فئة B\nself_intermediate.hint: تصحّحه مبارياته بسرعة.\nself_beginner.label: سجّل على أنه فئة C\nself_beginner.hint: تصحّحه مبارياته بسرعة.\nself_new.label: سجّل على أنه جديد\nself_new.hint: قال إنه لم يلعب من قبل.\nstart_unknown.label: لم يذكر مستوى\nstart_unknown.hint: لم يُقيَّم ولم يذكر شيئًا عند التسجيل.\nscale.label: فارق المستوى",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.ranks.rule~2",
+      "lang": "en",
+      "title": "ws.ranks.rule (packages/i18n/src/catalogs/ws/ranks.en.ts) (part 2 of 4)",
+      "body": "headline.label: Which board leads\nimproved_min_games.hint: Games in that window to be listed.\nstart_a.label: Type A\nstart_a.hint: Starts highest.\nstart_b.label: Type B\nstart_b.hint: Starts in the middle.\nstart_c.label: Type C\nstart_c.hint: Starts lowest of the three.\nstart_new.label: New to padel\nstart_new.hint: Checked as never having played.\nself_advanced.label: Signed up as Type A\nself_advanced.hint: Their games correct it quickly.\nself_intermediate.label: Signed up as Type B\nself_intermediate.hint: Their games correct it quickly.\nself_beginner.label: Signed up as Type C\nself_beginner.hint: Their games correct it quickly.\nself_new.label: Signed up as new\nself_new.hint: Said they have never played.\nstart_unknown.label: Gave no level",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.ranks.rule~3",
+      "lang": "ar",
+      "title": "ws.ranks.rule (packages/i18n/src/catalogs/ws/ranks.ar.ts) (part 3 of 4)",
+      "body": "headline.label: أي لوحة في الصدارة\nself_new.label: سجّل على أنه جديد\nself_new.hint: قال إنه لم يلعب من قبل.\nstart_unknown.label: لم يذكر مستوى\nstart_unknown.hint: لم يُقيَّم ولم يذكر شيئًا عند التسجيل.\nscale.label: فارق المستوى\nscale.hint: فارق بهذا الحجم يعني أن الثنائي الأقوى يُتوقَّع فوزه في 91% من المرات.\nwin_weight.label: وزن الفوز\nwin_weight.hint: 0.7 تعني 70% لمن فاز و30% لنسبة الأشواط المكسوبة، حين تُسجَّل النتيجة.\nk_provisional.label: السرعة في المباريات الأولى\nk_provisional.hint: إلى أي حدّ تحرّك مباراة واحدة لاعبًا جديدًا أو قُيّم للتوّ.\nk_settling.label: السرعة أثناء الاستقرار\nk_settling.hint: بعد المباريات الأولى، حتى يستقر اللاعب.\nk_settled.label: السرعة بعد الاستقرار\nk_settled.hint: تحرّكات صغيرة وثابتة حين تكثر مباريات اللاعب.\nprovisional_games.label: المباريات الأولى",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.ranks.rule~3",
+      "lang": "en",
+      "title": "ws.ranks.rule (packages/i18n/src/catalogs/ws/ranks.en.ts) (part 3 of 4)",
+      "body": "headline.label: Which board leads\nself_beginner.hint: Their games correct it quickly.\nself_new.label: Signed up as new\nself_new.hint: Said they have never played.\nstart_unknown.label: Gave no level\nstart_unknown.hint: Never checked and said nothing at sign-up.\nscale.label: Level gap\nscale.hint: A gap this big means the stronger pair is expected to win 91% of the time.\nwin_weight.label: Weight of the win\nwin_weight.hint: 0.7 means 70% who won and 30% the share of games won, when a score is given.\nk_provisional.label: Speed, first games\nk_provisional.hint: How far one game can move a new or just-checked player.\nk_settling.label: Speed, settling\nk_settling.hint: After the first games, until the player is settled.\nk_settled.label: Speed, settled",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.ranks.rule~4",
+      "lang": "ar",
+      "title": "ws.ranks.rule (packages/i18n/src/catalogs/ws/ranks.ar.ts) (part 4 of 4)",
+      "body": "headline.label: أي لوحة في الصدارة\nk_settling.hint: بعد المباريات الأولى، حتى يستقر اللاعب.\nk_settled.label: السرعة بعد الاستقرار\nk_settled.hint: تحرّكات صغيرة وثابتة حين تكثر مباريات اللاعب.\nprovisional_games.label: المباريات الأولى\nprovisional_games.hint: عدد المباريات التي تُحتسب بسرعة المباريات الأولى.\nsettling_games.label: يستقر بعد",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.ranks.rule~4",
+      "lang": "en",
+      "title": "ws.ranks.rule (packages/i18n/src/catalogs/ws/ranks.en.ts) (part 4 of 4)",
+      "body": "headline.label: Which board leads\nk_settling.label: Speed, settling\nk_settling.hint: After the first games, until the player is settled.\nk_settled.label: Speed, settled\nk_settled.hint: Small, steady moves once a player has many games.\nprovisional_games.label: First games\nprovisional_games.hint: How many games count at the first-games speed.",
       "route": null
     },
     {
       "kind": "label",
       "ref": "label:ws.ranks.rules",
       "lang": "ar",
-      "title": "ws.ranks.rules (packages/i18n/src/catalogs/ws/ranks.ar.ts) (part 1 of 2)",
-      "body": "title: القواعد\nenabled: الترتيب مفعّل\nenabledHint: عند الإيقاف تختفي اللوحة من التطبيق ولا تُحتسب النتائج الجديدة.\npointsTitle: النقاط لكل مباراة\npointsHint: تُطبَّق النقاط الجديدة على المباريات التي تُؤكَّد من الآن. المباريات المحتسبة سابقًا تبقى كما هي.\nwin: فوز\nloss: خسارة\ndraw: تعادل\nless: نقطة أقل\nmore: نقطة أكثر\nperiod: فترة اللوحة\nperiodHint: أي نقاط تجمعها لوحة الصدارة. أما المستوى فيُحسب دائمًا من كل النقاط التي جمعها اللاعب.\nperiodAll: كل الأوقات\nperiodMonth: هذا الشهر\nperiodQuarter: هذا الربع\nboardSize: عدد اللاعبين في اللوحة\nboardSizeHint: لا يظهر للجميع إلا هؤلاء، ولا يُدرج أحد ممن هم دونهم.\nsources: ما الذي يُحتسب\ncountReported: النتائج التي يسجّلها اللاعبون في التطبيق\ncountReportedHint: يؤكّدها أحد الخصمين أولًا. النتائج المسجّلة هنا تُحتسب دائمًا.",
+      "title": "ws.ranks.rules (packages/i18n/src/catalogs/ws/ranks.ar.ts)",
+      "body": "title: اللوحة\nenabled: الترتيب مفعّل\nenabledHint: عند الإيقاف تختفي اللوحات من التطبيق ولا تُحتسب النتائج الجديدة.\nless: واحد أقل\nmore: واحد أكثر\nboardSize: عدد اللاعبين في كل لوحة\nboardSizeHint: لا يظهر للجميع إلا هؤلاء، ولا يُدرج أحد ممن هم دونهم.\nsources: ما الذي يُحتسب\ncountReported: النتائج التي يسجّلها اللاعبون في التطبيق\ncountReportedHint: يؤكّدها أحد الخصمين أولًا. النتائج المسجّلة هنا تُحتسب دائمًا.\ncountTournaments: مباريات البطولات المسجّلة نتائجها\nreportHours: مهلة التسجيل والتأكيد\nreportHoursHint: بعد انتهاء الحجز لتسجيل النتيجة، ثم بعد التسجيل ليؤكّدها أحد الخصمين.\nunitHours: ساعة\nunitPlayers: لاعبًا\nrange: بين {min} و{max}.\nsaveRules: حفظ",
       "route": null
     },
     {
       "kind": "label",
       "ref": "label:ws.ranks.rules",
       "lang": "en",
-      "title": "ws.ranks.rules (packages/i18n/src/catalogs/ws/ranks.en.ts) (part 1 of 2)",
-      "body": "title: Rules\nenabled: Ranks are on\nenabledHint: Off hides the board in the app and stops new results from counting.\npointsTitle: Points per game\npointsHint: New points apply to games confirmed from now on. Games already counted keep theirs.\nwin: Win\nloss: Loss\ndraw: Draw\nless: One less\nmore: One more\nperiod: Board period\nperiodHint: Which points the public board adds up. Levels always use all the points a player has earned.\nperiodAll: All time\nperiodMonth: This month\nperiodQuarter: This quarter\nboardSize: Players on the board\nboardSizeHint: Only these are shown to the public. Nobody below them is ever listed.\nsources: What counts\ncountReported: Results players report in the app\ncountReportedHint: One of the opponents confirms it first. Results entered here always count.",
-      "route": null
-    },
-    {
-      "kind": "label",
-      "ref": "label:ws.ranks.rules~2",
-      "lang": "ar",
-      "title": "ws.ranks.rules (packages/i18n/src/catalogs/ws/ranks.ar.ts) (part 2 of 2)",
-      "body": "title: القواعد\nsources: ما الذي يُحتسب\ncountReported: النتائج التي يسجّلها اللاعبون في التطبيق\ncountReportedHint: يؤكّدها أحد الخصمين أولًا. النتائج المسجّلة هنا تُحتسب دائمًا.\ncountTournaments: مباريات البطولات المسجّلة نتائجها\nreportHours: مهلة التسجيل والتأكيد\nreportHoursHint: بعد انتهاء الحجز لتسجيل النتيجة، ثم بعد التسجيل ليؤكّدها أحد الخصمين.\nunitHours: ساعة\nunitPlayers: لاعبًا\nrange: بين {min} و{max}.\nsaveRules: حفظ القواعد",
-      "route": null
-    },
-    {
-      "kind": "label",
-      "ref": "label:ws.ranks.rules~2",
-      "lang": "en",
-      "title": "ws.ranks.rules (packages/i18n/src/catalogs/ws/ranks.en.ts) (part 2 of 2)",
-      "body": "title: Rules\nsources: What counts\ncountReported: Results players report in the app\ncountReportedHint: One of the opponents confirms it first. Results entered here always count.\ncountTournaments: Scored tournament matches\nreportHours: Time to report and to confirm\nreportHoursHint: After the booking ends, to report the result. After the report, for an opponent to confirm it.\nunitHours: hours\nunitPlayers: players\nrange: Between {min} and {max}.\nsaveRules: Save rules",
+      "title": "ws.ranks.rules (packages/i18n/src/catalogs/ws/ranks.en.ts)",
+      "body": "title: Board\nenabled: Ranks are on\nenabledHint: Off hides the boards in the app and stops new results from counting.\nless: One less\nmore: One more\nboardSize: Players on each board\nboardSizeHint: Only these are shown to the public. Nobody below them is ever listed.\nsources: What counts\ncountReported: Results players report in the app\ncountReportedHint: One of the opponents confirms it first. Results entered here always count.\ncountTournaments: Scored tournament matches\nreportHours: Time to report and to confirm\nreportHoursHint: After the booking ends, to report the result. After the report, for an opponent to confirm it.\nunitHours: hours\nunitPlayers: players\nrange: Between {min} and {max}.\nsaveRules: Save",
       "route": null
     },
     {
@@ -40174,7 +40638,7 @@
       "ref": "label:ws.ranks.tabs",
       "lang": "ar",
       "title": "ws.ranks.tabs (packages/i18n/src/catalogs/ws/ranks.ar.ts)",
-      "body": "board: اللوحة والنتائج\nrules: القواعد والمستويات\nlevels: مستويات تحتاج مراجعة",
+      "body": "board: اللوحة والنتائج\nrules: القواعد والدرجات\nchecks: المراجعات\nlevels: مستويات تحتاج مراجعة",
       "route": "/till/tabs"
     },
     {
@@ -40182,8 +40646,24 @@
       "ref": "label:ws.ranks.tabs",
       "lang": "en",
       "title": "ws.ranks.tabs (packages/i18n/src/catalogs/ws/ranks.en.ts)",
-      "body": "board: Board and results\nrules: Rules and levels\nlevels: Levels to check",
+      "body": "board: Board and results\nrules: Rules and tiers\nchecks: Checks\nlevels: Levels to check",
       "route": "/till/tabs"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.ranks.toCheck",
+      "lang": "ar",
+      "title": "ws.ranks.toCheck (packages/i18n/src/catalogs/ws/ranks.ar.ts)",
+      "body": "title: نتائج تحتاج مراجعة\nlead: لعب الثنائيان نفساهما مرتين خلال 7 أيام وانقلب الفائز. غالبًا ما يكون ذلك طبيعيًا، فدقّق حين يتكرّر.\nempty: لا شيء للمراجعة\nemptyBody: لم يتبادل أي ثنائيين الفوز خلال آخر 60 يومًا.\nfirst: أولًا\nthen: ثم",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.ranks.toCheck",
+      "lang": "en",
+      "title": "ws.ranks.toCheck (packages/i18n/src/catalogs/ws/ranks.en.ts)",
+      "body": "title: Results to check\nlead: The same two pairs played twice within 7 days and the winner flipped. Often fair; look closer when it keeps happening.\nempty: Nothing to check\nemptyBody: No two pairs have traded wins in the last 60 days.\nfirst: First\nthen: Then",
+      "route": null
     },
     {
       "kind": "label",

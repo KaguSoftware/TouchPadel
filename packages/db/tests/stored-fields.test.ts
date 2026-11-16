@@ -638,6 +638,31 @@ const GUEST_DATA: Record<string, Record<string, Field>> = {
     note: { category: 'User content', why: 'the owner’s reason for a points correction, or a manager’s for a void; kept with the ledger it explains', onDelete: 'keep' },
     created_at: n,
   },
+  // 0443 ranks_touch_level. A Level check names the player and the class staff gave them; the
+  // Touch Level and Race tables are DERIVED from game_results and the checks by app.ranks_rebuild
+  // (rebuilt whole on every replay). None has a client grant; a deleted account drops off every
+  // board (profiles.deleted_at) and its rows stay as the other players' record, as game_results do.
+  ranks_level_checks: {
+    id: n, seq: n, profile_id: n,
+    level: { category: 'App activity', why: 'the class (A, B, C or new) a coach or the desk judged the player at; where their Touch Level starts', onDelete: 'keep' },
+    checked_by: n, role: n, checked_at: n,
+    note: { category: 'User content', why: 'the checker’s one-line note on the level, kept with the check it explains', onDelete: 'keep' },
+    applied: n, applied_level: n,
+  },
+  ranks_player_levels: {
+    profile_id: n,
+    level: { category: 'App activity', why: 'the player’s Touch Level, derived from their confirmed games; on the public board for reliable players only', onDelete: 'keep' },
+    start_level: { category: 'App activity', why: 'where their Touch Level started (a check or the sign-up level)', onDelete: 'keep' },
+    games: n, provisional_left: n, first_game_at: n, last_game_at: n, last_check_at: n, updated_at: n,
+  },
+  ranks_result_scores: {
+    result_id: n, profile_id: n, played_at: n, source: n, won: n,
+    level_before: { category: 'App activity', why: 'the player’s Touch Level before a game, derived', onDelete: 'keep' },
+    level_after: { category: 'App activity', why: 'the player’s Touch Level after a game, derived', onDelete: 'keep' },
+    expected: n,
+    race_points: { category: 'App activity', why: 'the Season Race points a game gave the player, derived', onDelete: 'keep' },
+    boost: n, boost_kind: n, season_start: n, opponents: n,
+  },
 };
 
 /**

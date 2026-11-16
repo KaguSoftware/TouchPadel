@@ -5,6 +5,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   agreesWithGames,
+  claimToConfirm,
+  levelSource,
   draftDirty,
   draftErrors,
   draftOf,
@@ -160,5 +162,19 @@ describe('the dialog’s draft', () => {
     });
     // A player with nothing on record: the band alone.
     expect(saveSteps({ band: 'u18', level: null, note: '' }, null)).toEqual({ band: 'u18', level: 'keep' });
+  });
+});
+
+describe('where the type on record came from (Majed 2026-11-16)', () => {
+  it('is checked once staff set it, picked while only the player chose, none otherwise', () => {
+    const checked = parsePlayerFacts({ player })!;
+    expect(levelSource(checked)).toBe('checked');
+    expect(claimToConfirm(checked)).toBeNull();
+    const picked = parsePlayerFacts({ player: { ...player, level_confirmed: null, level_confirmed_at: null, level_confirmed_role: null } })!;
+    expect(levelSource(picked)).toBe('picked');
+    expect(claimToConfirm(picked)).toBe('advanced');
+    const none = parsePlayerFacts({ player: { ...player, claimed_level: null, level_confirmed: null } })!;
+    expect(levelSource(none)).toBe('none');
+    expect(claimToConfirm(none)).toBeNull();
   });
 });

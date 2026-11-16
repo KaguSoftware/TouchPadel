@@ -10,4 +10,5 @@ export const opErrorsRanksAr = {
   RANKS_ALREADY_REPORTED: 'سُجّلت نتيجة هذه المباراة مسبقًا.',
   RANKS_NOT_YOURS: 'لا يردّ على هذه النتيجة إلا أحد الخصمين.',
   RANKS_RESULT_CLOSED: 'سبق أن أُكّدت هذه النتيجة أو رُفضت أو أُغلقت.',
+  RANKS_LEVEL_LOCKED: 'فئتك محدّدة الآن. اطلب من الاستقبال أو من مدرّب تغييرها.',
 };

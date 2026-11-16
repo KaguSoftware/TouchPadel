@@ -161,7 +161,10 @@ describe.skipIf(!docker)('0364 ranks: a player report and its answer', () => {
     expect(code(r, 'c_reporter')).toBe('RANKS_NOT_YOURS');
     expect(code(r, 'c_outsider')).toBe('RANKS_NOT_YOURS');
     expect(answer(r, 'pts_pending')).toEqual({});
-    expect(answer(r, 'c_b2')).toMatchObject({ status: 'confirmed', outcome: 'lost', points: 1 });
+    // 0444: a result's points are its Season Race points: a loss is race_loss 2, x1.5 welcome boost
+    // (four players on their first rated game); a loss between equal pairs lowers the Touch Level.
+    expect(answer(r, 'c_b2')).toMatchObject({ status: 'confirmed', outcome: 'lost', points: 3, boost: 'welcome' });
+    expect(answer<{ level_change: number }>(r, 'c_b2').level_change).toBeLessThan(0);
     expect(answer(r, 'pts1')).toEqual({ a1: 2, a2: 2, b1: 1, b2: 1 });
     expect(code(r, 'c_again')).toBe('RANKS_RESULT_CLOSED');
     expect(code(r, 'dup')).toBe('RANKS_ALREADY_REPORTED');
@@ -178,7 +181,9 @@ describe.skipIf(!docker)('0364 ranks: a player report and its answer', () => {
     expect(answer(r, 'rep3b')).toMatchObject({ status: 'pending' });
 
     const a1 = answer<Record<string, unknown>>(r, 'a1_page');
-    expect(a1).toMatchObject({ enabled: true, period: 'all', points: 2, lifetime: 2 });
+    // 0444: points are the Race's (a win at equal levels, race_win 10 x1.5 welcome); lifetime stays the
+    // 0364 ledger's.
+    expect(a1).toMatchObject({ enabled: true, period: 'all', points: 15, lifetime: 2 });
     expect(a1.rank).toEqual(expect.any(Number));
     // The players on a result are names and usernames, never an id or a phone.
     const seats = (a1.results as Array<{ us: unknown[]; them: unknown[] }>).flatMap((x) => [...x.us, ...x.them]);
@@ -324,14 +329,15 @@ describe.skipIf(!docker)('0364 ranks: the board, the page and the owner\'s rules
       T('board_p4', 'p4', `select app.ranks_board()`),
       TA('mine_anon', `select app.my_ranks()`),
       T('mine_p4', 'p4', `select app.my_ranks()`),
-      // Levels: one must start at 0, no two at the same points; the owner's alone.
+      // Levels: one must start at 0, no two at the same level; the owner's alone. 0444: tiers read the
+      // Touch Level (min_level); an older build's min_points is read as hundredths of a level.
       T('lv_mgr', 'manager', `select app.set_ranks_levels('[{"name_en":"A","name_ar":"أ","min_points":0}]')`),
       T('lv_base', 'owner', `select app.set_ranks_levels('[{"name_en":"A","name_ar":"أ","min_points":5}]')`),
       T('lv_dup', 'owner', `select app.set_ranks_levels(
          '[{"name_en":"A","name_ar":"أ","min_points":0},{"name_en":"B","name_ar":"ب","min_points":0}]')`),
       T('lv_empty', 'owner', `select app.set_ranks_levels('[]')`),
       T('lv', 'owner', `select app.set_ranks_levels(
-         '[{"name_en":"Bronze","name_ar":"برونزي","min_points":0},{"name_en":"Gold","name_ar":"ذهبي","min_points":850}]')`),
+         '[{"name_en":"Bronze","name_ar":"برونزي","min_level":0},{"name_en":"Gold","name_ar":"ذهبي","min_level":2.5}]')`),
       T('admin', 'manager', `select app.ranks_admin()`),
       T('admin_desk', 'desk', `select app.ranks_admin()`),
       TA('board_lv', `select app.ranks_board()`),
@@ -373,13 +379,14 @@ describe.skipIf(!docker)('0364 ranks: the board, the page and the owner\'s rules
     expect(refusal(r, 'lv_dup')).toMatch(/^INVALID_VALUE:/);
     expect(refusal(r, 'lv_empty')).toBe('INVALID_VALUE:count');
     expect(answer(r, 'lv')).toEqual([
-      { name_en: 'Bronze', name_ar: 'برونزي', min_points: 0 },
-      { name_en: 'Gold', name_ar: 'ذهبي', min_points: 850 },
+      { name_en: 'Bronze', name_ar: 'برونزي', min_level: 0, min_points: 0 },
+      { name_en: 'Gold', name_ar: 'ذهبي', min_level: 2.5, min_points: 250 },
     ]);
     expect(answer(r, 'admin')).toMatchObject({ settings: { board_size: 3 }, levels: expect.any(Array) });
     expect(code(r, 'admin_desk')).toBe('FORBIDDEN');
+    // 0444: the tier is the Touch Level's, not the points': nobody here has played, so all are Bronze.
     const lv = answer<{ rows: Array<{ name: string; level: { name_en: string } }> }>(r, 'board_lv');
-    expect(lv.rows.map((x) => x.level.name_en)).toEqual(['Gold', 'Bronze', 'Bronze']);
+    expect(lv.rows.map((x) => x.level.name_en)).toEqual(['Bronze', 'Bronze', 'Bronze']);
 
     expect(answer(r, 'rules')).toMatchObject({ win_points: 5, loss_points: 0 });
     expect(answer(r, 'pts1')).toEqual({ a1: 2, a2: 2, b1: 1, b2: 1 });

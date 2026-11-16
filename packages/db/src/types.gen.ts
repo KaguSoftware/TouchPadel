@@ -4434,6 +4434,18 @@ export type Database = {
       ranks_admin: { Args: never; Returns: Json }
       ranks_award: { Args: { p_result_id: string }; Returns: undefined }
       ranks_board: { Args: never; Returns: Json }
+      ranks_class: { Args: { p_level: number; p_rules: Json }; Returns: string }
+      ranks_coach_record: {
+        Args: {
+          p_a1: string
+          p_a2: string
+          p_b1: string
+          p_b2: string
+          p_score: string
+          p_winner: string
+        }
+        Returns: Json
+      }
       ranks_confirm: {
         Args: { p_accept: boolean; p_result_id: string }
         Returns: Json
@@ -4454,15 +4466,60 @@ export type Database = {
         Args: { p_limit: number; p_status: string }
         Returns: Json
       }
+      ranks_edit_result: {
+        Args: {
+          p_a1: string
+          p_a2: string
+          p_b1: string
+          p_b2: string
+          p_reason: string
+          p_result_id: string
+          p_score: string
+          p_winner: string
+        }
+        Returns: Json
+      }
       ranks_find_player: { Args: { p_username: string }; Returns: Json }
+      ranks_is_offpeak: {
+        Args: { p_at: string; p_venue: string; p_windows: Json }
+        Returns: boolean
+      }
+      ranks_level_checks_list: { Args: { p_limit: number }; Returns: Json }
       ranks_level_json: { Args: { p_lifetime: number }; Returns: Json }
       ranks_levels_json: { Args: never; Returns: Json }
       ranks_period_start: { Args: { p_period: string }; Returns: string }
       ranks_player_json: { Args: { p_profile_id: string }; Returns: Json }
+      ranks_player_stats: {
+        Args: { p_rules: Json }
+        Returns: {
+          games: number
+          games_window: number
+          klass: string
+          last_game_at: string
+          level: number
+          opponents_window: number
+          profile_id: string
+          provisional_left: number
+          reliable: boolean
+        }[]
+      }
       ranks_profile_by_username: {
         Args: { p_username: string }
         Returns: string
       }
+      ranks_public_rules: { Args: { p_rules: Json }; Returns: Json }
+      ranks_race: {
+        Args: { p_from: string; p_rules: Json }
+        Returns: {
+          last_at: string
+          matches: number
+          matches_counted: number
+          points: number
+          profile_id: string
+          tournaments: number
+        }[]
+      }
+      ranks_rebuild: { Args: never; Returns: undefined }
       ranks_report: {
         Args: {
           p_opponent1: string
@@ -4481,8 +4538,35 @@ export type Database = {
         }
         Returns: Json
       }
+      ranks_results_to_check: { Args: { p_days: number }; Returns: Json }
+      ranks_row_json: {
+        Args: { p_profile_id: string; p_rank: number }
+        Returns: Json
+      }
+      ranks_rules: { Args: never; Returns: Json }
+      ranks_rules_check: { Args: { p_rules: Json }; Returns: undefined }
+      ranks_rules_default: { Args: never; Returns: Json }
+      ranks_score_games: { Args: { p_score: string }; Returns: number[] }
+      ranks_season_of: {
+        Args: { p_at: string; p_period: string }
+        Returns: string
+      }
+      ranks_seed: {
+        Args: { p_profile_id: string; p_rules: Json }
+        Returns: number
+      }
       ranks_settings_json: { Args: never; Returns: Json }
+      ranks_staff_confirm: { Args: { p_result_id: string }; Returns: Json }
       ranks_staff_player_json: { Args: { p_profile_id: string }; Returns: Json }
+      ranks_tier_json: { Args: { p_level: number }; Returns: Json }
+      ranks_tournament_points: {
+        Args: { p_from: string; p_rules: Json }
+        Returns: {
+          points: number
+          profile_id: string
+          tournament_id: string
+        }[]
+      }
       ranks_unaward: {
         Args: { p_note: string; p_result_id: string }
         Returns: undefined
@@ -5224,6 +5308,7 @@ export type Database = {
         Returns: Json
       }
       set_my_gender: { Args: { p_gender: string }; Returns: Json }
+      set_my_play_level: { Args: { p_level: string }; Returns: Json }
       set_my_play_profile: {
         Args: { p_level?: string; p_wants?: string[]; p_years?: string }
         Returns: Json
@@ -5277,6 +5362,7 @@ export type Database = {
         }
       }
       set_ranks_levels: { Args: { p_levels: Json }; Returns: Json }
+      set_ranks_rules: { Args: { p_rules: Json }; Returns: Json }
       set_ranks_settings: { Args: { p_patch: Json }; Returns: Json }
       set_recipe: {
         Args: { p_lines?: Json; p_target: string; p_target_id: string }
@@ -14908,10 +14994,50 @@ export type Database = {
           },
         ]
       }
+      ranks_level_checks: {
+        Row: {
+          applied: boolean
+          applied_level: number | null
+          checked_at: string
+          checked_by: string | null
+          id: string
+          level: string
+          note: string | null
+          profile_id: string
+          role: string | null
+          seq: number
+        }
+        Insert: {
+          applied?: boolean
+          applied_level?: number | null
+          checked_at?: string
+          checked_by?: string | null
+          id?: string
+          level: string
+          note?: string | null
+          profile_id: string
+          role?: string | null
+          seq?: number
+        }
+        Update: {
+          applied?: boolean
+          applied_level?: number | null
+          checked_at?: string
+          checked_by?: string | null
+          id?: string
+          level?: string
+          note?: string | null
+          profile_id?: string
+          role?: string | null
+          seq?: number
+        }
+        Relationships: []
+      }
       ranks_levels: {
         Row: {
           created_at: string
           id: string
+          min_level: number | null
           min_points: number
           name_ar: string
           name_en: string
@@ -14919,6 +15045,7 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
+          min_level?: number | null
           min_points: number
           name_ar: string
           name_en: string
@@ -14926,9 +15053,115 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
+          min_level?: number | null
           min_points?: number
           name_ar?: string
           name_en?: string
+        }
+        Relationships: []
+      }
+      ranks_player_levels: {
+        Row: {
+          first_game_at: string | null
+          games: number
+          last_check_at: string | null
+          last_game_at: string | null
+          level: number
+          profile_id: string
+          provisional_left: number
+          start_level: number
+          updated_at: string
+        }
+        Insert: {
+          first_game_at?: string | null
+          games?: number
+          last_check_at?: string | null
+          last_game_at?: string | null
+          level: number
+          profile_id: string
+          provisional_left?: number
+          start_level: number
+          updated_at?: string
+        }
+        Update: {
+          first_game_at?: string | null
+          games?: number
+          last_check_at?: string | null
+          last_game_at?: string | null
+          level?: number
+          profile_id?: string
+          provisional_left?: number
+          start_level?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      ranks_rebuild_state: {
+        Row: {
+          id: boolean
+          ms: number
+          rebuilt_at: string | null
+          results: number
+        }
+        Insert: {
+          id?: boolean
+          ms?: number
+          rebuilt_at?: string | null
+          results?: number
+        }
+        Update: {
+          id?: boolean
+          ms?: number
+          rebuilt_at?: string | null
+          results?: number
+        }
+        Relationships: []
+      }
+      ranks_result_scores: {
+        Row: {
+          boost: number
+          boost_kind: string | null
+          expected: number
+          level_after: number
+          level_before: number
+          opponents: string[]
+          played_at: string
+          profile_id: string
+          race_points: number
+          result_id: string
+          season_start: string
+          source: string
+          won: string
+        }
+        Insert: {
+          boost?: number
+          boost_kind?: string | null
+          expected: number
+          level_after: number
+          level_before: number
+          opponents?: string[]
+          played_at: string
+          profile_id: string
+          race_points?: number
+          result_id: string
+          season_start: string
+          source: string
+          won: string
+        }
+        Update: {
+          boost?: number
+          boost_kind?: string | null
+          expected?: number
+          level_after?: number
+          level_before?: number
+          opponents?: string[]
+          played_at?: string
+          profile_id?: string
+          race_points?: number
+          result_id?: string
+          season_start?: string
+          source?: string
+          won?: string
         }
         Relationships: []
       }
@@ -14943,6 +15176,7 @@ export type Database = {
           loss_points: number
           period: string
           report_hours: number
+          rules: Json
           updated_at: string
           updated_by: string | null
           win_points: number
@@ -14957,6 +15191,7 @@ export type Database = {
           loss_points?: number
           period?: string
           report_hours?: number
+          rules?: Json
           updated_at?: string
           updated_by?: string | null
           win_points?: number
@@ -14971,6 +15206,7 @@ export type Database = {
           loss_points?: number
           period?: string
           report_hours?: number
+          rules?: Json
           updated_at?: string
           updated_by?: string | null
           win_points?: number

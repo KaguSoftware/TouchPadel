@@ -6,7 +6,7 @@ import { useLocale } from '../../i18n/LocaleProvider';
 import { EASE_OUT_EXPO, Rise } from '../../components/motion';
 import { useReduceMotion } from '../../lib/useReduceMotion';
 import { brand, radius, space, useTheme } from '../../theme';
-import { levelName, splitPodium, type BoardRow } from './logic';
+import { levelName, rowValue, splitPodium, type BoardRow, type BoardView, type RankClass } from './logic';
 
 /**
  * The board (Majed, 2026-10-22: public, the top ten only, "everybody fighting over it").
@@ -14,8 +14,9 @@ import { levelName, splitPodium, type BoardRow } from './logic';
  * The first three stand on a podium, second, first and third as a podium is set out, drawn as
  * the tab's own glyph: three steps, the ball over first place. The numbers are Lama Sans Thin,
  * large and light, so the steps read before the names do. The rest of the board follows as plain
- * rows on hairlines: rank, name and level, points. The guest's own row, when they are on it, is
- * tinted and says so. Nothing here is pressable and nothing ranks on the phone: the server sent
+ * rows on hairlines: rank, name, tier and class, then the board's number (Race points, the
+ * Touch Level with one decimal, or the gain on Most improved; 0444). The guest's own row, when
+ * they are on it, is tinted and says so. Nothing here is pressable and nothing ranks on the phone: the server sent
  * these rows in this order.
  *
  * Light on the device: plain views, one native-driver rise per step on mount, no SVG, no blur.
@@ -97,11 +98,11 @@ function Step({
   );
 }
 
-function Standing({ row, lead }: { row: BoardRow | null; lead: boolean }) {
+function Standing({ row, lead, view }: { row: BoardRow | null; lead: boolean; view: BoardView }) {
   const { t, locale } = useLocale();
   const { colors, fonts } = useTheme();
   if (!row) return <View style={{ minHeight: 58 }} />;
-  const level = levelName(row.level, locale);
+  const level = levelName(row.tier, locale);
   return (
     <View style={{ alignItems: 'center', gap: 2, paddingBottom: space.s, minHeight: 58 }}>
       {lead ? (
@@ -127,24 +128,20 @@ function Standing({ row, lead }: { row: BoardRow | null; lead: boolean }) {
       >
         {row.mine ? t('ranks.you') : (row.name ?? t('ranks.player'))}
       </Text>
-      <Text
-        style={{ fontFamily: fonts.display800, fontSize: 15, color: colors.ink, fontVariant: ['tabular-nums'] }}
-      >
-        {isolateLtr(formatNumber(row.points, locale))}
-        <Text style={{ fontFamily: fonts.body600, fontSize: 11, color: colors.fnt }}>
-          {` ${t('ranks.unit')}`}
-        </Text>
-      </Text>
-      {level ? (
-        <Text numberOfLines={1} style={{ fontFamily: fonts.body600, fontSize: 11, color: colors.fnt }}>
-          {level}
-        </Text>
-      ) : null}
+      <RowValue row={row} view={view} size={15} />
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, maxWidth: '100%' }}>
+        {level ? (
+          <Text numberOfLines={1} style={{ flexShrink: 1, fontFamily: fonts.body600, fontSize: 11, color: colors.fnt }}>
+            {level}
+          </Text>
+        ) : null}
+        {row.klass ? <ClassBadge klass={row.klass} /> : null}
+      </View>
     </View>
   );
 }
 
-export function Podium({ rows, testID }: { rows: readonly BoardRow[]; testID?: string }) {
+export function Podium({ rows, view, testID }: { rows: readonly BoardRow[]; view: BoardView; testID?: string }) {
   const { colors } = useTheme();
   const { podium } = splitPodium(rows);
   return (
@@ -152,7 +149,7 @@ export function Podium({ rows, testID }: { rows: readonly BoardRow[]; testID?: s
       <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: space.s }}>
         {podium.map((row, i) => (
           <View key={i} style={{ flex: 1 }}>
-            <Standing row={row} lead={i === 1} />
+            <Standing row={row} lead={i === 1} view={view} />
             <Step
               height={STEP_H[i] ?? 48}
               index={RISE_ORDER[i] ?? 0}
@@ -169,10 +166,10 @@ export function Podium({ rows, testID }: { rows: readonly BoardRow[]; testID?: s
   );
 }
 
-function RestRow({ row, index }: { row: BoardRow; index: number }) {
+function RestRow({ row, index, view }: { row: BoardRow; index: number; view: BoardView }) {
   const { t, locale } = useLocale();
   const { colors, fonts } = useTheme();
-  const level = levelName(row.level, locale);
+  const level = levelName(row.tier, locale);
   return (
     <Rise index={index} from={10}>
       <View
@@ -206,26 +203,22 @@ function RestRow({ row, index }: { row: BoardRow; index: number }) {
           >
             {row.mine ? t('ranks.you') : (row.name ?? t('ranks.player'))}
           </Text>
-          {level ? (
-            <Text numberOfLines={1} style={{ fontFamily: fonts.body600, fontSize: 11.5, color: colors.fnt }}>
-              {level}
-            </Text>
-          ) : null}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            {level ? (
+              <Text numberOfLines={1} style={{ flexShrink: 1, fontFamily: fonts.body600, fontSize: 11.5, color: colors.fnt }}>
+                {level}
+              </Text>
+            ) : null}
+            {row.klass ? <ClassBadge klass={row.klass} /> : null}
+          </View>
         </View>
-        <Text
-          style={{ fontFamily: fonts.display800, fontSize: 16, color: colors.ink, fontVariant: ['tabular-nums'] }}
-        >
-          {isolateLtr(formatNumber(row.points, locale))}
-          <Text style={{ fontFamily: fonts.body600, fontSize: 11, color: colors.fnt }}>
-            {` ${t('ranks.unit')}`}
-          </Text>
-        </Text>
+        <RowValue row={row} view={view} size={16} />
       </View>
     </Rise>
   );
 }
 
-export function BoardRest({ rows, testID }: { rows: readonly BoardRow[]; testID?: string }) {
+export function BoardRest({ rows, view, testID }: { rows: readonly BoardRow[]; view: BoardView; testID?: string }) {
   const { colors } = useTheme();
   const { rest } = splitPodium(rows);
   if (rest.length === 0) return null;
@@ -236,9 +229,57 @@ export function BoardRest({ rows, testID }: { rows: readonly BoardRow[]; testID?
           key={`${row.rank}-${i}`}
           style={i > 0 && !row.mine && !rest[i - 1]?.mine ? { borderTopWidth: 1, borderTopColor: colors.line } : null}
         >
-          <RestRow row={row} index={i} />
+          <RestRow row={row} index={i} view={view} />
         </View>
       ))}
+    </View>
+  );
+}
+
+/**
+ * The board's number for a row: Race points with their unit, the Touch Level with one decimal,
+ * or the gain on Most improved. Nothing while the owner hides the level: the tier says it.
+ */
+function RowValue({ row, view, size }: { row: BoardRow; view: BoardView; size: number }) {
+  const { t, locale } = useLocale();
+  const { colors, fonts } = useTheme();
+  const value = rowValue(row, view);
+  if (!value) return null;
+  const style = { fontFamily: fonts.display800, fontSize: size, color: colors.ink, fontVariant: ['tabular-nums' as const] };
+  if (value.kind === 'points') {
+    return (
+      <Text style={style}>
+        {isolateLtr(formatNumber(value.value, locale))}
+        <Text style={{ fontFamily: fonts.body600, fontSize: 11, color: colors.fnt }}>{` ${t('ranks.unit')}`}</Text>
+      </Text>
+    );
+  }
+  return (
+    <Text style={value.kind === 'gain' ? { ...style, color: colors.gstrong } : style}>{isolateLtr(value.text)}</Text>
+  );
+}
+
+/** A small A / B / C badge: the class the player's level is in (A the highest). */
+export function ClassBadge({ klass, label }: { klass: RankClass; label?: string }) {
+  const { t } = useLocale();
+  const { colors, fonts } = useTheme();
+  return (
+    <View
+      accessibilityLabel={label ?? t(`ranks.class.${klass}`)}
+      style={{
+        minWidth: 18,
+        paddingStart: 5,
+        paddingEnd: 5,
+        paddingTop: 1,
+        paddingBottom: 1,
+        borderRadius: radius.pill,
+        backgroundColor: colors.tint,
+        alignItems: 'center',
+      }}
+    >
+      <Text style={{ fontFamily: fonts.body800, fontSize: 10.5, lineHeight: 14, color: colors.blue }}>
+        {label ?? klass}
+      </Text>
     </View>
   );
 }

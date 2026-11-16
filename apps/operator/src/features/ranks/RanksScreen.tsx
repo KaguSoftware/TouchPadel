@@ -1,5 +1,6 @@
 /**
- * Customers › Player ranks (0364, Majed 2026-10-22). Two views of one page:
+ * Customers › Player ranks (0364, Majed 2026-10-22; Touch Level and Season Race 0443/0444,
+ * 2026-11-16). The views of one page:
  *
  *   Board and results  the results list (app.ranks_desk_results) with Void (manager, owner), the
  *                      public board exactly as players see it (app.ranks_board), and points
@@ -7,9 +8,11 @@
  *   Levels to check    the players whose confirmed games disagree with the level on record
  *                      (0368, app.customer_level_reviews): confirm the measured level or write
  *                      the player's own claim down as right, either of which clears the row.
- *   Rules and levels   points per win, loss and draw, the board's period and size, which results
- *                      count and how long a report may wait (app.set_ranks_settings), and the
- *                      levels (app.set_ranks_levels replaces the list).
+ *   Checks             the Level checks list and the results to check (RanksChecks.tsx).
+ *   Rules and tiers    the board's switch and size, which results count and how long a report
+ *                      may wait (app.set_ranks_settings), the tiers by Touch Level
+ *                      (app.set_ranks_levels replaces the list), and every ranking rule
+ *                      (RulesEditor.tsx, app.set_ranks_rules).
  *
  * The owner edits; a manager reads the rules and works the results. Ranks are business-wide like
  * loyalty's points, so the rules do not follow the rail's branch; the results list does (the
@@ -23,7 +26,7 @@ import { can, useAuth } from '../../lib/auth';
 import { useStationReach } from '../../lib/stationReach';
 import { useToast } from '../../components/toast';
 import { Switch } from '../../components/Switch';
-import { Button, ErrorText, Field, Modal, Skeleton, Tabs, inputStyle } from '../../components/ui';
+import { Button, ErrorText, Field, Skeleton, Tabs, inputStyle } from '../../components/ui';
 import {
   AsyncStateWrapper,
   EmptyState,
@@ -37,7 +40,7 @@ import {
   useListCap,
   type Tone,
 } from '../../components/kit';
-import { CountInput, digitsOnly } from '../../components/inputs';
+import { CountInput } from '../../components/inputs';
 import { NumberField } from '../admin/settings/settingsFields';
 import {
   ADJUST_MAX,
@@ -48,7 +51,11 @@ import {
   addLevel,
   adjustDelta,
   adjustErrors,
+  canEditResult,
+  canStaffConfirm,
   canVoidResult,
+  decimalTyping,
+  levelText,
   levelsDirty,
   levelsDraft,
   levelsErrors,
@@ -60,12 +67,12 @@ import {
   rulesPatch,
   type AdjustDraft,
   type BoardRow,
-  type DeskPlayer,
   type DeskResult,
   type LevelDraft,
+  type Headline,
   type RanksAdmin,
+  type RanksBoard,
   type RanksLevel,
-  type RanksPeriod,
   type ResultStatus,
   type ResultsFilter,
   type RuleNumberKey,
@@ -79,15 +86,18 @@ import {
   useRanksAdmin,
   useRanksBoard,
   useRanksResults,
-  voidResult,
+  staffConfirmResult,
 } from './useRanks';
+import { RanksChecks } from './RanksChecks';
+import { RulesEditor, hasRules } from './RulesEditor';
+import { Team, VoidDialog } from './resultParts';
 import { LevelReviews } from '../players/LevelReviews';
 import { PlayerPicker } from './PlayerPicker';
 import { RecordResultDialog } from './RecordResultDialog';
 
 const K = 'ws.ranks';
 
-type View = 'board' | 'rules' | 'levels';
+type View = 'board' | 'checks' | 'rules' | 'levels';
 
 const muted: CSSProperties = { margin: 0, fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' };
 const hintStyle: CSSProperties = { margin: 0, fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' };
@@ -135,6 +145,8 @@ export function RanksScreen() {
         style={{ marginBlockEnd: 0 }}
         items={[
           { id: 'board', label: tr(`${K}.tabs.board`) },
+          // 0444: the Level checks and the results where two pairs traded wins.
+          { id: 'checks', label: tr(`${K}.tabs.checks`) },
           { id: 'rules', label: tr(`${K}.tabs.rules`) },
           // 0368: the players whose games disagree with their level on record.
           { id: 'levels', label: tr(`${K}.tabs.levels`) },
@@ -142,6 +154,8 @@ export function RanksScreen() {
       />
       {view === 'board' ? (
         <BoardView canEdit={canEdit} />
+      ) : view === 'checks' ? (
+        <RanksChecks />
       ) : view === 'rules' ? (
         <RulesView canEdit={canEdit} />
       ) : (
@@ -178,12 +192,38 @@ const STATUS_TONE: Record<ResultStatus, Tone> = {
   voided: 'danger',
 };
 
-function ResultsPanel() {
+/**
+ * The results list. A manager or the owner voids; the desk and up confirm a player's report
+ * waiting on an opponent and correct a result (0444, Majed 2026-11-16: "the operator can confirm /
+ * edit / set").
+ */
+export function ResultsPanel() {
   const { tr } = useLocale();
   const { staff } = useAuth();
+  const qc = useQueryClient();
+  const toast = useToast();
+  const { reachable } = useStationReach();
   const canVoid = can(staff, 'voidRanks');
+  const canFix = can(staff, 'recordRanks');
   const [filter, setFilter] = useState<ResultsFilter>('all');
   const [voiding, setVoiding] = useState<DeskResult | null>(null);
+  const [editing, setEditing] = useState<DeskResult | null>(null);
+  const [confirming, setConfirming] = useState<string | null>(null);
+  const [rowError, setRowError] = useState<{ id: string; error: unknown } | null>(null);
+
+  async function confirmRow(r: DeskResult) {
+    setConfirming(r.id);
+    setRowError(null);
+    try {
+      await staffConfirmResult(r.id);
+      invalidateRanks(qc);
+      toast.ok(tr(`${K}.results.confirmedToast`));
+    } catch (e) {
+      setRowError({ id: r.id, error: e });
+    } finally {
+      setConfirming(null);
+    }
+  }
   const q = useRanksResults(filter);
   const rows = q.data ?? [];
   const cap = useListCap(rows);
@@ -216,36 +256,28 @@ function ResultsPanel() {
         >
           <ol style={{ listStyle: 'none', margin: 0, padding: 0 }}>
             {cap.shown.map((r, i) => (
-              <ResultRow key={r.id} r={r} first={i === 0} canVoid={canVoid} onVoid={() => setVoiding(r)} />
+              <ResultRow
+                key={r.id}
+                r={r}
+                first={i === 0}
+                canVoid={canVoid}
+                onVoid={() => setVoiding(r)}
+                canConfirm={canFix && canStaffConfirm(r)}
+                offline={!reachable}
+                confirming={confirming === r.id}
+                onConfirm={() => void confirmRow(r)}
+                canEdit={canFix && canEditResult(r)}
+                onEdit={() => setEditing(r)}
+                error={rowError?.id === r.id ? rowError.error : null}
+              />
             ))}
           </ol>
           <ViewMore hidden={cap.hidden} open={cap.open} onToggle={cap.toggle} />
         </AsyncStateWrapper>
       </div>
       {voiding && <VoidDialog result={voiding} onClose={() => setVoiding(null)} />}
+      {editing && <RecordResultDialog edit={editing} onClose={() => setEditing(null)} />}
     </Panel>
-  );
-}
-
-function playerName(p: DeskPlayer | null, tr: (k: `${typeof K}.results.former`) => string): string | null {
-  if (!p) return null;
-  const name = p.name ?? (p.username ? `@${p.username}` : null);
-  if (p.former) return name ? `${name} (${tr(`${K}.results.former`)})` : tr(`${K}.results.former`);
-  return name;
-}
-
-function Team({ players, won }: { players: readonly (DeskPlayer | null)[]; won: boolean }) {
-  const { tr } = useLocale();
-  const names = players
-    .map((p) => playerName(p, tr))
-    .filter((n): n is string => Boolean(n))
-    .map(isolate);
-  const text = names.length === 2 ? tr(`${K}.results.pair`, { a: names[0]!, b: names[1]! }) : (names[0] ?? '');
-  return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-1-5)', minInlineSize: 0, flexWrap: 'wrap' }}>
-      <span style={{ fontWeight: won ? 700 : 500, color: won ? 'var(--tp-fg)' : undefined }}>{text}</span>
-      {won && <StatusBadge size="sm" tone="success" icon="trophy" label={tr(`${K}.results.won`)} />}
-    </span>
   );
 }
 
@@ -254,11 +286,25 @@ function ResultRow({
   first,
   canVoid,
   onVoid,
+  canConfirm = false,
+  confirming = false,
+  onConfirm,
+  canEdit = false,
+  onEdit,
+  error = null,
+  offline = false,
 }: {
   r: DeskResult;
   first: boolean;
   canVoid: boolean;
   onVoid: () => void;
+  canConfirm?: boolean;
+  confirming?: boolean;
+  onConfirm?: () => void;
+  canEdit?: boolean;
+  onEdit?: () => void;
+  error?: unknown;
+  offline?: boolean;
 }) {
   const { tr, locale } = useLocale();
   const played = new Date(r.played_at);
@@ -304,86 +350,66 @@ function ResultRow({
         {r.status !== 'confirmed' && (
           <StatusBadge size="sm" tone={STATUS_TONE[r.status]} label={tr(`${K}.results.status.${r.status}`)} />
         )}
+        {canConfirm && (
+          <Button
+            size="sm"
+            icon="check"
+            busy={confirming}
+            disabled={offline}
+            title={tr(`${K}.results.confirmHint`)}
+            onClick={onConfirm}
+            data-testid={`ranks-confirm-${r.id}`}
+          >
+            {tr(`${K}.results.confirm`)}
+          </Button>
+        )}
+        {canEdit && (
+          <Button size="sm" kind="ghost" icon="note" onClick={onEdit} data-testid={`ranks-edit-${r.id}`}>
+            {tr(`${K}.results.edit`)}
+          </Button>
+        )}
         {canVoid && canVoidResult(r) && (
           <Button size="sm" kind="ghost" icon="ban" onClick={onVoid} data-testid={`ranks-void-${r.id}`}>
             {tr(`${K}.results.void`)}
           </Button>
         )}
       </div>
+      {error ? <ErrorText error={error} style={{ marginBlock: 0, gridColumn: '1 / -1' }} /> : null}
     </li>
   );
 }
 
-function VoidDialog({ result, onClose }: { result: DeskResult; onClose: () => void }) {
-  const { tr } = useLocale();
-  const qc = useQueryClient();
-  const toast = useToast();
-  const { reachable } = useStationReach();
-  const [reason, setReason] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<unknown>(null);
-  const ok = reason.trim().length >= 3;
+/** One line of whichever board leads, as the preview draws it. */
+interface PreviewLine {
+  rank: number;
+  name: string | null;
+  tier: RanksLevel | null;
+  /** The Touch Level, null while the owner hides it. */
+  level: number | null;
+  /** Race points; absent on the Touch Level board. */
+  points: number | null;
+}
 
-  async function submit() {
-    if (!ok) return;
-    setBusy(true);
-    setError(null);
-    try {
-      await voidResult(result.id, reason);
-      invalidateRanks(qc);
-      toast.ok(tr(`${K}.results.voided`));
-      onClose();
-    } catch (e) {
-      setError(e);
-    } finally {
-      setBusy(false);
-    }
+/**
+ * The lines of the board that leads (0444: the owner's headline switch). A server before 0444
+ * sends only `rows` (0364's points board).
+ */
+function previewLines(b: Extract<RanksBoard, { enabled: true }>): { lead: Headline; lines: PreviewLine[] } {
+  if (b.headline === 'level' && b.level) {
+    return { lead: 'level', lines: b.level.map((r) => ({ rank: r.rank, name: r.name, tier: r.tier, level: r.level, points: null })) };
   }
-
-  return (
-    <Modal
-      title={tr(`${K}.results.voidTitle`)}
-      size="sm"
-      dismissible={!busy}
-      onClose={onClose}
-      footer={(close) => (
-        <>
-          <Button onClick={close} disabled={busy}>
-            {tr(`${K}.cancel`)}
-          </Button>
-          <Button
-            kind="danger"
-            busy={busy}
-            disabled={!ok || !reachable}
-            onClick={() => void submit()}
-            data-testid="ranks-void-confirm"
-          >
-            {tr(`${K}.results.voidConfirm`)}
-          </Button>
-        </>
-      )}
-    >
-      <p style={{ marginBlockStart: 0 }}>{tr(`${K}.results.voidBody`)}</p>
-      <Field label={tr(`${K}.results.reason`)} hint={tr(`${K}.results.reasonHint`)} style={{ marginBlockEnd: 0 }}>
-        <input
-          style={inputStyle}
-          value={reason}
-          maxLength={200}
-          autoFocus
-          onChange={(e) => setReason(e.target.value)}
-          data-testid="ranks-void-reason"
-        />
-      </Field>
-      <ErrorText error={error} />
-    </Modal>
-  );
+  if (b.race) {
+    return { lead: 'race', lines: b.race.map((r) => ({ rank: r.rank, name: r.name, tier: r.tier, level: r.level, points: r.points })) };
+  }
+  return { lead: 'race', lines: b.rows.map((r: BoardRow) => ({ rank: r.rank, name: r.name, tier: r.level, level: null, points: r.points })) };
 }
 
 function BoardPreview() {
   const { tr, locale } = useLocale();
   const q = useRanksBoard();
   const b = q.data;
-  const rows = b && b.enabled ? b.rows : [];
+  const shown = b && b.enabled ? previewLines(b) : null;
+  const rows = shown?.lines ?? [];
   const cap = useListCap(rows);
   const status = q.isError && !b ? 'error' : !b ? 'loading' : 'ready';
 
@@ -391,22 +417,23 @@ function BoardPreview() {
     <Panel title={tr(`${K}.board.title`)} data-testid="ranks-board">
       <AsyncStateWrapper status={status} error={q.error} onRetry={() => void q.refetch()} skeleton={<Skeleton lines={4} />}>
         {b && !b.enabled && <p style={muted}>{tr(`${K}.board.off`)}</p>}
-        {b && b.enabled && (
+        {b && b.enabled && shown && (
           <div style={{ display: 'grid', gap: 'var(--tp-sp-3)' }}>
             <p style={muted}>
               {[
-                tr(`${K}.board.${b.period}`),
-                b.from ? tr(`${K}.board.since`, { date: formatDate(new Date(b.from), locale) }) : null,
+                b.headline ? tr(`${K}.board.${shown.lead === 'level' ? 'leadsLevel' : 'leadsRace'}`) : null,
+                shown.lead === 'race' ? tr(`${K}.board.${b.period}`) : null,
+                shown.lead === 'race' && b.from ? tr(`${K}.board.since`, { date: formatDate(new Date(b.from), locale) }) : null,
                 tr(`${K}.board.top`, { count: formatNumber(b.size, locale) }),
               ]
                 .filter(Boolean)
                 .join(' · ')}
             </p>
             {rows.length === 0 ? (
-              <p style={muted}>{tr(`${K}.board.empty`)}</p>
+              <p style={muted}>{tr(`${K}.board.${shown.lead === 'level' ? 'levelEmpty' : 'empty'}`)}</p>
             ) : (
               <>
-                <ol style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--tp-sp-1)' }}>
+                <ol style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--tp-sp-1)' }} data-testid={`ranks-board-${shown.lead}`}>
                   {cap.shown.map((r, i) => (
                     <BoardLine key={`${r.rank}-${i}`} row={r} />
                   ))}
@@ -421,9 +448,12 @@ function BoardPreview() {
   );
 }
 
-function BoardLine({ row }: { row: BoardRow }) {
+function BoardLine({ row }: { row: PreviewLine }) {
   const { tr, locale } = useLocale();
   const podium = row.rank <= 3;
+  const sub = [row.tier?.name_en ? pickName(locale, row.tier) : null, row.level !== null && row.points !== null ? tr(`${K}.board.level`, { level: levelText(row.level) }) : null]
+    .filter(Boolean)
+    .join(' · ');
   return (
     <li
       style={{
@@ -454,10 +484,14 @@ function BoardLine({ row }: { row: BoardRow }) {
         <span style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           <bdi>{row.name ?? tr(`${K}.board.unnamed`)}</bdi>
         </span>
-        {row.level && <span style={hintStyle}>{pickName(locale, row.level)}</span>}
+        {sub && <span style={hintStyle}>{sub}</span>}
       </span>
       <span style={{ fontWeight: 700, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
-        {tr(`${K}.points`, { points: formatNumber(row.points, locale) })}
+        {row.points !== null ? (
+          tr(`${K}.points`, { points: formatNumber(row.points, locale) })
+        ) : row.level !== null ? (
+          <bdi dir="ltr">{levelText(row.level)}</bdi>
+        ) : null}
       </span>
     </li>
   );
@@ -575,16 +609,20 @@ function RulesView({ canEdit }: { canEdit: boolean }) {
 
 function RulesBody({ data, canEdit }: { data: RanksAdmin; canEdit: boolean }) {
   return (
-    <div
-      style={{
-        display: 'grid',
-        gap: 'var(--tp-sp-4)',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 26rem), 1fr))',
-        alignItems: 'start',
-      }}
-    >
-      <RulesPanel key={JSON.stringify(data.settings)} saved={rulesDraft(data.settings)} canEdit={canEdit} />
-      <LevelsPanel key={JSON.stringify(data.levels)} saved={data.levels} canEdit={canEdit} />
+    <div style={{ display: 'grid', gap: 'var(--tp-sp-4)' }}>
+      <div
+        style={{
+          display: 'grid',
+          gap: 'var(--tp-sp-4)',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 26rem), 1fr))',
+          alignItems: 'start',
+        }}
+      >
+        <RulesPanel key={JSON.stringify(data.settings)} saved={rulesDraft(data.settings)} canEdit={canEdit} />
+        <LevelsPanel key={JSON.stringify(data.levels)} saved={data.levels} canEdit={canEdit} />
+      </div>
+      {/* 0444: every Touch Level and Season Race rule. An older server sends none. */}
+      {hasRules(data) && <RulesEditor data={data} canEdit={canEdit} />}
     </div>
   );
 }
@@ -687,52 +725,15 @@ function RulesPanel({ saved, canEdit }: { saved: RulesDraft; canEdit: boolean })
         </div>
 
         <div style={section}>
-          <span style={labelStyle}>{tr(`${R}.pointsTitle`)}</span>
-          <div style={{ display: 'flex', gap: 'var(--tp-sp-5)', flexWrap: 'wrap' }}>
-            {(['win_points', 'loss_points', 'draw_points'] as const).map((k) => (
-              <PointStepper
-                key={k}
-                label={tr(`${R}.${k === 'win_points' ? 'win' : k === 'loss_points' ? 'loss' : 'draw'}`)}
-                value={d[k]}
-                min={RULE_LIMITS[k].min}
-                max={RULE_LIMITS[k].max}
-                disabled={readOnly}
-                onChange={(n) => set(k, n)}
-                testId={`ranks-rule-${k}`}
-              />
-            ))}
-          </div>
-          <p style={hintStyle}>{tr(`${R}.pointsHint`)}</p>
-        </div>
-
-        <div style={section}>
-          <span id="ranks-period-label" style={labelStyle}>
-            {tr(`${R}.period`)}
-          </span>
-          <div>
-            <SegmentedControl<RanksPeriod>
-              aria-labelledby="ranks-period-label"
-              value={d.period}
-              onChange={(v) => !readOnly && set('period', v)}
-              options={[
-                { value: 'all', label: tr(`${R}.periodAll`), disabled: readOnly, testId: 'ranks-period-all' },
-                { value: 'month', label: tr(`${R}.periodMonth`), disabled: readOnly, testId: 'ranks-period-month' },
-                { value: 'quarter', label: tr(`${R}.periodQuarter`), disabled: readOnly, testId: 'ranks-period-quarter' },
-              ]}
-            />
-          </div>
-          <p style={hintStyle}>{tr(`${R}.periodHint`)}</p>
-          <div style={{ marginBlockStart: 'var(--tp-sp-2)' }}>
-            <PointStepper
-              label={tr(`${R}.boardSize`)}
-              value={d.board_size}
-              min={RULE_LIMITS.board_size.min}
-              max={RULE_LIMITS.board_size.max}
-              disabled={readOnly}
-              onChange={(n) => set('board_size', n)}
-              testId="ranks-rule-board_size"
-            />
-          </div>
+          <PointStepper
+            label={tr(`${R}.boardSize`)}
+            value={d.board_size}
+            min={RULE_LIMITS.board_size.min}
+            max={RULE_LIMITS.board_size.max}
+            disabled={readOnly}
+            onChange={(n) => set('board_size', n)}
+            testId="ranks-rule-board_size"
+          />
           <p style={hintStyle}>{tr(`${R}.boardSizeHint`)}</p>
         </div>
 
@@ -801,7 +802,7 @@ function LevelsPanel({ saved, canEdit }: { saved: RanksLevel[]; canEdit: boolean
   const dirty = levelsDirty(rows, saved);
   const readOnly = !canEdit || busy;
   const anyNames = Object.values(shown.rows).some((e) => e.includes('names'));
-  const anyPoints = Object.values(shown.rows).some((e) => e.includes('points'));
+  const anyLevel = Object.values(shown.rows).some((e) => e.includes('level'));
   const update = (key: string, patch: Partial<LevelDraft>) =>
     setRows((rs) => rs.map((r) => (r.key === key ? { ...r, ...patch } : r)));
 
@@ -821,7 +822,7 @@ function LevelsPanel({ saved, canEdit }: { saved: RanksLevel[]; canEdit: boolean
     }
   }
 
-  const bad = (key: string, kind: 'names' | 'points'): CSSProperties =>
+  const bad = (key: string, kind: 'names' | 'level'): CSSProperties =>
     shown.rows[key]?.includes(kind) ? { borderColor: 'var(--tp-danger-mark)' } : {};
 
   return (
@@ -889,7 +890,7 @@ function LevelsPanel({ saved, canEdit }: { saved: RanksLevel[]; canEdit: boolean
                 <td>
                   {i === 0 ? (
                     <span style={{ display: 'grid' }}>
-                      <span style={{ fontVariantNumeric: 'tabular-nums', fontWeight: 600 }}>0</span>
+                      <span style={{ fontVariantNumeric: 'tabular-nums', fontWeight: 600 }}>{levelText(0)}</span>
                       <span style={hintStyle}>{tr(`${L}.base`)}</span>
                     </span>
                   ) : (
@@ -897,18 +898,17 @@ function LevelsPanel({ saved, canEdit }: { saved: RanksLevel[]; canEdit: boolean
                       <input
                         style={{
                           ...inputStyle,
-                          ...bad(r.key, 'points'),
+                          ...bad(r.key, 'level'),
                           inlineSize: '5rem',
                           fontVariantNumeric: 'tabular-nums',
                         }}
                         dir="ltr"
-                        inputMode="numeric"
+                        inputMode="decimal"
                         aria-label={`${tr(`${L}.from`)} ${i + 1}`}
                         value={r.min}
                         disabled={readOnly}
-                        onChange={(e) => update(r.key, { min: digitsOnly(e.target.value).slice(0, 7) })}
+                        onChange={(e) => update(r.key, { min: decimalTyping(e.target.value, false).slice(0, 4) })}
                       />
-                      <span style={hintStyle}>{tr(`${L}.fromPoints`)}</span>
                     </span>
                   )}
                 </td>
@@ -932,7 +932,7 @@ function LevelsPanel({ saved, canEdit }: { saved: RanksLevel[]; canEdit: boolean
           </tbody>
         </table>
         {anyNames && <p style={{ ...hintStyle, color: 'var(--tp-danger-fg)' }}>{tr(`${L}.errorNames`)}</p>}
-        {anyPoints && <p style={{ ...hintStyle, color: 'var(--tp-danger-fg)' }}>{tr(`${L}.errorPoints`)}</p>}
+        {anyLevel && <p style={{ ...hintStyle, color: 'var(--tp-danger-fg)' }}>{tr(`${L}.errorLevel`)}</p>}
         <ErrorText error={error} style={{ marginBlock: 0 }} />
         {canEdit && (
           <div>

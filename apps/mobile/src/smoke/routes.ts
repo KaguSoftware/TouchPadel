@@ -407,6 +407,11 @@ export const SMOKE_ROUTES: readonly SmokeRoute[] = [
     route: 'coach-mode-statements',
     primary: 'coach-mode-statements.month',
   },
+  {
+    file: '(coach-mode)/coach-mode-result.tsx',
+    route: 'coach-mode-result',
+    primary: 'coach-mode-result.submit',
+  },
   // ── root ──────────────────────────────────────────────────────────────────
   // No primary action of its own: the root layout is providers and chrome.
   // `app.direction-root` is the node every screen's mirroring is read from, so

@@ -5,7 +5,7 @@
  * players' names, and the guest's own page carries the names of the people they played, as a
  * match read does. Every write runs now or fails now.
  */
-export type RanksMutation = 'report' | 'confirm';
+export type RanksMutation = 'report' | 'confirm' | 'my-type' | 'coach-record';
 
 export const ranksKeys = {
   /** Every leaderboard read and write. */

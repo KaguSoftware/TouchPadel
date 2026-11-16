@@ -8,9 +8,19 @@
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase';
-import { answerResult, fetchBoard, fetchMyRanks, findPlayer, reportGame, type ReportInput } from './api';
+import {
+  answerResult,
+  coachRecordGame,
+  fetchBoard,
+  fetchMyRanks,
+  findPlayer,
+  reportGame,
+  setMyPlayLevel,
+  type ReportInput,
+} from './api';
+import { profileKeys } from '../profile/hooks';
 import { ranksKeys } from './keys';
-import { normaliseUsername } from './logic';
+import { normaliseUsername, type CoachRecordInput, type TypeCode } from './logic';
 
 export { ranksKeys };
 
@@ -59,6 +69,29 @@ export function useAnswerResult() {
   return useMutation({
     mutationKey: ranksKeys.mutation('confirm'),
     mutationFn: (v: { resultId: string; accept: boolean }) => answerResult(supabase, v.resultId, v.accept),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ranksKeys.all }),
+  });
+}
+
+/** The player picks their own type (0444); their page, and the profile that stores it, re-read. */
+export function useSetMyType() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: ranksKeys.mutation('my-type'),
+    mutationFn: (level: TypeCode) => setMyPlayLevel(supabase, level),
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: profileKeys.own });
+      return queryClient.invalidateQueries({ queryKey: ranksKeys.all });
+    },
+  });
+}
+
+/** A coach enters a game they watched (0444), confirmed at once. */
+export function useCoachRecord() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: ranksKeys.mutation('coach-record'),
+    mutationFn: (input: CoachRecordInput) => coachRecordGame(supabase, input),
     onSettled: () => queryClient.invalidateQueries({ queryKey: ranksKeys.all }),
   });
 }

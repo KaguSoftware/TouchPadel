@@ -7986,4 +7986,96 @@ export const matrix: MatrixRule[] = [
     note: '0442: MGMT at the branch, never their own phone; the nil person is REF_NOT_FOUND, nothing is written',
     drop: 42,
   },
+  // ── 0443 ranks_touch_level, 0444 ranks_boards (ranks-touch-level.test.ts) ──
+  // The Touch Level and the Season Race: derived tables with no client grant, read through
+  // ranks_board, my_ranks and the staff reads below.
+  {
+    kind: 'select', name: 'ranks_level_checks', expect: ex<SelectExpectation>('denied'),
+    note: '0443: no client grant at all; read through ranks_board, my_ranks, ranks_admin and ranks_level_checks_list',
+    drop: 40,
+  },
+  {
+    kind: 'write', name: 'ranks_level_checks', op: 'insert', payload: { id: NIL_UUID },
+    expect: ex<WriteExpectation>('denied'),
+    note: '0443: no client write grant: written only by the Level check trigger and app.ranks_rebuild',
+    drop: 40,
+  },
+  {
+    kind: 'select', name: 'ranks_player_levels', expect: ex<SelectExpectation>('denied'),
+    note: '0443: no client grant at all; read through ranks_board, my_ranks, ranks_admin and ranks_level_checks_list',
+    drop: 40,
+  },
+  {
+    kind: 'write', name: 'ranks_player_levels', op: 'insert', payload: { profile_id: NIL_UUID },
+    expect: ex<WriteExpectation>('denied'),
+    note: '0443: no client write grant: written only by the Level check trigger and app.ranks_rebuild',
+    drop: 40,
+  },
+  {
+    kind: 'select', name: 'ranks_result_scores', expect: ex<SelectExpectation>('denied'),
+    note: '0443: no client grant at all; read through ranks_board, my_ranks, ranks_admin and ranks_level_checks_list',
+    drop: 40,
+  },
+  {
+    kind: 'write', name: 'ranks_result_scores', op: 'insert', payload: { result_id: NIL_UUID },
+    expect: ex<WriteExpectation>('denied'),
+    note: '0443: no client write grant: written only by the Level check trigger and app.ranks_rebuild',
+    drop: 40,
+  },
+  {
+    kind: 'select', name: 'ranks_rebuild_state', expect: ex<SelectExpectation>('denied'),
+    note: '0443: no client grant at all; read through ranks_board, my_ranks, ranks_admin and ranks_level_checks_list',
+    drop: 40,
+  },
+  {
+    kind: 'write', name: 'ranks_rebuild_state', op: 'insert', payload: { id: true },
+    expect: ex<WriteExpectation>('denied'),
+    note: '0443: no client write grant: written only by the Level check trigger and app.ranks_rebuild',
+    drop: 40,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'set_ranks_rules',
+    args: { p_rules: { matrix_probe: 1 } }, expect: OWNER_ONLY,
+    note: '0444: owner only; an unknown key is INVALID_ARGUMENT, so the probe changes nothing',
+    drop: 40,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'ranks_level_checks_list',
+    args: { p_limit: 1 }, expect: MANAGER_UP,
+    note: '0444: manager or owner: the Level checks, who gave them and how the players did after; read-only',
+    drop: 40,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'ranks_results_to_check',
+    args: { p_days: 7 }, expect: DESK_UP,
+    note: '0444: court desk, manager, owner: results where the same two pairs flipped the winner within 7 days; read-only',
+    drop: 40,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'ranks_staff_confirm',
+    args: { p_result_id: NIL_UUID }, expect: DESK_UP,
+    note: '0444: court desk, manager, owner confirm a waiting player report; a nil result is NOT_FOUND past the guard',
+    drop: 40,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'ranks_edit_result',
+    args: { p_result_id: NIL_UUID, p_a1: NIL_UUID, p_a2: null, p_b1: NIL_UUID, p_b2: null, p_winner: 'a', p_score: null, p_reason: 'matrix probe' },
+    expect: DESK_UP,
+    note: '0444: court desk, manager, owner correct a result; an unknown player is RANKS_PLAYER_NOT_FOUND past the guard, nothing written',
+    drop: 40,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'ranks_coach_record',
+    args: { p_a1: 'matrix-no-such-user', p_a2: null, p_b1: 'matrix-no-such-user', p_b2: null, p_winner: 'a', p_score: null },
+    expect: ex<RpcExpectation>('guarded', { anon: 'denied' }),
+    note: '0444: a coach only (app.coach_self), which no matrix principal is: FORBIDDEN for every account, staff included',
+    drop: 40,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'set_my_play_level',
+    args: { p_level: 'pro' },
+    expect: ex<RpcExpectation>('execute', { anon: 'denied', guest_anon_session: 'guarded' }),
+    note: '0444: the caller\'s own type only; an unknown level is INVALID_PLAY_PROFILE, so nothing is written',
+    drop: 40,
+  },
 ];

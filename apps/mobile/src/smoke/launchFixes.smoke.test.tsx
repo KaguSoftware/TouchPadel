@@ -362,14 +362,14 @@ describe.each(LOCALES)('launch fixes in %s', (locale) => {
       expect(
         within(screen.getByTestId(`${row}.confirmed`)).getByText(
           t('coaching.coach.level.confirmedBy', {
-            level: t('playProfile.survey.level.intermediate.title'),
+            level: t('coaching.coach.level.type.intermediate'),
             by: t('coaching.coach.level.by.court_desk'),
           }),
         ),
       ).toBeTruthy();
       expect(
         within(screen.getByTestId(`${row}.claimed`)).getByText(
-          t('coaching.coach.level.claimed', { level: t('playProfile.survey.level.beginner.title') }),
+          t('coaching.coach.level.claimed', { level: t('coaching.coach.level.type.beginner') }),
         ),
       ).toBeTruthy();
       expect(within(screen.getByTestId(`${row}.set`)).getByText(t('coaching.coach.level.set'))).toBeTruthy();
@@ -401,6 +401,9 @@ describe.each(LOCALES)('launch fixes in %s', (locale) => {
       expect(screen.getByTestId(`${sheet}.option.intermediate`).props.accessibilityState.checked).toBe(true);
       expect(within(screen.getByTestId(`${sheet}.save`)).getByText(t('coaching.coach.level.save'))).toBeTruthy();
       expect(screen.getByTestId(`${sheet}.clear`)).toBeTruthy();
+      // Type A, B, C and New (0444); New is its own choice, never folded into Type C.
+      expect(within(screen.getByTestId(`${sheet}.option.advanced`)).getByText(t('coaching.coach.level.type.advanced'))).toBeTruthy();
+      expect(screen.getByTestId(`${sheet}.option.new`).props.accessibilityState.checked).toBe(false);
       fireEvent.press(screen.getByTestId(`${sheet}.option.advanced`));
       fireEvent.changeText(screen.getByTestId(`${sheet}.note`), ' Strong at the net ');
       fireEvent.press(screen.getByTestId(`${sheet}.save`));
