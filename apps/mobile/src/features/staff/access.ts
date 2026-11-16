@@ -94,6 +94,8 @@ export const STAFF_PAGE_AREAS = {
   'staff-request': [],
   'staff-request-new': [],
   'staff-rewards': [],
+  // Starting and finishing work (0442): never blocked, contract §3.
+  'staff-clock': [],
   'staff-work': [],
   'staff-assistant': [],
   // The owner's alone (an owner has no blocks).

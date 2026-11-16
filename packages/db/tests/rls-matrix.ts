@@ -7908,4 +7908,82 @@ export const matrix: MatrixRule[] = [
     note: 'loyalty (0415): the till scans a reward voucher, the roles of loyalty_redeem; a nil tab is TAB_NOT_FOUND (or LOYALTY_OFF) past the guard, nothing is written',
     drop: 40,
   },
+
+  // ── staff clock (0442): logging in and out at the club, set hours ─────────────────────────
+  // Five tables, RLS on, no client grant: read and written through the RPCs below only.
+  ...(['staff_clock_places', 'station_clock_keys', 'staff_shifts', 'staff_clock_devices', 'staff_clock_events'] as const).map(
+    (name): MatrixRule => ({
+      kind: 'select',
+      name,
+      expect: ex<SelectExpectation>('denied'),
+      note: '0442: no client grant; app.my_clock, app.clock_day, app.clock_setup and app.staff_shifts_get read it',
+      drop: 42,
+    }),
+  ),
+  {
+    kind: 'rpc', schema: 'app', name: 'my_clock',
+    args: { p_venue_id: VENUE_A },
+    expect: { ...STAFF_ANY, owner: 'guarded', branch_b_manager: 'guarded' },
+    note: '0442: any staff member of the branch but the owner (who never logs); another branch\'s manager is FORBIDDEN:venue_id',
+    drop: 42,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'clock_punch',
+    args: {
+      p_venue_id: VENUE_A, p_kind: 'matrix', p_code: '000000', p_lat: 0, p_lng: 0, p_accuracy_m: 10,
+      p_fix_at: TS_FROM, p_mocked: false, p_device_id: 'matrix-device', p_platform: 'android',
+    },
+    expect: { ...STAFF_ANY, owner: 'guarded', branch_b_manager: 'guarded' },
+    note: '0442: as my_clock; the bad kind stops at INVALID_ARGUMENT:kind past the guard, before any attempt is kept',
+    drop: 42,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'clock_setup',
+    args: { p_venue_id: VENUE_A },
+    expect: { ...MANAGER_UP, branch_b_manager: 'guarded' },
+    note: '0442: MGMT at the branch: the place and the stations, never a secret',
+    drop: 42,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'set_clock_place',
+    args: { p_venue_id: VENUE_A, p_lat: 0, p_lng: 0, p_radius_m: 120, p_max_accuracy_m: 60 },
+    expect: OWNER_ONLY,
+    note: '0442: the owner; the 0,0 point stops at INVALID_ARGUMENT:location, nothing is written',
+    drop: 42,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'issue_station_clock_key',
+    args: { p_station_id: 'MATRIX-NONE' },
+    expect: MANAGER_UP,
+    note: '0442: MGMT; an unknown station is REF_NOT_FOUND:station_id before the branch check, nothing is written',
+    drop: 42,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'staff_shifts_get',
+    args: { p_venue_id: VENUE_A, p_staff_id: NIL_UUID },
+    expect: { ...MANAGER_UP, branch_b_manager: 'guarded' },
+    note: '0442: MGMT at the branch; the nil person is REF_NOT_FOUND',
+    drop: 42,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'set_staff_shifts',
+    args: { p_venue_id: VENUE_A, p_staff_id: NIL_UUID, p_shifts: [] },
+    expect: { ...MANAGER_UP, branch_b_manager: 'guarded' },
+    note: '0442: the owner, a manager for anyone but themselves, at the branch; the nil person is REF_NOT_FOUND, nothing is written',
+    drop: 42,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'clock_day',
+    args: { p_venue_id: VENUE_A, p_date: '2000-01-01' },
+    expect: { ...MANAGER_UP, branch_b_manager: 'guarded' },
+    note: '0442: MGMT at the branch; a day outside the 60-day window is INVALID_ARGUMENT:date',
+    drop: 42,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'clock_reset_device',
+    args: { p_venue_id: VENUE_A, p_staff_id: NIL_UUID },
+    expect: { ...MANAGER_UP, branch_b_manager: 'guarded' },
+    note: '0442: MGMT at the branch, never their own phone; the nil person is REF_NOT_FOUND, nothing is written',
+    drop: 42,
+  },
 ];

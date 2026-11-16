@@ -96,6 +96,8 @@ import { PriceWatchCrawler } from '../features/shop/priceWatch/PriceWatchCrawler
 import { AssistantDrawer, AssistantDrawerProvider } from '../features/assistant/AssistantDrawer';
 import { GuideProvider, WorkspaceGuideHost } from '../features/guide/GuideProvider';
 import { GuideRailButton } from '../features/guide/GuideRailButton';
+import { SignInClockPanel, StaffQrRailButton } from '../features/clock/StaffQr';
+import { useStationKey } from '../features/clock/ClockQr';
 import { ShiftProvider } from '../features/tillShift/ShiftProvider';
 import { StationReachProvider } from '../lib/stationReach';
 import { ShiftRailControl } from '../features/tillShift/ShiftRailControl';
@@ -995,6 +997,9 @@ function WorkspaceNav({
         {/* The workspace's guide, first in the footer so it is always in
             reach. Renders nothing where there is no guide (Management). */}
         <GuideRailButton style={navButtonStyle} />
+        {/* Staff clock-in (0442): the desk's QR full screen, for a colleague who
+            arrives after the station is signed in. Every signed-in role. */}
+        <StaffQrRailButton style={navButtonStyle} />
         {/* Workspace, assistant, language and appearance behind one row. The
             assistant is owner-only and the switch manager-and-up, so the menu
             holds two items for a cashier and four for an owner. */}
@@ -1859,6 +1864,8 @@ function SignInScreen() {
   // Whichever is physically first takes the padding.
   const inset = useTitleBarInset();
   const navyIsUnderLights = dir === 'ltr';
+  // This desk's staff clock key (0442): the panel below draws the QR from it.
+  const { key: clockKey } = useStationKey();
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -1897,7 +1904,6 @@ function SignInScreen() {
   return (
     <div style={{ minBlockSize: '100vh', display: 'grid', gridTemplateColumns: 'minmax(0, 5fr) minmax(0, 7fr)', background: 'var(--tp-bg)' }}>
       <aside
-        aria-hidden="true"
         style={
           {
             position: 'relative',
@@ -1920,15 +1926,26 @@ function SignInScreen() {
             site of --tp-dur-ceremony in the codebase. Court lines are retired
             here — swoosh or court lines on one navy panel, never both. */}
         <div
+          aria-hidden="true"
           className="tp-swoosh-in"
           style={{ position: 'absolute', insetBlock: '22%', insetInline: '4%' }}
         >
           <BrandSwoosh opacity={0.5} />
         </div>
-        <BrandLockup size={40} tone="onDark" style={{ position: 'relative' }} />
-        <p style={{ position: 'relative', fontSize: 'var(--tp-fs-3xl)', fontWeight: 700, lineHeight: 1.1, maxInlineSize: '9ch' }}>
-          {tr('ws.shell.signIn.tagline')}
-        </p>
+        <div aria-hidden="true" style={{ position: 'relative' }}>
+          <BrandLockup size={40} tone="onDark" />
+        </div>
+        {/* Staff clock-in (0442): when this desk has a QR key, the QR is the
+            first thing on the station, in the tagline's place. The aside was
+            aria-hidden as pure decoration; only its decoration is now. */}
+        {clockKey ? (
+          <SignInClockPanel />
+        ) : (
+          <p aria-hidden="true" style={{ position: 'relative', fontSize: 'var(--tp-fs-3xl)', fontWeight: 700, lineHeight: 1.1, maxInlineSize: '9ch' }}>
+            {tr('ws.shell.signIn.tagline')}
+          </p>
+        )}
+        {clockKey && <span aria-hidden="true" />}
       </aside>
       <div
         style={{

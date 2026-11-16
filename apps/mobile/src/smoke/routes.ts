@@ -299,6 +299,9 @@ export const SMOKE_ROUTES: readonly SmokeRoute[] = [
   // Rewards for orders placed (0332), cased by staffRewards.smoke.test.tsx: the person's own
   // page (its how-it-counts note is always there) and the owner's page.
   { file: '(staff)/staff-rewards.tsx', route: 'staff-rewards', primary: 'staff-rewards.how' },
+  // Starting and finishing work (0442), cased by staffClock.smoke.test.tsx: the page's body,
+  // which shows its first step (location, the camera or the scan) once the permissions are read.
+  { file: '(staff)/staff-clock.tsx', route: 'staff-clock', primary: 'staff-clock.body' },
   {
     file: '(staff)/staff-rewards-admin.tsx',
     route: 'staff-rewards-admin',

@@ -1277,6 +1277,69 @@ export type Database = {
       clear_pin_lockout: { Args: { p_staff_id: string }; Returns: Json }
       clear_staff_pin: { Args: { p_staff_id: string }; Returns: undefined }
       clear_table_token_secret_prev: { Args: never; Returns: Json }
+      clock_attendance_sync: {
+        Args: { p_date: string; p_staff: string; p_venue: string }
+        Returns: undefined
+      }
+      clock_code: {
+        Args: { p_secret: string; p_step: number }
+        Returns: string
+      }
+      clock_day: {
+        Args: { p_date?: string; p_venue_id: string }
+        Returns: Json
+      }
+      clock_distance_m: {
+        Args: { p_lat1: number; p_lat2: number; p_lng1: number; p_lng2: number }
+        Returns: number
+      }
+      clock_member_guard: { Args: { p_venue: string }; Returns: undefined }
+      clock_mgmt_guard: { Args: { p_venue: string }; Returns: undefined }
+      clock_open_in: {
+        Args: { p_staff: string; p_venue: string }
+        Returns: Database["public"]["Tables"]["staff_clock_events"]["Row"]
+        SetofOptions: {
+          from: "*"
+          to: "staff_clock_events"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      clock_plan: {
+        Args: { p_from: string; p_staff: string; p_to: string; p_venue: string }
+        Returns: {
+          block_ends: string
+          block_starts: string
+          ends: string
+          role: Database["public"]["Enums"]["staff_role"]
+          starts: string
+          work_date: string
+        }[]
+      }
+      clock_plan_json: {
+        Args: { p_date: string; p_staff: string; p_venue: string }
+        Returns: Json
+      }
+      clock_punch: {
+        Args: {
+          p_accuracy_m: number
+          p_code: string
+          p_device_id: string
+          p_fix_at: string
+          p_kind: string
+          p_lat: number
+          p_lng: number
+          p_mocked: boolean
+          p_platform: string
+          p_venue_id: string
+        }
+        Returns: Json
+      }
+      clock_reset_device: {
+        Args: { p_staff_id: string; p_venue_id: string }
+        Returns: Json
+      }
+      clock_setup: { Args: { p_venue_id: string }; Returns: Json }
       close_branch: {
         Args: { p_venue: string }
         Returns: Database["public"]["Tables"]["venues"]["Row"]
@@ -2398,6 +2461,7 @@ export type Database = {
       }
       is_staff_media_path: { Args: { p_name: string }; Returns: boolean }
       is_venue_file_path: { Args: { p_name: string }; Returns: boolean }
+      issue_station_clock_key: { Args: { p_station_id: string }; Returns: Json }
       item_active_groups: {
         Args: { p_chosen_modifier_ids: string[]; p_item_id: string }
         Returns: string[]
@@ -3682,6 +3746,7 @@ export type Database = {
         Returns: Json
       }
       my_checklists_today: { Args: { p_venue_id?: string }; Returns: Json }
+      my_clock: { Args: { p_venue_id: string }; Returns: Json }
       my_coach_statements: { Args: { p_month?: string }; Returns: Json }
       my_deals: { Args: never; Returns: Json }
       my_deduction_proposals: {
@@ -5047,6 +5112,16 @@ export type Database = {
         }
         Returns: undefined
       }
+      set_clock_place: {
+        Args: {
+          p_lat: number
+          p_lng: number
+          p_max_accuracy_m?: number
+          p_radius_m?: number
+          p_venue_id: string
+        }
+        Returns: Json
+      }
       set_coach_branches: {
         Args: { p_coach_id: string; p_venue_ids: string[] }
         Returns: Json
@@ -5247,6 +5322,10 @@ export type Database = {
           p_role: Database["public"]["Enums"]["staff_role"]
           p_staff_id: string
         }
+        Returns: Json
+      }
+      set_staff_shifts: {
+        Args: { p_shifts: Json; p_staff_id: string; p_venue_id: string }
         Returns: Json
       }
       set_staff_venues: {
@@ -5491,6 +5570,10 @@ export type Database = {
       }
       staff_set_customer_level: {
         Args: { p_customer_id: string; p_level: string; p_note?: string }
+        Returns: Json
+      }
+      staff_shifts_get: {
+        Args: { p_staff_id: string; p_venue_id: string }
         Returns: Json
       }
       staff_stock_view: {
@@ -16412,7 +16495,8 @@ export type Database = {
           penalty_iqd: number | null
           penalty_rule_iqd: number
           recorded_at: string
-          recorded_by: string
+          recorded_by: string | null
+          source: string
           staff_id: string
           venue_id: string
           work_date: string
@@ -16427,7 +16511,8 @@ export type Database = {
           penalty_iqd?: number | null
           penalty_rule_iqd: number
           recorded_at?: string
-          recorded_by: string
+          recorded_by?: string | null
+          source?: string
           staff_id: string
           venue_id: string
           work_date: string
@@ -16442,7 +16527,8 @@ export type Database = {
           penalty_iqd?: number | null
           penalty_rule_iqd?: number
           recorded_at?: string
-          recorded_by?: string
+          recorded_by?: string | null
+          source?: string
           staff_id?: string
           venue_id?: string
           work_date?: string
@@ -16524,6 +16610,178 @@ export type Database = {
             foreignKeyName: "staff_breaks_venue_id_fkey"
             columns: ["venue_id"]
             isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      staff_clock_devices: {
+        Row: {
+          bound_at: string
+          device_hash: string
+          platform: string
+          staff_id: string
+        }
+        Insert: {
+          bound_at?: string
+          device_hash: string
+          platform: string
+          staff_id: string
+        }
+        Update: {
+          bound_at?: string
+          device_hash?: string
+          platform?: string
+          staff_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_clock_devices_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: true
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      staff_clock_events: {
+        Row: {
+          accuracy_m: number | null
+          at: string
+          device_hash: string | null
+          distance_m: number | null
+          early_minutes: number
+          fix_at: string | null
+          id: string
+          in_event_id: string | null
+          kind: string
+          lat: number | null
+          late_minutes: number
+          lng: number | null
+          mocked: boolean | null
+          platform: string | null
+          refusal: string | null
+          staff_id: string
+          station_id: string | null
+          status: string
+          venue_id: string
+          work_date: string | null
+        }
+        Insert: {
+          accuracy_m?: number | null
+          at?: string
+          device_hash?: string | null
+          distance_m?: number | null
+          early_minutes?: number
+          fix_at?: string | null
+          id?: string
+          in_event_id?: string | null
+          kind: string
+          lat?: number | null
+          late_minutes?: number
+          lng?: number | null
+          mocked?: boolean | null
+          platform?: string | null
+          refusal?: string | null
+          staff_id: string
+          station_id?: string | null
+          status: string
+          venue_id: string
+          work_date?: string | null
+        }
+        Update: {
+          accuracy_m?: number | null
+          at?: string
+          device_hash?: string | null
+          distance_m?: number | null
+          early_minutes?: number
+          fix_at?: string | null
+          id?: string
+          in_event_id?: string | null
+          kind?: string
+          lat?: number | null
+          late_minutes?: number
+          lng?: number | null
+          mocked?: boolean | null
+          platform?: string | null
+          refusal?: string | null
+          staff_id?: string
+          station_id?: string | null
+          status?: string
+          venue_id?: string
+          work_date?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_clock_events_in_event_id_fkey"
+            columns: ["in_event_id"]
+            isOneToOne: false
+            referencedRelation: "staff_clock_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_clock_events_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_clock_events_station_id_fkey"
+            columns: ["station_id"]
+            isOneToOne: false
+            referencedRelation: "stations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_clock_events_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      staff_clock_places: {
+        Row: {
+          lat: number
+          lng: number
+          max_accuracy_m: number
+          radius_m: number
+          updated_at: string
+          updated_by: string | null
+          venue_id: string
+        }
+        Insert: {
+          lat: number
+          lng: number
+          max_accuracy_m?: number
+          radius_m?: number
+          updated_at?: string
+          updated_by?: string | null
+          venue_id: string
+        }
+        Update: {
+          lat?: number
+          lng?: number
+          max_accuracy_m?: number
+          radius_m?: number
+          updated_at?: string
+          updated_by?: string | null
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_clock_places_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_clock_places_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: true
             referencedRelation: "venues"
             referencedColumns: ["id"]
           },
@@ -16838,6 +17096,64 @@ export type Database = {
           },
         ]
       }
+      staff_shifts: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          ends_at: string
+          id: string
+          role: Database["public"]["Enums"]["staff_role"] | null
+          staff_id: string
+          starts_at: string
+          venue_id: string
+          weekday: number
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          ends_at: string
+          id?: string
+          role?: Database["public"]["Enums"]["staff_role"] | null
+          staff_id: string
+          starts_at: string
+          venue_id: string
+          weekday: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          ends_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["staff_role"] | null
+          staff_id?: string
+          starts_at?: string
+          venue_id?: string
+          weekday?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_shifts_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_shifts_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_shifts_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       staff_suggestions: {
         Row: {
           author_id: string
@@ -16984,6 +17300,52 @@ export type Database = {
           },
           {
             foreignKeyName: "staff_wages_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      station_clock_keys: {
+        Row: {
+          issued_at: string
+          issued_by: string | null
+          secret: string
+          station_id: string
+          venue_id: string
+        }
+        Insert: {
+          issued_at?: string
+          issued_by?: string | null
+          secret: string
+          station_id: string
+          venue_id: string
+        }
+        Update: {
+          issued_at?: string
+          issued_by?: string | null
+          secret?: string
+          station_id?: string
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "station_clock_keys_issued_by_fkey"
+            columns: ["issued_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "station_clock_keys_station_id_fkey"
+            columns: ["station_id"]
+            isOneToOne: true
+            referencedRelation: "stations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "station_clock_keys_venue_id_fkey"
             columns: ["venue_id"]
             isOneToOne: false
             referencedRelation: "venues"

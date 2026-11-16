@@ -104,6 +104,19 @@ and cancelled say the points are back and offer Redeem again. Codes not yet coll
 rewards ("Ready to collect"). A screenshot works by Majed's call (whoever holds the code collects).
 `['loyalty','vouchers']` stays off disk; pure logic is `features/loyalty/vouchers.ts`.
 
+Clock-in (Majed, 2026-11-15; migration 0442; `docs/design/clock-in/contracts-2026-11-15.md`):
+every staff member but the owner logs Start work / Finish work from the work card under Today's
+greeting (`src/features/staff/clock/WorkCard.tsx`, from `my_clock`) through
+`app/(staff)/staff-clock.tsx`: location ("while using" only), then the camera, scan the desk
+station's `TPCLOCK:` QR (or type its 6 digits), then `clock_punch` with one fresh fix, its `mocked`
+flag and the app-scoped device id. Refusals are data and each has its own words
+(`clock/logic.ts`); the server decides everything. `clock/native.ts` is the ONLY file that names
+expo-location or expo-camera and loads them lazily, so a binary built before them never crashes
+at launch (the page says "update the app"); a guest is never asked for location. The store
+privacy rows (Precise Location, Device ID) and the iOS manifest changed with it
+(`privacyManifest.test.ts`). The customer "nearby offer" is NOT built: it needs its own
+decision and store review.
+
 ## Commits
 
 - No AI co-author trailer of any kind (`Co-Authored-By: Claude …`, Copilot, …). If a harness appends

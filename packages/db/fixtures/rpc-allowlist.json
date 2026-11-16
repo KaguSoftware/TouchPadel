@@ -649,6 +649,15 @@
     "my_reward_vouchers",
     "use_reward_voucher",
     "assistant_rate_message",
-    "assistant_weekly_page"
+    "assistant_weekly_page",
+    "clock_day",
+    "clock_punch",
+    "clock_reset_device",
+    "clock_setup",
+    "issue_station_clock_key",
+    "my_clock",
+    "set_clock_place",
+    "set_staff_shifts",
+    "staff_shifts_get"
   ]
 }

@@ -212,7 +212,12 @@
     "waiter_calls": "table_read",
     "shop_sale_reward_earnings": "tool:wages_summary",
     "shop_sale_reward_rates": "excluded: the shop sales reward percent frozen on each settled shop tab (0355), wage bookkeeping read by no client; never readable by the owner assistant or any LLM",
-    "loyalty_reward_vouchers": "excluded: a reward a guest redeemed in the app and its single-use code (0415); the code is a bearer credential, so the table has no client grant and is never read by the owner assistant or any LLM"
+    "loyalty_reward_vouchers": "excluded: a reward a guest redeemed in the app and its single-use code (0415); the code is a bearer credential, so the table has no client grant and is never read by the owner assistant or any LLM",
+    "staff_clock_events": "excluded: staff logging in and out (0442): a named person's arrival and departure times, location fixes and phone; like staff_attendance, never readable by the owner assistant or any LLM",
+    "staff_clock_places": "excluded: the club's point and radius for staff logging in (0442); setup data the owner edits in the operator, nothing an answer needs",
+    "station_clock_keys": "excluded: desk station secrets that make the 30-second clock code (0442); a secret is never readable by any client or LLM",
+    "staff_shifts": "excluded: a named person's set hours per weekday (0442), the basis of their recorded lateness; kept off the assistant with staff_attendance",
+    "staff_clock_devices": "excluded: a hash of each person's logging phone (0442); a device identifier, never readable by the owner assistant or any LLM"
   },
   "views": {
     "cafe_settings_public": "table_read",
@@ -1621,7 +1626,24 @@
     "loyalty_voucher_end": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client",
     "loyalty_voucher_json": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client",
     "voucher_code_new": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client",
-    "loyalty_voucher_sweep": "excluded: service_role only — the reward voucher sweep run by cron tp_reward_voucher_sweep (0415): expires vouchers nobody used and gives their points back, never called by a client"
+    "loyalty_voucher_sweep": "excluded: service_role only — the reward voucher sweep run by cron tp_reward_voucher_sweep (0415): expires vouchers nobody used and gives their points back, never called by a client",
+    "clock_attendance_sync": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client",
+    "clock_code": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client",
+    "clock_distance_m": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client",
+    "clock_member_guard": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client",
+    "clock_mgmt_guard": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client",
+    "clock_open_in": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client",
+    "clock_plan": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client",
+    "clock_plan_json": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client",
+    "my_clock": "map:action",
+    "clock_punch": "map:action",
+    "clock_day": "map:action",
+    "clock_setup": "map:action",
+    "set_clock_place": "map:action",
+    "issue_station_clock_key": "map:action",
+    "staff_shifts_get": "map:action",
+    "set_staff_shifts": "map:action",
+    "clock_reset_device": "map:action"
   },
   "routes": {
     "/admin": "map:page",
@@ -1896,6 +1918,7 @@
     "PHASE-2-CHECKLIST.md": "excluded: the build team's Milestone 0 tick list (what is done, what is left, owner steps); not venue knowledge the owner asks the assistant about",
     "PHASE-2-PLAN.md": "index:doc",
     "README.md": "index:doc",
-    "SECURITY.md": "excluded: the repository's vulnerability-reporting and disclosure policy for researchers; not venue knowledge the owner asks the assistant about"
+    "SECURITY.md": "excluded: the repository's vulnerability-reporting and disclosure policy for researchers; not venue knowledge the owner asks the assistant about",
+    "docs/design/clock-in/contracts-2026-11-15.md": "index:doc"
   }
 }

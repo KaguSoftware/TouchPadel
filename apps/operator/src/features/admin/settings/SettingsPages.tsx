@@ -32,6 +32,7 @@ import { DayServiceTab } from './DayServiceTab';
 import { DevicesPanel } from './DevicesPanel';
 import { MatchSettingsPanel } from './MatchSettingsPanel';
 import { StationsPanel } from './StationsPanel';
+import { ClockSetupPanel } from '../../clock/ClockSetupPanel';
 import { IdleLockPanel } from './IdleLockPanel';
 import { TournamentsSettingsPanel } from './TournamentsSettingsPanel';
 import { VENUE_ADMIN_KEY, fetchVenueAdmin, type VenueAdminRow } from './venueQueries';
@@ -181,12 +182,15 @@ export function DevicesScreen() {
 
 /**
  * Devices › Stations (`/admin/settings/stations`): register this machine at the branch, retire a gone one,
- * and how long a station waits before it locks itself (F-48, owner).
+ * staff clock-in (the club's place and this desk's QR, 0442), and how long a station waits before it
+ * locks itself (F-48, owner).
  */
 export function StationsScreen() {
   return (
     <SettingsPage title="ws.shell.nav.stations">
       <StationsPanel />
+      {/* Staff clock-in (0442): where the club is, and this desk's QR key. */}
+      <ClockSetupPanel />
       <IdleLockPanel />
     </SettingsPage>
   );

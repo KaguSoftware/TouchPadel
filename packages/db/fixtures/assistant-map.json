@@ -1,5 +1,5 @@
 {
-  "generated_from": "1daf1b20904a99f72d979c0d67cff0805be3751e",
+  "generated_from": "a5b48f84ebe8e7127cfdf9c459fa5414f03be8d0",
   "chunks": [
     {
       "kind": "page",
@@ -3318,7 +3318,7 @@
       "ref": "action:app.attendance_month",
       "lang": "en",
       "title": "app.attendance_month (part 1 of 2)",
-      "body": "wages (0271). A manager or the owner at the branch: {month, current_month, today, window_days, rule: {grace_minutes, penalty_iqd}, staff: [{id, display_name, role}] (who the caller may record a day for), totals: {days, penalty_days, penalties_iqd, people}, people: [{staff_id, display_name, role, is_active, day_count, penalty_days, penalties_iqd, late_minutes, early_leave_minutes, days: [{id, work_date, late_minutes, early_leave_minutes, grace_minutes, penalty_rule_iqd, penalty_iqd, pay_month, locked, note, recorded_by_name, recorded_at}]}]} for the work days of p_month (NULL: the branch's current business month), never a day about",
+      "body": "wages (0271, 0442). A manager or the owner at the branch: {month, current_month, today, window_days, rule: {grace_minutes, penalty_iqd}, staff: [{id, display_name, role}] (who the caller may record a day for), totals: {days, penalty_days, penalties_iqd, people}, people: [{staff_id, display_name, role, is_active, day_count, penalty_days, penalties_iqd, late_minutes, early_leave_minutes, days: [{id, work_date, late_minutes, early_leave_minutes, grace_minutes, penalty_rule_iqd, penalty_iqd, pay_month, locked, note, recorded_by_name (null for a clock day), recorded_at, source (manual | clock, 0442)}]}]} for the work days of p_month",
       "route": null
     },
     {
@@ -3326,7 +3326,7 @@
       "ref": "action:app.attendance_month~2",
       "lang": "en",
       "title": "app.attendance_month (part 2 of 2)",
-      "body": "wages (0271). A manager or the owner at the branch: {month, current_month, today, window_days, rule: {grace_minutes, penalty_iqd}, staff: [{id, display_name, ro\nthe caller. locked: its pay month is paid. FORBIDDEN for anyone else.\nSignature: app.attendance_month(p_venue_id uuid default null, p_month date default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager, owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0271 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "wages (0271, 0442). A manager or the owner at the branch: {month, current_month, today, window_days, rule: {grace_minutes, penalty_iqd}, staff: [{id, display_na\n(NULL: the branch's current business month), never a day about the caller. locked: its pay month is paid. FORBIDDEN for anyone else.\nSignature: app.attendance_month(p_venue_id uuid default null, p_month date default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager, owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0442 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -3616,6 +3616,62 @@
       "title": "app.clear_staff_pin",
       "body": "Signature: app.clear_staff_pin(p_staff_id uuid) returns void.\nGranted to: authenticated. Guard: staff role in (owner).\nAudit actions written: staff.pin_cleared.\nError codes: FORBIDDEN, STAFF_NOT_FOUND.\nCalled from: apps/operator/src/features/admin/staff/StaffAccountEditor.tsx (pages /admin).\nDefined in migration 0051 (last definition). The assistant cannot call this; it only explains it.",
       "route": "/admin"
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.clock_day",
+      "lang": "en",
+      "title": "app.clock_day (part 1 of 2)",
+      "body": "0442. A manager or the owner at the branch: one local day (default today, up to 60 days back) of logging in and out: {date, today, now, people: [{staff_id, display_name, role, shifts ([{starts, ends, role, block_starts, block_ends}]), events ([{id, kind, status, refusal, at, late_minutes, early_minutes, distance_m, accuracy_m, mocked, station_id}]: accepted ones counted against the day, refused ones made that day), in_since (an open log-in now), attendance ({id, late_minutes, early_leave_minutes, penalty_iqd, source} or null), device_bound}]} for everyone with hours, an attempt or an open log-in that day; never the caller.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.clock_day~2",
+      "lang": "en",
+      "title": "app.clock_day (part 2 of 2)",
+      "body": "0442. A manager or the owner at the branch: one local day (default today, up to 60 days back) of logging in and out: {date, today, now, people: [{staff_id, disp\nINVALID_ARGUMENT (hint date), FORBIDDEN.\nSignature: app.clock_day(p_venue_id uuid, p_date date default null) returns jsonb.\nGranted to: authenticated. Guard: not detected by pattern — read the migration.\nWrites no audit row of its own (or via a helper).\nError codes: INVALID_ARGUMENT.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0442 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.clock_punch",
+      "lang": "en",
+      "title": "app.clock_punch (part 1 of 3)",
+      "body": "0442. Any staff member but the owner, at a branch of theirs, logs arriving (p_kind in) or leaving (out) with the desk station's 6-digit code and the phone's location fix. Checks in order, the first failure answered as data {status: refused, reason} and kept in staff_clock_events: TOO_MANY_TRIES (8 refusals in the last hour), NO_PLACE, NO_STATION, WRONG_DEVICE (another phone is bound), LOCATION_STALE (fix older than 2 minutes), MOCK_LOCATION, LOCATION_ROUGH (+accuracy_m, max_accuracy_m), NOT_HERE (+distance_m, radius_m), CODE_WRONG (no live station of the branch has that code in steps -2..+1), ALREADY_IN, NOT_IN. Accepted: {status:",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.clock_punch~2",
+      "lang": "en",
+      "title": "app.clock_punch (part 2 of 3)",
+      "body": "0442. Any staff member but the owner, at a branch of theirs, logs arriving (p_kind in) or leaving (out) with the desk station's 6-digit code and the phone's loc\naccepted, kind, at, work_date, late_minutes, early_minutes}; binds the phone on the first accepted scan and writes the day's staff_attendance from the scans (source clock). Raises FORBIDDEN (hint venue_id), INVALID_ARGUMENT (hint kind, location, device_id, platform). Audit staff.clock.in / staff.clock.out.\nSignature: app.clock_punch(p_venue_id uuid, p_kind text, p_code text, p_lat double precision, p_lng double precision, p_accuracy_m double precision, p_fix_at timestamptz, p_mocked boolean, p_device_id text, p_platform text) returns jsonb.\nGranted to: authenticated. Guard: not detected by pattern — read the migration.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.clock_punch~3",
+      "lang": "en",
+      "title": "app.clock_punch (part 3 of 3)",
+      "body": "0442. Any staff member but the owner, at a branch of theirs, logs arriving (p_kind in) or leaving (out) with the desk station's 6-digit code and the phone's loc\nGranted to: authenticated. Guard: not detected by pattern — read the migration.\nAudit actions written: staff.clock..\nError codes: INVALID_ARGUMENT.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0442 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.clock_reset_device",
+      "lang": "en",
+      "title": "app.clock_reset_device",
+      "body": "0442. A manager or the owner at the branch unbinds a person's logging phone, so their next accepted scan binds the phone they use then. Never their own. Returns {status: reset, had_device}. REF_NOT_FOUND (hint staff_id), FORBIDDEN. Audit staff.clock.device_reset.\nSignature: app.clock_reset_device(p_venue_id uuid, p_staff_id uuid) returns jsonb.\nGranted to: authenticated. Guard: not detected by pattern — read the migration.\nAudit actions written: staff.clock.device_reset.\nError codes: REF_NOT_FOUND.\nCalled from: apps/operator/src/features/clock/api.ts.\nDefined in migration 0442 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.clock_setup",
+      "lang": "en",
+      "title": "app.clock_setup",
+      "body": "0442. A manager or the owner at the branch: {place: {lat, lng, radius_m, max_accuracy_m, updated_at, updated_by_name} or null, stations: [{station_id, is_till, has_key, issued_at, issued_by_name}] (live stations), can_edit_place (owner)}. Never a secret. FORBIDDEN (hint venue_id).\nSignature: app.clock_setup(p_venue_id uuid) returns jsonb.\nGranted to: authenticated. Guard: not detected by pattern — read the migration.\nWrites no audit row of its own (or via a helper).\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0442 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
     },
     {
       "kind": "action",
@@ -5731,6 +5787,14 @@
     },
     {
       "kind": "action",
+      "ref": "action:app.issue_station_clock_key",
+      "lang": "en",
+      "title": "app.issue_station_clock_key",
+      "body": "0442. A manager or the owner at the station's branch issues the desk station a new clock secret (replacing any old one, whose QR stops working at once). Returns {station_id, secret (40 hex chars, shown this once), step_seconds: 30, digits: 6, replaced}. REF_NOT_FOUND (hint station_id: unknown or retired), FORBIDDEN. Audit staff.clock.station_key.\nSignature: app.issue_station_clock_key(p_station_id text) returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager, owner).\nAudit actions written: staff.clock.station_key.\nError codes: FORBIDDEN, REF_NOT_FOUND.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0442 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
       "ref": "action:app.item_active_groups",
       "lang": "en",
       "title": "app.item_active_groups",
@@ -7147,6 +7211,22 @@
     },
     {
       "kind": "action",
+      "ref": "action:app.my_clock",
+      "lang": "en",
+      "title": "app.my_clock (part 1 of 2)",
+      "body": "0442. Any staff member but the owner, at a branch of theirs: {now, today, ready (the club's place is set and a live desk station has a code), state in|out, since (the open log-in), device_bound, shifts (today's: [{starts, ends, role, block_starts, block_ends}]), current ({starts, ends, role} of the shift running now, or null), next (the next shift within a week, or null), recent (the last six attempts: [{kind, status, refusal, at, late_minutes, early_minutes}])}. FORBIDDEN (hint venue_id).\nSignature: app.my_clock(p_venue_id uuid) returns jsonb.\nGranted to: authenticated. Guard: not detected by pattern — read the migration.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.my_clock~2",
+      "lang": "en",
+      "title": "app.my_clock (part 2 of 2)",
+      "body": "0442. Any staff member but the owner, at a branch of theirs: {now, today, ready (the club's place is set and a live desk station has a code), state in|out, sinc\nSignature: app.my_clock(p_venue_id uuid) returns jsonb.\nGranted to: authenticated. Guard: not detected by pattern — read the migration.\nWrites no audit row of its own (or via a helper).\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0442 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
       "ref": "action:app.my_deals",
       "lang": "en",
       "title": "app.my_deals (part 1 of 3)",
@@ -8102,7 +8182,7 @@
       "ref": "action:app.record_attendance",
       "lang": "en",
       "title": "app.record_attendance (part 1 of 3)",
-      "body": "wages (0271). A manager or the owner at the branch: records minutes late and minutes left early (each 0 to 720, not both 0) on a work day within the 60 days up to the branch's business date, with an optional note (at most 300), for someone active at the branch but an owner and themselves. One row per person and day: recording the day again replaces it, unless its pay month is paid. The branch's rule (attendance_grace_minutes, attendance_penalty_iqd) is copied onto the row; a new row's pay month is the day's month, or the person's next unpaid one. Returns {id, penalty_iqd, pay_month, replaced}. INVALID_ARGUMENT (hint date,",
+      "body": "wages (0271, 0442). A manager or the owner at the branch: records minutes late and minutes left early (each 0 to 720, not both 0) on a work day within the 60 days up to the branch's business date, with an optional note (at most 300), for someone active at the branch but an owner and themselves. One row per person and day: recording the day again replaces it, unless its pay month is paid; a day the clock recorded becomes manual (0442) and the clock never changes it again. The branch's rule (attendance_grace_minutes, attendance_penalty_iqd) is copied onto the row; a new row's pay month is the day's month, or the person's next unpaid",
       "route": null
     },
     {
@@ -8110,7 +8190,7 @@
       "ref": "action:app.record_attendance~2",
       "lang": "en",
       "title": "app.record_attendance (part 2 of 3)",
-      "body": "wages (0271). A manager or the owner at the branch: records minutes late and minutes left early (each 0 to 720, not both 0) on a work day within the 60 days up \nlate_minutes, early_leave_minutes, minutes), TEXT_TOO_LONG (hint note), FORBIDDEN (hint staff_id), WAGE_ALREADY_PAID. Audit staff.attendance.record {status}.\nSignature: app.record_attendance(p_staff_id uuid, p_date date, p_late_minutes int, p_early_leave_minutes int, p_note text default null, p_venue_id uuid default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager, owner).\nAudit actions written: staff.attendance.record.\nError codes: FORBIDDEN, INVALID_ARGUMENT, TEXT_TOO_LONG, WAGE_ALREADY_PAID.\nCalled from: apps/operator/src/features/attendance/AttendancePage.tsx.",
+      "body": "wages (0271, 0442). A manager or the owner at the branch: records minutes late and minutes left early (each 0 to 720, not both 0) on a work day within the 60 da\none. Returns {id, penalty_iqd, pay_month, replaced}. INVALID_ARGUMENT (hint date, late_minutes, early_leave_minutes, minutes), TEXT_TOO_LONG (hint note), FORBIDDEN (hint staff_id), WAGE_ALREADY_PAID. Audit staff.attendance.record {status}.\nSignature: app.record_attendance(p_staff_id uuid, p_date date, p_late_minutes int, p_early_leave_minutes int, p_note text default null, p_venue_id uuid default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager, owner).\nAudit actions written: staff.attendance.record.\nError codes: FORBIDDEN, INVALID_ARGUMENT, TEXT_TOO_LONG, WAGE_ALREADY_PAID.",
       "route": null
     },
     {
@@ -8118,7 +8198,7 @@
       "ref": "action:app.record_attendance~3",
       "lang": "en",
       "title": "app.record_attendance (part 3 of 3)",
-      "body": "wages (0271). A manager or the owner at the branch: records minutes late and minutes left early (each 0 to 720, not both 0) on a work day within the 60 days up \nAudit actions written: staff.attendance.record.\nError codes: FORBIDDEN, INVALID_ARGUMENT, TEXT_TOO_LONG, WAGE_ALREADY_PAID.\nCalled from: apps/operator/src/features/attendance/AttendancePage.tsx.\nDefined in migration 0271 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "wages (0271, 0442). A manager or the owner at the branch: records minutes late and minutes left early (each 0 to 720, not both 0) on a work day within the 60 da\nGranted to: authenticated. Guard: staff role in (manager, owner).\nAudit actions written: staff.attendance.record.\nError codes: FORBIDDEN, INVALID_ARGUMENT, TEXT_TOO_LONG, WAGE_ALREADY_PAID.\nCalled from: apps/operator/src/features/attendance/AttendancePage.tsx.\nDefined in migration 0442 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -8827,6 +8907,14 @@
     },
     {
       "kind": "action",
+      "ref": "action:app.set_clock_place",
+      "lang": "en",
+      "title": "app.set_clock_place",
+      "body": "0442. The owner sets where a branch is for staff logging in and out: the point, the radius (20 to 2000 m, default 120) and the roughest fix accepted (10 to 500 m, default 60). Returns {status: saved}. FORBIDDEN, INVALID_ARGUMENT (hint location, radius_m, max_accuracy_m). Audit staff.clock.place.\nSignature: app.set_clock_place(p_venue_id uuid, p_lat double precision, p_lng double precision, p_radius_m int default 120, p_max_accuracy_m int default 60) returns jsonb.\nGranted to: authenticated. Guard: staff role in (owner).\nAudit actions written: staff.clock.place.\nError codes: FORBIDDEN, INVALID_ARGUMENT.\nCalled from: apps/operator/src/features/clock/api.ts.\nDefined in migration 0442 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
       "ref": "action:app.set_coach_branches",
       "lang": "en",
       "title": "app.set_coach_branches (part 1 of 3)",
@@ -9315,6 +9403,22 @@
     },
     {
       "kind": "action",
+      "ref": "action:app.set_staff_shifts",
+      "lang": "en",
+      "title": "app.set_staff_shifts (part 1 of 2)",
+      "body": "0442. The owner, or a manager for anyone but themselves, at the branch: replaces a person's whole week of set hours there with p_shifts [{weekday 1..7, starts_at HH:MI, ends_at HH:MI (at or before the start = the next day), role (one of the person's jobs, or null for the main job)}], at most 42, each at most 16 hours, none overlapping (touching is one block; a gap between two is time off). An empty array clears the week. Returns {status: saved, shifts}. REF_NOT_FOUND (hint staff_id: not active staff of the branch, or the owner), FORBIDDEN (hint staff_id: a manager's own hours), INVALID_ARGUMENT (hint shifts, shift_length, role,",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.set_staff_shifts~2",
+      "lang": "en",
+      "title": "app.set_staff_shifts (part 2 of 2)",
+      "body": "0442. The owner, or a manager for anyone but themselves, at the branch: replaces a person's whole week of set hours there with p_shifts [{weekday 1..7, starts_a\noverlap). Audit staff.shifts.set.\nSignature: app.set_staff_shifts(p_venue_id uuid, p_staff_id uuid, p_shifts jsonb) returns jsonb.\nGranted to: authenticated. Guard: not detected by pattern — read the migration.\nAudit actions written: staff.shifts.set.\nError codes: REF_NOT_FOUND, FORBIDDEN, INVALID_ARGUMENT.\nCalled from: apps/operator/src/features/clock/api.ts.\nDefined in migration 0442 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
       "ref": "action:app.set_staff_venues",
       "lang": "en",
       "title": "app.set_staff_venues",
@@ -9695,6 +9799,14 @@
       "lang": "en",
       "title": "app.staff_set_customer_level (part 2 of 2)",
       "body": "0368, 0401 (customers contracts §1.1; F-70). Court desk, manager or owner (a coach no longer: coaches judge their own linked students through app.coach_set_stud\nand the claim. Returns {customer_id, level_confirmed, level_confirmed_at, level_confirmed_role, level_note, duplicate}.\nSignature: app.staff_set_customer_level(p_customer_id uuid, p_level text, p_note text default null) returns jsonb.\nGranted to: authenticated. Guard: not detected by pattern — read the migration.\nAudit actions written: customer.level_confirmed.\nError codes: FORBIDDEN, INVALID_PLAY_PROFILE, INVALID_ARGUMENT, CUSTOMER_NOT_FOUND.\nCalled from: apps/operator/src/features/players/usePlayers.ts.\nDefined in migration 0401 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.staff_shifts_get",
+      "lang": "en",
+      "title": "app.staff_shifts_get",
+      "body": "0442. A manager or the owner at the branch: a person's set hours there: {staff_id, roles (main job first, then second jobs), can_edit, shifts: [{weekday 1..7, starts_at HH:MI, ends_at HH:MI, role}]}. REF_NOT_FOUND (hint staff_id), FORBIDDEN.\nSignature: app.staff_shifts_get(p_venue_id uuid, p_staff_id uuid) returns jsonb.\nGranted to: authenticated. Guard: not detected by pattern — read the migration.\nWrites no audit row of its own (or via a helper).\nError codes: REF_NOT_FOUND.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0442 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -14558,7 +14670,7 @@
       "ref": "table:staff_attendance~4",
       "lang": "en",
       "title": "table staff_attendance (part 4 of 4)",
-      "body": "staff_attendance (0270): a manager or the owner records how late a person arrived and how early they left on a work day at a branch. The day costs penalty_rule_\n  pay_month date not null — The pay month it comes off (the first day of that month).\n  note text — An optional note (at most 300 characters).\n  recorded_by uuid not null references staff(id) — The manager or owner who recorded it.\n  recorded_at timestamptz not null default now() — When it was recorded or last changed.",
+      "body": "staff_attendance (0270): a manager or the owner records how late a person arrived and how early they left on a work day at a branch. The day costs penalty_rule_\n  pay_month date not null — The pay month it comes off (the first day of that month).\n  note text — An optional note (at most 300 characters).\n  recorded_by uuid not null references staff(id) — The manager or owner who recorded it; NULL for a day the clock recorded (source clock, 0442).\n  recorded_at timestamptz not null default now() — When it was recorded or last changed.\n  source text not null default 'manual' — 0442: manual (a manager or the owner recorded it) or clock (written from the person's own scans against their set hours; recorded_by NULL).",
       "route": null
     },
     {
@@ -14583,6 +14695,62 @@
       "lang": "en",
       "title": "table staff_breaks (part 3 of 3)",
       "body": "0105: one row per break. ended_at null = still away. covered_by is who took the station over meanwhile, verified by their own PIN (app.cover_station). Written o\n  business_date date not null\n  started_at timestamptz not null default now()\n  ended_at timestamptz\n  covered_by uuid references staff(id)\n  cover_started_at timestamptz\n  venue_id uuid",
+      "route": null
+    },
+    {
+      "kind": "table",
+      "ref": "table:staff_clock_devices",
+      "lang": "en",
+      "title": "table staff_clock_devices",
+      "body": "staff_clock_devices (0442): the one phone a person logs in and out with (sha256 of the app's device id), bound on their first accepted scan, removed by app.clock_reset_device. No client grant.\nCreated in migration 0442.\nColumns:\n  staff_id uuid primary key references staff(id) — The person.\n  device_hash text not null — sha256 hex of the phone's app device id; the id itself is never stored.\n  platform text not null — ios or android.\n  bound_at timestamptz not null default now() — When the phone was bound.",
+      "route": null
+    },
+    {
+      "kind": "table",
+      "ref": "table:staff_clock_events",
+      "lang": "en",
+      "title": "table staff_clock_events (part 1 of 4)",
+      "body": "staff_clock_events (0442): every log-in or log-out attempt from a staff phone, accepted or refused with the reason, with the location fix, the distance from the club, the station whose code matched and, when accepted, the work day it counts against and the late or early minutes it added. Written only by app.clock_punch; read through app.my_clock and app.clock_day. No client grant.\nCreated in migration 0442.\nColumns:\n  id uuid primary key default gen_random_uuid() — Row id.\n  venue_id uuid not null references venues(id) — The branch.\n  staff_id uuid not null references staff(id) — The person.",
+      "route": null
+    },
+    {
+      "kind": "table",
+      "ref": "table:staff_clock_events~2",
+      "lang": "en",
+      "title": "table staff_clock_events (part 2 of 4)",
+      "body": "staff_clock_events (0442): every log-in or log-out attempt from a staff phone, accepted or refused with the reason, with the location fix, the distance from the\nColumns:\n  id uuid primary key default gen_random_uuid() — Row id.\n  venue_id uuid not null references venues(id) — The branch.\n  staff_id uuid not null references staff(id) — The person.\n  kind text not null — in (arrived) or out (left).\n  status text not null — accepted or refused.\n  refusal text — Why it was refused; NULL when accepted.\n  at timestamptz not null default now() — Server time of the attempt.\n  work_date date — Accepted: the day of the planned shift it counts against (the local date for an unplanned scan).\n  late_minutes int not null default 0 — An accepted in: minutes after the matched shift started.",
+      "route": null
+    },
+    {
+      "kind": "table",
+      "ref": "table:staff_clock_events~3",
+      "lang": "en",
+      "title": "table staff_clock_events (part 3 of 4)",
+      "body": "staff_clock_events (0442): every log-in or log-out attempt from a staff phone, accepted or refused with the reason, with the location fix, the distance from the\n  late_minutes int not null default 0 — An accepted in: minutes after the matched shift started.\n  early_minutes int not null default 0 — An accepted out: minutes before the matched block ended.\n  in_event_id uuid references staff_clock_events(id) — An accepted out: the in it closes.\n  lat double precision — The phone's reported latitude.\n  lng double precision — The phone's reported longitude.\n  accuracy_m real — The phone's reported accuracy, metres.\n  distance_m int — Distance from the club's point, metres.\n  fix_at timestamptz — When the phone took the fix.",
+      "route": null
+    },
+    {
+      "kind": "table",
+      "ref": "table:staff_clock_events~4",
+      "lang": "en",
+      "title": "table staff_clock_events (part 4 of 4)",
+      "body": "staff_clock_events (0442): every log-in or log-out attempt from a staff phone, accepted or refused with the reason, with the location fix, the distance from the\n  accuracy_m real — The phone's reported accuracy, metres.\n  distance_m int — Distance from the club's point, metres.\n  fix_at timestamptz — When the phone took the fix.\n  mocked boolean — The phone's operating system said the location was simulated.\n  device_hash text — sha256 hex of the phone's app device id.\n  platform text — ios or android.\n  station_id text references stations(id) — The desk station whose code matched.",
+      "route": null
+    },
+    {
+      "kind": "table",
+      "ref": "table:staff_clock_places",
+      "lang": "en",
+      "title": "table staff_clock_places (part 1 of 2)",
+      "body": "staff_clock_places (0442): where a branch is for staff logging in and out: the point, the radius a phone must be inside and the roughest location fix accepted. Owner writes through app.set_clock_place; read through app.clock_setup. No client grant.\nCreated in migration 0442.\nColumns:\n  venue_id uuid primary key references venues(id) — The branch.\n  lat double precision not null — Latitude of the club, WGS84 degrees.\n  lng double precision not null — Longitude of the club, WGS84 degrees.\n  radius_m int not null default 120 — A phone further than this from the point is not at the club (20 to 2000 m).",
+      "route": null
+    },
+    {
+      "kind": "table",
+      "ref": "table:staff_clock_places~2",
+      "lang": "en",
+      "title": "table staff_clock_places (part 2 of 2)",
+      "body": "staff_clock_places (0442): where a branch is for staff logging in and out: the point, the radius a phone must be inside and the roughest location fix accepted. \n  lng double precision not null — Longitude of the club, WGS84 degrees.\n  radius_m int not null default 120 — A phone further than this from the point is not at the club (20 to 2000 m).\n  max_accuracy_m int not null default 60 — A fix rougher than this is refused (10 to 500 m).\n  updated_by uuid references staff(id) — Who set it last.\n  updated_at timestamptz not null default now() — When it was set last.",
       "route": null
     },
     {
@@ -14691,6 +14859,22 @@
     },
     {
       "kind": "table",
+      "ref": "table:staff_shifts",
+      "lang": "en",
+      "title": "table staff_shifts (part 1 of 2)",
+      "body": "staff_shifts (0442): a person's set hours at a branch, per ISO weekday (1 Monday .. 7 Sunday). ends_at at or before starts_at means the shift ends the next day. role is the job of that shift (NULL = the main job). Shifts of one person never overlap; touching shifts form one block. Written as a whole week by app.set_staff_shifts; read through app.staff_shifts_get, app.my_clock and app.clock_day. No client grant.\nCreated in migration 0442.\nColumns:\n  id uuid primary key default gen_random_uuid() — Row id.\n  venue_id uuid not null references venues(id) — The branch.\n  staff_id uuid not null references staff(id) — The person.",
+      "route": null
+    },
+    {
+      "kind": "table",
+      "ref": "table:staff_shifts~2",
+      "lang": "en",
+      "title": "table staff_shifts (part 2 of 2)",
+      "body": "staff_shifts (0442): a person's set hours at a branch, per ISO weekday (1 Monday .. 7 Sunday). ends_at at or before starts_at means the shift ends the next day.\nColumns:\n  id uuid primary key default gen_random_uuid() — Row id.\n  venue_id uuid not null references venues(id) — The branch.\n  staff_id uuid not null references staff(id) — The person.\n  weekday smallint not null — ISO weekday the shift starts on: 1 Monday .. 7 Sunday.\n  starts_at time not null — Start, branch local time.\n  ends_at time not null — End, branch local time; at or before starts_at = the next day.\n  role staff_role — The job of this shift; NULL = the person's main job.\n  created_by uuid references staff(id) — Who wrote the week.\n  created_at timestamptz not null default now() — When the week was written.",
+      "route": null
+    },
+    {
+      "kind": "table",
       "ref": "table:staff_suggestions",
       "lang": "en",
       "title": "table staff_suggestions (part 1 of 2)",
@@ -14727,6 +14911,14 @@
       "lang": "en",
       "title": "table staff_wages (part 2 of 2)",
       "body": "staff_wages (0270): a person's monthly salary and pay day at one branch, dated by pay month: the rate for month M is the newest row with effective_month <= M. W\n  id uuid primary key default gen_random_uuid() — Row id.\n  venue_id uuid not null references venues(id) — The branch that pays it.\n  staff_id uuid not null references staff(id) — The person.\n  effective_month date not null — The first pay month this rate applies to (the first day of that month).\n  salary_iqd iqd not null — The monthly salary, 0 to 100,000,000 IQD; 0 = not paid at this branch.\n  pay_day smallint not null — The day of the month it is paid, 1 to 31; a shorter month pays on its last day.\n  set_by uuid not null references staff(id) — The owner who set it.\n  set_at timestamptz not null default now() — When it was set.",
+      "route": null
+    },
+    {
+      "kind": "table",
+      "ref": "table:station_clock_keys",
+      "lang": "en",
+      "title": "table station_clock_keys",
+      "body": "station_clock_keys (0442): the secret a desk station makes its 30-second clock code from (HMAC-SHA1 TOTP, 6 digits). Issued by app.issue_station_clock_key, returned once; never readable by any client.\nCreated in migration 0442.\nColumns:\n  station_id text primary key references stations(id) — The station.\n  venue_id uuid not null references venues(id) — The station's branch when issued.\n  secret bytea not null — 20 random bytes. Never leaves the database except once, to the station it was issued to.\n  issued_by uuid references staff(id) — Who issued it.\n  issued_at timestamptz not null default now() — When it was issued.",
       "route": null
     },
     {
@@ -22278,7 +22470,15 @@
       "ref": "column:staff_attendance.recorded_by",
       "lang": "en",
       "title": "staff_attendance.recorded_by",
-      "body": "uuid not null references staff(id)\nThe manager or owner who recorded it.",
+      "body": "uuid not null references staff(id)\nThe manager or owner who recorded it; NULL for a day the clock recorded (source clock, 0442).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:staff_attendance.source",
+      "lang": "en",
+      "title": "staff_attendance.source",
+      "body": "text not null default 'manual'\n0442: manual (a manager or the owner recorded it) or clock (written from the person's own scans against their set hours; recorded_by NULL).",
       "route": null
     },
     {
@@ -22295,6 +22495,214 @@
       "lang": "en",
       "title": "staff_breaks.station_id",
       "body": "text not null\n0105: the station the person was covering. 0131: deliberately NOT a foreign key to stations(id) — a break row is history and must outlive the station it names, both ways round: retiring or renaming a till may not make old breaks unwritable, and an old break may not keep a dismantled station alive. The shape is enforced by the RPCs that write it (app.start_break / app.cover_station), and the venue is answered by staff_breaks.venue_id, not by a join.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:staff_clock_devices.bound_at",
+      "lang": "en",
+      "title": "staff_clock_devices.bound_at",
+      "body": "timestamptz not null default now()\nWhen the phone was bound.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:staff_clock_devices.device_hash",
+      "lang": "en",
+      "title": "staff_clock_devices.device_hash",
+      "body": "text not null\nsha256 hex of the phone's app device id; the id itself is never stored.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:staff_clock_devices.platform",
+      "lang": "en",
+      "title": "staff_clock_devices.platform",
+      "body": "text not null\nios or android.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:staff_clock_events.accuracy_m",
+      "lang": "en",
+      "title": "staff_clock_events.accuracy_m",
+      "body": "real\nThe phone's reported accuracy, metres.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:staff_clock_events.at",
+      "lang": "en",
+      "title": "staff_clock_events.at",
+      "body": "timestamptz not null default now()\nServer time of the attempt.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:staff_clock_events.device_hash",
+      "lang": "en",
+      "title": "staff_clock_events.device_hash",
+      "body": "text\nsha256 hex of the phone's app device id.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:staff_clock_events.distance_m",
+      "lang": "en",
+      "title": "staff_clock_events.distance_m",
+      "body": "int\nDistance from the club's point, metres.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:staff_clock_events.early_minutes",
+      "lang": "en",
+      "title": "staff_clock_events.early_minutes",
+      "body": "int not null default 0\nAn accepted out: minutes before the matched block ended.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:staff_clock_events.fix_at",
+      "lang": "en",
+      "title": "staff_clock_events.fix_at",
+      "body": "timestamptz\nWhen the phone took the fix.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:staff_clock_events.in_event_id",
+      "lang": "en",
+      "title": "staff_clock_events.in_event_id",
+      "body": "uuid references staff_clock_events(id)\nAn accepted out: the in it closes.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:staff_clock_events.kind",
+      "lang": "en",
+      "title": "staff_clock_events.kind",
+      "body": "text not null\nin (arrived) or out (left).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:staff_clock_events.lat",
+      "lang": "en",
+      "title": "staff_clock_events.lat",
+      "body": "double precision\nThe phone's reported latitude.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:staff_clock_events.late_minutes",
+      "lang": "en",
+      "title": "staff_clock_events.late_minutes",
+      "body": "int not null default 0\nAn accepted in: minutes after the matched shift started.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:staff_clock_events.lng",
+      "lang": "en",
+      "title": "staff_clock_events.lng",
+      "body": "double precision\nThe phone's reported longitude.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:staff_clock_events.mocked",
+      "lang": "en",
+      "title": "staff_clock_events.mocked",
+      "body": "boolean\nThe phone's operating system said the location was simulated.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:staff_clock_events.platform",
+      "lang": "en",
+      "title": "staff_clock_events.platform",
+      "body": "text\nios or android.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:staff_clock_events.refusal",
+      "lang": "en",
+      "title": "staff_clock_events.refusal",
+      "body": "text\nWhy it was refused; NULL when accepted.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:staff_clock_events.station_id",
+      "lang": "en",
+      "title": "staff_clock_events.station_id",
+      "body": "text references stations(id)\nThe desk station whose code matched.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:staff_clock_events.status",
+      "lang": "en",
+      "title": "staff_clock_events.status",
+      "body": "text not null\naccepted or refused.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:staff_clock_events.work_date",
+      "lang": "en",
+      "title": "staff_clock_events.work_date",
+      "body": "date\nAccepted: the day of the planned shift it counts against (the local date for an unplanned scan).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:staff_clock_places.lat",
+      "lang": "en",
+      "title": "staff_clock_places.lat",
+      "body": "double precision not null\nLatitude of the club, WGS84 degrees.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:staff_clock_places.lng",
+      "lang": "en",
+      "title": "staff_clock_places.lng",
+      "body": "double precision not null\nLongitude of the club, WGS84 degrees.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:staff_clock_places.max_accuracy_m",
+      "lang": "en",
+      "title": "staff_clock_places.max_accuracy_m",
+      "body": "int not null default 60\nA fix rougher than this is refused (10 to 500 m).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:staff_clock_places.radius_m",
+      "lang": "en",
+      "title": "staff_clock_places.radius_m",
+      "body": "int not null default 120\nA phone further than this from the point is not at the club (20 to 2000 m).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:staff_clock_places.updated_at",
+      "lang": "en",
+      "title": "staff_clock_places.updated_at",
+      "body": "timestamptz not null default now()\nWhen it was set last.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:staff_clock_places.updated_by",
+      "lang": "en",
+      "title": "staff_clock_places.updated_by",
+      "body": "uuid references staff(id)\nWho set it last.",
       "route": null
     },
     {
@@ -22563,6 +22971,54 @@
     },
     {
       "kind": "column",
+      "ref": "column:staff_shifts.created_at",
+      "lang": "en",
+      "title": "staff_shifts.created_at",
+      "body": "timestamptz not null default now()\nWhen the week was written.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:staff_shifts.created_by",
+      "lang": "en",
+      "title": "staff_shifts.created_by",
+      "body": "uuid references staff(id)\nWho wrote the week.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:staff_shifts.ends_at",
+      "lang": "en",
+      "title": "staff_shifts.ends_at",
+      "body": "time not null\nEnd, branch local time; at or before starts_at = the next day.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:staff_shifts.role",
+      "lang": "en",
+      "title": "staff_shifts.role",
+      "body": "staff_role\nThe job of this shift; NULL = the person's main job.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:staff_shifts.starts_at",
+      "lang": "en",
+      "title": "staff_shifts.starts_at",
+      "body": "time not null\nStart, branch local time.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:staff_shifts.weekday",
+      "lang": "en",
+      "title": "staff_shifts.weekday",
+      "body": "smallint not null\nISO weekday the shift starts on: 1 Monday .. 7 Sunday.",
+      "route": null
+    },
+    {
+      "kind": "column",
       "ref": "column:staff_suggestions.author_id",
       "lang": "en",
       "title": "staff_suggestions.author_id",
@@ -22663,6 +23119,46 @@
       "lang": "en",
       "title": "staff.pin_hash",
       "body": "text\ncrypt(pin, gen_salt('bf')); managers/owners only",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:station_clock_keys.issued_at",
+      "lang": "en",
+      "title": "station_clock_keys.issued_at",
+      "body": "timestamptz not null default now()\nWhen it was issued.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:station_clock_keys.issued_by",
+      "lang": "en",
+      "title": "station_clock_keys.issued_by",
+      "body": "uuid references staff(id)\nWho issued it.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:station_clock_keys.secret",
+      "lang": "en",
+      "title": "station_clock_keys.secret",
+      "body": "bytea not null\n20 random bytes. Never leaves the database except once, to the station it was issued to.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:station_clock_keys.station_id",
+      "lang": "en",
+      "title": "station_clock_keys.station_id",
+      "body": "text primary key references stations(id)\nThe station.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:station_clock_keys.venue_id",
+      "lang": "en",
+      "title": "station_clock_keys.venue_id",
+      "body": "uuid not null references venues(id)\nThe station's branch when issued.",
       "route": null
     },
     {
@@ -28320,6 +28816,246 @@
       "title": "ws.cashier.till (packages/i18n/src/catalogs/ws/cashier.en.ts) (part 4 of 4)",
       "body": "title: Café cashier\nbasket.deliverTo: Bring to {spot}\nbasket.deliver: Bring it to them\nbasket.pickup: Pick up\nnote.title: Line note\nnote.add: Add a note\nnote.edit: Edit note\nnote.free: Anything else\nnote.freePlaceholder: Type it the way the kitchen should read it…\nnote.preview: The kitchen reads:",
       "route": "/till"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.clock.attendance",
+      "lang": "ar",
+      "title": "ws.clock.attendance (packages/i18n/src/catalogs/ws/clock.ar.ts)",
+      "body": "lead: من في العمل، وساعات كل موظف، والأيام التي تأخر فيها أو انصرف مبكرًا. يُسجَّل التأخر تلقائيًا من المسح، والتسجيل اليدوي هو المعتمد دائمًا.\ntabs.today: اليوم\ntabs.month: الشهر\ntabs.hours: ساعات العمل\nhoursPerson: الموظف\nhoursHint: ورديات أسبوعه، ويُقاس عليها بدء العمل وإنهاؤه.\nfromClock: من المسح\nbecomesManual: سُجّل هذا اليوم من المسح. بعد حفظه يصبح تسجيلًا يدويًا، ولا يغيّره أي مسح لاحق.",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.clock.attendance",
+      "lang": "en",
+      "title": "ws.clock.attendance (packages/i18n/src/catalogs/ws/clock.en.ts)",
+      "body": "lead: Who is at work, their set hours, and the days they were late or left early. Scans record lateness by themselves; a day you record by hand always wins.\ntabs.today: Today\ntabs.month: Month\ntabs.hours: Set hours\nhoursPerson: Person\nhoursHint: Their week of shifts. Starting and finishing work is measured against it.\nfromClock: From their scans\nbecomesManual: This day came from their scans. Once you save it, it is a hand record and later scans leave it alone.",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.clock.board",
+      "lang": "ar",
+      "title": "ws.clock.board (packages/i18n/src/catalogs/ws/clock.ar.ts) (part 1 of 3)",
+      "body": "today: اليوم\npastDay: ذلك اليوم\npickDay: اليوم\nbackToToday: العودة إلى اليوم\naria: بدء الموظفين عملهم وإنهاؤه\nunavailable: بدء العمل وإنهاؤه غير متاح على هذا الخادم بعد.\nempty: لم تكن لأحد ساعات عمل في ذلك اليوم، ولم يمسح أحد الرمز.\nemptyBody: حدّد ساعات الموظفين من تبويب «ساعات العمل»، فيظهر يومهم هنا عند بدئه.\ncounts.atWork: في العمل\ncounts.lateNotIn: متأخرون لم يحضروا\ncounts.notInYet: لم يحضروا بعد\ncounts.missed: فاتتهم وردية\ncounts.noLogout: لم ينهوا العمل\ncols.person: الموظف\ncols.status: الحالة\ncols.hours: الساعات\ncols.scans: المسح\ncols.refused: محاولات مرفوضة\ncols.actions: إجراءات\nstatus.off: راحة\nstatus.notInYet: لم يحضر بعد، يبدأ {time}\nstatus.lateNotIn: متأخر، لم يحضر منذ {time}\nstatus.atWork: في العمل منذ {time}\nstatus.atWorkAs: في العمل منذ {time}، {job}",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.clock.board",
+      "lang": "en",
+      "title": "ws.clock.board (packages/i18n/src/catalogs/ws/clock.en.ts) (part 1 of 3)",
+      "body": "today: Today\npastDay: That day\npickDay: Day\nbackToToday: Back to today\naria: Staff starting and finishing work\nunavailable: Starting and finishing work is not on this server yet.\nempty: Nobody had hours or scanned that day.\nemptyBody: Set people’s hours on the Set hours tab; their day shows here once it starts.\ncounts.atWork: At work\ncounts.lateNotIn: Late, not in\ncounts.notInYet: Not in yet\ncounts.missed: Missed a shift\ncounts.noLogout: Did not finish\ncols.person: Person\ncols.status: Status\ncols.hours: Hours\ncols.scans: Scans\ncols.refused: Refused tries\ncols.actions: Actions\nstatus.off: Off\nstatus.notInYet: Not in yet, starts {time}\nstatus.lateNotIn: Late, not in since {time}\nstatus.atWork: At work since {time}\nstatus.atWorkAs: At work since {time} as {job}",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.clock.board#2",
+      "lang": "ar",
+      "title": "ws.clock.board (packages/i18n/src/catalogs/ws/clock.ar.ts)",
+      "body": "reset.done: أُعيد ضبط الهاتف. سيرتبط هاتفه الجديد عند المسح القادم.",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.clock.board#2",
+      "lang": "en",
+      "title": "ws.clock.board (packages/i18n/src/catalogs/ws/clock.en.ts)",
+      "body": "reset.done: Phone reset. Their next scan links their new phone.",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.clock.board~2",
+      "lang": "ar",
+      "title": "ws.clock.board (packages/i18n/src/catalogs/ws/clock.ar.ts) (part 2 of 3)",
+      "body": "today: اليوم\nstatus.off: راحة\nstatus.notInYet: لم يحضر بعد، يبدأ {time}\nstatus.lateNotIn: متأخر، لم يحضر منذ {time}\nstatus.atWork: في العمل منذ {time}\nstatus.atWorkAs: في العمل منذ {time}، {job}\nstatus.noLogout: لم ينهِ العمل (حاضر منذ {time})\nstatus.finished: أنهى العمل {time}\nstatus.missedOne: فاتته وردية\nstatus.missedMany: فاته {n} من الورديات\nstatus.late: تأخر {minutes} دقيقة\nstatus.leftEarly: انصرف قبل الموعد بـ{minutes} دقيقة\nstatus.refused: محاولات مرفوضة: {n}\nnoHours: لا ساعات\nswitchAt: {job} من {time}\nscanIn: بدأ {time}\nscanOut: أنهى {time}\nlateBy: تأخر {minutes} دقيقة\nearlyBy: قبل الموعد بـ{minutes} دقيقة\nmanualKept: سُجّل يدويًا: يبقى كما سُجّل.\npenalty: الخصم\nunits.m: {n} م\nunits.km: {n} كم\nrefusal.far: حاول من مسافة {distance}\nrefusal.farUnknown: حاول من خارج النادي",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.clock.board~2",
+      "lang": "en",
+      "title": "ws.clock.board (packages/i18n/src/catalogs/ws/clock.en.ts) (part 2 of 3)",
+      "body": "today: Today\nstatus.off: Off\nstatus.notInYet: Not in yet, starts {time}\nstatus.lateNotIn: Late, not in since {time}\nstatus.atWork: At work since {time}\nstatus.atWorkAs: At work since {time} as {job}\nstatus.noLogout: Never finished (in since {time})\nstatus.finished: Finished {time}\nstatus.missedOne: Missed a shift\nstatus.missedMany: Missed {n} shifts\nstatus.late: {minutes} min late\nstatus.leftEarly: Left {minutes} min early\nstatus.refused: Refused tries: {n}\nnoHours: No hours\nswitchAt: {job} from {time}\nscanIn: Started {time}\nscanOut: Finished {time}\nlateBy: {minutes} min late\nearlyBy: {minutes} min early\nmanualKept: Recorded by hand: kept as recorded.\npenalty: Costs\nunits.m: {n} m\nunits.km: {n} km\nrefusal.far: Tried from {distance} away\nrefusal.farUnknown: Tried from away from the club",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.clock.board~3",
+      "lang": "ar",
+      "title": "ws.clock.board (packages/i18n/src/catalogs/ws/clock.ar.ts) (part 3 of 3)",
+      "body": "today: اليوم\nmanualKept: سُجّل يدويًا: يبقى كما سُجّل.\npenalty: الخصم\nunits.m: {n} م\nunits.km: {n} كم\nrefusal.far: حاول من مسافة {distance}\nrefusal.farUnknown: حاول من خارج النادي\nrefusal.fake: تطبيق موقع مزيّف مفعَّل\nrefusal.otherPhone: هاتف آخر\nrefusal.code: رمز خاطئ أو قديم\nrefusal.rough: الموقع غير دقيق\nrefusal.roughBy: الموقع غير دقيق (± {n} م)\nrefusal.stale: موقع قديم\nrefusal.tooMany: محاولات كثيرة\nrefusal.notSetUp: لم يكن مُعدًّا وقتها\nrefusal.alreadyIn: كان قد بدأ العمل\nrefusal.notIn: لم يكن قد بدأ العمل\nreset.action: إعادة ضبط الهاتف\nreset.title: إعادة ضبط هاتف {name}؟\nreset.body: يرتبط حسابه بالهاتف الذي يستخدمه في أول مسح مقبول بعد ذلك. افعل هذا عندما يغيّر هاتفه، وإلى أن تفعل يُرفض أي هاتف آخر.\nreset.confirm: إعادة ضبط الهاتف",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.clock.board~3",
+      "lang": "en",
+      "title": "ws.clock.board (packages/i18n/src/catalogs/ws/clock.en.ts) (part 3 of 3)",
+      "body": "today: Today\nmanualKept: Recorded by hand: kept as recorded.\npenalty: Costs\nunits.m: {n} m\nunits.km: {n} km\nrefusal.far: Tried from {distance} away\nrefusal.farUnknown: Tried from away from the club\nrefusal.fake: Fake location app on\nrefusal.otherPhone: Another phone\nrefusal.code: Wrong or old code\nrefusal.rough: Location too rough\nrefusal.roughBy: Location too rough (± {n} m)\nrefusal.stale: Old location\nrefusal.tooMany: Too many tries\nrefusal.notSetUp: Not set up at the time\nrefusal.alreadyIn: Had already started\nrefusal.notIn: Had not started\nreset.action: Reset phone\nreset.title: Reset {name}'s phone?\nreset.body: Their next accepted scan links the phone they use then. Do this when they change phones; until then any other phone is refused.\nreset.confirm: Reset phone",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.clock.hours",
+      "lang": "ar",
+      "title": "ws.clock.hours (packages/i18n/src/catalogs/ws/clock.ar.ts) (part 1 of 3)",
+      "body": "title: ساعات العمل\nlead: الساعات التي يعملها هذا الموظف كل أسبوع، ويُقاس عليها التأخر في البدء والانصراف المبكر. الورديتان المتصلتان فترة واحدة لا مسح بينهما، والفاصل بين ورديتين وقت راحة.\nreadOnly: تستطيع رؤية ساعاتك هنا، والمالك هو من يغيّرها.\nnotHere: لا يعمل هذا الموظف في هذا الفرع.\ndayOff: يوم راحة\nadd: إضافة وردية\ncopy: نسخ\nfull: لا يتسع الأسبوع لأكثر من 42 وردية.\nto: إلى\nstartsAria: {day}: البداية\nendsAria: {day}: النهاية\njobAria: {day}: الوظيفة\nremoveAria: {day}: حذف الوردية\nmainJob: {job} (الوظيفة الأساسية)\nswitch: ينتقل إلى {job} الساعة {time}، من دون مسح\njoined: يستمر من الساعة {time}، من دون مسح\ngap: وقت راحة من {from} إلى {to} ({length})\nnextDay: تنتهي في اليوم التالي\nissue.empty: وقت البداية والنهاية واحد.\nissue.too_long: أطول من 16 ساعة.",
+      "route": "/admin/hours"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.clock.hours",
+      "lang": "en",
+      "title": "ws.clock.hours (packages/i18n/src/catalogs/ws/clock.en.ts) (part 1 of 3)",
+      "body": "title: Set hours\nlead: The hours this person works each week. Starting late or finishing early is measured against them. Shifts that touch are one stretch with no scan between them; a gap between shifts is time off.\nreadOnly: You can see your own hours here. The owner changes them.\nnotHere: This person does not work at this branch.\ndayOff: Day off\nadd: Add shift\ncopy: Copy\nfull: A week holds 42 shifts at most.\nto: to\nstartsAria: {day}: starts\nendsAria: {day}: ends\njobAria: {day}: job\nremoveAria: {day}: remove shift\nmainJob: {job} (main job)\nswitch: Switches to {job} at {time}, no scan needed\njoined: Carries on from {time}, no scan needed\ngap: Time off {from} to {to} ({length})\nnextDay: Ends the next day\nissue.empty: Starts and ends at the same time.",
+      "route": "/admin/hours"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.clock.hours~2",
+      "lang": "ar",
+      "title": "ws.clock.hours (packages/i18n/src/catalogs/ws/clock.ar.ts) (part 2 of 3)",
+      "body": "title: ساعات العمل\njoined: يستمر من الساعة {time}، من دون مسح\ngap: وقت راحة من {from} إلى {to} ({length})\nnextDay: تنتهي في اليوم التالي\nissue.empty: وقت البداية والنهاية واحد.\nissue.too_long: أطول من 16 ساعة.\nissue.overlap: تتداخل مع وردية أخرى.\nissue.too_many: أكثر من 42 وردية في الأسبوع.\nfixFirst: صحّح الوردية المحددة قبل الحفظ.\ncopyTo: نسخ ورديات {day} إلى\ncopyNote: تُحذف ورديات الأيام التي تختارها، وتحل محلها ورديات {day}.\ncopyAll: كل الأيام\ncopyApply: نسخ\nnoHours: لا ساعات محددة.\nweekTotal: {hours} في الأسبوع\nduration.h: {h} س\nduration.m: {m} د\nduration.hm: {h} س {m} د\nsave: حفظ الساعات\nsaved: حُفظت الساعات.\nrefused.overlap: هناك ورديتان متداخلتان. حرّك إحداهما حتى تتصلا فقط.\nrefused.shift_length: إحدى الورديات أطول من 16 ساعة.",
+      "route": "/admin/hours"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.clock.hours~2",
+      "lang": "en",
+      "title": "ws.clock.hours (packages/i18n/src/catalogs/ws/clock.en.ts) (part 2 of 3)",
+      "body": "title: Set hours\njoined: Carries on from {time}, no scan needed\ngap: Time off {from} to {to} ({length})\nnextDay: Ends the next day\nissue.empty: Starts and ends at the same time.\nissue.too_long: Longer than 16 hours.\nissue.overlap: Overlaps another shift.\nissue.too_many: More than 42 shifts in the week.\nfixFirst: Fix the marked shift before saving.\ncopyTo: Copy {day} to\ncopyNote: The days you tick lose their own shifts and get {day}'s.\ncopyAll: Every day\ncopyApply: Copy\nnoHours: No hours set.\nweekTotal: {hours} a week\nduration.h: {h} h\nduration.m: {m} min\nduration.hm: {h} h {m} min\nsave: Save hours\nsaved: Hours saved.\nrefused.overlap: Two shifts overlap. Move one so they only touch.\nrefused.shift_length: A shift is longer than 16 hours.",
+      "route": "/admin/hours"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.clock.hours~3",
+      "lang": "ar",
+      "title": "ws.clock.hours (packages/i18n/src/catalogs/ws/clock.ar.ts) (part 3 of 3)",
+      "body": "title: ساعات العمل\nduration.hm: {h} س {m} د\nsave: حفظ الساعات\nsaved: حُفظت الساعات.\nrefused.overlap: هناك ورديتان متداخلتان. حرّك إحداهما حتى تتصلا فقط.\nrefused.shift_length: إحدى الورديات أطول من 16 ساعة.\nrefused.role: إحدى الورديات تحمل وظيفة لم تعد لهذا الموظف. اختر وظيفة أخرى.\nrefused.shifts: تعذّر حفظ هذه الساعات. راجع كل وردية ثم أعد المحاولة.\nrefused.own: لا يحدد المدير ساعاته بنفسه، بل يحددها المالك.\nrefused.not_here: لم يعد هذا الموظف يعمل في هذا الفرع.",
+      "route": "/admin/hours"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.clock.hours~3",
+      "lang": "en",
+      "title": "ws.clock.hours (packages/i18n/src/catalogs/ws/clock.en.ts) (part 3 of 3)",
+      "body": "title: Set hours\nduration.hm: {h} h {m} min\nsave: Save hours\nsaved: Hours saved.\nrefused.overlap: Two shifts overlap. Move one so they only touch.\nrefused.shift_length: A shift is longer than 16 hours.\nrefused.role: One shift names a job this person no longer has. Pick another.\nrefused.shifts: These hours could not be saved. Check each shift and try again.\nrefused.own: A manager cannot set their own hours. The owner does.\nrefused.not_here: This person no longer works at this branch.",
+      "route": "/admin/hours"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.clock.qr",
+      "lang": "ar",
+      "title": "ws.clock.qr (packages/i18n/src/catalogs/ws/clock.ar.ts)",
+      "body": "title: بدء العمل أو إنهاؤه\ncaption: للموظفين: امسحوا هذا الرمز بتطبيق تتش بادل لبدء العمل أو إنهائه.\naria: رمز QR لبدء الموظفين عملهم أو إنهائه\ndigitsAria: الرمز {code}\nnewCodeIn: رمز جديد بعد {seconds} ث\nrailButton: رمز الموظفين\nclose: إغلاق\nmissingTitle: لا رمز للموظفين على هذا المكتب بعد\nmissingBody: اطلب من المدير إعداده على هذا الجهاز.\nmissingBodyManager: أعدّه مرة واحدة على هذا الجهاز، فيظهر هنا وعلى شاشة الدخول، حتى من دون إنترنت.\nsetUp: إعداد هذا المكتب",
+      "route": "/admin/qr"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.clock.qr",
+      "lang": "en",
+      "title": "ws.clock.qr (packages/i18n/src/catalogs/ws/clock.en.ts)",
+      "body": "title: Start or finish work\ncaption: Staff: scan this with the Touch Padel app to start or finish work.\naria: QR code for staff to start or finish work\ndigitsAria: Code {code}\nnewCodeIn: New code in {seconds} s\nrailButton: Staff QR\nclose: Close\nmissingTitle: This desk has no staff QR yet\nmissingBody: Ask a manager to set it up on this computer.\nmissingBodyManager: Set it up once on this computer and it shows here and on the sign-in screen, even offline.\nsetUp: Set up this desk",
+      "route": "/admin/qr"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.clock.setup",
+      "lang": "ar",
+      "title": "ws.clock.setup (packages/i18n/src/catalogs/ws/clock.ar.ts) (part 1 of 3)",
+      "body": "title: بدء الموظفين عملهم وإنهاؤه\nready: جاهز: يستطيع الموظفون بدء العمل وإنهاءه من تطبيق تتش بادل.\nnotReady.both: غير جاهز بعد: حدّد موقع النادي، ثم أعدّ رمز QR على أحد أجهزة المكتب.\nnotReady.place: غير جاهز بعد: حدّد موقع النادي.\nnotReady.desk: غير جاهز بعد: أعدّ رمز QR على أحد أجهزة المكتب.\nplace.title: موقع النادي\nplace.lead: لا يبدأ الموظف عمله ولا ينهيه إلا إذا كان هاتفه قريبًا من النادي بهذه المسافة، ومسح رمز QR على أحد أجهزة المكتب. لا يمكن ذلك من البيت.\nplace.none: لم يُحدَّد بعد.\nplace.checkMap: عرضه على الخريطة\nplace.summary: الهواتف ضمن {radius} م، بدقة موقع لا تتجاوز {accuracy} م.\nplace.setBy: حدّده {name}، {when}\nplace.setAt: حُدِّد {when}\nplace.ownerOnly: المالك وحده يغيّر موقع النادي.\nplace.label: موقع النادي",
+      "route": "/setup"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.clock.setup",
+      "lang": "en",
+      "title": "ws.clock.setup (packages/i18n/src/catalogs/ws/clock.en.ts) (part 1 of 4)",
+      "body": "title: Staff start and finish work\nready: Ready: staff can start and finish work from the Touch Padel app.\nnotReady.both: Not ready yet: set where the club is, then set up a desk QR.\nnotReady.place: Not ready yet: set where the club is.\nnotReady.desk: Not ready yet: set up the QR on a desk computer.\nplace.title: Where the club is\nplace.lead: A phone must be this close to the club to start or finish work, and it must also scan a desk QR. Nobody can do it from home.\nplace.none: Not set yet.\nplace.checkMap: Check on the map\nplace.summary: Phones within {radius} m, located to within {accuracy} m.\nplace.setBy: Set by {name}, {when}\nplace.setAt: Set {when}\nplace.ownerOnly: Only the owner changes where the club is.\nplace.label: Club location",
+      "route": "/setup"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.clock.setup#2",
+      "lang": "ar",
+      "title": "ws.clock.setup (packages/i18n/src/catalogs/ws/clock.ar.ts) (part 1 of 3)",
+      "body": "desk.lead: يعرض كل جهاز في المكتب رمز QR خاصًا به يتغير كل 30 ثانية. أعدّه من الجهاز نفسه، فالرمز يُولَّد عليه ويعمل من دون إنترنت.\ndesk.thisComputer: هذا الجهاز\ndesk.notRegistered: هذا الجهاز ليس محطة في هذا الفرع. سجّله أعلاه، ثم أعدّ رمزه.\ndesk.noKey: لا رمز بعد.\ndesk.issuedBy: أعدّ {name} الرمز {when}.\ndesk.issuedAt: أُعدّ الرمز {when}.\ndesk.setUp: إعداد رمز هذا المكتب\ndesk.setUpAgain: إعداده من جديد\ndesk.show: عرض الرمز\ndesk.done: صار هذا المكتب يعرض رمز الموظفين.\ndesk.replaceTitle: استبدال رمز هذا المكتب؟\ndesk.replaceBody: يتوقف الرمز الذي يعرضه المكتب الآن عن العمل فورًا، هنا وفي أي صورة أو نسخة مطبوعة منه، ويمسح الموظفون الرمز الجديد.",
+      "route": "/setup"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.clock.setup#2",
+      "lang": "en",
+      "title": "ws.clock.setup (packages/i18n/src/catalogs/ws/clock.en.ts) (part 1 of 2)",
+      "body": "place.saved: Club location saved.\ndesk.title: Desk QR codes\ndesk.lead: Each desk computer shows its own QR, which changes every 30 seconds. Set it up at that computer: the code is made there and works offline.\ndesk.thisComputer: This computer\ndesk.notRegistered: This computer is not a station of this branch. Register it above, then set up its QR.\ndesk.noKey: No QR yet.\ndesk.issuedBy: QR set up {when} by {name}.\ndesk.issuedAt: QR set up {when}.\ndesk.setUp: Set up this desk's QR\ndesk.setUpAgain: Set it up again\ndesk.show: Show the QR\ndesk.done: This desk now shows the staff QR.\ndesk.replaceTitle: Replace this desk's QR?\ndesk.replaceBody: The QR this desk shows now stops working at once, here and on any photo or printout of it. Staff scan the new one.",
+      "route": "/setup"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.clock.setup#2~2",
+      "lang": "ar",
+      "title": "ws.clock.setup (packages/i18n/src/catalogs/ws/clock.ar.ts) (part 2 of 3)",
+      "body": "desk.lead: يعرض كل جهاز في المكتب رمز QR خاصًا به يتغير كل 30 ثانية. أعدّه من الجهاز نفسه، فالرمز يُولَّد عليه ويعمل من دون إنترنت.\ndesk.replaceTitle: استبدال رمز هذا المكتب؟\ndesk.replaceBody: يتوقف الرمز الذي يعرضه المكتب الآن عن العمل فورًا، هنا وفي أي صورة أو نسخة مطبوعة منه، ويمسح الموظفون الرمز الجديد.\ndesk.replaceConfirm: استبدال الرمز\ndesk.keep: إبقاؤه\ndesk.status.current: يعمل\ndesk.status.stale: قديم\ndesk.status.lost: مفقود من الجهاز\ndesk.staleBody: رمز هذا المكتب قديم: أُعدّ من جديد في مكان آخر، فصار مسحه مرفوضًا. أعدّه هنا من جديد.\ndesk.lostBody: كان لهذا المكتب رمز، لكن الجهاز لم يعد يحتفظ به. أعدّه من جديد.\ndesk.notKept: تعذّر على هذا الجهاز حفظ الرمز لأن مساحة التخزين ممتلئة أو محجوبة. أفرغ بعض المساحة ثم أعدّه من جديد.\ndesk.hasQr: الرمز جاهز\ndesk.noQr: لا رمز",
+      "route": "/setup"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.clock.setup#2~2",
+      "lang": "en",
+      "title": "ws.clock.setup (packages/i18n/src/catalogs/ws/clock.en.ts) (part 2 of 2)",
+      "body": "place.saved: Club location saved.\ndesk.replaceTitle: Replace this desk's QR?\ndesk.replaceBody: The QR this desk shows now stops working at once, here and on any photo or printout of it. Staff scan the new one.\ndesk.replaceConfirm: Replace the QR\ndesk.keep: Keep it\ndesk.status.current: Working\ndesk.status.stale: Out of date\ndesk.status.lost: Missing here\ndesk.staleBody: This desk's QR is out of date: it was set up again elsewhere, so scans of it are refused. Set it up again here.\ndesk.lostBody: This desk had a QR, but this computer no longer has it. Set it up again.\ndesk.notKept: This computer would not keep the QR (its storage is full or blocked). Free some space and set it up again.\ndesk.hasQr: QR set up\ndesk.noQr: No QR\ndesk.fromThere: Set it up from that computer.",
+      "route": "/setup"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.clock.setup#2~3",
+      "lang": "ar",
+      "title": "ws.clock.setup (packages/i18n/src/catalogs/ws/clock.ar.ts) (part 3 of 3)",
+      "body": "desk.lead: يعرض كل جهاز في المكتب رمز QR خاصًا به يتغير كل 30 ثانية. أعدّه من الجهاز نفسه، فالرمز يُولَّد عليه ويعمل من دون إنترنت.\ndesk.notKept: تعذّر على هذا الجهاز حفظ الرمز لأن مساحة التخزين ممتلئة أو محجوبة. أفرغ بعض المساحة ثم أعدّه من جديد.\ndesk.hasQr: الرمز جاهز\ndesk.noQr: لا رمز\ndesk.fromThere: أعدّه من ذلك الجهاز.",
+      "route": "/setup"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.clock.setup~2",
+      "lang": "ar",
+      "title": "ws.clock.setup (packages/i18n/src/catalogs/ws/clock.ar.ts) (part 2 of 3)",
+      "body": "title: بدء الموظفين عملهم وإنهاؤه\nplace.setBy: حدّده {name}، {when}\nplace.setAt: حُدِّد {when}\nplace.ownerOnly: المالك وحده يغيّر موقع النادي.\nplace.label: موقع النادي\nplace.moveLabel: تغيير موقع النادي\nplace.placeholder: الصق رابطًا من خرائط Google، أو اكتب 33.3128, 44.3615\nplace.hint: في خرائط Google، اضغط مطوّلًا على مكان النادي، ثم انسخ الرقمين اللذين يظهران. ويصلح أيضًا رابط منسوخ من شريط العنوان.\nplace.readsAs: يُقرأ هكذا: {point}\nplace.issue.empty: الصق رابطًا من خرائط Google أو اكتب الرقمين.\nplace.issue.short_link: روابط المشاركة القصيرة (maps.app.goo.gl) لا تحمل الموقع. افتح الرابط في المتصفح وانسخ العنوان كاملًا، أو انسخ الرقمين من خرائط Google.\nplace.issue.out_of_range: هذان الرقمان لا يدلّان على مكان في الخريطة. يأتي خط العرض أولًا ثم خط الطول.",
+      "route": "/setup"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.clock.setup~2",
+      "lang": "en",
+      "title": "ws.clock.setup (packages/i18n/src/catalogs/ws/clock.en.ts) (part 2 of 4)",
+      "body": "title: Staff start and finish work\nplace.setBy: Set by {name}, {when}\nplace.setAt: Set {when}\nplace.ownerOnly: Only the owner changes where the club is.\nplace.label: Club location\nplace.moveLabel: Move the club location\nplace.placeholder: Paste a Google Maps link, or type 33.3128, 44.3615\nplace.hint: In Google Maps, press and hold the club, then copy the two numbers it shows. A link copied from the address bar works too.\nplace.readsAs: Reads as {point}\nplace.issue.empty: Paste a Google Maps link or type the two numbers.\nplace.issue.short_link: Short share links (maps.app.goo.gl) do not hold the location. Open the link in a browser and copy the full address, or copy the two numbers from Google Maps.",
+      "route": "/setup"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.clock.setup~3",
+      "lang": "ar",
+      "title": "ws.clock.setup (packages/i18n/src/catalogs/ws/clock.ar.ts) (part 3 of 3)",
+      "body": "title: بدء الموظفين عملهم وإنهاؤه\nplace.issue.out_of_range: هذان الرقمان لا يدلّان على مكان في الخريطة. يأتي خط العرض أولًا ثم خط الطول.\nplace.issue.unreadable: لا موقع في هذا النص. الصق رابطًا من خرائط Google، أو اكتب الرقمين وبينهما فاصلة.\nplace.radius: أقصى بُعد مسموح للهاتف (بالمتر)\nplace.radiusHint: إذا ابتعد الهاتف عن النقطة أكثر من هذا، فلن يستطيع صاحبه بدء العمل أو إنهاءه. تغطي {def} م النادي وموقف سياراته. من {min} إلى {max}.\nplace.accuracy: أدنى دقة مقبولة للموقع (بالمتر)\nplace.accuracyHint: قد يخطئ الهاتف داخل المبنى بعشرات الأمتار. يُرفض الموقع الأقل دقة من هذا، ويُطلب من الموظف الاقتراب من نافذة. القيمة المعتادة {def}. من {min} إلى {max}.\nplace.range: من {min} إلى {max}.\nplace.save: حفظ الموقع\nplace.saved: حُفظ موقع النادي.\ndesk.title: رموز QR على أجهزة المكتب",
+      "route": "/setup"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.clock.setup~3",
+      "lang": "en",
+      "title": "ws.clock.setup (packages/i18n/src/catalogs/ws/clock.en.ts) (part 3 of 4)",
+      "body": "title: Staff start and finish work\nplace.issue.short_link: Short share links (maps.app.goo.gl) do not hold the location. Open the link in a browser and copy the full address, or copy the two numbers from Google Maps.\nplace.issue.out_of_range: Those numbers are not a place on the map. Latitude comes first, then longitude.\nplace.issue.unreadable: No location in that. Paste a Google Maps link, or type the two numbers with a comma between them.\nplace.radius: How close a phone must be (metres)\nplace.radiusHint: Further than this from the point, a phone cannot start or finish work. {def} m covers the club and its car park. From {min} to {max}.\nplace.accuracy: Roughest location accepted (metres)",
+      "route": "/setup"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.clock.setup~4",
+      "lang": "en",
+      "title": "ws.clock.setup (packages/i18n/src/catalogs/ws/clock.en.ts) (part 4 of 4)",
+      "body": "title: Staff start and finish work\nplace.accuracy: Roughest location accepted (metres)\nplace.accuracyHint: Indoors a phone can be off by tens of metres. A rougher location is refused and the person is asked to move near a window. Usually {def}. From {min} to {max}.\nplace.range: From {min} to {max}.\nplace.save: Save location",
+      "route": "/setup"
     },
     {
       "kind": "label",
@@ -58715,6 +59451,126 @@
     },
     {
       "kind": "doc",
+      "ref": "doc:docs/design/clock-in/contracts-2026-11-15.md#1",
+      "lang": "en",
+      "title": "docs/design/clock-in/contracts-2026-11-15.md › Staff clock-in: contracts (2026-11-15)",
+      "body": "# Staff clock-in: contracts (2026-11-15)\n\nBinding contract for the three lanes of the staff clock-in build: the database (0442, done),\nthe staff phone (apps/mobile) and the operator (apps/operator). Majed's calls are in the header\nof `packages/db/supabase/migrations/20261115000442_staff_clock.sql`; this file is how the\nclients use it.",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/design/clock-in/contracts-2026-11-15.md#2",
+      "lang": "en",
+      "title": "docs/design/clock-in/contracts-2026-11-15.md › 1. What it does (part 1 of 2)",
+      "body": "## 1. What it does\n\n- Every staff member (never the owner) logs **arriving** and **leaving** from the staff app.\n  It is impossible from home: the phone must be inside the club's radius **and** scan the QR on\n  a desk station, whose 6-digit code changes every 30 seconds.\n- **One QR, both ways.** The phone knows whether the person is in or out and offers \"Start work\"\n  or \"Finish work\"; both scan the same QR.\n- The QR is the **first thing on the operator**, on the sign-in screen before anyone signs in,\n  and again from a **Staff QR** button once someone is signed in (for a colleague who arrives\n  later).\n- **Set hours** per person and weekday: any number of shifts a day, each optionally naming one",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/design/clock-in/contracts-2026-11-15.md#2~2",
+      "lang": "en",
+      "title": "docs/design/clock-in/contracts-2026-11-15.md › 1. What it does (part 2 of 2)",
+      "body": "## 1. What it does\n  and again from a **Staff QR** button once someone is signed in (for a colleague who arrives\n  later).\n- **Set hours** per person and weekday: any number of shifts a day, each optionally naming one\n  of the person's jobs. Touching shifts are one block (a waiter-then-cashier day: one scan in,\n  one scan out, no scan at the switch). A gap between shifts is time off and never counts\n  against anyone.\n- **Lateness records itself**: late = first scan after the matched shift's start; early =\n  last scan before the end of the matched block. The day's minutes go into the existing\n  `staff_attendance` row (source `clock`), which wages already read. A manager's own record of\n  a day (source `manual`) always wins.",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/design/clock-in/contracts-2026-11-15.md#3",
+      "lang": "en",
+      "title": "docs/design/clock-in/contracts-2026-11-15.md › 2. How the code works (no server call on the station) (part 1 of 2)",
+      "body": "## 2. How the code works (no server call on the station)\n\n`@touch/core/staff/clock`:\n\n- `clockCode(secretHex, Date.now())` → `{ code, qr, secondsLeft }`. `qr` is `TPCLOCK:<code>`.\n  Synchronous, offline, no account. RFC 6238, HMAC-SHA1, 30 s; the SQL twin is `app.clock_code`.\n- `parseClockCode(raw)` → the six digits from a scanned `TPCLOCK:…` or typed digits, else null.\n- `CLOCK_REFUSALS`, `ClockPunchResult`, `MyClock`, `ClockShift`, `WeekShift`.\n- `weekProblem(week)` → the first bad shift and why (`empty`, `too_long`, `overlap`), the\n  server's own rules, so the form can say what is wrong before saving. `shiftMinutes(s)`.\n\nThe station gets its secret **once** from `issue_station_clock_key(p_station_id)` (owner or",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/design/clock-in/contracts-2026-11-15.md#3~2",
+      "lang": "en",
+      "title": "docs/design/clock-in/contracts-2026-11-15.md › 2. How the code works (no server call on the station) (part 2 of 2)",
+      "body": "## 2. How the code works (no server call on the station)\n  server's own rules, so the form can say what is wrong before saving. `shiftMinutes(s)`.\n\nThe station gets its secret **once** from `issue_station_clock_key(p_station_id)` (owner or\nmanager, signed in at that station) and keeps it on the machine. From then on it draws the code\nitself, signed in or not, online or not. Issuing again replaces the secret: the old QR stops\nworking at once (the setup list shows when and by whom each key was issued).",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/design/clock-in/contracts-2026-11-15.md#4",
+      "lang": "en",
+      "title": "docs/design/clock-in/contracts-2026-11-15.md › 3. RPCs (schema `app`, all through `appRpc`) (part 1 of 3)",
+      "body": "## 3. RPCs (schema `app`, all through `appRpc`)\n\n### Phone (any staff member of the branch but the owner)\n\n`my_clock(p_venue_id)` →\n```\n{ now, today, ready, state: 'in'|'out', since, device_bound,\n  shifts: [{starts, ends, role, block_starts, block_ends}],   // today's\n  current: {starts, ends, role} | null,                        // running now\n  next:    {starts, ends, role} | null,                        // within a week\n  recent:  [{kind, status, refusal, at, late_minutes, early_minutes}] }   // last 6\n```\n`ready` false = the club's place is not set or no live desk station has a key: say so and\nsend them to a manager; do not offer the scan.\n\n`clock_punch(p_venue_id, p_kind 'in'|'out', p_code, p_lat, p_lng, p_accuracy_m, p_fix_at,",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/design/clock-in/contracts-2026-11-15.md#4~2",
+      "lang": "en",
+      "title": "docs/design/clock-in/contracts-2026-11-15.md › 3. RPCs (schema `app`, all through `appRpc`) (part 2 of 3)",
+      "body": "## 3. RPCs (schema `app`, all through `appRpc`)\nsend them to a manager; do not offer the scan.\n\n`clock_punch(p_venue_id, p_kind 'in'|'out', p_code, p_lat, p_lng, p_accuracy_m, p_fix_at,\np_mocked, p_device_id, p_platform 'ios'|'android')` → `ClockPunchResult`. Refusals are **data**\n(`{status:'refused', reason, …}`), never errors; raised errors are only FORBIDDEN and\nINVALID_ARGUMENT (bad shapes). Checks in order:\n\n| reason | extra fields | what the person sees (meaning) |\n|---|---|---|\n| TOO_MANY_TRIES | | 8 refused tries in the last hour. Wait, or ask a manager. |\n| NO_PLACE / NO_STATION | | Logging in is not set up at this branch yet. Ask a manager. |\n| WRONG_DEVICE | | This is not the phone you log in with. A manager can reset it. |",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/design/clock-in/contracts-2026-11-15.md#4~3",
+      "lang": "en",
+      "title": "docs/design/clock-in/contracts-2026-11-15.md › 3. RPCs (schema `app`, all through `appRpc`) (part 3 of 3)",
+      "body": "## 3. RPCs (schema `app`, all through `appRpc`)\n| NO_PLACE / NO_STATION | | Logging in is not set up at this branch yet. Ask a manager. |\n| WRONG_DEVICE | | This is not the phone you log in with. A manager can reset it. |\n| LOCATION_STALE | | The location was out of date. Try again. |\n| MOCK_LOCATION | | A fake-location app is on. Turn it off. |\n| LOCATION_ROUGH | accuracy_m, max_accuracy_m | Location not precise enough (± N m). Move near a window or outside, wait, retry. |\n| NOT_HERE | distance_m, radius_m | You are not at the club (about N away). |\n| CODE_WRONG | | The code changed or is not this club's desk. Scan again. |\n| ALREADY_IN / NOT_IN | | Already started / not started yet (refresh state). |\n\nAccepted: `{status:'accepted', kind, at, work_date, late_minutes, early_minutes}`.",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/design/clock-in/contracts-2026-11-15.md#5",
+      "lang": "en",
+      "title": "docs/design/clock-in/contracts-2026-11-15.md › 3. RPCs (schema `app`, all through `appRpc`) (part 1 of 2)",
+      "body": "- `p_fix_at` is the fix's own timestamp; the server refuses one older than 2 minutes, so take\n  the fix right after the scan (or reuse a watched fix under ~30 s old).\n- `p_mocked` is `location.mocked` from expo-location (Android mock provider, iOS\n  `isSimulatedBySoftware`). Send it as given.\n- `p_device_id`: iOS `Application.getIosIdForVendorAsync()`, Android `Application.getAndroidId()`.\n  The server stores only its sha256. The first accepted scan binds the phone.\n\n### Operator: setup (owner and managers at the branch)\n\n- `clock_setup(p_venue_id)` → `{ place: {lat, lng, radius_m, max_accuracy_m, updated_at,\n  updated_by_name} | null, stations: [{station_id, is_till, has_key, issued_at,",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/design/clock-in/contracts-2026-11-15.md#5~2",
+      "lang": "en",
+      "title": "docs/design/clock-in/contracts-2026-11-15.md › 3. RPCs (schema `app`, all through `appRpc`) (part 2 of 2)",
+      "body": "- `p_fix_at` is the fix's own timestamp; the server refuses one older than 2 minutes, so take\n\n- `clock_setup(p_venue_id)` → `{ place: {lat, lng, radius_m, max_accuracy_m, updated_at,\n  updated_by_name} | null, stations: [{station_id, is_till, has_key, issued_at,\n  issued_by_name}], can_edit_place }`. Never a secret.\n- `set_clock_place(p_venue_id, p_lat, p_lng, p_radius_m = 120, p_max_accuracy_m = 60)`:\n  **owner only**. Radius 20–2000 m, accuracy 10–500 m. INVALID_ARGUMENT hints `location`,\n  `radius_m`, `max_accuracy_m`.\n- `issue_station_clock_key(p_station_id)` → `{station_id, secret (40 hex), step_seconds: 30,\n  digits: 6, replaced}`. REF_NOT_FOUND hint `station_id` (unknown or retired).\n\n### Operator: set hours and the day board (owner and managers at the branch)",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/design/clock-in/contracts-2026-11-15.md#6",
+      "lang": "en",
+      "title": "docs/design/clock-in/contracts-2026-11-15.md › 3. RPCs (schema `app`, all through `appRpc`) (part 1 of 3)",
+      "body": "- `staff_shifts_get(p_venue_id, p_staff_id)` → `{staff_id, roles (main job first, then second\n  jobs), can_edit, shifts: WeekShift[]}`.\n- `set_staff_shifts(p_venue_id, p_staff_id, p_shifts WeekShift[])` replaces the whole week\n  (`[]` clears it). At most 42, each ≤ 16 h, no overlap (touching is fine). A manager never\n  sets their own (FORBIDDEN hint staff_id); the owner has no hours. INVALID_ARGUMENT hints\n  `shifts`, `shift_length`, `role`, `overlap`.\n- `clock_day(p_venue_id, p_date = today)` (up to 60 days back) → `{date, today, now, people:\n  [{staff_id, display_name, role, shifts, events: [{id, kind, status, refusal, at,",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/design/clock-in/contracts-2026-11-15.md#6~2",
+      "lang": "en",
+      "title": "docs/design/clock-in/contracts-2026-11-15.md › 3. RPCs (schema `app`, all through `appRpc`) (part 2 of 3)",
+      "body": "- `staff_shifts_get(p_venue_id, p_staff_id)` → `{staff_id, roles (main job first, then second\n- `clock_day(p_venue_id, p_date = today)` (up to 60 days back) → `{date, today, now, people:\n  [{staff_id, display_name, role, shifts, events: [{id, kind, status, refusal, at,\n  late_minutes, early_minutes, distance_m, accuracy_m, mocked, station_id}], in_since,\n  attendance: {id, late_minutes, early_leave_minutes, penalty_iqd, source} | null,\n  device_bound}]}`. Everyone with hours, an attempt or an open log-in that day; never the\n  caller.\n- `clock_reset_device(p_venue_id, p_staff_id)` → `{status: 'reset', had_device}`. Never their own.\n- `attendance_month` days gain `source` (`manual` | `clock`); `recorded_by_name` is null for a\n  clock day. `record_attendance` on a clock day turns it manual.",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/design/clock-in/contracts-2026-11-15.md#6~3",
+      "lang": "en",
+      "title": "docs/design/clock-in/contracts-2026-11-15.md › 3. RPCs (schema `app`, all through `appRpc`) (part 3 of 3)",
+      "body": "- `staff_shifts_get(p_venue_id, p_staff_id)` → `{staff_id, roles (main job first, then second\n- `attendance_month` days gain `source` (`manual` | `clock`); `recorded_by_name` is null for a\n  clock day. `record_attendance` on a clock day turns it manual.\n\nBlockable pages (0384): `clock_day`, `clock_reset_device`, `staff_shifts_get`,\n`set_staff_shifts` are on Attendance and admin; `clock_setup`, `set_clock_place`,\n`issue_station_clock_key` on admin. The phone's two RPCs are never blocked.",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/design/clock-in/contracts-2026-11-15.md#7",
+      "lang": "en",
+      "title": "docs/design/clock-in/contracts-2026-11-15.md › 4. Status words for the day board (derived on the client)",
+      "body": "## 4. Status words for the day board (derived on the client)\n\nFrom `shifts`, `events` (accepted) and `now`, per person:\n\n- **Off today**: no shifts, no accepted events.\n- **Not in yet**: a shift has not started, no accepted in.\n- **Late, not in**: a shift started and no accepted in since it started.\n- **At work** (since T, in role R from the running shift): `in_since` set.\n- **Late N min** / **Left early N min**: from the accepted events' minutes.\n- **Missed**: a block ended with no accepted in that matched it.\n- **No log-out**: an accepted in older than its block's end + 4 h with no out (`in_since` goes\n  null after 20 h).\n- **Tried from far away / fake location / wrong phone**: refused events, shown with the\n  distance or reason, so a manager sees an attempt from home.",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/design/clock-in/contracts-2026-11-15.md#8",
+      "lang": "en",
+      "title": "docs/design/clock-in/contracts-2026-11-15.md › 5. Privacy",
+      "body": "## 5. Privacy\n\n- The phone asks for location **only** on the staff clock screen, and only \"while using\".\n  No background location, no geofence, no customer prompt (the nearby-offer idea is a separate,\n  later piece and needs its own store review).\n- A location fix is read once per scan and stored on that attempt only. Nothing tracks staff\n  between scans.",
+      "route": null
+    },
+    {
+      "kind": "doc",
       "ref": "doc:docs/design/design-arch.md#1",
       "lang": "en",
       "title": "docs/design/design-arch.md › I have everything I need from the scope and diagrams. Here is the system architecture plan.",
@@ -87605,7 +88461,7 @@
       "kind": "doc",
       "ref": "doc:docs/store/app-store-submission.md#10",
       "lang": "en",
-      "title": "docs/store/app-store-submission.md › 2 · App Privacy (the nutrition label) (part 1 of 2)",
+      "title": "docs/store/app-store-submission.md › 2 · App Privacy (the nutrition label) (part 1 of 3)",
       "body": "a note on a new menu item, a marketing draft or an incident report |\n| Financial Info → **Other Financial Info** | Yes | Yes | No | App Functionality. **Staff accounts only**: a wage advance a staff member asks for, and pay deductions (amount, date and reason) recorded against a staff member, which that person reads in the staff area. **UNVERIFIED** classification, Majed's call (wave5-addendum-2026-09-25 §7.7) |",
       "route": null
     },
@@ -87613,7 +88469,15 @@
       "kind": "doc",
       "ref": "doc:docs/store/app-store-submission.md#10~2",
       "lang": "en",
-      "title": "docs/store/app-store-submission.md › 2 · App Privacy (the nutrition label) (part 2 of 2)",
+      "title": "docs/store/app-store-submission.md › 2 · App Privacy (the nutrition label) (part 2 of 3)",
+      "body": "a note on a new menu item, a marketing draft or an incident report |\n| Location → **Precise Location** | Yes | Yes | No | App Functionality. **Staff accounts only** (migration 0442): when a staff member presses Start work or Finish work, the phone reads its location once, \"while using\" only, and the server checks it is inside the club's radius. The fix is kept on that one attempt; nothing runs in the background and guests are never asked |\n| Identifiers → **Device ID** | Yes | Yes | No | App Functionality. **Staff accounts only** (0442): the phone's app-scoped id (identifierForVendor / Android ID) is hashed on the server and binds a staff member's clock-in to one phone; never used for advertising or tracking |",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/store/app-store-submission.md#10~3",
+      "lang": "en",
+      "title": "docs/store/app-store-submission.md › 2 · App Privacy (the nutrition label) (part 3 of 3)",
       "body": "a note on a new menu item, a marketing draft or an incident report |\n| Diagnostics → **Crash Data** | Yes | Yes | No | App Functionality. A report when the app crashes or an action fails (what failed, on which screen, the app version), sent automatically or when the person presses \"Report crash\", to the venue's own monitoring page; linked to the account when someone is signed in (F-15, migration 0393). **UNVERIFIED** whether Apple also wants Other Diagnostic Data for the non-crash error reports; Majed's call |",
       "route": null
     },
@@ -87621,24 +88485,32 @@
       "kind": "doc",
       "ref": "doc:docs/store/app-store-submission.md#11",
       "lang": "en",
-      "title": "docs/store/app-store-submission.md › 2 · App Privacy (the nutrition label) (part 1 of 3)",
-      "body": "For each: \"Is this data used for tracking?\" → **No**. Purposes: tick **App Functionality** only.\n\n**Not collected:** Health & Fitness, Financial Info other than the staff-only row above (no payment, credit or\ncard info: the app takes no payment), Location, Sensitive Info, Contacts, User Content (Emails or Text\nMessages, Audio Data, Gameplay Content, Customer Support), Browsing History, Search History,\nUsage Data (Product Interaction, Advertising Data, Other Usage Data), Diagnostics other than Crash Data (Performance\nData, Other Diagnostic Data), Device ID, Physical Address, Other Contact Info.\n",
+      "title": "docs/store/app-store-submission.md › 2 · App Privacy (the nutrition label) (part 1 of 4)",
+      "body": "For each: \"Is this data used for tracking?\" → **No**. Purposes: tick **App Functionality** only.\n\n**Not collected:** Health & Fitness, Financial Info other than the staff-only row above (no payment, credit or\ncard info: the app takes no payment), Coarse Location, Sensitive Info, Contacts, User Content (Emails or Text\nMessages, Audio Data, Gameplay Content, Customer Support), Browsing History, Search History,\nUsage Data (Product Interaction, Advertising Data, Other Usage Data), Diagnostics other than Crash Data (Performance\nData, Other Diagnostic Data), Physical Address, Other Contact Info.\n",
       "route": null
     },
     {
       "kind": "doc",
       "ref": "doc:docs/store/app-store-submission.md#11~2",
       "lang": "en",
-      "title": "docs/store/app-store-submission.md › 2 · App Privacy (the nutrition label) (part 2 of 3)",
-      "body": "For each: \"Is this data used for tracking?\" → **No**. Purposes: tick **App Functionality** only.\nUsage Data (Product Interaction, Advertising Data, Other Usage Data), Diagnostics other than Crash Data (Performance\nData, Other Diagnostic Data), Device ID, Physical Address, Other Contact Info.\n\nThe iOS privacy manifest (`apps/mobile/app.config.ts` → `ios.privacyManifests`) lists the same ten types, each\nlinked, not tracking, App Functionality; `apps/mobile/src/lib/__tests__/privacyManifest.test.ts` fails when the\ntable above and the manifest differ. The\ncamera and photo-library prompts (`NSCameraUsageDescription`, `NSPhotoLibraryUsageDescription`, EN and AR in\n`apps/mobile/locales/ios.{en,ar}.json`) appear only when a guest adds a profile photo in Edit profile, or a staff",
+      "title": "docs/store/app-store-submission.md › 2 · App Privacy (the nutrition label) (part 2 of 4)",
+      "body": "For each: \"Is this data used for tracking?\" → **No**. Purposes: tick **App Functionality** only.\nUsage Data (Product Interaction, Advertising Data, Other Usage Data), Diagnostics other than Crash Data (Performance\nData, Other Diagnostic Data), Physical Address, Other Contact Info.\n\nThe iOS privacy manifest (`apps/mobile/app.config.ts` → `ios.privacyManifests`) lists the same twelve types, each\nlinked, not tracking, App Functionality; `apps/mobile/src/lib/__tests__/privacyManifest.test.ts` fails when the\ntable above and the manifest differ. The\ncamera and photo-library prompts (`NSCameraUsageDescription`, `NSPhotoLibraryUsageDescription`, EN and AR in\n`apps/mobile/locales/ios.{en,ar}.json`) appear only when a guest adds a profile photo in Edit profile, or a staff",
       "route": null
     },
     {
       "kind": "doc",
       "ref": "doc:docs/store/app-store-submission.md#11~3",
       "lang": "en",
-      "title": "docs/store/app-store-submission.md › 2 · App Privacy (the nutrition label) (part 3 of 3)",
-      "body": "For each: \"Is this data used for tracking?\" → **No**. Purposes: tick **App Functionality** only.\n`apps/mobile/locales/ios.{en,ar}.json`) appear only when a guest adds a profile photo in Edit profile, or a staff\nmember adds a work photo in the staff area. The app never asks for the microphone.\n\nThe WhatsApp verification-code provider, Supabase, Expo push and Apple/Google sign-in all process data **for the\napp's own functionality**, which is not \"tracking\" in Apple's definition. No ATT prompt, no\n`NSUserTrackingUsageDescription`. An ATT prompt with nothing to track is itself a rejection.\n\nIf a third-party crash reporter (Sentry or similar) ships later, it is a third party: revisit this table first.\n\n### Account deletion (5.1.1(v))",
+      "title": "docs/store/app-store-submission.md › 2 · App Privacy (the nutrition label) (part 3 of 4)",
+      "body": "For each: \"Is this data used for tracking?\" → **No**. Purposes: tick **App Functionality** only.\n`apps/mobile/locales/ios.{en,ar}.json`) appear only when a guest adds a profile photo in Edit profile, or a staff\nmember adds a work photo in the staff area, or scans the desk QR to start or finish work. The location prompt\n(`NSLocationWhenInUseUsageDescription`, \"while using\" only, no Always string) appears only on the staff clock-in\nscreen (0442); a guest never sees it. The app never asks for the microphone.\n\nThe WhatsApp verification-code provider, Supabase, Expo push and Apple/Google sign-in all process data **for the\napp's own functionality**, which is not \"tracking\" in Apple's definition. No ATT prompt, no",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/store/app-store-submission.md#11~4",
+      "lang": "en",
+      "title": "docs/store/app-store-submission.md › 2 · App Privacy (the nutrition label) (part 4 of 4)",
+      "body": "For each: \"Is this data used for tracking?\" → **No**. Purposes: tick **App Functionality** only.\napp's own functionality**, which is not \"tracking\" in Apple's definition. No ATT prompt, no\n`NSUserTrackingUsageDescription`. An ATT prompt with nothing to track is itself a rejection.\n\nIf a third-party crash reporter (Sentry or similar) ships later, it is a third party: revisit this table first.\n\n### Account deletion (5.1.1(v))",
       "route": null
     },
     {
@@ -88094,7 +88966,7 @@
       "ref": "doc:docs/store/google-play-data-safety.md#6~2",
       "lang": "en",
       "title": "docs/store/google-play-data-safety.md › Data types (part 2 of 3)",
-      "body": "listed or withdrawn from; match scores reported and confirmed for the Ranks leaderboard |\n| Device or other IDs → **Device or other IDs** | Yes | Optional | App functionality | The push-notification token, only if notifications are allowed |\n| Photos and videos → **Photos** | Yes | Optional | App functionality | A guest's optional profile photo, taken or chosen in Edit profile and seen by the guest and the venue's staff; and, on staff accounts, a work photo taken or chosen in the staff area (a proposed dish, a receipt, a finished task, an incident report). Both re-encoded on the phone without location metadata |",
+      "body": "listed or withdrawn from; match scores reported and confirmed for the Ranks leaderboard |\n| Location → **Precise location** | Yes | Optional | App functionality | **Staff accounts only** (migration 0442): one fix when a staff member presses Start work or Finish work, \"while using\" only, checked against the club's radius and kept on that attempt. No background location (`ACCESS_BACKGROUND_LOCATION` is blocked in the manifest); guests are never asked |\n| Device or other IDs → **Device or other IDs** | Yes | Optional | App functionality | The push-notification token, only if notifications are allowed; and, on staff accounts, the Android ID, hashed on the server, which binds clock-in to one phone (0442) |",
       "route": null
     },
     {
@@ -88102,31 +88974,39 @@
       "ref": "doc:docs/store/google-play-data-safety.md#6~3",
       "lang": "en",
       "title": "docs/store/google-play-data-safety.md › Data types (part 3 of 3)",
-      "body": "listed or withdrawn from; match scores reported and confirmed for the Ranks leaderboard |\n| App activity → **Other user-generated content** | Yes | Optional | App functionality | **Staff accounts only**: the text a staff member types into a task, a proposal, a staff request, a note on a new menu item, a marketing draft or an incident report |",
+      "body": "listed or withdrawn from; match scores reported and confirmed for the Ranks leaderboard |\n| Photos and videos → **Photos** | Yes | Optional | App functionality | A guest's optional profile photo, taken or chosen in Edit profile and seen by the guest and the venue's staff; and, on staff accounts, a work photo taken or chosen in the staff area (a proposed dish, a receipt, a finished task, an incident report). Both re-encoded on the phone without location metadata |\n| App activity → **Other user-generated content** | Yes | Optional | App functionality | **Staff accounts only**: the text a staff member types into a task, a proposal, a staff request, a note on a new menu item, a marketing draft or an incident report |",
       "route": null
     },
     {
       "kind": "doc",
       "ref": "doc:docs/store/google-play-data-safety.md#7",
       "lang": "en",
-      "title": "docs/store/google-play-data-safety.md › Data types (part 1 of 3)",
-      "body": "**Not collected:** location (approximate or precise), web browsing, contacts, calendar, videos, audio, files,\nhealth and fitness, messages, app info and performance other than the crash logs above, financial info other than purchase\nhistory and the staff-only advances and deductions above (no card or bank details), race/religion/political or other\nsensitive info. Photos only as above: a guest's own profile photo, and work photos from staff accounts.\n\n> Only what the **Android app** collects belongs on this form. The website's café table sessions, the order notes\n> guests type there, PostHog page-view analytics, and the notes and labels the front desk writes in the operator app",
+      "title": "docs/store/google-play-data-safety.md › Data types (part 1 of 4)",
+      "body": "**Not collected:** approximate location, precise location other than the staff clock-in above, web browsing, contacts, calendar, videos, audio, files,\nhealth and fitness, messages, app info and performance other than the crash logs above, financial info other than purchase\nhistory and the staff-only advances and deductions above (no card or bank details), race/religion/political or other\nsensitive info. Photos only as above: a guest's own profile photo, and work photos from staff accounts.\n\n> Only what the **Android app** collects belongs on this form. The website's café table sessions, the order notes",
       "route": null
     },
     {
       "kind": "doc",
       "ref": "doc:docs/store/google-play-data-safety.md#7~2",
       "lang": "en",
-      "title": "docs/store/google-play-data-safety.md › Data types (part 2 of 3)",
-      "body": "**Not collected:** location (approximate or precise), web browsing, contacts, calendar, videos, audio, files,\n> guests type there, PostHog page-view analytics, and the notes and labels the front desk writes in the operator app\n> are all outside it. The Privacy Policy discloses each of them. The guest side of the app has no free-text field\n> between players: other players see a first name and surname initial, preset match messages that are not free\n> text, and the username a player chose for the leaderboard. The staff area does, and it can attach work photos, so Photos and Other user-generated\n> content are declared, for staff accounts only, matching the App Store label (`docs/store/app-store-submission.md`",
+      "title": "docs/store/google-play-data-safety.md › Data types (part 2 of 4)",
+      "body": "**Not collected:** approximate location, precise location other than the staff clock-in above, web browsing, contacts, calendar, videos, audio, files,\n\n> Only what the **Android app** collects belongs on this form. The website's café table sessions, the order notes\n> guests type there, PostHog page-view analytics, and the notes and labels the front desk writes in the operator app\n> are all outside it. The Privacy Policy discloses each of them. The guest side of the app has no free-text field\n> between players: other players see a first name and surname initial, preset match messages that are not free\n> text, and the username a player chose for the leaderboard. The staff area does, and it can attach work photos, so Photos and Other user-generated",
       "route": null
     },
     {
       "kind": "doc",
       "ref": "doc:docs/store/google-play-data-safety.md#7~3",
       "lang": "en",
-      "title": "docs/store/google-play-data-safety.md › Data types (part 3 of 3)",
-      "body": "**Not collected:** location (approximate or precise), web browsing, contacts, calendar, videos, audio, files,\n> content are declared, for staff accounts only, matching the App Store label (`docs/store/app-store-submission.md`\n> §2). Staff accounts are created by the owner; there is no staff sign-up in the app.\n>\n> The photo picker is the system one, which needs no media permission: `app.config.ts` blocks\n> `READ_MEDIA_IMAGES`, `READ_MEDIA_VIDEO`, `READ_EXTERNAL_STORAGE` and `RECORD_AUDIO`, so Play's Photo and video\n> permissions declaration should not apply. Confirm it on the first Android build's merged manifest (UNVERIFIED\n> against SDK 57, build-contracts-2026-09-23 §8.4). The camera permission is asked only when a guest takes a profile\n> photo or a staff member takes a work photo.",
+      "title": "docs/store/google-play-data-safety.md › Data types (part 3 of 4)",
+      "body": "**Not collected:** approximate location, precise location other than the staff clock-in above, web browsing, contacts, calendar, videos, audio, files,\n> text, and the username a player chose for the leaderboard. The staff area does, and it can attach work photos, so Photos and Other user-generated\n> content are declared, for staff accounts only, matching the App Store label (`docs/store/app-store-submission.md`\n> §2). Staff accounts are created by the owner; there is no staff sign-up in the app.\n>\n> The photo picker is the system one, which needs no media permission: `app.config.ts` blocks\n> `READ_MEDIA_IMAGES`, `READ_MEDIA_VIDEO`, `READ_EXTERNAL_STORAGE` and `RECORD_AUDIO`, so Play's Photo and video",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/store/google-play-data-safety.md#7~4",
+      "lang": "en",
+      "title": "docs/store/google-play-data-safety.md › Data types (part 4 of 4)",
+      "body": "**Not collected:** approximate location, precise location other than the staff clock-in above, web browsing, contacts, calendar, videos, audio, files,\n> `READ_MEDIA_IMAGES`, `READ_MEDIA_VIDEO`, `READ_EXTERNAL_STORAGE` and `RECORD_AUDIO`, so Play's Photo and video\n> permissions declaration should not apply. Confirm it on the first Android build's merged manifest (UNVERIFIED\n> against SDK 57, build-contracts-2026-09-23 §8.4). The camera permission is asked only when a guest takes a profile\n> photo or a staff member takes a work photo.",
       "route": null
     },
     {

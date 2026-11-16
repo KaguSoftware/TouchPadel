@@ -97,22 +97,26 @@ row below come from staff accounts only.
 | User Content → **Photos or Videos** | Yes | Yes | No | App Functionality. A guest's optional profile photo, taken or chosen in Edit profile and seen by the guest and the venue's staff; and, on staff accounts, a work photo taken or chosen in the staff area (a proposed dish, a receipt, a finished task, an incident report). Both are re-encoded on the phone without location or camera metadata. A profile photo is deleted with the account |
 | User Content → **Other User Content** | Yes | Yes | No | App Functionality. **Staff accounts only**: the text a staff member types into a task, a proposal, a staff request, a note on a new menu item, a marketing draft or an incident report |
 | Financial Info → **Other Financial Info** | Yes | Yes | No | App Functionality. **Staff accounts only**: a wage advance a staff member asks for, and pay deductions (amount, date and reason) recorded against a staff member, which that person reads in the staff area. **UNVERIFIED** classification, Majed's call (wave5-addendum-2026-09-25 §7.7) |
+| Location → **Precise Location** | Yes | Yes | No | App Functionality. **Staff accounts only** (migration 0442): when a staff member presses Start work or Finish work, the phone reads its location once, "while using" only, and the server checks it is inside the club's radius. The fix is kept on that one attempt; nothing runs in the background and guests are never asked |
+| Identifiers → **Device ID** | Yes | Yes | No | App Functionality. **Staff accounts only** (0442): the phone's app-scoped id (identifierForVendor / Android ID) is hashed on the server and binds a staff member's clock-in to one phone; never used for advertising or tracking |
 | Diagnostics → **Crash Data** | Yes | Yes | No | App Functionality. A report when the app crashes or an action fails (what failed, on which screen, the app version), sent automatically or when the person presses "Report crash", to the venue's own monitoring page; linked to the account when someone is signed in (F-15, migration 0393). **UNVERIFIED** whether Apple also wants Other Diagnostic Data for the non-crash error reports; Majed's call |
 
 For each: "Is this data used for tracking?" → **No**. Purposes: tick **App Functionality** only.
 
 **Not collected:** Health & Fitness, Financial Info other than the staff-only row above (no payment, credit or
-card info: the app takes no payment), Location, Sensitive Info, Contacts, User Content (Emails or Text
+card info: the app takes no payment), Coarse Location, Sensitive Info, Contacts, User Content (Emails or Text
 Messages, Audio Data, Gameplay Content, Customer Support), Browsing History, Search History,
 Usage Data (Product Interaction, Advertising Data, Other Usage Data), Diagnostics other than Crash Data (Performance
-Data, Other Diagnostic Data), Device ID, Physical Address, Other Contact Info.
+Data, Other Diagnostic Data), Physical Address, Other Contact Info.
 
-The iOS privacy manifest (`apps/mobile/app.config.ts` → `ios.privacyManifests`) lists the same ten types, each
+The iOS privacy manifest (`apps/mobile/app.config.ts` → `ios.privacyManifests`) lists the same twelve types, each
 linked, not tracking, App Functionality; `apps/mobile/src/lib/__tests__/privacyManifest.test.ts` fails when the
 table above and the manifest differ. The
 camera and photo-library prompts (`NSCameraUsageDescription`, `NSPhotoLibraryUsageDescription`, EN and AR in
 `apps/mobile/locales/ios.{en,ar}.json`) appear only when a guest adds a profile photo in Edit profile, or a staff
-member adds a work photo in the staff area. The app never asks for the microphone.
+member adds a work photo in the staff area, or scans the desk QR to start or finish work. The location prompt
+(`NSLocationWhenInUseUsageDescription`, "while using" only, no Always string) appears only on the staff clock-in
+screen (0442); a guest never sees it. The app never asks for the microphone.
 
 The WhatsApp verification-code provider, Supabase, Expo push and Apple/Google sign-in all process data **for the
 app's own functionality**, which is not "tracking" in Apple's definition. No ATT prompt, no

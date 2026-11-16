@@ -15,6 +15,9 @@
  *    and the wage it comes off; Edit and Clear, except on a day whose wage is
  *    paid (locked).
  *
+ * Since 0442 the page opens on Today, the clock-in board (features/clock/ClockDayBoard.tsx);
+ * the month marks a day made from log-ins as "From log-in", and Set hours edits a person's week.
+ *
  * Every figure is the server's: the verdict compares minutes, and the cost it
  * names is the rule's own amount. A manager never sees a day about
  * themselves; the owner reads the same days on the Wages page.
@@ -27,7 +30,7 @@ import { useLocale } from '../../lib/i18n';
 import { useBusinessToday, useCafeSettings, useSetCafeSettings } from '../../lib/settings';
 import { useToast } from '../../components/toast';
 import { useConfirm } from '../../components/ConfirmDialog';
-import { Button, ErrorText, Field, Select, Skeleton, inputStyle } from '../../components/ui';
+import { Button, ErrorText, Field, Select, Skeleton, Tabs, inputStyle } from '../../components/ui';
 import { CountInput, DateField, MoneyInput } from '../../components/inputs';
 import { DataTable, EmptyState, MessagePresenter, Money, PageHeader, Panel, StatusBadge, ViewMore, useListCap, type Column } from '../../components/kit';
 import { ChevronBack, ChevronForward } from '../../components/icons';
@@ -35,6 +38,8 @@ import { CardTitle } from '../ops/OpsVisuals';
 import { refusalCode, refusalHint } from '../protocols/errors';
 import { dayLabel, monthLabel, shiftMonth } from '../deductions/venueDate';
 import { AK, fetchAttendanceMonth } from './api';
+import { ClockDayBoard } from '../clock/ClockDayBoard';
+import { HoursEditor } from '../clock/HoursEditor';
 import {
   GRACE_MAX,
   MINUTES_MAX,
@@ -61,7 +66,65 @@ import {
 
 const muted = { color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' } as const;
 
+type AttendanceTab = 'today' | 'month' | 'hours';
+
+/**
+ * Three tabs (0442): Today (the clock-in board, first, because it is what a manager opens the page
+ * for), Month (the recorded late and early days and the rule), Set hours (a person's week; the
+ * owner also sets it from the Staff page).
+ */
 export function AttendancePageScreen() {
+  const { tr } = useLocale();
+  const [tab, setTab] = useState<AttendanceTab>('today');
+  return (
+    <div style={{ maxInlineSize: '84rem' }}>
+      <PageHeader title={tr('ws.wages.attendance.title')} subtitle={tr('ws.clock.attendance.lead')} />
+      <Tabs<AttendanceTab>
+        value={tab}
+        onChange={setTab}
+        items={[
+          { id: 'today', label: tr('ws.clock.attendance.tabs.today') },
+          { id: 'month', label: tr('ws.clock.attendance.tabs.month') },
+          { id: 'hours', label: tr('ws.clock.attendance.tabs.hours') },
+        ]}
+        style={{ marginBlockEnd: 'var(--tp-sp-4)' }}
+      />
+      {tab === 'today' && <ClockDayBoard />}
+      {tab === 'month' && <MonthView />}
+      {tab === 'hours' && <HoursTab />}
+    </div>
+  );
+}
+
+/** Set hours for anyone the viewer may record a day for (a manager never sets their own). */
+function HoursTab() {
+  const { tr } = useLocale();
+  const q = useQuery({ queryKey: AK.month(null), queryFn: () => fetchAttendanceMonth(null) });
+  const month = readAttendanceMonth(q.data);
+  const [staffId, setStaffId] = useState('');
+  const options = month.staff.map((s) => ({ value: s.id, label: s.role ? `${s.displayName} · ${tr(`op.roles.${s.role}`)}` : s.displayName }));
+  return (
+    <section style={{ display: 'grid', gap: 'var(--tp-sp-4)', maxInlineSize: '46rem' }} data-testid="attendance.hours">
+      <Field label={tr('ws.clock.attendance.hoursPerson')} hint={tr('ws.clock.attendance.hoursHint')} style={{ marginBlockEnd: 0, maxInlineSize: '24rem' }}>
+        <Select<string>
+          value={staffId}
+          placeholder={tr('ws.wages.attendance.record.choosePerson')}
+          disabled={q.data === undefined || options.length === 0}
+          options={options}
+          onChange={setStaffId}
+        />
+      </Field>
+      {q.isError && <ErrorText error={q.error} />}
+      {staffId !== '' && (
+        <Panel title={<CardTitle icon="calendar">{options.find((o) => o.value === staffId)?.label ?? ''}</CardTitle>}>
+          <HoursEditor key={staffId} staffId={staffId} />
+        </Panel>
+      )}
+    </section>
+  );
+}
+
+function MonthView() {
   const { tr, locale } = useLocale();
   const toast = useToast();
   const confirm = useConfirm();
@@ -114,18 +177,15 @@ export function AttendancePageScreen() {
   const formMonth: AttendanceMonth = q.data !== undefined ? data : currentData;
 
   return (
-    <div style={{ maxInlineSize: '84rem' }}>
-      <PageHeader
-        title={tr('ws.wages.attendance.title')}
-        subtitle={tr('ws.wages.attendance.lead')}
-        actions={
-          form === null ? (
-            <Button kind="primary" icon="plus" onClick={() => openForm({ staffId: '', date: today, late: 0, early: 0, note: '' }, false)} data-testid="attendance.record.open">
-              {tr('ws.wages.attendance.record.open')}
-            </Button>
-          ) : undefined
-        }
-      />
+    <div>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 'var(--tp-sp-3)', flexWrap: 'wrap', marginBlockEnd: 'var(--tp-sp-4)' }}>
+        <p style={{ ...muted, margin: 0, maxInlineSize: '70ch' }}>{tr('ws.wages.attendance.lead')}</p>
+        {form === null && (
+          <Button kind="primary" icon="plus" onClick={() => openForm({ staffId: '', date: today, late: 0, early: 0, note: '' }, false)} data-testid="attendance.record.open">
+            {tr('ws.wages.attendance.record.open')}
+          </Button>
+        )}
+      </div>
 
       <RulePanel />
 
@@ -347,6 +407,8 @@ function RecordForm({
 
   const verdict = ruleVerdict(month.rule, draft.late, draft.early);
   const existing = editing ? null : recordedDay(month, draft.staffId, draft.date);
+  // 0442: a day made from log-ins becomes a hand record once saved here; later scans leave it alone.
+  const fromClock = recordedDay(month, draft.staffId, draft.date)?.source === 'clock';
   const personName = month.staff.find((s) => s.id === draft.staffId)?.displayName ?? month.people.find((p) => p.staffId === draft.staffId)?.displayName ?? '';
   const options = month.staff.map((s) => ({ value: s.id, label: s.role ? `${s.displayName} · ${tr(`op.roles.${s.role}`)}` : s.displayName }));
   if (draft.staffId !== '' && !options.some((o) => o.value === draft.staffId)) options.push({ value: draft.staffId, label: personName });
@@ -430,6 +492,9 @@ function RecordForm({
             message={tr('ws.wages.attendance.record.replaces', { date: dayLabel(existing.workDate, locale), name: isolate(personName) })}
           />
         )}
+        {fromClock && (
+          <MessagePresenter tone="info" style={{ marginBlockEnd: 'var(--tp-sp-2)' }} message={tr('ws.clock.attendance.becomesManual')} />
+        )}
         {send.isError && serverField === null && <ErrorText error={send.error} />}
         <div style={{ display: 'flex', gap: 'var(--tp-sp-2)', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
           <Button kind="ghost" onClick={onClose} disabled={send.isPending}>
@@ -511,7 +576,13 @@ function PersonDays({
               {d.note}
             </span>
           )}
-          {d.recordedByName && <span style={{ ...muted, fontSize: 'var(--tp-fs-xs)' }}>{tr('ws.wages.attendance.day.recordedBy', { name: isolate(d.recordedByName) })}</span>}
+          {d.source === 'clock' ? (
+            <span style={{ ...muted, fontSize: 'var(--tp-fs-xs)' }} data-testid={`attendance.fromClock.${d.id}`}>
+              {tr('ws.clock.attendance.fromClock')}
+            </span>
+          ) : (
+            d.recordedByName && <span style={{ ...muted, fontSize: 'var(--tp-fs-xs)' }}>{tr('ws.wages.attendance.day.recordedBy', { name: isolate(d.recordedByName) })}</span>
+          )}
         </span>
       ),
       truncateTitle: (d) => d.workDate,

@@ -17,6 +17,29 @@ is a line in that file.
 
 ## Migrations
 
+- **0442 (2026-11-15, staff_clock; Majed: staff log arriving and leaving from the phone, impossible
+  from home; set hours with any number of shifts and second jobs; one QR a day; lateness by
+  itself):** tables `staff_clock_places` (per branch: point, `radius_m` 120, `max_accuracy_m` 60),
+  `station_clock_keys` (a desk station's 20-byte secret), `staff_shifts` (ISO weekday, start, end
+  at/before start = next day, `role` = the job), `staff_clock_devices` (sha256 of the one logging
+  phone), `staff_clock_events` (every attempt, accepted or refused with the reason and the fix),
+  all RLS on with NO client grant and `zz_branch_guard` where scoped; `staff_attendance` gains
+  `source` (manual | clock) and `recorded_by` NULL for a clock day (`staff_attendance_source_chk`).
+  The code is TOTP **computed on the station** (`app.clock_code`, HMAC-SHA1 30 s, twin of
+  `@touch/core/staff/clock` `clockCode`, which reuses `loyalty/totp` `hotp`), because
+  `x-station-id` is a header any session can forge: no RPC ever returns a code.
+  `clock_punch` answers refusals as data so the attempt is kept (TOO_MANY_TRIES = 8 refusals an
+  hour, NO_PLACE, NO_STATION, WRONG_DEVICE, LOCATION_STALE > 2 min, MOCK_LOCATION,
+  LOCATION_ROUGH, NOT_HERE, CODE_WRONG steps −2..+1, ALREADY_IN, NOT_IN) and runs under
+  `app.lock_wage`. An in matches the first shift not ended that starts within 3 h; an out is
+  measured against the end of the block (touching shifts) its in matched, so a gap costs nothing.
+  `app.clock_attendance_sync` writes the day from the accepted scans and never touches a manual
+  or paid row. RPCs `my_clock`, `clock_punch` (any staff but the owner, member of the branch),
+  `clock_setup`, `issue_station_clock_key`, `staff_shifts_get`, `set_staff_shifts`, `clock_day`,
+  `clock_reset_device` (MGMT), `set_clock_place` (owner). **0442 holds `record_attendance` and
+  `attendance_month`** (0271 no longer: `source`). `app.access_area_rpcs` rows for attendance and
+  admin. Rule drop 42. Contract `docs/design/clock-in/contracts-2026-11-15.md`;
+  `tests/staff-clock.test.ts`.
 - **0431 (2026-11-15, match_guest_lock; audit finding 27):** while matches are paid at the desk
   (0370), `ticket_pick` locked no ticket rows, so two joins by one guest at two branches at once
   both passed the cross-branch clash check (R41). The internal `app.lock_match_guest(p_guest)`

@@ -55,6 +55,10 @@ import { staffRewardsAr } from './rewards.ar';
 import { staffActivityEn } from './activity.en';
 import { staffActivityAr } from './activity.ar';
 
+// Starting and finishing work from the phone (0442; app/(staff)/staff-clock.tsx, Today's work card).
+import { staffClockEn } from './clock.en';
+import { staffClockAr } from './clock.ar';
+
 export const staffEn = {
   shell: staffShellEn,
   protocols: staffProtocolsEn,
@@ -74,6 +78,7 @@ export const staffEn = {
   screenshots: staffScreenshotsEn,
   rewards: staffRewardsEn,
   activity: staffActivityEn,
+  clock: staffClockEn,
 } as const;
 
 export const staffAr = {
@@ -95,4 +100,5 @@ export const staffAr = {
   screenshots: staffScreenshotsAr,
   rewards: staffRewardsAr,
   activity: staffActivityAr,
+  clock: staffClockAr,
 } as const;

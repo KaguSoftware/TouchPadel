@@ -36,6 +36,9 @@ export const STAFF_RPCS = [
   'staff_rewards_board',
   'set_staff_reward',
   'end_staff_reward',
+  // starting and finishing work (0442): the caller's own day, and a scan with its location
+  'my_clock',
+  'clock_punch',
   // push settings (0363): the owner's protocol status pushes on or off, on Work alerts
   'my_push_prefs',
   'set_my_push_prefs',
