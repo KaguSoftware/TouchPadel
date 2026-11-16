@@ -203,6 +203,12 @@ test.describe('operator till shifts', () => {
   test('(c) day close lists both shifts, the open one a warning that never holds the close', async ({ browser }) => {
     const page = await signIn(browser, SEED_STAFF.manager);
     await page.goto(`${OPERATOR_URL}/admin/day-close`);
+    // The close is three screens (cash, card, close); the shifts are on the last.
+    const counted = page.getByLabel('Counted cash (IQD)');
+    await expect(counted).toBeVisible({ timeout: 30_000 });
+    await counted.fill('1');
+    await page.getByRole('button', { name: 'Next', exact: true }).click();
+    await page.getByRole('button', { name: 'Next', exact: true }).click();
     const step = page.getByTestId('day-close-shifts');
     await expect(step).toBeVisible({ timeout: 30_000 });
     await expect(step.getByText('Short by 1,000 IQD').first()).toBeVisible();
@@ -210,7 +216,6 @@ test.describe('operator till shifts', () => {
     await expect(step).toContainText('Closing the day ends an open shift without a count');
     // Whatever holds the close, it is never the shift: the reasons name tabs,
     // sync or the count, and nothing else (closeBlock is unchanged).
-    await page.getByLabel('Counted cash (IQD)').fill('1');
     const close = page.getByRole('button', { name: 'Close the day' });
     const reason = await close.getAttribute('aria-describedby');
     if (reason) await expect(page.locator(`[id="${reason}"]`)).not.toContainText(/shift/i);

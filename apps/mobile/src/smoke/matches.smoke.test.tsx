@@ -697,10 +697,12 @@ describe.each(LOCALES)('open-match states in %s', (locale) => {
       rpc.mockClear();
       alertState.log.length = 0;
       // Hold the next alert open: the suite's own mock would press Cancel at once.
-      let shown: { text: string; onPress?: () => void }[] = [];
+      // Each alert keeps its own buttons: a late alert from the first join must not
+      // replace the question's (a slow runner lands it after the question).
+      const raised: { body: string; buttons: { text: string; onPress?: () => void }[] }[] = [];
       jest.spyOn(Alert, 'alert').mockImplementation((title, body, buttons) => {
         alertState.log.push({ title: title ?? '', body: body ?? '' });
-        shown = (buttons ?? []) as typeof shown;
+        raised.push({ body: body ?? '', buttons: (buttons ?? []) as (typeof raised)[number]['buttons'] });
       });
       // With a friend: nothing is sent until the guest says they are all men.
       fireEvent.press(screen.getByTestId('match-detail.seats-wanted.2'));
@@ -715,6 +717,7 @@ describe.each(LOCALES)('open-match states in %s', (locale) => {
       );
       expect(rpc).not.toHaveBeenCalledWith('match_join', expect.anything());
       // The alert's second button is the guest's yes.
+      const shown = raised.find((a) => a.body.includes(t('matches.detail.takeBodyMen')))?.buttons ?? [];
       expect(shown[1]?.text).toBe(t('matches.detail.takeConfirmMen'));
       await act(async () => {
         shown[1]?.onPress?.();

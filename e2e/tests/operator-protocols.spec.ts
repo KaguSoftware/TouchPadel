@@ -71,19 +71,23 @@ test.describe('operator protocols', () => {
     await card.getByTestId('start-hiring').click();
     const sheet = page.getByTestId('start-sheet');
     await expect(sheet).toBeVisible();
-    await expect(sheet.getByText('Starting sends this first step for a decision.')).toBeVisible();
+    // The start is a wizard: title, details, review.
+    const goTo = (key: string) => page.getByTestId(`start-sheet.step.${key}`).click();
 
-    // Nothing filled in: marked, and nothing is started.
-    await page.getByTestId('start-send').click();
+    // Nothing filled in: the title step is marked and the way forward stops.
+    await goTo('details');
     await expect(sheet.getByText('Check the marked fields.')).toBeVisible();
 
     await sheet.getByTestId('title-en').fill(TITLE);
+    await goTo('details');
+    await expect(sheet.getByText('Starting sends this first step for a decision.')).toBeVisible();
     await choose(sheet.getByRole('combobox', { name: 'Role' }), 'barista');
     const boxes = sheet.locator('textarea');
     await boxes.nth(0).fill('Weekend mornings run short at the bar.');
     await boxes.nth(1).fill('Friday and Saturday, 7:00 to 15:00');
     await sheet.locator('input[type="date"]').fill('2026-12-01');
-    await page.getByTestId('start-send').click();
+    await goTo('review');
+    await page.getByTestId('start-sheet.submit').click();
 
     // The new run opens on its first step, sent and waiting for the owner.
     const run = page.getByTestId('run-sheet');

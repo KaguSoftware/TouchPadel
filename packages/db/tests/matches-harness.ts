@@ -89,7 +89,10 @@ begin
          gender_set_at   = case when q->>'gender' is null then null else now() end,
          gender_set_by   = case when q->>'gender' is null then null else 'guest' end,
          payment_sandbox = coalesce((q->>'sandbox')::boolean, false),
-         expo_push_token = case when q ? 'push' then q->>'push' end
+         -- One handset, one account (0430): a token written to a profile leaves every
+         -- other, so each guest gets its own (the given token plus a suffix of its id).
+         expo_push_token = case when q ? 'push'
+                                then regexp_replace(q->>'push', '\]$', '-' || substr(md5(v::text), 1, 12) || ']') end
    where id = v;
   if q ? 'given' then
     update profiles set given_name = q->>'given', family_name = q->>'family' where id = v;
