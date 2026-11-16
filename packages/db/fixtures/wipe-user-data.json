@@ -60,10 +60,14 @@
     "recipe_lines": "recipes, ingredients and suppliers",
     "shop_price_watches": "recipes, ingredients and suppliers",
     "staff": "staff, stations and pay rules",
+    "staff_clock_devices": "staff, stations and pay rules: the one phone each kept staff member clocks in with (0442)",
+    "staff_clock_places": "the branch and its settings: where the club is for staff clock-in (0442)",
     "staff_push_prefs": "staff, stations and pay rules",
     "staff_rewards": "staff, stations and pay rules",
+    "staff_shifts": "staff, stations and pay rules: each person's set hours (0442)",
     "staff_venues": "staff, stations and pay rules",
     "staff_wages": "staff, stations and pay rules",
+    "station_clock_keys": "staff, stations and pay rules: each desk station's clock-in QR secret (0442); wiping it would stop every desk QR",
     "station_staff": "staff, stations and pay rules",
     "stations": "staff, stations and pay rules",
     "suppliers": "recipes, ingredients and suppliers",
@@ -214,7 +218,8 @@
     "wage_advances": "staff activity and staff-written content",
     "wage_payments": "staff activity and staff-written content",
     "waiter_calls": "café orders, tabs and money",
-    "app.monitoring_events": "logs, alerts, outboxes and replays"
+    "app.monitoring_events": "logs, alerts, outboxes and replays",
+    "staff_clock_events": "staff activity and staff-written content: every clock-in attempt with its location fix (0442)"
   },
   "profiles_kept": "staff ids, coaches.profile_id, and the logins named with --keep-email; their play survey answers (profiles.play_*, 0334) are emptied",
   "links_cleared": {
