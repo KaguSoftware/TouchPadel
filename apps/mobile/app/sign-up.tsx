@@ -1,44 +1,24 @@
 import { useEffect, useState } from 'react';
-import { View } from 'react-native';
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { Redirect, Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { RequireNoSession } from '../src/features/auth/RequireNoSession';
-import { RequireSession } from '../src/features/auth/RequireSession';
 import { isPhoneFieldError, mapOtpError, validatePhoneInput } from '../src/features/auth/phoneOtp';
-import { isEmailTaken, isValidEmail, mapEmailAuthError } from '../src/features/auth/emailAuth';
-import type { Locale } from '@touch/i18n';
 import { supabase } from '../src/lib/supabase';
-import { PASSWORD_MIN, phoneSignUpStatus, sendSignUpCode, setEmailAndPassword } from '../src/features/auth/api';
-import { verifyRedirect } from '../src/features/auth/redirects';
+import { phoneSignUpStatus, sendSignUpCode } from '../src/features/auth/api';
 import { hasSocial, useSocialSignIn } from '../src/features/auth/useSocialSignIn';
 import { usePostAuthContinue } from '../src/features/booking/usePostAuthContinue';
-import { classifyUpdateFailure } from '../src/features/profile/changePasswordFlow';
-import {
-  useAcceptTerms,
-  useSetAgeBand,
-  useSetBirthDate,
-  useUpdateProfile,
-} from '../src/features/profile/hooks';
-import { useSetMyGender } from '../src/features/matches/hooks';
-import { rpcErrorCode } from '../src/features/booking/errors';
-import { errorMessageOf, isTransportError } from '../src/lib/network';
-import { captureException } from '../src/lib/telemetry';
 import { useLocale } from '../src/i18n/LocaleProvider';
 import { space } from '../src/theme';
 import {
   Button,
-  ErrorText,
   FooterLink,
-  FormScreen,
   LabeledDivider,
-  MicroLabel,
   Screen,
-  SegmentedControl,
 } from '../src/components/ui';
+import { ScreenWithBar } from '../src/components/BottomBar';
 import { FloatingField } from '../src/components/FloatingLabel';
 import { BirthDatePicker } from '../src/components/BirthDatePicker';
-import { ageBandOf } from '../src/features/playProfile/logic';
-import { birthDateToLocalDate, isValidBirthDate } from '../src/features/profile/birthDate';
-import { namePatch, NAME_PART_MAX } from '../src/features/profile/names';
+import { isValidBirthDate } from '../src/features/profile/birthDate';
+import { NAME_PART_MAX } from '../src/features/profile/names';
 import { PhoneField } from '../src/components/phone';
 import { ConsentCheckbox } from '../src/features/profile/ConsentCheckbox';
 import { SocialSignInBlock } from '../src/components/social';
@@ -46,38 +26,34 @@ import { useToast } from '../src/components/overlays';
 import { GenderPicker } from '../src/components/GenderPicker';
 import { resetSignUpDraft, useDraftField } from '../src/features/auth/signUpDraft';
 
-const LAST_STEP = 2;
+const LAST_STEP = 1;
 
 /**
- * Create account, three steps, each its own screen on the stack (so the native
+ * Create account, two steps, each its own screen on the stack (so the native
  * back button, the iOS swipe and Android's back step back with no code of ours;
- * the form lives in signUpDraft):
+ * the form lives in signUpDraft). NOTHING is created until the very end:
  *
- *   0  phone number -> a code (app/verify-otp.tsx, mode register) that creates
- *      the account and signs it in. Apple / Google sit above it.
- *   1  first name, last name, gender, date of birth. Saved on Next, to the
- *      signed-in account (profile names, set_my_gender, set_my_birth_date,
- *      set_my_age_band), so a guest who stops here still has a whole profile.
- *   2  email, password, language, Terms. Email and password are put on the same
- *      account (auth.updateUser); the Terms are recorded with accept_terms.
+ *   0  first name, last name, date of birth. Apple / Google sit above them (a
+ *      provider account is made by the provider, and fixes its gaps in Edit
+ *      profile).
+ *   1  gender, phone number and Terms -> a code (app/verify-otp.tsx,
+ *      mode register). The verified code creates the account and signs it in,
+ *      and that screen writes the whole draft onto it
+ *      (features/auth/useApplySignUpDraft.ts).
  *
- * Steps 1 and 2 need the session the code created; step 0 stays mounted under
- * them, so its signed-out guard is lifted while `registering`.
+ * The session lands under these screens, so their signed-out guard is lifted
+ * while `registering`.
  */
 function SignUpScreen({ step }: { step: number }) {
-  const { t, locale, setLocale } = useLocale();
+  const { t } = useLocale();
   const router = useRouter();
   const [firstName, setFirstName] = useDraftField('firstName');
   const [lastName, setLastName] = useDraftField('lastName');
   const [gender, setGender] = useDraftField('gender');
   const [birthDate, setBirthDate] = useDraftField('birthDate');
-  const [email, setEmail] = useDraftField('email');
   // Country + national digits; the API receives the composed E.164.
   const [iso, setIso] = useDraftField('iso');
   const [national, setNational] = useDraftField('national');
-  const [password, setPassword] = useDraftField('password');
-  const [preferredLangDraft, setPreferredLang] = useDraftField('preferredLang');
-  const preferredLang: Locale = preferredLangDraft ?? locale;
   // 0153: the Terms consent, recorded once the account has its session.
   const [agreed, setAgreed] = useDraftField('agreed');
   const [, setRegistering] = useDraftField('registering');
@@ -86,11 +62,6 @@ function SignUpScreen({ step }: { step: number }) {
   const [busy, setBusy] = useState(false);
   const toast = useToast();
   const { continueAfterAuth, holdBusy } = usePostAuthContinue();
-  const updateProfile = useUpdateProfile();
-  const setMyGender = useSetMyGender();
-  const setAgeBand = useSetAgeBand();
-  const setBirth = useSetBirthDate();
-  const acceptTerms = useAcceptTerms();
   const social = useSocialSignIn({
     onComplete: () => {
       toast(t('auth.welcomeBack'), 'info');
@@ -108,13 +79,26 @@ function SignUpScreen({ step }: { step: number }) {
     social.clearError();
   };
 
-  /** Step 0: a code to the number. */
+  /** Step 0: the name and date of birth, kept in the draft until the code. */
+  const onDetails = () => {
+    clear();
+    if (!firstName.trim()) return setFieldErrors({ firstName: t('auth.firstNameRequired') });
+    if (!lastName.trim()) return setFieldErrors({ lastName: t('auth.lastNameRequired') });
+    if (!birthDate || !isValidBirthDate(birthDate)) {
+      return setFieldErrors({ ageBand: t('auth.ageRequired') });
+    }
+    router.push({ pathname: '/sign-up', params: { step: '1' } });
+  };
+
+  /** Step 1: gender, phone and Terms; then a code to the number. */
   const onPhone = async () => {
     clear();
+    if (!gender) return setFieldErrors({ gender: t('guestGender.required') });
     const { e164 } = validatePhoneInput(iso, national);
     if (!national.trim()) return setFieldErrors({ phone: t('auth.phoneRequired') });
     // A code to a number that cannot be one is paid for; stop at the field.
     if (!e164) return setFieldErrors({ phone: t('auth.phoneOtpInvalid') });
+    if (!agreed) return setError(t('auth.termsRequired'));
     setBusy(true);
     try {
       // 0414: a number a whole account already owns stops here, before a code
@@ -136,83 +120,26 @@ function SignUpScreen({ step }: { step: number }) {
     }
   };
 
-  /** Step 1: save who they are, then on to the email and password. */
-  const onDetails = async () => {
-    clear();
-    if (!firstName.trim()) return setFieldErrors({ firstName: t('auth.firstNameRequired') });
-    if (!lastName.trim()) return setFieldErrors({ lastName: t('auth.lastNameRequired') });
-    if (!gender) return setFieldErrors({ gender: t('guestGender.required') });
-    if (!birthDate || !isValidBirthDate(birthDate)) {
-      return setFieldErrors({ ageBand: t('auth.ageRequired') });
-    }
-    setBusy(true);
-    try {
-      await updateProfile.mutateAsync(namePatch(firstName, lastName));
-      try {
-        await setMyGender.mutateAsync(gender);
-      } catch (err) {
-        // Another device answered first: go on with the stored value.
-        if (rpcErrorCode(errorMessageOf(err)) !== 'GENDER_ALREADY_SET') throw err;
-      }
-      // Neither stops the sign-up: worth asking for, not worth a refusal.
-      try {
-        await setBirth.mutateAsync(birthDate);
-        const local = birthDateToLocalDate(birthDate);
-        if (local) await setAgeBand.mutateAsync(ageBandOf(local));
-      } catch (err) {
-        captureException(err, { scope: 'signUp.birth' });
-      }
-      router.push({ pathname: '/sign-up', params: { step: '2' } });
-    } catch (err) {
-      captureException(err, { scope: 'signUp.details' });
-      setError(t(isTransportError(err) ? 'errors.network' : 'errors.generic'));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  /** Step 2: email, password, Terms; then the app. */
-  const onFinish = async () => {
-    clear();
-    if (!isValidEmail(email)) {
-      return setFieldErrors({
-        email: t(email.trim() ? 'auth.emailInvalid' : 'auth.emailRequired'),
-      });
-    }
-    if (password.length < PASSWORD_MIN)
-      return setFieldErrors({ password: t('auth.passwordTooShort') });
-    if (!agreed) return setError(t('auth.termsRequired'));
-    setBusy(true);
-    try {
-      await setEmailAndPassword(supabase, { email, password }, verifyRedirect());
-      try {
-        await acceptTerms.mutateAsync();
-      } catch (err) {
-        captureException(err, { scope: 'consent.accept' });
-        return setError(t('consent.failed'));
-      }
-      // The chosen language becomes the app language, then the welcome and the
-      // continuation speak it.
-      await setLocale(preferredLang);
-      toast(t('auth.welcomeToApp'), 'info');
-      continueAfterAuth();
-    } catch (err) {
-      if (isEmailTaken(err)) return setFieldErrors({ email: t('auth.emailTaken') });
-      if (classifyUpdateFailure(err) === 'weak-password') {
-        return setFieldErrors({ password: t('auth.passwordTooShort') });
-      }
-      setError(t(mapEmailAuthError(err)));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const onNext = () => void (step === 0 ? onPhone() : step === 1 ? onDetails() : onFinish());
+  const onNext = () => void (step === 0 ? onDetails() : onPhone());
 
   return (
     <Screen gutter={20} edges={[]}>
       <Stack.Screen options={{ title: t('auth.signUp') }} />
-      <FormScreen contentStyle={{ flexGrow: 1 }}>
+      <ScreenWithBar
+        gutter={20}
+        contentContainerStyle={{ paddingTop: 6 }}
+        error={error ?? social.errorText}
+        bar={
+          <Button
+            testID="sign-up.submit"
+            label={step < LAST_STEP ? t('common.next') : t('auth.sendCode')}
+            onPress={onNext}
+            busy={busy || holdBusy}
+            disabled={social.busyProvider !== null}
+            variant="primary"
+          />
+        }
+      >
         {step === 0 ? (
           <SocialSignInBlock
             testID="sign-up.social"
@@ -232,17 +159,6 @@ function SignUpScreen({ step }: { step: number }) {
           />
         ) : null}
         {step === 0 ? (
-          <PhoneField
-            testID="sign-up.phone"
-            placeholder={t('auth.phoneLabel')}
-            iso={iso}
-            onChangeIso={setIso}
-            national={national}
-            onChangeNational={setNational}
-            error={fieldErrors.phone}
-          />
-        ) : null}
-        {step === 1 ? (
           <>
             <FloatingField
               testID="sign-up.first-name"
@@ -268,6 +184,20 @@ function SignUpScreen({ step }: { step: number }) {
               maxLength={NAME_PART_MAX}
               error={fieldErrors.lastName}
             />
+            <BirthDatePicker
+              testID="sign-up.age"
+              value={birthDate}
+              onChange={(next) => {
+                setBirthDate(next);
+                setFieldErrors((prev) => ({ ...prev, ageBand: undefined }));
+              }}
+              error={fieldErrors.ageBand}
+              style={{ marginTop: space.sm }}
+            />
+          </>
+        ) : null}
+        {step === 1 ? (
+          <>
             <GenderPicker
               testID="sign-up.gender"
               value={gender}
@@ -277,56 +207,15 @@ function SignUpScreen({ step }: { step: number }) {
               }}
               error={fieldErrors.gender}
             />
-            <BirthDatePicker
-              testID="sign-up.age"
-              value={birthDate}
-              onChange={(next) => {
-                setBirthDate(next);
-                setFieldErrors((prev) => ({ ...prev, ageBand: undefined }));
-              }}
-              error={fieldErrors.ageBand}
-              style={{ marginBottom: space.sm }}
+            <PhoneField
+              testID="sign-up.phone"
+              placeholder={t('auth.phoneLabel')}
+              iso={iso}
+              onChangeIso={setIso}
+              national={national}
+              onChangeNational={setNational}
+              error={fieldErrors.phone}
             />
-          </>
-        ) : null}
-        {step === 2 ? (
-          <>
-            <FloatingField
-              testID="sign-up.email"
-              placeholder={t('auth.emailLabel')}
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoCorrect={false}
-              autoComplete="email"
-              textContentType="emailAddress"
-              error={fieldErrors.email}
-              style={{ marginTop: 6 }}
-            />
-            <FloatingField
-              testID="sign-up.password"
-              placeholder={t('auth.passwordMinPlaceholder')}
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-              autoComplete="new-password"
-              textContentType="newPassword"
-              error={fieldErrors.password}
-            />
-            <View style={{ marginTop: space.sm }}>
-              <MicroLabel style={{ marginBottom: 5 }}>{t('auth.preferredLanguage')}</MicroLabel>
-              <SegmentedControl<Locale>
-                testID="sign-up.language"
-                options={[
-                  { value: 'en', label: t('settings.english') },
-                  { value: 'ar', label: t('settings.arabic') },
-                ]}
-                value={preferredLang}
-                onChange={setPreferredLang}
-                pinOrder
-              />
-            </View>
             {/* 0153: one checkbox, each document its own link. */}
             <ConsentCheckbox
               testID="sign-up.terms"
@@ -335,16 +224,6 @@ function SignUpScreen({ step }: { step: number }) {
             />
           </>
         ) : null}
-        <ErrorText>{error ?? social.errorText}</ErrorText>
-        <Button
-          testID="sign-up.submit"
-          label={step < LAST_STEP ? t('common.next') : t('auth.signUp')}
-          onPress={onNext}
-          busy={busy || holdBusy}
-          disabled={social.busyProvider !== null}
-          variant="primary"
-          style={{ marginTop: space.l }}
-        />
         {step === 0 ? (
           <FooterLink
             testID="sign-up.sign-in"
@@ -359,32 +238,28 @@ function SignUpScreen({ step }: { step: number }) {
             style={{ marginTop: 18 }}
           />
         ) : null}
-      </FormScreen>
+      </ScreenWithBar>
     </Screen>
   );
 }
 
 /**
- * Step 0 is signed-out only, on the ROOT stack (the `(auth)` group carried the
- * rule in its layout; flattening it is what lets UIKit draw its own back item
- * here). See RequireNoSession for the pending-slot exemption that keeps the
- * post-auth booking continuation working. Steps 1 and 2 belong to the account
- * the code just created, so they need the session instead.
+ * Every step is signed-out only, on the ROOT stack (the `(auth)` group carried
+ * the rule in its layout; flattening it is what lets UIKit draw its own back
+ * item here). See RequireNoSession for the pending-slot exemption that keeps the
+ * post-auth booking continuation working. The code's session lands under these
+ * screens, which `registering` lets through.
  */
 export default function GuardedSignUpScreen() {
   const params = useLocalSearchParams<{ step?: string }>();
   const step = Math.min(Math.max(Number(params.step) || 0, 0), LAST_STEP);
   const [registering] = useDraftField('registering');
-  if (step > 0) {
-    return (
-      <RequireSession>
-        <SignUpScreen step={step} />
-      </RequireSession>
-    );
-  }
+  const [firstName] = useDraftField('firstName');
+  // A later step reached with an empty draft (a restored route) starts over.
+  if (step > 0 && !firstName.trim() && !registering) return <Redirect href="/sign-up" />;
   return (
     <RequireNoSession allowSession={registering}>
-      <SignUpScreen step={0} />
+      <SignUpScreen step={step} />
     </RequireNoSession>
   );
 }

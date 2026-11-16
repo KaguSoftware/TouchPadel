@@ -316,7 +316,7 @@ export function DashedDivider({ color, style }: { color?: string; style?: StyleP
 
 /** Uppercase micro-label above sections/lists ("UPCOMING", "PAST"). */
 export function SectionLabel({ children, style }: { children: ReactNode; style?: StyleProp<TextStyle> }) {
-  const { colors, fonts, tracking } = useTheme();
+  const { appearance, fonts, tracking } = useTheme();
   const { dir } = useLocale();
   return (
     <Text
@@ -328,7 +328,7 @@ export function SectionLabel({ children, style }: { children: ReactNode; style?:
           // no letter case, and tracking pulls its joined letterforms apart.
           letterSpacing: dir === 'rtl' ? 0 : tracking(1.1),
           textTransform: dir === 'rtl' ? 'none' : 'uppercase',
-          color: colors.mut,
+          color: appearance === 'dark' ? '#FFFFFF' : '#000000',
         },
         style,
       ]}
@@ -340,7 +340,7 @@ export function SectionLabel({ children, style }: { children: ReactNode; style?:
 
 /** Small uppercase field/group label (design `font:700 11px`, `ls .06em`). */
 export function MicroLabel({ children, style }: { children: ReactNode; style?: StyleProp<TextStyle> }) {
-  const { colors, fonts, tracking } = useTheme();
+  const { appearance, fonts, tracking } = useTheme();
   const { dir } = useLocale();
   return (
     <Text
@@ -352,7 +352,7 @@ export function MicroLabel({ children, style }: { children: ReactNode; style?: S
           // joined letterforms break apart when tracked.
           letterSpacing: dir === 'rtl' ? 0 : tracking(0.66),
           textTransform: dir === 'rtl' ? 'none' : 'uppercase',
-          color: colors.mut,
+          color: appearance === 'dark' ? '#FFFFFF' : '#000000',
         },
         style,
       ]}

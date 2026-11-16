@@ -1,6 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
-import { View } from 'react-native';
-import { Redirect, Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { useCallback, useEffect, useState } from 'react';
+import { Redirect, Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import type { Locale } from '@touch/i18n';
 import { useLocale } from '../src/i18n/LocaleProvider';
 import { useAuth } from '../src/features/auth/context';
@@ -10,6 +9,7 @@ import {
   useOwnConsent,
   useOwnProfile,
   useSetAgeBand,
+  useSetBirthDate,
   useUpdateProfile,
 } from '../src/features/profile/hooks';
 import { consentAction } from '../src/features/profile/consent';
@@ -18,33 +18,41 @@ import { usePostAuthContinue } from '../src/features/booking/usePostAuthContinue
 import { clearPendingIntents } from '../src/features/booking/pendingIntent';
 import { mapErrorToKey, rpcErrorCode } from '../src/features/booking/errors';
 import { markGenderAsked, signupGenderOf } from '../src/features/auth/genderGate';
+import {
+  getCompleteProfileDraft,
+  patchCompleteProfileDraft,
+  resetCompleteProfileDraft,
+  useCompleteDraftField,
+} from '../src/features/auth/completeProfileDraft';
 import { signupAgeBandOf } from '../src/features/auth/ageBand';
 import { captureException } from '../src/lib/telemetry';
-import { parseAgeBand, type AgeBand } from '../src/features/playProfile/logic';
+import { parseAgeBand } from '../src/features/playProfile/logic';
 import { useSetMyGender } from '../src/features/matches/hooks';
 import { errorMessageOf } from '../src/lib/network';
-import { AgeBandPicker } from '../src/components/AgeBandPicker';
-import { GenderPicker, type GenderValue } from '../src/components/GenderPicker';
+import { BirthDatePicker } from '../src/components/BirthDatePicker';
+import { ageBandOf } from '../src/features/playProfile/logic';
+import { birthDateToLocalDate, isValidBirthDate } from '../src/features/profile/birthDate';
+import { ScreenWithBar } from '../src/components/BottomBar';
+import { FloatingField } from '../src/components/FloatingLabel';
+import { GenderPicker } from '../src/components/GenderPicker';
 import { space } from '../src/theme';
 import {
   Button,
-  ErrorText,
-  Field,
-  FormScreen,
   Hint,
-  MicroLabel,
   Screen,
-  SegmentedControl,
   Title,
 } from '../src/components/ui';
 import { useBack, useBackGuard } from '../src/navigation/back';
 import { PhoneField } from '../src/components/phone';
-import { composePhone, DEFAULT_ISO, parsePhone, validatePhone } from '../src/features/profile/phone';
+import { composePhone, parsePhone, validatePhone } from '../src/features/profile/phone';
 import { useToast } from '../src/components/overlays';
 import { ErrorState, SkeletonList } from '../src/components/states';
 import { NAME_PART_MAX, nameFieldsOf, namePatch } from '../src/features/profile/names';
 
 type ReturnTo = 'continue' | 'back';
+
+/** 0 name and birth date, 1 gender / phone / Terms; the last step saves. */
+const LAST_STEP = 1;
 
 /**
  * Complete your profile (owner decision D3, 2026-09-01). A social sign-in creates
@@ -74,18 +82,46 @@ type ReturnTo = 'continue' | 'back';
  * depends on it (features/auth/ageBand.ts), so a guest who leaves it is asked
  * again by the survey and by Edit profile.
  */
+/** Flags the two steps share, read and written like a ref. */
+const skipped = {
+  get current() {
+    return getCompleteProfileDraft().skipped;
+  },
+  set current(v: boolean) {
+    patchCompleteProfileDraft({ skipped: v });
+  },
+};
+const nameTouched = {
+  get current() {
+    return getCompleteProfileDraft().nameTouched;
+  },
+  set current(v: boolean) {
+    patchCompleteProfileDraft({ nameTouched: v });
+  },
+};
+
 export default function CompleteProfileScreen() {
   const { t, locale, setLocale } = useLocale();
   const router = useRouter();
   
   const toast = useToast();
   const { session, initializing } = useAuth();
-  const params = useLocalSearchParams<{ returnTo?: string }>();
+  const params = useLocalSearchParams<{ returnTo?: string; step?: string }>();
+  const step = Math.min(Math.max(Number(params.step) || 0, 0), LAST_STEP);
+  // False while a later step is on top: the first step waits for it to pop.
+  const [focused, setFocused] = useState(true);
+  useFocusEffect(
+    useCallback(() => {
+      setFocused(true);
+      return () => setFocused(false);
+    }, []),
+  );
   const returnTo: ReturnTo = params.returnTo === 'back' ? 'back' : 'continue';
   const profile = useOwnProfile(!!session);
   const update = useUpdateProfile();
   const setMyGender = useSetMyGender();
   const setAgeBand = useSetAgeBand();
+  const setBirth = useSetBirthDate();
   const { continueAfterAuth, holdBusy } = usePostAuthContinue();
   // Account creation for an Apple / Google sign-up: it never saw the sign-up
   // form, so this is where the Terms are agreed (and recorded on save). An
@@ -94,22 +130,23 @@ export default function CompleteProfileScreen() {
   const consent = useOwnConsent(user && !user.is_anonymous ? user.id : null);
   const acceptTerms = useAcceptTerms();
   const needsTerms = consentAction(consent.data, user?.user_metadata) === 'ask';
-  const [agreed, setAgreed] = useState(false);
+  const [agreed, setAgreed] = useCompleteDraftField('agreed');
 
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
+  const [firstName, setFirstName] = useCompleteDraftField('firstName');
+  const [lastName, setLastName] = useCompleteDraftField('lastName');
   // Country + national digits in the form, E.164 on save — see components/phone.
-  const [iso, setIso] = useState(DEFAULT_ISO);
-  const [national, setNational] = useState('');
-  const [lang, setLang] = useState<Locale>(locale);
-  const [initialised, setInitialised] = useState(false);
+  const [iso, setIso] = useCompleteDraftField('iso');
+  const [national, setNational] = useCompleteDraftField('national');
+  const [langDraft, setLang] = useCompleteDraftField('lang');
+  const lang: Locale = langDraft ?? locale;
+  const [initialised, setInitialised] = useCompleteDraftField('initialised');
   const [nameError, setNameError] = useState<string | null>(null);
   const [phoneError, setPhoneError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [gender, setGender] = useState<GenderValue | null>(null);
+  const [gender, setGender] = useCompleteDraftField('gender');
   const [genderError, setGenderError] = useState<string | null>(null);
-  const [band, setBand] = useState<AgeBand | null>(null);
-  const skipped = useRef(false);
+  const [band, setBand] = useCompleteDraftField('band');
+  const [birthDate, setBirthDate] = useCompleteDraftField('birthDate');
 
   // Asked while the row has none; a set gender is the desk's to change.
   const askGender = !!profile.data && !profile.data.gender;
@@ -130,7 +167,6 @@ export default function CompleteProfileScreen() {
   const metaGender = signupGenderOf(session?.user.user_metadata);
   const metaBand = signupAgeBandOf(session?.user.user_metadata);
   const email = session?.user.email ?? null;
-  const nameTouched = useRef(false);
   useEffect(() => {
     if (!profile.data) return;
     if (!initialised) {
@@ -156,7 +192,22 @@ export default function CompleteProfileScreen() {
       setFirstName(names.first);
       setLastName(names.last);
     }
-  }, [profile.data, initialised, email, locale, metaGender, metaBand]);
+  }, [
+    profile.data,
+    initialised,
+    email,
+    locale,
+    metaGender,
+    metaBand,
+    setIso,
+    setNational,
+    setLang,
+    setGender,
+    setBand,
+    setInitialised,
+    setFirstName,
+    setLastName,
+  ]);
 
   const back = useBack();
 
@@ -177,7 +228,8 @@ export default function CompleteProfileScreen() {
     router.dismissTo('/(tabs)');
   };
   const leave = useBackGuard({
-    when: returnTo === 'continue',
+    // Only the first step: the last one's back is a plain pop to the first.
+    when: returnTo === 'continue' && step === 0,
     onBlocked: (leave) => leave(toTabs),
     // The iOS back item has already popped; the screen beneath may be the
     // sign-in that sends an incomplete profile straight back here.
@@ -190,12 +242,12 @@ export default function CompleteProfileScreen() {
   // 'continue' mode comes from a known-incomplete row, and onSave marks `skipped`
   // before saving so the save's own refetch can never re-fire it.
   useEffect(() => {
-    if (returnTo !== 'continue' || skipped.current || !profile.data) return;
+    if (step !== 0 || returnTo !== 'continue' || skipped.current || !profile.data) return;
     if (!needsProfileCompletion(profile.data)) {
       skipped.current = true;
       leave(continueAfterAuth);
     }
-  }, [returnTo, profile.data, continueAfterAuth, leave]);
+  }, [step, returnTo, profile.data, continueAfterAuth, leave]);
 
   // What follows a save — the toast, and continueAfterAuth — must speak the
   // language just chosen. setLocale resolves once that language has
@@ -206,8 +258,11 @@ export default function CompleteProfileScreen() {
   // The target is the language the save SENT, not the picker's live value: the
   // picker stays usable while the request is in flight, and a toggle then
   // would otherwise leave this waiting for a locale that never arrives.
-  const [continuation, setContinuation] = useState<{ to: ReturnTo; lang: Locale } | null>(null);
+  // It lives in the shared draft and is run by the FIRST step, once the last
+  // has popped and this one is on top again: the guard and `back()` belong here.
+  const [continuation, setContinuation] = useCompleteDraftField('continuation');
   useEffect(() => {
+    if (step !== 0 || !focused) return;
     if (!continuation || locale !== continuation.lang) return;
     setContinuation(null);
     if (continuation.to === 'back') {
@@ -217,21 +272,54 @@ export default function CompleteProfileScreen() {
       toast(t('auth.welcomeToApp'));
       leave(continueAfterAuth);
     }
-  }, [continuation, locale, t, toast, back, continueAfterAuth, leave]);
+  }, [step, focused, continuation, locale, t, toast, back, continueAfterAuth, leave, setContinuation]);
+
+  // The first step leaving the stack (done, or the guest backing out) ends the draft.
+  useEffect(() => (step === 0 ? resetCompleteProfileDraft : undefined), [step]);
 
   if (!initializing && !session) return <Redirect href="/welcome" />;
+  // A later step reached with an empty draft (a restored route) starts over.
+  if (step > 0 && !initialised) {
+    return <Redirect href={{ pathname: '/complete-profile', params: { returnTo } }} />;
+  }
 
-  const onSave = () => {
+  const fail = (set: (m: string) => void, message: string) => {
+    set(message);
+    return false;
+  };
+
+  /** Validates the step on screen; true when the guest may go on. */
+  const stepOk = (at: number): boolean => {
+    if (at === 0) {
+      if (!firstName.trim()) return fail(setNameError, t('auth.firstNameRequired'));
+    } else {
+      if (askGender && !gender) return fail(setGenderError, t('guestGender.required'));
+      const badPhone = validatePhone(iso, national);
+      if (badPhone === 'PHONE_REQUIRED') return fail(setPhoneError, t('auth.phoneRequired'));
+      if (badPhone) return fail(setPhoneError, t('auth.phoneInvalid'));
+      if (needsTerms && !agreed) return fail(setError, t('auth.termsRequired'));
+    }
+    return true;
+  };
+
+  const clearErrors = () => {
     setError(null);
     setNameError(null);
     setPhoneError(null);
     setGenderError(null);
-    if (!firstName.trim()) return setNameError(t('auth.firstNameRequired'));
-    if (needsTerms && !agreed) return setError(t('auth.termsRequired'));
-    if (askGender && !gender) return setGenderError(t('guestGender.required'));
-    const badPhone = validatePhone(iso, national);
-    if (badPhone === 'PHONE_REQUIRED') return setPhoneError(t('auth.phoneRequired'));
-    if (badPhone) return setPhoneError(t('auth.phoneInvalid'));
+  };
+
+  const onNext = () => {
+    clearErrors();
+    if (!stepOk(step)) return;
+    if (step < LAST_STEP) {
+      router.push({ pathname: '/complete-profile', params: { returnTo, step: String(step + 1) } });
+      return;
+    }
+    onSave();
+  };
+
+  const onSave = () => {
     // The save's own invalidation refetches the profile while this screen is still
     // mounted; without this the auto-continue effect above would fire a SECOND
     // continueAfterAuth() (a duplicate hold_slot, or a replace to the tabs that
@@ -267,9 +355,16 @@ export default function CompleteProfileScreen() {
           }
           // 0368: the band, when it was asked and answered. It never stops the
           // save: a band is worth asking for, not worth a refusal.
-          if (askAge && band) {
+          if (askAge && (band || (birthDate && isValidBirthDate(birthDate)))) {
             try {
-              await setAgeBand.mutateAsync(band);
+              const local =
+                birthDate && isValidBirthDate(birthDate) ? birthDateToLocalDate(birthDate) : null;
+              if (local && birthDate) {
+                await setBirth.mutateAsync(birthDate);
+                await setAgeBand.mutateAsync(ageBandOf(local));
+              } else if (band) {
+                await setAgeBand.mutateAsync(band);
+              }
             } catch (err) {
               captureException(err, { scope: 'completeProfile.ageBand' });
             }
@@ -280,7 +375,9 @@ export default function CompleteProfileScreen() {
           // running language, switches the app in place. The step after it
           // runs from the effect above, in that language.
           await setLocale(lang);
+          // Pop the last step; the first one, now on top, carries on from the draft.
           setContinuation({ to: returnTo, lang });
+          router.dismiss();
         },
         onError: (err) => setError(t(mapErrorToKey(err))),
       },
@@ -288,7 +385,7 @@ export default function CompleteProfileScreen() {
   };
 
   return (
-    <Screen gutter={20}>
+    <Screen gutter={20} edges={[]}>
       <Stack.Screen options={{ title: t('auth.completeProfileTitle') }} />
       {profile.isPending && !initialised ? (
         <SkeletonList rows={3} height={64} />
@@ -302,100 +399,98 @@ export default function CompleteProfileScreen() {
           busy={profile.isRefetching}
         />
       ) : (
-        <FormScreen>
-          <Title plain>{t('auth.completeProfileTitle')}</Title>
-          <Hint style={{ marginTop: 8 }}>
-            {t(onlyGender ? 'guestGender.completeBody' : 'auth.completeProfileBody')}
-          </Hint>
-          <Field
-            testID="complete-profile.first-name"
-            label={t('auth.firstNameLabel')}
-            value={firstName}
-            onChangeText={(v) => {
-              nameTouched.current = true;
-              setFirstName(v);
-            }}
-            autoCapitalize="words"
-            autoComplete="given-name"
-            textContentType="givenName"
-            maxLength={NAME_PART_MAX}
-            dense
-            error={nameError}
-          />
-          <Field
-            testID="complete-profile.last-name"
-            label={t('auth.lastNameLabel')}
-            value={lastName}
-            onChangeText={(v) => {
-              nameTouched.current = true;
-              setLastName(v);
-            }}
-            autoCapitalize="words"
-            autoComplete="family-name"
-            textContentType="familyName"
-            maxLength={NAME_PART_MAX}
-            dense
-          />
-          <Hint>{t('profile.nameShownHint')}</Hint>
-          {askGender ? (
+        <ScreenWithBar
+          gutter={20}
+          contentContainerStyle={{ paddingTop: 6 }}
+          error={error}
+          bar={
             <>
-              <GenderPicker
-                testID="complete-profile.gender"
-                value={gender}
-                onChange={(next) => {
-                  setGender(next);
-                  setGenderError(null);
-                }}
-                error={genderError}
+              <Button
+                testID="complete-profile.submit"
+                label={step < LAST_STEP ? t('common.next') : t('auth.completeProfileCta')}
+                variant="primary"
+                busy={update.isPending || setMyGender.isPending || acceptTerms.isPending || holdBusy}
+                onPress={onNext}
               />
-              <Hint>{t('guestGender.hint')}</Hint>
+            </>
+          }
+        >
+          {step === 0 ? (
+            <>
+              <Title plain>{t('auth.completeProfileTitle')}</Title>
+              <Hint style={{ marginTop: 8 }}>
+                {t(onlyGender ? 'guestGender.completeBody' : 'auth.completeProfileBody')}
+              </Hint>
+              <FloatingField
+                testID="complete-profile.first-name"
+                placeholder={t('auth.firstNameLabel')}
+                value={firstName}
+                onChangeText={(v) => {
+                  nameTouched.current = true;
+                  setFirstName(v);
+                }}
+                autoCapitalize="words"
+                autoComplete="given-name"
+                textContentType="givenName"
+                maxLength={NAME_PART_MAX}
+                error={nameError}
+                style={{ marginTop: 6 }}
+              />
+              <FloatingField
+                testID="complete-profile.last-name"
+                placeholder={t('auth.lastNameLabel')}
+                value={lastName}
+                onChangeText={(v) => {
+                  nameTouched.current = true;
+                  setLastName(v);
+                }}
+                autoCapitalize="words"
+                autoComplete="family-name"
+                textContentType="familyName"
+                maxLength={NAME_PART_MAX}
+              />
+              {askAge ? (
+                <BirthDatePicker
+                  testID="complete-profile.age"
+                  value={birthDate}
+                  onChange={setBirthDate}
+                  style={{ marginTop: space.sm }}
+                />
+              ) : null}
             </>
           ) : null}
-          {askAge ? (
-            <AgeBandPicker
-              testID="complete-profile.age"
-              value={band}
-              onChange={setBand}
-              hint
-            />
+          {step === 1 ? (
+            <>
+              {askGender ? (
+                <GenderPicker
+                  testID="complete-profile.gender"
+                  value={gender}
+                  onChange={(next) => {
+                    setGender(next);
+                    setGenderError(null);
+                  }}
+                  error={genderError}
+                />
+              ) : null}
+              <PhoneField
+                testID="complete-profile.phone"
+                placeholder={t('auth.phoneLabel')}
+                iso={iso}
+                onChangeIso={setIso}
+                national={national}
+                onChangeNational={setNational}
+                error={phoneError}
+              />
+              {needsTerms ? (
+                <ConsentCheckbox
+                  testID="complete-profile.terms"
+                  checked={agreed}
+                  onToggle={() => setAgreed((v) => !v)}
+                />
+              ) : null}
+            </>
           ) : null}
-          <PhoneField
-            testID="complete-profile.phone"
-            label={t('auth.phoneLabel')}
-            iso={iso}
-            onChangeIso={setIso}
-            national={national}
-            onChangeNational={setNational}
-            dense
-            error={phoneError}
-          />
-          <Hint>{t('auth.phoneRationale')}</Hint>
-          <View style={{ marginTop: space.sm }}>
-            <MicroLabel style={{ marginBottom: 5 }}>{t('auth.preferredLanguage')}</MicroLabel>
-            <SegmentedControl<Locale>
-              testID="complete-profile.language"
-              options={[
-                { value: 'en', label: t('settings.english') },
-                { value: 'ar', label: t('settings.arabic') },
-              ]}
-              value={lang}
-              onChange={setLang}
-              pinOrder
-            />
-          </View>
-          {needsTerms ? (
-            <ConsentCheckbox testID="complete-profile.terms" checked={agreed} onToggle={() => setAgreed((v) => !v)} />
-          ) : null}
-          <ErrorText>{error}</ErrorText>
-          <Button
-            testID="complete-profile.submit"
-            label={t('auth.completeProfileCta')}
-            variant="cta"
-            busy={update.isPending || setMyGender.isPending || acceptTerms.isPending || holdBusy}
-            onPress={onSave}
-            style={{ marginTop: space.l }}
-          />
-        </FormScreen>
+        </ScreenWithBar>
       )}
     </Screen>
   );

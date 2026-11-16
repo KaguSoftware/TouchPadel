@@ -23,8 +23,8 @@
  * (packages/config/src/eslint.js). `NightHeader`
  * and `TimeRail` render none.
  */
-import type { ReactNode } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { useMemo, type ReactNode } from 'react';
+import { Animated, Pressable, StyleSheet, View } from 'react-native';
 import { Text } from '../i18n/text';
 import { useLocale } from '../i18n/LocaleProvider';
 import { brand, radius, space, useTheme } from '../theme';
@@ -91,6 +91,92 @@ export function StartMatchButton({
 
 /** The caption pill's height: it hangs half over the sheet's top edge. */
 export const COURT_CAPTION_H = 34;
+/** The Start button's height in the title row: the caption grows to it on the way up. */
+export const START_BUTTON_H = 40;
+/**
+ * How much of the flight is done when the title row's own button takes over (0..1).
+ * The two are the same size and place by then, so it is a swap, never a crossfade:
+ * a crossfade would show two green buttons.
+ */
+export const CAPTION_HANDOFF_AT = 0.999;
+
+/**
+ * The caption's flight into the title row (owner, 2026-11-15): scrolled up to
+ * the title it becomes the Start button. `p` is the flight, 0 at rest to 1 when
+ * it lands, eased and driven natively by the scroll. Everything here moves by
+ * transform and opacity alone (the native driver cannot animate a width): the
+ * pill is two end caps and a stretched middle, and the text crossfades.
+ */
+export interface CaptionMorph {
+  p: Animated.AnimatedInterpolation<number>;
+  /** The button's centre less the caption's, in x (physical). */
+  dx: number;
+  /** The button's width. */
+  btnW: number;
+  /** The caption's own width, as laid out. */
+  natW: number;
+  /** The button's label ("Book & invite"). */
+  label: string;
+}
+
+/** One pill drawn from three transform-only parts, so its width follows the flight. */
+function PillParts({
+  morph,
+  shrink,
+  midScale,
+  color,
+  borderColor,
+  opacity,
+}: {
+  morph: CaptionMorph;
+  shrink: number;
+  midScale: number;
+  color: string;
+  borderColor?: string;
+  opacity: Animated.AnimatedInterpolation<number> | number;
+}) {
+  const { dir } = useLocale();
+  const H = COURT_CAPTION_H;
+  const sgn = dir === 'rtl' ? -1 : 1;
+  const bw = borderColor ? 1 : 0;
+  const cap = {
+    position: 'absolute' as const,
+    top: 0,
+    width: H,
+    height: H,
+    borderRadius: H / 2,
+    backgroundColor: color,
+    borderWidth: bw,
+    borderColor,
+  };
+  const slide = (by: number) => ({
+    transform: [{ translateX: morph.p.interpolate({ inputRange: [0, 1], outputRange: [0, by] }) }],
+  });
+  return (
+    <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { opacity }]}>
+      <Animated.View style={[cap, { start: 0 }, slide(sgn * shrink)]} />
+      <Animated.View style={[cap, { end: 0 }, slide(-sgn * shrink)]} />
+      <Animated.View
+        style={{
+          position: 'absolute',
+          top: 0,
+          start: H / 2,
+          width: morph.natW - H,
+          height: H,
+          backgroundColor: color,
+          borderTopWidth: bw,
+          borderBottomWidth: bw,
+          borderColor,
+          transform: [
+            {
+              scaleX: morph.p.interpolate({ inputRange: [0, 1], outputRange: [1, midScale] }),
+            },
+          ],
+        }}
+      />
+    </Animated.View>
+  );
+}
 
 /**
  * What the court under the title is showing (packages/court3d join.ts), and the
@@ -99,6 +185,9 @@ export const COURT_CAPTION_H = 34;
  * It hangs across the top edge of the list's sheet, between the court it
  * describes and the card it leads to. The court's open spots do the same thing
  * when tapped; this is the one screen readers reach (the court is a picture).
+ *
+ * With `morph` it flies into the title row as the page scrolls and lands as
+ * the Start button (`CaptionMorph`).
  */
 export function CourtCaption({
   testID,
@@ -107,6 +196,7 @@ export function CourtCaption({
   hint,
   green = false,
   onPress,
+  morph,
 }: {
   testID: string;
   lead: string;
@@ -115,44 +205,188 @@ export function CourtCaption({
   /** No match has a seat ("No open seats right now · Start a match"): brand green with black ink, in both themes. */
   green?: boolean;
   onPress: () => void;
+  morph?: CaptionMorph;
 }) {
-  const { colors, fonts } = useTheme();
+  const { colors, fonts, tracking } = useTheme();
+  const { dir } = useLocale();
   const ink = green ? brand.greenInk : colors.ink;
   const accent = green ? brand.greenInk : colors.blue;
-  return (
+  const flight = useMemo(() => {
+    if (!morph) return null;
+    const k = START_BUTTON_H / COURT_CAPTION_H;
+    const inner = Math.max(morph.btnW / k, COURT_CAPTION_H);
+    const shrink = (morph.natW - inner) / 2;
+    const p = morph.p;
+    const span = (a: number, b: number, from: number, to: number) =>
+      p.interpolate({ inputRange: [a, b], outputRange: [from, to], extrapolate: 'clamp' });
+    return {
+      k,
+      inner,
+      shrink,
+      midScale: (inner - COURT_CAPTION_H) / Math.max(morph.natW - COURT_CAPTION_H, 1),
+      leadOpacity: span(0.05, 0.3, 1, 0),
+      outOpacity: span(0.05, 0.3, 1, 0),
+      inOpacity: span(0.05, 0.3, 0, 1),
+      greenOpacity: span(0, 0.25, 0, 1),
+      fade: span(CAPTION_HANDOFF_AT, 1, 1, 0),
+      grow: p.interpolate({ inputRange: [0, 1], outputRange: [1, k] }),
+      shift: p.interpolate({ inputRange: [0, 1], outputRange: [0, morph.dx] }),
+    };
+  }, [morph]);
+
+  const base = {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 6,
+    height: COURT_CAPTION_H,
+    maxWidth: '100%' as const,
+    paddingStart: 14,
+    paddingEnd: 10,
+    borderRadius: radius.pill,
+  };
+  const pill = (
     <TiltPress
       testID={testID}
       accessibilityLabel={`${lead}, ${action}`}
       accessibilityHint={hint}
       onPress={onPress}
+      style={
+        morph
+          ? base
+          : {
+              ...base,
+              backgroundColor: green ? brand.green : colors.card,
+              borderWidth: 1,
+              borderColor: green ? brand.green : colors.line,
+            }
+      }
+    >
+      {morph && flight ? (
+        <>
+          {green ? null : (
+            <PillParts
+              morph={morph}
+              shrink={flight.shrink}
+              midScale={flight.midScale}
+              color={colors.card}
+              borderColor={colors.line}
+              opacity={flight.greenOpacity.interpolate({
+                inputRange: [0, 1],
+                outputRange: [1, 0],
+              })}
+            />
+          )}
+          <PillParts
+            morph={morph}
+            shrink={flight.shrink}
+            midScale={flight.midScale}
+            color={brand.green}
+            opacity={green ? 1 : flight.greenOpacity}
+          />
+          <Animated.View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 6,
+              flexShrink: 1,
+              opacity: flight.leadOpacity,
+            }}
+          >
+            <Text
+              numberOfLines={1}
+              style={{ flexShrink: 1, fontFamily: fonts.body700, fontSize: 13, color: ink }}
+            >
+              {lead}
+            </Text>
+            <Text
+              style={{ fontFamily: fonts.body700, fontSize: 13, color: green ? ink : colors.fnt }}
+            >
+              ·
+            </Text>
+          </Animated.View>
+          <Animated.View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 6,
+              opacity: flight.outOpacity,
+            }}
+          >
+            <Text
+              numberOfLines={1}
+              style={{ fontFamily: fonts.body800, fontSize: 13, color: accent }}
+            >
+              {action}
+            </Text>
+            <ChevronIcon size={13} color={accent} strokeWidth={2.6} />
+          </Animated.View>
+          {/* The button's own face, laid out as the button lays it, fading in as it lands. */}
+          <Animated.View
+            pointerEvents="none"
+            style={{
+              position: 'absolute',
+              top: 0,
+              start: (morph.natW - flight.inner) / 2,
+              width: flight.inner,
+              height: COURT_CAPTION_H,
+              flexDirection: 'row',
+              alignItems: 'center',
+              // The button's own padding, scaled with the pill, so the text lands where it sits.
+              gap: 6 / flight.k,
+              paddingStart: 12 / flight.k,
+              paddingEnd: 15 / flight.k,
+              opacity: flight.inOpacity,
+            }}
+          >
+            <PlusIcon size={14 / flight.k} color={brand.greenInk} strokeWidth={2.8} />
+            <Text
+              numberOfLines={1}
+              style={{
+                fontFamily: fonts.display800,
+                fontSize: 12 / flight.k,
+                letterSpacing: dir === 'rtl' ? 0 : tracking(0.48) / flight.k,
+                textTransform: dir === 'rtl' ? 'none' : 'uppercase',
+                color: brand.greenInk,
+              }}
+            >
+              {morph.label}
+            </Text>
+          </Animated.View>
+        </>
+      ) : (
+        <>
+          <Text
+            numberOfLines={1}
+            style={{ flexShrink: 1, fontFamily: fonts.body700, fontSize: 13, color: ink }}
+          >
+            {lead}
+          </Text>
+          <Text
+            style={{ fontFamily: fonts.body700, fontSize: 13, color: green ? ink : colors.fnt }}
+          >
+            ·
+          </Text>
+          <Text
+            numberOfLines={1}
+            style={{ fontFamily: fonts.body800, fontSize: 13, color: accent }}
+          >
+            {action}
+          </Text>
+          <ChevronIcon size={13} color={accent} strokeWidth={2.6} />
+        </>
+      )}
+    </TiltPress>
+  );
+  if (!morph || !flight) return pill;
+  return (
+    <Animated.View
       style={{
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 6,
-        height: COURT_CAPTION_H,
-        maxWidth: '100%',
-        paddingStart: 14,
-        paddingEnd: 10,
-        borderRadius: radius.pill,
-        backgroundColor: green ? brand.green : colors.card,
-        borderWidth: 1,
-        borderColor: green ? brand.green : colors.line,
+        opacity: flight.fade,
+        transform: [{ translateX: flight.shift }, { scale: flight.grow }],
       }}
     >
-      <Text
-        numberOfLines={1}
-        style={{ flexShrink: 1, fontFamily: fonts.body700, fontSize: 13, color: ink }}
-      >
-        {lead}
-      </Text>
-      <Text style={{ fontFamily: fonts.body700, fontSize: 13, color: green ? ink : colors.fnt }}>
-        ·
-      </Text>
-      <Text numberOfLines={1} style={{ fontFamily: fonts.body800, fontSize: 13, color: accent }}>
-        {action}
-      </Text>
-      <ChevronIcon size={13} color={accent} strokeWidth={2.6} />
-    </TiltPress>
+      {pill}
+    </Animated.View>
   );
 }
 

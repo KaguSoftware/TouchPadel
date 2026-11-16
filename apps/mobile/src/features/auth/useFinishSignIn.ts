@@ -2,16 +2,13 @@ import { useCallback } from 'react';
 import { useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import type { User } from '@supabase/supabase-js';
-import { supabase } from '../../lib/supabase';
 import { readOwnStaffRow } from '../staff/api';
 import { writeStaffHint } from '../staff/hint';
-import { clearPendingIntents, hasPendingIntent } from '../booking/pendingIntent';
-import { fetchOwnProfile } from '../profile/api';
-import { profileKeys } from '../profile/hooks';
+import { clearPendingIntents } from '../booking/pendingIntent';
 import { useLocale } from '../../i18n/LocaleProvider';
 import { useToast } from '../../components/overlays';
 import type { MessageKey } from '@touch/i18n';
-import { postSignInStep } from './social';
+import { isActiveStaffRow } from './social';
 
 /**
  * What happens once a sign-in has a session: the email + password sign-in
@@ -35,28 +32,16 @@ export function useFinishSignIn(continueAfterAuth: () => void) {
     /** `welcome`: the toast's line, `auth.welcomeBack` unless the caller knows better. */
     async (user: User | null, welcome: MessageKey = 'auth.welcomeBack') => {
       const staffRead = user ? readOwnStaffRow(queryClient, user.id).catch(() => null) : Promise.resolve(null);
-      // Same cache entry RequireNoSession's useOwnProfile observes: one request.
-      const profile = await queryClient.fetchQuery({
-        queryKey: profileKeys.own,
-        queryFn: () => fetchOwnProfile(supabase),
-        staleTime: 0,
-      });
       const staffRow = await staffRead;
-      // A slot or an open-match intent (guest.md §4.18): either keeps RequireNoSession
-      // from redirecting, so an incomplete profile is sent on from here.
-      switch (postSignInStep(profile, hasPendingIntent(), staffRow)) {
+      // An incomplete profile is not stopped here: only a Google or Apple account
+      // owes the complete-profile step (RequireNoSession); the booking gate asks the rest.
+      switch (isActiveStaffRow(staffRow) ? 'staff' : 'continue') {
         case 'staff':
           // A staff account books nothing: the slot or match a guest tapped is dropped.
           clearPendingIntents();
           if (user) await writeStaffHint(user.id);
           toast(t(welcome), 'info');
           router.replace('/staff');
-          return;
-        case 'complete-profile':
-          router.replace({ pathname: '/complete-profile', params: { returnTo: 'continue' } });
-          return;
-        case 'await-gate':
-          // RequireNoSession routes the incomplete profile there itself.
           return;
         default:
           toast(t(welcome), 'info');

@@ -28,7 +28,7 @@ import type { ReactNode } from 'react';
 import { Redirect } from 'expo-router';
 import { useAuth } from './context';
 import { noSessionGate } from './gate';
-import { profileGateState } from './social';
+import { profileGateState, signedInWithProvider } from './social';
 import { useOwnProfile } from '../profile/hooks';
 import { usePendingIntent } from '../booking/pendingIntent';
 import { useStaffStatus } from '../staff/StaffStatusProvider';
@@ -58,7 +58,15 @@ export function RequireNoSession({
       hasPendingSlot: pending,
       // 'unknown' covers pending AND error; only a pending query should hold
       // the screen, an errored one fails open to the tabs.
-      profile: gate === 'unknown' ? (profile.status === 'pending' ? 'pending' : 'complete') : gate,
+      // Only a Google or Apple account is asked to complete its profile here: it
+      // is the one that never saw the sign-up form. Anyone else goes on.
+      profile: !signedInWithProvider(session?.access_token)
+        ? 'complete'
+        : gate === 'unknown'
+          ? profile.status === 'pending'
+            ? 'pending'
+            : 'complete'
+          : gate,
       // A staff account signed in here goes to Today (§6.5), not the tabs, and
       // nowhere until its row is read: unread, it looks like a guest.
       staff: staff.kind,

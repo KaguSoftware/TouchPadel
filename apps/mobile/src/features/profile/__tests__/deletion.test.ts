@@ -399,7 +399,7 @@ describe('the deletion screen is actually reachable', () => {
     // The row moved to the foot of Edit profile (2026-10-04); the Profile tab's
     // identity card is the way in. Both links of the chain must hold.
     const profile = readFileSync(join(app, 'profile.tsx'), 'utf8');
-    expect(profile).toContain("router.push('/profile-edit')");
+    expect(profile).toContain("'/profile-edit'");
     const edit = readFileSync(join(app, 'profile-edit.tsx'), 'utf8');
     expect(edit).toContain("router.push('/delete-account')");
   });

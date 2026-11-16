@@ -784,7 +784,7 @@ export function TabDetailPanel({
                 </Button>
                 {/* The customer's own price (0342): beside the manager's Discount, and no PIN. */}
                 {customerDiscountShown && (
-                  <Button icon="user" style={actionButton} disabled={busy} data-testid="customer-discount-button" onClick={() => setOverlay({ kind: 'customerDiscount' })}>
+                  <Button icon="user" style={{ ...actionButton, fontSize: 'var(--tp-fs-sm)' }} disabled={busy} data-testid="customer-discount-button" onClick={() => setOverlay({ kind: 'customerDiscount' })}>
                     {tr('ws.discounts.action')}
                   </Button>
                 )}

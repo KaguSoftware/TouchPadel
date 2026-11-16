@@ -177,8 +177,7 @@ export const en = {
     continueWithGoogleInBrowser: 'Trouble with Google? Continue in your browser',
     signingIn: 'Signing you in…',
     completeProfileTitle: 'Complete profile',
-    completeProfileBody:
-      'One last step before you book. We need a phone number the desk can reach you on.',
+    completeProfileBody: 'One last step before you book. We need your info so staff can reach you easily.',
     phoneRationale: 'The desk calls this number about your booking.',
     completeProfileCta: 'Save and continue',
     profileIncompleteNotice:

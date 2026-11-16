@@ -61,6 +61,11 @@ function emit() {
   listeners.forEach((l) => l());
 }
 
+/** The draft as it stands now (read once by the code screen, which writes it to the new account). */
+export function getSignUpDraft(): SignUpDraft {
+  return draft;
+}
+
 export function resetSignUpDraft(): void {
   draft = initial();
   emit();

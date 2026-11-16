@@ -10,7 +10,10 @@ import {
   type LayoutRectangle,
 } from 'react-native';
 import { Text } from '../../src/i18n/text';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useAuth } from '../../src/features/auth/context';
+import { useOwnProfile } from '../../src/features/profile/hooks';
+import { profileGateState } from '../../src/features/auth/social';
 import { useTabBarHeight } from '../../src/components/useTabBarHeight';
 import { useLocale } from '../../src/i18n/LocaleProvider';
 import { logicalSign, mirror } from '../../src/i18n/direction';
@@ -500,6 +503,9 @@ export default function BookHomeScreen() {
     Platform.OS === 'ios' ? PICK_PILL_TINT[dark ? 'iosDark' : 'iosLight'] : PICK_PILL_TINT.other,
   );
   const tabBarHeight = useTabBarHeight();
+  const router = useRouter();
+  const { session } = useAuth();
+  const ownProfile = useOwnProfile(!!session);
 
   const reduceMotion = useReduceMotion();
   const {
@@ -641,10 +647,17 @@ export default function BookHomeScreen() {
   // Opening only animates and mounts — nothing navigates, so tell screen
   // readers where they are. Closing waits for a hold call to settle: the sheet
   // owns the callbacks that push Review or show the refusal.
+  const profileIncomplete = !!session && profileGateState(ownProfile) === 'incomplete';
   const open = useCallback(() => {
+    // A signed-in account without a phone, name or gender completes its profile
+    // before it can look at times; saving returns here (continue mode).
+    if (profileIncomplete) {
+      router.push({ pathname: '/complete-profile', params: { returnTo: 'back' } });
+      return;
+    }
     openBooking();
     AccessibilityInfo.announceForAccessibility(t('booking.pickTime'));
-  }, [openBooking, t]);
+  }, [openBooking, t, profileIncomplete, router]);
   const close = useCallback(() => {
     if (sheetBusy) return;
     closeBooking();

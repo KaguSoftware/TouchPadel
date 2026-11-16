@@ -26,6 +26,7 @@ import { useAuth } from '../src/features/auth/context';
 import { markRecoverySession } from '../src/features/auth/recovery';
 import { RequireSession } from '../src/features/auth/RequireSession';
 import { fetchOwnProfile, updateOwnProfile } from '../src/features/profile/api';
+import { useApplySignUpDraft } from '../src/features/auth/useApplySignUpDraft';
 import { needsProfileCompletion } from '../src/features/auth/social';
 import { profileKeys } from '../src/features/profile/hooks';
 import { usePostAuthContinue } from '../src/features/booking/usePostAuthContinue';
@@ -52,14 +53,13 @@ type Mode = 'signup' | 'register' | 'signin' | 'reset' | 'link';
  *           path uses. The name and language came with the sign-up, so there
  *           is no complete-profile step. This is the ONLY code a guest spends
  *           to confirm the number.
- *   register  create account's code (app/sign-up.tsx step 1): the verified code is
- *           the new account's session. A profile still missing its name goes on to
- *           the details steps (sign-up step 2); an account that is already whole
- *           is signed in like `signin`.
+ *   register  create account's code (app/sign-up.tsx, its LAST step): the verified
+ *           code creates the account. A profile still missing its name is a new
+ *           account: the sign-up form is written to it (useApplySignUpDraft) and the
+ *           continuation runs; an account that is already whole is signed in like `signin`.
  *   signin  verifyOtp(type 'sms') on a sign-in code (app/sign-in.tsx, the
  *           phone segment: code-only since 2026-10-11, owner) and lands the
- *           way the email sign-in does (useFinishSignIn): staff to Today, an
- *           incomplete profile to complete-profile, else the continuation.
+ *           way the email sign-in does (useFinishSignIn): staff to Today, else the continuation.
  *   reset   verifyOtp(type 'sms') on a recovery code (app/forgot-password.tsx)
  *           signs the guest in, then app/reset-password.tsx sets the new
  *           password on that session.
@@ -104,6 +104,7 @@ function VerifyOtpForm({
   const { colors } = useTheme();
   const { continueAfterAuth, holdBusy } = usePostAuthContinue();
   const finishSignIn = useFinishSignIn(continueAfterAuth);
+  const applySignUpDraft = useApplySignUpDraft();
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -173,8 +174,11 @@ function VerifyOtpForm({
           staleTime: 0,
         });
         if (needsProfileCompletion(profile)) {
-          // A new account: its name, gender and birth date come next.
-          router.replace({ pathname: '/sign-up', params: { step: '1' } });
+          // A new account, made by this code: the whole form is written to it
+          // now, then on to the app.
+          await applySignUpDraft();
+          toast(t('auth.welcomeToApp'), 'info');
+          continueAfterAuth();
         } else {
           // The number already had a whole account: this was a sign-in, and
           // the guest, who meant to create one, is told so (0414's check

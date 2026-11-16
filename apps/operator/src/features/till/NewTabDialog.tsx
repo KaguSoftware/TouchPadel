@@ -179,9 +179,12 @@ export function NewTabDialog({
   onClose,
   onOpened,
   initialReservationId,
+  table,
 }: {
   onClose: () => void;
   onOpened: (tabId: string) => void;
+  /** A free table tapped on the floor: the tab is saved on this table. */
+  table?: { id: string; tableNumber: string };
   /** `/till?reservation=<id>` — pre-bind the tab to that booking. */
   initialReservationId?: string;
 }) {
@@ -212,7 +215,16 @@ export function NewTabDialog({
          Where each order goes is attached to that order afterwards, from the
          tab ("Bring to…"), whenever the guest sits; a booking is still a bill
          of its own (the court fee joins it at settlement). */
-      onOpened(await openTabOn({ label: trimmedLabel || undefined, reservationId: reservationId || undefined }, null));
+      onOpened(
+        await openTabOn(
+          {
+            label: trimmedLabel || undefined,
+            reservationId: reservationId || undefined,
+            tableId: table?.id,
+          },
+          table?.tableNumber ?? null,
+        ),
+      );
     } catch (e) {
       setError(e);
     } finally {
@@ -223,7 +235,9 @@ export function NewTabDialog({
   const bound = reservations.find((r) => r.id === reservationId);
   // "19:00 · Court 1": a booking card's name, the step's note and the Review value.
   const bookingShort = (r: OpenReservationRow) => `${formatTime(new Date(r.start_at), locale)} · ${pickName(locale, r.court)}`;
-  const bookingName = bound ? bookingShort(bound) : tr('op.till.noReservation');
+  const tableWordName = table ? `${tr('op.till.table')} ${table.tableNumber}` : '';
+  const noBookingTitle = table ? tr('ws.cashier.newTab.tableOrderTitle') : tr('op.till.noReservation');
+  const bookingName = bound ? bookingShort(bound) : noBookingTitle;
 
   // The stepped dialog (Sait, 2026-10-22): the name, then the court booking.
   // A role that cannot read bookings has the name step only.
@@ -242,7 +256,7 @@ export function NewTabDialog({
       ? [
           {
             key: 'booking',
-            label: tr('op.till.reservationLabel'),
+            label: table ? tr('ws.cashier.newTab.tableStepLabel') : tr('op.till.reservationLabel'),
             note: bookingName,
             content: (
               <>
@@ -257,8 +271,8 @@ export function NewTabDialog({
                 <WizardChoices label={tr('op.till.reservationLabel')}>
                   <WizardChoice
                     on={reservationId === ''}
-                    title={tr('op.till.noReservation')}
-                    body={tr('ws.cashier.newTab.noBookingBody')}
+                    title={noBookingTitle}
+                    body={table ? tr('ws.cashier.newTab.tableOrderBody', { table: tableWordName }) : tr('ws.cashier.newTab.noBookingBody')}
                     onPick={() => setReservationId('')}
                   />
                   {reservations.map((r) => (

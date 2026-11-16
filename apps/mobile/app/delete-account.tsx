@@ -129,9 +129,12 @@ function DeleteAccountScreen() {
         });
       }
 
-      // Straight to the signed-out root, not back(): every screen beneath this
-      // one is gated and would flash its redirect on the way past.
-      router.replace('/welcome');
+      // Straight to the Book tab (the signed-out app is browsable), not back():
+      // every screen beneath this one is gated and would flash its redirect on
+      // the way past. Not /welcome either: that would leave the guest on the
+      // banner page needing a back gesture to reach the app.
+      router.dismissAll?.();
+      router.replace('/(tabs)');
     } catch (err) {
       if (err instanceof DeletionCancelledError) {
         // The guest backed out of the Apple sheet. Not an error for the tracker.

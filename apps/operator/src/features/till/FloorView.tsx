@@ -19,7 +19,7 @@ import { supabase } from '../../lib/supabase';
 import { QK, fetchVenueSettings } from '../../lib/queries';
 import { tonightScope } from '../desk/useTradingNight';
 import { useLocale, pickName } from '../../lib/i18n';
-import { AsyncStateWrapper, EmptyState, SegmentedControl, ViewMore, useListCap } from '../../components/kit';
+import { AsyncStateWrapper, EmptyState, Money, SegmentedControl, ViewMore, useListCap } from '../../components/kit';
 import { ChevronForward, Icon } from '../../components/icons';
 import { formatElapsed } from './elapsed';
 import {
@@ -46,6 +46,10 @@ export interface OtherTab {
   label: string;
   status: string;
   offline: boolean;
+  /** When it was opened, for the card's "open for" line. */
+  openedAt?: string;
+  /** The tab's price so far (IQD); null when it cannot be worked out yet. */
+  total?: number | null;
   /** Null for a server tab (see offlineMark). */
   offlineState: OfflineTabState | null;
 }
@@ -836,33 +840,28 @@ function StatePill({ b }: { b: BoardBooking }) {
 // ---------------------------------------------------------------------------
 
 export function OtherTabsList({ tabs, onPick }: { tabs: readonly OtherTab[]; onPick: (id: string) => void }) {
-  const { tr, locale } = useLocale();
+  const { tr } = useLocale();
+  const now = Date.now();
   if (tabs.length === 0) return null;
   return (
-    <section aria-label={tr('ws.cashier.floor.others')} style={{ display: 'grid', gap: 'var(--tp-sp-1-5)' }}>
-      <h2 style={{ fontSize: 'var(--tp-fs-md)', fontWeight: 700, margin: 0, display: 'inline-flex', gap: 'var(--tp-sp-1-5)', alignItems: 'baseline' }}>
-        {tr('ws.cashier.floor.others')}
-        <span style={{ ...muted, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{formatNumber(tabs.length, locale)}</span>
-      </h2>
-      <p style={{ ...muted, fontSize: 'var(--tp-fs-xs)' }}>{tr('ws.cashier.floor.othersHint')}</p>
-      <div style={{ display: 'grid', gap: 'var(--tp-sp-1)' }}>
+    <section aria-label={tr('ws.cashier.floor.others')} style={{ display: 'grid', gap: 'var(--tp-sp-2)' }}>
+      <p style={{ ...muted, fontSize: 'var(--tp-fs-xs)', margin: 0 }}>{tr('ws.cashier.floor.othersHint')}</p>
+      <div style={{ display: 'grid', gap: 'var(--tp-sp-2)' }}>
         {tabs.map((t) => (
           <button
             key={t.id}
             type="button"
             className="tp-tile"
             onClick={() => onPick(t.id)}
-            // A ticket on the service rail like the calls above it: a green dot
-            // for a live tab, the name, a Paying chip, and the way in.
             style={{
               ...touchTarget,
               display: 'flex',
               alignItems: 'center',
-              gap: 'var(--tp-sp-2)',
+              gap: 'var(--tp-sp-2-5)',
               textAlign: 'start',
-              paddingBlock: 'var(--tp-sp-2)',
-              paddingInline: 'var(--tp-sp-2-5)',
-              border: 'none',
+              paddingBlock: 'var(--tp-sp-3)',
+              paddingInline: 'var(--tp-sp-3)',
+              border: '1px solid var(--tp-border)',
               borderRadius: 'var(--tp-radius-panel)',
               background: 'var(--tp-surface)',
               color: 'var(--tp-fg)',
@@ -871,10 +870,16 @@ export function OtherTabsList({ tabs, onPick }: { tabs: readonly OtherTab[]; onP
             }}
           >
             <span aria-hidden="true" style={{ inlineSize: '0.6rem', blockSize: '0.6rem', borderRadius: '50%', background: 'var(--tp-success)', flexShrink: 0 }} />
-            <strong style={{ flex: 1, minInlineSize: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              <bdi>{t.label}</bdi>
-            </strong>
+            <span style={{ flex: 1, minInlineSize: 0, display: 'grid', gap: 'var(--tp-sp-0)' }}>
+              <strong style={{ fontSize: 'var(--tp-fs-md)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                <bdi>{t.label}</bdi>
+              </strong>
+              {t.openedAt && (
+                <span style={{ ...muted, fontSize: 'var(--tp-fs-xs)' }}>{tr('ws.cashier.floor.openFor', { age: formatElapsed(t.openedAt, now, tr) })}</span>
+              )}
+            </span>
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-1-5)', whiteSpace: 'nowrap' }}>
+              {t.total != null && <Money amount={t.total} strong />}
               {t.offlineState && <OfflineMarkIcon state={t.offlineState} size={12} label={tr(OFFLINE_MARK[t.offlineState].key)} />}
               {t.status === 'awaiting_payment' && (
                 <span style={{ fontSize: 'var(--tp-fs-xs)', fontWeight: 700, borderRadius: 'var(--tp-radius-pill)', paddingInline: 'var(--tp-sp-2)', background: 'var(--tp-warn)', color: 'var(--tp-brand-black)' }}>

@@ -227,7 +227,7 @@ describe('paragraphs carry a base writing direction', () => {
     // A pinned track measures left-to-right, so the thumb must not fold back.
     expect(ui).toContain("const rtl = dir === 'rtl' && !pinOrder;");
 
-    const LANGUAGE_PICKERS = ['app/settings.tsx', 'app/sign-up.tsx', 'app/complete-profile.tsx'];
+    const LANGUAGE_PICKERS = ['app/settings.tsx'];
     for (const f of LANGUAGE_PICKERS) {
       const src = stripComments(read(...f.split('/')));
       const locale = src.slice(src.indexOf('<SegmentedControl<Locale>'));

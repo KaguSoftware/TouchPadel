@@ -9,7 +9,7 @@ import { Pressable, View, type StyleProp, type ViewStyle } from 'react-native';
 import { formatDate } from '@touch/i18n';
 import { Text } from '../i18n/text';
 import { useLocale } from '../i18n/LocaleProvider';
-import { radius, space, useTheme } from '../theme';
+import { brand, radius, space, useTheme } from '../theme';
 import {
   BIRTH_MIN,
   BIRTH_TZ,
@@ -19,7 +19,8 @@ import {
 } from '../features/profile/birthDate';
 import { DateWheelSheet } from './DateWheelSheet';
 import { CalendarIcon } from './icons';
-import { ErrorText, MicroLabel } from './ui';
+import { FloatingLabel } from './FloatingLabel';
+import { ErrorText, LINE } from './ui';
 
 export function BirthDatePicker({
   testID,
@@ -41,37 +42,44 @@ export function BirthDatePicker({
   const label = t('profile.birthSection');
   const date = birthDateToDate(value);
   return (
-    <View style={[{ marginTop: space.sm }, style]}>
-      <MicroLabel style={{ marginBottom: 5 }}>{label}</MicroLabel>
-      <Pressable
-        testID={testID}
-        accessibilityRole="button"
-        accessibilityLabel={label}
-        onPress={() => setOpen(true)}
-        style={({ pressed }) => ({
-          minHeight: 48,
-          flexDirection: 'row',
-          alignItems: 'center',
-          gap: space.s,
-          paddingStart: space.sm,
-          paddingEnd: space.sm,
-          borderRadius: radius.cell,
-          borderWidth: 1.5,
-          borderColor: error ? colors.redline : colors.line2,
-          backgroundColor: pressed ? colors.sub : colors.card,
-        })}
-      >
-        <CalendarIcon size={16} color={colors.gstrong} />
-        <Text
-          style={{
-            fontFamily: date ? fonts.body700 : fonts.body400,
-            fontSize: 15,
-            color: date ? colors.ink : colors.mut,
-          }}
+    <View style={style}>
+      {/* The label floats up like the name fields': it rests in the box and rises once a day is chosen. */}
+      <FloatingLabel label={label} floated={!!date || open}>
+        <Pressable
+          testID={testID}
+          accessibilityRole="button"
+          accessibilityLabel={label}
+          onPress={() => setOpen(true)}
+          style={({ pressed }) => ({
+            marginTop: space.sm,
+            height: 1 + 14 + LINE + 14 + 1,
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: space.s,
+            paddingStart: space.m,
+            paddingEnd: space.m,
+            borderRadius: radius.cell,
+            // The same 2px border as the text fields above.
+            borderWidth: 2,
+            borderColor: open ? brand.green : error ? colors.redline : colors.line2,
+            backgroundColor: pressed ? colors.sub : colors.card,
+          })}
         >
-          {date ? formatDate(date, locale, BIRTH_TZ) : label}
-        </Text>
-      </Pressable>
+          <Text
+            numberOfLines={1}
+            style={{
+              flex: 1,
+              fontFamily: fonts.body700,
+              fontSize: 15,
+              lineHeight: LINE,
+              color: colors.ink,
+            }}
+          >
+            {date ? formatDate(date, locale, BIRTH_TZ) : ''}
+          </Text>
+          <CalendarIcon size={16} color={colors.gstrong} />
+        </Pressable>
+      </FloatingLabel>
       <ErrorText>{error}</ErrorText>
       <DateWheelSheet
         testID={`${testID}.sheet`}

@@ -31,10 +31,17 @@ export function FloatingLabel({
   label,
   floated,
   style,
+  inset,
   children,
 }: {
   label: string;
   floated: boolean;
+  /**
+   * Where the label rests, in points from the box's physical left edge (the phone
+   * field's box is held left-to-right, so its label sits after the country chip).
+   * Omitted: the ordinary start-side inset.
+   */
+  inset?: number;
   /** Lands on the wrapper: the margin against the neighbour above. */
   style?: StyleProp<ViewStyle>;
   children: ReactNode;
@@ -72,13 +79,17 @@ export function FloatingLabel({
   const restTop = space.sm + (BOX_H - LINE) / 2;
   // The label's centre ends LABEL_GAP above the box, whose top is then LABEL_ROOM + space.sm.
   const liftBy = LABEL_ROOM + space.sm - LABEL_GAP - (LINE * LABEL_SCALE) / 2 - LINE / 2 - restTop;
-  const shiftBy = (dir === 'rtl' ? 1 : -1) * space.m;
+  const physical = inset !== undefined;
+  const shiftBy = physical ? 2 - inset : (dir === 'rtl' ? 1 : -1) * space.m;
   const text = { fontFamily: fonts.body700, fontSize: 15, lineHeight: LINE } as const;
 
   return (
     <Animated.View
       style={[
         style,
+        // Yoga resolves a child's start/end against its PARENT's direction, so the
+        // phone box's label is held left-to-right here, like the box itself.
+        physical && { direction: 'ltr' as const },
         { paddingTop: room.interpolate({ inputRange: [0, 1], outputRange: [0, LABEL_ROOM] }) },
       ]}
     >
@@ -89,14 +100,13 @@ export function FloatingLabel({
         style={{
           position: 'absolute',
           top: restTop,
-          start: 2 + space.m,
-          end: space.m,
+          ...(physical ? { start: inset, end: space.m } : { start: 2 + space.m, end: space.m }),
           transform: [
             { translateY: lift.interpolate({ inputRange: [0, 1], outputRange: [0, liftBy] }) },
             { translateX: lift.interpolate({ inputRange: [0, 1], outputRange: [0, shiftBy] }) },
             { scale: lift.interpolate({ inputRange: [0, 1], outputRange: [1, LABEL_SCALE] }) },
           ],
-          transformOrigin: dir === 'rtl' ? 'right center' : 'left center',
+          transformOrigin: dir === 'rtl' && !physical ? 'right center' : 'left center',
         }}
       >
         <Animated.View
