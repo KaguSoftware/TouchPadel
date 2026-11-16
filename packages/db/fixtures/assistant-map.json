@@ -1,5 +1,5 @@
 {
-  "generated_from": "bfa94c444a96080e890bc2e4197717ad26a0622f",
+  "generated_from": "1daf1b20904a99f72d979c0d67cff0805be3751e",
   "chunks": [
     {
       "kind": "page",
@@ -27934,7 +27934,7 @@
       "ref": "label:ws.cashier.floor",
       "lang": "ar",
       "title": "ws.cashier.floor (packages/i18n/src/catalogs/ws/cashier.ar.ts) (part 1 of 2)",
-      "body": "title: الصالة\nshow: عرض\ncafe: الكافيه\ncourts: الملاعب\ncourtsOpen: (المفتوحة: {count})\nlegend.free: فارغة\nlegend.open: فاتورة مفتوحة\nlegend.paying: بانتظار الدفع\nlegend.calling: الضيف ينادي\npaying: قيد الدفع\ntabCount: الفواتير: {count}\nopenFor: مفتوحة منذ {age}\nkitchen: المطبخ\nbar: البار\nentrance: المدخل\nnoTables: لا توجد طاولات قيد الاستخدام بعد. تُضاف من «الكافيه والمتجر» في «رموز QR للطاولات».\noffPlan: لم تُوضع هذه الطاولات على المخطط بعد:\nnoCourts: لا توجد ملاعب مفتوحة للحجز.\nothers: فواتير مفتوحة أخرى\nothersHint: ليست على طاولة أو ملعب في المخطط.\nback: الصالة\nbackLabel: العودة إلى الصالة\ncourt.ended: انتهى\ncourt.playing: يلعبون الآن\ncourt.upcoming: الحجز التالي\ncourt.none: لا حجوزات أخرى اليوم\ncourt.alsoToday: أيضًا اليوم\ncourt.tabOpen: الفاتورة مفتوحة",
+      "body": "title: الصالة\nshow: عرض\ncafe: الكافيه\ncourts: الملاعب\ncourtsOpen: (المفتوحة: {count})\nlegend.free: فارغة\nlegend.open: فاتورة مفتوحة\nlegend.paying: بانتظار الدفع\nlegend.calling: الضيف ينادي\npaying: قيد الدفع\ntabCount: الفواتير: {count}\nopenFor: مفتوحة منذ {age}\nkitchen: المطبخ\nbar: البار\nentrance: المدخل\nnoTables: لا توجد طاولات قيد الاستخدام بعد. تُضاف من «الكافيه والمتجر» في «رموز QR للطاولات».\noffPlan: لم تُوضع هذه الطاولات على المخطط بعد:\nnoCourts: لا توجد ملاعب مفتوحة للحجز.\nothers: فواتير مفتوحة أخرى\nrailCalls: النداءات\nrailTabs: فواتير أخرى\nrailSwitch: شريط الخدمة\nrailNoTabs: لا توجد فواتير مفتوحة أخرى.\nothersHint: ليست على طاولة أو ملعب في المخطط.\nback: الصالة\nbackLabel: العودة إلى الصالة\ncourt.ended: انتهى\ncourt.playing: يلعبون الآن\ncourt.upcoming: الحجز التالي",
       "route": "/till"
     },
     {
@@ -27942,7 +27942,7 @@
       "ref": "label:ws.cashier.floor",
       "lang": "en",
       "title": "ws.cashier.floor (packages/i18n/src/catalogs/ws/cashier.en.ts) (part 1 of 2)",
-      "body": "title: Floor\nshow: Show\ncafe: Café\ncourts: Courts\ncourtsOpen: ({count} open)\nlegend.free: Free\nlegend.open: Open tab\nlegend.paying: Waiting for payment\nlegend.calling: Guest is calling\npaying: Paying\ntabCount: {count} tabs\nopenFor: Open {age}\nkitchen: Kitchen\nbar: Bar\nentrance: Entrance\nnoTables: No tables are in use yet. They are added under Café & shop › Table QR codes.\noffPlan: These tables have no place on the plan yet:\nnoCourts: No courts are open for booking.\nothers: Other open tabs\nothersHint: Not on a table or a court on the plan.\nback: Floor\nbackLabel: Back to the floor\ncourt.ended: Finished\ncourt.playing: Playing now\ncourt.upcoming: Next booking\ncourt.none: No more bookings today\ncourt.alsoToday: Also today\ncourt.tabOpen: Tab open\ncourt.openTab: Open a tab",
+      "body": "title: Floor\nshow: Show\ncafe: Café\ncourts: Courts\ncourtsOpen: ({count} open)\nlegend.free: Free\nlegend.open: Open tab\nlegend.paying: Waiting for payment\nlegend.calling: Guest is calling\npaying: Paying\ntabCount: {count} tabs\nopenFor: Open {age}\nkitchen: Kitchen\nbar: Bar\nentrance: Entrance\nnoTables: No tables are in use yet. They are added under Café & shop › Table QR codes.\noffPlan: These tables have no place on the plan yet:\nnoCourts: No courts are open for booking.\nothers: Other open tabs\nrailCalls: Calls\nrailTabs: Other tabs\nrailSwitch: Service rail\nrailNoTabs: No other open tabs.\nothersHint: Not on a table or a court on the plan.\nback: Floor\nbackLabel: Back to the floor\ncourt.ended: Finished\ncourt.playing: Playing now\ncourt.upcoming: Next booking",
       "route": "/till"
     },
     {
@@ -27950,7 +27950,7 @@
       "ref": "label:ws.cashier.floor~2",
       "lang": "ar",
       "title": "ws.cashier.floor (packages/i18n/src/catalogs/ws/cashier.ar.ts) (part 2 of 2)",
-      "body": "title: الصالة\nbackLabel: العودة إلى الصالة\ncourt.ended: انتهى\ncourt.playing: يلعبون الآن\ncourt.upcoming: الحجز التالي\ncourt.none: لا حجوزات أخرى اليوم\ncourt.alsoToday: أيضًا اليوم\ncourt.tabOpen: الفاتورة مفتوحة\ncourt.openTab: فتح فاتورة\nspot.openBookingTitle: فتح فاتورة لهذا الحجز؟\nspot.chooseTitle: على {table} أكثر من فاتورة\nspot.chooseLead: اختر الفاتورة التي تضيف إليها.\nspot.orderFirst: لا شيء على {table} بعد. تبدأ الطلبات عند الكاونتر: اضغط «طلب جديد» وأرسله، ثم اربطه بـ{table} من «توصيل إلى…» في الفاتورة.\nspot.tabN: الفاتورة {n}\nspot.items: الأصناف: {count}\nspot.since: منذ {time}",
+      "body": "title: الصالة\nothersHint: ليست على طاولة أو ملعب في المخطط.\nback: الصالة\nbackLabel: العودة إلى الصالة\ncourt.ended: انتهى\ncourt.playing: يلعبون الآن\ncourt.upcoming: الحجز التالي\ncourt.none: لا حجوزات أخرى اليوم\ncourt.alsoToday: أيضًا اليوم\ncourt.tabOpen: الفاتورة مفتوحة\ncourt.openTab: فتح فاتورة\nspot.openBookingTitle: فتح فاتورة لهذا الحجز؟\nspot.chooseTitle: على {table} أكثر من فاتورة\nspot.chooseLead: اختر الفاتورة التي تضيف إليها.\nspot.orderFirst: {table} فارغة. ابدأ طلباً وسيُحفظ على هذه الطاولة.\nspot.tabN: الفاتورة {n}\nspot.items: الأصناف: {count}\nspot.since: منذ {time}",
       "route": "/till"
     },
     {
@@ -27958,7 +27958,7 @@
       "ref": "label:ws.cashier.floor~2",
       "lang": "en",
       "title": "ws.cashier.floor (packages/i18n/src/catalogs/ws/cashier.en.ts) (part 2 of 2)",
-      "body": "title: Floor\ncourt.ended: Finished\ncourt.playing: Playing now\ncourt.upcoming: Next booking\ncourt.none: No more bookings today\ncourt.alsoToday: Also today\ncourt.tabOpen: Tab open\ncourt.openTab: Open a tab\nspot.openBookingTitle: Open a tab for this booking?\nspot.chooseTitle: {table} has more than one tab\nspot.chooseLead: Pick the tab to add to.\nspot.orderFirst: Nothing is on {table} yet. Orders start at the counter: press New order, send it, then attach {table} to it with \"Bring to…\" on the tab.\nspot.tabN: Tab {n}\nspot.items: {count} items\nspot.since: since {time}",
+      "body": "title: Floor\nothersHint: Not on a table or a court on the plan.\nback: Floor\nbackLabel: Back to the floor\ncourt.ended: Finished\ncourt.playing: Playing now\ncourt.upcoming: Next booking\ncourt.none: No more bookings today\ncourt.alsoToday: Also today\ncourt.tabOpen: Tab open\ncourt.openTab: Open a tab\nspot.openBookingTitle: Open a tab for this booking?\nspot.chooseTitle: {table} has more than one tab\nspot.chooseLead: Pick the tab to add to.\nspot.orderFirst: {table} is free. Start an order and it will be saved on this table.\nspot.tabN: Tab {n}\nspot.items: {count} items\nspot.since: since {time}",
       "route": "/till"
     },
     {
@@ -27998,7 +27998,7 @@
       "ref": "label:ws.cashier.newTab",
       "lang": "ar",
       "title": "ws.cashier.newTab (packages/i18n/src/catalogs/ws/cashier.ar.ts) (part 1 of 2)",
-      "body": "title: فاتورة جديدة\nfromBooking: مرتبطة بحجز\nfromBookingHint: تُفتح هذه الفاتورة للحجز المختار من مكتب الملاعب، وتُضاف رسوم الملعب عند التسوية.\nbookingMissing: لا يمكن فتح فاتورة لهذا الحجز: له فاتورة بالفعل، أو ليس موعده اليوم.\norderTitle: طلب جديد\nstart: بدء الطلب\nnameLabel: الاسم أو الرقم\ncounterHint: إن تُرك فارغًا يأخذ رقم الكاونتر التالي. اربط كل طلب بطاولة من الفاتورة عندما يجلس الزبون.\ncounterSale: بيع من كاونتر المتجر\ncounterSaleHint: لمن يشتري من المتجر: دون طاولة أو حجز، باسم أو رقم فقط.\ncounterNameHint: يظهر على الفاتورة وفي إغلاق اليوم.\nneedLabel: اكتب اسمًا أو رقمًا.\nlead: كاشير المقهى\nstepName: الاسم\nnextNumber: الرقم التالي\nnextCounterNumber: رقم الكاونتر التالي\nnoBookingBody: طلب من المقهى وحده.",
+      "body": "title: فاتورة جديدة\nfromBooking: مرتبطة بحجز\nfromBookingHint: تُفتح هذه الفاتورة للحجز المختار من مكتب الملاعب، وتُضاف رسوم الملعب عند التسوية.\nbookingMissing: لا يمكن فتح فاتورة لهذا الحجز: له فاتورة بالفعل، أو ليس موعده اليوم.\norderTitle: طلب جديد\nstart: بدء الطلب\nnameLabel: الاسم أو الرقم\ncounterHint: إن تُرك فارغًا يأخذ رقم الكاونتر التالي. اربط كل طلب بطاولة من الفاتورة عندما يجلس الزبون.\ncounterSale: بيع من كاونتر المتجر\ncounterSaleHint: لمن يشتري من المتجر: دون طاولة أو حجز، باسم أو رقم فقط.\ncounterNameHint: يظهر على الفاتورة وفي إغلاق اليوم.\nneedLabel: اكتب اسمًا أو رقمًا.\nlead: كاشير المقهى\nstepName: الاسم\nnextNumber: الرقم التالي\nnextCounterNumber: رقم الكاونتر التالي\nnoBookingBody: طلب من المقهى وحده.\ntableStepLabel: الطاولة أو حجز الملعب",
       "route": "/till"
     },
     {
@@ -28014,7 +28014,7 @@
       "ref": "label:ws.cashier.newTab~2",
       "lang": "ar",
       "title": "ws.cashier.newTab (packages/i18n/src/catalogs/ws/cashier.ar.ts) (part 2 of 2)",
-      "body": "title: فاتورة جديدة\nneedLabel: اكتب اسمًا أو رقمًا.\nlead: كاشير المقهى\nstepName: الاسم\nnextNumber: الرقم التالي\nnextCounterNumber: رقم الكاونتر التالي\nnoBookingBody: طلب من المقهى وحده.\nbookingNote: عند ربطه بحجز، تُضاف رسوم الملعب عند تسوية الفاتورة.\nreviewBooking: الحجز",
+      "body": "title: فاتورة جديدة\nlead: كاشير المقهى\nstepName: الاسم\nnextNumber: الرقم التالي\nnextCounterNumber: رقم الكاونتر التالي\nnoBookingBody: طلب من المقهى وحده.\ntableStepLabel: الطاولة أو حجز الملعب\ntableOrderTitle: طلب طاولة\ntableOrderBody: لـ{table} فقط.\nbookingNote: عند ربطه بحجز، تُضاف رسوم الملعب عند تسوية الفاتورة.\nreviewBooking: الحجز",
       "route": "/till"
     },
     {
@@ -28022,7 +28022,7 @@
       "ref": "label:ws.cashier.newTab~2",
       "lang": "en",
       "title": "ws.cashier.newTab (packages/i18n/src/catalogs/ws/cashier.en.ts) (part 2 of 2)",
-      "body": "title: New tab\ncounterNameHint: Shown on the tab and on the day close.\nneedLabel: Type a name or a number.\nlead: Café till\nstepName: Name\nnextNumber: Next number\nnextCounterNumber: Next counter number\nnoBookingBody: A café order on its own.\nbookingNote: Tied to a booking, the court fee is added when the bill is settled.\nreviewBooking: Booking",
+      "body": "title: New tab\ncounterNameHint: Shown on the tab and on the day close.\nneedLabel: Type a name or a number.\nlead: Café till\nstepName: Name\nnextNumber: Next number\nnextCounterNumber: Next counter number\nnoBookingBody: A café order on its own.\ntableStepLabel: Table or court booking\ntableOrderTitle: Table order\ntableOrderBody: Just for {table}.\nbookingNote: Tied to a booking, the court fee is added when the bill is settled.\nreviewBooking: Booking",
       "route": "/till"
     },
     {

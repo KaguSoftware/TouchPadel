@@ -702,7 +702,12 @@ describe.each(LOCALES)('open-match states in %s', (locale) => {
       const raised: { body: string; buttons: { text: string; onPress?: () => void }[] }[] = [];
       jest.spyOn(Alert, 'alert').mockImplementation((title, body, buttons) => {
         alertState.log.push({ title: title ?? '', body: body ?? '' });
-        raised.push({ body: body ?? '', buttons: (buttons ?? []) as (typeof raised)[number]['buttons'] });
+        const own = (buttons ?? []) as (typeof raised)[number]['buttons'];
+        raised.push({ body: body ?? '', buttons: own });
+        // Only the question stays open. Any other alert (the first join's error)
+        // is closed at once as jest.setup does: an error alert left open keeps the
+        // one-alert coordinator (overlays.tsx) shut for every later case in the file.
+        if (!(body ?? '').includes(t('matches.detail.takeBodyMen'))) own[0]?.onPress?.();
       });
       // With a friend: nothing is sent until the guest says they are all men.
       fireEvent.press(screen.getByTestId('match-detail.seats-wanted.2'));

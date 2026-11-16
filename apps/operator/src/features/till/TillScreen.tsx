@@ -636,6 +636,7 @@ export function TillScreen() {
             from the two attributes; a dialog opened from here resets to the
             app's own (Modal). */}
         <aside
+          className="tp-till-rail"
           data-theme="operator"
           data-mode="blue"
           style={{

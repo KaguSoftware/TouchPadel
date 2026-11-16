@@ -260,11 +260,12 @@ export async function voidOpenTabsByLabel(svc: SupabaseClient, label: string): P
 
 /**
  * Open a café order the way the till does since 0352: New order at the
- * counter, named, with no table (a free table's dialog only says so now).
- * Lands on the new tab's menu.
+ * counter, named, with no table. Lands on the new tab's menu. The header
+ * button carries its F6 key inside it since 2026-11-15 ("New orderF6"), so
+ * its name is matched from the start, not exactly.
  */
 export async function openCounterOrder(page: Page, label: string): Promise<void> {
-  await page.getByRole('button', { name: 'New order', exact: true }).click();
+  await page.getByRole('button', { name: /^New order/ }).click();
   const dialog = page.getByRole('dialog', { name: 'New order' });
   await dialog.getByLabel(/^Name or number/).fill(label);
   // A stepped dialog since 2026-10-22: the name, the court booking, Review.

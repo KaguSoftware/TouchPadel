@@ -168,12 +168,13 @@ test.describe('operator journeys', () => {
       timeout: 30_000,
     });
 
-    // ---- a free table opens nothing: orders start at the counter (0352) ----
+    // ---- a free table offers a new order saved on it (2026-11-15) ---------
     // The table's name leads its label ("Table T8, Free"), on the plan or in
     // the off-plan row when leftover test tables sort ahead of it.
     await page.getByRole('button', { name: /^Table T8, Free/ }).click();
     const spot = page.getByRole('dialog', { name: 'Table T8' });
-    await expect(spot).toContainText('Orders start at the counter');
+    await expect(spot).toContainText('Table T8 is free. Start an order and it will be saved on this table.');
+    await expect(spot.getByRole('button', { name: 'New order' })).toBeVisible();
     await spot.getByRole('button', { name: 'Cancel' }).click();
     await expect(spot).toBeHidden();
 
