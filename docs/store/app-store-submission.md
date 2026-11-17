@@ -3,7 +3,7 @@
 Every App Store Connect answer that is **not** listing copy: app information, availability, privacy
 labels, age rating, export compliance, the review account, review notes, and the build/submit order.
 Listing copy lives in `app-store-listing.md`. Screenshots come from `apps/mobile/store/`. The browser
-agent that types all of this in is `docs/client/app-store-connect-chrome-prompt.md`.
+agent that types all of this in is `docs/client/store-release-chrome-prompt.md`.
 
 - App Store Connect app: **6809045183**, team **BR42V976FS**, bundle id **`com.kagu.touchpadel`**
 - Version: **1.1.0** (`apps/mobile/app.config.ts`; 1.0.0 → 1.1.0 with the Expo SDK 58 move, so an OTA for SDK 58 never reaches a 1.0.0 binary). The App Store Connect version record must say the same
@@ -18,7 +18,7 @@ agent that types all of this in is `docs/client/app-store-connect-chrome-prompt.
   `apps/web/src/lib/site/payments.ts`). Everything below is written for that build
 - Target submission Wed 2026-09-16, hard stop Fri 2026-09-18
 - Sign in with Apple key for revocation: **created 2026-09-15**, Key ID `34Y63525H2` ("Touch Padel SIWA Revoke"). The .p8 is downloaded by the owner only
-- App Store Connect state after the first browser run: `docs/client/app-store-connect-chrome-prompt-2.md` finishes the rest
+- App Store Connect state after the first browser run: `docs/client/store-release-chrome-prompt.md` finishes the rest
 
 ---
 
@@ -147,9 +147,10 @@ nudity, simulated or real gambling, contests, loot boxes.
 | Capability question | Answer | Why |
 |---|---|---|
 | Unrestricted web access | **No** | No in-app browser. The Privacy/Support links open Safari, and "Call" opens the dialer |
-| User-generated content | **Yes** (DF-17) | Players in open matches see each other's first name and surname initial, and fixed preset status messages; the Ranks leaderboard shows the username a player chose, and tournament standings show players' names. There is no free text between players. Report, block and a venue ban are built in (Guideline 1.2): a player reports or blocks another from that player's seat in a match, and Profile → Blocked players undoes a block. Staff notes and work photos are seen only by colleagues and managers at the same venue, inside their staff accounts. A guest's profile photo is seen by the guest and the venue's staff |
+| User-generated content | **Yes** (DF-17) | Players in open matches see each other's first name and surname initial, and fixed preset status messages; the Ranks leaderboard shows the username a player chose, and tournament standings show players' names. There is no free text between players. Report, block and a venue ban are built in (Guideline 1.2): a player reports or blocks another from that player's seat in a match, and Profile → Blocked players undoes a block. On Rankings a long press on another player's name reports it to the venue by email (`src/features/ranks/report.ts`, 2026-11-17), and usernames are filtered for offensive words (0319). Staff notes and work photos are seen only by colleagues and managers at the same venue, inside their staff accounts. A guest's profile photo is seen by the guest and the venue's staff |
 | Messaging or chat | **No** | Fixed preset statuses in a match only; no direct messages |
 | Advertising | **No** | |
+| AI-generated content (if asked) | **Yes**, staff only | The staff assistant writes answers with an outside AI provider. Guests never see it. Each phone shows an AI notice that must be accepted before the first question (`features/assistant/aiConsent.ts`, App Review 5.1.2(i)) |
 | Parental controls / age assurance | **No** / not applicable | |
 
 Record the rating Apple computes from these answers in the owner's report. If it is higher than expected,
@@ -214,45 +215,44 @@ the Sign-in Information fields hold the guest account.
 ### Review notes — paste this
 
 ```
-Touch Padel is the app of a single padel venue in Iraq. Guests reserve courts, start or join open matches, book lessons, enter tournaments and carry a member card for points at the venue's till. Browsing needs no account; reserving does. A staff area serves the venue's employees (STAFF AREA below).
+Touch Padel is the app of a single padel venue in Iraq. Guests reserve courts, start or join open matches, book lessons, enter tournaments, follow the Rankings leaderboard and carry a member card for points at the venue's till. Browsing needs no account; reserving does. A staff area serves the venue's employees (STAFF AREA below).
 
 SIGN IN
-Use the account in Sign-in Information. On the sign-in screen keep "Phone", choose country Iraq (+964) and enter the phone number without the +964 prefix. The app asks for a six-digit code: enter the code given in the Password field. It is a fixed test code for this number, so no message needs to be received. Sign in with Apple and Google are also offered; Sign in with Apple is provided as required by guideline 4.8.
+Use the account in Sign-in Information. Tap the avatar at the top of the screen > Sign in, type the full phone number from the User name field (+964...) into "Email or phone number" and continue. The app asks for a six-digit code: enter the code in the Password field. It is a fixed test code for this number, so no message needs to be received. Sign in with Apple and Google are also offered (guideline 4.8).
 
-The account has an upcoming booking under Bookings. You may reserve and cancel another slot: this account's bookings are marked as test bookings for the front desk.
+TABS
+Rankings, Join, Book (centre), Club, Coaches. The avatar at the top of each tab opens Profile; My reservations is there and holds an upcoming booking. You may reserve and cancel another slot: this account's bookings are marked as test bookings for the front desk.
 
 PAYMENTS
-There is no online payment in this version. Courts, open-match seats, lessons and tournament entries are all paid at the venue's front desk when the player arrives. No in-app purchases, no tickets, and the app never asks for card details.
+There is no online payment in this version. Courts, open-match seats, lessons and tournament entries are paid at the front desk. No in-app purchases, and the app never asks for card details. Points and rewards are redeemed at the till with a QR code; nothing is bought in the app.
 
-OPEN MATCHES
-Players start a match at a free time or join one; four players book the court together and each pays their share at the desk (Book > a free time > Start an open match; Join > Open matches). To try it: under Join > Open matches, join Review Partner's match (2/4). At 3/4 no court is booked. In the match, send a preset status (no free text), and report or block a player from their seat's menu; Profile > Blocked players undoes a block. Then leave the match. The review account is a sandbox profile: it sees only sandbox matches, which never book a real court.
-
-LESSONS, TOURNAMENTS AND THE CLUB TAB
-Coaches: book a place in a session, paid at the desk. Join also lists tournaments: enter, wait-list or withdraw; the fee is paid at the desk. Club: the member card (a QR the till scans for points), the Ranks leaderboard, and the café menu, for looking only: nothing is ordered in the app.
+OPEN MATCHES AND RANKINGS (user content)
+Under Join > Open matches, join Review Partner's match (2/4). In the match, send a preset status (no free text exists), and report or block a player from their seat's menu; Profile > Blocked players undoes a block. Then leave the match. The account is a sandbox profile: its matches never book a real court.
+Rankings shows names and results that players confirm with each other. Long-press any other player's name to report it: the report goes to the venue, which reviews it and can remove the name. Usernames are also filtered for offensive words.
 
 ACCOUNT DELETION
-Profile > Edit profile > Delete account, in the app. It deletes the login, the guest's name and phone number immediately and signs them out. For Sign in with Apple accounts the app re-authorises with Apple and the Apple token is revoked. Past bookings remain in the venue's records with no name attached; the deletion screen says so before the user confirms. Open matches are left.
+Profile > Edit profile > Delete account. It deletes the login, name and phone number immediately and signs out. For Sign in with Apple accounts the Apple token is revoked. Past bookings stay in the venue's records with no name attached; the screen says so before confirming.
 
 PRIVACY
-Settings > About > Privacy policy (also linked on the sign-up screen) opens the same policy as the listing. The app contains no analytics, advertising or tracking. Crash and error reports go only to the venue's own server.
+Profile > Settings > Privacy policy (also on the sign-up screen) opens the listing's policy. No analytics, advertising or tracking. Crash reports go only to the venue's own server.
 
 STAFF AREA
-Venue employees use the app for their work: workflow tasks (a new menu item, a checklist, the shopping list), menu notes and requests to the owner. The owner creates staff accounts; there is no staff sign-up, and staff sign in with email and password only. To see it, sign out, choose "Email" on the sign-in screen and sign in with:
+Employees use the app for their work: tasks, checklists, the shopping list, requests to the owner. The owner creates staff accounts; there is no staff sign-up. Sign out, then sign in with:
 
 Email:    <the email create-staff-review-account.mjs printed>
 Password: <the password it printed>
 
-This driver account, the role with the least access, sees the venue's real shopping list; anything you record reaches the manager, so please type test text. The camera and photo library are used for a work photo (a receipt, say) and for a guest's profile photo in Edit profile. The app never uses the microphone or location.
+This driver account has the least access and sees the venue's real shopping list, so please type test text. Camera and photos: a work photo or a profile photo. Location: only when a staff member taps Start work or Finish work, to check they are at the club, never in the background; away from the club it is refused by design. "Touch AI" answers questions about using the app, can't see any data, and shows an AI notice before first use. No microphone.
 
 LANGUAGES
-English and Arabic with full right-to-left layout. Settings > Language switches immediately, no restart.
+English and Arabic with full right-to-left layout. Profile > Settings > Language switches immediately.
 
 VENUE CONNECTION NOTICE
-If the venue's own system loses connectivity, bookings for today and tomorrow are refused in the app with an explanation and the venue's phone number instead of being taken and lost. If you see that banner during review it is intended behaviour; dates further ahead remain bookable.
+If the venue's own system is offline, bookings for today and tomorrow are refused with an explanation and the venue's phone number. That banner is intended; later dates stay bookable.
 ```
 
-The block sits right under its heading because `apps/mobile/store/chrome-prompt.mjs` reads it from there. The field holds 4,000 characters; this is 3,871 (2026-11-01, version 1.1.0: no online payment, open matches paid
-at the desk). Count again after any edit.
+The block sits right under its heading because `apps/mobile/store/chrome-prompt.mjs` reads it from there. The field holds 4,000 characters; this is 3,463 (2026-11-17, version 1.1.0: current tabs, the single sign-in field,
+Rankings reports, staff location and the AI notice). Count again after any edit.
 
 App Review contact: the account holder's real name, phone and email (the browser agent uses what App Store Connect
 already holds, or asks).

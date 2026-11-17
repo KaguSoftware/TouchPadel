@@ -10,14 +10,24 @@ capture/<locale>/<slug>.png
 
 `<locale>` is `en` or `ar`. `<slug>` is the frame slug from `../frames.mjs`:
 
-| slug             | screen to capture                                                        |
-|------------------|--------------------------------------------------------------------------|
-| `1-book`         | Book tab, court at rest, venue open, sheet closed                         |
-| `2-availability` | Availability for a day with a mix of free / 1-left / booked times         |
-| `3-review`       | Review & confirm, hold timer running                                      |
-| `4-success`      | Court reserved                                                            |
-| `5-bookings`     | My reservations, Upcoming selected, a Next up card + ≥3 more bookings     |
-| `6-settings`     | Settings, notifications enabled, About card visible                       |
+| slug             | screen to capture (1.1.0, five tabs)                                            |
+|------------------|----------------------------------------------------------------------------------|
+| `1-book`         | Book tab, court at rest, venue open, nothing open over it                          |
+| `2-pick-a-time`  | Book → Check availability: a day with free and booked times and real prices        |
+| `3-join`         | Join tab, All: an open match with seats and a tournament card                      |
+| `4-ranks`        | Rankings tab, signed in: the podium and rows, your own level card if it fits       |
+| `5-coaches`      | Coaches tab: the coaches with photos and the next sessions                         |
+| `6-club`         | Club tab: the member card with its QR and points                                    |
+
+Every frame needs a real capture since 2026-11-17: the HTML recreations draw the September
+three-tab bar, so `pnpm --filter @touch/mobile run store` skips any frame without one and lists
+what is missing (`--draft` renders the recreations for a preview only, never for upload).
+Google Play's frames (`--size play-phone`) take `capture/android/<locale>/<slug>.png` when it
+exists and the iPhone capture otherwise.
+
+Use a signed-in guest with a name, points and a place on the board (not the review account, which
+has none), on a branch with open matches on. Nobody's phone number or full name may show: the board
+shows "First L." names, which is fine.
 
 ## Requirements
 

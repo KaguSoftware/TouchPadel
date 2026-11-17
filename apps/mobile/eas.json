@@ -50,6 +50,11 @@
       "ios": {
         "appleTeamId": "BR42V976FS",
         "ascAppId": "6809045183"
+      },
+      "android": {
+        "serviceAccountKeyPath": "./secrets/play-service-account.json",
+        "track": "internal",
+        "releaseStatus": "draft"
       }
     }
   }

@@ -850,6 +850,15 @@ export const en = {
     unit: 'pts',
     player: 'Player',
     you: 'You',
+    reportName: {
+      action: 'Report this name',
+      title: 'Report {name}?',
+      message: 'If this name is offensive, tell the club. Your email app opens with the name filled in; the club reviews every report and can remove the name.',
+      send: 'Report',
+      subject: 'Report a name on Ranks: {name}',
+      body: 'I want to report this name on the Ranks leaderboard: {name}\n\nWhy (optional):\n',
+      noMail: 'No email app is set up. Write to {email} and name the player.',
+    },
     off: {
       title: 'Ranks are resting',
       message: 'The club has the leaderboard switched off for now.',

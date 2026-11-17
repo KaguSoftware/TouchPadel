@@ -29,3 +29,9 @@ export type LegalPage = 'privacy' | 'terms' | 'support' | 'delete-account';
 export function legalUrl(page: LegalPage, locale: Locale): string {
   return `${SITE_URL}/${locale}/${page}`;
 }
+
+/**
+ * The venue's contact address, the one the Privacy Policy and the Support page publish
+ * (packages/i18n catalogs/legal.*.ts). Reports of an offensive name on Ranks go here.
+ */
+export const SUPPORT_EMAIL = 'info@touch-padel.com';

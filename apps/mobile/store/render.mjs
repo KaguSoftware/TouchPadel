@@ -17,11 +17,11 @@
 import { chromium } from 'playwright';
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { LOCALES, SIZES } from './frames.mjs';
 import { posterHtml } from './template.mjs';
 
-const HERE = path.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1'));
+const HERE = path.dirname(fileURLToPath(import.meta.url));
 const OUT = path.join(HERE, 'out');
 const CAPTURES = path.join(HERE, 'capture');
 
@@ -36,14 +36,19 @@ const has = (name) => process.argv.includes(`--${name}`);
  * capture/<locale>/<slug>.png — see capture/README.md.
  */
 async function captureFor(locale, slug, platform) {
-  const base = platform === 'android' ? path.join(CAPTURES, 'android') : CAPTURES;
-  const p = path.join(base, locale, `${slug}.png`);
-  try {
-    await fs.access(p);
-    return pathToFileURL(p).href;
-  } catch {
-    return null;
+  // Play frames take an Android capture (capture/android/<locale>) when there is one and the
+  // iPhone capture otherwise: same app, same screens.
+  const bases = platform === 'android' ? [path.join(CAPTURES, 'android'), CAPTURES] : [CAPTURES];
+  for (const base of bases) {
+    const p = path.join(base, locale, `${slug}.png`);
+    try {
+      await fs.access(p);
+      return pathToFileURL(p).href;
+    } catch {
+      // next
+    }
   }
+  return null;
 }
 
 async function main() {
@@ -61,6 +66,8 @@ async function main() {
   const browser = await chromium.launch();
   let written = 0;
   const usedCaptures = [];
+  // Store builds take real captures only (frames.mjs, 2026-11-17); --draft draws the recreations.
+  const missingCaptures = [];
 
   for (const locale of locales) {
     const conf = LOCALES[locale];
@@ -84,6 +91,8 @@ async function main() {
 
       const capture = await captureFor(locale, frame.slug, size.platform);
       if (capture) usedCaptures.push(`${locale}/${frame.slug}`);
+      else if (!has('draft')) missingCaptures.push(`capture/${locale}/${frame.slug}.png`);
+      if (!capture && !has('draft')) continue;
 
       const html = posterHtml({
         size,
@@ -129,7 +138,15 @@ async function main() {
     console.log(`\n${written} frame(s) → ${path.relative(process.cwd(), OUT)}/${sizeKey}`);
     if (usedCaptures.length) {
       console.log(`Real device captures used: ${usedCaptures.join(', ')}`);
-    } else {
+    }
+    if (missingCaptures.length) {
+      console.error(
+        `\nMISSING ${missingCaptures.length} real capture(s), so those frames were NOT written:\n  ` +
+          missingCaptures.join('\n  ') +
+          '\nShoot them as store/capture/README.md says, or pass --draft for a recreation preview.',
+      );
+      process.exitCode = 1;
+    } else if (!usedCaptures.length) {
       console.log(
         'All frames used the HTML recreations. Drop real device captures into\n' +
           'store/capture/<locale>/<slug>.png to shoot the actual binary instead —\n' +

@@ -19,11 +19,12 @@
  */
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
 import { DATA_KEYS, LOCALES } from './frames.mjs';
 import { dark, brand, lightGreens } from './tokens.mjs';
 
-const HERE = path.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1'));
+const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.resolve(HERE, '..', '..', '..');
 const CATALOGS = path.join(REPO, 'packages', 'i18n', 'src', 'catalogs');
 const TOKENS_TS = path.join(REPO, 'apps', 'mobile', 'src', 'theme', 'tokens.ts');

@@ -556,7 +556,8 @@ describe.each(LOCALES)('loyalty states in %s', (locale) => {
         within(screen.getByTestId('loyalty.tier.tier-1')).getByText(t('loyalty.guest.ladder.included')),
       ).toBeTruthy();
       expect(screen.getByTestId('loyalty.history-empty')).toBeTruthy();
-      expect(screen.getByTestId('loyalty.reward-soon.0')).toBeTruthy();
+      expect(screen.getByTestId('loyalty.rewards-empty')).toBeTruthy();
+      expect(screen.queryByText(t('loyalty.guest.rewards.soon'))).toBeNull();
     } finally {
       screen.unmount();
     }

@@ -14,6 +14,7 @@ import { FREE_MODEL_CHOICE } from '@touch/core/assistant/free';
 import * as assistantApi from '../features/assistant/api';
 import { FreeStreamError } from '../features/assistant/free';
 import { __resetFreeMode, setFreeMode } from '../features/assistant/freeMode';
+import { __setAiConsent } from '../features/assistant/aiConsent';
 import { runSmokeCases } from '../test/smokeCase';
 import { renderRoute } from '../test/smoke';
 import { routerState } from '../test/routerState';
@@ -26,6 +27,9 @@ import StaffScreenshots from '../../app/(staff)/staff-screenshots';
 import StaffToday from '../../app/staff';
 import { AssistantFab, fabHidden, withAssistantFab } from '../features/assistant/AssistantFab';
 import { screenshotKeys, type ScreenshotEvent } from '../features/staff/screenGuard/api';
+
+// The AI notice is accepted for every case but its own (they set it back): the cases below test the assistant.
+__setAiConsent(true);
 
 const CHAT = 'a5510000-0000-4000-8000-000000000001';
 
@@ -68,6 +72,32 @@ runSmokeCases('the owner assistant', [
 ]);
 
 const LOCALES: Locale[] = ['en', 'ar'];
+
+describe.each(LOCALES)('the AI notice in %s (App Review 5.1.2(i))', (locale) => {
+  const t = makeT(locale);
+
+  afterEach(() => {
+    __setAiConsent(true);
+  });
+
+  it('stands before the assistant until accepted, for the owner and for any other role', async () => {
+    for (const role of ['owner', 'driver'] as const) {
+      __setAiConsent(false);
+      const screen = renderRoute(StaffAssistant, { locale, staff: { role } });
+      try {
+        expect(screen.getByText(t('staff.assistant.aiNotice.body'))).toBeTruthy();
+        expect(screen.getByText(t('staff.assistant.aiNotice.data'))).toBeTruthy();
+        expect(screen.queryByTestId('staff-assistant.composer.send')).toBeNull();
+        const accept = screen.getByTestId('staff-assistant.ai-notice.accept');
+        expect(within(accept).getByText(t('staff.assistant.aiNotice.accept'))).toBeTruthy();
+        fireEvent.press(accept);
+        await waitFor(() => expect(screen.queryByTestId('staff-assistant.ai-notice.accept')).toBeNull());
+      } finally {
+        screen.unmount();
+      }
+    }
+  });
+});
 
 describe.each(LOCALES)('the owner assistant in %s', (locale) => {
   const t = makeT(locale);

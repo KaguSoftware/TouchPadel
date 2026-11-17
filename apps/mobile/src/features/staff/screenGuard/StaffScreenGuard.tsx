@@ -57,20 +57,14 @@ export function StaffScreenGuard() {
 
   useEffect(() => {
     if (!guarded) return;
-    let cancelled = false;
     const run = async () => {
       try {
         await ScreenCapture.preventScreenCaptureAsync(GUARD_KEY);
         if (Platform.OS === 'ios') await ScreenCapture.enableAppSwitcherProtectionAsync();
-        // Android 13 and older ask for a media permission to hear of a
-        // screenshot; Android 14 and the iPhone need none. A refusal only
-        // costs the report, never the block.
-        if (Platform.OS === 'android' && Number(Platform.Version) < 34) {
-          const have = await ScreenCapture.getPermissionsAsync();
-          if (!have.granted && have.canAskAgain && !cancelled) {
-            await ScreenCapture.requestPermissionsAsync();
-          }
-        }
+        // No media permission is asked for: app.config.ts blocks READ_MEDIA_IMAGES and
+        // READ_EXTERNAL_STORAGE (no Play photo-permission declaration), so on Android 13 and
+        // older a screenshot is blocked (FLAG_SECURE) but not reported. Android 14 and the
+        // iPhone report it with no permission.
       } catch (err) {
         captureException(err, { scope: 'staff.screenGuard.enable' });
       }
@@ -81,7 +75,6 @@ export function StaffScreenGuard() {
       if (id) void report(id, route.current);
     });
     return () => {
-      cancelled = true;
       sub.remove();
       void ScreenCapture.allowScreenCaptureAsync(GUARD_KEY).catch(() => undefined);
       if (Platform.OS === 'ios') {

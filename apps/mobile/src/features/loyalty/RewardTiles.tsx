@@ -225,33 +225,13 @@ export function RewardTiles({
   const { t } = useLocale();
   const { colors, fonts } = useTheme();
 
+  // No rewards set up: one plain line, never placeholder tiles. "Coming soon"
+  // tiles read as unfinished content to App Review (Guideline 2.1).
   if (rewards.length === 0) {
     return (
-      <View
-        accessibilityLabel={t('loyalty.guest.rewards.empty')}
-        style={{ flexDirection: 'row', justifyContent: 'space-between', gap: space.sm }}
-      >
-        {[0, 1].map((i) => (
-          <View
-            key={i}
-            testID={`loyalty.reward-soon.${i}`}
-            style={{
-              width: '48.4%',
-              height: TILE_HEIGHT,
-              alignItems: 'center',
-              justifyContent: 'center',
-              borderRadius: radius.card,
-              borderWidth: 1,
-              borderStyle: 'dashed',
-              borderColor: colors.line,
-            }}
-          >
-            <Text style={{ fontFamily: fonts.body400, fontSize: 12, color: colors.mut }}>
-              {t('loyalty.guest.rewards.soon')}
-            </Text>
-          </View>
-        ))}
-      </View>
+      <Text testID="loyalty.rewards-empty" style={{ fontFamily: fonts.body400, fontSize: 13, color: colors.mut }}>
+        {t('loyalty.guest.rewards.empty')}
+      </Text>
     );
   }
 

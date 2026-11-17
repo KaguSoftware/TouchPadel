@@ -10,6 +10,7 @@
  */
 import { describe, expect, it, jest } from '@jest/globals';
 import { fireEvent, waitFor, within } from '@testing-library/react-native';
+import { Alert, Linking } from 'react-native';
 import { countPhrase, makeT, type Locale } from '@touch/i18n';
 import { runSmokeCases, type SmokeCase } from '../test/smokeCase';
 import { renderRoute } from '../test/smoke';
@@ -253,6 +254,29 @@ describe.each(LOCALES)('leaderboard states in %s', (locale) => {
       });
     } finally {
       screen.unmount();
+    }
+  });
+
+  it('a long press on another player reports the name to the club by email (App Review 1.2)', () => {
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    const open = jest.spyOn(Linking, 'openURL').mockResolvedValue(undefined);
+    const screen = renderRoute(RanksScreen, { locale, session: 'in', queryData: signedInSeeds() });
+    try {
+      // The guest's own row and a row with no name offer nothing.
+      expect(screen.queryByTestId('ranks.board.row.4')).toBeNull();
+      expect(screen.queryByTestId('ranks.board.row.5')).toBeNull();
+      fireEvent(screen.getByTestId('ranks.board.row.2'), 'longPress');
+      expect(alert).toHaveBeenCalledTimes(1);
+      const [title, , buttons] = alert.mock.calls[0] as unknown as [string, string, { text: string; onPress?: () => void }[]];
+      expect(title).toBe(t('ranks.reportName.title', { name: 'Ali K.' }));
+      buttons.find((b) => b.text === t('ranks.reportName.send'))!.onPress!();
+      const url = String(open.mock.calls[0]?.[0]);
+      expect(url.startsWith('mailto:info@touch-padel.com?subject=')).toBe(true);
+      expect(decodeURIComponent(url)).toContain('Ali K.');
+    } finally {
+      screen.unmount();
+      alert.mockRestore();
+      open.mockRestore();
     }
   });
 

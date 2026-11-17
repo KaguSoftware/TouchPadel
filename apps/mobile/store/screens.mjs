@@ -26,10 +26,10 @@
  * (Liquid Glass) form. The SF Symbols are approximations.
  */
 import path from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { dark as c, brand, lightGreens, DEVICE_PT } from './tokens.mjs';
 
-const HERE = path.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1'));
+const HERE = path.dirname(fileURLToPath(import.meta.url));
 
 const W = DEVICE_PT.width;
 const H = DEVICE_PT.height;

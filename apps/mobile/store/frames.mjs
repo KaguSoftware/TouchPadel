@@ -327,36 +327,48 @@ const tAr = {
  * Reserve court (review.tsx ConfirmAlert). So the count is gone rather than
  * wrong.
  */
+/*
+ * 2026-11-17 (store submission): the set follows the app as it ships 1.1.0. Five tabs (Rankings,
+ * Join, Book, Club, Coaches) since 2026-11-12, so every frame is a REAL capture
+ * (capture/<locale>/<slug>.png): the HTML recreations in screens.mjs still draw the three-tab bar
+ * of September and are only a draft (`--draft`). `screen` names a recreation where one exists.
+ */
 const framesEn = [
   {
     slug: '1-book',
     screen: 'book',
-    eyebrow: 'Live court availability',
+    eyebrow: 'Reserve now · pay at the desk',
     headline: ['Book a court', 'from your phone.'],
   },
   {
-    slug: '3-review',
-    screen: 'review',
+    slug: '2-pick-a-time',
+    screen: 'availability',
     eyebrow: 'Nobody can take it',
     headline: ['Your slot is held', 'while you decide.'],
   },
   {
-    slug: '4-success',
-    screen: 'success',
-    eyebrow: 'No card, no online payment',
-    headline: ['Pay at the desk.', "That's it."],
+    slug: '3-join',
+    screen: null,
+    eyebrow: 'Open matches · tournaments',
+    headline: ['Start a match,', 'or join one.'],
   },
   {
-    slug: '5-bookings',
-    screen: 'bookings',
-    eyebrow: 'Upcoming · played · cancelled',
-    headline: ['Every game', 'in one place.'],
+    slug: '4-ranks',
+    screen: null,
+    eyebrow: 'Touch Level · Season Race',
+    headline: ['See where', 'you stand.'],
   },
   {
-    slug: '6-settings',
-    screen: 'settings',
-    eyebrow: 'English and Arabic',
-    headline: ['Fully Arabic,', 'right to left.'],
+    slug: '5-coaches',
+    screen: null,
+    eyebrow: 'Book your place',
+    headline: ['Lessons with', 'our coaches.'],
+  },
+  {
+    slug: '6-club',
+    screen: null,
+    eyebrow: 'Your member card',
+    headline: ['Points and rewards', 'at the till.'],
   },
 ];
 
@@ -364,32 +376,38 @@ const framesAr = [
   {
     slug: '1-book',
     screen: 'book',
-    eyebrow: 'الأوقات المتاحة لحظة بلحظة',
+    eyebrow: 'احجز الآن · وادفع في الاستقبال',
     headline: ['احجز ملعبك', 'من هاتفك.'],
   },
   {
-    slug: '3-review',
-    screen: 'review',
+    slug: '2-pick-a-time',
+    screen: 'availability',
     eyebrow: 'لا أحد يأخذ موعدك',
     headline: ['موعدك محجوز', 'ريثما تقرّر.'],
   },
   {
-    slug: '4-success',
-    screen: 'success',
-    eyebrow: 'بلا بطاقة وبلا دفع إلكتروني',
-    headline: ['ادفع في الاستقبال.', 'هذا كل شيء.'],
+    slug: '3-join',
+    screen: null,
+    eyebrow: 'مباريات مفتوحة · بطولات',
+    headline: ['ابدأ مباراة', 'أو انضم إلى واحدة.'],
   },
   {
-    slug: '5-bookings',
-    screen: 'bookings',
-    eyebrow: 'القادمة · الملعوبة · الملغاة',
-    headline: ['كل مبارياتك', 'في مكان واحد.'],
+    slug: '4-ranks',
+    screen: null,
+    eyebrow: 'مستوى تتش · سباق الموسم',
+    headline: ['اعرف', 'ترتيبك.'],
   },
   {
-    slug: '6-settings',
-    screen: 'settings',
-    eyebrow: 'العربية والإنجليزية',
-    headline: ['بالعربية بالكامل،', 'من اليمين إلى اليسار.'],
+    slug: '5-coaches',
+    screen: null,
+    eyebrow: 'احجز مكانك',
+    headline: ['حصص مع', 'مدربينا.'],
+  },
+  {
+    slug: '6-club',
+    screen: null,
+    eyebrow: 'بطاقة العضوية',
+    headline: ['النقاط والمكافآت', 'عند الصندوق.'],
   },
 ];
 

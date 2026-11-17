@@ -6,7 +6,7 @@
  * Output: store/out/play-feature-graphic/<locale>.png
  */
 import { chromium } from 'playwright';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import path from 'node:path';
 import fs from 'node:fs';
 import { brand } from './tokens.mjs';
@@ -15,17 +15,16 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, '..');
 
 function fileUrl(...parts) {
-  return 'file://' + path.resolve(root, ...parts).replace(/ /g, '%20');
+  return pathToFileURL(path.resolve(root, ...parts)).href;
 }
 
-const FONT_DIR = ['packages', '..', 'packages', 'ui', 'fonts', 'lama', 'woff2'];
 function fontFaces() {
   const dir = path.resolve(root, '..', '..', 'packages', 'ui', 'fonts', 'lama', 'woff2');
   const files = fs.readdirSync(dir).filter((f) => f.endsWith('.woff2'));
   return files
     .map((file) => {
       const weight = /bold/i.test(file) ? 800 : /medium/i.test(file) ? 600 : 400;
-      return `@font-face{font-family:'Lama Sans';src:url('file://${path.resolve(dir, file).replace(/ /g, '%20')}') format('woff2');font-weight:${weight};font-style:normal;font-display:block;}`;
+      return `@font-face{font-family:'Lama Sans';src:url('${pathToFileURL(path.resolve(dir, file)).href}') format('woff2');font-weight:${weight};font-style:normal;font-display:block;}`;
     })
     .join('\n');
 }
@@ -63,7 +62,7 @@ async function render(locale) {
   const page = await browser.newPage({ viewport: { width: 1024, height: 500 } });
   const tmpHtml = path.resolve(root, 'store', 'out', `.feature-graphic-${locale}.html`);
   fs.writeFileSync(tmpHtml, html(locale));
-  await page.goto('file://' + tmpHtml, { waitUntil: 'networkidle' });
+  await page.goto(pathToFileURL(tmpHtml).href, { waitUntil: 'networkidle' });
   await page.evaluate(() => document.fonts.ready);
   const outDir = path.resolve(root, 'store', 'out', 'play-feature-graphic');
   fs.mkdirSync(outDir, { recursive: true });

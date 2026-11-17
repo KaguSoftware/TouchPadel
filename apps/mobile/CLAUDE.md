@@ -252,8 +252,9 @@ decision and store review.
   (`@react-native-community/datetimepicker`, wrapped once in `src/components/DateTimeField.tsx`)
   is one: coach mode's pickers need the coaching build (coaching R19). So is `expo-screen-capture`
   (the screenshot guard): until the build after 2026-10-07 is installed, staff phones neither block
-  nor report screenshots. On Android 13 and older the report needs a media permission the guard asks
-  for; check on a real phone whether Android 14 reports an attempt FLAG_SECURE blocks.
+  nor report screenshots. On Android 13 and older nothing is reported: the report would need a media
+  permission the manifest blocks (store review, 2026-11-17), so the guard no longer asks; check on a real
+  phone whether Android 14 reports an attempt FLAG_SECURE blocks.
 
 ## Tests
 
