@@ -282,9 +282,11 @@ jobs:
     # once packages/db exists with migrations under packages/db/supabase/migrations/.
     # Until then it fails, and that is correct — the pipeline promise is real, not decorative.
     continue-on-error: false
-    # A green run takes about 7 minutes. Without this the default of 360 applies,
-    # and a stuck lock wait held this job for six hours (2026-09-29).
-    timeout-minutes: 45
+    # A green run took about 7 minutes at first and 38-39 by 2026-11-16; card gifts
+    # (0445) pushed it past 45 and the job was cancelled mid-test. Without a limit the
+    # default of 360 applies, and a stuck lock wait held this job for six hours
+    # (2026-09-29), so it stays bounded.
+    timeout-minutes: 60
     # S10: the test-OTP code is not in the repository. The CLI substitutes
     # env(SUPABASE_AUTH_SMS_TEST_OTP_CODE) in config.toml at `supabase start`,
     # so it has to be in the environment of every step of this job — `supabase
