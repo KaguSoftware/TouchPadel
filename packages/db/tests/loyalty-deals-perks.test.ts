@@ -339,7 +339,8 @@ describe.skipIf(!docker)('tier privileges (0410)', () => {
     expect(ladder[1]?.perks).toEqual([expect.objectContaining({ kind: 'free_addons', name_en: 'Free milk swaps' })]);
     expect(ladder[2]?.perks.map((p) => p.kind)).toEqual(['custom', 'free_addons']);
     // a guest reads the names only, never the owner's fields
-    expect(Object.keys(ladder[1]?.perks[0] ?? {}).sort()).toEqual(['id', 'kind', 'name_ar', 'name_en']);
+    // 0445 added config (the kind's settings; {} for the 0410 kinds).
+    expect(Object.keys(ladder[1]?.perks[0] ?? {}).sort()).toEqual(['config', 'id', 'kind', 'name_ar', 'name_en']);
 
     expect(ok(r, 'off')).toMatchObject({ active: false, name_en: 'Free milk swaps', kind: 'free_addons' });
     expect(ok<{ tiers: Ladder }>(r, 'mine_off').tiers.find((t) => t.name_en === 'LDP Gold')?.perks).toEqual([]);

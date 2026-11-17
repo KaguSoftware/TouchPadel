@@ -38,7 +38,7 @@ import { useNavigate, useSearch } from '@tanstack/react-router';
 import { useState } from 'react';
 import { formatNumber } from '@touch/i18n';
 import { appRpc } from '../../../lib/appRpc';
-import { useLocale } from '../../../lib/i18n';
+import { useLocale, pickName } from '../../../lib/i18n';
 import { usePermissions, requiredRoleFor } from '../../../lib/auth';
 import { Button } from '../../../components/ui';
 import {
@@ -60,10 +60,13 @@ import {
 import { ChevronForward, Icon } from '../../../components/icons';
 import { Switch } from '../../../components/Switch';
 import { PriceChangeButton, PriceLockNote, usePriceChangeStart } from './PriceChangeStart';
+import { ADMIN_MENU_KEY, fetchAdminMenu } from '../menu/useAdminMenu';
 import {
   LIFECYCLES,
   countByLifecycle,
   filterPromotions,
+  freeItemText,
+  freeItemValueText,
   fromRow,
   howItApplies,
   howText,
@@ -73,6 +76,7 @@ import {
   scopeText,
   sortPromotions,
   statusText,
+  type MenuNames,
   type PromotionFilter,
 } from './promotionLogic';
 import { PROMOTIONS_KEY, fetchPromotions, type PromotionRow } from './promotionsApi';
@@ -96,6 +100,21 @@ export function PromotionsListScreen() {
   const promosQ = useQuery({ queryKey: PROMOTIONS_KEY, queryFn: fetchPromotions });
   const rows = promosQ.data ?? [];
   const status = asyncStatus(promosQ, (r) => r.length === 0);
+  // 0445: a buy-one-get-one row names what earns it and what is given, so the menu is read
+  // (the editor's own query, shared cache) only when the list holds one.
+  const menuQ = useQuery({ queryKey: ADMIN_MENU_KEY, queryFn: fetchAdminMenu, enabled: rows.some((r) => r.type === 'free_item') });
+  const menuNames: MenuNames | null = menuQ.data
+    ? {
+        item: (id) => {
+          const it = menuQ.data.items.find((i) => i.id === id);
+          return it ? pickName(locale, it) : null;
+        },
+        category: (id) => {
+          const c = menuQ.data.categories.find((x) => x.id === id);
+          return c ? pickName(locale, c) : null;
+        },
+      }
+    : null;
 
   // One clock for the whole render, so a row's filter bucket, sort position
   // and status word can never disagree.
@@ -127,7 +146,15 @@ export function PromotionsListScreen() {
       key: 'value',
       header: tr('ws.manager.promotions.discount'),
       numeric: true,
-      render: (p) => (p.type === 'percent' ? <span dir="ltr">{formatNumber(p.value, locale)}%</span> : <Money amount={p.value} />),
+      render: (p) =>
+        // 0445: a buy-one-get-one's value is the percent off what is given, never IQD.
+        p.type === 'free_item' ? (
+          <span>{freeItemValueText(p.value, tr, locale)}</span>
+        ) : p.type === 'percent' ? (
+          <span dir="ltr">{formatNumber(p.value, locale)}%</span>
+        ) : (
+          <Money amount={p.value} />
+        ),
     },
     {
       key: 'when',
@@ -169,7 +196,13 @@ export function PromotionsListScreen() {
               ) : null}
               <bdi data-testid={draft.inApp ? 'promotion-in-app' : undefined}>{howText(draft, tr)}</bdi>
             </span>
-            <span style={muted}>{scopeText(draft.scope, tr, locale)}</span>
+            {draft.type === 'free_item' ? (
+              <bdi style={{ fontSize: 'var(--tp-fs-sm)' }} data-testid="promotion-free-item">
+                {freeItemText(draft, tr, locale, menuNames)}
+              </bdi>
+            ) : (
+              <span style={muted}>{scopeText(draft.scope, tr, locale)}</span>
+            )}
           </span>
         );
       },

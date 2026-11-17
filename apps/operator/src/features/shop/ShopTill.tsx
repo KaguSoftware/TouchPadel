@@ -61,7 +61,7 @@ import type { IdentifiedMember } from '@touch/core/loyalty';
 import { can, useAuth } from '../../lib/auth';
 import { MemberAttach, MemberChip, MemberIdentifyDialog } from '../loyalty/MemberAttach';
 import { isMemberScan, memberView } from '../loyalty/loyaltyLogic';
-import { isVoucherCode } from '@touch/core/loyalty';
+import { isDealVoucherCode, isVoucherCode } from '@touch/core/loyalty';
 import { setTabCustomer, useMemberBenefits } from '../loyalty/useLoyalty';
 import { BillDiscountDialog } from '../discounts/BillDiscountDialog';
 import { canDiscount, rpcMissing, useAutoCustomerDiscount, useBillDiscount } from '../discounts/useCustomerDiscount';
@@ -203,6 +203,12 @@ export function ShopTill() {
       if (isVoucherCode(action.code)) {
         setQuery('');
         setNotice(tr('ws.loyalty.voucher.ringUpFirst'));
+        return;
+      }
+      // 0445: so does a deal's code; it is never looked up as a product.
+      if (isDealVoucherCode(action.code)) {
+        setQuery('');
+        setNotice(tr('ws.loyalty.dealCode.ringUpFirst'));
         return;
       }
       const hit = findSizeByCode(sizesRef.current, action.code);

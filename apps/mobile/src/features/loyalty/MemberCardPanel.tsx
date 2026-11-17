@@ -190,8 +190,11 @@ export function MemberCardPanel({
   testID: string;
   /** Space under the last thing: the home indicator on a pushed screen, the tab bar on a tab. */
   bottomPad: number;
-  /** Above the code: the Club tab puts the guest's points card here. */
-  children?: ReactNode;
+  /**
+   * Above the code: the Club tab puts the guest's points card here. A function is handed `toCode`
+   * like `below` (the birthday banner's Show code, 2026-11-15).
+   */
+  children?: ReactNode | ((toCode: () => void) => ReactNode);
   /** Under the code: the Club tab's deals. `toCode` scrolls the code back into view. */
   below?: (toCode: () => void) => ReactNode;
 }) {
@@ -273,7 +276,7 @@ export function MemberCardPanel({
         showsVerticalScrollIndicator={false}
       >
         {/* What the card has earned, first (Majed, 2026-10-22): the Club tab's points card. */}
-        {children}
+        {typeof children === 'function' ? <Below render={children} toCode={toCode} /> : children}
         {/* The code: on white, edge to edge of its own card, in both themes. */}
         <View
           onLayout={(e) => {

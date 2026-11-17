@@ -25,17 +25,149 @@ export interface LoyaltyTier {
 }
 
 /**
- * What a tier privilege is (0410): `free_addons` makes paid add-ons free on the member's bills
- * (the till applies it), `custom` is a line the staff honour by hand.
+ * What a tier privilege is (0410, 0445). The till applies all but `custom`:
+ *   free_addons  paid add-ons are free on the member's bills;
+ *   custom       a line the staff honour by hand (nothing records it);
+ *   gift         (0445) a gift once per window (birthday, monthly, card-up): one unit of a
+ *                matching item, or one hour of the booking's court fee;
+ *   size_upgrade (0445) matching lines are charged the next size down;
+ *   free_with    (0445) one free unit of the free items for each trigger unit on the bill;
+ *   frame        (0445) the card unlocks a profile ring;
+ *   stamp_size   (0445) the drink card fills at this many stamps instead of the club's standard.
  */
-export type TierPerkKind = 'free_addons' | 'custom';
+export const TIER_PERK_KINDS = ['free_addons', 'gift', 'free_with', 'size_upgrade', 'stamp_size', 'frame', 'custom'] as const;
+export type TierPerkKind = (typeof TIER_PERK_KINDS)[number];
 
-/** A tier privilege as a guest reads it (0410). */
+/** The three profile rings a card can unlock (0445, `frame` privileges). */
+export const CARD_FRAME_IDS = ['card-green', 'card-blue', 'card-black'] as const;
+export type CardFrameId = (typeof CARD_FRAME_IDS)[number];
+
+/** A privilege's settings, by kind (0445, `loyalty_tier_perks.config`). Empty for the 0410 kinds. */
+/** When a gift opens (0445): the birthday, every calendar month, or on reaching the card. */
+export const GIFT_WHENS = ['birthday', 'monthly', 'card_up'] as const;
+export type GiftWhen = (typeof GIFT_WHENS)[number];
+/** What a gift frees: one unit of a matching menu item, or one hour of the booking's court fee. */
+export const GIFT_TARGETS = ['items', 'court_hour'] as const;
+export type GiftTarget = (typeof GIFT_TARGETS)[number];
+
+export interface GiftConfig {
+  when: GiftWhen;
+  target: GiftTarget;
+  /** Target items: the categories and items it covers (one of the two at least). */
+  categoryIds: string[];
+  itemIds: string[];
+  /** Days it can be used: birthday 1..31 (default 7), card_up 1..90 (default 30); absent for monthly. */
+  days?: number;
+}
+/** size_upgrade (0445): matching lines are charged the next size down. */
+export interface SizeUpgradeConfig {
+  categoryIds: string[];
+  itemIds: string[];
+}
+export interface FreeWithConfig {
+  triggerCategoryIds: string[];
+  triggerItemIds: string[];
+  freeCategoryIds: string[];
+  freeItemIds: string[];
+}
+export interface FrameConfig {
+  frameId: CardFrameId;
+}
+export interface StampSizeConfig {
+  size: number;
+}
+export type TierPerkConfig =
+  | GiftConfig
+  | SizeUpgradeConfig
+  | FreeWithConfig
+  | FrameConfig
+  | StampSizeConfig
+  | Record<string, never>;
+
+/** A tier privilege as a guest reads it (0410; config since 0445, absent from an older server). */
 export interface TierPerk {
   id: string;
   kind: TierPerkKind;
   name_en: string;
   name_ar: string;
+  config?: TierPerkConfig;
+}
+
+/** The drink card's settings (0445, app.stamp_card_settings / app.set_stamp_card). */
+export interface StampCardSettings {
+  enabled: boolean;
+  /** Stamps to a free drink, the club's standard (2..20). */
+  size: number;
+  category_ids: string[];
+  excluded_item_ids: string[];
+  updated_at?: string | null;
+}
+
+/**
+ * A member's drink card and birthday gifts (0445): app.my_card_extras for the guest (with the
+ * dates), app.loyalty_card_extras for desk and till staff (dates null).
+ */
+export interface CardExtras {
+  stamps: {
+    /** Loyalty and the drink card are on. */
+    enabled: boolean;
+    count: number;
+    /** Stamps that fill this member's card (a stamp_size privilege lowers the club's standard). */
+    size: number;
+    /** count >= size: a free drink is theirs to redeem (a press of Redeem, then a till's bill frees it). */
+    ready: boolean;
+    /** An open bill of theirs carries the free drink already. */
+    held: boolean;
+    /** While ready: until when their Redeem press holds (24 hours), else null. Absent before Redeem. */
+    claimed_until?: string | null;
+  };
+  birthday: {
+    has_date: boolean;
+    /** The gifts whose window holds today. */
+    gifts: Array<{
+      perk_id: string;
+      name_en: string;
+      name_ar: string;
+      target: GiftTarget;
+      window_from: string | null;
+      window_to: string | null;
+      /** The birth date was set at least 30 days before the window opened. */
+      eligible: boolean;
+      /** Used, or held by another open bill. */
+      used: boolean;
+      /** Until when their Redeem press holds, else null. Absent before Redeem. */
+      claimed_until?: string | null;
+    }>;
+    /** Guest only: the day a date set or changed starts counting. */
+    counts_from: string | null;
+    /** Every birthday gift the card holds. */
+    gifts_on_card: Array<{ perk_id: string; name_en: string; name_ar: string; target: GiftTarget; days: number }>;
+  };
+  /** 0445: the monthly and card-up gifts open now. Absent from an older server. */
+  gifts?: Array<{
+    perk_id: string;
+    name_en: string;
+    name_ar: string;
+    when: Exclude<GiftWhen, 'birthday'>;
+    target: GiftTarget;
+    window_to: string;
+    used: boolean;
+    /** Until when their Redeem press holds, else null. Absent before Redeem. */
+    claimed_until?: string | null;
+  }>;
+}
+
+/** Which reward a Redeem press is for (0445, app.claim_card_reward / claim_card_reward_for_tab). */
+export type CardRewardKind = 'stamp' | 'gift';
+
+/** Why a bill line is free in part or whole (0445, `loyalty_tab_benefits.lines`). */
+export type PerkLineKind = 'stamp' | 'gift' | 'free_with' | 'size_upgrade' | 'free_addons';
+export interface PerkLine {
+  order_item_id: string;
+  kind: PerkLineKind;
+  perk_id: string | null;
+  units: number;
+  amount_iqd: number;
 }
 
 /** A listed deal a tier unlocks, by name (0410). */
@@ -191,6 +323,8 @@ export interface LoyaltyAdminPerk extends TierPerk {
   tier_id: string;
   /** free_addons: the modifier groups whose paid add-ons are free; empty = every add-on. */
   modifier_group_ids: string[];
+  /** 0445: the kind's settings ({} for free_addons and custom). */
+  config?: TierPerkConfig;
   active: boolean;
   sort: number;
 }
@@ -234,8 +368,9 @@ export interface Deal {
   /** The owner's line for guests; null: show what the deal covers (`on`) instead. */
   blurb_en: string | null;
   blurb_ar: string | null;
-  type: 'percent' | 'amount';
-  /** A percent (1..99) or an IQD amount, by `type`. */
+  /** free_item (0445): buy one, get one; `look` says what earns it and what is given. */
+  type: 'percent' | 'amount' | 'free_item';
+  /** A percent (1..99), an IQD amount, or (free_item) the percent off each unit given (100 = free). */
   value: number;
   ends_at: string | null;
   /** 0 = Sunday .. 6 = Saturday; empty = every day. */
@@ -260,6 +395,28 @@ export interface Deal {
   venue_id: string | null;
   /** What it takes money off: named items and categories (both empty = the whole café bill). */
   on: { items: DealName[]; categories: DealName[]; courts: boolean };
+  /** 0445: what the card's picture is made of. An older server sends none (read as empty). */
+  look: DealLook;
+}
+
+/** One thing a deal names, for its picture (0445, app.deal_look_side). */
+export interface DealThing extends DealName {
+  /** `menu-media` path: the item's photo, else its category's; null for none. */
+  photo_path: string | null;
+  /** The category's English name, which picks the drawing when there is no photo. */
+  category_en: string | null;
+}
+
+/** app.deal_look_json (0445). */
+export interface DealLook {
+  /** What it takes money off or gives (up to three, items first). */
+  get: DealThing[];
+  /** free_item: what earns it (up to three). Empty: a court booking earns it, or not a free_item. */
+  buy: DealThing[];
+  /** free_item: how many units one bill may get; null otherwise. */
+  per_bill: number | null;
+  /** It needs a court booking. */
+  courts: boolean;
 }
 
 /** app.my_deals() and app.pick_deal() */
@@ -287,6 +444,10 @@ export interface TabBenefits {
   tier: LoyaltyTier | null;
   /** Their tier's privileges and those of every tier below, highest tier first. */
   perks: TabPerk[];
+  /** 0445: what each bill line carries and why. Absent from an older server. */
+  lines?: PerkLine[];
+  /** 0445: the court hour a card gift took off the bill's booking. */
+  court_gift?: { perk_id: string | null; name_en: string | null; name_ar: string | null; amount_iqd: number } | null;
   addons: {
     /** The free add-ons on the bill's live lines now. */
     on_bill_iqd: number;
@@ -300,7 +461,7 @@ export interface TabBenefits {
     promotion_id: string;
     name_en: string;
     name_ar: string;
-    type: 'percent' | 'amount';
+    type: 'percent' | 'amount' | 'free_item';
     value: number;
     /** It is the promotion on this bill already. */
     applied: boolean;

@@ -10,10 +10,15 @@
  */
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { MemberCard } from '@touch/core/loyalty';
+import type { CardRewardKind, MemberCard, MyDealVouchers } from '@touch/core/loyalty';
 import { supabase } from '../../lib/supabase';
 import {
+  cancelDealVoucher,
   cancelRewardVoucher,
+  claimCardReward,
+  fetchMyDealVouchers,
+  redeemDeal,
+  fetchMyCardExtras,
   fetchMyDeals,
   fetchMyLoyalty,
   fetchMyMemberCard,
@@ -160,5 +165,92 @@ export function useCancelRewardVoucher() {
       void queryClient.invalidateQueries({ queryKey: loyaltyKeys.mine });
       void queryClient.invalidateQueries({ queryKey: loyaltyKeys.vouchers });
     },
+  });
+}
+
+/**
+ * The drink card and the birthday gifts (0445). `enabled` false for a signed-out or anonymous
+ * session. A server without them answers "off", so the screens simply show nothing new.
+ */
+/**
+ * A deal's own codes (0445, 2026-11-15): the live one and those ended in the last half hour, with
+ * the server clock (`data.now`, read at `dataUpdatedAt`). `poll` asks again every few seconds
+ * while a code is on screen, so a till's scan turns it to used by itself.
+ */
+export function useMyDealVouchers(enabled: boolean, poll = false) {
+  return useQuery({
+    queryKey: loyaltyKeys.dealVouchers,
+    queryFn: () => fetchMyDealVouchers(supabase),
+    enabled,
+    staleTime: 0,
+    refetchInterval: poll ? VOUCHER_POLL_MS : false,
+  });
+}
+
+/** Redeem on a deal: a new 15-minute code. The deals and the codes are read again after it. */
+export function useRedeemDeal() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: loyaltyKeys.mutation('redeem-deal'),
+    mutationFn: (promotionId: string) => redeemDeal(supabase, promotionId),
+    // The new code is on screen at once: the one before it is cancelled, as the server did.
+    onSuccess: (r) => {
+      queryClient.setQueryData<MyDealVouchers>(loyaltyKeys.dealVouchers, (old) => ({
+        now: r.now,
+        vouchers: [
+          r.voucher,
+          ...(old?.vouchers ?? [])
+            .filter((v) => v.id !== r.voucher.id)
+            .map((v) => (v.status === 'active' ? { ...v, status: 'cancelled' as const, ended_at: r.now } : v)),
+        ],
+      }));
+    },
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: loyaltyKeys.dealVouchers });
+      void queryClient.invalidateQueries({ queryKey: loyaltyKeys.deals });
+    },
+  });
+}
+
+/** Cancel a live deal code; the answer IS the codes again. */
+export function useCancelDealVoucher() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: loyaltyKeys.mutation('cancel-deal-voucher'),
+    mutationFn: (voucherId: string) => cancelDealVoucher(supabase, voucherId),
+    onSuccess: (codes) => {
+      queryClient.setQueryData(loyaltyKeys.dealVouchers, codes);
+    },
+    onError: () => {
+      void queryClient.invalidateQueries({ queryKey: loyaltyKeys.dealVouchers });
+    },
+  });
+}
+
+/**
+ * Redeem on the free drink or a card gift (0445). The answer IS the extras again, so the cache
+ * takes it as it came; a refusal means what is on screen is out of date, so it is read again.
+ */
+export function useClaimCardReward() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: loyaltyKeys.mutation('claim-reward'),
+    mutationFn: (v: { kind: CardRewardKind; perkId: string | null }) =>
+      claimCardReward(supabase, v.kind, v.perkId),
+    onSuccess: (extras) => {
+      queryClient.setQueryData(loyaltyKeys.extras, extras);
+    },
+    onError: () => {
+      void queryClient.invalidateQueries({ queryKey: loyaltyKeys.extras });
+    },
+  });
+}
+
+export function useMyCardExtras(enabled: boolean) {
+  return useQuery({
+    queryKey: loyaltyKeys.extras,
+    queryFn: () => fetchMyCardExtras(supabase),
+    enabled,
+    staleTime: 60_000,
   });
 }

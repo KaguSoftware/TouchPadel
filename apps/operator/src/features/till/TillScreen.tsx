@@ -382,7 +382,8 @@ export function TillScreen() {
   useEffect(() => {
     let flushTimer: number | undefined;
     // A member card scanned at the till (loyalty build contracts §5), or a reward voucher (0415,
-    // TPV-…, the same route: the member block gives the reward): the USB scanner types
+    // TPV-…) or a deal's code (0445, TPD-…), the same route (the member block gives the reward or
+    // puts the deal on, isLoyaltyScan): the USB scanner types
     // TP-<code>-<otp> and Enter (barcodeWedge.ts). In 'idle' a leading digit is held while it
     // may start a burst and replayed when it does not; a burst that starts with T goes through
     // the filter as typing does, and its Enter opens the member field on the selected tab

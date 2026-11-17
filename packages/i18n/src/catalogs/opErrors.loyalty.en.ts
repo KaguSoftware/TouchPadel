@@ -31,6 +31,9 @@ export const opErrorsLoyaltyEn = {
   DEAL_UNAVAILABLE: 'That deal has ended. Pull down to see the deals running now.',
   DEAL_LOCKED: 'That deal is for a higher card. Keep earning points to unlock it.',
   DEAL_USED: 'You have already used that deal as many times as it allows.',
+  REWARD_NOT_READY: 'That reward isn’t ready to redeem right now.',
+  VOUCHER_OTHER_MEMBER: 'This deal code belongs to another member than the one on this bill.',
+  DEAL_NOT_ON_BILL: 'This bill can’t take that deal right now: check its hours, its minimum and what it covers.',
   VOUCHER_NOT_FOUND: "That isn't a reward code. Scan the reward QR again.",
   VOUCHER_USED: 'This reward code was already used or cancelled.',
   VOUCHER_EXPIRED:

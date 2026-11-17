@@ -14,13 +14,16 @@ const toasts: string[] = [];
  * without the migration, which sends no `perks` at all.
  */
 let perksByTier: Record<string, unknown[]> | null = null;
+/** 0445: the drink card as app.stamp_card_settings answers; null is a server without it. */
+let stampCard: unknown = null;
+let role = 'owner';
 
 vi.mock('@tanstack/react-router', () => ({ useNavigate: () => vi.fn() }));
 vi.mock('../../lib/supabase', () => ({ supabase: {}, supabaseUrl: '', supabaseAnonKey: '' }));
 vi.mock('../../components/toast', () => ({ useToast: () => ({ ok: (t: string) => toasts.push(t), info: vi.fn(), err: vi.fn() }) }));
 vi.mock('../../lib/auth', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
-  useAuth: () => ({ staff: { id: 'o1', displayName: 'Majed', role: 'owner' } }),
+  useAuth: () => ({ staff: { id: 'o1', displayName: 'Majed', role } }),
 }));
 vi.mock('../../lib/appRpc', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
@@ -63,8 +66,34 @@ vi.mock('../admin/addons/useAddons', () => ({
     },
   }),
 }));
+// 0445: the café menu the gift, free-with and drink card pickers read.
+vi.mock('../admin/menu/useAdminMenu', () => ({
+  useAdminMenu: () => ({
+    isLoading: false,
+    isError: false,
+    error: null,
+    refetch: vi.fn(),
+    data: {
+      categories: [
+        { id: 'c-hot', name_en: 'Hot drinks', name_ar: 'مشروبات ساخنة' },
+        { id: 'c-sweet', name_en: 'Desserts', name_ar: 'حلويات' },
+      ],
+      items: [
+        { id: 'i-latte', category_id: 'c-hot', name_en: 'Latte', name_ar: 'لاتيه', is_active: true },
+        { id: 'i-tea', category_id: 'c-hot', name_en: 'Tea', name_ar: 'شاي', is_active: true },
+        { id: 'i-water', category_id: 'c-hot', name_en: 'Water', name_ar: 'ماء', is_active: true },
+        { id: 'i-cake', category_id: 'c-sweet', name_en: 'Cheesecake', name_ar: 'تشيز كيك', is_active: true },
+      ],
+    },
+  }),
+}));
 vi.mock('./useLoyalty', () => ({
   invalidateLoyaltyAdmin: vi.fn(),
+  useStampCard: () => ({ data: stampCard, isError: false, error: null, refetch: vi.fn() }),
+  setStampCard: async (card: Record<string, unknown>) => {
+    calls.push({ fn: 'set_stamp_card', args: { p_card: card } });
+    return card;
+  },
   upsertTierPerk: async (perk: Record<string, unknown>) => {
     calls.push({ fn: 'upsert_loyalty_tier_perk', args: { p_perk: perk } });
     return perk;
@@ -115,6 +144,8 @@ beforeEach(() => {
   calls.length = 0;
   toasts.length = 0;
   perksByTier = null;
+  stampCard = null;
+  role = 'owner';
   try {
     localStorage.clear();
   } catch {
@@ -405,5 +436,275 @@ describe('LoyaltySetupScreen, card privileges (0410)', () => {
     await user.click(dialog.getByTestId('perk-remove-confirm'));
     await waitFor(() => expect(perkCalls()).toHaveLength(1));
     expect(perkCalls()[0]).toEqual({ fn: 'delete_loyalty_tier_perk', args: { p_perk_id: 'k1' } });
+  });
+});
+
+describe('LoyaltySetupScreen, card gifts and the drink card (0445)', () => {
+  const perkCalls = () => calls.filter((c) => c.fn === 'upsert_loyalty_tier_perk');
+  const nameEn = (d: ReturnType<typeof within>) => (d.getByRole('textbox', { name: 'What guests read (English)' }) as HTMLInputElement).value;
+  const nameAr = (d: ReturnType<typeof within>) => (d.getByRole('textbox', { name: 'What guests read (Arabic)' }) as HTMLInputElement).value;
+
+  async function openAdd(user: ReturnType<typeof userEvent.setup>, tier = 'Silver') {
+    await user.click(screen.getByRole('button', { name: `Add a privilege to ${tier}` }));
+    return within(await screen.findByRole('dialog', { name: `Add a privilege to ${tier}` }));
+  }
+
+  it('offers every kind the till applies, plus something else', async () => {
+    const user = userEvent.setup();
+    perksByTier = {};
+    renderPage();
+    const dialog = await openAdd(user);
+    for (const k of ['free_addons', 'gift', 'free_with', 'stamp_size', 'frame', 'custom']) {
+      expect(dialog.getByTestId(`perk-kind-${k}`)).toBeTruthy();
+    }
+  });
+
+  it('adds a birthday gift: nothing chosen is refused, the names follow the menu, days default to 7', async () => {
+    const user = userEvent.setup();
+    perksByTier = {};
+    renderPage();
+    const dialog = await openAdd(user);
+    await user.click(dialog.getByTestId('perk-kind-gift'));
+    expect(nameEn(dialog)).toBe('Birthday gift');
+    expect((dialog.getByTestId('perk-gift-days') as HTMLInputElement).value).toBe('7');
+    await user.click(dialog.getByTestId('perk-save'));
+    expect(dialog.getByText('Choose at least one menu section or item.')).toBeTruthy();
+    expect(perkCalls()).toHaveLength(0);
+    const what = within(dialog.getByTestId('perk-gift-what'));
+    await user.click(what.getByRole('button', { name: 'Hot drinks' }));
+    await user.click(what.getByRole('button', { name: 'Cheesecake' }));
+    expect(nameEn(dialog)).toBe('Birthday gift: Hot drinks, Cheesecake');
+    expect(nameAr(dialog)).toBe('هدية عيد الميلاد: مشروبات ساخنة، تشيز كيك');
+    await user.clear(dialog.getByTestId('perk-gift-days'));
+    await user.type(dialog.getByTestId('perk-gift-days'), '40');
+    await user.click(dialog.getByTestId('perk-save'));
+    expect(dialog.getByText('Between 1 and 31 days.')).toBeTruthy();
+    await user.clear(dialog.getByTestId('perk-gift-days'));
+    await user.type(dialog.getByTestId('perk-gift-days'), '10');
+    await user.click(dialog.getByTestId('perk-save'));
+    await waitFor(() => expect(perkCalls()).toHaveLength(1));
+    expect(perkCalls()[0]!.args).toEqual({
+      p_perk: {
+        tier_id: 't1',
+        kind: 'gift',
+        name_en: 'Birthday gift: Hot drinks, Cheesecake',
+        name_ar: 'هدية عيد الميلاد: مشروبات ساخنة، تشيز كيك',
+        modifier_group_ids: [],
+        config: { when: 'birthday', target: 'items', categoryIds: ['c-hot'], itemIds: ['i-cake'], days: 10 },
+        active: true,
+      },
+    });
+  });
+
+  it('adds a free-with: both sides are needed, and the config carries each', async () => {
+    const user = userEvent.setup();
+    perksByTier = {};
+    renderPage();
+    const dialog = await openAdd(user);
+    await user.click(dialog.getByTestId('perk-kind-free_with'));
+    await user.click(dialog.getByTestId('perk-save'));
+    expect(dialog.getByText('Choose what must be on the bill.')).toBeTruthy();
+    expect(dialog.getByText('Choose what comes free.')).toBeTruthy();
+    await user.click(within(dialog.getByTestId('perk-free-with-trigger')).getByRole('button', { name: 'Desserts' }));
+    const free = within(dialog.getByTestId('perk-free-with-free'));
+    await user.click(free.getByRole('button', { name: 'Tea' }));
+    await user.click(free.getByRole('button', { name: 'Water' }));
+    expect(nameEn(dialog)).toBe('Free Tea, Water with Desserts');
+    expect(nameAr(dialog)).toBe('شاي، ماء مجانًا مع حلويات');
+    await user.click(dialog.getByTestId('perk-save'));
+    await waitFor(() => expect(perkCalls()).toHaveLength(1));
+    expect(perkCalls()[0]!.args).toMatchObject({
+      p_perk: {
+        kind: 'free_with',
+        config: { triggerCategoryIds: ['c-sweet'], triggerItemIds: [], freeCategoryIds: [], freeItemIds: ['i-tea', 'i-water'] },
+      },
+    });
+  });
+
+  it('adds a faster drink card: the size is checked against 2..20 and the club standard is named', async () => {
+    const user = userEvent.setup();
+    perksByTier = {};
+    stampCard = { enabled: true, size: 8, category_ids: ['c-hot'], excluded_item_ids: [] };
+    renderPage();
+    const dialog = await openAdd(user);
+    await user.click(dialog.getByTestId('perk-kind-stamp_size'));
+    expect(dialog.getByText('Between 2 and 20 stamps. The club’s standard is 8.')).toBeTruthy();
+    await user.type(dialog.getByTestId('perk-stamp-size'), '1');
+    await user.click(dialog.getByTestId('perk-save'));
+    expect(dialog.getByText('Between 2 and 20 stamps.')).toBeTruthy();
+    await user.clear(dialog.getByTestId('perk-stamp-size'));
+    await user.type(dialog.getByTestId('perk-stamp-size'), '6');
+    expect(nameEn(dialog)).toBe('Drink card full at 6 stamps');
+    await user.click(dialog.getByTestId('perk-save'));
+    await waitFor(() => expect(perkCalls()).toHaveLength(1));
+    expect(perkCalls()[0]!.args).toMatchObject({ p_perk: { kind: 'stamp_size', config: { size: 6 } } });
+  });
+
+  it('adds a photo frame: each ring is drawn, the pick names it', async () => {
+    const user = userEvent.setup();
+    perksByTier = {};
+    renderPage();
+    const dialog = await openAdd(user);
+    await user.click(dialog.getByTestId('perk-kind-frame'));
+    expect(dialog.getByTestId('perk-frame-card-green').getAttribute('aria-pressed')).toBe('true');
+    expect(dialog.getByTestId('perk-frame-card-blue').querySelector('[data-frame="card-blue"]')).toBeTruthy();
+    await user.click(dialog.getByTestId('perk-frame-card-blue'));
+    expect(nameEn(dialog)).toBe('Blue card photo frame');
+    expect(nameAr(dialog)).toBe('إطار صورة البطاقة الزرقاء');
+    await user.click(dialog.getByTestId('perk-save'));
+    await waitFor(() => expect(perkCalls()).toHaveLength(1));
+    expect(perkCalls()[0]!.args).toMatchObject({ p_perk: { kind: 'frame', config: { frameId: 'card-blue' } } });
+  });
+
+  it('lists each new kind in plain words, and edits a gift keeping its config', async () => {
+    const user = userEvent.setup();
+    perksByTier = {
+      t1: [
+        { id: 'g1', tier_id: 't1', kind: 'gift', name_en: 'Birthday drink', name_ar: 'مشروب الميلاد', modifier_group_ids: [], config: { when: 'birthday', categoryIds: ['c-hot'], itemIds: [], days: 7 }, active: true, sort: 0 },
+        { id: 'w1', tier_id: 't1', kind: 'free_with', name_en: 'Tea with dessert', name_ar: 'شاي مع الحلوى', modifier_group_ids: [], config: { triggerCategoryIds: ['c-sweet'], triggerItemIds: [], freeCategoryIds: [], freeItemIds: ['i-tea', 'i-gone'] }, active: true, sort: 1 },
+        { id: 's1', tier_id: 't1', kind: 'stamp_size', name_en: 'Faster card', name_ar: 'بطاقة أسرع', modifier_group_ids: [], config: { size: 6 }, active: true, sort: 2 },
+        { id: 'f1', tier_id: 't1', kind: 'frame', name_en: 'Blue ring', name_ar: 'إطار أزرق', modifier_group_ids: [], config: { frameId: 'card-blue' }, active: true, sort: 3 },
+      ],
+    };
+    renderPage();
+    const rows = within(screen.getByTestId('loyalty-perks-tier-t1')).getAllByTestId('loyalty-perk');
+    expect(within(rows[0]!).getByText('On their birthday, one free from Hot drinks, for 7 days')).toBeTruthy();
+    expect(within(rows[1]!).getByText('With each from Desserts, one free from Tea')).toBeTruthy();
+    expect(within(rows[1]!).getByTestId('loyalty-perk-missing').textContent).toBe('No longer on the menu: 1');
+    expect(within(rows[2]!).getByText('Drink card fills at 6 stamps')).toBeTruthy();
+    expect(within(rows[3]!).getByText('Photo frame in the app: Blue card')).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: 'Edit Birthday drink' }));
+    const dialog = within(await screen.findByRole('dialog', { name: 'Edit privilege' }));
+    expect(dialog.getByTestId('perk-kind-gift').getAttribute('aria-pressed')).toBe('true');
+    expect(within(dialog.getByTestId('perk-gift-what')).getByRole('button', { name: 'Hot drinks' }).getAttribute('aria-pressed')).toBe('true');
+    await user.click(dialog.getByTestId('perk-save'));
+    await waitFor(() => expect(perkCalls()).toHaveLength(1));
+    expect(perkCalls()[0]!.args).toEqual({
+      p_perk: {
+        id: 'g1',
+        tier_id: 't1',
+        kind: 'gift',
+        name_en: 'Birthday drink',
+        name_ar: 'مشروب الميلاد',
+        modifier_group_ids: [],
+        config: { when: 'birthday', target: 'items', categoryIds: ['c-hot'], itemIds: [], days: 7 },
+        active: true,
+        sort: 0,
+      },
+    });
+  });
+
+  it('the manager reads the drink card but cannot change it', () => {
+    role = 'manager';
+    stampCard = { enabled: true, size: 8, category_ids: ['c-hot'], excluded_item_ids: ['i-water'] };
+    renderPage();
+    const panel = within(screen.getByTestId('loyalty-stamp-card'));
+    expect(panel.getByRole('switch', { name: 'The drink card is on' }).getAttribute('aria-checked')).toBe('true');
+    expect((panel.getByRole('switch', { name: 'The drink card is on' }) as HTMLButtonElement).disabled).toBe(true);
+    expect(within(panel.getByTestId('stamp-card-categories')).getByRole('button', { name: 'Hot drinks' }).getAttribute('aria-pressed')).toBe('true');
+    expect(panel.queryByTestId('stamp-card-save')).toBeNull();
+  });
+
+  it('a server without the drink card shows no drink card panel', () => {
+    renderPage();
+    expect(screen.queryByTestId('loyalty-stamp-card')).toBeNull();
+  });
+
+  it('the drink card: the owner turns it on, picks what stamps and what never does, and saves it', async () => {
+    const user = userEvent.setup();
+    stampCard = { enabled: false, size: 8, category_ids: [], excluded_item_ids: [] };
+    perksByTier = { t1: [{ id: 's1', tier_id: 't1', kind: 'stamp_size', name_en: 'Faster card', name_ar: 'بطاقة أسرع', modifier_group_ids: [], config: { size: 6 }, active: true, sort: 0 }] };
+    renderPage();
+    const panel = within(screen.getByTestId('loyalty-stamp-card'));
+    // A card whose privilege fills it sooner is named under the size.
+    expect(panel.getByTestId('stamp-card-by-card').textContent).toContain('Silver card: full at 6 stamps');
+    expect(panel.getByText('Choose the sections that stamp first.')).toBeTruthy();
+    await user.click(panel.getByRole('switch', { name: 'The drink card is on' }));
+    await user.click(panel.getByTestId('stamp-card-save'));
+    expect(panel.getByText('Choose at least one menu section, or switch the drink card off.')).toBeTruthy();
+    expect(calls.filter((c) => c.fn === 'set_stamp_card')).toHaveLength(0);
+    await user.click(within(panel.getByTestId('stamp-card-categories')).getByRole('button', { name: 'Hot drinks' }));
+    // Only the stamping sections' items can be excluded.
+    const excluded = within(panel.getByTestId('stamp-card-excluded'));
+    expect(excluded.queryByRole('button', { name: 'Cheesecake' })).toBeNull();
+    await user.click(excluded.getByRole('button', { name: 'Water' }));
+    await user.clear(panel.getByTestId('stamp-card-size'));
+    await user.type(panel.getByTestId('stamp-card-size'), '9');
+    await user.click(panel.getByTestId('stamp-card-save'));
+    await waitFor(() => expect(calls.filter((c) => c.fn === 'set_stamp_card')).toHaveLength(1));
+    expect(calls.find((c) => c.fn === 'set_stamp_card')!.args).toEqual({
+      p_card: { enabled: true, size: 9, category_ids: ['c-hot'], excluded_item_ids: ['i-water'] },
+    });
+    expect(toasts).toContain('Saved.');
+  });
+});
+
+describe('LoyaltySetupScreen, gifts by when and the free size upgrade (0445, second pass)', () => {
+  const perkCalls = () => calls.filter((c) => c.fn === 'upsert_loyalty_tier_perk');
+  const nameEn = (d: ReturnType<typeof within>) => (d.getByRole('textbox', { name: 'What guests read (English)' }) as HTMLInputElement).value;
+
+  it('adds a monthly court hour: no menu, no days, named for what it is', async () => {
+    const user = userEvent.setup();
+    perksByTier = {};
+    renderPage();
+    await user.click(screen.getByRole('button', { name: 'Add a privilege to Silver' }));
+    const dialog = within(await screen.findByRole('dialog'));
+    await user.click(dialog.getByTestId('perk-kind-gift'));
+    expect(dialog.getByTestId('perk-gift-when-birthday').getAttribute('aria-pressed')).toBe('true');
+    await user.click(dialog.getByTestId('perk-gift-when-monthly'));
+    expect(dialog.queryByTestId('perk-gift-days')).toBeNull();
+    await user.click(dialog.getByTestId('perk-gift-target-court_hour'));
+    expect(dialog.queryByTestId('perk-gift-what')).toBeNull();
+    expect(nameEn(dialog)).toBe('A free court hour every month');
+    await user.click(dialog.getByTestId('perk-save'));
+    await waitFor(() => expect(perkCalls()).toHaveLength(1));
+    expect(perkCalls()[0]!.args).toMatchObject({
+      p_perk: { kind: 'gift', name_en: 'A free court hour every month', config: { when: 'monthly', target: 'court_hour', categoryIds: [], itemIds: [] } },
+    });
+    expect(perkCalls()[0]!.args.p_perk).not.toHaveProperty('config.days');
+  });
+
+  it('a gift on reaching this card starts at 30 days and refuses more than 90', async () => {
+    const user = userEvent.setup();
+    perksByTier = {};
+    renderPage();
+    await user.click(screen.getByRole('button', { name: 'Add a privilege to Silver' }));
+    const dialog = within(await screen.findByRole('dialog'));
+    await user.click(dialog.getByTestId('perk-kind-gift'));
+    await user.click(dialog.getByTestId('perk-gift-when-card_up'));
+    expect((dialog.getByTestId('perk-gift-days') as HTMLInputElement).value).toBe('30');
+    await user.click(within(dialog.getByTestId('perk-gift-what')).getByRole('button', { name: 'Latte' }));
+    expect(nameEn(dialog)).toBe('Welcome gift: Latte');
+    await user.clear(dialog.getByTestId('perk-gift-days'));
+    await user.type(dialog.getByTestId('perk-gift-days'), '95');
+    await user.click(dialog.getByTestId('perk-save'));
+    expect(dialog.getByText('Between 1 and 90 days.')).toBeTruthy();
+    expect(perkCalls()).toHaveLength(0);
+  });
+
+  it('adds a free size upgrade, and lists it and the new gifts in plain words', async () => {
+    const user = userEvent.setup();
+    perksByTier = {
+      t1: [
+        { id: 'm1', tier_id: 't1', kind: 'gift', name_en: 'Monthly hour', name_ar: 'ساعة الشهر', modifier_group_ids: [], config: { when: 'monthly', target: 'court_hour', categoryIds: [], itemIds: [] }, active: true, sort: 0 },
+        { id: 'u1', tier_id: 't1', kind: 'gift', name_en: 'Welcome', name_ar: 'ترحيب', modifier_group_ids: [], config: { when: 'card_up', target: 'items', categoryIds: [], itemIds: ['i-cake'], days: 30 }, active: true, sort: 1 },
+        { id: 's1', tier_id: 't1', kind: 'size_upgrade', name_en: 'Upgrade', name_ar: 'ترقية', modifier_group_ids: [], config: { categoryIds: ['c-hot'], itemIds: [] }, active: true, sort: 2 },
+      ],
+    };
+    renderPage();
+    const rows = within(screen.getByTestId('loyalty-perks-tier-t1')).getAllByTestId('loyalty-perk');
+    expect(within(rows[0]!).getByText('Every month, one free court hour')).toBeTruthy();
+    expect(within(rows[1]!).getByText('On reaching this card, one free from Cheesecake, for 30 days')).toBeTruthy();
+    expect(within(rows[2]!).getByText('Charged one size down: Hot drinks')).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: 'Add a privilege to Member' }));
+    const dialog = within(await screen.findByRole('dialog'));
+    await user.click(dialog.getByTestId('perk-kind-size_upgrade'));
+    await user.click(dialog.getByTestId('perk-save'));
+    expect(dialog.getByText('Choose at least one menu section or item.')).toBeTruthy();
+    await user.click(within(dialog.getByTestId('perk-size-upgrade-what')).getByRole('button', { name: 'Hot drinks' }));
+    expect(nameEn(dialog)).toBe('Free size upgrade: Hot drinks');
+    await user.click(dialog.getByTestId('perk-save'));
+    await waitFor(() => expect(perkCalls()).toHaveLength(1));
+    expect(perkCalls()[0]!.args).toMatchObject({ p_perk: { tier_id: 't0', kind: 'size_upgrade', config: { categoryIds: ['c-hot'], itemIds: [] } } });
   });
 });

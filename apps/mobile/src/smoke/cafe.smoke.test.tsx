@@ -214,6 +214,10 @@ describe.each(LOCALES)('the Club tab in %s', (locale) => {
     try {
       expect(screen.getByTestId('club.card.qr')).toBeTruthy();
       expect(screen.getByTestId('club.loyalty.balance')).toBeTruthy();
+      // The clear way in, beside the points (2026-11-15).
+      expect(
+        within(screen.getByTestId('club.loyalty.see-rewards')).getByText(t('loyalty.guest.card.seeRewards')),
+      ).toBeTruthy();
       expect(screen.queryByTestId('club.menu.list')).toBeNull();
       fireEvent.press(screen.getByTestId('club.loyalty'));
       expect(routerState.calls).toContainEqual({

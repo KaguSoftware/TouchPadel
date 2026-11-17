@@ -13,12 +13,25 @@
 import { supabase } from '../../../lib/supabase';
 import { appColumnsMissing } from './promotionLogic';
 
-export type PromotionType = 'percent' | 'amount';
+/**
+ * 0445: `free_item` is buy one, get one. Its `value` is the percent off each unit given (100 =
+ * free); `scope.itemIds` / `categoryIds` are what is GIVEN, and `buyItemIds` / `buyCategoryIds`
+ * (or a court booking, `courtIds`) what earns it; `perBill` caps the units one bill gets.
+ */
+export type PromotionType = 'percent' | 'amount' | 'free_item';
 
 export interface PromotionScope {
   courtIds: string[];
   categoryIds: string[];
   itemIds: string[];
+}
+
+/** 0445: the buy side of a free_item promotion, stored in the same scope object. */
+export interface PromotionBuyScope {
+  buyCategoryIds: string[];
+  buyItemIds: string[];
+  /** 1..10; the server stores 1 when it is not sent. */
+  perBill: number;
 }
 
 export interface PromotionLimits {
@@ -40,7 +53,7 @@ export interface PromotionRow {
   weekdays: number[] | null;
   hour_from: string | null;
   hour_to: string | null;
-  scope: Partial<PromotionScope> | null;
+  scope: Partial<PromotionScope & PromotionBuyScope> | null;
   limits: Partial<PromotionLimits> | null;
   auto: boolean;
   public_code: string | null;

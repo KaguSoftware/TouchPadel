@@ -370,6 +370,8 @@ export const SMOKE_ROUTES: readonly SmokeRoute[] = [
   { file: 'loyalty.tsx', route: 'loyalty', primary: 'loyalty.points' },
   // 0415: a reward redeemed in the app; the primary is its QR (a mark, like the card's).
   { file: 'reward-voucher.tsx', route: 'reward-voucher', primary: 'reward-voucher.qr' },
+  // 0445: a deal redeemed in the app, its own 15-minute code; the primary is its QR, as above.
+  { file: 'deal-voucher.tsx', route: 'deal-voucher', primary: 'deal-voucher.qr' },
   // ── coach mode ────────────────────────────────────────────────────────────
   // docs/design/coaching/guest.md §4.17, cased by coachMode.smoke.test.tsx in
   // EN and AR with the `coach` render option (a signed-in account that

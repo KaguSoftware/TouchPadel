@@ -448,6 +448,26 @@ export const tierFinish = {
 } as const satisfies Record<string, TierFinish>;
 
 /**
+ * The card rings (0445): the profile frames a loyalty card unlocks, drawn as a woven metal band
+ * in the card's own colour. Theme-invariant like `frame` and `tierFinish`: a green card's ring is
+ * the same green on either page. Each family is the card finish's metal (`tierFinish.*.metal`)
+ * pulled toward the card's own ground so a ring reads as THAT card at 36 px:
+ *
+ *   hi     the light edge of the sheen, and the bright key line inside the band
+ *   face   the band's body
+ *   lo     where the metal turns from the light
+ *   shade  the fine line outside the band, which holds the ring off a pale page or photo
+ *
+ * Green is Padel Green on its card metal; blue runs from the card's pale blue through Touch Blue
+ * to the navy card ground; black is the black card's gunmetal.
+ */
+export const cardRing = {
+  green: { hi: '#E4F2D0', face: '#A5D06F', lo: '#6E9440', shade: '#3D5622' },
+  blue: { hi: '#A9C3EE', face: '#3360AB', lo: '#1E3966', shade: '#172C4F' },
+  black: { hi: '#B4B7BE', face: '#7A7D85', lo: '#3A3C41', shade: '#1C1D20' },
+} as const;
+
+/**
  * Third-party sign-in button colours — Google's official light/dark button
  * themes (developers.google.com/identity/branding-guidelines) and Apple's HIG.
  * Theme-invariant like `brand`; the Google mark is never recoloured.

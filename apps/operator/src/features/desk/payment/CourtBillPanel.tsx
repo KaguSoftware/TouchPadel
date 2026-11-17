@@ -271,7 +271,8 @@ export function CourtBillView({
     }
   }
 
-  const sentence = (() => {
+  // A function, called at render: the noFee sentence reads the card's court gift (benefits, below).
+  const sentenceFor = () => {
     switch (state) {
       case 'notCharged':
         return tr('ws.courtDesk.payment.notCharged', { amount: amount(bill.court_remaining_iqd) });
@@ -291,11 +292,13 @@ export function CourtBillView({
         // 0403: a fee a free hour from points covered whole is not "no court fee".
         return freeHour
           ? tr('ws.loyalty.redeem.courtCovered', { amount: amount(freeHour.amount_iqd) })
-          : tr('ws.courtDesk.payment.noFee');
+          : courtGift
+            ? tr('ws.loyalty.benefits.courtGiftCovered', { name: courtGiftName, amount: amount(courtGift.amount_iqd) })
+            : tr('ws.courtDesk.payment.noFee');
       case 'ended':
         return tr('ws.courtDesk.payment.ended', { status: tr(`ws.kit.bookingStatus.${bill.reservation.status as 'cancelled'}`) });
     }
-  })();
+  };
   // Owing money is the normal course of a booking, not a refusal: it reads as
   // information with a bill glyph. Only money owed BACK asks for attention.
   const sentenceTone = state === 'paid' ? 'success' : state === 'refundDue' ? 'refused' : 'info';
@@ -334,6 +337,11 @@ export function CourtBillView({
   // 0410: what the member's card gives on the café bill, and its free add-ons brought on by
   // themselves; they too come out of the discount figure into a row of their own.
   const benefits = useMemberBenefits({ tabId: tab?.id ?? null, version: discountVersion, enabled: discountAllowed && discountLive && tab !== null });
+  // 0445: the court hour a card gift took off this booking (court_fee_remaining already has it off).
+  const courtGift = tab && benefits && benefits.tab_id === tab.id ? (benefits.court_gift ?? null) : null;
+  const courtGiftName = courtGift
+    ? (locale === 'ar' ? courtGift.name_ar || courtGift.name_en : courtGift.name_en || courtGift.name_ar) || tr('ws.loyalty.benefits.courtGiftPlain')
+    : '';
   const cardPerksOff = tab && benefits && benefits.tab_id === tab.id && benefits.addons.on_bill_iqd <= tab.discount_iqd - cafeCustomerOff ? benefits.addons.on_bill_iqd : 0;
   const courtNote =
     billDisc?.court && billDisc.court.amount_iqd > 0
@@ -377,7 +385,7 @@ export function CourtBillView({
             </div>
           </div>
         )}
-        <MessagePresenter tone={sentenceTone} icon={sentenceIcon} message={sentence} />
+        <MessagePresenter tone={sentenceTone} icon={sentenceIcon} message={sentenceFor()} />
         {!tab && courtNote && canTakePayment(state) && (
           <p style={{ margin: 0, fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }} data-testid="court-discount-note">
             {courtNote}
@@ -431,6 +439,14 @@ export function CourtBillView({
                 <dt className="tp-sr-only">{tr('ws.loyalty.rewards.title')}</dt>
                 <dd style={{ margin: 0, fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>
                   {tr('ws.loyalty.redeem.courtRow', { amount: amount(freeHour.amount_iqd) })}
+                </dd>
+              </div>
+            )}
+            {courtGift && (
+              <div data-testid="court-card-gift-note">
+                <dt className="tp-sr-only">{tr('ws.loyalty.benefits.courtGiftPlain')}</dt>
+                <dd style={{ margin: 0, fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>
+                  {tr('ws.loyalty.benefits.courtGift', { name: courtGiftName, amount: amount(courtGift.amount_iqd) })}
                 </dd>
               </div>
             )}

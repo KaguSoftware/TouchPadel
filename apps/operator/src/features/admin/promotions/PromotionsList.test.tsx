@@ -37,6 +37,15 @@ vi.mock('../../../lib/auth', async (importOriginal) => {
   };
 });
 vi.mock('@tanstack/react-router', () => ({ useNavigate: () => nav.navigate, useSearch: () => nav.search }));
+// 0445: a buy-one-get-one row names what earns it and what is given from the menu.
+const menuFetch = vi.hoisted(() => vi.fn(async () => ({
+  categories: [],
+  items: [
+    { id: 'i-latte', name_en: 'Latte', name_ar: 'لاتيه' },
+    { id: 'i-croissant', name_en: 'Croissant', name_ar: 'كرواسون' },
+  ],
+})));
+vi.mock('../menu/useAdminMenu', () => ({ ADMIN_MENU_KEY: ['adminMenu'], fetchAdminMenu: menuFetch }));
 
 import { PromotionsListScreen } from './PromotionsList';
 
@@ -239,5 +248,35 @@ describe('PromotionsListScreen', () => {
     expect(marks.map((m) => m.textContent)).toEqual(['In the app', 'In the app only']);
     // The one that is not automatic, has no code and is listed no longer reads as needing a code.
     expect(screen.queryByText('Needs a code, none yet')).toBeNull();
+  });
+});
+
+describe('PromotionsListScreen, buy one get one (0445)', () => {
+  it('a buy-one-get-one row reads "Buy Latte, get Croissant free", and its discount is not IQD', async () => {
+    menuFetch.mockClear();
+    api.fetchPromotions.mockResolvedValue([
+      rows[0],
+      {
+        ...rows[0], id: 'p9', name_en: 'Latte and croissant', name_ar: 'لاتيه وكرواسون', type: 'free_item', value: 100,
+        scope: { itemIds: ['i-croissant'], buyItemIds: ['i-latte'], perBill: 1 },
+      },
+      { ...rows[0], id: 'p8', name_en: 'Half croissant', name_ar: 'نصف', type: 'free_item', value: 50, scope: { itemIds: ['i-croissant'], buyItemIds: ['i-latte'], perBill: 2 } },
+    ]);
+    renderScreen();
+    expect(await screen.findByText('Buy Latte, get Croissant free')).toBeTruthy();
+    expect(screen.getByText('Buy Latte, get Croissant at 50% off · Up to 2 per bill')).toBeTruthy();
+    const table = screen.getByRole('table');
+    expect(within(table).getByText('Free')).toBeTruthy();
+    expect(within(table).getByText('50% off')).toBeTruthy();
+    expect(within(table).queryByText(/100\s*IQD/)).toBeNull();
+    expect(menuFetch).toHaveBeenCalled();
+  });
+
+  it('without a buy-one-get-one the menu is not read', async () => {
+    menuFetch.mockClear();
+    api.fetchPromotions.mockResolvedValue(rows);
+    renderScreen();
+    await screen.findByText('Happy hour');
+    expect(menuFetch).not.toHaveBeenCalled();
   });
 });

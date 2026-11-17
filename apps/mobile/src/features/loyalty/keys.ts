@@ -18,8 +18,19 @@
  *
  * `vouchers` is NOT persisted (0415): each holds a fixed code that is worth a reward to whoever
  * shows it, and lives 15 minutes; the server answers again on every open.
+ *
+ * `extras` is NOT persisted (0445): "your next drink is on us" and an unused birthday gift are
+ * live state (a till can take either since), so a copy read back from disk could promise a drink
+ * already had.
  */
-export type LoyaltyMutation = 'rotate' | 'pick-deal' | 'redeem' | 'cancel-voucher';
+export type LoyaltyMutation =
+  | 'rotate'
+  | 'pick-deal'
+  | 'redeem'
+  | 'cancel-voucher'
+  | 'claim-reward'
+  | 'redeem-deal'
+  | 'cancel-deal-voucher';
 
 export const loyaltyKeys = {
   /** Every loyalty read and write. */
@@ -35,6 +46,10 @@ export const loyaltyKeys = {
    * a bearer voucher (whoever shows it collects), so it never reaches the disk cache either.
    */
   vouchers: ['loyalty', 'vouchers'] as const,
+  /** app.my_card_extras() (0445): the drink card and the birthday gifts. Live, never on disk. */
+  extras: ['loyalty', 'extras'] as const,
+  /** app.my_deal_vouchers() (0445): a deal's own 15-minute code. Live, never on disk. */
+  dealVouchers: ['loyalty', 'deal-vouchers'] as const,
   /** Mutation keys: queryClient.ts gives this prefix "run now or fail now". */
   mutation: (name: LoyaltyMutation) => ['loyalty', 'mutation', name] as const,
 };

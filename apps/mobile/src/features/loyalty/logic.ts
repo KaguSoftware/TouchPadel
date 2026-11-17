@@ -9,7 +9,15 @@
  */
 import type { MessageKey } from '@touch/i18n';
 import {
+  CARD_FRAME_IDS,
+  GIFT_TARGETS,
+  GIFT_WHENS,
   MEMBER_CODE_RE,
+  TIER_PERK_KINDS,
+  type CardFrameId,
+  type GiftConfig,
+  type GiftTarget,
+  type GiftWhen,
   type LadderTier,
   type LedgerKind,
   type LedgerRow,
@@ -19,6 +27,8 @@ import {
   type MyLoyalty,
   type TierDeal,
   type TierPerk,
+  type TierPerkConfig,
+  type TierPerkKind,
   tierColor,
 } from '@touch/core/loyalty';
 
@@ -87,13 +97,71 @@ function parseReward(raw: unknown): LoyaltyReward | null {
 export const list = <T>(raw: unknown, parse: (r: unknown) => T | null): T[] =>
   Array.isArray(raw) ? raw.map(parse).filter((x): x is T => x !== null) : [];
 
-/** A privilege needs an id and a name to be shown; a kind this build does not know reads as a line. */
+const ids = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : []);
+
+/**
+ * A privilege's settings, by kind (0445), only what the phone shows: a gift's when (birthday when
+ * absent), target (items when absent) and days (birthday 1..31, default 7; card-up 1..90, default
+ * 30; none for monthly), a drink card size (2..20), a ring's id. Null when the kind carries none
+ * or it does not read, so the line is then its name alone.
+ */
+function parsePerkConfig(kind: TierPerkKind, raw: unknown): TierPerkConfig | null {
+  if (!isObj(raw)) return null;
+  switch (kind) {
+    case 'gift': {
+      const when: GiftWhen = (GIFT_WHENS as readonly string[]).includes(str(raw.when))
+        ? (raw.when as GiftWhen)
+        : 'birthday';
+      const target: GiftTarget = (GIFT_TARGETS as readonly string[]).includes(str(raw.target))
+        ? (raw.target as GiftTarget)
+        : 'items';
+      const gift: GiftConfig = { when, target, categoryIds: ids(raw.categoryIds), itemIds: ids(raw.itemIds) };
+      if (when !== 'monthly') {
+        const [max, fallback] = when === 'card_up' ? [90, 30] : [31, 7];
+        const days = raw.days === undefined || raw.days === null ? fallback : Math.round(num(raw.days));
+        gift.days = days >= 1 && days <= max ? days : fallback;
+      }
+      return gift;
+    }
+    case 'size_upgrade':
+      return { categoryIds: ids(raw.categoryIds), itemIds: ids(raw.itemIds) };
+    case 'stamp_size': {
+      const size = Math.round(num(raw.size));
+      return size >= 2 && size <= 20 ? { size } : null;
+    }
+    case 'frame':
+      return (CARD_FRAME_IDS as readonly string[]).includes(str(raw.frameId))
+        ? { frameId: str(raw.frameId) as CardFrameId }
+        : null;
+    case 'free_with':
+      return {
+        triggerCategoryIds: ids(raw.triggerCategoryIds),
+        triggerItemIds: ids(raw.triggerItemIds),
+        freeCategoryIds: ids(raw.freeCategoryIds),
+        freeItemIds: ids(raw.freeItemIds),
+      };
+    default:
+      return null;
+  }
+}
+
+/**
+ * A privilege needs an id and a name to be shown; a kind this build does not know reads as a line
+ * (`custom`). 0445: the kinds gift, free_with, size_upgrade, stamp_size and frame, each with its
+ * config when it reads.
+ */
 function parsePerk(raw: unknown): TierPerk | null {
   if (!isObj(raw) || !str(raw.id)) return null;
   const name_en = str(raw.name_en).trim();
   const name_ar = str(raw.name_ar).trim();
   if (!name_en && !name_ar) return null;
-  return { id: str(raw.id), kind: raw.kind === 'free_addons' ? 'free_addons' : 'custom', name_en, name_ar };
+  const kind: TierPerkKind = (TIER_PERK_KINDS as readonly string[]).includes(str(raw.kind))
+    ? (raw.kind as TierPerkKind)
+    : 'custom';
+  const perk: TierPerk = { id: str(raw.id), kind, name_en, name_ar };
+  const config = parsePerkConfig(kind, raw.config);
+  if (config) perk.config = config;
+  return perk;
 }
 
 function parseTierDeal(raw: unknown): TierDeal | null {
@@ -304,17 +372,133 @@ export function rungGives(tier: LadderTier, overRate = 1): CardGives {
 /**
  * Everything the member's card holds: its own tier's privileges and deals and those of every
  * tier below it (0410), the highest tier's first, nothing twice; and its points rate when above 1.
+ * 0445: the drink card fills at the LOWEST size a held privilege names, so only that one
+ * stamp_size line is listed (a lower card's larger size would read as a second, worse card), and
+ * a lower card's card-up gift is left out (it welcomed the member to that card, once).
  */
 export function cardHolds(position: LadderPosition): CardGives {
   const mine = position.rungs.filter((r) => r.state !== 'ahead').reverse();
   const perks = new Map<string, TierPerk>();
   const deals = new Map<string, TierDeal>();
   for (const r of mine) {
-    for (const p of r.tier.perks) if (!perks.has(p.id)) perks.set(p.id, p);
+    for (const p of r.tier.perks) {
+      // A card-up gift is a welcome to THAT card: a card above it does not hold it.
+      if (r.state === 'held' && giftOf(p)?.when === 'card_up') continue;
+      if (!perks.has(p.id)) perks.set(p.id, p);
+    }
     for (const d of r.tier.deals) if (!deals.has(d.id)) deals.set(d.id, d);
   }
+  let smallest: TierPerk | null = null;
+  for (const p of perks.values()) {
+    const size = stampSizeOf(p);
+    if (size !== null && (smallest === null || size < (stampSizeOf(smallest) ?? Infinity))) smallest = p;
+  }
+  const kept = [...perks.values()].filter(
+    (p) => p.kind !== 'stamp_size' || stampSizeOf(p) === null || p === smallest,
+  );
   const rate = position.current?.multiplier ?? 1;
-  return { multiplier: rate > 1 ? rate : null, perks: [...perks.values()], deals: [...deals.values()] };
+  return { multiplier: rate > 1 ? rate : null, perks: kept, deals: [...deals.values()] };
+}
+
+/** A stamp_size privilege's size, or null for any other privilege (or one without a size). */
+export function stampSizeOf(p: TierPerk): number | null {
+  if (p.kind !== 'stamp_size' || !p.config || !('size' in p.config)) return null;
+  return p.config.size;
+}
+
+/** A gift privilege's settings (0445), or null for any other privilege. */
+export function giftOf(p: TierPerk): GiftConfig | null {
+  if (p.kind !== 'gift') return null;
+  const c = p.config;
+  // A gift from before its config read is a birthday gift of an item, as the server defaults.
+  if (!c || !('when' in c)) return { when: 'birthday', target: 'items', categoryIds: [], itemIds: [], days: 7 };
+  return c as GiftConfig;
+}
+
+/** The keys a gift's detail line takes, by when and target (0445). */
+export const GIFT_DETAIL_KEYS = {
+  birthday: { items: 'loyalty.guest.gives.giftBirthday', court_hour: 'loyalty.guest.gives.giftBirthdayCourt' },
+  monthly: { items: 'loyalty.guest.gives.giftMonthly', court_hour: 'loyalty.guest.gives.giftMonthlyCourt' },
+  card_up: { items: 'loyalty.guest.gives.giftCardUp', court_hour: 'loyalty.guest.gives.giftCardUpCourt' },
+} as const satisfies Record<GiftWhen, Record<GiftTarget, MessageKey>>;
+
+/** The small line under a privilege's name (0445), by kind: what it is, when that helps. */
+export type PerkDetail =
+  | { key: (typeof GIFT_DETAIL_KEYS)[GiftWhen][GiftTarget]; days: number | null }
+  | { key: 'loyalty.guest.gives.freeWithDetail' }
+  | { key: 'loyalty.guest.gives.sizeUpgradeDetail' }
+  | { key: 'loyalty.guest.gives.stampSizeDetail'; size: number }
+  | { key: 'loyalty.guest.gives.frameDetail'; frameId: CardFrameId };
+
+/**
+ * What to say under a privilege's own name (the owner writes the name; this is the part a name
+ * may leave out): when a gift opens (the birthday, every month, on reaching the card) and for how
+ * many days, and whether it is a free court hour; that a free-with comes on every bill; a free
+ * size up; the drink card's size; and that a ring is for the profile photo. Null for free add-ons
+ * and a line the staff honour by hand (the name says it all) and for a kind whose config did not
+ * read.
+ */
+export function perkDetail(p: TierPerk): PerkDetail | null {
+  const c = p.config;
+  switch (p.kind) {
+    case 'gift': {
+      const g = giftOf(p) as GiftConfig;
+      return { key: GIFT_DETAIL_KEYS[g.when][g.target], days: g.when === 'monthly' ? null : (g.days ?? null) };
+    }
+    case 'free_with':
+      return { key: 'loyalty.guest.gives.freeWithDetail' };
+    case 'size_upgrade':
+      return { key: 'loyalty.guest.gives.sizeUpgradeDetail' };
+    case 'stamp_size': {
+      const size = stampSizeOf(p);
+      return size === null ? null : { key: 'loyalty.guest.gives.stampSizeDetail', size };
+    }
+    case 'frame':
+      return c && 'frameId' in c ? { key: 'loyalty.guest.gives.frameDetail', frameId: c.frameId } : null;
+    default:
+      return null;
+  }
+}
+
+/** Which mark a privilege's line wears (0445): the screen maps each to an icon. */
+export type PerkMark =
+  | 'addons'
+  | 'birthday'
+  | 'monthly'
+  | 'cardUp'
+  | 'court'
+  | 'freeWith'
+  | 'sizeUp'
+  | 'stamps'
+  | 'ring'
+  | 'line';
+
+/** A court-hour gift wears the court whenever it opens; an item gift says when it opens. */
+export function perkMark(p: TierPerk): PerkMark {
+  switch (p.kind) {
+    case 'free_addons':
+      return 'addons';
+    case 'gift': {
+      const g = giftOf(p) as GiftConfig;
+      if (g.target === 'court_hour') return 'court';
+      return g.when === 'monthly' ? 'monthly' : g.when === 'card_up' ? 'cardUp' : 'birthday';
+    }
+    case 'free_with':
+      return 'freeWith';
+    case 'size_upgrade':
+      return 'sizeUp';
+    case 'stamp_size':
+      return 'stamps';
+    case 'frame':
+      return p.config && 'frameId' in p.config ? 'ring' : 'line';
+    default:
+      return 'line';
+  }
+}
+
+/** True when the ladder carries a birthday gift on any card (Edit profile's 30-day note). */
+export function ladderHasBirthdayGift(l: Pick<MyLoyalty, 'enabled' | 'tiers'> | null | undefined): boolean {
+  return !!l?.enabled && (l.tiers ?? []).some((t) => t.perks.some((p) => giftOf(p)?.when === 'birthday'));
 }
 
 /** True when there is something to list. */

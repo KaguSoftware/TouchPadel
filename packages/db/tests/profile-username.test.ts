@@ -228,6 +228,8 @@ describe.skipIf(!up)('0314 usernames and frames', () => {
       expect(data.frames.map((f) => f.id)).toEqual([
         'brand-green', 'touch-blue', 'court-white', 'split-court', 'double-line',
         'regular', 'silver-racket', 'gold-racket', 'champion',
+        // 0445: the card rings a loyalty card unlocks (none here: no frame privilege).
+        'card-green', 'card-blue', 'card-black',
       ]);
       expect(data.frames.filter((f) => f.unlocked)).toHaveLength(5);
     });
@@ -315,7 +317,7 @@ describe.skipIf(!up)('0316 earned frames', () => {
 
     const f = await frames();
     expect(f.played).toBe(10);
-    expect(frame(f, 'regular')).toEqual({ id: 'regular', goal: 10, progress: 10, unlocked: true });
+    expect(frame(f, 'regular')).toEqual({ id: 'regular', goal: 10, progress: 10, unlocked: true, card: null });
     expect(frame(f, 'silver-racket')).toMatchObject({ goal: 50, progress: 10, unlocked: false });
     expect(frame(f, 'champion')).toMatchObject({ goal: 1, progress: 0, unlocked: false });
     expect(frame(f, 'brand-green')).toMatchObject({ goal: null, progress: null, unlocked: true });

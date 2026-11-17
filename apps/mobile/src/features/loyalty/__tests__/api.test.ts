@@ -1,6 +1,14 @@
 import { describe, expect, it, vi } from 'vitest';
-import { fetchMyDeals, fetchMyLoyalty, fetchMyMemberCard, pickDeal, rotateMemberCard } from '../api';
+import {
+  fetchMyCardExtras,
+  fetchMyDeals,
+  fetchMyLoyalty,
+  fetchMyMemberCard,
+  pickDeal,
+  rotateMemberCard,
+} from '../api';
 import { NO_DEALS } from '../deals';
+import { NO_EXTRAS } from '../extras';
 
 /**
  * The loyalty call shapes (build contracts §1.3) on a stub client: the app schema, no arguments,
@@ -106,5 +114,27 @@ describe('loyalty calls', () => {
       const client = rpcClient({ data: null, error: refusal });
       await expect(pickDeal(client as never, 'd-1')).rejects.toBe(refusal);
     }
+  });
+
+  // ── the drink card and birthday gifts (0445) ───────────────────────────────
+
+  it('my_card_extras takes no argument and parses the answer', async () => {
+    const client = rpcClient({
+      data: { stamps: { enabled: true, count: 3, size: 6, ready: false, held: false }, birthday: { has_date: true } },
+      error: null,
+    });
+    const x = await fetchMyCardExtras(client as never);
+    expect(client.schema).toHaveBeenCalledWith('app');
+    expect(client.app.rpc).toHaveBeenCalledWith('my_card_extras');
+    expect(x.stamps).toEqual({ enabled: true, count: 3, size: 6, ready: false, held: false, claimed_until: null });
+    expect(x.birthday).toEqual({ has_date: true, gifts: [], counts_from: null, gifts_on_card: [] });
+  });
+
+  it('a server without my_card_extras (PGRST202) reads as off; any other failure is thrown', async () => {
+    const missing = rpcClient({ data: null, error: { code: 'PGRST202', message: 'Could not find the function' } });
+    await expect(fetchMyCardExtras(missing as never)).resolves.toEqual(NO_EXTRAS);
+    const refusal = { message: 'ACCOUNT_REQUIRED', code: 'P0001' };
+    const failing = rpcClient({ data: null, error: refusal });
+    await expect(fetchMyCardExtras(failing as never)).rejects.toBe(refusal);
   });
 });

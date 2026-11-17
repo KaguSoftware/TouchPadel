@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { LocaleProvider } from '../../../lib/i18n';
@@ -46,8 +46,19 @@ vi.mock('../../../lib/auth', async (importOriginal) => {
   };
 });
 vi.mock('../../loyalty/useLoyalty', () => ({ useLoyaltyAdmin: () => ({ data: loyalty.data }) }));
-vi.mock('../../../lib/queries', () => ({ QK: { courts: ['courts'] }, fetchActiveCourts: async () => [] }));
-vi.mock('../menu/useAdminMenu', () => ({ useAdminMenu: () => ({ data: { categories: [], items: [] } }) }));
+// 0445: a court and a small menu, for the buy-one-get-one form.
+const fixtures = vi.hoisted(() => ({
+  courts: [{ id: 'court-1', name_en: 'Court 1', name_ar: 'الملعب 1' }],
+  menu: {
+    categories: [{ id: 'cat-hot', name_en: 'Hot drinks', name_ar: 'مشروبات ساخنة' }],
+    items: [
+      { id: 'i-latte', name_en: 'Latte', name_ar: 'لاتيه', is_active: true },
+      { id: 'i-croissant', name_en: 'Croissant', name_ar: 'كرواسون', is_active: true },
+    ],
+  },
+}));
+vi.mock('../../../lib/queries', () => ({ QK: { courts: ['courts'] }, fetchActiveCourts: async () => fixtures.courts }));
+vi.mock('../menu/useAdminMenu', () => ({ useAdminMenu: () => ({ data: fixtures.menu }) }));
 vi.mock('../../../components/ConfirmDialog', () => ({ useConfirm: () => async () => true }));
 vi.mock('@tanstack/react-router', () => ({
   useNavigate: () => router.navigate,
@@ -326,5 +337,82 @@ describe('PromotionEditorScreen', () => {
       expect(router.navigate).toHaveBeenLastCalledWith({ to: '/protocols', search: { start: 'price_promo', change: 'promotion' } });
       expect(rpc.appRpc).not.toHaveBeenCalled();
     });
+  });
+});
+
+// 0445: buy one, get one.
+describe('PromotionEditorScreen, buy one get one (0445)', () => {
+  async function startBogo(user: ReturnType<typeof userEvent.setup>) {
+    renderScreen();
+    await user.type(screen.getByLabelText('English'), 'Latte and croissant');
+    await user.type(screen.getByLabelText('Arabic'), 'لاتيه وكرواسون');
+    await user.click(screen.getByRole('button', { name: 'Buy one, get one' }));
+  }
+
+  it('builds "Buy Latte, get Croissant" and saves it as free_item with its buy side', async () => {
+    const user = userEvent.setup();
+    rpc.appRpc.mockResolvedValue('new-id');
+    await startBogo(user);
+    expect(screen.getByText(/^Buy \(not chosen yet\), get \(not chosen yet\) free · Any day, any time$/)).toBeTruthy();
+    expect(screen.getByTitle('Choose what they get to save.')).toBeTruthy();
+    await user.click(within(screen.getByTestId('promo-get-items')).getByRole('button', { name: 'Croissant' }));
+    expect(screen.getByTitle('Choose what earns it to save.')).toBeTruthy();
+    await user.click(within(screen.getByTestId('promo-buy-items')).getByRole('button', { name: 'Latte' }));
+    expect(screen.getByText('Buy Latte, get Croissant free · Any day, any time')).toBeTruthy();
+    await user.click(screen.getByTestId('promo-free-percent'));
+    expect(screen.getByText('Buy Latte, get Croissant at 50% off · Any day, any time')).toBeTruthy();
+    await user.click(screen.getByTestId('promo-free-full'));
+    const perBill = screen.getByTestId('promo-per-bill');
+    await user.clear(perBill);
+    await user.type(perBill, '2');
+    expect(screen.getByText('Buy Latte, get Croissant free · Up to 2 per bill · Any day, any time')).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(rpc.appRpc).toHaveBeenCalledTimes(1));
+    expect(rpc.appRpc.mock.calls[0]![0]).toBe('upsert_promotion');
+    expect(rpc.appRpc.mock.calls[0]![1]).toMatchObject({
+      p_type: 'free_item',
+      p_value: 100,
+      p_scope: { courtIds: [], categoryIds: [], itemIds: ['i-croissant'], buyCategoryIds: [], buyItemIds: ['i-latte'], perBill: 2 },
+    });
+  });
+
+  it('a court booking can earn it instead, and the menu buy side goes', async () => {
+    const user = userEvent.setup();
+    rpc.appRpc.mockResolvedValue('new-id');
+    await startBogo(user);
+    await user.click(within(screen.getByTestId('promo-buy-items')).getByRole('button', { name: 'Latte' }));
+    await user.click(within(screen.getByTestId('promo-get-items')).getByRole('button', { name: 'Croissant' }));
+    await user.click(screen.getByTestId('promo-earn-court'));
+    expect(screen.queryByTestId('promo-buy-items')).toBeNull();
+    await user.click(await within(screen.getByTestId('promo-earn-courts')).findByRole('button', { name: 'Court 1' }));
+    expect(screen.getByText('Book a court, get Croissant free · Any day, any time')).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(rpc.appRpc).toHaveBeenCalledTimes(1));
+    expect(rpc.appRpc.mock.calls[0]![1]).toMatchObject({
+      p_type: 'free_item',
+      p_scope: { courtIds: ['court-1'], itemIds: ['i-croissant'], buyItemIds: [], buyCategoryIds: [], perBill: 1 },
+    });
+  });
+
+  it('back to a percent, the buy side is not sent', async () => {
+    const user = userEvent.setup();
+    rpc.appRpc.mockResolvedValue('new-id');
+    await startBogo(user);
+    await user.click(within(screen.getByTestId('promo-buy-items')).getByRole('button', { name: 'Latte' }));
+    await user.click(screen.getByRole('button', { name: 'Percentage off' }));
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(rpc.appRpc).toHaveBeenCalledTimes(1));
+    expect(rpc.appRpc.mock.calls[0]![1]).toMatchObject({ p_type: 'percent', p_value: 10 });
+    expect((rpc.appRpc.mock.calls[0]![1] as { p_scope: object }).p_scope).toEqual({ courtIds: [], categoryIds: [], itemIds: [] });
+  });
+
+  it('warns when a deal listed in the app is also automatic', async () => {
+    const user = userEvent.setup();
+    renderScreen();
+    expect(screen.queryByTestId('promotion-app-auto')).toBeNull();
+    await user.click(screen.getByRole('switch', { name: 'List it as a deal in the app' }));
+    expect(screen.getByTestId('promotion-app-auto').textContent).toMatch(/every bill that qualifies gets it/);
+    await user.click(screen.getByRole('button', { name: 'Only with a code' }));
+    expect(screen.queryByTestId('promotion-app-auto')).toBeNull();
   });
 });

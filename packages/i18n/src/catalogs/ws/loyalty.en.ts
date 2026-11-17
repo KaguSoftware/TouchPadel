@@ -80,17 +80,35 @@ export const loyaltyEn = {
     court: 'One free hour of court on this booking ({amount})',
     doneCourt: 'Reward used: one free hour of court, {amount} off the court fee.',
   },
-  // 0415: a reward the guest redeemed in the app, scanned (or typed) at the till.
+  // 0415: a reward the guest redeemed in the app, scanned (or typed) at the till. 0445: the same
+  // dialog takes a deal's code (TPD-…), so the button and the field name both.
   voucher: {
-    button: 'Reward code',
+    button: 'Reward or deal code',
     title: 'Reward code',
-    lead: 'Scan the reward QR on the guest’s phone, or type the code under it.',
+    // 0445: the title while the field holds neither kind yet (the button, a code being typed).
+    titleAny: 'Reward or deal code',
+    lead: 'Scan the QR on the guest’s phone, or type the code under it.',
     field: 'Code',
     placeholder: 'TPV-XXXX-XXXX-XXXX',
     apply: 'Give reward',
-    invalid: 'That isn’t a reward code. It starts with TPV.',
+    applyAny: 'Use code',
+    invalid: 'That isn’t a reward or deal code. A reward code starts with TPV, a deal code with TPD.',
     from: '{who}’s reward. {done}',
     ringUpFirst: 'Ring up the sale first, then scan the reward on the payment step.',
+  },
+  // 0445: a deal the guest redeemed in the app (TPD-…), scanned or typed at the till.
+  dealCode: {
+    title: 'Deal code',
+    apply: 'Apply deal',
+    done: 'Deal applied: {name}, {amount} off the bill.',
+    ringUpFirst: 'Ring up the sale first, then scan the deal on the payment step.',
+    // The shared lines for these codes speak of rewards and points; a deal code has neither.
+    errors: {
+      VOUCHER_NOT_FOUND: 'No deal has that code. Scan the deal QR again.',
+      VOUCHER_USED: 'This deal code was already used or cancelled. The guest can redeem the deal again in the app.',
+      VOUCHER_EXPIRED: 'This deal code has expired. The guest can redeem the deal again in the app.',
+      VOUCHER_WRONG_BRANCH: 'This deal belongs to another branch.',
+    },
   },
   // 0410: what the bill customer's card gives, in the member block of a bill.
   benefits: {
@@ -100,12 +118,63 @@ export const loyaltyEn = {
     byHand: 'Give by hand',
     onBill: 'Free add-ons on this bill: {amount} off.',
     // The bill's own totals row, beside the manager's, the customer's and the promotion's.
-    billRow: 'Card privileges: free add-ons',
+    billRow: 'Card privileges',
+    // 0445: why a bill line is free, under the line and summed in the member block.
+    lines: {
+      stamp: 'Free drink, card full',
+      gift: {
+        birthday: 'Birthday gift',
+        monthly: 'Monthly gift',
+        card_up: 'Welcome gift',
+        other: 'Card gift',
+      },
+      freeWith: 'Free with the order',
+      sizeUpgrade: 'Free size upgrade',
+      free_addons: 'Free add-ons',
+      units: '×{n}',
+      total: '{label}: {amount} off',
+    },
+    // 0445: the member's drink card, at a glance.
+    stamps: {
+      title: 'Drink card',
+      count: '{count} of {size}',
+      filling: '{remaining} more to a free drink',
+      ready: 'Full: one free drink',
+      onThisBill: 'Free drink on this bill',
+      heldElsewhere: 'Free drink held on another open bill',
+    },
+    // 0445: a card gift open now (birthday, monthly, on reaching the card).
+    gifts: {
+      open: {
+        birthday: 'Birthday gift today: {name}',
+        monthly: 'Monthly gift open: {name}',
+        card_up: 'Welcome gift open: {name}',
+      },
+      onThisBill: 'Gift on this bill: {name}',
+      used: 'Gift already used: {name}',
+      tooRecent: 'No birthday gift: {name}. Their birth date was set less than 30 days before their birthday.',
+      courtHint: 'A court hour goes on the bill of their booking.',
+    },
+    // 0445: the court hour a card gift took off the booking's court fee.
+    courtGift: '{name}: {amount} off the court fee',
+    courtGiftCovered: 'A card gift ({name}) covered the court fee ({amount}).',
+    courtGiftPlain: 'Card gift',
     dealTitle: 'Deal picked in the app',
     dealPercent: '{value}% off',
     dealApply: 'Apply',
     dealApplied: 'On this bill',
     dealElsewhere: 'For your information. Deals are applied at the café cashier.',
+    // 0445: a buy-one-get-one deal (promotion type free_item); value is the percent off what is given.
+    dealFreeItem: 'Buy 1, get 1 free',
+    dealFreeItemPercent: 'Buy 1, get 1 at {value}% off',
+    // 0445 (Redeem in the app): a free drink or a card gift reaches a bill only once redeemed.
+    claim: {
+      redeemed: 'Redeemed in the app · until {when}',
+      waiting: 'Waiting for the member to redeem',
+      giveNow: 'Give it now',
+      giveNowFor: 'Give it now: {name}',
+      notReady: 'That reward is no longer open for this member. Their card has been read again.',
+    },
   },
   panel: {
     title: 'Loyalty',
@@ -272,6 +341,16 @@ export const loyaltyEn = {
       kind: 'What it gives',
       kindAddons: 'Free add-ons',
       kindAddonsBody: 'Paid add-ons on a drink, such as an extra shot, a syrup or a different milk, cost nothing. The till takes them off the bill by itself.',
+      kindGift: 'A gift',
+      kindGiftBody: 'A free menu item or court hour on their birthday, every month, or when they reach this card. The till takes it off by itself.',
+      kindSizeUpgrade: 'Free size upgrade',
+      kindSizeUpgradeBody: 'A drink you choose is charged one size down, so a large costs what a medium does.',
+      kindFreeWith: 'Free with an order',
+      kindFreeWithBody: 'One free item for each item of another kind on the bill, such as a tea with every dessert. The till takes it off by itself.',
+      kindStampSize: 'Faster drink card',
+      kindStampSizeBody: 'Their drink card fills at fewer stamps than the club’s standard.',
+      kindFrame: 'Photo frame',
+      kindFrameBody: 'A frame around their photo in the app, for this card and the cards above it.',
       kindCustom: 'Something else',
       kindCustomBody: 'A privilege your staff give by hand.',
       customHint: 'For example: priority booking, or a racket to borrow.',
@@ -282,6 +361,56 @@ export const loyaltyEn = {
       groupsHint: 'Only the paid options in these groups become free.',
       groupsEmpty: 'The menu has no add-on groups yet.',
       groupGone: 'No longer on the menu',
+      // 0445: the menu pickers of a birthday gift and a free-with privilege.
+      menuSections: 'Menu sections',
+      menuItems: 'Items',
+      gift: {
+        when: 'When',
+        whens: {
+          birthday: 'On their birthday',
+          monthly: 'Every month',
+          card_up: 'On reaching this card',
+        },
+        whenBodies: {
+          birthday: 'Once a year. Their birth date must be set at least 30 days before.',
+          monthly: 'Once in each calendar month.',
+          card_up: 'Once, when they move up to this card. Higher cards do not get it.',
+        },
+        target: 'What it gives',
+        targetItems: 'A menu item',
+        targetCourt: 'One court hour',
+        courtHint: 'One hour of the court fee, on the bill of a booking that is not a match.',
+        what: 'Which menu items',
+        whatHint: 'One of the dearest matching item on the bill is free. Choose menu sections, items, or both.',
+        days: 'Can be used for',
+        daysHint: {
+          birthday: 'Days from the birthday, 1 to 31.',
+          card_up: 'Days from the day they reach this card, 1 to 90.',
+        },
+        unitDays: 'days',
+      },
+      sizeUpgrade: {
+        what: 'Which drinks',
+        hint: 'Each matching line is charged the price of its next size down. An item with one size is not changed.',
+      },
+      freeWith: {
+        trigger: 'For each of these on the bill',
+        free: 'One of these is free',
+        freeHint: 'The dearest one on the bill first.',
+      },
+      frame: {
+        label: 'Which frame',
+        green: 'Green card',
+        blue: 'Blue card',
+        black: 'Black card',
+        hint: 'Guests with this card pick it on Edit profile in the app. If they lose the card, or you remove this privilege, their photo goes back to the brand green frame.',
+      },
+      stampSize: {
+        label: 'Drink card fills at',
+        hint: 'Between 2 and 20 stamps. The club’s standard is {n}.',
+        hintPlain: 'Between 2 and 20 stamps.',
+        unit: 'stamps',
+      },
       nameEn: 'What guests read (English)',
       nameAr: 'What guests read (Arabic)',
       nameAutoHint: 'Filled in for you. Change it if you like.',
@@ -295,10 +424,35 @@ export const loyaltyEn = {
         count: 'Free add-ons, groups chosen: {n}',
         missing: 'Groups no longer on the menu: {n}',
         none: 'Its add-on groups are no longer on the menu, so it frees nothing. Edit it.',
+        giftWhen: {
+          birthday: 'On their birthday, {gift}, for {days} days',
+          monthly: 'Every month, {gift}',
+          card_up: 'On reaching this card, {gift}, for {days} days',
+        },
+        giftWhat: {
+          items: 'one free from {what}',
+          itemsCount: 'one free item ({n} chosen)',
+          court: 'one free court hour',
+        },
+        sizeUpgrade: 'Charged one size down: {what}',
+        sizeUpgradeCount: 'Charged one size down ({n} chosen)',
+        freeWith: 'With each from {trigger}, one free from {free}',
+        freeWithCount: 'One free item with each chosen item ({n} chosen)',
+        menuMissing: 'No longer on the menu: {n}',
+        menuNone: 'What it names is no longer on the menu, so it gives nothing. Edit it.',
+        frame: 'Photo frame in the app: {card}',
+        stampSize: 'Drink card fills at {n} stamps',
       },
       errors: {
         names: 'Both names are needed, 80 characters at most each.',
         groups: 'Choose at least one add-on group, or choose every add-on.',
+        giftItems: 'Choose at least one menu section or item.',
+        days: 'Between 1 and 31 days.',
+        daysCardUp: 'Between 1 and 90 days.',
+        sizeItems: 'Choose at least one menu section or item.',
+        trigger: 'Choose what must be on the bill.',
+        free: 'Choose what comes free.',
+        size: 'Between 2 and 20 stamps.',
       },
       // The names a free add-ons privilege starts with (the guest reads them; the owner can change them).
       defaults: {
@@ -306,6 +460,55 @@ export const loyaltyEn = {
         groups: 'Free add-ons: {groups}',
         some: 'Free add-ons',
         sep: ', ',
+        // 0445
+        gift: {
+          birthday: 'Birthday gift: {what}',
+          monthly: 'Monthly gift: {what}',
+          card_up: 'Welcome gift: {what}',
+        },
+        giftPlain: {
+          birthday: 'Birthday gift',
+          monthly: 'Monthly gift',
+          card_up: 'Welcome gift',
+        },
+        giftCourt: {
+          birthday: 'Birthday gift: a free court hour',
+          monthly: 'A free court hour every month',
+          card_up: 'Welcome gift: a free court hour',
+        },
+        sizeUpgrade: 'Free size upgrade: {what}',
+        sizeUpgradePlain: 'Free size upgrade',
+        freeWith: 'Free {free} with {trigger}',
+        freeWithPlain: 'Free with an order',
+        frame: {
+          green: 'Green card photo frame',
+          blue: 'Blue card photo frame',
+          black: 'Black card photo frame',
+        },
+        stampSize: 'Drink card full at {n} stamps',
+        stampSizePlain: 'A faster drink card',
+      },
+    },
+    // 0445: the drink card (stamps), owner-set; the manager reads it.
+    stampCard: {
+      title: 'Drink card',
+      lead: 'Every paid item from the sections you choose earns a stamp. A full card makes the next one free, the dearest on the bill. Items a card privilege made free do not stamp.',
+      enabled: 'The drink card is on',
+      enabledHint: 'Off: no stamps are earned and guests do not see a drink card. Stamps already earned are kept.',
+      size: 'Stamps to a free drink',
+      sizeHint: 'The club’s standard, 2 to 20. A card privilege can make it smaller.',
+      unit: 'stamps',
+      categories: 'Menu sections that stamp',
+      categoriesHint: 'Every item in these sections earns a stamp, except the ones below.',
+      excluded: 'Never stamp',
+      excludedHint: 'Items in those sections that never earn a stamp, such as water, tea or a plain espresso.',
+      excludedEmpty: 'Choose the sections that stamp first.',
+      byCard: '{card} card: full at {n} stamps',
+      byCardHint: 'Set by a card privilege.',
+      save: 'Save',
+      errors: {
+        size: 'Between 2 and 20.',
+        categories: 'Choose at least one menu section, or switch the drink card off.',
       },
     },
     rewards: {

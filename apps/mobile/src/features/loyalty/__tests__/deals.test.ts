@@ -3,7 +3,9 @@ import { formatTimeRangeShort, formatWeekdayShort } from '@touch/i18n';
 import {
   COVER_NAMES_MAX,
   NO_DEALS,
+  NO_LOOK,
   clockInstant,
+  dealArt,
   dealBlurb,
   dealCover,
   dealName,
@@ -11,6 +13,7 @@ import {
   dealSchedule,
   dealValue,
   isMissingRpc,
+  parseLook,
   parseMyDeals,
   pickedDeal,
   usableDeals,
@@ -74,6 +77,7 @@ describe('parseMyDeals', () => {
       ...RAW_DEAL,
       weekdays: [0, 1, 4],
       picked: true,
+      look: NO_LOOK,
     });
     expect(d.deals[1]).toMatchObject({
       id: 'd-2',
@@ -316,5 +320,70 @@ describe('what a deal card says', () => {
     ).toBeNull();
     expect(usableDeals(NO_DEALS)).toBeNull();
     expect(usableDeals(undefined)).toBeNull();
+  });
+});
+
+describe('the deal picture (2026-11-15)', () => {
+  const latte = { name_en: 'Latte', name_ar: 'لاتيه', photo_path: 'items/latte.webp', category_en: 'Hot Drinks' };
+  const cake = { name_en: 'San Sebastián', name_ar: 'سان سباستيان', photo_path: null, category_en: 'Desserts' };
+
+  it('reads the look, dropping what it cannot use', () => {
+    expect(parseLook(null)).toEqual(NO_LOOK);
+    expect(
+      parseLook({
+        get: [latte, { name_en: '' }, 'x'],
+        buy: [cake],
+        per_bill: 2,
+        courts: true,
+      }),
+    ).toEqual({ get: [latte], buy: [cake], per_bill: 2, courts: true });
+    // A bill takes 1..10; anything else is no figure.
+    expect(parseLook({ per_bill: 40 }).per_bill).toBeNull();
+    expect(parseLook({ get: [{ name_en: 'Tea', photo_path: 7 }] }).get[0]).toEqual({
+      name_en: 'Tea',
+      name_ar: '',
+      photo_path: null,
+      category_en: null,
+    });
+  });
+
+  it('reads a buy-one-get-one, and drops one that gives nothing', () => {
+    const d = parseMyDeals({
+      deals: [
+        raw({ id: 'bogo', type: 'free_item', value: 100, look: { get: [cake], buy: [latte], per_bill: 1 } }),
+        raw({ id: 'half', type: 'free_item', value: 50, look: { get: [cake], buy: [] } }),
+        raw({ id: 'empty', type: 'free_item', value: 100, look: { get: [], buy: [latte] } }),
+        raw({ id: 'too-much', type: 'free_item', value: 120, look: { get: [cake] } }),
+      ],
+    });
+    expect(d.deals.map((x) => x.id)).toEqual(['bogo', 'half']);
+    expect(dealValue(d.deals[0]!)).toEqual({ kind: 'free', percent: 100 });
+  });
+
+  it('picks the most specific picture', () => {
+    const on = { items: [], categories: [], courts: false };
+    expect(dealArt({ type: 'free_item', value: 100, on, look: { ...NO_LOOK, get: [cake], buy: [latte] } })).toEqual({
+      kind: 'split',
+      buy: latte,
+      get: cake,
+      percent: 100,
+    });
+    // Earned by a court booking: no buy picture, the court stands in.
+    expect(dealArt({ type: 'free_item', value: 50, on, look: { ...NO_LOOK, get: [cake], courts: true } })).toMatchObject({
+      kind: 'split',
+      buy: null,
+      percent: 50,
+    });
+    expect(dealArt({ type: 'percent', value: 20, on, look: { ...NO_LOOK, get: [latte] } })).toEqual({
+      kind: 'item',
+      value: { kind: 'percent', percent: 20 },
+      thing: latte,
+    });
+    expect(dealArt({ type: 'amount', value: 5000, on: { ...on, courts: true }, look: NO_LOOK })).toEqual({
+      kind: 'court',
+      value: { kind: 'amount', iqd: 5000 },
+    });
+    expect(dealArt({ type: 'amount', value: 2000, on, look: NO_LOOK })).toEqual({ kind: 'amount', iqd: 2000 });
+    expect(dealArt({ type: 'percent', value: 10, on, look: NO_LOOK })).toEqual({ kind: 'percent', percent: 10 });
   });
 });

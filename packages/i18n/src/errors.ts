@@ -532,6 +532,13 @@ export const ERROR_CODE_KEYS = {
   DEAL_UNAVAILABLE: 'op.errors.DEAL_UNAVAILABLE',
   DEAL_LOCKED: 'op.errors.DEAL_LOCKED',
   DEAL_USED: 'op.errors.DEAL_USED',
+  // 0445 (Redeem in the app): the free drink or card gift is not there to take (loyalty off, the
+  // card not full, already on a bill, the gift used or outside its window).
+  REWARD_NOT_READY: 'op.errors.REWARD_NOT_READY',
+  // 0445 (a deal's own QR): the scanned deal code is another member's than the bill's; the bill
+  // cannot take the deal (outside its hours, under its minimum, nothing it covers).
+  VOUCHER_OTHER_MEMBER: 'op.errors.VOUCHER_OTHER_MEMBER',
+  DEAL_NOT_ON_BILL: 'op.errors.DEAL_NOT_ON_BILL',
   // 0415 (reward vouchers): a code that names no voucher; one already used, cancelled or expired;
   // one past its 15 minutes; a reward of another branch; five vouchers already waiting.
   VOUCHER_NOT_FOUND: 'op.errors.VOUCHER_NOT_FOUND',

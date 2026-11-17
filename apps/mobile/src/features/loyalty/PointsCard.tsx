@@ -710,7 +710,7 @@ export function PointsCard({
     <Pressable
       testID={testID}
       accessibilityRole="button"
-      accessibilityLabel={`${t('loyalty.guest.home.title')}, ${t('loyalty.guest.home.balance')} ${balance}`}
+      accessibilityLabel={`${t('loyalty.guest.home.title')}, ${t('loyalty.guest.home.balance')} ${balance}. ${t('loyalty.guest.card.seeRewards')}`}
       onPress={onPress}
       onPressIn={(e) => {
         void Haptics.selectionAsync().catch(() => {});
@@ -820,7 +820,9 @@ export function PointsCard({
                 </MicroLabel>
               ) : null}
             </View>
-            <View>
+            {/* The points and, beside them, the clear way to what they buy (Majed, 2026-11-15). */}
+            <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: space.sm }}>
+            <View style={{ flex: 1 }}>
               <MicroLabel style={{ color: ink }}>{t('loyalty.guest.home.balance')}</MicroLabel>
               <Text
                 testID={`${testID}.balance`}
@@ -844,6 +846,28 @@ export function PointsCard({
                   {worth}
                 </Text>
               ) : null}
+            </View>
+              <View
+                testID={`${testID}.see-rewards`}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 4,
+                  marginBottom: 6,
+                  borderRadius: radius.pill,
+                  borderWidth: 1,
+                  borderColor: withAlpha(brand.white, 0.3),
+                  backgroundColor: withAlpha(brand.white, 0.14),
+                  paddingVertical: 7,
+                  paddingStart: 12,
+                  paddingEnd: 8,
+                }}
+              >
+                <Text style={{ fontFamily: fonts.body700, fontSize: 13, color: brand.white }}>
+                  {t('loyalty.guest.card.seeRewards')}
+                </Text>
+                <ChevronIcon size={14} color={brand.white} />
+              </View>
             </View>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm }}>
               <View style={{ flex: 1 }}>
@@ -878,24 +902,6 @@ export function PointsCard({
                   </Text>
                 </View>
               ) : null}
-            </View>
-            {/* The way in, at the middle of the card's reading end. */}
-            <View
-              style={{
-                position: 'absolute',
-                // Absolute is measured from the card's own edge (padding does not count).
-                end: space.m,
-                top: '50%',
-                marginTop: -17,
-                width: 34,
-                height: 34,
-                borderRadius: radius.pill,
-                backgroundColor: withAlpha(brand.white, 0.12),
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <ChevronIcon size={16} color={brand.white} />
             </View>
           </View>
           {/* The cut edge catching the light, over everything. */}

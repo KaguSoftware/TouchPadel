@@ -39,6 +39,8 @@ const DECLARED = [
   'orders', 'order_items', 'tickets', 'payments',
   'till_shifts', 'refunds', 'stock_batches', 'court_advisory', 'venues', 'reservations', 'match_venue_advisory',
   'match_tickets',
+  // Loyalty (0445): a deal's code, spent last in use_deal_voucher, after the tab and the promotions.
+  'loyalty_deal_vouchers',
   // Loyalty (0415): a reward voucher, after the bill's rows, before the member's account.
   'loyalty_reward_vouchers',
   // Loyalty (0308): a manager's gift key, just before the account.

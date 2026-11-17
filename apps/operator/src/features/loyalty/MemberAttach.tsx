@@ -28,6 +28,11 @@
  * (MemberBenefits). They show for the bill's customer as the server knows them, which is also a
  * booking's or an app order's own guest when nobody was attached by hand.
  *
+ * Codes from the guest's app (0415, 0445): a reward's TPV-… and a deal's TPD-… go to one dialog
+ * (VoucherDialog), from a scan (MEMBER_SCAN_EVENT), the member field or the "Reward or deal code"
+ * button; neither is ever looked up as a member card. A deal code puts the deal on the bill
+ * (use_deal_voucher) and attaches its member when the bill has none.
+ *
  * Hosts: the café TabDetailPanel, the shop till (MemberIdentifyDialog before the sale exists,
  * this block before payment) and the desk's booking bill. A host that wants scanner bursts
  * routed here passes `listenScans`; TillScreen's wedge dispatches MEMBER_SCAN_EVENT.
@@ -35,7 +40,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { formatIQD, formatNumber } from '@touch/i18n';
-import { parseVoucherCode, type IdentifiedMember, type LoyaltyAdminReward, type TabBenefits, type UseVoucherResult } from '@touch/core/loyalty';
+import { type IdentifiedMember, type LoyaltyAdminReward, type TabBenefits, type UseVoucherResult } from '@touch/core/loyalty';
 import { useLocale } from '../../lib/i18n';
 import { can, useAuth } from '../../lib/auth';
 import { useStationReach } from '../../lib/stationReach';
@@ -43,9 +48,11 @@ import { LOCAL_TAB_PREFIX } from '../../lib/offlineTabs';
 import { Button, ErrorText, Field, Modal, inputStyle } from '../../components/ui';
 import { MessagePresenter, ViewMore, useListCap } from '../../components/kit';
 import {
-  benefitsShown,
+  memberCardShown,
+  dealCodeErrorKey,
   defaultRedeemPoints,
   identifyCode,
+  parseAppCode,
   loyaltyAdjustments,
   parseWhole,
   pointsOffOn,
@@ -55,6 +62,7 @@ import {
   type MemberView,
 } from './loyaltyLogic';
 import {
+  applyDealVoucher,
   applyVoucher,
   forgetMemberToken,
   freshMemberToken,
@@ -154,7 +162,7 @@ export function MemberIdentifyDialog({
   initialCode?: string;
   onClose: () => void;
   onIdentified: (member: IdentifiedMember) => Promise<void> | void;
-  /** 0415: a reward voucher typed into the member field goes here instead of the lookup. */
+  /** 0415: a reward voucher (and, 0445, a deal code) typed into the member field goes here instead of the lookup. */
   onVoucher?: (code: string) => void;
 }) {
   const { tr } = useLocale();
@@ -168,9 +176,9 @@ export function MemberIdentifyDialog({
   async function find(raw = text) {
     if (busy) return;
     setError(null);
-    const voucher = onVoucher ? parseVoucherCode(raw) : null;
-    if (voucher && onVoucher) {
-      onVoucher(voucher);
+    const appCode = onVoucher ? parseAppCode(raw) : null;
+    if (appCode && onVoucher) {
+      onVoucher(appCode.code);
       return;
     }
     const code = identifyCode(raw);
@@ -379,8 +387,9 @@ export function MemberAttach({
       setNotice(null);
       setError(null);
       const code = (e as CustomEvent<string>).detail;
-      // 0415: a reward voucher gives its reward on this bill; a member card attaches the member.
-      setDialog(parseVoucherCode(code) ? { kind: 'voucher', code } : { kind: 'identify', code });
+      // 0415: a reward voucher gives its reward on this bill, 0445: a deal code puts its deal on;
+      // only a member card is looked up and attached.
+      setDialog(parseAppCode(code) ? { kind: 'voucher', code } : { kind: 'identify', code });
     }
     window.addEventListener(MEMBER_SCAN_EVENT, onScan);
     return () => window.removeEventListener(MEMBER_SCAN_EVENT, onScan);
@@ -438,8 +447,8 @@ export function MemberAttach({
     refresh(m.customer_id);
   }
 
-  // 0415: a reward the guest redeemed in the app. Scanning it anywhere on the till opens this
-  // dialog with the code (MEMBER_SCAN_EVENT); the button is for a code read out or typed.
+  // 0415: a reward the guest redeemed in the app, 0445: or a deal. Scanning it anywhere on the till
+  // opens this dialog with the code (MEMBER_SCAN_EVENT); the button is for a code read out or typed.
   const voucherButton = open ? (
     <Button
       size="sm"
@@ -560,8 +569,9 @@ export function MemberAttach({
         </span>
       )}
 
-      {/* 0410: the card and what it gives; only for the bill it was read for. */}
-      {benefitsShown(benefits) && benefits.tab_id === tabId && (
+      {/* 0410: the card and what it gives; only for the bill it was read for. 0445: also a card
+          that gives nothing but a drink card or a birthday gift (MemberBenefits decides). */}
+      {memberCardShown(benefits) && benefits.tab_id === tabId && (
         <MemberBenefits benefits={benefits} open={open} deal={deal} />
       )}
 
@@ -676,10 +686,11 @@ export function MemberAttach({
           tabId={tabId}
           initialCode={dialog.code}
           onClose={() => setDialog({ kind: 'none' })}
-          onDone={(text) => {
+          onDone={(text, memberId) => {
             setDialog({ kind: 'none' });
             setNotice(text);
-            refresh();
+            // 0445: a deal code may have put its member on a bill that had none.
+            refresh(memberId ?? customerId);
           }}
         />
       )}
@@ -969,6 +980,8 @@ function rewardDoneText(
 
 /**
  * 0415: a reward voucher (TPV-…) from the guest's app, given on this bill (use_reward_voucher).
+ * 0445: or a deal's code (TPD-…), put on this bill (use_deal_voucher); the bill takes the code's
+ * member when it has none, so `onDone` names them for the refresh.
  * A scan opens it with the code and applies at once; a refusal (used, expired, another branch,
  * not on this bill) stays here beside the field so the cashier can tell the guest.
  */
@@ -981,7 +994,7 @@ function VoucherDialog({
   tabId: string;
   initialCode: string;
   onClose: () => void;
-  onDone: (notice: string) => void;
+  onDone: (notice: string, memberId?: string) => void;
 }) {
   const { tr, locale } = useLocale();
   const { reachable } = useStationReach();
@@ -989,25 +1002,42 @@ function VoucherDialog({
   const [invalid, setInvalid] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
+  /** Which kind the refusal in `error` was for: a deal code's own words replace the reward's. */
+  const [failedKind, setFailedKind] = useState<'reward' | 'deal' | null>(null);
   const started = useRef(false);
+  const kind = parseAppCode(text)?.kind ?? null;
 
   async function give(raw = text) {
     if (busy) return;
     setError(null);
-    const code = parseVoucherCode(raw);
-    setInvalid(code === null);
-    if (!code) return;
+    const appCode = parseAppCode(raw);
+    setInvalid(appCode === null);
+    if (!appCode) return;
     setBusy(true);
     try {
-      const res: UseVoucherResult = await applyVoucher(tabId, code);
+      if (appCode.kind === 'deal') {
+        const res = await applyDealVoucher(tabId, appCode.code);
+        onDone(
+          tr(`${K}.dealCode.done`, {
+            name: locale === 'ar' ? res.name_ar : res.name_en,
+            amount: formatIQD(Number(res.amountIqd), locale),
+          }),
+          res.customerId,
+        );
+        return;
+      }
+      const res: UseVoucherResult = await applyVoucher(tabId, appCode.code);
       const done = rewardDoneText(tr, locale, res, res);
       onDone(res.member_name ? tr(`${K}.voucher.from`, { who: res.member_name, done }) : done);
     } catch (e) {
+      setFailedKind(appCode.kind);
       setError(e);
     } finally {
       setBusy(false);
     }
   }
+
+  const dealRefusal = failedKind === 'deal' ? dealCodeErrorKey(error) : null;
 
   // A scan that opened the dialog is given at once: the cashier already did the work.
   useEffect(() => {
@@ -1019,7 +1049,7 @@ function VoucherDialog({
 
   return (
     <Modal
-      title={tr(`${K}.voucher.title`)}
+      title={tr(kind === 'deal' ? `${K}.dealCode.title` : kind === 'reward' ? `${K}.voucher.title` : `${K}.voucher.titleAny`)}
       subtitle={tr(`${K}.voucher.lead`)}
       size="sm"
       dismissible={!busy}
@@ -1038,7 +1068,7 @@ function VoucherDialog({
             onClick={() => void give()}
             data-testid="voucher-give"
           >
-            {tr(`${K}.voucher.apply`)}
+            {tr(kind === 'deal' ? `${K}.dealCode.apply` : kind === 'reward' ? `${K}.voucher.apply` : `${K}.voucher.applyAny`)}
           </Button>
         </>
       )}
@@ -1072,7 +1102,7 @@ function VoucherDialog({
           }}
         />
       </Field>
-      <ErrorText error={error} />
+      <ErrorText error={error} message={dealRefusal ? tr(dealRefusal) : null} />
     </Modal>
   );
 }

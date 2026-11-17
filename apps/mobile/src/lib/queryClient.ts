@@ -373,10 +373,16 @@ export const persistOptions = {
       // promise at the cashier a deal that was used or lapsed since.
       // A reward voucher's code (0415) is worth the reward to whoever shows
       // it: never written to disk.
+      // The drink card and birthday gifts (0445) are live: a "next drink is
+      // on us" read back from disk could promise a drink already had.
       // The balance read (`['loyalty', 'mine']`) is kept.
       !(
         query.queryKey[0] === 'loyalty' &&
-        (query.queryKey[1] === 'card' || query.queryKey[1] === 'deals' || query.queryKey[1] === 'vouchers')
+        (query.queryKey[1] === 'card' ||
+          query.queryKey[1] === 'deals' ||
+          query.queryKey[1] === 'vouchers' ||
+          query.queryKey[1] === 'deal-vouchers' ||
+          query.queryKey[1] === 'extras')
       ),
   },
 } as const;

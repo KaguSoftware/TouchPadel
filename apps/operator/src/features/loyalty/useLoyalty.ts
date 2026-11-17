@@ -8,8 +8,10 @@
  * record's panel rides under ['customer', id] for the same reason.
  */
 import { useEffect, useRef } from 'react';
-import { useQuery, useQueryClient, type QueryClient, type UseQueryResult } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient, type QueryClient, type UseQueryResult } from '@tanstack/react-query';
 import type {
+  CardExtras,
+  CardRewardKind,
   CourtRewardState,
   IdentifiedMember,
   LoyaltyAdmin,
@@ -17,7 +19,9 @@ import type {
   LoyaltyAdminReward,
   PerksRefreshResult,
   RedeemResult,
+  StampCardSettings,
   TabBenefits,
+  UseDealVoucherResult,
   UseVoucherResult,
 } from '@touch/core/loyalty';
 import { AppRpcError, appRpc } from '../../lib/appRpc';
@@ -29,7 +33,9 @@ import { LOCAL_TAB_PREFIX } from '../../lib/offlineTabs';
 import {
   memberView,
   perksRefreshSignature,
+  readCardExtras,
   readLoyaltyCustomer,
+  readStampCard,
   readTabBenefits,
   type AdjustmentLike,
   type MemberView,
@@ -58,6 +64,13 @@ export const LOYALTY_KEYS = {
   terms: ['loyaltyTerms'] as const,
   /** Setup › Loyalty. */
   admin: ['loyaltyAdmin'] as const,
+  /** Setup › Loyalty › Drink card (0445, app.stamp_card_settings). */
+  stampCard: ['loyaltyStampCard'] as const,
+  /**
+   * The bill customer's drink card and birthday gifts (0445, app.loyalty_card_extras): a child of
+   * the tab's own key, so the till's refresh and the automatic privileges refresh re-read it.
+   */
+  extras: (tabId: string, customerId: string) => ['tab', tabId, 'loyalty', 'extras', customerId] as const,
 };
 
 /**
@@ -203,6 +216,21 @@ export async function applyVoucher(tabId: string, code: string): Promise<UseVouc
   });
   if (answer.error) throw new AppRpcError(answer.error, answer.error);
   return answer;
+}
+
+/**
+ * 0445: the till scans a deal the guest redeemed in the app (use_deal_voucher). The code is the
+ * proof, as for a reward: the bill takes the code's member when it has none, the deal becomes
+ * their pick and apply_best_promotion puts it on. Every refusal is raised (DEAL_NOT_ON_BILL keeps
+ * nothing). Online only, like the reward path (L-6). One key per scan: a double scan replays.
+ */
+export function applyDealVoucher(tabId: string, code: string): Promise<UseDealVoucherResult> {
+  return appRpc<UseDealVoucherResult>('use_deal_voucher', {
+    p_tab_id: tabId,
+    p_code: code,
+    p_idempotency_key: onlineKey('use_deal_voucher'),
+    p_device_id: deviceId(),
+  });
 }
 
 /**
@@ -454,6 +482,91 @@ export function deleteTierPerk(perkId: string): Promise<unknown> {
   return appRpc('delete_loyalty_tier_perk', { p_perk_id: perkId });
 }
 
+// ---------------------------------------------------------------------------
+// The drink card and birthday gifts (0445)
+// ---------------------------------------------------------------------------
+
+/**
+ * The bill customer's drink card (x of N, a free drink ready or held) and the birthday gifts
+ * whose days hold today. Null on a server without 0445 or an answer that is not one; the bill
+ * then shows nothing new.
+ */
+export function useCardExtras({
+  tabId,
+  customerId,
+  enabled,
+}: {
+  tabId: string;
+  customerId: string | null;
+  enabled: boolean;
+}): CardExtras | null {
+  const q = useQuery({
+    queryKey: LOYALTY_KEYS.extras(tabId, customerId ?? ''),
+    enabled: enabled && Boolean(customerId),
+    queryFn: async () => readCardExtras(await appRpc<unknown>('loyalty_card_extras', { p_profile_id: customerId })),
+    retry: (n, e) => !rpcMissing(e) && n < 1,
+    placeholderData: (prev) => prev,
+  });
+  return rpcMissing(q.error) ? null : (q.data ?? null);
+}
+
+/**
+ * Setup › Loyalty › Drink card (manager and owner read). `data` null: a server without 0445,
+ * where the panel is left out.
+ */
+export function useStampCard(enabled = true): UseQueryResult<StampCardSettings | null> {
+  return useQuery({
+    queryKey: LOYALTY_KEYS.stampCard,
+    enabled,
+    queryFn: async () => {
+      try {
+        return readStampCard(await appRpc<unknown>('stamp_card_settings'));
+      } catch (e) {
+        if (rpcMissing(e)) return null;
+        throw e;
+      }
+    },
+  });
+}
+
+/** Owner: the drink card's settings (absent keys kept). Returns them as saved. */
+export function setStampCard(card: StampCardSettings): Promise<unknown> {
+  return appRpc('set_stamp_card', { p_card: card });
+}
+
+/**
+ * 0445 (Redeem in the app): the till presses Redeem for the bill's member, for a member without
+ * the app (app.claim_card_reward_for_tab): their ready free drink (`stamp`) or one open card gift
+ * (`gift`, with its privilege id). The server records the claim, refreshes an open bill's card
+ * privileges, and answers the bill's benefits. REWARD_NOT_READY when it is no longer there to take.
+ */
+export async function claimCardRewardForTab(tabId: string, kind: CardRewardKind, perkId: string | null): Promise<TabBenefits | null> {
+  return readTabBenefits(
+    await appRpc<unknown>('claim_card_reward_for_tab', {
+      p_tab_id: tabId,
+      p_kind: kind,
+      p_perk_id: kind === 'gift' ? perkId : null,
+      p_device_id: deviceId(),
+    }),
+  );
+}
+
+/**
+ * "Give it now" in the member block: the claim above, then the bill, its benefits and extras
+ * (children of ['tab', id]), the lists and a booking's bill are read again. A refusal is the
+ * mutation's error for the caller to show; REWARD_NOT_READY also re-reads, since the card moved.
+ */
+export function useClaimCardReward(tabId: string, customerId: string | null) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ kind, perkId }: { kind: CardRewardKind; perkId: string | null }) => claimCardRewardForTab(tabId, kind, perkId),
+    onSettled: () => {
+      invalidateTabLoyalty(qc, tabId, customerId);
+      void qc.invalidateQueries({ queryKey: ['bookingBillStates'] });
+    },
+  });
+}
+
 /** After a write on a tab: the tab (its totals and loyalty rows), the lists, a booking's bill, the member. */
 export function invalidateTabLoyalty(
   qc: QueryClient,
@@ -473,4 +586,5 @@ export function invalidateTabLoyalty(
 export function invalidateLoyaltyAdmin(qc: QueryClient): void {
   void qc.invalidateQueries({ queryKey: LOYALTY_KEYS.admin });
   void qc.invalidateQueries({ queryKey: LOYALTY_KEYS.terms });
+  void qc.invalidateQueries({ queryKey: LOYALTY_KEYS.stampCard });
 }

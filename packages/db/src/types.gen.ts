@@ -1143,6 +1143,7 @@ export type Database = {
         }[]
       }
       cancel_coach_time_off: { Args: { p_id: string }; Returns: Json }
+      cancel_deal_voucher: { Args: { p_voucher_id: string }; Returns: Json }
       cancel_deduction: {
         Args: { p_id: string; p_reason: string }
         Returns: Json
@@ -1167,6 +1168,11 @@ export type Database = {
           p_tab_id: string
         }
         Returns: Json
+      }
+      card_frame_reset: { Args: { p_profile?: string }; Returns: number }
+      card_frame_unlocked: {
+        Args: { p_frame: string; p_profile: string }
+        Returns: boolean
       }
       checklist_board: {
         Args: { p_business_date?: string; p_venue_id?: string }
@@ -1232,6 +1238,19 @@ export type Database = {
       checklist_sync_run_lines: {
         Args: { p_template_id: string }
         Returns: number
+      }
+      claim_card_reward: {
+        Args: { p_kind: string; p_perk_id?: string; p_venue_id?: string }
+        Returns: Json
+      }
+      claim_card_reward_for_tab: {
+        Args: {
+          p_device_id?: string
+          p_kind: string
+          p_perk_id?: string
+          p_tab_id: string
+        }
+        Returns: Json
       }
       claim_due_index: {
         Args: { p_limit?: number }
@@ -1912,6 +1931,15 @@ export type Database = {
       }
       day_close_online: { Args: { p_day_session_id?: string }; Returns: Json }
       day_close_shop: { Args: { p_day_session_id?: string }; Returns: Json }
+      deal_look_json: { Args: { p_scope: Json }; Returns: Json }
+      deal_look_side: { Args: { p_cats: Json; p_items: Json }; Returns: Json }
+      deal_voucher_code_new: { Args: never; Returns: string }
+      deal_voucher_json: {
+        Args: {
+          p_voucher: Database["public"]["Tables"]["loyalty_deal_vouchers"]["Row"]
+        }
+        Returns: Json
+      }
       decide_content: {
         Args: {
           p_decision: string
@@ -2474,6 +2502,7 @@ export type Database = {
         }[]
       }
       jsonb_top_keys_text: { Args: { p: Json }; Returns: string }
+      jsonb_uuids: { Args: { p: Json }; Returns: string[] }
       kds_ack_tickets: { Args: { p_ticket_ids: string[] }; Returns: Json }
       kitchen_board: { Args: { p_venue_id?: string }; Returns: Json }
       kitchen_reach: { Args: { p_since?: string }; Returns: Json }
@@ -3046,6 +3075,10 @@ export type Database = {
         Args: { p_code: string; p_ok: boolean; p_uid: string }
         Returns: undefined
       }
+      loyalty_birthday_window: {
+        Args: { p_birth: string; p_day: string; p_days: number }
+        Returns: unknown
+      }
       loyalty_card_ensure: {
         Args: { p_profile: string }
         Returns: Database["public"]["Tables"]["loyalty_cards"]["Row"]
@@ -3056,6 +3089,53 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      loyalty_card_extras: { Args: { p_profile_id: string }; Returns: Json }
+      loyalty_card_gifts: {
+        Args: {
+          p_except_reservation?: string
+          p_except_tab?: string
+          p_profile: string
+          p_venue: string
+        }
+        Returns: {
+          authorized_by: string
+          category_ids: string[]
+          claimed_until: string
+          eligible: boolean
+          gift_when: string
+          item_ids: string[]
+          name_ar: string
+          name_en: string
+          perk_id: string
+          target: string
+          used: boolean
+          window_from: string
+          window_to: string
+        }[]
+      }
+      loyalty_claim: {
+        Args: {
+          p_by: string
+          p_kind: string
+          p_perk: string
+          p_profile: string
+          p_venue: string
+        }
+        Returns: string
+      }
+      loyalty_claim_until: {
+        Args: {
+          p_kind: string
+          p_perk: string
+          p_profile: string
+          p_since?: string
+        }
+        Returns: string
+      }
+      loyalty_court_gift_sync: {
+        Args: { p_customer: string; p_tab_id: string }
+        Returns: boolean
+      }
       loyalty_court_reward: { Args: { p_tab_id: string }; Returns: Json }
       loyalty_customer: { Args: { p_profile_id: string }; Returns: Json }
       loyalty_deal_uses: {
@@ -3063,6 +3143,10 @@ export type Database = {
         Returns: number
       }
       loyalty_display_name: { Args: { p_profile: string }; Returns: string }
+      loyalty_extras_json: {
+        Args: { p_profile: string; p_venue: string; p_with_dates: boolean }
+        Returns: Json
+      }
       loyalty_history: {
         Args: { p_limit: number; p_profile: string }
         Returns: Json
@@ -3075,6 +3159,7 @@ export type Database = {
         Args: { p_code: string; p_venue_id: string }
         Returns: Json
       }
+      loyalty_item_stamps: { Args: { p_item: string }; Returns: boolean }
       loyalty_ladder_json: { Args: never; Returns: Json }
       loyalty_me: { Args: never; Returns: string }
       loyalty_member_code: { Args: never; Returns: string }
@@ -3083,6 +3168,18 @@ export type Database = {
       loyalty_nightly_one: {
         Args: { p_expire_months: number; p_profile: string; p_since: string }
         Returns: string
+      }
+      loyalty_perks_detail: {
+        Args: { p_tab_id: string }
+        Returns: {
+          amount_iqd: number
+          authorized_by: string
+          kind: string
+          order_item_id: string
+          perk_id: string
+          stamps_spent: number
+          units: number
+        }[]
       }
       loyalty_perks_json: {
         Args: { p_all?: boolean; p_tier: string }
@@ -3135,6 +3232,8 @@ export type Database = {
       }
       loyalty_retier: { Args: never; Returns: undefined }
       loyalty_settings_json: { Args: never; Returns: Json }
+      loyalty_stamp_balance: { Args: { p_profile: string }; Returns: number }
+      loyalty_stamp_size: { Args: { p_profile: string }; Returns: number }
       loyalty_tab_benefits: { Args: { p_tab_id: string }; Returns: Json }
       loyalty_tab_paid_at_settle: {
         Args: { p_tab_id: string }
@@ -3736,6 +3835,7 @@ export type Database = {
       }
       my_birth_date: { Args: never; Returns: Json }
       my_campaign_drafts: { Args: { p_venue_id?: string }; Returns: Json }
+      my_card_extras: { Args: { p_venue_id?: string }; Returns: Json }
       my_checklist_history: {
         Args: {
           p_before_date?: string
@@ -3748,6 +3848,7 @@ export type Database = {
       my_checklists_today: { Args: { p_venue_id?: string }; Returns: Json }
       my_clock: { Args: { p_venue_id: string }; Returns: Json }
       my_coach_statements: { Args: { p_month?: string }; Returns: Json }
+      my_deal_vouchers: { Args: never; Returns: Json }
       my_deals: { Args: never; Returns: Json }
       my_deduction_proposals: {
         Args: { p_limit?: number; p_venue_id?: string }
@@ -4733,6 +4834,7 @@ export type Database = {
         Returns: undefined
       }
       redact_incident: { Args: { p_id: string }; Returns: Json }
+      redeem_deal: { Args: { p_promotion_id: string }; Returns: Json }
       redeem_reward: {
         Args: { p_idempotency_key?: string; p_reward_id: string }
         Returns: Json
@@ -5428,6 +5530,7 @@ export type Database = {
         }
         Returns: Json
       }
+      set_stamp_card: { Args: { p_card: Json }; Returns: Json }
       set_station_staff: {
         Args: { p_staff_id: string; p_station_ids: string[] }
         Returns: Json
@@ -5676,6 +5779,7 @@ export type Database = {
       }
       staff_venue_ids: { Args: never; Returns: string[] }
       staff_visible_to_me: { Args: { p_staff_id: string }; Returns: boolean }
+      stamp_card_settings: { Args: never; Returns: Json }
       start_break: {
         Args: { p_device_id: string; p_pin: string }
         Returns: Json
@@ -6472,6 +6576,15 @@ export type Database = {
           p_sort_order?: number
         }
         Returns: string
+      }
+      use_deal_voucher: {
+        Args: {
+          p_code: string
+          p_device_id?: string
+          p_idempotency_key?: string
+          p_tab_id: string
+        }
+        Returns: Json
       }
       use_reward_voucher: {
         Args: { p_code: string; p_idempotency_key?: string; p_tab_id: string }
@@ -10814,6 +10927,7 @@ export type Database = {
           points_12m: number
           profile_id: string
           tier_id: string | null
+          tier_up_at: string | null
           updated_at: string
         }
         Insert: {
@@ -10823,6 +10937,7 @@ export type Database = {
           points_12m?: number
           profile_id: string
           tier_id?: string | null
+          tier_up_at?: string | null
           updated_at?: string
         }
         Update: {
@@ -10832,6 +10947,7 @@ export type Database = {
           points_12m?: number
           profile_id?: string
           tier_id?: string | null
+          tier_up_at?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -10902,6 +11018,74 @@ export type Database = {
           },
         ]
       }
+      loyalty_deal_vouchers: {
+        Row: {
+          code: string
+          created_at: string
+          ended_at: string | null
+          expires_at: string
+          id: string
+          profile_id: string
+          promotion_id: string
+          status: string
+          tab_id: string | null
+          used_by: string | null
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          ended_at?: string | null
+          expires_at: string
+          id?: string
+          profile_id: string
+          promotion_id: string
+          status?: string
+          tab_id?: string | null
+          used_by?: string | null
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          ended_at?: string | null
+          expires_at?: string
+          id?: string
+          profile_id?: string
+          promotion_id?: string
+          status?: string
+          tab_id?: string | null
+          used_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "loyalty_deal_vouchers_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "loyalty_deal_vouchers_promotion_id_fkey"
+            columns: ["promotion_id"]
+            isOneToOne: false
+            referencedRelation: "promotions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "loyalty_deal_vouchers_tab_id_fkey"
+            columns: ["tab_id"]
+            isOneToOne: false
+            referencedRelation: "tabs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "loyalty_deal_vouchers_used_by_fkey"
+            columns: ["used_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       loyalty_ledger: {
         Row: {
           actor_id: string | null
@@ -10968,6 +11152,122 @@ export type Database = {
             columns: ["venue_id"]
             isOneToOne: false
             referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      loyalty_perk_lines: {
+        Row: {
+          amount_iqd: number
+          created_at: string
+          id: string
+          kind: string
+          order_item_id: string
+          perk_id: string | null
+          profile_id: string
+          stamps_spent: number | null
+          tab_id: string
+          units: number
+        }
+        Insert: {
+          amount_iqd: number
+          created_at?: string
+          id?: string
+          kind: string
+          order_item_id: string
+          perk_id?: string | null
+          profile_id: string
+          stamps_spent?: number | null
+          tab_id: string
+          units?: number
+        }
+        Update: {
+          amount_iqd?: number
+          created_at?: string
+          id?: string
+          kind?: string
+          order_item_id?: string
+          perk_id?: string | null
+          profile_id?: string
+          stamps_spent?: number | null
+          tab_id?: string
+          units?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "loyalty_perk_lines_order_item_id_fkey"
+            columns: ["order_item_id"]
+            isOneToOne: false
+            referencedRelation: "order_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "loyalty_perk_lines_perk_id_fkey"
+            columns: ["perk_id"]
+            isOneToOne: false
+            referencedRelation: "loyalty_tier_perks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "loyalty_perk_lines_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "loyalty_perk_lines_tab_id_fkey"
+            columns: ["tab_id"]
+            isOneToOne: false
+            referencedRelation: "tabs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      loyalty_reward_claims: {
+        Row: {
+          claimed_at: string
+          claimed_by: string | null
+          expires_at: string
+          id: string
+          kind: string
+          perk_id: string | null
+          profile_id: string
+          reward_key: string | null
+        }
+        Insert: {
+          claimed_at?: string
+          claimed_by?: string | null
+          expires_at: string
+          id?: string
+          kind: string
+          perk_id?: string | null
+          profile_id: string
+          reward_key?: string | null
+        }
+        Update: {
+          claimed_at?: string
+          claimed_by?: string | null
+          expires_at?: string
+          id?: string
+          kind?: string
+          perk_id?: string | null
+          profile_id?: string
+          reward_key?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "loyalty_reward_claims_perk_id_fkey"
+            columns: ["perk_id"]
+            isOneToOne: false
+            referencedRelation: "loyalty_tier_perks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "loyalty_reward_claims_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -11192,9 +11492,90 @@ export type Database = {
           },
         ]
       }
+      loyalty_stamp_card: {
+        Row: {
+          category_ids: string[]
+          enabled: boolean
+          excluded_item_ids: string[]
+          id: boolean
+          size: number
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          category_ids?: string[]
+          enabled?: boolean
+          excluded_item_ids?: string[]
+          id?: boolean
+          size?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          category_ids?: string[]
+          enabled?: boolean
+          excluded_item_ids?: string[]
+          id?: boolean
+          size?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "loyalty_stamp_card_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      loyalty_stamps: {
+        Row: {
+          created_at: string
+          delta: number
+          id: string
+          kind: string
+          profile_id: string
+          tab_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          delta: number
+          id?: string
+          kind: string
+          profile_id: string
+          tab_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          delta?: number
+          id?: string
+          kind?: string
+          profile_id?: string
+          tab_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "loyalty_stamps_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "loyalty_stamps_tab_id_fkey"
+            columns: ["tab_id"]
+            isOneToOne: false
+            referencedRelation: "tabs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       loyalty_tier_perks: {
         Row: {
           active: boolean
+          config: Json
           created_at: string
           created_by: string
           id: string
@@ -11208,6 +11589,7 @@ export type Database = {
         }
         Insert: {
           active?: boolean
+          config?: Json
           created_at?: string
           created_by: string
           id?: string
@@ -11221,6 +11603,7 @@ export type Database = {
         }
         Update: {
           active?: boolean
+          config?: Json
           created_at?: string
           created_by?: string
           id?: string
@@ -14059,6 +14442,7 @@ export type Database = {
           avatar_frame_style: string
           avatar_path: string | null
           birth_date: string | null
+          birth_date_set_at: string | null
           created_at: string
           deleted_at: string | null
           expo_push_token: string | null
@@ -14094,6 +14478,7 @@ export type Database = {
           avatar_frame_style?: string
           avatar_path?: string | null
           birth_date?: string | null
+          birth_date_set_at?: string | null
           created_at?: string
           deleted_at?: string | null
           expo_push_token?: string | null
@@ -14129,6 +14514,7 @@ export type Database = {
           avatar_frame_style?: string
           avatar_path?: string | null
           birth_date?: string | null
+          birth_date_set_at?: string | null
           created_at?: string
           deleted_at?: string | null
           expo_push_token?: string | null
@@ -15805,6 +16191,68 @@ export type Database = {
             columns: ["venue_id"]
             isOneToOne: false
             referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reservation_card_gifts: {
+        Row: {
+          amount_iqd: number
+          applied_by: string | null
+          authorized_by: string | null
+          created_at: string
+          perk_id: string | null
+          profile_id: string
+          reservation_id: string
+          tab_id: string | null
+        }
+        Insert: {
+          amount_iqd: number
+          applied_by?: string | null
+          authorized_by?: string | null
+          created_at?: string
+          perk_id?: string | null
+          profile_id: string
+          reservation_id: string
+          tab_id?: string | null
+        }
+        Update: {
+          amount_iqd?: number
+          applied_by?: string | null
+          authorized_by?: string | null
+          created_at?: string
+          perk_id?: string | null
+          profile_id?: string
+          reservation_id?: string
+          tab_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reservation_card_gifts_perk_id_fkey"
+            columns: ["perk_id"]
+            isOneToOne: false
+            referencedRelation: "loyalty_tier_perks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reservation_card_gifts_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reservation_card_gifts_reservation_id_fkey"
+            columns: ["reservation_id"]
+            isOneToOne: true
+            referencedRelation: "reservations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reservation_card_gifts_tab_id_fkey"
+            columns: ["tab_id"]
+            isOneToOne: false
+            referencedRelation: "tabs"
             referencedColumns: ["id"]
           },
         ]

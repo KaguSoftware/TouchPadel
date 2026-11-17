@@ -77,7 +77,8 @@
     "telegram_staff": "staff, stations and pay rules",
     "venue_files": "the club's own documents on the Files page (leases, licences, supplier price lists), kept with their objects in the venue-files bucket",
     "venue_settings": "the branch and its settings",
-    "venues": "the branch and its settings"
+    "venues": "the branch and its settings",
+    "loyalty_stamp_card": "promotions, loyalty and marketing rules"
   },
   "wipe": {
     "analytics_insight_rejections": "analytics and assistant use",
@@ -223,7 +224,12 @@
     "wage_payments": "staff activity and staff-written content",
     "waiter_calls": "café orders, tabs and money",
     "app.monitoring_events": "logs, alerts, outboxes and replays",
-    "staff_clock_events": "staff activity and staff-written content: every clock-in attempt with its location fix (0442)"
+    "staff_clock_events": "staff activity and staff-written content: every clock-in attempt with its location fix (0442)",
+    "loyalty_perk_lines": "loyalty activity",
+    "loyalty_reward_claims": "loyalty activity",
+    "loyalty_deal_vouchers": "loyalty activity",
+    "loyalty_stamps": "loyalty activity",
+    "reservation_card_gifts": "bookings and booking money"
   },
   "profiles_kept": "staff ids, coaches.profile_id, and the logins named with --keep-email; their play survey answers (profiles.play_*, 0334) are emptied",
   "links_cleared": {

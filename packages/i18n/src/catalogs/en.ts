@@ -1148,6 +1148,12 @@ export const en = {
     frameRuleSilverRacket: 'Play 50 matches',
     frameRuleGoldRacket: 'Play 100 matches',
     frameRuleChampion: 'Win a Touch tournament',
+    // 0445: the rings a loyalty card unlocks.
+    frameCard: 'With your member card',
+    frameCardRule: '{card} card and up',
+    frameCardGreen: 'Green card ring',
+    frameCardBlue: 'Blue card ring',
+    frameCardBlack: 'Black card ring',
     // Edit profile (0302): the email row, the photo, gender and date of birth.
     emailSection: 'Email',
     photoAdd: 'Add photo',
@@ -1190,6 +1196,8 @@ export const en = {
     birthRemove: 'Remove date of birth',
     birthSaved: 'Date of birth saved',
     birthRemoved: 'Date of birth removed',
+    // 0445: a birthday gift counts 30 days after the date is set or changed.
+    birthGiftNote: 'A new or changed date counts for the birthday gift after 30 days.',
     name: 'Name',
     emailLocked:
       "Email {email} can't be changed here — it requires re-verification through support.",
@@ -1502,6 +1510,8 @@ export const en = {
     guest: {
       card: {
         title: 'Member card',
+        // 2026-11-15 (Majed): the clear way from the points to Points & rewards.
+        seeRewards: 'See rewards',
         show: 'Show this code at the cashier',
         sayNumber: 'Or say your number at the cashier',
         memberCode: 'Member code',
@@ -1552,7 +1562,7 @@ export const en = {
       },
       rewards: {
         title: 'Rewards',
-        note: 'Tap Redeem on a reward to get its code, then show the code at the cashier.',
+        note: 'The green fills as your points come in. Full green means ready: tap Redeem for a code that lasts 15 minutes, and show it at the cashier.',
         cost: 'Points: {points}',
         empty: 'No rewards right now.',
         soon: 'Coming soon',
@@ -1560,6 +1570,9 @@ export const en = {
         ready: 'Ready',
         toGo: '{points} to go',
         redeem: 'Redeem',
+        // 2026-11-16: the line between the rewards the balance covers and the ones still to reach.
+        you: 'You · {points}',
+        next: 'Next: {reward} in {points}',
       },
       // 0415: a reward redeemed in the app is a QR for that reward, scanned at the cashier.
       voucher: {
@@ -1590,6 +1603,30 @@ export const en = {
         readyRow: '{time} left',
         missing: 'This reward code is no longer here. Your points are on Points & rewards.',
       },
+      // 0445 (Majed, 2026-11-15): a deal's own QR, alive 15 minutes like a reward's. No points.
+      dealVoucher: {
+        title: 'Your deal',
+        show: 'Show this code at the cashier.',
+        bearer: 'Anyone who has this code can use the deal.',
+        timeLeft: 'Time left',
+        a11yLeft: '{time} left',
+        cancel: 'Cancel this code',
+        cancelTitle: 'Cancel this code?',
+        cancelBody: 'It stops working now. You can get a new code while the deal is running.',
+        cancelConfirm: 'Cancel code',
+        keep: 'Keep it',
+        cancelled: 'Code cancelled.',
+        collectedTitle: 'Used at the counter',
+        collectedBody: 'The cashier applied {deal} to your bill.',
+        expiredTitle: 'This code has expired',
+        expiredBody: 'Get a new code when you are at the counter.',
+        cancelledTitle: 'Code cancelled',
+        cancelledBody: 'This code no longer works. Get a new one when you are at the counter.',
+        newerBody: 'You have a newer code for this deal.',
+        again: 'Get a new code',
+        done: 'Done',
+        missing: 'This code is no longer here. Redeem the deal again for a new one.',
+      },
       tier: {
         label: 'Tier',
         next: 'Next tier: {tier}',
@@ -1612,11 +1649,87 @@ export const en = {
       gives: {
         multiplier: '{times} points on everything you pay for',
         deal: 'Deal: {name}',
+        // 0445: the small line under a privilege's own name, by kind.
+        // A gift, by when it opens and what it frees ({days} a counted `days`).
+        giftBirthday: 'On your birthday, good for {days}',
+        giftBirthdayCourt: 'One free court hour on your birthday, good for {days}',
+        giftMonthly: 'Every month',
+        giftMonthlyCourt: 'One free court hour every month',
+        giftCardUp: 'When you reach this card, good for {days}',
+        giftCardUpCourt: 'One free court hour when you reach this card, good for {days}',
+        sizeUpgradeDetail: 'A free size up: you pay for the size below',
+        days: {
+          zero: '{count} days',
+          one: '1 day',
+          two: '2 days',
+          few: '{count} days',
+          many: '{count} days',
+          other: '{count} days',
+        },
+        freeWithDetail: 'Every time you order',
+        stampSizeDetail: 'Your drink card is full at {stamps}',
+        stamps: {
+          zero: '{count} stamps',
+          one: '1 stamp',
+          two: '2 stamps',
+          few: '{count} stamps',
+          many: '{count} stamps',
+          other: '{count} stamps',
+        },
+        frameDetail: 'A ring for your profile photo',
+      },
+      // 0445: the drink card. A stamp for every drink paid; a full card frees the next one.
+      drinkCard: {
+        title: 'Drink card',
+        a11y: 'Drink card: {count} of {size}',
+        how: 'A stamp for every drink you pay for.',
+        toGo: '{stamps} to your free drink',
+        stamps: {
+          zero: '{count} stamps',
+          one: '1 stamp',
+          two: '2 stamps',
+          few: '{count} stamps',
+          many: '{count} stamps',
+          other: '{count} stamps',
+        },
+        readyTitle: 'Your next drink is on us',
+        readyBody: 'Redeem it, then show your code at the counter.',
+        heldTitle: 'On your open bill',
+        heldBody: 'Your free drink is on a bill that is open now.',
+      },
+      // 0445: the monthly and card-up gifts open now, on the Club tab.
+      cardGifts: {
+        monthlyTitle: 'Your gift this month',
+        cardUpTitle: 'Welcome to {card}',
+        cardUpTitleNoCard: 'Welcome to your new card',
+        items: 'Until {date}. Redeem it, then show your code at the counter.',
+        court: 'Until {date}. Redeem it, then book a court: the hour comes off at the desk.',
+      },
+      // 2026-11-15 (Majed): a free drink and every card gift wait for the guest's Redeem.
+      redeem: {
+        button: 'Redeem',
+        showCode: 'Show code',
+        held: 'Redeemed. Show your code at the counter by {time}.',
+        heldCourt: 'Redeemed. Book a court by {time} and the hour comes off at the desk.',
+        done: 'Redeemed. Show your code at the counter.',
+      },
+      // 0445: birthday gifts on the Club tab.
+      birthday: {
+        title: 'Happy birthday',
+        body: 'It is on us. Redeem it, then show your code at the counter.',
+        // Only court hours open: they come off a booking at the desk, not at the cashier.
+        bodyCourt: 'It is on us. Redeem it, then book a court before it ends: the hour comes off at the desk.',
+        courtNote: 'Book a court and the hour comes off at the desk',
+        until: 'Until {date}',
+        noDate: 'Your card has a birthday gift. Add your date of birth to get it.',
+        addDate: 'Add date of birth',
+        waiting: 'Your birthday gift counts from {date}.',
+        nextYear: 'Your date of birth changed recently, so your birthday gift starts with your next birthday.',
       },
       // 0410: deals. The guest picks one, then the cashier applies it when they scan the card.
       deals: {
         title: 'Deals',
-        hint: 'Pick one, then show your member card at the cashier.',
+        hint: 'Tap a deal for its details and Redeem.',
         percentOff: '{percent} off',
         amountOff: '{amount} off',
         wholeBill: 'On your whole café bill',
@@ -1640,6 +1753,35 @@ export const en = {
         // On the member card, by the code.
         cardLabel: 'Your deal',
         cardLine: 'The cashier applies it when they scan this code.',
+        // 2026-11-15 (Majed): the minimal deal cards and the sheet a tap opens.
+        redeem: 'Redeem',
+        redeemed: 'Redeemed',
+        showCode: 'Show code',
+        off: 'off',
+        iqd: 'IQD',
+        free: 'Free',
+        freeTag: 'FREE',
+        bogo: 'Buy {buy}, get {get} free',
+        bogoPercent: 'Buy {buy}, get {get} at {percent} off',
+        courtGet: 'Book a court, get {get} free',
+        courtGetPercent: 'Book a court, get {get} at {percent} off',
+        bogoShort: 'Buy one, get one free',
+        bogoShortPercent: 'Buy one, get one at {percent} off',
+        buy: 'When you buy',
+        get: 'You get',
+        aCourt: 'A court booking',
+        perBill: 'Per bill',
+        everyDay: 'Every day',
+        allDay: 'All day',
+        noEnd: 'No end date',
+        card: 'Card',
+        anyCard: 'Every card',
+        uses: 'Uses',
+        usesUnlimited: 'As often as you like',
+        usesOf: '{count} of {total} left',
+        howTitle: 'How it works',
+        how: 'Press Redeem for a code that lasts 15 minutes. Show it at the counter and the cashier takes the deal off your bill.',
+        detailsHint: 'Shows when it runs and how many times you can use it',
       },
       // 0410: every card from the base up.
       ladder: {

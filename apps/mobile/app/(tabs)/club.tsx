@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState, type MutableRefObject } from 'react';
 import { View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useLocale } from '../../src/i18n/LocaleProvider';
@@ -8,11 +8,18 @@ import { Screen, SegmentedControl, TAB_TITLE_TOP, Title } from '../../src/compon
 import { EmptyState, SkeletonList } from '../../src/components/states';
 import { space } from '../../src/theme';
 import { useAuth } from '../../src/features/auth/context';
-import { useMemberCard, useMyLoyalty } from '../../src/features/loyalty/hooks';
-import { loyaltyOn } from '../../src/features/loyalty/logic';
+import { useMemberCard, useMyCardExtras, useMyLoyalty } from '../../src/features/loyalty/hooks';
+import { birthdayView, clubToday, openCardGifts } from '../../src/features/loyalty/extras';
+import { CardGiftsNote } from '../../src/features/loyalty/CardGiftsNote';
+import { BirthdayNote } from '../../src/features/loyalty/BirthdayNote';
+import { DrinkCard } from '../../src/features/loyalty/DrinkCard';
+import { loyaltyOn, tierName } from '../../src/features/loyalty/logic';
 import { MemberCardPanel } from '../../src/features/loyalty/MemberCardPanel';
 import { PointsCard } from '../../src/features/loyalty/PointsCard';
 import { CardDeals } from '../../src/features/loyalty/CardDeals';
+import { useCardRedeem } from '../../src/features/loyalty/useCardRedeem';
+import { useVenueSettings } from '../../src/features/availability/hooks';
+import { DEFAULT_TZ } from '../../src/features/availability/assemble';
 import { useOwnProfile } from '../../src/features/profile/hooks';
 import { nameFieldsOf } from '../../src/features/profile/names';
 import { CafeMenuView } from '../../src/features/cafe/CafeMenuView';
@@ -30,14 +37,20 @@ type ClubView = 'card' | 'menu';
  * out, the card view asks the guest to sign in. With loyalty switched off by the owner there is
  * no card to show (build contracts L-1), so the card segment goes and the menu stays alone.
  *
- * Under the code, the deals the guest can use (Majed, 2026-11-13; CardDeals): picked there, they
- * land on the paper above for the cashier's scan, without leaving the tab.
+ * Under the code, the deals the guest can use (Majed, 2026-11-13; CardDeals), compact picture
+ * tiles since 2026-11-15: a tap opens the deal, and Redeem there gives its own 15-minute QR.
+ *
+ * The drink card and the birthday (0445, `my_card_extras`): a birthday gift open today heads the
+ * card as a warm banner, over the points; under the code, where the cashier is, the monthly and
+ * card-up gifts open now (CardGiftsNote), then the drink card; the quiet birthday lines (add a
+ * date, when a new date counts) follow it. Each free drink and gift has Redeem (Majed,
+ * 2026-11-15: "a redeem now button, not go ask the cashier"), which brings the code into view.
  *
  * `show=card` (Profile's member card, Points & rewards' "Show my member card") opens it on the
  * card whatever was picked last: there is one member card screen, and it is this one.
  */
 export default function ClubScreen() {
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
   const router = useRouter();
   const tabBarHeight = useTabBarHeight();
   const { session } = useAuth();
@@ -48,6 +61,15 @@ export default function ClubScreen() {
   const name = nameFieldsOf(profile.data, session?.user.email ?? null);
   const holder = `${name.first} ${name.last}`.trim();
   const memberCard = useMemberCard(member ? session.user.id : null).card;
+  // 0445: the drink card and the birthday gifts, while loyalty is on.
+  const extras = useMyCardExtras(member && loyaltyOn(loyalty.data));
+  const birthday = birthdayView(extras.data?.birthday, clubToday());
+  const toBirthDate = () => router.push('/profile-edit');
+  const cardGifts = openCardGifts(extras.data?.gifts);
+  const tz = useVenueSettings().data?.timezone ?? DEFAULT_TZ;
+  // The code's scroll is handed out by the panel as it draws; a Redeem finishes after that.
+  const toCodeRef = useRef<() => void>(() => {});
+  const redeem = useCardRedeem(() => toCodeRef.current());
   // Signed out, the card view is still offered (it is how a guest learns there is one); signed
   // in, only while the owner has loyalty on.
   const offersCard = !member || loyalty.isPending || loyaltyOn(loyalty.data);
@@ -90,20 +112,66 @@ export default function ClubScreen() {
         bottomPad={bottomPad}
         below={(toCode) =>
           loyalty.data && loyaltyOn(loyalty.data) ? (
-            <CardDeals testID="club" points12m={loyalty.data.points_12m} onShowCard={toCode} />
+            <>
+              <CodeScroll toCode={toCode} into={toCodeRef} />
+              <CardGiftsNote
+                testID="club.card-gifts"
+                gifts={cardGifts}
+                cardName={loyalty.data.tier ? tierName(loyalty.data.tier, locale) : null}
+                tz={tz}
+                busyId={redeem.giftBusyId}
+                onRedeem={(id) =>
+                  redeem.redeemGift(id, cardGifts.find((g) => g.perk_id === id)?.target === 'court_hour')
+                }
+                onShowCode={toCode}
+              />
+              <DrinkCard
+                testID="club.drink-card"
+                stamps={extras.data?.stamps}
+                tz={tz}
+                busy={redeem.drinkBusy}
+                onRedeem={redeem.redeemDrink}
+                onShowCode={toCode}
+              />
+              {birthday.kind !== 'open' ? (
+                <BirthdayNote testID="club.birthday" view={birthday} onAddDate={toBirthDate} tz={tz} />
+              ) : null}
+              <CardDeals testID="club" points12m={loyalty.data.points_12m} />
+            </>
           ) : null
         }
       >
-        {/* The points this card has earned, as a card of their own, and the way to what they buy. */}
-        {loyalty.data ? (
-          <PointsCard
-            testID="club.loyalty"
-            loyalty={loyalty.data}
-            holder={holder}
-            memberCode={memberCard?.member_code}
-            onPress={() => router.push({ pathname: '/loyalty', params: { from: 'club' } })}
-          />
-        ) : null}
+        {(toCode) => (
+          <>
+            {/* 0445: a birthday gift open today, first: it is the day's news. */}
+            {birthday.kind === 'open' ? (
+              <BirthdayNote
+                testID="club.birthday"
+                view={birthday}
+                onAddDate={toBirthDate}
+                tz={tz}
+                busyId={redeem.giftBusyId}
+                onRedeem={(id) =>
+                  redeem.redeemGift(
+                    id,
+                    birthday.gifts.find((g) => g.perk_id === id)?.target === 'court_hour',
+                  )
+                }
+                onShowCode={toCode}
+              />
+            ) : null}
+            {/* The points this card has earned, as a card of their own, and the way to what they buy. */}
+            {loyalty.data ? (
+              <PointsCard
+                testID="club.loyalty"
+                loyalty={loyalty.data}
+                holder={holder}
+                memberCode={memberCard?.member_code}
+                onPress={() => router.push({ pathname: '/loyalty', params: { from: 'club' } })}
+              />
+            ) : null}
+          </>
+        )}
       </MemberCardPanel>
     );
   };
@@ -169,4 +237,13 @@ export default function ClubScreen() {
       ) : null}
     </Screen>
   );
+}
+
+/**
+ * Keeps the panel's scroll-to-code for a Redeem that finishes after the render it started in:
+ * the panel hands `toCode` to `below` as it draws (it reads only refs, so any copy scrolls).
+ */
+function CodeScroll({ toCode, into }: { toCode: () => void; into: MutableRefObject<() => void> }) {
+  into.current = toCode;
+  return null;
 }

@@ -383,6 +383,8 @@ function RootStack() {
           {/* 0415: a reward redeemed on Points & rewards, its QR for the cashier. Singular: a double
           tap on Redeem must never stack two. */}
           <Stack.Screen name="reward-voucher" dangerouslySingular />
+          {/* 0445: a deal redeemed in the app, its own 15-minute QR. Singular for the same reason. */}
+          <Stack.Screen name="deal-voucher" dangerouslySingular />
           {/* The leaderboard's score report (0364), pushed from the Ranks tab's played bookings. */}
           <Stack.Screen name="ranks-report" />
           {/* The view-only café menu, opened from the account page. */}

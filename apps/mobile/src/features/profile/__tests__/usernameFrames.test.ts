@@ -8,6 +8,8 @@ import {
 } from '../username';
 import {
   badgeCentre,
+  CARD_FRAMES,
+  cardToneOf,
   DEFAULT_FRAME,
   EARNED_FRAMES,
   FRAME_IDS,
@@ -17,6 +19,7 @@ import {
   frameOf,
   frameRuleKey,
   frameStyleOf,
+  offeredCardFrames,
   step,
 } from '../frames';
 
@@ -54,11 +57,13 @@ describe('usernames (0314)', () => {
 });
 
 describe('frames (0314)', () => {
-  it('is the server\'s closed list, five free then four earned', () => {
+  it('is the server\'s closed list, five free, four earned, then three card rings (0445)', () => {
     expect(FRAME_IDS).toEqual([
       'brand-green', 'touch-blue', 'court-white', 'split-court', 'double-line',
       'regular', 'silver-racket', 'gold-racket', 'champion',
+      'card-green', 'card-blue', 'card-black',
     ]);
+    expect(CARD_FRAMES).toEqual(['card-green', 'card-blue', 'card-black']);
     expect(FREE_FRAMES).toHaveLength(5);
     expect(EARNED_FRAMES).toEqual(['regular', 'silver-racket', 'gold-racket', 'champion']);
   });
@@ -118,5 +123,45 @@ describe('frames (0314)', () => {
     expect(ltr.x).toBeGreaterThan(42);
     expect(rtl.x).toBeLessThan(42);
     expect(ltr.x + rtl.x).toBeCloseTo(84);
+  });
+
+  it('draws a card ring as a woven band between two fine lines, solid only, with a card badge (0445)', () => {
+    for (const id of CARD_FRAMES) {
+      const d = frameDrawing(id, 84, 'lines');
+      expect(d.rings).toHaveLength(3);
+      expect(d.rings.every((r) => !r.dashes)).toBe(true);
+      expect(d.rings[1]).toMatchObject({ paint: { kind: 'card', part: 'band' }, weave: 40 });
+      expect(d.rings[0]!.paint).toMatchObject({ kind: 'card', part: 'shade' });
+      expect(d.rings[2]!.paint).toMatchObject({ kind: 'card', part: 'hi' });
+      expect(d.badge).toMatchObject({ glyph: 'card', size: 24 });
+      expect(frameStyleOf(id, 'lines')).toBe('solid');
+      expect(frameRuleKey(id)).toBeNull();
+    }
+    expect(frameDrawing('card-green', 36).rings[1]!.weave).toBe(28);
+    expect(frameDrawing('card-green', 84).badge?.ink).toBe('navy');
+    expect(frameDrawing('card-black', 84).badge?.ink).toBe('white');
+    expect(cardToneOf('card-blue')).toBe('blue');
+    expect(cardToneOf('champion')).toBeNull();
+    expect(frameNameKey('card-green')).toBe('profile.frameCardGreen');
+    expect(frameOf('card-black')).toBe('card-black');
+  });
+
+  it('offers only the card rings some card unlocks, each with that card (0445)', () => {
+    const green = { tier_id: 't-green', name_en: 'Touch Padel green', name_ar: 'الأخضر', color: 'green' };
+    const offers = offeredCardFrames([
+      { id: 'brand-green', unlocked: true },
+      { id: 'card-black', unlocked: false, card: null },
+      { id: 'card-blue', unlocked: false, card: { ...green, tier_id: 't-blue', color: 'blue' } },
+      { id: 'card-green', unlocked: true, card: green },
+      { id: 'card-green', unlocked: true, card: { name_en: 'no tier id' } },
+      'x',
+    ]);
+    expect(offers.map((o) => [o.id, o.unlocked])).toEqual([
+      ['card-green', true],
+      ['card-blue', false],
+    ]);
+    expect(offers[1]!.card).toEqual({ tier_id: 't-blue', name_en: 'Touch Padel green', name_ar: 'الأخضر', color: 'blue' });
+    // A server before 0445 sends no card rings: no card section.
+    expect(offeredCardFrames(undefined)).toEqual([]);
   });
 });
