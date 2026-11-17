@@ -428,7 +428,7 @@ describe('reasonText / messageCodeText', () => {
 
   it("words a quick message's code as the players picked it", () => {
     expect(messageCodeText('running_late', en)).toBe('Running late');
-    expect(messageCodeText('on_my_way', ar)).toBe('في الطريق');
+    expect(messageCodeText('on_my_way', ar)).toBe('في طريقي');
     expect(messageCodeText('shout', en)).toBe('shout');
     expect(messageCodeText(null, en)).toBe('—');
   });

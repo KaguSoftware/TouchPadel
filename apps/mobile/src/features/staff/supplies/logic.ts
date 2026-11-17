@@ -8,7 +8,7 @@
  * PURE (vitest): no react-native, no client.
  */
 import { rolesOf, westernDigits, type StaffAccess, type StaffRole } from '@touch/core';
-import { formatNumber, type Locale, type MessageKey, type TParams } from '@touch/i18n';
+import { formatNumber, pluralForm, type Locale, type MessageKey, type TParams } from '@touch/i18n';
 import type {
   AddShoppingArgs,
   IngredientOption,
@@ -143,10 +143,21 @@ function isShoppingUnit(unit: string | null): unit is ShoppingUnit {
   return unit !== null && (SHOPPING_UNITS as readonly string[]).includes(unit);
 }
 
-/** "2 packs", "500 g": the unit word follows the quantity; an unknown unit shows the number alone. */
+/**
+ * "2 packs", "500 g": the unit word follows the quantity; an unknown unit shows the number alone.
+ * Arabic counts a noun by its number: exactly 2 is the dual and stands alone («عبوتان»), 3 to 10
+ * (and 0) take the plural («5 عبوات»), 11 and up, and a fraction, the singular («12 عبوة»).
+ * g and ml are abbreviations and never change.
+ */
 export function formatQty(t: Translate, locale: Locale, qty: number, unit: string | null): string {
   const n = formatNumber(qty, locale);
   if (!isShoppingUnit(unit)) return n;
+  if (locale === 'ar' && (unit === 'pc' || unit === 'pack')) {
+    const form = pluralForm(qty, 'ar');
+    if (form === 'two') return t(`staff.supplies.units.two.${unit}`);
+    const word = form === 'few' || form === 'zero' ? 'many' : 'one';
+    return t('staff.supplies.qtyUnit', { qty: n, unit: t(`staff.supplies.units.${word}.${unit}`) });
+  }
   return t('staff.supplies.qtyUnit', {
     qty: n,
     unit: t(qty === 1 ? `staff.supplies.units.one.${unit}` : `staff.supplies.units.many.${unit}`),

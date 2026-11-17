@@ -1,5 +1,5 @@
 {
-  "generated_from": "612cfc4d5b8117a46da568282a3786dfce914727",
+  "generated_from": "31bbe0b2ead56639d3683efc18d269f12e3d5331",
   "chunks": [
     {
       "kind": "page",
@@ -26230,7 +26230,7 @@
       "ref": "label:op.errors",
       "lang": "ar",
       "title": "op.errors (packages/i18n/src/catalogs/ar.ts) (part 1 of 4)",
-      "body": "SLOT_TAKEN: حُجز هذا الموعد للتو. اختر وقتًا آخر.\nDEGRADED_LOCKOUT: المكان غير متصل بالإنترنت الآن، فلا يمكن تنفيذ هذا الإجراء.\nPIN_INVALID: الرقم السري غير صحيح.\nPIN_LOCKED: محاولات خاطئة كثيرة. الإدخال مقفل لبضع دقائق.\nPIN_OWN: هذا رقمك السري. اطلب من مدير آخر أن يُدخل رقمه السري.\nRPC_MISSING: يتطلب هذا تحديثًا للخادم لم يصل بعد.\nSAVED_OFFLINE: حُفظ على هذه المحطة، وسيُرسل عند عودة الاتصال.\nRPC_NOT_QUEUEABLE: تعذّر إرسال هذا التغيير من قائمة الانتظار دون اتصال. أعد إجراءه أثناء الاتصال.\nPIN_GRANT_REQUIRED: انتهت صلاحية تفويض المدير. أدخل الرقم السري مرة أخرى.\nFORBIDDEN: لا تملك صلاحية تنفيذ هذا الإجراء.\nAUTH_REQUIRED: سجّل الدخول أولًا.\nALREADY_NOTIFIED: سبق إشعار الموظفين بشأن هذه الطاولة.\nNO_OPEN_DAY: لا يوجد يوم عمل مفتوح.",
+      "body": "SLOT_TAKEN: حُجز هذا الموعد للتو. يُرجى اختيار وقت آخر.\nDEGRADED_LOCKOUT: النادي في وضع عدم الاتصال الآن، فلا يمكن تنفيذ هذا الإجراء.\nPIN_INVALID: الرقم السري غير صحيح.\nPIN_LOCKED: محاولات خاطئة كثيرة. الإدخال مقفل لبضع دقائق.\nPIN_OWN: هذا رقمك السري. نحتاج إلى الرقم السري لمدير آخر.\nRPC_MISSING: يتطلب هذا تحديثًا للخادم لم يصل بعد.\nSAVED_OFFLINE: حُفظ على هذه المحطة، وسيُرسل عند عودة الاتصال.\nRPC_NOT_QUEUEABLE: تعذّر إرسال هذا التغيير الذي حُفظ دون اتصال. يمكنك إجراؤه من جديد أثناء الاتصال.\nPIN_GRANT_REQUIRED: انتهت صلاحية تفويض المدير. يُرجى إدخال الرقم السري مرة أخرى.\nFORBIDDEN: ليست لديك صلاحية تنفيذ هذا الإجراء.\nAUTH_REQUIRED: نحتاج إلى تسجيل الدخول أولًا.\nALREADY_NOTIFIED: سبق إشعار الموظفين بشأن هذه الطاولة.",
       "route": null
     },
     {
@@ -26246,7 +26246,7 @@
       "ref": "label:op.errors#2",
       "lang": "ar",
       "title": "op.errors (packages/i18n/src/catalogs/ar.ts) (part 1 of 4)",
-      "body": "NOT_EXPIRED: لم تنتهِ صلاحية هذه الدفعة بعد.\nTAB_NOT_OPEN: هذه الفاتورة غير مفتوحة.\nTAB_NOT_FOUND: تعذّر العثور على الفاتورة.\nTAB_MERGED: دُمجت هذه الفاتورة في فاتورة أخرى.\nTAB_NOT_EMPTY: على هذه الفاتورة مبلغ مستحق، فلا يمكن حذفها. سوِّها بدلًا من ذلك.\nTAB_DAY_MISMATCH: هذه الفاتورة تخص يوم عمل آخر.\nTENDER_SHORT: المبلغ المستلم أقل من المبلغ المستحق.\nALREADY_PAID: هذه الفاتورة مدفوعة بالكامل.\nQUEUE_ROW_NOT_RESOLVABLE: لا يمكن استبعاد هذه العملية: ما زالت قيد الإرسال أو تزامنت بالفعل.\nINVALID_AMOUNT: مبلغ غير صالح.\nITEM_UNAVAILABLE: أحد أصناف الطلب غير متوفر حاليًا.\nEMPTY_ORDER: الطلب فارغ.\nMODIFIER_SELECTION: عدد الإضافات المختارة أقل أو أكثر من المسموح في هذه المجموعة.\nINVALID_TRANSITION: هذا التغيير في الحالة غير مسموح.",
+      "body": "COUNT_LINE_NOT_FOUND: هذا المكوّن ليس ضمن هذا الجرد.\nBATCH_NOT_FOUND: تعذّر العثور على الدفعة.\nNOT_EXPIRED: لم تنتهِ صلاحية هذه الدفعة بعد.\nTAB_NOT_OPEN: هذه الفاتورة غير مفتوحة.\nTAB_NOT_FOUND: تعذّر العثور على الفاتورة.\nTAB_MERGED: دُمجت هذه الفاتورة في فاتورة أخرى.\nTAB_NOT_EMPTY: على هذه الفاتورة مبلغ مستحق، فلا يمكن حذفها. يمكنك تسويتها بدلًا من ذلك.\nTAB_DAY_MISMATCH: هذه الفاتورة تخص يوم عمل آخر.\nTENDER_SHORT: المبلغ المستلم أقل من المبلغ المستحق.\nALREADY_PAID: هذه الفاتورة مدفوعة بالكامل.\nQUEUE_ROW_NOT_RESOLVABLE: لا يمكن استبعاد هذه العملية: ما زالت قيد الإرسال أو اكتملت مزامنتها بالفعل.\nINVALID_AMOUNT: مبلغ غير صالح.\nITEM_UNAVAILABLE: أحد أصناف الطلب غير متوفر حاليًا.\nEMPTY_ORDER: الطلب فارغ.",
       "route": null
     },
     {
@@ -26262,7 +26262,7 @@
       "ref": "label:op.errors#2~2",
       "lang": "ar",
       "title": "op.errors (packages/i18n/src/catalogs/ar.ts) (part 2 of 4)",
-      "body": "NOT_EXPIRED: لم تنتهِ صلاحية هذه الدفعة بعد.\nEMPTY_ORDER: الطلب فارغ.\nMODIFIER_SELECTION: عدد الإضافات المختارة أقل أو أكثر من المسموح في هذه المجموعة.\nINVALID_TRANSITION: هذا التغيير في الحالة غير مسموح.\nHOLD_EXPIRED: انتهت مهلة الحجز المؤقت.\nNO_RATE: لا توجد قاعدة سعر لهذا الموعد.\nCLOSED_DATE: المكان مغلق في هذا التاريخ.\nOUTSIDE_HOURS: هذا الوقت خارج ساعات العمل.\nINVALID_TIME_RANGE: يجب أن يكون وقت البداية قبل وقت النهاية. قسّم أي قاعدة تمتد بعد منتصف الليل إلى قاعدتين.\nGUEST_REQUIRED: الحجز يحتاج اسم ضيف أو حسابًا مرتبطًا.\nINVALID_RANGE: يجب أن يكون وقت النهاية بعد وقت البداية.\nCANCELLATION_WINDOW: موعد البدء قريب جدًا، فلا يمكن الإلغاء.\nRESERVATION_NOT_FOUND: تعذّر العثور على الحجز.\nREASON_REQUIRED: السبب مطلوب.\nREQUEST_NOT_PENDING: سبق الردّ على هذا الطلب. أعد التحميل لرؤية القرار.",
+      "body": "COUNT_LINE_NOT_FOUND: هذا المكوّن ليس ضمن هذا الجرد.\nINVALID_AMOUNT: مبلغ غير صالح.\nITEM_UNAVAILABLE: أحد أصناف الطلب غير متوفر حاليًا.\nEMPTY_ORDER: الطلب فارغ.\nMODIFIER_SELECTION: عدد الإضافات المختارة أقل أو أكثر من المسموح به في هذه المجموعة.\nINVALID_TRANSITION: هذا التغيير في الحالة غير مسموح به.\nHOLD_EXPIRED: انتهت مهلة الحجز المؤقت.\nNO_RATE: لا توجد قاعدة سعر لهذا الموعد.\nCLOSED_DATE: النادي مغلق في هذا التاريخ.\nOUTSIDE_HOURS: هذا الوقت خارج ساعات العمل.\nINVALID_TIME_RANGE: يجب أن يكون وقت البداية قبل وقت النهاية. يمكنك تقسيم أي قاعدة تمتد بعد منتصف الليل إلى قاعدتين.\nGUEST_REQUIRED: يحتاج الحجز إلى اسم ضيف أو حساب مرتبط.\nINVALID_RANGE: يجب أن يكون وقت النهاية بعد وقت البداية.\nCANCELLATION_WINDOW: موعد البدء قريب جدًا، فلا يمكن الإلغاء.",
       "route": null
     },
     {
@@ -26278,7 +26278,7 @@
       "ref": "label:op.errors#2~3",
       "lang": "ar",
       "title": "op.errors (packages/i18n/src/catalogs/ar.ts) (part 3 of 4)",
-      "body": "NOT_EXPIRED: لم تنتهِ صلاحية هذه الدفعة بعد.\nRESERVATION_NOT_FOUND: تعذّر العثور على الحجز.\nREASON_REQUIRED: السبب مطلوب.\nREQUEST_NOT_PENDING: سبق الردّ على هذا الطلب. أعد التحميل لرؤية القرار.\nCANNOT_DECIDE_OWN: لا يمكنك أن تقرّر في طلب أرسلته أنت أو يخصّك.\nREQUEST_ALREADY_PENDING: يوجد طلب من هذا النوع قيد الانتظار بالفعل.\nBAD_KIND: نوع الطلب غير معروف.\nBAD_STATUS: هذه ليست حالة صالحة.\nBAD_TRANSITION: لا يمكن نقل الحملة إلى تلك الحالة من وضعها الحالي.\nCAMPAIGN_LOCKED: انطلقت هذه الحملة، فلا يمكن تعديلها.\nBAD_CHANNEL: اختر قناة.\nBAD_RULE: قاعدة الجمهور هذه غير صالحة.\nBODY_REQUIRED: اكتب الرسالة باللغتين قبل إطلاق هذه الحملة.\nSTART_REQUIRED: حدّد تاريخ بدء للحملة قبل إطلاقها.\nREQUEST_NOT_FOUND: لم يعد هذا الطلب موجودًا. أعد تحميل القائمة.",
+      "body": "COUNT_LINE_NOT_FOUND: هذا المكوّن ليس ضمن هذا الجرد.\nGUEST_REQUIRED: يحتاج الحجز إلى اسم ضيف أو حساب مرتبط.\nINVALID_RANGE: يجب أن يكون وقت النهاية بعد وقت البداية.\nCANCELLATION_WINDOW: موعد البدء قريب جدًا، فلا يمكن الإلغاء.\nRESERVATION_NOT_FOUND: تعذّر العثور على الحجز.\nREASON_REQUIRED: السبب مطلوب.\nREQUEST_NOT_PENDING: سبق الردّ على هذا الطلب. يمكنك إعادة التحميل لرؤية القرار.\nCANNOT_DECIDE_OWN: لا يمكنك اتخاذ قرار بشأن طلب أرسلته أو يخصّك.\nREQUEST_ALREADY_PENDING: يوجد طلب من هذا النوع قيد الانتظار بالفعل.\nBAD_KIND: نوع الطلب غير معروف.\nBAD_STATUS: هذه ليست حالة صالحة.\nBAD_TRANSITION: لا يمكن نقل الحملة إلى تلك الحالة من وضعها الحالي.\nCAMPAIGN_LOCKED: انطلقت هذه الحملة، فلا يمكن تعديلها.\nBAD_CHANNEL: يُرجى اختيار قناة.\nBAD_RULE: قاعدة الجمهور هذه غير صالحة.",
       "route": null
     },
     {
@@ -26294,7 +26294,7 @@
       "ref": "label:op.errors#2~4",
       "lang": "ar",
       "title": "op.errors (packages/i18n/src/catalogs/ar.ts) (part 4 of 4)",
-      "body": "NOT_EXPIRED: لم تنتهِ صلاحية هذه الدفعة بعد.\nBODY_REQUIRED: اكتب الرسالة باللغتين قبل إطلاق هذه الحملة.\nSTART_REQUIRED: حدّد تاريخ بدء للحملة قبل إطلاقها.\nREQUEST_NOT_FOUND: لم يعد هذا الطلب موجودًا. أعد تحميل القائمة.\nCAMPAIGN_NOT_FOUND: لم تعد هذه الحملة موجودة. أعد تحميل الصفحة.\nBREAK_ALREADY_OPEN: أنت في استراحة بالفعل.",
+      "body": "COUNT_LINE_NOT_FOUND: هذا المكوّن ليس ضمن هذا الجرد.\nBAD_TRANSITION: لا يمكن نقل الحملة إلى تلك الحالة من وضعها الحالي.\nCAMPAIGN_LOCKED: انطلقت هذه الحملة، فلا يمكن تعديلها.\nBAD_CHANNEL: يُرجى اختيار قناة.\nBAD_RULE: قاعدة الجمهور هذه غير صالحة.\nBODY_REQUIRED: كتابة الرسالة باللغتين مطلوبة قبل إطلاق هذه الحملة.\nSTART_REQUIRED: يُرجى تحديد تاريخ بدء للحملة قبل إطلاقها.",
       "route": null
     },
     {
@@ -26310,7 +26310,7 @@
       "ref": "label:op.errors#3",
       "lang": "ar",
       "title": "op.errors (packages/i18n/src/catalogs/ar.ts) (part 1 of 4)",
-      "body": "BREAK_ALLOWANCE_USED: لم يتبقَّ وقت استراحة اليوم.\nBREAK_NOT_OPEN: لا توجد استراحة لإنهائها.\nCOVER_NOT_ALLOWED: لا يستطيع هذا الشخص تغطية هذه المحطة.\nINVALID_STATION: اسم هذه المحطة غير صالح. أعد إعدادها.\nVENUE_REQUIRED: اختر الفرع أولًا.\nVENUE_MISMATCH: هذا يخصّ فرعًا آخر. انتقل إلى ذلك الفرع لتنفيذه.\nPROMOTION_SCOPE_BRANCH: العرض المخصّص لكل الفروع لا يمكنه تحديد ملاعب أو فئات أو أصناف.\nSTAFF_VENUE_REQUIRED: يجب أن يعمل الموظف في فرع واحد على الأقل.\nSTAFF_NOT_FOUND: لم يعد هذا الموظف موجودًا.\nVENUE_NOT_FOUND: لم يعد هذا الفرع موجودًا.\nSTATION_OTHER_BRANCH: اسم هذه المحطة مستخدم في فرع آخر. أوقفها هناك أولًا أو اختر اسمًا آخر.\nSLUG_TAKEN: فرع آخر يستخدم هذا الاسم المختصر. اختر اسمًا آخر.",
+      "body": "REQUEST_NOT_FOUND: لم يعد هذا الطلب موجودًا. يمكنك إعادة تحميل القائمة.\nCAMPAIGN_NOT_FOUND: لم تعد هذه الحملة موجودة. يمكنك إعادة تحميل الصفحة.\nBREAK_ALREADY_OPEN: أنت في استراحة بالفعل.\nBREAK_ALLOWANCE_USED: لم يتبقَّ وقت استراحة اليوم.\nBREAK_NOT_OPEN: لا توجد استراحة لإنهائها.\nCOVER_NOT_ALLOWED: لا يستطيع هذا الشخص تغطية هذه المحطة.\nINVALID_STATION: اسم هذه المحطة غير صالح. يُرجى إعادة إعدادها.\nVENUE_REQUIRED: يُرجى اختيار الفرع أولًا.\nVENUE_MISMATCH: هذا يخصّ فرعًا آخر. يمكنك الانتقال إلى ذلك الفرع لتنفيذه.\nPROMOTION_SCOPE_BRANCH: العرض المخصّص لكل الفروع لا يمكنه تحديد ملاعب أو فئات أو أصناف.\nSTAFF_VENUE_REQUIRED: يجب أن يعمل الموظف في فرع واحد على الأقل.\nSTAFF_NOT_FOUND: لم يعد هذا الموظف موجودًا.",
       "route": null
     },
     {
@@ -26326,7 +26326,7 @@
       "ref": "label:op.errors#3~2",
       "lang": "ar",
       "title": "op.errors (packages/i18n/src/catalogs/ar.ts) (part 2 of 4)",
-      "body": "BREAK_ALLOWANCE_USED: لم يتبقَّ وقت استراحة اليوم.\nVENUE_NOT_FOUND: لم يعد هذا الفرع موجودًا.\nSTATION_OTHER_BRANCH: اسم هذه المحطة مستخدم في فرع آخر. أوقفها هناك أولًا أو اختر اسمًا آخر.\nSLUG_TAKEN: فرع آخر يستخدم هذا الاسم المختصر. اختر اسمًا آخر.\nBRANCH_NOT_READY: هذا الفرع غير جاهز للافتتاح بعد. أكمل قائمة «قبل الافتتاح» أولًا.\nLAST_OPEN_BRANCH: هذا هو الفرع المفتوح الوحيد. افتح فرعًا آخر قبل إغلاقه.\nBRANCH_DAY_OPEN: أغلق يوم هذا الفرع قبل إغلاق الفرع.\nSTATION_RETIRED: أُوقفت هذه المحطة. سجّلها من جديد من الإعدادات ← تفاصيل المكان ← المحطات.\nSTATION_HAS_HISTORY: لاسم هذه المحطة ورديات كاشير في فرع آخر. اختر اسمًا آخر.\nBRANCH_HAS_BOOKINGS: لا تزال لهذا الفرع حجوزات أو حصص أو حجوزات مؤقتة أو سلاسل قادمة. ألغِها أو انقلها أولًا.\nVENUE_CLOSED: هذا الفرع مغلق.",
+      "body": "REQUEST_NOT_FOUND: لم يعد هذا الطلب موجودًا. يمكنك إعادة تحميل القائمة.\nPROMOTION_SCOPE_BRANCH: العرض المخصّص لكل الفروع لا يمكنه تحديد ملاعب أو فئات أو أصناف.\nSTAFF_VENUE_REQUIRED: يجب أن يعمل الموظف في فرع واحد على الأقل.\nSTAFF_NOT_FOUND: لم يعد هذا الموظف موجودًا.\nVENUE_NOT_FOUND: لم يعد هذا الفرع موجودًا.\nSTATION_OTHER_BRANCH: اسم هذه المحطة مستخدم في فرع آخر. يمكنك إيقافها هناك أولًا أو اختيار اسم آخر.\nSLUG_TAKEN: يستخدم فرع آخر هذا الاسم المختصر بالفعل. يمكنك اختيار اسم آخر.\nBRANCH_NOT_READY: هذا الفرع غير جاهز للافتتاح بعد. يمكنك إكمال قائمة «قبل الافتتاح» أولًا.\nLAST_OPEN_BRANCH: هذا هو الفرع المفتوح الوحيد. يمكنك فتح فرع آخر قبل إغلاقه.\nBRANCH_DAY_OPEN: يُرجى إغلاق يوم هذا الفرع قبل إغلاق الفرع.",
       "route": null
     },
     {
@@ -26342,7 +26342,7 @@
       "ref": "label:op.errors#3~3",
       "lang": "ar",
       "title": "op.errors (packages/i18n/src/catalogs/ar.ts) (part 3 of 4)",
-      "body": "BREAK_ALLOWANCE_USED: لم يتبقَّ وقت استراحة اليوم.\nBRANCH_HAS_BOOKINGS: لا تزال لهذا الفرع حجوزات أو حصص أو حجوزات مؤقتة أو سلاسل قادمة. ألغِها أو انقلها أولًا.\nVENUE_CLOSED: هذا الفرع مغلق.\nNO_PIN_SET: لا يوجد رقم سري لهذا الحساب بعد. اطلب من المالك تحديده.\nBOOKING_TAB_OPEN: لهذا الحجز فاتورة مفتوحة بالفعل. أضف إلى تلك الفاتورة.\nBOOKING_TAB_DONOR: لا يمكن نقل فاتورة الحجز إلى فاتورة أخرى. انقل الفاتورة الأخرى إلى الحجز.\nRESERVATION_NOT_LIVE: هذا الحجز أُلغي أو لم يُلعب، فلا يمكن فتح فاتورة له.\nTOTAL_CHANGED: تغيّرت الفاتورة أثناء الدفع. تحقّق من المجموع الجديد وحاول مرة أخرى.\nNOT_ZERO: لا يزال هناك مبلغ مستحق على هذه الفاتورة. استلم الدفعة بدل إغلاقها.\nREFUND_DUE: المبلغ المدفوع أكبر من المستحق الآن. على المدير أن يردّ الفرق أولًا.",
+      "body": "REQUEST_NOT_FOUND: لم يعد هذا الطلب موجودًا. يمكنك إعادة تحميل القائمة.\nLAST_OPEN_BRANCH: هذا هو الفرع المفتوح الوحيد. يمكنك فتح فرع آخر قبل إغلاقه.\nBRANCH_DAY_OPEN: يُرجى إغلاق يوم هذا الفرع قبل إغلاق الفرع.\nSTATION_RETIRED: أُوقفت هذه المحطة. يمكنك تسجيلها من جديد من الإعدادات ← بيانات المكان ← المحطات.\nSTATION_HAS_HISTORY: اسم هذه المحطة له ورديات كاشير في فرع آخر. يمكنك اختيار اسم آخر.\nBRANCH_HAS_BOOKINGS: ما زالت في هذا الفرع حجوزات أو حصص أو حجوزات مؤقتة أو سلاسل قادمة. يمكنك إلغاؤها أو نقلها أولًا.\nVENUE_CLOSED: هذا الفرع مغلق.\nNO_PIN_SET: لا يوجد رقم سري لهذا الحساب بعد. يُرجى طلب تحديده من المالك.\nBOOKING_TAB_OPEN: لهذا الحجز فاتورة مفتوحة بالفعل. يمكنك الإضافة إليها بدلًا من ذلك.",
       "route": null
     },
     {
@@ -26358,7 +26358,7 @@
       "ref": "label:op.errors#3~4",
       "lang": "ar",
       "title": "op.errors (packages/i18n/src/catalogs/ar.ts) (part 4 of 4)",
-      "body": "BREAK_ALLOWANCE_USED: لم يتبقَّ وقت استراحة اليوم.\nNOT_ZERO: لا يزال هناك مبلغ مستحق على هذه الفاتورة. استلم الدفعة بدل إغلاقها.\nREFUND_DUE: المبلغ المدفوع أكبر من المستحق الآن. على المدير أن يردّ الفرق أولًا.\nTAB_EMPTY: لم يُضف شيء إلى هذه الفاتورة. احذفها بدلًا من ذلك.\nAUDIENCE_NOT_FOUND: لم يعد هذا الجمهور موجودًا.\nINVALID_VALUE: قيمة غير صالحة.\nINVALID_PRICES: يجب أن تكون الأسعار مبالغ صحيحة بالدينار لكل مدة.",
+      "body": "REQUEST_NOT_FOUND: لم يعد هذا الطلب موجودًا. يمكنك إعادة تحميل القائمة.\nVENUE_CLOSED: هذا الفرع مغلق.\nNO_PIN_SET: لا يوجد رقم سري لهذا الحساب بعد. يُرجى طلب تحديده من المالك.\nBOOKING_TAB_OPEN: لهذا الحجز فاتورة مفتوحة بالفعل. يمكنك الإضافة إليها بدلًا من ذلك.\nBOOKING_TAB_DONOR: لا يمكن نقل فاتورة الحجز إلى فاتورة أخرى. يمكنك بدلًا من ذلك نقل الفاتورة الأخرى إلى الحجز.\nRESERVATION_NOT_LIVE: هذا الحجز أُلغي أو لم يُلعب، فلا يمكن فتح فاتورة له.\nTOTAL_CHANGED: تغيّرت الفاتورة أثناء الدفع. يُرجى التحقق من المجموع الجديد ثم المحاولة مرة أخرى.",
       "route": null
     },
     {
@@ -26374,7 +26374,7 @@
       "ref": "label:op.errors#4",
       "lang": "ar",
       "title": "op.errors (packages/i18n/src/catalogs/ar.ts) (part 1 of 4)",
-      "body": "INVALID_DAYS: اختر يومًا واحدًا على الأقل من الأسبوع.\nINVALID_HOURS: تنسيق ساعات العمل غير صالح.\nINVALID_FLOAT: رصيد افتتاحي غير صالح.\nINVALID_COUNT: مبلغ معدود غير صالح.\nINVALID_PRICE: سعر غير صالح.\nINVALID_QTY: كمية غير صالحة.\nCAFE_CLOSED: يوم الكافيه غير مفتوح.\nTICKET_NOT_FOUND: تعذّر العثور على التذكرة.\nITEM_NOT_FOUND: تعذّر العثور على الصنف.\nORDER_NOT_FOUND: لم يعد هذا الطلب قائمًا، فقد قُدِّم أو أُلغي.\nITEM_VOIDED: هذا السطر ملغى بالفعل.\nINVALID_DURATION: هذه المدة غير متاحة لهذا الملعب.\nSLOT_IN_PAST: هذا الموعد في الماضي.\nCOURT_NOT_FOUND: تعذّر العثور على الملعب.\nTABLE_NOT_FOUND: تعذّر العثور على الطاولة.\nTAB_ANCHOR_REQUIRED: تحتاج الفاتورة إلى طاولة أو حجز. الاسم وحده لا يكفي.",
+      "body": "NOT_ZERO: لا يزال على هذه الفاتورة مبلغ مستحق. يمكنك استلام الدفعة بدل إغلاقها.\nREFUND_DUE: المبلغ المدفوع أكبر من المستحق الآن. على المدير أن يردّ الفرق أولًا.\nTAB_EMPTY: لم يُضف شيء إلى هذه الفاتورة قط. يمكنك حذفها بدلًا من ذلك.\nAUDIENCE_NOT_FOUND: لم يعد هذا الجمهور موجودًا.\nINVALID_VALUE: قيمة غير صالحة.\nINVALID_PRICES: يجب أن تكون الأسعار مبالغ صحيحة بالدينار لكل مدة.\nINVALID_DAYS: يُرجى اختيار يوم واحد على الأقل من الأسبوع.\nINVALID_HOURS: تنسيق ساعات العمل غير صالح.\nINVALID_FLOAT: رصيد افتتاحي غير صالح.\nINVALID_COUNT: مبلغ معدود غير صالح.\nINVALID_PRICE: سعر غير صالح.\nINVALID_QTY: كمية غير صالحة.\nCAFE_CLOSED: يوم الكافيه غير مفتوح.\nTICKET_NOT_FOUND: تعذّر العثور على الطلب.",
       "route": null
     },
     {
@@ -26390,7 +26390,7 @@
       "ref": "label:op.errors#4~2",
       "lang": "ar",
       "title": "op.errors (packages/i18n/src/catalogs/ar.ts) (part 2 of 4)",
-      "body": "INVALID_DAYS: اختر يومًا واحدًا على الأقل من الأسبوع.\nSLOT_IN_PAST: هذا الموعد في الماضي.\nCOURT_NOT_FOUND: تعذّر العثور على الملعب.\nTABLE_NOT_FOUND: تعذّر العثور على الطاولة.\nTAB_ANCHOR_REQUIRED: تحتاج الفاتورة إلى طاولة أو حجز. الاسم وحده لا يكفي.\nCATEGORY_NOT_EMPTY: لا يمكن نقل القسم بين الكافيه والمتجر إلا إذا كان فارغًا. انقل أصنافه أولًا.\nNOT_SHOP_CATEGORY: المخزون الخاص لمنتجات أقسام المتجر فقط.\nBARCODE_TAKEN: هذا الباركود مستخدم لمنتج آخر.\nSKU_TAKEN: رمز المنتج (SKU) مستخدم لمنتج آخر.\nSUPPLIER_EXISTS: يوجد مورّد بهذا الاسم بالفعل.\nSUPPLIER_NOT_FOUND: تعذّر العثور على المورّد.\nSUPPLIER_URL_INVALID: الصق الرابط الكامل لصفحة المنتج من موقع المورّد، على أن يبدأ بـ \\u2066https://\\u2069\nLABEL_REQUIRED: البيع على الكاونتر يحتاج اسمًا أو رقمًا.",
+      "body": "NOT_ZERO: لا يزال على هذه الفاتورة مبلغ مستحق. يمكنك استلام الدفعة بدل إغلاقها.\nINVALID_COUNT: مبلغ معدود غير صالح.\nINVALID_PRICE: سعر غير صالح.\nINVALID_QTY: كمية غير صالحة.\nCAFE_CLOSED: يوم الكافيه غير مفتوح.\nTICKET_NOT_FOUND: تعذّر العثور على الطلب.\nITEM_NOT_FOUND: تعذّر العثور على الصنف.\nORDER_NOT_FOUND: لم يعد هذا الطلب قائمًا، فقد قُدِّم أو أُلغي.\nITEM_VOIDED: هذا السطر ملغى بالفعل.\nINVALID_DURATION: هذه المدة غير متاحة لهذا الملعب.\nSLOT_IN_PAST: هذا الموعد في الماضي.\nCOURT_NOT_FOUND: تعذّر العثور على الملعب.\nTABLE_NOT_FOUND: تعذّر العثور على الطاولة.\nTAB_ANCHOR_REQUIRED: تحتاج الفاتورة إلى طاولة أو حجز. الاسم وحده لا يكفي.\nCATEGORY_NOT_EMPTY: لا يمكن نقل القسم بين الكافيه والمتجر إلا إذا كان فارغًا. يُرجى نقل أصنافه أولًا.",
       "route": null
     },
     {
@@ -26406,7 +26406,7 @@
       "ref": "label:op.errors#4~3",
       "lang": "ar",
       "title": "op.errors (packages/i18n/src/catalogs/ar.ts) (part 3 of 4)",
-      "body": "INVALID_DAYS: اختر يومًا واحدًا على الأقل من الأسبوع.\nSUPPLIER_URL_INVALID: الصق الرابط الكامل لصفحة المنتج من موقع المورّد، على أن يبدأ بـ \\u2066https://\\u2069\nLABEL_REQUIRED: البيع على الكاونتر يحتاج اسمًا أو رقمًا.\nMIXED_BASKET: تُرسل أصناف الكافيه ومنتجات المتجر في طلبين منفصلين. أعد الإرسال.\nSHOP_ITEM_NOT_ORDERABLE: منتجات المتجر تُباع على الكاونتر، لا من الطاولة.\nTAB_KIND_FORBIDDEN: هذا البيع يخص كاشيرًا آخر: مبيعات المتجر تُسجَّل في مكتب المتجر، وفواتير الكافيه في كاشير الكافيه.\nTAB_KIND_MISMATCH: لا تُجمع منتجات المتجر وأصناف الكافيه في فاتورة واحدة.\nSHOP_TAB_NO_ANCHOR: بيع المتجر يُدفع في مكتب المتجر، ولا يمكن إضافته إلى طاولة أو حجز.\nDAY_NOT_FOUND: تعذّر العثور على هذا اليوم في هذا الفرع.\nNOT_MOVABLE: لم يعد بالإمكان نقل هذا الحجز.",
+      "body": "NOT_ZERO: لا يزال على هذه الفاتورة مبلغ مستحق. يمكنك استلام الدفعة بدل إغلاقها.\nTAB_ANCHOR_REQUIRED: تحتاج الفاتورة إلى طاولة أو حجز. الاسم وحده لا يكفي.\nCATEGORY_NOT_EMPTY: لا يمكن نقل القسم بين الكافيه والمتجر إلا إذا كان فارغًا. يُرجى نقل أصنافه أولًا.\nNOT_SHOP_CATEGORY: لا يملك مخزونًا خاصًا إلا منتجات أقسام المتجر.\nBARCODE_TAKEN: هذا الباركود مسجّل لمنتج آخر بالفعل.\nSKU_TAKEN: رمز المنتج (SKU) مسجّل لمنتج آخر بالفعل.\nSUPPLIER_EXISTS: يوجد مورّد بهذا الاسم بالفعل.\nSUPPLIER_NOT_FOUND: تعذّر العثور على المورّد.\nSUPPLIER_URL_INVALID: يُرجى لصق الرابط الكامل (⁦https://⁩) لصفحة المنتج في موقع المورّد.\nLABEL_REQUIRED: يحتاج البيع عند الكاشير إلى اسم أو رقم.\nMIXED_BASKET: تُرسل أصناف الكافيه ومنتجات المتجر في طلبين منفصلين. يُرجى إعادة الإرسال.",
       "route": null
     },
     {
@@ -26422,7 +26422,7 @@
       "ref": "label:op.errors#4~4",
       "lang": "ar",
       "title": "op.errors (packages/i18n/src/catalogs/ar.ts) (part 4 of 4)",
-      "body": "INVALID_DAYS: اختر يومًا واحدًا على الأقل من الأسبوع.\nSHOP_TAB_NO_ANCHOR: بيع المتجر يُدفع في مكتب المتجر، ولا يمكن إضافته إلى طاولة أو حجز.\nDAY_NOT_FOUND: تعذّر العثور على هذا اليوم في هذا الفرع.\nNOT_MOVABLE: لم يعد بالإمكان نقل هذا الحجز.\nRESERVATION_IN_PAST: لا يمكن نقل الحجز إلى وقت قد مضى.\nNOT_EXTENDABLE: لم يعد بالإمكان تمديد هذا الحجز.\nNOT_CANCELLABLE: لم يعد بالإمكان إلغاء هذا الحجز.\nINVALID_SPLIT_COUNT: يجب أن يكون عدد أجزاء التقسيم بين 1 و50.",
+      "body": "NOT_ZERO: لا يزال على هذه الفاتورة مبلغ مستحق. يمكنك استلام الدفعة بدل إغلاقها.\nLABEL_REQUIRED: يحتاج البيع عند الكاشير إلى اسم أو رقم.\nMIXED_BASKET: تُرسل أصناف الكافيه ومنتجات المتجر في طلبين منفصلين. يُرجى إعادة الإرسال.\nSHOP_ITEM_NOT_ORDERABLE: منتجات المتجر تُباع في مكتب المتجر، لا من الطاولة.\nTAB_KIND_FORBIDDEN: هذا البيع يخص كاشيرًا آخر: مبيعات المتجر تُسجَّل في مكتب المتجر، وفواتير الكافيه في كاشير الكافيه.\nTAB_KIND_MISMATCH: لا تُجمع منتجات المتجر وأصناف الكافيه في فاتورة واحدة.",
       "route": null
     },
     {
@@ -26438,7 +26438,7 @@
       "ref": "label:op.errors#5",
       "lang": "ar",
       "title": "op.errors (packages/i18n/src/catalogs/ar.ts) (part 1 of 4)",
-      "body": "EDGE_NOT_CONFIGURED: خدمة التحليلات غير مُعدّة بعد.\nEDGE_FORBIDDEN: لا تملك صلاحية استخدام خدمة التحليلات.\nEDGE_AUTH_REQUIRED: انتهت جلستك. سجّل الدخول مرة أخرى.\nEDGE_UPSTREAM: تعذّر على خدمة التحليلات الوصول إلى مصدر البيانات. حاول مرة أخرى بعد قليل.\nEDGE_RATE_LIMITED: طلبات كثيرة جدًا. انتظر لحظة ثم حاول مرة أخرى.\nEDGE_UNKNOWN: حدث خطأ غير متوقع في خدمة التحليلات.\nINVALID_HIGHLIGHT: يجب أن يكون الإبراز بلا لون أو أزرق أو بنيًا.\nHOOK_TOO_LONG: يجب ألا يتجاوز سطر النكهة 60 حرفًا.\nHOOK_PAIR_MISMATCH: أدخل سطر النكهة باللغتين، أو اتركهما فارغين معًا.\nPHOTO_BLUR_TOO_LONG: الصورة المصغّرة المؤقتة طويلة جدًا. أعد رفع الصورة.\nINVALID_SOLD_OUT: قيمة النفاد غير صالحة.\nINVALID_PHOTO_PATH: مسار الصورة هذا غير مسموح.",
+      "body": "SHOP_TAB_NO_ANCHOR: عملية البيع من المتجر تُدفع في مكتب المتجر، ولا يمكن إضافتها إلى طاولة أو حجز.\nDAY_NOT_FOUND: تعذّر العثور على هذا اليوم في هذا الفرع.\nNOT_MOVABLE: لم يعد بالإمكان نقل هذا الحجز.\nRESERVATION_IN_PAST: لا يمكن نقل الحجز إلى وقت قد مضى.\nNOT_EXTENDABLE: لم يعد بالإمكان تمديد هذا الحجز.\nNOT_CANCELLABLE: لم يعد بالإمكان إلغاء هذا الحجز.\nINVALID_SPLIT_COUNT: يجب أن يكون عدد أجزاء التقسيم بين 1 و50.\nEDGE_NOT_CONFIGURED: خدمة التحليلات غير مُعدّة بعد.\nEDGE_FORBIDDEN: ليست لديك صلاحية استخدام خدمة التحليلات.\nEDGE_AUTH_REQUIRED: انتهت جلستك. يُرجى تسجيل الدخول مرة أخرى.\nEDGE_UPSTREAM: تعذّر على خدمة التحليلات الوصول إلى مصدر البيانات. يمكنك المحاولة مرة أخرى بعد قليل.",
       "route": null
     },
     {
@@ -26454,7 +26454,7 @@
       "ref": "label:op.errors#5~2",
       "lang": "ar",
       "title": "op.errors (packages/i18n/src/catalogs/ar.ts) (part 2 of 4)",
-      "body": "EDGE_NOT_CONFIGURED: خدمة التحليلات غير مُعدّة بعد.\nPHOTO_BLUR_TOO_LONG: الصورة المصغّرة المؤقتة طويلة جدًا. أعد رفع الصورة.\nINVALID_SOLD_OUT: قيمة النفاد غير صالحة.\nINVALID_PHOTO_PATH: مسار الصورة هذا غير مسموح.\nINVALID_COST: يجب أن تكون الكلفة مبلغًا صحيحًا بالدينار (0 أو أكثر)، أو اتركها فارغة.\nCATEGORY_NOT_FOUND: تعذّر العثور على الفئة.\nVARIANT_NOT_FOUND: تعذّر العثور على الحجم.\nMODIFIER_INVALID: إحدى الإضافات المختارة لا تنتمي إلى هذا الصنف.\nMODIFIER_NOT_FOUND: تعذّر العثور على الإضافة.\nGROUP_NOT_FOUND: تعذّر العثور على مجموعة الإضافات.\nREVEAL_SELF: لا يمكن للخيار أن يكشف مجموعته نفسها.\nREVEAL_DEPTH: المجموعات الفرعية تتداخل بمستوى واحد فقط.\nSELF_SUGGESTION: لا يمكن للصنف أن يقترح نفسه.\nUNKNOWN_SETTING: إعداد غير معروف.\nINVALID_SETTING_VALUE: هذه القيمة غير صالحة لهذا الإعداد.",
+      "body": "SHOP_TAB_NO_ANCHOR: عملية البيع من المتجر تُدفع في مكتب المتجر، ولا يمكن إضافتها إلى طاولة أو حجز.\nEDGE_AUTH_REQUIRED: انتهت جلستك. يُرجى تسجيل الدخول مرة أخرى.\nEDGE_UPSTREAM: تعذّر على خدمة التحليلات الوصول إلى مصدر البيانات. يمكنك المحاولة مرة أخرى بعد قليل.\nEDGE_RATE_LIMITED: طلبات كثيرة جدًا. يُرجى الانتظار لحظة ثم المحاولة مرة أخرى.\nEDGE_UNKNOWN: حدث خطأ غير متوقع في خدمة التحليلات.\nINVALID_HIGHLIGHT: يجب أن يكون الإبراز بلا لون أو أزرق أو بنيًا.\nHOOK_TOO_LONG: يجب ألا يتجاوز سطر النكهة 60 حرفًا.\nHOOK_PAIR_MISMATCH: يُرجى إدخال سطر النكهة باللغتين، أو تركهما فارغين معًا.\nPHOTO_BLUR_TOO_LONG: الصورة المصغّرة المؤقتة طويلة جدًا. يُرجى إعادة رفع الصورة.\nINVALID_SOLD_OUT: قيمة النفاد غير صالحة.\nINVALID_PHOTO_PATH: مسار الصورة هذا غير مسموح به.",
       "route": null
     },
     {
@@ -26470,7 +26470,7 @@
       "ref": "label:op.errors#5~3",
       "lang": "ar",
       "title": "op.errors (packages/i18n/src/catalogs/ar.ts) (part 3 of 4)",
-      "body": "EDGE_NOT_CONFIGURED: خدمة التحليلات غير مُعدّة بعد.\nREVEAL_DEPTH: المجموعات الفرعية تتداخل بمستوى واحد فقط.\nSELF_SUGGESTION: لا يمكن للصنف أن يقترح نفسه.\nUNKNOWN_SETTING: إعداد غير معروف.\nINVALID_SETTING_VALUE: هذه القيمة غير صالحة لهذا الإعداد.\nINVALID_PCT: يجب أن تكون النسبة المئوية بين 0 و99.\nTABLE_NUMBER_TAKEN: رقم الطاولة هذا مستخدم بالفعل.\nINVALID_TABLE_NUMBER: رقم طاولة غير صالح.\nINVALID_COOLDOWN: يجب أن تكون مهلة الانتظار بين 30 و600 ثانية.\nBELL_DISABLED: جرس النادل معطّل لهذه الطاولة.\nCALL_COOLDOWN: نادت هذه الطاولة قبل لحظات. انتظر قليلًا ثم نادِ مرة أخرى.\nCALL_NOT_FOUND: تعذّر العثور على نداء النادل.\nTOKEN_INVALID: رمز الطاولة هذا لم يعد صالحًا.\nTELEGRAM_NOT_CONFIGURED: تيليغرام غير مُعدّ. أضف معرّف مجموعة الدردشة أولًا.\nOUTBOX_NOT_FOUND: تعذّر العثور على الرسالة المرسلة.",
+      "body": "SHOP_TAB_NO_ANCHOR: عملية البيع من المتجر تُدفع في مكتب المتجر، ولا يمكن إضافتها إلى طاولة أو حجز.\nPHOTO_BLUR_TOO_LONG: الصورة المصغّرة المؤقتة طويلة جدًا. يُرجى إعادة رفع الصورة.\nINVALID_SOLD_OUT: قيمة النفاد غير صالحة.\nINVALID_PHOTO_PATH: مسار الصورة هذا غير مسموح به.\nINVALID_COST: يجب أن تكون الكلفة مبلغًا صحيحًا بالدينار (0 أو أكثر)، أو تُترك فارغة.\nCATEGORY_NOT_FOUND: تعذّر العثور على الفئة.\nVARIANT_NOT_FOUND: تعذّر العثور على الحجم.\nMODIFIER_INVALID: إحدى الإضافات المختارة لا تنتمي إلى هذا الصنف.\nMODIFIER_NOT_FOUND: تعذّر العثور على الإضافة.\nGROUP_NOT_FOUND: تعذّر العثور على مجموعة الإضافات.\nREVEAL_SELF: لا يمكن للخيار أن يكشف مجموعته نفسها.\nREVEAL_DEPTH: المجموعات الفرعية تتداخل بمستوى واحد فقط.\nSELF_SUGGESTION: لا يمكن للصنف أن يقترح نفسه.\nUNKNOWN_SETTING: إعداد غير معروف.",
       "route": null
     },
     {
@@ -26486,7 +26486,7 @@
       "ref": "label:op.errors#5~4",
       "lang": "ar",
       "title": "op.errors (packages/i18n/src/catalogs/ar.ts) (part 4 of 4)",
-      "body": "EDGE_NOT_CONFIGURED: خدمة التحليلات غير مُعدّة بعد.\nTOKEN_INVALID: رمز الطاولة هذا لم يعد صالحًا.\nTELEGRAM_NOT_CONFIGURED: تيليغرام غير مُعدّ. أضف معرّف مجموعة الدردشة أولًا.\nOUTBOX_NOT_FOUND: تعذّر العثور على الرسالة المرسلة.\nINVALID_KIND: نوع رسالة غير معروف.\nREF_NOT_FOUND: لم يعد السجل المرتبط موجودًا.\nREF_REQUIRED: هذه الرسالة تحتاج إلى مرجع.",
+      "body": "SHOP_TAB_NO_ANCHOR: عملية البيع من المتجر تُدفع في مكتب المتجر، ولا يمكن إضافتها إلى طاولة أو حجز.\nREVEAL_SELF: لا يمكن للخيار أن يكشف مجموعته نفسها.\nREVEAL_DEPTH: المجموعات الفرعية تتداخل بمستوى واحد فقط.\nSELF_SUGGESTION: لا يمكن للصنف أن يقترح نفسه.\nUNKNOWN_SETTING: إعداد غير معروف.\nINVALID_SETTING_VALUE: هذه القيمة غير صالحة لهذا الإعداد.\nINVALID_PCT: يجب أن تكون النسبة المئوية بين 0 و99.\nTABLE_NUMBER_TAKEN: رقم الطاولة هذا مستخدم بالفعل.\nINVALID_TABLE_NUMBER: رقم طاولة غير صالح.\nINVALID_COOLDOWN: يجب أن تكون مهلة الانتظار بين 30 و600 ثانية.",
       "route": null
     },
     {
@@ -26501,8 +26501,16 @@
       "kind": "label",
       "ref": "label:op.errors#6",
       "lang": "ar",
-      "title": "op.errors (packages/i18n/src/catalogs/ar.ts)",
-      "body": "ACTOR_REQUIRED: يجب أن يسجّل أحد الموظفين الدخول أولًا.\nINVALID_ACTION: إجراء غير معروف.\nVOID_REQUIRES_REFUND: على هذه الفاتورة دفعات. ردّ المبلغ أولًا، ثم ألغِها.\nINVALID_ARGUMENT: إدخال غير صالح. تحقق من القيم وحاول مرة أخرى.\nREJECTION_NOT_FOUND: الاستنتاج المرفوض لم يعد موجودًا.\nREFUND_EXCEEDS_PAYMENT: المبلغ المسترد أكبر مما تبقّى من هذه الدفعة.\nPAYMENT_NOT_FOUND: تعذّر العثور على هذه الدفعة.\nPAYMENT_STATE: تغيّرت هذه الدفعة منذ فتحتها. تعرض القائمة الآن آخر حالة لها.\nREFUND_TOO_LARGE: مبلغ الاسترداد أكبر مما دفعه الضيف إلكترونيًا.\nHOLD_STANDING_NOT_FOUND: تغيّر سجل هذا الضيف أو لم يعد موجودًا. حدّث القائمة.\nITEM_NOT_ON_TAB: هذا السطر ليس على هذه الفاتورة.\nIDEMPOTENCY_CONFLICT: حُفظ هذا بالفعل من جلسة أخرى. حدّث الصفحة لترى آخر حالة.",
+      "title": "op.errors (packages/i18n/src/catalogs/ar.ts) (part 1 of 2)",
+      "body": "BELL_DISABLED: جرس النادل معطّل لهذه الطاولة.\nCALL_COOLDOWN: نادت هذه الطاولة قبل لحظات. يُرجى الانتظار قليلًا قبل النداء مرة أخرى.\nCALL_NOT_FOUND: تعذّر العثور على نداء النادل.\nTOKEN_INVALID: رمز الطاولة هذا لم يعد صالحًا.\nTELEGRAM_NOT_CONFIGURED: تيليغرام غير مُعدّ. يُرجى إضافة معرّف مجموعة الدردشة أولًا.\nOUTBOX_NOT_FOUND: تعذّر العثور على الرسالة المرسلة.\nINVALID_KIND: نوع رسالة غير معروف.\nREF_NOT_FOUND: لم يعد السجل المرتبط موجودًا.\nREF_REQUIRED: هذه الرسالة تحتاج إلى مرجع.\nACTOR_REQUIRED: يجب أن يسجّل أحد الموظفين الدخول أولًا.\nINVALID_ACTION: إجراء غير معروف.\nVOID_REQUIRES_REFUND: على هذه الفاتورة دفعات. يُرجى ردّ المبلغ أولًا ثم إلغاء الفاتورة.\nINVALID_ARGUMENT: إدخال غير صالح. يُرجى التحقق من القيم ثم المحاولة مرة أخرى.",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:op.errors#6~2",
+      "lang": "ar",
+      "title": "op.errors (packages/i18n/src/catalogs/ar.ts) (part 2 of 2)",
+      "body": "BELL_DISABLED: جرس النادل معطّل لهذه الطاولة.\nINVALID_ACTION: إجراء غير معروف.\nVOID_REQUIRES_REFUND: على هذه الفاتورة دفعات. يُرجى ردّ المبلغ أولًا ثم إلغاء الفاتورة.\nINVALID_ARGUMENT: إدخال غير صالح. يُرجى التحقق من القيم ثم المحاولة مرة أخرى.\nREJECTION_NOT_FOUND: الاستنتاج المرفوض لم يعد موجودًا.\nREFUND_EXCEEDS_PAYMENT: المبلغ المسترد أكبر مما تبقّى من هذه الدفعة.\nPAYMENT_NOT_FOUND: تعذّر العثور على هذه الدفعة.\nPAYMENT_STATE: تغيّرت هذه الدفعة منذ فتحتها. تعرض القائمة الآن آخر حالة لها.\nREFUND_TOO_LARGE: مبلغ الاسترداد أكبر مما دفعه الضيف إلكترونيًا.\nHOLD_STANDING_NOT_FOUND: تغيّر سجل هذا الضيف أو لم يعد موجودًا. يُرجى تحديث القائمة.\nITEM_NOT_ON_TAB: هذا السطر ليس على هذه الفاتورة.\nIDEMPOTENCY_CONFLICT: حُفظ هذا بالفعل من جلسة أخرى. يُرجى تحديث الصفحة للاطلاع على آخر حالة.",
       "route": null
     },
     {
@@ -26510,7 +26518,7 @@
       "ref": "label:op.errors~2",
       "lang": "ar",
       "title": "op.errors (packages/i18n/src/catalogs/ar.ts) (part 2 of 4)",
-      "body": "SLOT_TAKEN: حُجز هذا الموعد للتو. اختر وقتًا آخر.\nFORBIDDEN: لا تملك صلاحية تنفيذ هذا الإجراء.\nAUTH_REQUIRED: سجّل الدخول أولًا.\nALREADY_NOTIFIED: سبق إشعار الموظفين بشأن هذه الطاولة.\nNO_OPEN_DAY: لا يوجد يوم عمل مفتوح.\nPREVIOUS_DAY_OPEN: أغلق اليوم السابق قبل فتح يوم جديد.\nDAY_OPEN_TABS: لا تزال هناك فواتير مفتوحة. سوِّها أو ألغِها قبل إغلاق اليوم.\nINVALID_DURATIONS: يجب أن تكون خيارات المدة بين 30 و300 دقيقة، بخطوات 15 دقيقة.\nINVALID_ACTIVE_WINDOW: يجب أن يكون آخر يوم لعمل الملعب بعد أول يوم له.\nCOURT_IN_USE: لهذا الملعب حجوزات أو قواعد أسعار، فلا يمكن حذفه. عطّله بدلًا من ذلك: يختفي من التقويم وتطبيق الضيوف، ويبقى اسمه في التقارير.\nNAME_REQUIRED: الاسمان بالإنجليزية والعربية مطلوبان.\nUNIT_LOCKED: لا يمكن تغيير الوحدة، لأن في السجل كميات مسجّلة بها.",
+      "body": "SLOT_TAKEN: حُجز هذا الموعد للتو. يُرجى اختيار وقت آخر.\nFORBIDDEN: ليست لديك صلاحية تنفيذ هذا الإجراء.\nAUTH_REQUIRED: نحتاج إلى تسجيل الدخول أولًا.\nALREADY_NOTIFIED: سبق إشعار الموظفين بشأن هذه الطاولة.\nNO_OPEN_DAY: لا يوجد يوم عمل مفتوح.\nPREVIOUS_DAY_OPEN: يُرجى إغلاق اليوم السابق قبل فتح يوم جديد.\nDAY_OPEN_TABS: لا تزال هناك فواتير مفتوحة. يُرجى تسويتها أو إلغاؤها قبل إغلاق اليوم.\nINVALID_DURATIONS: يجب أن تكون خيارات المدة بين 30 و300 دقيقة، ومن مضاعفات 15 دقيقة.\nINVALID_ACTIVE_WINDOW: لا يمكن أن يكون آخر يوم لعمل الملعب قبل أول يوم له.\nCOURT_IN_USE: لهذا الملعب حجوزات أو قواعد أسعار، فلا يمكن حذفه. يمكنك إيقافه بدلًا من ذلك: يختفي من التقويم وتطبيق الضيوف، ويبقى اسمه في التقارير.\nNAME_REQUIRED: الاسمان بالإنجليزية والعربية مطلوبان.",
       "route": null
     },
     {
@@ -26526,7 +26534,7 @@
       "ref": "label:op.errors~3",
       "lang": "ar",
       "title": "op.errors (packages/i18n/src/catalogs/ar.ts) (part 3 of 4)",
-      "body": "SLOT_TAKEN: حُجز هذا الموعد للتو. اختر وقتًا آخر.\nNAME_REQUIRED: الاسمان بالإنجليزية والعربية مطلوبان.\nUNIT_LOCKED: لا يمكن تغيير الوحدة، لأن في السجل كميات مسجّلة بها.\nKIND_LOCKED: لا يمكن تغيير النوع، لأن السجل يستخدمه لهذا المكوّن.\nINVALID_YIELD: يجب أن تكون نسبة الاستفادة بين 0 و100.\nINVALID_WASTE_ALLOWANCE: يجب أن تكون نسبة الهدر المسموح بين 0 و100.\nINVALID_PACK: يجب أن يكون حجم العبوة أكبر من صفر.\nINGREDIENT_NOT_FOUND: تعذّر العثور على المكوّن (تُربط الوصفات الفرعية بمكوّن مُحضَّر).\nINVALID_TARGET: تُربط الوصفات بحجم أو إضافة أو مكوّن مُحضَّر.\nRECIPE_CYCLE: لا يمكن هذا الربط: ستحتوي الوصفة الفرعية على نفسها، أو تتداخل بمستويات كثيرة.\nCOUNT_IN_PROGRESS: هناك جرد جارٍ بالفعل. أنهِه أولًا.\nCOUNT_NOT_FOUND: تعذّر العثور على الجرد.\nCOUNT_FINALIZED: سبق إنهاء هذا الجرد.",
+      "body": "SLOT_TAKEN: حُجز هذا الموعد للتو. يُرجى اختيار وقت آخر.\nCOURT_IN_USE: لهذا الملعب حجوزات أو قواعد أسعار، فلا يمكن حذفه. يمكنك إيقافه بدلًا من ذلك: يختفي من التقويم وتطبيق الضيوف، ويبقى اسمه في التقارير.\nNAME_REQUIRED: الاسمان بالإنجليزية والعربية مطلوبان.\nUNIT_LOCKED: لا يمكن تغيير الوحدة، لأن في السجل كميات مسجّلة بها.\nKIND_LOCKED: لا يمكن تغيير النوع، لأن السجل يستخدمه لهذا المكوّن.\nINVALID_YIELD: يجب أن تكون نسبة الاستفادة بين 0 و100.\nINVALID_WASTE_ALLOWANCE: يجب أن تكون نسبة الهدر المسموح به بين 0 و100.\nINVALID_PACK: يجب أن يكون حجم العبوة أكبر من صفر.\nINGREDIENT_NOT_FOUND: تعذّر العثور على المكوّن (تُربط الوصفات الفرعية بمكوّن مُحضَّر).\nINVALID_TARGET: تُربط الوصفات بحجم أو إضافة أو مكوّن مُحضَّر.",
       "route": null
     },
     {
@@ -26542,7 +26550,7 @@
       "ref": "label:op.errors~4",
       "lang": "ar",
       "title": "op.errors (packages/i18n/src/catalogs/ar.ts) (part 4 of 4)",
-      "body": "SLOT_TAKEN: حُجز هذا الموعد للتو. اختر وقتًا آخر.\nCOUNT_IN_PROGRESS: هناك جرد جارٍ بالفعل. أنهِه أولًا.\nCOUNT_NOT_FOUND: تعذّر العثور على الجرد.\nCOUNT_FINALIZED: سبق إنهاء هذا الجرد.\nCOUNT_LINE_NOT_FOUND: هذا المكوّن ليس ضمن هذا الجرد.\nBATCH_NOT_FOUND: تعذّر العثور على الدفعة.",
+      "body": "SLOT_TAKEN: حُجز هذا الموعد للتو. يُرجى اختيار وقت آخر.\nINVALID_PACK: يجب أن يكون حجم العبوة أكبر من صفر.\nINGREDIENT_NOT_FOUND: تعذّر العثور على المكوّن (تُربط الوصفات الفرعية بمكوّن مُحضَّر).\nINVALID_TARGET: تُربط الوصفات بحجم أو إضافة أو مكوّن مُحضَّر.\nRECIPE_CYCLE: لا يمكن هذا الربط: ستحتوي الوصفة الفرعية على نفسها، أو تتداخل بمستويات كثيرة.\nCOUNT_IN_PROGRESS: هناك جرد جارٍ بالفعل. يُرجى إنهاؤه أولًا.\nCOUNT_NOT_FOUND: تعذّر العثور على الجرد.\nCOUNT_FINALIZED: سبق إنهاء هذا الجرد.",
       "route": null
     },
     {
@@ -26558,7 +26566,7 @@
       "ref": "label:op.floor",
       "lang": "ar",
       "title": "op.floor (packages/i18n/src/catalogs/ar.ts)",
-      "body": "waiterCalls: نداءات النادل\nnoCalls: لا أحد ينتظر.\nack: في طريقي\nacked: في الطريق\nresolve: تم\nageMinutes: قبل {age}\nageNow: الآن\nescalated: متأخر\noverdue: ينتظر منذ {age}\nsourceGuest: QR\ntable: طاولة {table}\noldCalls: أقدم من ساعتين: {count}\nshowOld: عرضها\nhideOld: إخفاؤها\nclearOld: مسح القديمة\nclearOldTitle: مسح نداءات النادل القديمة؟\nclearOldBody: نداءات مضى عليها أكثر من ساعتين: {count}. ستُغلق وتختفي من هذه القائمة. لن يتغير شيء آخر.\nclearOldConfirm: مسح\nreasons.order: يريد أن يطلب\nreasons.bill: يريد الحساب\nreasons.water: ماء\nreasons.assistance: يحتاج مساعدة",
+      "body": "waiterCalls: نداءات النادل\nnoCalls: لا أحد ينتظر.\nack: في طريقي\nacked: في الطريق\nresolve: تم\nageMinutes: قبل {age}\nageNow: قبل لحظات\nescalated: متأخر\noverdue: ينتظر منذ {age}\nsourceGuest: QR\ntable: طاولة {table}\noldCalls: أقدم من ساعتين: {count}\nshowOld: عرضها\nhideOld: إخفاؤها\nclearOld: مسح القديمة\nclearOldTitle: مسح نداءات النادل القديمة؟\nclearOldBody: نداءات مضى عليها أكثر من ساعتين: {count}. ستُغلق وتختفي من هذه القائمة. لن يتغير شيء آخر.\nclearOldConfirm: مسح\nreasons.order: يريد أن يطلب\nreasons.bill: يريد الحساب\nreasons.water: ماء\nreasons.assistance: يحتاج مساعدة",
       "route": null
     },
     {
@@ -28749,7 +28757,7 @@
       "kind": "label",
       "ref": "label:ws.cashier.detail",
       "lang": "ar",
-      "title": "ws.cashier.detail (packages/i18n/src/catalogs/ws/cashier.ar.ts) (part 1 of 3)",
+      "title": "ws.cashier.detail (packages/i18n/src/catalogs/ws/cashier.ar.ts) (part 1 of 4)",
       "body": "title: الفاتورة\nlinesTitle: الأسطر\nunsent: غير مُرسَل\nsent: مُرسَل\nsentHint: الأسطر المرسلة موجودة على تذكرة مطبخ. إلغاء أحدها يسجّل الصنف كهدر ولا يحذفه أبدًا.\nvoidLine: إلغاء\nvoidAction: إلغاء سطر مُرسَل\nvoidConsequence: أُرسل هذا الصنف إلى المطبخ بالفعل. يُسجَّل إلغاؤه كهدر باسمك مع السبب، ويبقى على الفاتورة مشطوبًا.\nvoidRefused: على هذه الفاتورة دفعات، لذا لا يمكن إلغاء سطر مُرسَل الآن. استرد الدفعات أولًا، ثم ألغِ السطر.\nvoidQueued: الإلغاء بانتظار المزامنة\nrefundQueued: حُفظ الاسترداد على هذه المحطة. سيُسجَّل عند عودة الاتصال، وتُحدَّث قائمة الدفعات حينها.\nsettleQueued: حُفظت الدفعة على هذه المحطة. ستُسجَّل عند عودة الاتصال، ويُحدَّث المبلغ المستحق حينها.\nvoidedTitle: الأسطر الملغاة\nnoLines: لا شيء على هذه الفاتورة بعد. اختر أصنافًا من الشبكة.\ntotalsTitle: المجاميع",
       "route": "/till"
     },
@@ -28781,8 +28789,8 @@
       "kind": "label",
       "ref": "label:ws.cashier.detail~2",
       "lang": "ar",
-      "title": "ws.cashier.detail (packages/i18n/src/catalogs/ws/cashier.ar.ts) (part 2 of 3)",
-      "body": "title: الفاتورة\nvoidedTitle: الأسطر الملغاة\nnoLines: لا شيء على هذه الفاتورة بعد. اختر أصنافًا من الشبكة.\ntotalsTitle: المجاميع\ngross: الإجمالي قبل الخصم\ndiscounts: الخصومات\npromotion: العرض\ntax: الضريبة\ntaxIncluded: الضريبة (مشمولة)\nnet: الصافي\npaid: المدفوع\ndue: المستحق\nchange: الباقي\nserverFigureHint: يثبّت الخادم كل رقم من جديد عند الدفع، وتعتمد هذه المعاينة القواعد نفسها.\npromoTitle: العرض\npromoApply: تطبيق عرض\npromoCode: رمز العرض (اختياري)\npromoCodePlaceholder: اتركه فارغًا لأفضل عرض تلقائي\npromoApplied: طُبّق العرض بخصم {amount}.\npromoNone: لا ينطبق أي عرض على هذه الفاتورة حاليًا.\npromoCodeInvalid: هذا الرمز ليس رمز عرض. تحقق منه مع الضيف وحاول مرة أخرى.\npromoCodeNotEligible: الرمز صحيح لكنه لا ينطبق على هذه الفاتورة. راجع أصنافها أو أوقاتها أو الحد الأدنى للإنفاق.",
+      "title": "ws.cashier.detail (packages/i18n/src/catalogs/ws/cashier.ar.ts) (part 2 of 4)",
+      "body": "title: الفاتورة\nvoidedTitle: الأسطر الملغاة\nnoLines: لا شيء على هذه الفاتورة بعد. اختر أصنافًا من الشبكة.\ntotalsTitle: المجاميع\ngross: الإجمالي قبل الخصم\ndiscounts: الخصومات\npromotion: العرض\ntax: الضريبة\ntaxIncluded: الضريبة (مشمولة)\nnet: الصافي\npaid: المدفوع\ndue: المستحق\nchange: الباقي\nserverFigureHint: يثبّت الخادم كل رقم من جديد عند الدفع، وتعتمد هذه المعاينة القواعد نفسها.\npromoTitle: العرض\npromoApply: تطبيق عرض\npromoCode: رمز العرض (اختياري)\npromoCodePlaceholder: اتركه فارغًا لأفضل عرض تلقائي\npromoApplied: طُبّق العرض بخصم {amount}.\npromoNone: لا ينطبق أي عرض على هذه الفاتورة حاليًا.\npromoCodeInvalid: هذا الرمز ليس رمز عرض. يمكنك التحقق منه مع الضيف ثم إعادة المحاولة.",
       "route": "/till"
     },
     {
@@ -28797,8 +28805,8 @@
       "kind": "label",
       "ref": "label:ws.cashier.detail~3",
       "lang": "ar",
-      "title": "ws.cashier.detail (packages/i18n/src/catalogs/ws/cashier.ar.ts) (part 3 of 3)",
-      "body": "title: الفاتورة\npromoCodeInvalid: هذا الرمز ليس رمز عرض. تحقق منه مع الضيف وحاول مرة أخرى.\npromoCodeNotEligible: الرمز صحيح لكنه لا ينطبق على هذه الفاتورة. راجع أصنافها أو أوقاتها أو الحد الأدنى للإنفاق.\npromoHint: اترك الرمز فارغًا للحصول على أفضل عرض ينطبق. عرض واحد لكل فاتورة.\npromoAppliedRow: العرض\nmanagerDiscount: خصم المدير\nactionsTitle: الإجراءات\ndiscount: خصم\noverride: تعديل السعر\noverrideSame: اكتب سعرًا مختلفًا لتغييره.\nchargeBooking: تحميل على حجز\nsplit: تقسيم الفاتورة\nmerge: دمج الفواتير\nrefund: استرداد\nrefundAction: استرداد دفعة\nbill: الفاتورة\npayment: الانتقال إلى الدفع\nclose: إغلاق الفاتورة\nsettledNote: هذه الفاتورة مسدّدة. يبقى عرضها والاسترداد متاحين.\nchargedTo: محمّلة على حجز\nlineActions: {name}: تعديل السعر أو الإلغاء",
+      "title": "ws.cashier.detail (packages/i18n/src/catalogs/ws/cashier.ar.ts) (part 3 of 4)",
+      "body": "title: الفاتورة\npromoApplied: طُبّق العرض بخصم {amount}.\npromoNone: لا ينطبق أي عرض على هذه الفاتورة حاليًا.\npromoCodeInvalid: هذا الرمز ليس رمز عرض. يمكنك التحقق منه مع الضيف ثم إعادة المحاولة.\npromoCodeNotEligible: الرمز صحيح لكنه لا ينطبق على هذه الفاتورة. يمكنك مراجعة أصنافها أو أوقاتها أو الحد الأدنى للإنفاق.\npromoHint: اترك الرمز فارغًا للحصول على أفضل عرض ينطبق. عرض واحد لكل فاتورة.\npromoAppliedRow: العرض\nmanagerDiscount: خصم المدير\nactionsTitle: الإجراءات\ndiscount: خصم\noverride: تعديل السعر\noverrideSame: اكتب سعرًا مختلفًا لتغييره.\nchargeBooking: تحميل على حجز\nsplit: تقسيم الفاتورة\nmerge: دمج الفواتير\nrefund: استرداد\nrefundAction: استرداد دفعة\nbill: الفاتورة\npayment: الانتقال إلى الدفع\nclose: إغلاق الفاتورة\nsettledNote: هذه الفاتورة مسدّدة. يبقى عرضها والاسترداد متاحين.",
       "route": "/till"
     },
     {
@@ -28807,6 +28815,14 @@
       "lang": "en",
       "title": "ws.cashier.detail (packages/i18n/src/catalogs/ws/cashier.en.ts) (part 3 of 4)",
       "body": "title: Tab\npromoCode: Promo code (optional)\npromoCodePlaceholder: Leave empty for the best automatic offer\npromoApplied: Promotion applied — {amount} off.\npromoNone: No promotion applies to this tab right now.\npromoCodeInvalid: That code is not a promotion code. Check it with the guest and try again.\npromoCodeNotEligible: That code is real, but it does not apply to this tab — check its items, times or minimum spend.\npromoHint: Leave the code empty to get the best offer that applies. One promotion per tab.\npromoAppliedRow: Promotion\nmanagerDiscount: Manager discount\nactionsTitle: Actions\ndiscount: Discount\noverride: Change price\noverrideSame: Type a different price to change it.\nchargeBooking: Charge to booking\nsplit: Split bill\nmerge: Merge tabs\nrefund: Refund",
+      "route": "/till"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.cashier.detail~4",
+      "lang": "ar",
+      "title": "ws.cashier.detail (packages/i18n/src/catalogs/ws/cashier.ar.ts) (part 4 of 4)",
+      "body": "title: الفاتورة\nmerge: دمج الفواتير\nrefund: استرداد\nrefundAction: استرداد دفعة\nbill: الفاتورة\npayment: الانتقال إلى الدفع\nclose: إغلاق الفاتورة\nsettledNote: هذه الفاتورة مسدّدة. يبقى عرضها والاسترداد متاحين.\nchargedTo: محمّلة على حجز\nlineActions: {name}: تعديل السعر أو الإلغاء",
       "route": "/till"
     },
     {
@@ -32686,7 +32702,7 @@
       "ref": "label:ws.incidents.form",
       "lang": "ar",
       "title": "ws.incidents.form (packages/i18n/src/catalogs/ws/incidents.ar.ts) (part 1 of 3)",
-      "body": "title: بلاغ عن حادثة\nkind: نوع الحادثة\nwhen: متى\nwhenHint: خلال آخر 7 أيام.\nnow: الآن\nminutesAgo: قبل {count} دقيقة\nhourAgo: قبل ساعة\npickTime: اختر وقتًا\nlead: يراجع مدير كل بلاغ.\nmenu: خطوات البلاغ\nstepOf: الخطوة {n} من {total}\nprogress: اكتمل {done} من {total}\nneedsLook: يحتاج إلى مراجعة\nwritten: مكتوب\nsteps.kind: نوع الحادثة\nsteps.placeTime: المكان والوقت\nsteps.story: ماذا حدث\nsteps.review: المراجعة\nreviewLead: راجع البلاغ قبل إرساله.\nchange: تغيير\nchangeLabel: تغيير {what}\nkindHint.accident: سقوط أو انزلاق أو اصطدام.\nkindHint.injury: أصيب أحدهم.\nkindHint.fight: جدال أو شجار.\nkindHint.damage: انكسر شيء ما.\nkindHint.other: أي شيء آخر.\nplace: أين\ncourt: أي ملعب\nchooseCourt: اختر ملعبًا\nplaceDetail: أين بالتحديد\nplaceDetailPlaceholder: قرب المدخل",
+      "body": "title: بلاغ عن حادثة\nkind: نوع الحادثة\nwhen: متى\nwhenHint: خلال آخر 7 أيام.\nnow: الآن\nminutesAgo: منذ {count} دقيقة\nhourAgo: منذ ساعة\npickTime: اختيار وقت\nlead: يراجع أحد المديرين كل بلاغ.\nmenu: خطوات البلاغ\nstepOf: الخطوة {n} من {total}\nprogress: اكتمل {done} من {total}\nneedsLook: تحتاج إلى مراجعة\nwritten: مكتوب\nsteps.kind: نوع الحادثة\nsteps.placeTime: المكان والوقت\nsteps.story: ماذا حدث\nsteps.review: المراجعة\nreviewLead: يمكنك مراجعة البلاغ قبل إرساله.\nchange: تغيير\nchangeLabel: تغيير {what}\nkindHint.accident: سقوط أو انزلاق أو اصطدام.\nkindHint.injury: أُصيب أحدهم.\nkindHint.fight: جدال أو شجار.\nkindHint.damage: انكسر شيء ما.\nkindHint.other: أي شيء آخر.\nplace: أين\ncourt: أي ملعب\nchooseCourt: اختر ملعبًا\nplaceDetail: أين بالتحديد\nplaceDetailPlaceholder: قرب المدخل",
       "route": null
     },
     {
@@ -32702,7 +32718,7 @@
       "ref": "label:ws.incidents.form~2",
       "lang": "ar",
       "title": "ws.incidents.form (packages/i18n/src/catalogs/ws/incidents.ar.ts) (part 2 of 3)",
-      "body": "title: بلاغ عن حادثة\nkindHint.damage: انكسر شيء ما.\nkindHint.other: أي شيء آخر.\nplace: أين\ncourt: أي ملعب\nchooseCourt: اختر ملعبًا\nplaceDetail: أين بالتحديد\nplaceDetailPlaceholder: قرب المدخل\nprivacyHint: اكتب ما يلزم فقط. لا تضف أرقام هواتف.\ndescription: ماذا حدث\npeople: الأشخاص المعنيون\npeopleHint: موظفون أو ضيوف أو غيرهم، بأقصر عبارة ممكنة.\nsubmit: إرسال البلاغ\nsent: أُرسل البلاغ. سيراجعه مدير.\nissue.required: هذا الحقل مطلوب.\nissue.whenRange: اختر وقتًا خلال آخر 7 أيام.\nissue.tooLong: الحد الأقصى للأحرف: {limit}.\nissue.tooMany: الحد الأقصى للصور: {limit}.\nmissing.kind: اختر نوع الحادثة.\nmissing.description: اكتب ما حدث.\nmissing.place: اختر مكان الحادثة.\nmissing.courtId: اختر الملعب.\nmissing.when: اختر وقت الحادثة.\nrefused.kind: اختر نوع الحادثة.",
+      "body": "title: بلاغ عن حادثة\nkindHint.damage: انكسر شيء ما.\nkindHint.other: أي شيء آخر.\nplace: أين\ncourt: أي ملعب\nchooseCourt: اختر ملعبًا\nplaceDetail: أين بالتحديد\nplaceDetailPlaceholder: قرب المدخل\nprivacyHint: يُرجى كتابة ما يلزم فقط، وعدم إضافة أرقام هواتف.\ndescription: ماذا حدث\npeople: الأشخاص المعنيون\npeopleHint: موظفون أو ضيوف أو غيرهم، بأقصر عبارة ممكنة.\nsubmit: إرسال البلاغ\nsent: أُرسل البلاغ. سيراجعه أحد المديرين.\nissue.required: هذا الحقل مطلوب.\nissue.whenRange: يُرجى اختيار وقت خلال آخر 7 أيام.\nissue.tooLong: الحد الأقصى للأحرف: {limit}.\nissue.tooMany: الحد الأقصى للصور: {limit}.\nmissing.kind: نوع الحادثة مطلوب.\nmissing.description: وصف ما حدث مطلوب.\nmissing.place: مكان الحادثة مطلوب.\nmissing.courtId: الملعب مطلوب.\nmissing.when: وقت الحادثة مطلوب.\nrefused.kind: اختر نوع الحادثة.",
       "route": null
     },
     {
@@ -32718,7 +32734,7 @@
       "ref": "label:ws.incidents.form~3",
       "lang": "ar",
       "title": "ws.incidents.form (packages/i18n/src/catalogs/ws/incidents.ar.ts) (part 3 of 3)",
-      "body": "title: بلاغ عن حادثة\nmissing.kind: اختر نوع الحادثة.\nmissing.description: اكتب ما حدث.\nmissing.place: اختر مكان الحادثة.\nmissing.courtId: اختر الملعب.\nmissing.when: اختر وقت الحادثة.\nrefused.kind: اختر نوع الحادثة.\nrefused.when: اختر وقتًا خلال آخر 7 أيام.\nrefused.place: اختر مكان الحادثة.\nrefused.courtId: لم يعد هذا الملعب في هذا المكان. اختر ملعبًا آخر.\nrefused.placeDetail: النص طويل جدًا. اختصره.\nrefused.description: اكتب ما حدث في 2,000 حرف على الأكثر.\nrefused.people: النص طويل جدًا. اختصره.\nrefused.photos: لم تُرفع إحدى الصور كما ينبغي. أزلها ثم أضفها مرة أخرى.",
+      "body": "title: بلاغ عن حادثة\nmissing.description: وصف ما حدث مطلوب.\nmissing.place: مكان الحادثة مطلوب.\nmissing.courtId: الملعب مطلوب.\nmissing.when: وقت الحادثة مطلوب.\nrefused.kind: اختر نوع الحادثة.\nrefused.when: اختر وقتًا خلال آخر 7 أيام.\nrefused.place: اختر مكان الحادثة.\nrefused.courtId: لم يعد هذا الملعب في هذا المكان. اختر ملعبًا آخر.\nrefused.placeDetail: النص طويل جدًا. اختصره.\nrefused.description: اكتب ما حدث في 2,000 حرف على الأكثر.\nrefused.people: النص طويل جدًا. اختصره.\nrefused.photos: لم تُرفع إحدى الصور كما ينبغي. أزلها ثم أضفها مرة أخرى.",
       "route": null
     },
     {
@@ -34334,7 +34350,7 @@
       "ref": "label:ws.manager.audit#2~2",
       "lang": "ar",
       "title": "ws.manager.audit (packages/i18n/src/catalogs/ws/manager.ar.ts) (part 2 of 4)",
-      "body": "actions.analyticsInsightReject: استُبعد استنتاج تحليلي\nactions.dayClose: أُغلق يوم العمل\nactions.dayOpen: فُتح يوم العمل\nactions.discountApply: مُنح خصم\nactions.drawerOpen: فُتح درج النقد\nactions.drawerShiftOpen: بدأت وردية الكاشير\nactions.drawerShiftClose: انتهت وردية الكاشير وعُدّ درج النقد\nactions.drawerShiftCloseByDay: انتهت وردية الكاشير بإغلاق اليوم دون عدّ النقد\nactions.marketingAudienceSave: حُفظ جمهور تسويقي\nactions.marketingCampaignSave: حُفظت حملة\nactions.marketingCampaignStatus: بدأت حملة أو توقفت\nactions.menuCategoryCreate: أُضيفت فئة إلى المنيو\nactions.menuCategoryPhoto: تغيّرت صورة فئة\nactions.menuCategoryReorder: أُعيد ترتيب فئات المنيو\nactions.menuCategoryUpdate: عُدّلت فئة في المنيو\nactions.menuItemAddons: عُدّلت إضافات صنف",
+      "body": "actions.analyticsInsightReject: استُبعد استنتاج تحليلي\nactions.dayClose: أُغلق يوم العمل\nactions.dayOpen: فُتح يوم العمل\nactions.discountApply: مُنح خصم\nactions.drawerOpen: فُتح درج النقد\nactions.drawerShiftOpen: بدأت وردية الكاشير\nactions.drawerShiftClose: انتهت وردية الكاشير وعُدّ درج النقد\nactions.drawerShiftCloseByDay: انتهت وردية الكاشير بإغلاق اليوم دون عدّ النقد\nactions.marketingAudienceSave: حُفظ جمهور تسويقي\nactions.marketingCampaignSave: حُفظت حملة\nactions.marketingCampaignStatus: أُطلقت حملة أو أُوقفت\nactions.menuCategoryCreate: أُضيفت فئة إلى المنيو\nactions.menuCategoryPhoto: تغيّرت صورة فئة\nactions.menuCategoryReorder: أُعيد ترتيب فئات المنيو\nactions.menuCategoryUpdate: عُدّلت فئة في المنيو\nactions.menuItemAddons: عُدّلت إضافات صنف",
       "route": "/admin/audit"
     },
     {
@@ -34382,7 +34398,7 @@
       "ref": "label:ws.manager.audit#3",
       "lang": "ar",
       "title": "ws.manager.audit (packages/i18n/src/catalogs/ws/manager.ar.ts) (part 1 of 4)",
-      "body": "actions.menuVariantUpdate: عُدّل حجم أو سعر\nactions.orderItemVoid: أُلغي سطر من طلب\nactions.paymentRefund: استُرد مبلغ\nactions.priceOverride: عُدّل سعر يدويًا\nactions.promotionApply: طُبّق عرض على فاتورة\nactions.promotionDropOnMerge: أُسقط عرض عند دمج الفواتير\nactions.promotionGenerateCode: أُنشئ رمز عرض\nactions.promotionReplace: استُبدل عرض بعرض أفضل\nactions.promotionSetEnabled: شُغّل عرض أو أُوقف\nactions.promotionUpsert: حُفظ عرض\nactions.ratesRuleCreate: أُضيف سعر ملعب\nactions.ratesRuleUpdate: عُدّل سعر ملعب\nactions.reservationCancel: أُلغي حجز\nactions.reservationConfirm: أُكّد حجز\nactions.reservationCreate: أُنشئ حجز\nactions.reservationExtend: مُدّد حجز\nactions.reservationHold: حُجز موعد مؤقتًا أثناء الحجز",
+      "body": "actions.menuVariantUpdate: عُدّل حجم أو سعر\nactions.orderItemVoid: أُلغي سطر من طلب\nactions.paymentRefund: رُدّ مبلغ\nactions.priceOverride: عُدّل سعر يدويًا\nactions.promotionApply: طُبّق عرض على فاتورة\nactions.promotionDropOnMerge: أُسقط عرض عند دمج الفواتير\nactions.promotionGenerateCode: أُنشئ رمز عرض\nactions.promotionReplace: استُبدل عرض بعرض أفضل\nactions.promotionSetEnabled: شُغّل عرض أو أُوقف\nactions.promotionUpsert: حُفظ عرض\nactions.ratesRuleCreate: أُضيف سعر ملعب\nactions.ratesRuleUpdate: عُدّل سعر ملعب\nactions.reservationCancel: أُلغي حجز\nactions.reservationConfirm: أُكّد حجز\nactions.reservationCreate: أُنشئ حجز\nactions.reservationExtend: مُدّد حجز\nactions.reservationHold: حُجز موعد مؤقتًا أثناء الحجز",
       "route": "/admin/audit"
     },
     {
@@ -34398,7 +34414,7 @@
       "ref": "label:ws.manager.audit#3~2",
       "lang": "ar",
       "title": "ws.manager.audit (packages/i18n/src/catalogs/ws/manager.ar.ts) (part 2 of 4)",
-      "body": "actions.menuVariantUpdate: عُدّل حجم أو سعر\nactions.reservationConfirm: أُكّد حجز\nactions.reservationCreate: أُنشئ حجز\nactions.reservationExtend: مُدّد حجز\nactions.reservationHold: حُجز موعد مؤقتًا أثناء الحجز\nactions.reservationMarkArrived: وصل الضيف\nactions.reservationMarkCompleted: اكتمل حجز\nactions.reservationMarkNoShow: سُجّل عدم حضور\nactions.reservationMove: نُقل حجز\nactions.reservationPriceOverride: عُدّل سعر حجز يدويًا\nactions.reservationRelease: حُرّر موعد محجوز مؤقتًا\nactions.seriesCancel: أُلغي حجز متكرر\nactions.seriesCreate: أُنشئ حجز متكرر\nactions.settingsCafe: عُدّل إعداد الكافيه\nactions.settingsOpeningHours: عُدّلت ساعات العمل\nactions.settingsWaiterCooldown: عُدّلت مهلة نداء النادل\nactions.staffActiveSet: فُعّل حساب موظف أو أُوقف\nactions.staffCreate: أُنشئ حساب موظف",
+      "body": "actions.menuVariantUpdate: عُدّل حجم أو سعر\nactions.reservationConfirm: أُكّد حجز\nactions.reservationCreate: أُنشئ حجز\nactions.reservationExtend: مُدّد حجز\nactions.reservationHold: حُجز موعد مؤقتًا أثناء الحجز\nactions.reservationMarkArrived: وصل الضيف\nactions.reservationMarkCompleted: اكتمل حجز\nactions.reservationMarkNoShow: سُجّل غياب\nactions.reservationMove: نُقل حجز\nactions.reservationPriceOverride: عُدّل سعر حجز يدويًا\nactions.reservationRelease: حُرّر موعد محجوز مؤقتًا\nactions.seriesCancel: أُلغي حجز متكرر\nactions.seriesCreate: أُنشئ حجز متكرر\nactions.settingsCafe: عُدّل إعداد الكافيه\nactions.settingsOpeningHours: عُدّلت ساعات العمل\nactions.settingsWaiterCooldown: عُدّلت مهلة نداء النادل\nactions.staffActiveSet: فُعّل حساب موظف أو أُوقف\nactions.staffCreate: أُنشئ حساب موظف",
       "route": "/admin/audit"
     },
     {
@@ -34542,7 +34558,7 @@
       "ref": "label:ws.manager.audit#5~3",
       "lang": "ar",
       "title": "ws.manager.audit (packages/i18n/src/catalogs/ws/manager.ar.ts) (part 3 of 4)",
-      "body": "actions.protocolReleaseIdeaSubmit: أُرسلت فكرة صنف جديد\nactions.purchaseReceive: استُلمت مشتريات السائق\nactions.purchaseAcknowledge: دُقّق سطر مشتريات\nactions.purchaseDeliver: سُجّل تسليم المشتريات\nactions.marketingCampaignSuggest: اقتُرحت مسودة حملة\nactions.marketingNoteAdd: أُضيفت ملاحظة تسويقية\nactions.marketingRequestAdd: أُرسل طلب إلى التسويق\nactions.marketingRequestWithdraw: سُحب طلب إلى التسويق\nactions.marketingRequestAnswer: رُدّ على طلب موجّه إلى التسويق\nactions.reservationEventBlock: أُوقفت ملاعب لبطولة\nactions.teachingSave: حُفظت تعليمة\nactions.teachingArchive: أُرشفت تعليمة\nactions.staffDeductionPropose: اقتُرح خصم من الراتب\nactions.staffDeductionWithdraw: سُحب اقتراح خصم من الراتب\nactions.staffDeductionApprove: اعتُمد خصم من الراتب",
+      "body": "actions.protocolReleaseIdeaSubmit: أُرسلت فكرة صنف جديد\nactions.purchaseReceive: استُلمت مشتريات السائق\nactions.purchaseAcknowledge: دُقّق سطر مشتريات\nactions.purchaseDeliver: سُجّل تسليم المشتريات\nactions.marketingCampaignSuggest: اقتُرحت مسودة حملة\nactions.marketingNoteAdd: أُضيفت ملاحظة تسويقية\nactions.marketingRequestAdd: أُرسل طلب إلى التسويق\nactions.marketingRequestWithdraw: سُحب طلب إلى التسويق\nactions.marketingRequestAnswer: رُدّ على طلب موجّه إلى التسويق\nactions.reservationEventBlock: حُجزت ملاعب لبطولة\nactions.teachingSave: حُفظت تعليمة\nactions.teachingArchive: أُرشفت تعليمة\nactions.staffDeductionPropose: اقتُرح خصم من الراتب\nactions.staffDeductionWithdraw: سُحب اقتراح خصم من الراتب\nactions.staffDeductionApprove: اعتُمد خصم من الراتب",
       "route": "/admin/audit"
     },
     {
@@ -36846,7 +36862,7 @@
       "ref": "label:ws.matches.customers~4",
       "lang": "ar",
       "title": "ws.matches.customers (packages/i18n/src/catalogs/ws/matchesAdmin.ar.ts) (part 4 of 4)",
-      "body": "noShowsWithMatches: {count} (منها في المباريات المفتوحة {matches})\nmatches.kind.desk: مقعد استقبال\ntickets.title: تذاكر المباريات المفتوحة\ntickets.available: متاحة\ntickets.reserved: محجوزة لطلب\ntickets.inUse: في مباراة\ntickets.forfeited: مفقودة\ntickets.cashedOut: مستردّة\ntickets.everyBranch: التذاكر صالحة في كل الفروع.\ntickets.pending: دفع قيد الإتمام\ntickets.purchases: المشتريات\ntickets.noPurchases: لم تُشترَ أي تذاكر بعد.\ntickets.paid: المدفوع {amount}\ntickets.test: تجريبية",
+      "body": "noShowsWithMatches: {count} (منها في المباريات المفتوحة {matches})\nmatches.kind.desk: مقعد استقبال\ntickets.title: تذاكر المباريات المفتوحة\ntickets.available: متاحة\ntickets.reserved: محجوزة لطلب\ntickets.inUse: في مباراة\ntickets.forfeited: مفقودة\ntickets.cashedOut: مستردّة\ntickets.everyBranch: التذاكر صالحة في كل الفروع.\ntickets.pending: عملية دفع جارية\ntickets.purchases: المشتريات\ntickets.noPurchases: لم تُشترَ أي تذاكر بعد.\ntickets.paid: المدفوع {amount}\ntickets.test: تجريبية",
       "route": "/desk/customers"
     },
     {
@@ -37790,7 +37806,7 @@
       "ref": "label:ws.owner.assistant#6",
       "lang": "ar",
       "title": "ws.owner.assistant (packages/i18n/src/catalogs/ws/owner.ar.ts) (part 1 of 4)",
-      "body": "message.errors.NOT_SAVED: كُتبت هذه الإجابة لكن تعذّر حفظها، فلن تجدها في المحادثة لاحقًا. اسأل مرة أخرى لتحتفظ بها.\nmessage.errors.UNKNOWN: تعذّر على المساعد الإجابة. اسأل مرة أخرى.\nmessage.errors.CONNECTION: انقطع الاتصال قبل أن تكتمل الإجابة.\nmessage.outcome.cutShort: توقفت هذه الإجابة قبل أن تكتمل. اطلب البقية.\nmessage.outcome.refused: امتنع المساعد عن الإجابة عن هذا السؤال.\nmessage.askAgain: اسأل مرة أخرى\nmessage.askAgainHint: يرسل السؤال نفسه مرة أخرى رسالةً جديدة، ويُحاسَب عليه كأي سؤال.\nsources.title: ما قُرئ\nsources.rows: الصفوف: {n}\nsources.ms: {ms} م.ث\nsources.failed: تعذّرت قراءته\nsources.open: فتح الصفحة\nsources.none: لم يُقرأ شيء في هذه الجولة.",
+      "body": "message.errors.NOT_SAVED: كُتبت هذه الإجابة لكن تعذّر حفظها، فلن تجدها في المحادثة لاحقًا. اسأل مرة أخرى لتحتفظ بها.\nmessage.errors.UNKNOWN: تعذّر على المساعد الإجابة. يمكنك السؤال مرة أخرى.\nmessage.errors.CONNECTION: انقطع الاتصال قبل أن تكتمل الإجابة.\nmessage.outcome.cutShort: توقفت هذه الإجابة قبل أن تكتمل. اطلب البقية.\nmessage.outcome.refused: امتنع المساعد عن الإجابة عن هذا السؤال.\nmessage.askAgain: اسأل مرة أخرى\nmessage.askAgainHint: يرسل السؤال نفسه مرة أخرى رسالةً جديدة، ويُحاسَب عليه كأي سؤال.\nsources.title: ما قُرئ\nsources.rows: الصفوف: {n}\nsources.ms: {ms} م.ث\nsources.failed: تعذّرت قراءته\nsources.open: فتح الصفحة\nsources.none: لم يُقرأ شيء في هذه الجولة.",
       "route": "/panel"
     },
     {
@@ -37838,7 +37854,7 @@
       "ref": "label:ws.owner.assistant#6~4",
       "lang": "ar",
       "title": "ws.owner.assistant (packages/i18n/src/catalogs/ws/owner.ar.ts) (part 4 of 4)",
-      "body": "message.errors.NOT_SAVED: كُتبت هذه الإجابة لكن تعذّر حفظها، فلن تجدها في المحادثة لاحقًا. اسأل مرة أخرى لتحتفظ بها.\nmodel.defaultTitle: النموذج الافتراضي للمحادثات الجديدة\nmodel.defaultLead: المحادثة التي لم يُحدَّد لها نموذج تجيب بهذا النموذج. أسعاره في الجدول أدناه.\nmodel.saved: حُفظ النموذج الافتراضي.\nmodel.notPriced: لا توجد أسعار لهذا النموذج في جدول التسعير، فلا يمكن احتساب كلفته. أضف أسعاره الأربعة أولًا.\nmodel.loading: جارٍ تحميل النماذج…\nmodel.none: لا توجد أسعار لأي نموذج في جدول التسعير، فلا يمكن طرح أي سؤال.\nmodel.free: المساعد المجاني\nmodel.claude: نماذج Claude\njob.title: يحتاج هذا السؤال إلى مهمة أطول",
+      "body": "message.errors.NOT_SAVED: كُتبت هذه الإجابة لكن تعذّر حفظها، فلن تجدها في المحادثة لاحقًا. اسأل مرة أخرى لتحتفظ بها.\nmodel.defaultTitle: النموذج الافتراضي للمحادثات الجديدة\nmodel.defaultLead: المحادثة التي لم يُحدَّد لها نموذج تجيب بهذا النموذج. أسعاره في الجدول أدناه.\nmodel.saved: حُفظ النموذج الافتراضي.\nmodel.notPriced: لا توجد أسعار لهذا النموذج في جدول التسعير، فلا يمكن احتساب كلفته. يُرجى إضافة أسعاره الأربعة أولًا.\nmodel.loading: جارٍ تحميل النماذج…\nmodel.none: لا توجد أسعار لأي نموذج في جدول التسعير، فلا يمكن طرح أي سؤال.\nmodel.free: المساعد المجاني\nmodel.claude: نماذج Claude\njob.title: يحتاج هذا السؤال إلى مهمة أطول",
       "route": "/panel"
     },
     {
@@ -39174,7 +39190,7 @@
       "ref": "label:ws.owner.staff#3",
       "lang": "ar",
       "title": "ws.owner.staff (packages/i18n/src/catalogs/ws/owner.ar.ts) (part 1 of 4)",
-      "body": "pin.noPinUnlockOnly: غير محدّد. يفتح قفل المحطة بكلمة المرور حتى يُحدَّد.\npin.removeConfirm: إزالة الرقم السري للموظف {name}؟\npin.removeBody: لن يستطيع اعتماد الخصومات أو الإلغاءات أو تغيير الأسعار على كاشير الكافيه حتى يُحدَّد رقم سري جديد.\npin.removed: أُزيل الرقم السري.\npin.saved: حُفظ الرقم السري.\nrefusals.pinWeak: هذا الرقم السري سهل التخمين. تجنّب الأرقام المكررة والمتتالية مثل 123456.\nrefusals.pinFormat: الرقم السري من 4 إلى 12 رقمًا.\nrefusals.emailInUse: يوجد حساب بهذا البريد الإلكتروني بالفعل.\nrefusals.roleRetired: دور «المطبخ» لم يعد يُمنح لأحد. اختر باريستا أو مساعد شيف.\nrefusals.lastOwner: هذا هو المالك الوحيد. اجعل شخصًا آخر مالكًا أولًا.\naccess.title: الصلاحيات",
+      "body": "pin.noPinUnlockOnly: غير محدّد. يفتح قفل المحطة بكلمة المرور حتى يُحدَّد.\npin.removeConfirm: إزالة الرقم السري للموظف {name}؟\npin.removeBody: لن يستطيع اعتماد الخصومات أو الإلغاءات أو تغيير الأسعار على كاشير الكافيه حتى يُحدَّد رقم سري جديد.\npin.removed: أُزيل الرقم السري.\npin.saved: حُفظ الرقم السري.\nrefusals.pinWeak: هذا الرقم السري سهل التخمين جدًا. يُرجى تجنّب الأرقام المكررة والمتتالية مثل 123456.\nrefusals.pinFormat: الرقم السري من 4 إلى 12 رقمًا.\nrefusals.emailInUse: يوجد حساب بهذا البريد الإلكتروني بالفعل.\nrefusals.roleRetired: دور «المطبخ» لم يعد يُمنح لأحد. اختر باريستا أو مساعد شيف.\nrefusals.lastOwner: هذا هو المالك الوحيد. يُرجى جعل شخص آخر مالكًا أولًا.\naccess.title: الصلاحيات",
       "route": "/admin/staff"
     },
     {
@@ -39190,7 +39206,7 @@
       "ref": "label:ws.owner.staff#3~2",
       "lang": "ar",
       "title": "ws.owner.staff (packages/i18n/src/catalogs/ws/owner.ar.ts) (part 2 of 4)",
-      "body": "pin.noPinUnlockOnly: غير محدّد. يفتح قفل المحطة بكلمة المرور حتى يُحدَّد.\nrefusals.roleRetired: دور «المطبخ» لم يعد يُمنح لأحد. اختر باريستا أو مساعد شيف.\nrefusals.lastOwner: هذا هو المالك الوحيد. اجعل شخصًا آخر مالكًا أولًا.\naccess.title: الصلاحيات\naccess.lead: يحدّد الدور الصفحات المؤشَّرة. أضف وظيفة ثانية لمن يقوم بعملين، أو أزل التأشير عن صفحة لمنعه من فتحها.\naccess.owner: المالك يفتح كل شيء، فلا شيء هنا للتأشير.\naccess.jobsTitle: وظائف إضافية\naccess.jobsHint: كل وظيفة تضيف شاشاتها وأزرارها إلى جانب دوره.\naccess.management: المدير يفتح أصلًا كاشير الكافيه ومكتب الملاعب وشاشة المطبخ والمتجر.\naccess.pagesTitle: الصفحات التي يفتحها\naccess.pagesHint: أزل التأشير عن صفحة لتختفي من قائمته ولا يستطيع فتحها.\naccess.areas.till: كاشير الكافيه\naccess.areas.desk: مكتب الملاعب",
+      "body": "pin.noPinUnlockOnly: غير محدّد. يفتح قفل المحطة بكلمة المرور حتى يُحدَّد.\nrefusals.roleRetired: دور «المطبخ» لم يعد يُمنح لأحد. اختر باريستا أو مساعد شيف.\nrefusals.lastOwner: هذا هو المالك الوحيد. يُرجى جعل شخص آخر مالكًا أولًا.\naccess.title: الصلاحيات\naccess.lead: يحدّد الدور الصفحات المؤشَّرة. أضف وظيفة ثانية لمن يقوم بعملين، أو أزل التأشير عن صفحة لمنعه من فتحها.\naccess.owner: المالك يفتح كل شيء، فلا شيء هنا للتأشير.\naccess.jobsTitle: وظائف إضافية\naccess.jobsHint: كل وظيفة تضيف شاشاتها وأزرارها إلى جانب دوره.\naccess.management: المدير يفتح أصلًا كاشير الكافيه ومكتب الملاعب وشاشة المطبخ والمتجر.\naccess.pagesTitle: الصفحات التي يفتحها\naccess.pagesHint: أزل التأشير عن صفحة لتختفي من قائمته ولا يستطيع فتحها.\naccess.areas.till: كاشير الكافيه\naccess.areas.desk: مكتب الملاعب",
       "route": "/admin/staff"
     },
     {
@@ -41342,7 +41358,7 @@
       "ref": "label:ws.receipts.status",
       "lang": "ar",
       "title": "ws.receipts.status (packages/i18n/src/catalogs/ws/receipts.ar.ts)",
-      "body": "uploaded: قيد الانتظار\nreading: جارٍ القراءة…\nread: جاهز للمراجعة\nfailed: تعذّرت القراءة\nconfirmed: في المخزون\nrejected: مستبعد",
+      "body": "uploaded: قيد الانتظار\nreading: جارٍ القراءة…\nread: جاهز للمراجعة\nfailed: تعذّرت القراءة\nconfirmed: في المخزون\nrejected: موضوع جانبًا",
       "route": null
     },
     {
@@ -43110,7 +43126,7 @@
       "ref": "label:ws.slips.status",
       "lang": "ar",
       "title": "ws.slips.status (packages/i18n/src/catalogs/ws/slips.ar.ts)",
-      "body": "uploaded: بالانتظار\nreading: جارٍ القراءة…\nread: جاهز\nfailed: تعذّرت القراءة\nsent: أُرسل\nrejected: موضوع جانبًا",
+      "body": "uploaded: قيد الانتظار\nreading: جارٍ القراءة…\nread: جاهز\nfailed: تعذّرت القراءة\nsent: أُرسل\nrejected: موضوع جانبًا",
       "route": null
     },
     {
@@ -43862,7 +43878,7 @@
       "ref": "label:ws.team.tasks#3",
       "lang": "ar",
       "title": "ws.team.tasks (packages/i18n/src/catalogs/ws/team.ar.ts) (part 1 of 4)",
-      "body": "form.hint.promotionValue: نسبة مئوية (99 كحد أقصى) أو مبلغ بالدينار، بحسب النوع.\nform.hint.publicCode: من أربعة إلى ستة عشر حرفًا أو رقمًا. اتركه فارغًا إن لم يكن هناك رمز.\nform.hint.rulePrices: سعر لكل مدة حجز بالدقائق (من 15 إلى 480، بزيادة 5 في كل مرة).\nform.hint.renames: يحتفظ الحجم بعد تغيير اسمه بوصفته وبسعره ما لم تغيّر السعر أعلاه.\nform.hint.addonRenames: تظهر هنا الخيارات المعروضة للبيع فقط. يحتفظ الخيار بعد تغيير اسمه بسعره ما لم تغيّر السعر أعلاه.\nform.option.classA: فئة A\nform.option.classB: فئة B\nform.option.classC: فئة C\nform.option.yearsUnderOne: أقل من سنة\nform.option.yearsOneToThree: من سنة إلى ثلاث سنوات\nform.option.yearsThreePlus: أكثر من ثلاث سنوات\nform.option.americano: أمريكانو",
+      "body": "form.hint.promotionValue: نسبة مئوية (99 كحد أقصى) أو مبلغ بالدينار، بحسب النوع.\nform.hint.publicCode: من أربعة إلى ستة عشر حرفًا أو رقمًا. اتركه فارغًا إن لم يكن هناك رمز.\nform.hint.rulePrices: سعر لكل مدة حجز بالدقائق (من 15 إلى 480، بزيادة 5 في كل مرة).\nform.hint.renames: يحتفظ الحجم بعد تغيير اسمه بوصفته وبسعره ما لم تغيّر السعر أعلاه.\nform.hint.addonRenames: تظهر هنا الخيارات المعروضة للبيع فقط. يحتفظ الخيار بعد تغيير اسمه بسعره ما لم تغيّر السعر أعلاه.\nform.option.classA: فئة A\nform.option.classB: فئة B\nform.option.classC: فئة C\nform.option.yearsUnderOne: أقل من سنة\nform.option.yearsOneToThree: من سنة إلى 3 سنوات\nform.option.yearsThreePlus: أكثر من 3 سنوات\nform.option.americano: أمريكانو",
       "route": "/tasks"
     },
     {
@@ -43878,7 +43894,7 @@
       "ref": "label:ws.team.tasks#3~2",
       "lang": "ar",
       "title": "ws.team.tasks (packages/i18n/src/catalogs/ws/team.ar.ts) (part 2 of 4)",
-      "body": "form.hint.promotionValue: نسبة مئوية (99 كحد أقصى) أو مبلغ بالدينار، بحسب النوع.\nform.option.classC: فئة C\nform.option.yearsUnderOne: أقل من سنة\nform.option.yearsOneToThree: من سنة إلى ثلاث سنوات\nform.option.yearsThreePlus: أكثر من ثلاث سنوات\nform.option.americano: أمريكانو\nform.option.mexicano: مكسيكانو\nform.option.knockout: خروج المغلوب\nform.option.league: دوري\nform.option.players: لاعبون\nform.option.pairs: أزواج\nform.option.percent: نسبة مئوية\nform.option.amount: مبلغ (د.ع)\nform.field.name_en: الاسم بالإنجليزية\nform.field.name_ar: الاسم بالعربية\nform.field.notes: ملاحظات\nform.field.note: ملاحظة\nform.field.en: بالإنجليزية\nform.field.ar: بالعربية\nform.field.item_kind: النوع\nform.field.lines: الوصفة\nform.field.ingredient_id: المكوّن\nform.field.label: أو اكتبه\nform.field.qty: الكمية",
+      "body": "form.hint.promotionValue: نسبة مئوية (99 كحد أقصى) أو مبلغ بالدينار، بحسب النوع.\nform.option.classC: فئة C\nform.option.yearsUnderOne: أقل من سنة\nform.option.yearsOneToThree: من سنة إلى 3 سنوات\nform.option.yearsThreePlus: أكثر من 3 سنوات\nform.option.americano: أمريكانو\nform.option.mexicano: مكسيكانو\nform.option.knockout: خروج المغلوب\nform.option.league: دوري\nform.option.players: لاعبون\nform.option.pairs: أزواج\nform.option.percent: نسبة مئوية\nform.option.amount: مبلغ (د.ع)\nform.field.name_en: الاسم بالإنجليزية\nform.field.name_ar: الاسم بالعربية\nform.field.notes: ملاحظات\nform.field.note: ملاحظة\nform.field.en: بالإنجليزية\nform.field.ar: بالعربية\nform.field.item_kind: النوع\nform.field.lines: الوصفة\nform.field.ingredient_id: المكوّن\nform.field.label: أو كتابته\nform.field.qty: الكمية",
       "route": "/tasks"
     },
     {
@@ -43894,7 +43910,7 @@
       "ref": "label:ws.team.tasks#3~3",
       "lang": "ar",
       "title": "ws.team.tasks (packages/i18n/src/catalogs/ws/team.ar.ts) (part 3 of 4)",
-      "body": "form.hint.promotionValue: نسبة مئوية (99 كحد أقصى) أو مبلغ بالدينار، بحسب النوع.\nform.field.en: بالإنجليزية\nform.field.ar: بالعربية\nform.field.item_kind: النوع\nform.field.lines: الوصفة\nform.field.ingredient_id: المكوّن\nform.field.label: أو اكتبه\nform.field.qty: الكمية\nform.field.unit: الوحدة\nform.field.sizes: الأحجام\nform.field.audience: الجمهور المستهدف\nform.field.inspiration: مصدر الفكرة\nform.field.link: رابط (https)\nform.field.category_id: فئة المنيو\nform.field.servings: حصص التجربة\nform.field.variant_id: الحجم\nform.field.servingsCount: كم حصة\nform.field.highlights_en: ما نقوله عنه (بالإنجليزية)\nform.field.highlights_ar: ما نقوله عنه (بالعربية)\nform.field.hero: سطر الواجهة\nform.field.ticker: سطر الشريط المتحرك\nform.field.campaign_id: مسودة حملة\nform.field.class: الفئة",
+      "body": "form.hint.promotionValue: نسبة مئوية (99 كحد أقصى) أو مبلغ بالدينار، بحسب النوع.\nform.field.en: بالإنجليزية\nform.field.ar: بالعربية\nform.field.item_kind: النوع\nform.field.lines: الوصفة\nform.field.ingredient_id: المكوّن\nform.field.label: أو كتابته\nform.field.qty: الكمية\nform.field.unit: الوحدة\nform.field.sizes: الأحجام\nform.field.audience: الجمهور المستهدف\nform.field.inspiration: مصدر الفكرة\nform.field.link: رابط (https)\nform.field.category_id: فئة المنيو\nform.field.servings: حصص التجربة\nform.field.variant_id: الحجم\nform.field.servingsCount: كم حصة\nform.field.highlights_en: ما نقوله عنه (بالإنجليزية)\nform.field.highlights_ar: ما نقوله عنه (بالعربية)\nform.field.hero: سطر الواجهة\nform.field.ticker: سطر الشريط المتحرك\nform.field.campaign_id: مسودة حملة\nform.field.class: الفئة",
       "route": "/tasks"
     },
     {
@@ -43910,7 +43926,7 @@
       "ref": "label:ws.team.tasks#3~4",
       "lang": "ar",
       "title": "ws.team.tasks (packages/i18n/src/catalogs/ws/team.ar.ts) (part 4 of 4)",
-      "body": "form.hint.promotionValue: نسبة مئوية (99 كحد أقصى) أو مبلغ بالدينار، بحسب النوع.\nform.field.highlights_ar: ما نقوله عنه (بالعربية)\nform.field.hero: سطر الواجهة\nform.field.ticker: سطر الشريط المتحرك\nform.field.campaign_id: مسودة حملة\nform.field.class: الفئة\nform.field.classes: الفئات\nform.field.play_years: سنوات اللعب\nform.field.format: نظام اللعب\nform.field.ranges: الملاعب والأوقات\nform.field.court_ids: الملاعب\nform.field.from: من\nform.field.to: إلى\nform.field.capacity: السعة\nform.field.capacityUnit: وحدة العد",
+      "body": "form.hint.promotionValue: نسبة مئوية (99 كحد أقصى) أو مبلغ بالدينار، بحسب النوع.\nform.field.highlights_ar: ما نقوله عنه (بالعربية)\nform.field.hero: سطر الواجهة\nform.field.ticker: سطر الشريط المتحرك\nform.field.campaign_id: مسودة حملة\nform.field.class: الفئة\nform.field.classes: الفئات\nform.field.play_years: سنوات اللعب\nform.field.format: نظام اللعب\nform.field.ranges: الملاعب والأوقات\nform.field.court_ids: الملاعب\nform.field.from: من\nform.field.to: إلى\nform.field.capacity: السعة\nform.field.capacityUnit: وحدة العدّ",
       "route": "/tasks"
     },
     {
@@ -43926,7 +43942,7 @@
       "ref": "label:ws.team.tasks#4",
       "lang": "ar",
       "title": "ws.team.tasks (packages/i18n/src/catalogs/ws/team.ar.ts) (part 1 of 4)",
-      "body": "form.field.capacityCount: العدد\nform.field.entry_fee_iqd: رسم المشاركة\nform.field.prize: الجائزة\nform.field.prizeText: وصف الجائزة\nform.field.prizeIqd: قيمة الجائزة\nform.field.budget_iqd: الميزانية\nform.field.expected_entries: المشاركات المتوقعة\nform.field.risks: المخاطر\nform.field.sponsor: الراعي أو العميل\nform.field.sponsorName: الاسم\nform.field.contact: وسيلة التواصل\nform.field.contribution_iqd: المساهمة\nform.field.branding: العلامة التجارية\nform.field.invoice: يحتاج إلى فاتورة\nform.field.change: ما المراد تغييره\nform.field.reason: السبب\nform.field.expected_effect: ما تتوقع أن يحققه\nform.field.menu_item_id: الصنف\nform.field.prices: الأسعار الجديدة\nform.field.price_iqd: السعر\nform.field.new_sizes: أحجام جديدة\nform.field.renames: أسماء جديدة",
+      "body": "form.field.capacityCount: العدد\nform.field.entry_fee_iqd: رسوم الاشتراك\nform.field.prize: الجائزة\nform.field.prizeText: وصف الجائزة\nform.field.prizeIqd: قيمة الجائزة\nform.field.budget_iqd: الميزانية\nform.field.expected_entries: الاشتراكات المتوقعة\nform.field.risks: المخاطر\nform.field.sponsor: الراعي أو الزبون\nform.field.sponsorName: الاسم\nform.field.contact: وسيلة التواصل\nform.field.contribution_iqd: المساهمة\nform.field.branding: العلامة التجارية\nform.field.invoice: يحتاج إلى فاتورة\nform.field.change: ما المراد تغييره\nform.field.reason: السبب\nform.field.expected_effect: الأثر المتوقع\nform.field.menu_item_id: الصنف\nform.field.prices: الأسعار الجديدة\nform.field.price_iqd: السعر\nform.field.new_sizes: أحجام جديدة\nform.field.renames: أسماء جديدة",
       "route": "/tasks"
     },
     {
@@ -43958,7 +43974,7 @@
       "ref": "label:ws.team.tasks#4~3",
       "lang": "ar",
       "title": "ws.team.tasks (packages/i18n/src/catalogs/ws/team.ar.ts) (part 3 of 4)",
-      "body": "form.field.capacityCount: العدد\nform.field.hour_from: من\nform.field.hour_to: حتى\nform.field.scope: يسري على\nform.field.courtIds: الملاعب\nform.field.categoryIds: فئات المنيو\nform.field.itemIds: أصناف المنيو\nform.field.limits: الحدود\nform.field.total: إجمالي مرات الاستخدام\nform.field.perCustomer: مرات الاستخدام لكل ضيف\nform.field.minSpendIqd: الحد الأدنى للإنفاق\nform.field.auto: يُطبَّق تلقائيًا\nform.field.public_code: الرمز\nform.field.code_single_use: كل رمز يُستعمل مرة واحدة\nform.field.promotion_id: العرض\nform.field.rule_id: السعر\nform.field.rule: سعر الملعب\nform.field.ruleName: اسم السعر\nform.field.rulePrices: الأسعار حسب المدة\nform.field.court_id: الملعب (عدم الاختيار يعني كل الملاعب)\nform.field.days_of_week: الأيام\nform.field.start_time: من\nform.field.end_time: حتى",
+      "body": "form.field.capacityCount: العدد\nform.field.hour_from: من\nform.field.hour_to: حتى\nform.field.scope: يسري على\nform.field.courtIds: الملاعب\nform.field.categoryIds: فئات المنيو\nform.field.itemIds: أصناف المنيو\nform.field.limits: الحدود\nform.field.total: مجموع مرات الاستخدام\nform.field.perCustomer: مرات الاستخدام لكل ضيف\nform.field.minSpendIqd: الحد الأدنى للإنفاق\nform.field.auto: يُطبَّق تلقائيًا\nform.field.public_code: الرمز\nform.field.code_single_use: كل رمز يُستعمل مرة واحدة\nform.field.promotion_id: العرض\nform.field.rule_id: السعر\nform.field.rule: سعر الملعب\nform.field.ruleName: اسم السعر\nform.field.rulePrices: الأسعار حسب المدة\nform.field.court_id: الملعب (عدم الاختيار يعني كل الملاعب)\nform.field.days_of_week: الأيام\nform.field.start_time: من\nform.field.end_time: حتى",
       "route": "/tasks"
     },
     {
@@ -44654,7 +44670,7 @@
       "ref": "label:ws.tournaments.start",
       "lang": "ar",
       "title": "ws.tournaments.start (packages/i18n/src/catalogs/ws/tournaments.ar.ts) (part 1 of 3)",
-      "body": "title: بدء: بطولة\nlead: املأ أي قسم بأي ترتيب.\nmenu: أقسام الخطة\nsectionOf: القسم {n} من {total}\nprogress: اكتمل {done} من {total}\noptional: اختياري\nslots.zero: {count} فترة\nslots.one: فترة واحدة\nslots.two: فترتان\nslots.few: {count} فترات\nslots.many: {count} فترة\nslots.other: {count} فترة\nneedsLook: يحتاج إلى مراجعة\nsections.type: النوع\nsections.name: الاسم\nsections.courts: الملاعب والوقت\nsections.players: اللاعبون والمال\nsections.playersShort: اللاعبون\nsections.notes: المخاطر والملاحظات\nsections.notesShort: الملاحظات\nsections.sponsor: الراعي\ntypeName.type1: النوع 1\ntypeName.type2: النوع 2\ntypeName.type3: النوع 3\ntypeTag.type1: نادٍ\ntypeTag.type2: مجتمعي\ntypeTag.type3: راعٍ أو زبون\ncourts.day: اليوم\ncourts.prevDay: اليوم السابق\ncourts.nextDay: اليوم التالي",
+      "body": "title: بدء: بطولة\nlead: يمكنك ملء الأقسام بأي ترتيب.\nmenu: أقسام الخطة\nsectionOf: القسم {n} من {total}\nprogress: اكتمل {done} من {total}\noptional: اختياري\nslots.zero: {count} فترات\nslots.one: فترة واحدة\nslots.two: فترتان\nslots.few: {count} فترات\nslots.many: {count} فترة\nslots.other: {count} فترة\nneedsLook: يحتاج إلى مراجعة\nsections.type: النوع\nsections.name: الاسم\nsections.courts: الملاعب والوقت\nsections.players: اللاعبون والمال\nsections.playersShort: اللاعبون\nsections.notes: المخاطر والملاحظات\nsections.notesShort: الملاحظات\nsections.sponsor: الراعي\ntypeName.type1: النوع 1\ntypeName.type2: النوع 2\ntypeName.type3: النوع 3\ntypeTag.type1: نادٍ\ntypeTag.type2: مجتمعي\ntypeTag.type3: راعٍ أو زبون\ncourts.day: اليوم\ncourts.prevDay: اليوم السابق\ncourts.nextDay: اليوم التالي",
       "route": null
     },
     {
@@ -44670,7 +44686,7 @@
       "ref": "label:ws.tournaments.start#2",
       "lang": "ar",
       "title": "ws.tournaments.start (packages/i18n/src/catalogs/ws/tournaments.ar.ts)",
-      "body": "formats.league.body: يلعب كل زوج ضد كل زوج آخر على عدة جلسات، ويحدد الجدول الفائز. لا يديرها التطبيق بعد.\ncapacityPlayers: أمريكانو ومكسيكانو: يشترك كل لاعب وحده.\ncapacityPairs: خروج المغلوب والدوري: يشترك الزوجان معًا.\nsubmit: بدء الخطة\nissues: بعض الأقسام تحتاج إلى مراجعة، وهي معلّمة في القائمة.",
+      "body": "formats.league.body: يلعب كل زوج ضد كل زوج آخر على مدى عدة جلسات، ويحدد الجدول الفائز. لا يدير التطبيق هذا النظام بعد.\ncapacityPlayers: أمريكانو ومكسيكانو: يشترك كل لاعب وحده.\ncapacityPairs: خروج المغلوب والدوري: يشترك الزوجان معًا.\nsubmit: بدء الخطة\nissues: بعض الأقسام تحتاج إلى مراجعة، وهي معلّمة في القائمة.",
       "route": null
     },
     {
@@ -44686,7 +44702,7 @@
       "ref": "label:ws.tournaments.start~2",
       "lang": "ar",
       "title": "ws.tournaments.start (packages/i18n/src/catalogs/ws/tournaments.ar.ts) (part 2 of 3)",
-      "body": "title: بدء: بطولة\ntypeName.type2: النوع 2\ntypeName.type3: النوع 3\ntypeTag.type1: نادٍ\ntypeTag.type2: مجتمعي\ntypeTag.type3: راعٍ أو زبون\ncourts.day: اليوم\ncourts.prevDay: اليوم السابق\ncourts.nextDay: اليوم التالي\ncourts.picked: مختار\ncourts.booked: محجوز مسبقًا\ncourts.hint: اسحب عبر الساعات لاختيار فترة. غيّر اليوم لإضافة فترة أخرى.\ncourts.cell: {court}، {time}\ncourts.slots: الفترات المختارة\ncourts.none: لم تُختر أي فترة بعد.\ncourts.remove: إزالة {slot}\ncourts.closed: المكان مغلق في ذلك اليوم. اختر يومًا آخر.\ncourts.loading: جارٍ تحميل الملاعب…\nclasses.A.tag: تنافسية\nclasses.A.body: للاعبين الأقوياء وأصحاب الخبرة. مباريات سريعة وتنافسية.\nclasses.B.tag: لاعبون منتظمون\nclasses.B.body: للاعبين الذين يلعبون بانتظام ويعرفون القواعد والمراكز.\nclasses.C.tag: مفتوحة للجميع",
+      "body": "title: بدء: بطولة\ntypeName.type2: النوع 2\ntypeName.type3: النوع 3\ntypeTag.type1: نادٍ\ntypeTag.type2: مجتمعي\ntypeTag.type3: راعٍ أو زبون\ncourts.day: اليوم\ncourts.prevDay: اليوم السابق\ncourts.nextDay: اليوم التالي\ncourts.picked: مختار\ncourts.booked: محجوز مسبقًا\ncourts.hint: يمكنك السحب عبر الساعات لاختيار فترة، وتغيير اليوم لإضافة فترة أخرى.\ncourts.cell: {court}، {time}\ncourts.slots: الفترات المختارة\ncourts.none: لم تُختر أي فترة بعد.\ncourts.remove: إزالة {slot}\ncourts.closed: النادي مغلق في ذلك اليوم. يمكنك اختيار يوم آخر.\ncourts.loading: جارٍ تحميل الملاعب…\nclasses.A.tag: تنافسية\nclasses.A.body: للاعبين الأقوياء وأصحاب الخبرة. مباريات سريعة وتنافسية.\nclasses.B.tag: لاعبون منتظمون\nclasses.B.body: للاعبين الذين يلعبون بانتظام ويعرفون القواعد والمراكز.\nclasses.C.tag: مفتوحة للجميع",
       "route": null
     },
     {
@@ -44702,7 +44718,7 @@
       "ref": "label:ws.tournaments.start~3",
       "lang": "ar",
       "title": "ws.tournaments.start (packages/i18n/src/catalogs/ws/tournaments.ar.ts) (part 3 of 3)",
-      "body": "title: بدء: بطولة\nclasses.B.tag: لاعبون منتظمون\nclasses.B.body: للاعبين الذين يلعبون بانتظام ويعرفون القواعد والمراكز.\nclasses.C.tag: مفتوحة للجميع\nclasses.C.body: للاعبين الجدد ولمن يلعب للمتعة. مباريات ودّية ومفتوحة لكل من يتعلّم.\nclassesHint: اختر فئة أو أكثر.\nformats.americano.tag: يُدار في التطبيق\nformats.americano.body: يتغيّر الشريك في كل جولة، وتُلعب كل مباراة حتى مجموع نقاط محدد. ويحتفظ كل لاعب بنقاطه.\nformats.mexicano.tag: يُدار في التطبيق\nformats.mexicano.body: مثل الأمريكانو، لكن الترتيب بعد كل جولة يحدد الشركاء والخصوم التاليين، فيتقابل المتقاربون في المستوى.\nformats.knockout.tag: للتخطيط فقط\nformats.knockout.body: تلعب الأزواج مباريات محددة ويخرج الخاسر في كل منها حتى يبقى زوج واحد. لا يديرها التطبيق بعد.\nformats.league.tag: للتخطيط فقط",
+      "body": "title: بدء: بطولة\nclasses.B.tag: لاعبون منتظمون\nclasses.B.body: للاعبين الذين يلعبون بانتظام ويعرفون القواعد والمراكز.\nclasses.C.tag: مفتوحة للجميع\nclasses.C.body: للاعبين الجدد ولمن يلعب للمتعة. مباريات ودّية ومفتوحة لكل من يتعلّم.\nclassesHint: يمكنك اختيار فئة أو أكثر.\nformats.americano.tag: يُدار في التطبيق\nformats.americano.body: يتغيّر الشريك في كل جولة، وتُلعب كل مباراة حتى مجموع نقاط محدّد. ويحتفظ كل لاعب بنقاطه.\nformats.mexicano.tag: يُدار في التطبيق\nformats.mexicano.body: مثل الأمريكانو، لكن الترتيب بعد كل جولة يحدد الشركاء والخصوم التاليين، فيتقابل المتقاربون في المستوى.\nformats.knockout.tag: للتخطيط فقط\nformats.knockout.body: يلعب الأزواج مباريات محددة، ويخرج الخاسر من كل مباراة حتى يبقى زوج واحد. لا يدير التطبيق هذا النظام بعد.\nformats.league.tag: للتخطيط فقط",
       "route": null
     },
     {

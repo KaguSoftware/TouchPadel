@@ -185,16 +185,16 @@ const AR: Record<StaffTitleKey, StaffCopy> = {
   step_submitted: { title: 'بانتظارك', body: subject },
   step_approved: { title: 'تمت الموافقة', body: subject },
   step_sent_back: { title: 'أُعيد للتعديل', body: subject },
-  step_stopped: { title: 'تم الإيقاف', body: named },
-  run_stopped: { title: 'تم الإيقاف', body: named },
+  step_stopped: { title: 'أُوقف', body: named },
+  run_stopped: { title: 'أُوقف', body: named },
   run_live: {
-    title: 'تم الإطلاق',
-    body: (v) => (named(v) ? `${named(v)} أصبح الآن في المنيو.` : ''),
+    title: 'أُطلق',
+    body: (v) => (named(v) ? `${named(v)} في المنيو الآن.` : ''),
   },
   launch_not_ready: {
     title: 'تأجّل الإطلاق',
     body: (v) =>
-      named(v) ? `لم يكن ${named(v)} جاهزًا في الموعد المحدد. افتحه لإصلاحه ثم أطلقه من جديد.` : '',
+      named(v) ? `لم يكتمل تجهيز ${named(v)} في الموعد المحدد. يمكنك فتحه لإصلاحه ثم إطلاقه من جديد.` : '',
   },
   apply_not_ready: {
     title: 'تأجّل التغيير',
@@ -207,15 +207,15 @@ const AR: Record<StaffTitleKey, StaffCopy> = {
   shopping_new: { title: 'قائمة التسوق', body: () => 'أغراض جديدة للشراء.' },
   purchase_to_receive: {
     title: 'مشتريات بانتظار الاستلام',
-    body: () => 'استلمها من المخزون ← استلام البضائع في تطبيق التشغيل.',
+    body: () => 'يمكنك استلامها من المخزون ← استلام البضائع في تطبيق التشغيل.',
   },
   idea_submitted: { title: 'فكرة صنف جديد', body: (v) => pair(v.name, v.title) },
   idea_started: {
     title: 'بدأت الفكرة',
-    body: (v) => (named(v) ? `${named(v)} أصبح الآن اقتراح صنف جديد.` : ''),
+    body: (v) => (named(v) ? `${named(v)} الآن اقتراح صنف جديد.` : ''),
   },
   idea_declined: { title: 'رُفضت الفكرة', body: named },
-  teaching_new: { title: 'درس جديد', body: (v) => pair(v.name, v.title) },
+  teaching_new: { title: 'تعليمة جديدة', body: (v) => pair(v.name, v.title) },
   recipe_change_submitted: { title: 'تغيير وصفة', body: (v) => pair(v.name, v.step) },
   recipe_change_approved: { title: 'تمت الموافقة على تغيير الوصفة', body: (v) => v.step },
   recipe_change_declined: { title: 'رُفض تغيير الوصفة', body: (v) => v.step },
@@ -234,7 +234,7 @@ const AR: Record<StaffTitleKey, StaffCopy> = {
   deduction_declined: { title: 'رُفض الخصم', body: () => 'رُفض اقتراحك.' },
   deduction_recorded: { title: 'خصم من الراتب', body: () => 'أُضيف خصم إلى سجلّك.' },
   incident_reported: { title: 'بلاغ عن حادثة', body: (v) => pair(v.name, v.step) },
-  incident_reviewed: { title: 'تمت مراجعة البلاغ', body: (v) => v.step },
+  incident_reviewed: { title: 'رُوجع البلاغ', body: (v) => v.step },
   content_submitted: { title: 'محتوى بانتظار الموافقة', body: (v) => pair(v.name, v.title) },
   content_approved: { title: 'تمت الموافقة على المحتوى', body: (v) => v.title },
   content_changes: { title: 'طُلبت تعديلات', body: (v) => v.title },
@@ -256,25 +256,25 @@ const AR: Record<StaffTitleKey, StaffCopy> = {
     title: 'تغيّر سعر المورّد',
     body: (v) =>
       v.step
-        ? `${v.step}: غيّر المورّد السعر. افتح المنتجات في مكتب المتجر لتطبيقه.`
-        : 'غيّر أحد الموردين سعرًا. افتح المنتجات في مكتب المتجر لتطبيقه.',
+        ? `${v.step}: غيّر المورّد السعر. يمكنك فتح المنتجات في مكتب المتجر لتطبيقه.`
+        : 'غيّر أحد المورّدين سعرًا. يمكنك فتح المنتجات في مكتب المتجر لتطبيقه.',
   },
   // DRAFT-AR (0323): on the client's review list.
   checklist_due: {
     title: 'اقترب موعد قائمة التحقق',
-    body: (v) => (v.step ? `${v.step}: اقترب موعد إنجازها.` : 'اقترب موعد إحدى قوائم التحقق الخاصة بك.'),
+    body: (v) => (v.step ? `${v.step}: اقترب موعد إنجازها.` : 'اقترب موعد إحدى قوائمك.'),
   },
   checklist_overdue: {
     title: 'قائمة تحقق متأخرة',
     body: (v) =>
       v.step
-        ? `${v.step}: فات موعدها. افتحها وأكملها.`
-        : 'فات موعد إحدى قوائم التحقق الخاصة بك. افتحها وأكملها.',
+        ? `${v.step}: فات موعدها. يمكنك فتحها لإكمالها.`
+        : 'فات موعد إحدى قوائمك. يمكنك فتحها لإكمالها.',
   },
   // DRAFT-AR (0333): on the client's review list.
   reward_unlocked: {
     title: 'تحقّقت مكافأة',
-    body: () => 'وصلت إلى هدف إحدى مكافآتك. افتح التطبيق لتراها.',
+    body: () => 'وصلت إلى هدف إحدى مكافآتك. يمكنك فتح التطبيق لرؤيتها.',
   },
   plan_submitted: { title: 'خطة المحتوى بانتظار الموافقة', body: (v) => pair(v.name, v.title) },
   plan_approved: { title: 'تمت الموافقة على خطة المحتوى', body: (v) => v.title },

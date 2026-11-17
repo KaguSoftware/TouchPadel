@@ -29,8 +29,8 @@ export const matchesWalletAr: DeepMessages<typeof matchesWalletEn> = {
     priceLine: '{count} × {price} = {total}',
     buy: 'الدفع عبر Qi Card',
     buyNote:
-      'يُدفع ثمن التذاكر إلكترونيًا عبر Qi Card. التذكرة ليست حصتك من سعر الملعب، وتُدفع حصتك عند الاستقبال.',
-    tooManyAttempts: 'محاولات دفع كثيرة اليوم. يمكن المحاولة مجددًا غدًا.',
+      'تُدفع التذاكر إلكترونيًا عبر Qi Card. التذكرة ليست حصتك من سعر الملعب، وتُدفع حصتك عند الاستقبال.',
+    tooManyAttempts: 'تجاوزت محاولات الدفع الحد المسموح اليوم. يمكنك المحاولة مجددًا غدًا.',
     rulesTitle: 'كيف تعمل التذاكر',
     rule1: 'تذكرة واحدة لكل مقعد، ومقاعد أصدقائك تُحسب من تذاكرك.',
     rule2: 'عند الانضمام تُستخدم تذكرة، وتعود إلى محفظتك بعد اللعب.',
@@ -44,7 +44,7 @@ export const matchesWalletAr: DeepMessages<typeof matchesWalletEn> = {
     rowHeld: 'محجوزة لطلب انضمام · {when}',
     rowInMatch: 'في مباراة · {when}',
     rowLost: 'فُقدت · {date}',
-    rowRefunded: 'رُدّ ثمنها إلى بطاقتك · {date}',
+    rowRefunded: 'أُعيد ثمنها إلى بطاقتك · {date}',
     cashOut:
       'لاسترداد ثمن التذاكر غير المستخدمة، يمكن مراجعة الاستقبال. يردّ المدير المبلغ إلى البطاقة التي دُفع بها. ويكون ذلك لكل عملية شراء على حدة، بعد أن تخرج كل تذاكرها من المباريات.',
     walletLine: 'التذاكر · {ready}',
@@ -67,7 +67,7 @@ export const matchesWalletAr: DeepMessages<typeof matchesWalletEn> = {
     ticketRefundPending:
       'لم يكتمل الدفع كما يجب، لذا يُعاد المبلغ إلى بطاقتك. لم تُضف أي تذاكر.',
     expiredBody: 'لم يُقتطع أي مبلغ.',
-    failedNoAttempts: 'انتهت محاولات الدفع المسموحة لشراء التذاكر اليوم. يمكن المحاولة مجددًا غدًا.',
+    failedNoAttempts: 'انتهت محاولات الدفع المسموحة لشراء التذاكر اليوم. يمكنك المحاولة مجددًا غدًا.',
     leaveBody:
       'إذا اكتمل الدفع، ستُضاف تذاكرك وتظهر في «تذاكر المباريات المفتوحة».',
     stillCheckingBody:

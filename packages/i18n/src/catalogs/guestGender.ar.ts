@@ -10,8 +10,8 @@ import type { guestGenderEn } from './guestGender.en';
  */
 export const guestGenderAr: DeepMessages<typeof guestGenderEn> = {
   hint: 'بعض الملاعب والأوقات مخصصة للنساء أو للرجال. يكون الاختيار مرة واحدة، ويمكن لموظفي الاستقبال تصحيحه.',
-  required: 'يلزم اختيار «امرأة» أو «رجل» للمتابعة.',
-  completeBody: 'بقيت إجابة واحدة في ملفك الشخصي قبل الحجز.',
+  required: 'يُرجى اختيار «امرأة» أو «رجل» للمتابعة.',
+  completeBody: 'بقي سؤال واحد لإكمال ملفك الشخصي قبل الحجز.',
   tagBoth: 'غير متاح للحجز',
   match: {
     lockedWomen: 'هذا الوقت مخصص للنساء، لذا تكون المباراة للنساء فقط.',

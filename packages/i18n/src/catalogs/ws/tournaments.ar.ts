@@ -342,13 +342,13 @@ export const tournamentsAr: DeepMessages<typeof tournamentsEn> = {
   // The section-menu start sheet (TournamentStartSheet, 2026-10-05 "C + D" redesign).
   start: {
     title: 'بدء: بطولة',
-    lead: 'املأ أي قسم بأي ترتيب.',
+    lead: 'يمكنك ملء الأقسام بأي ترتيب.',
     menu: 'أقسام الخطة',
     sectionOf: 'القسم {n} من {total}',
     progress: 'اكتمل {done} من {total}',
     optional: 'اختياري',
     slots: {
-      zero: '{count} فترة',
+      zero: '{count} فترات',
       one: 'فترة واحدة',
       two: 'فترتان',
       few: '{count} فترات',
@@ -382,12 +382,12 @@ export const tournamentsAr: DeepMessages<typeof tournamentsEn> = {
       nextDay: 'اليوم التالي',
       picked: 'مختار',
       booked: 'محجوز مسبقًا',
-      hint: 'اسحب عبر الساعات لاختيار فترة. غيّر اليوم لإضافة فترة أخرى.',
+      hint: 'يمكنك السحب عبر الساعات لاختيار فترة، وتغيير اليوم لإضافة فترة أخرى.',
       cell: '{court}، {time}',
       slots: 'الفترات المختارة',
       none: 'لم تُختر أي فترة بعد.',
       remove: 'إزالة {slot}',
-      closed: 'المكان مغلق في ذلك اليوم. اختر يومًا آخر.',
+      closed: 'النادي مغلق في ذلك اليوم. يمكنك اختيار يوم آخر.',
       loading: 'جارٍ تحميل الملاعب…',
     },
     classes: {
@@ -398,11 +398,11 @@ export const tournamentsAr: DeepMessages<typeof tournamentsEn> = {
         body: 'للاعبين الجدد ولمن يلعب للمتعة. مباريات ودّية ومفتوحة لكل من يتعلّم.',
       },
     },
-    classesHint: 'اختر فئة أو أكثر.',
+    classesHint: 'يمكنك اختيار فئة أو أكثر.',
     formats: {
       americano: {
         tag: 'يُدار في التطبيق',
-        body: 'يتغيّر الشريك في كل جولة، وتُلعب كل مباراة حتى مجموع نقاط محدد. ويحتفظ كل لاعب بنقاطه.',
+        body: 'يتغيّر الشريك في كل جولة، وتُلعب كل مباراة حتى مجموع نقاط محدّد. ويحتفظ كل لاعب بنقاطه.',
       },
       mexicano: {
         tag: 'يُدار في التطبيق',
@@ -410,11 +410,11 @@ export const tournamentsAr: DeepMessages<typeof tournamentsEn> = {
       },
       knockout: {
         tag: 'للتخطيط فقط',
-        body: 'تلعب الأزواج مباريات محددة ويخرج الخاسر في كل منها حتى يبقى زوج واحد. لا يديرها التطبيق بعد.',
+        body: 'يلعب الأزواج مباريات محددة، ويخرج الخاسر من كل مباراة حتى يبقى زوج واحد. لا يدير التطبيق هذا النظام بعد.',
       },
       league: {
         tag: 'للتخطيط فقط',
-        body: 'يلعب كل زوج ضد كل زوج آخر على عدة جلسات، ويحدد الجدول الفائز. لا يديرها التطبيق بعد.',
+        body: 'يلعب كل زوج ضد كل زوج آخر على مدى عدة جلسات، ويحدد الجدول الفائز. لا يدير التطبيق هذا النظام بعد.',
       },
     },
     capacityPlayers: 'أمريكانو ومكسيكانو: يشترك كل لاعب وحده.',

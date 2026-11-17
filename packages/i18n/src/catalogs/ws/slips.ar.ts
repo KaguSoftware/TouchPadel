@@ -20,7 +20,7 @@ export const slipsAr: DeepMessages<typeof slipsEn> = {
     sentBy: 'أرسلها {name}',
   },
   status: {
-    uploaded: 'بالانتظار',
+    uploaded: 'قيد الانتظار',
     reading: 'جارٍ القراءة…',
     read: 'جاهز',
     failed: 'تعذّرت القراءة',

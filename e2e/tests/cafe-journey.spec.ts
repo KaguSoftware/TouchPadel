@@ -212,7 +212,7 @@ test.describe('guest cafe journey (AR) @ar', () => {
     await expect(page.locator('.tp-cafe__table')).toContainText('T4', { timeout: 60_000 });
 
     // Dismiss the Arabic coach mark the way a guest would.
-    const coach = page.getByRole('dialog', { name: 'اضغط الجرس لاستدعاء النادل' });
+    const coach = page.getByRole('dialog', { name: 'الضغط على الجرس لاستدعاء النادل' });
     await expect(coach).toBeVisible();
     await coach.getByRole('button', { name: 'فهمت' }).click();
     await expect(coach).toHaveCount(0);

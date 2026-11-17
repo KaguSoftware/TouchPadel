@@ -353,7 +353,15 @@ describe('showing a line', () => {
     expect(formatQty(en, 'en', 2, 'pack')).toBe('2 packs');
     expect(formatQty(en, 'en', 1, 'pack')).toBe('1 pack');
     expect(formatQty(en, 'en', 500, 'g')).toBe('500 g');
-    expect(formatQty(ar, 'ar', 2, 'pack')).toContain('عبوات');
+    // Arabic counts the noun by its number: 2 is the dual and stands alone, 3 to 10 the plural,
+    // 11 and up (and a fraction) the singular; g and ml never change.
+    expect(formatQty(ar, 'ar', 1, 'pc')).toBe('1 قطعة');
+    expect(formatQty(ar, 'ar', 2, 'pack')).toBe('عبوتان');
+    expect(formatQty(ar, 'ar', 2, 'pc')).toBe('قطعتان');
+    expect(formatQty(ar, 'ar', 5, 'pack')).toBe('5 عبوات');
+    expect(formatQty(ar, 'ar', 12, 'pc')).toBe('12 قطعة');
+    expect(formatQty(ar, 'ar', 1.5, 'pc')).toBe('1.5 قطعة');
+    expect(formatQty(ar, 'ar', 500, 'g')).toBe('500 غ');
     // A purchase line's unit can be missing: the number alone.
     expect(formatQty(en, 'en', 3, null)).toBe('3');
   });

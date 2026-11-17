@@ -429,12 +429,12 @@ const AR: Record<GuestTitleKey, GuestCopy> = {
   'lesson.booked': {
     title: 'lesson',
     form: 'none',
-    body: () => 'تم حجز مكانك، والتفاصيل في التطبيق.',
+    body: () => 'حُجز مكانك، والتفاصيل في التطبيق.',
   },
   'lesson.cancelled_by_coach': {
     title: 'lesson',
     form: 'none',
-    body: () => 'أُلغي مكانك في هذه الحصة من قِبل المدرّب، ويُعاد ما دُفع إلكترونيًا إلى بطاقتك.',
+    body: () => 'ألغى المدرّب مكانك في هذه الحصة، ويُعاد ما دُفع إلكترونيًا إلى بطاقتك.',
   },
   'lesson.cancelled_by_staff': {
     title: 'lesson',
@@ -464,7 +464,7 @@ const AR: Record<GuestTitleKey, GuestCopy> = {
   'lesson.added_by_coach': {
     title: 'lesson',
     form: 'none',
-    body: () => 'تمت إضافتك إلى حصة. يُرجى فتح التطبيق لتأكيد أن الحجز لك.',
+    body: () => 'أُضيف اسمك إلى حصة. يمكنك فتح التطبيق لتأكيد أن الحجز لك.',
   },
   'lesson.reminder': {
     title: 'lessonReminder',
@@ -504,7 +504,7 @@ const AR: Record<GuestTitleKey, GuestCopy> = {
   'coach.session_added': {
     title: 'coach',
     form: 'none',
-    body: () => 'جدول النادي حصة لك.',
+    body: () => 'أضاف النادي حصة إلى جدولك.',
   },
   'coach.rescheduled_by_staff': {
     title: 'coach',
@@ -520,12 +520,12 @@ const AR: Record<GuestTitleKey, GuestCopy> = {
   'tournament.cancelled': {
     title: 'tournament',
     form: 'none',
-    body: () => 'أُلغيت هذه البطولة، ومن دفع في النادي يُعاد إليه المبلغ هناك.',
+    body: () => 'أُلغيت هذه البطولة، ومن دفع عند الاستقبال يُعاد إليه المبلغ هناك.',
   },
   'tournament.promoted': {
     title: 'tournament',
     form: 'none',
-    body: () => 'توفّر مكان، وتمّ تسجيلك في هذه البطولة.',
+    body: () => 'توفّر مكان، وسُجّل اسمك في هذه البطولة.',
   },
 };
 
@@ -551,7 +551,7 @@ const TITLES: Record<Lang, Record<GuestTitle, (when: string, branch: string) => 
     lesson: (when, branch) => ['حصة', when, branch].filter(Boolean).join(' · '),
     lessonReminder: () => 'حصتك بعد 3 ساعات',
     coach: (when, branch) => ['تدريب', when, branch].filter(Boolean).join(' · '),
-    statement: () => 'كشف حساب المدرّب',
+    statement: () => 'كشف حسابك كمدرّب',
     tournament: (when, branch) => ['بطولة', when, branch].filter(Boolean).join(' · '),
   },
 };
@@ -588,7 +588,7 @@ const MINUTES: Record<Lang, Record<PluralForm, (count: string) => string>> = {
     other: (c) => `${c} minutes`,
   },
   ar: {
-    zero: (c) => `${c} دقيقة`,
+    zero: (c) => `${c} دقائق`,
     one: () => 'دقيقة واحدة',
     two: () => 'دقيقتان',
     few: (c) => `${c} دقائق`,

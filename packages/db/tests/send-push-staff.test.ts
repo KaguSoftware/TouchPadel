@@ -328,7 +328,7 @@ describe('staffMessage — params', () => {
 
   it('isolates typed text inside an Arabic sentence', () => {
     expect(msg('ar', 'run_live', { title: 'Matcha latte' }).body).toBe(
-      `${iso('Matcha latte')} أصبح الآن في المنيو.`,
+      `${iso('Matcha latte')} في المنيو الآن.`,
     );
     expect(msg('ar', 'shopping_to_approve', { name: 'Tiba' }).body).toBe(
       `أضاف ${iso('Tiba')} أغراضًا بانتظار موافقتك.`,
@@ -360,12 +360,12 @@ describe('staffMessage — params', () => {
 
   it('names the product in its own language on a supplier price change, and still says it without one', () => {
     expect(msg('ar', 'shop_price_changed', { step: { en: 'Racket (Large)', ar: 'مضرب (كبير)' } }).body).toBe(
-      `${iso('مضرب (كبير)')}: غيّر المورّد السعر. افتح المنتجات في مكتب المتجر لتطبيقه.`,
+      `${iso('مضرب (كبير)')}: غيّر المورّد السعر. يمكنك فتح المنتجات في مكتب المتجر لتطبيقه.`,
     );
     expect(msg('en', 'shop_price_changed').body).toBe(
       'A supplier changed a price. Open Products on the shop desk to apply it.',
     );
-    expect(msg('ar', 'shop_price_changed').body).toBe('غيّر أحد الموردين سعرًا. افتح المنتجات في مكتب المتجر لتطبيقه.');
+    expect(msg('ar', 'shop_price_changed').body).toBe('غيّر أحد المورّدين سعرًا. يمكنك فتح المنتجات في مكتب المتجر لتطبيقه.');
   });
 
   it('names a due or overdue checklist in its own language, and still says it without one', () => {
@@ -376,14 +376,14 @@ describe('staffMessage — params', () => {
     });
     expect(msg('ar', 'checklist_overdue', { step })).toMatchObject({
       title: 'قائمة تحقق متأخرة',
-      body: `${iso('افتتاح البار')}: فات موعدها. افتحها وأكملها.`,
+      body: `${iso('افتتاح البار')}: فات موعدها. يمكنك فتحها لإكمالها.`,
     });
     expect(msg('en', 'checklist_due').body).toBe('One of your checklists is due soon.');
     expect(msg('en', 'checklist_overdue').body).toBe(
       'One of your checklists is past its due time. Open it to finish it.',
     );
-    expect(msg('ar', 'checklist_due').body).toBe('اقترب موعد إحدى قوائم التحقق الخاصة بك.');
-    expect(msg('ar', 'checklist_overdue').body).toBe('فات موعد إحدى قوائم التحقق الخاصة بك. افتحها وأكملها.');
+    expect(msg('ar', 'checklist_due').body).toBe('اقترب موعد إحدى قوائمك.');
+    expect(msg('ar', 'checklist_overdue').body).toBe('فات موعد إحدى قوائمك. يمكنك فتحها لإكمالها.');
   });
 });
 

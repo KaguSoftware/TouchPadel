@@ -657,7 +657,15 @@ export const en = {
     startsInMinutes: 'In {count} min',
     startsInHours: 'In {count} h',
     startsInDay: 'In 1 day',
-    startsInDays: 'In {count} days',
+    // Days from 2 up: a counted phrase (countPhrase); English repeats one / other, Arabic fills all six.
+    startsInDaysCount: {
+      zero: 'In {count} days',
+      one: 'In 1 day',
+      two: 'In 2 days',
+      few: 'In {count} days',
+      many: 'In {count} days',
+      other: 'In {count} days',
+    },
     upcomingCount: '{count} upcoming',
     playedCount: '{count} played',
     cancelledCount: '{count} cancelled',
