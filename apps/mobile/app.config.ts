@@ -273,8 +273,44 @@ const plugins: NonNullable<ExpoConfig['plugins']> = [
     'expo-build-properties',
     {
       android: {
+        // R8 ON (the Play "DEX code optimization" fix), with the keep rules below. Without them
+        // versionCode 17 crashed ~2 s after launch (Galaxy A32, Android 13): "IllegalStateException:
+        // Didn't find a correct constructor for class ri3", thrown while Fabric created an Expo view.
+        // Expo's own rule keeps the constructors of ExpoView subclasses only; GLView (expo-gl, a
+        // TextureView) and LinearGradientView (a plain View) are not ExpoViews, so R8 stripped theirs.
         enableMinifyInReleaseBuilds: true,
-        enableShrinkResourcesInReleaseBuilds: true,
+        // Resource shrinking stays OFF: Play's warning is about code, and RN loads bundled images from
+        // drawables by name (android_res/...), which the shrinker can drop. Not worth the risk.
+        enableShrinkResourcesInReleaseBuilds: false,
+        extraProguardRules: [
+          // expo-modules-core builds every `View(X::class)` through getConstructor(Context[, AppContext]).
+          // Keep those two constructors on every View subclass, not just ExpoView ones.
+          '-keepclassmembers class * extends android.view.View {',
+          '  public <init>(android.content.Context);',
+          '  public <init>(android.content.Context, expo.modules.kotlin.AppContext);',
+          '}',
+          // Enums that cross into JS (expo-crypto, expo-haptics, expo-application ...) are read by
+          // field name; the "does not implement Enumerable" warnings in the device log are these.
+          '-keepclassmembers enum expo.modules.** { *; }',
+          '-keepclassmembers enum io.github.expo.** { *; }',
+          // Expo reads Kotlin types and annotations by reflection (argument converters, records).
+          '-keepattributes *Annotation*,Signature,InnerClasses,EnclosingMethod,RuntimeVisibleAnnotations',
+          '-keep class kotlin.Metadata { *; }',
+          // Native libraries that ship no consumer rules of their own, or only partial ones, and
+          // reach native or JS code by name (JNI, view managers, TurboModules). Small, so kept whole.
+          '-keep class com.margelo.nitro.** { *; }',
+          '-keep class com.nitrogooglesignin.** { *; }',
+          '-keep class com.swmansion.reanimated.** { *; }',
+          '-keep class com.swmansion.worklets.** { *; }',
+          '-keep class com.swmansion.gesturehandler.** { *; }',
+          '-keep class com.swmansion.rnscreens.** { *; }',
+          '-keep class com.horcrux.svg.** { *; }',
+          '-keep class com.th3rdwave.safeareacontext.** { *; }',
+          '-keep class org.reactnative.maskedview.** { *; }',
+          '-keep class com.reactcommunity.rndatetimepicker.** { *; }',
+          // async-storage and netinfo, both under this package.
+          '-keep class com.reactnativecommunity.** { *; }',
+        ].join('\n'),
       },
     },
   ],
