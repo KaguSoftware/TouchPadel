@@ -399,6 +399,10 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       'android.permission.READ_MEDIA_VIDEO',
       'android.permission.READ_EXTERNAL_STORAGE',
       'android.permission.RECORD_AUDIO',
+      // expo-sensors declares this for its Pedometer. The app reads only the gyroscope
+      // (src/features/loyalty/useCardMotion.ts), which needs no permission, and has no health
+      // feature. Play flags the permission under its Health apps policy, so strip it.
+      'android.permission.ACTIVITY_RECOGNITION',
     ],
   },
   plugins,

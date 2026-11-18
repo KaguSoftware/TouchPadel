@@ -5,17 +5,32 @@ import {
   useEffect,
   useRef,
   useState,
+  type ComponentType,
   type ReactElement,
   type ReactNode,
 } from 'react';
-import { ActionSheetIOS, ActivityIndicator, Alert, Platform, Pressable, View } from 'react-native';
+import {
+  ActionSheetIOS,
+  Alert,
+  Platform,
+  Pressable,
+  StyleSheet,
+  View,
+  type ScrollViewProps,
+} from 'react-native';
+import Animated from 'react-native-reanimated';
 import { Text } from '../src/i18n/text';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { formatDate, isolate, isolateLtr, type MessageKey } from '@touch/i18n';
 import { useLocale } from '../src/i18n/LocaleProvider';
+import type { SFSymbol } from 'expo-symbols';
+import { SymbolGlyph } from '../src/components/SymbolGlyph';
+import { IOS_ROUND } from '../src/components/iosRound';
+import { SystemChevron } from '../src/components/SystemChevron';
 import { useAuth } from '../src/features/auth/context';
 import { RequireSession } from '../src/features/auth/RequireSession';
 import {
+  useAvatarUrl,
   useMyBirthDate,
   useMyFrames,
   useOwnProfile,
@@ -58,6 +73,16 @@ import {
   isValidBirthDate,
   todayBirthDate,
 } from '../src/features/profile/birthDate';
+import {
+  HeroOverlay,
+  HeroBarTitle,
+  HeroRows,
+  HeroSpacer,
+  useHeroBar,
+  useHeroFlight,
+  useHeroGeo,
+  type HeroFlight,
+} from '../src/components/ProfileHero';
 import { ProfileAvatar } from '../src/components/ProfileAvatar';
 import { DateWheelSheet } from '../src/components/DateWheelSheet';
 import { WheelSheet } from '../src/components/WheelSheet';
@@ -75,6 +100,7 @@ import {
 } from '../src/components/ui';
 import { useIconChip } from '../src/components/iconChip';
 import { useBack, useBackGuard } from '../src/navigation/back';
+import { clearBarOptions } from '../src/navigation/clearBar';
 import { PhoneField } from '../src/components/phone';
 import {
   composePhone,
@@ -92,9 +118,7 @@ import { useToast } from '../src/components/overlays';
 import { passwordProofOf } from '../src/features/profile/changePasswordFlow';
 import {
   CalendarIcon,
-  CameraIcon,
   CheckIcon,
-  ChevronIcon,
   EnvelopeIcon,
   LockIcon,
   ImageIcon,
@@ -170,6 +194,7 @@ function initialsOf(first: string, last: string, email: string) {
 function HubRow({
   testID,
   icon,
+  symbol,
   iconBg,
   label,
   labelColor,
@@ -180,6 +205,8 @@ function HubRow({
 }: {
   testID: string;
   icon: React.ReactNode;
+  /** Draw this symbol (SF on iOS, Ionicons on Android) instead of `icon`, in the same colour. */
+  symbol?: SFSymbol;
   /** The disc behind the icon; `gtint` unless the row is destructive. */
   iconBg?: string;
   label: string;
@@ -206,10 +233,24 @@ function HubRow({
         paddingTop: 14,
         paddingBottom: 14,
         backgroundColor: pressed ? colors.sub : 'transparent',
-        borderBottomWidth: last ? 0 : 1,
+        borderBottomWidth: last || Platform.OS === 'ios' ? 0 : 1,
         borderBottomColor: colors.line,
       })}
     >
+      {/* iOS Settings style: the divider starts at the label, not under the icon. */}
+      {Platform.OS === 'ios' && !last ? (
+        <View
+          pointerEvents="none"
+          style={{
+            position: 'absolute',
+            bottom: 0,
+            end: 0,
+            start: space.l + 32 + 12,
+            height: StyleSheet.hairlineWidth,
+            backgroundColor: colors.line,
+          }}
+        />
+      ) : null}
       <View
         style={{
           width: 32,
@@ -222,9 +263,18 @@ function HubRow({
           justifyContent: 'center',
         }}
       >
-        {!iconBg && isValidElement<{ color?: string }>(icon)
-          ? cloneElement(icon, { color: chip.fg })
-          : icon}
+        {symbol ? (
+          <SymbolGlyph
+            name={symbol}
+            size={17}
+            color={iconBg ? colors.redtext : chip.fg}
+            fallback={icon as React.ReactElement}
+          />
+        ) : !iconBg && isValidElement<{ color?: string }>(icon) ? (
+          cloneElement(icon, { color: chip.fg })
+        ) : (
+          icon
+        )}
       </View>
       <View style={{ flex: 1, minWidth: 0 }}>
         <Text
@@ -253,7 +303,7 @@ function HubRow({
         ) : null}
       </View>
       {chevron ? (
-        <ChevronIcon size={16} color={colors.fnt2} />
+        <SystemChevron />
       ) : (
         <LockIcon size={14} color={colors.fnt2} />
       )}
@@ -289,6 +339,7 @@ function RowGroup({
           borderWidth: 1,
           borderColor: colors.line,
           borderRadius: radius.card,
+          ...IOS_ROUND,
           overflow: 'hidden',
         }}
       >
@@ -348,9 +399,79 @@ type GenderPick = 'female' | 'male';
 /** How long a native sheet takes to slide away before an alert can present. */
 const SHEET_DISMISS_MS = 450;
 
+/** iOS 26 and later draw their own scroll edge effect under a clear bar; before that a blur does the job. */
+const NEW_GLASS = Platform.OS === 'ios' && parseInt(String(Platform.Version), 10) >= 26;
+
+/**
+ * The native bar over the hub, from the header's flight: the bar's own Edit while the photo is full
+ * width (iOS: a UIBarButtonItem; Android: a toolbar text button), and, once the circle has left with
+ * the page, a solid bar titled "Edit profile". Its own component so a change re-renders only this,
+ * never the page.
+ */
+function HeroBar({
+  flight,
+  hasPhoto,
+  busy,
+  onEdit,
+}: {
+  flight: HeroFlight;
+  hasPhoto: boolean;
+  busy: boolean;
+  onEdit: () => void;
+}) {
+  const { t } = useLocale();
+  const { colors, fonts } = useTheme();
+  const { closed } = useHeroBar(flight.bar);
+  const wide = !closed;
+  const label = t(hasPhoto ? 'profile.photoChange' : 'profile.photoAdd');
+  return (
+    <Stack.Screen
+      options={{
+        // The title is metadata on iOS (the back label of the pages pushed from here); the bar shows
+        // `HeroBarTitle`, which fades with the scroll.
+        title: t('profile.editProfile'),
+        headerTitle: Platform.OS === 'ios' ? () => <HeroBarTitle flight={flight} title={t('profile.editProfile')} /> : undefined,
+        // iOS: the bar stays clear and UIKit fades its own material in as rows scroll under it (iOS 26's
+        // scroll edge effect, or a blur before that). Android: a solid toolbar, always.
+        headerStyle: { backgroundColor: Platform.OS === 'ios' ? 'transparent' : colors.bg },
+        headerBlurEffect: Platform.OS === 'ios' && !NEW_GLASS ? 'systemMaterial' : undefined,
+        unstable_headerRightItems:
+          Platform.OS === 'ios' && wide
+            ? () => [
+                {
+                  type: 'button' as const,
+                  label: t('profile.photoEdit'),
+                  accessibilityLabel: label,
+                  onPress: onEdit,
+                },
+              ]
+            : undefined,
+        headerRight:
+          Platform.OS !== 'ios' && wide
+            ? () => (
+                <Pressable
+                  testID="profile-edit.photo"
+                  accessibilityRole="button"
+                  accessibilityLabel={label}
+                  accessibilityState={{ busy }}
+                  hitSlop={10}
+                  onPress={onEdit}
+                  style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1, paddingStart: 8, paddingEnd: 8 })}
+                >
+                  <Text style={{ fontFamily: fonts.body700, fontSize: 16, color: colors.blue }}>
+                    {t('profile.photoEdit')}
+                  </Text>
+                </Pressable>
+              )
+            : undefined,
+      }}
+    />
+  );
+}
+
 function Hub() {
   const { t, locale } = useLocale();
-  const { colors, fonts } = useTheme();
+  const { colors } = useTheme();
   const { session } = useAuth();
   const router = useRouter();
   const toast = useToast();
@@ -359,6 +480,8 @@ function Hub() {
   const saveBirth = useSetBirthDate();
   const [birthOpen, setBirthOpen] = useState(false);
   const setAvatar = useSetAvatar();
+  // The header's flight plays by itself once the page scrolls a little; the bar follows it in <HeroBar>.
+  const flight = useHeroFlight();
   const setGender = useSetMyGender();
   // The age band (0368): the guest's own to change, unlike the gender.
   const setBand = useSetAgeBand();
@@ -378,9 +501,11 @@ function Hub() {
   const confirmedLevel = parsePlayLevel(profile.data?.level_confirmed);
   const birthDate = birthDateToDate(birth.data);
   const hasPhoto = !!profile.data?.avatar_path;
+  const photoUrl = useAvatarUrl(profile.data?.avatar_path);
   const username = profile.data?.username ?? null;
   const frame = frameOf(profile.data?.avatar_frame);
   const frameStyle = frameStyleOf(frame, profile.data?.avatar_frame_style);
+  const heroGeo = useHeroGeo(hasPhoto, frame, frameStyle);
   const hasPassword = !!passwordProofOf(session?.user);
   const go = (section: Section) => router.push({ pathname: '/profile-edit', params: { section } });
 
@@ -459,7 +584,14 @@ function Hub() {
     Alert.alert(title, body, [{ text: t('common.ok') }]);
 
   return (
-    <FormScreen contentStyle={{ paddingTop: 4 }}>
+    <>
+    <FormScreen
+      contentStyle={{ paddingTop: 0 }}
+      // Reanimated's scroll view: the header reads the offset on the UI thread (ProfileHero).
+      scrollAs={Animated.ScrollView as ComponentType<ScrollViewProps>}
+      scrollEventThrottle={16}
+      onScroll={flight.onScroll}
+    >
       <WheelSheet<GenderPick>
         testID="profile-edit.gender-sheet"
         visible={genderOpen && !gender}
@@ -498,79 +630,13 @@ function Hub() {
         onRemove={() => onSaveBirth(null)}
         onClose={() => setBirthOpen(false)}
       />
-      <Pressable
-        testID="profile-edit.photo"
-        accessibilityRole="button"
-        accessibilityLabel={t(hasPhoto ? 'profile.photoChange' : 'profile.photoAdd')}
-        accessibilityState={{ busy: setAvatar.isPending }}
-        onPress={() => void onPhoto()}
-        style={({ pressed }) => ({
-          alignItems: 'center',
-          alignSelf: 'center',
-          marginTop: 8,
-          marginBottom: 22,
-          gap: 10,
-          opacity: pressed ? 0.7 : 1,
-        })}
-      >
-        <View>
-          <ProfileAvatar
-            path={profile.data?.avatar_path}
-            initials={initialsOf(first, last, email)}
-            size={84}
-            frame={frame}
-            frameStyle={frameStyle}
-          />
-          {setAvatar.isPending ? (
-            <View
-              style={{
-                position: 'absolute',
-                top: 0,
-                bottom: 0,
-                start: 0,
-                end: 0,
-                borderRadius: radius.pill,
-                backgroundColor: brand.scrim,
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <ActivityIndicator color={brand.white} />
-            </View>
-          ) : (
-            <View
-              style={{
-                position: 'absolute',
-                bottom: 0,
-                end: 0,
-                width: 28,
-                height: 28,
-                borderRadius: radius.pill,
-                backgroundColor: colors.card,
-                borderWidth: 1,
-                borderColor: colors.line,
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <CameraIcon size={14} color={colors.gstrong} />
-            </View>
-          )}
-        </View>
-        <Text
-          style={{
-            fontFamily: fonts.body700,
-            fontSize: 13,
-            color: colors.gstrong,
-            textAlign: 'center',
-          }}
-        >
-          {t(hasPhoto ? 'profile.photoChange' : 'profile.photoAdd')}
-        </Text>
-      </Pressable>
+      <HeroSpacer geo={heroGeo} />
+      <HeroBar flight={flight} hasPhoto={hasPhoto} busy={setAvatar.isPending} onEdit={() => void onPhoto()} />
+      <HeroRows geo={heroGeo} flight={flight}>
       <RowGroup label={t('profile.editGroupPublic')} first>
         <HubRow
           testID="profile-edit.name"
+          symbol="pencil"
           icon={<PencilIcon size={15} color={colors.gstrong} />}
           label={t('profile.nameSection')}
           value={[first, last].filter(Boolean).join(' ') || t('profile.notSet')}
@@ -579,6 +645,7 @@ function Hub() {
         {/* Phase 2 (0314): required to join open matches; one change a week. */}
         <HubRow
           testID="profile-edit.username"
+          symbol="person.fill"
           icon={<TabProfileIcon size={15} color={colors.gstrong} />}
           label={t('profile.usernameSection')}
           value={username ? isolateLtr(atUsername(username)) : t('profile.notSet')}
@@ -586,6 +653,7 @@ function Hub() {
         />
         <HubRow
           testID="profile-edit.frame"
+          symbol="photo.fill"
           icon={<ImageIcon size={15} color={colors.gstrong} />}
           label={t('profile.frameSection')}
           value={
@@ -600,6 +668,7 @@ function Hub() {
         {/* Not editable here (re-verification, spec 05.18): tapping says so. */}
         <HubRow
           testID="profile-edit.email"
+          symbol="envelope.fill"
           icon={<EnvelopeIcon size={15} color={colors.gstrong} />}
           label={t('profile.emailSection')}
           value={email ? isolate(email) : t('profile.notSet')}
@@ -610,6 +679,7 @@ function Hub() {
         />
         <HubRow
           testID="profile-edit.phone-row"
+          symbol="phone.fill"
           icon={<PhoneIcon size={15} color={colors.gstrong} />}
           label={t('profile.phoneSection')}
           value={phone || t('profile.notSet')}
@@ -620,6 +690,7 @@ function Hub() {
         {/* Asked once (OM-28): unset opens the wheel sheet; set, only the desk changes it. */}
         <HubRow
           testID="profile-edit.gender"
+          symbol="person.fill"
           icon={<TabProfileIcon size={15} color={colors.gstrong} />}
           label={t('profile.genderSection')}
           value={
@@ -639,6 +710,7 @@ function Hub() {
         />
         <HubRow
           testID="profile-edit.age-band"
+          symbol="person.fill"
           icon={<TabProfileIcon size={15} color={colors.gstrong} />}
           label={t('profile.ageSection')}
           value={band ? t(`profile.ageBand.${band}`) : t('profile.notSet')}
@@ -649,6 +721,7 @@ function Hub() {
         />
         <HubRow
           testID="profile-edit.birth-date"
+          symbol="calendar"
           icon={<CalendarIcon size={15} color={colors.gstrong} />}
           label={t('profile.birthSection')}
           value={birthDate ? formatDate(birthDate, locale, BIRTH_TZ) : t('profile.notSet')}
@@ -690,6 +763,7 @@ function Hub() {
         {hasPassword ? (
           <HubRow
             testID="profile-edit.change-password"
+            symbol="lock.fill"
             icon={<LockIcon size={15} color={colors.gstrong} />}
             label={t('profile.changePassword')}
             onPress={() => router.push('/change-password')}
@@ -708,11 +782,13 @@ function Hub() {
           borderWidth: 1,
           borderColor: colors.line,
           borderRadius: radius.card,
+          ...IOS_ROUND,
           overflow: 'hidden',
         }}
       >
         <HubRow
           testID="profile-edit.delete-account"
+          symbol="trash.fill"
           icon={<TrashIcon size={15} color={colors.redtext} />}
           iconBg={colors.redtint}
           label={t('profile.deleteAccount')}
@@ -721,7 +797,22 @@ function Hub() {
           last
         />
       </View>
+      </HeroRows>
     </FormScreen>
+    <HeroOverlay
+      geo={heroGeo}
+      flight={flight}
+      hasPhoto={hasPhoto}
+      photoUri={photoUrl.data}
+      path={profile.data?.avatar_path}
+      letter={initialsOf(first, last, email).slice(0, 1)}
+      name={[first, last].filter(Boolean).join(' ') || email || t('profile.notSet')}
+      subline={[phone, username ? isolateLtr(atUsername(username)) : ''].filter(Boolean).join(' · ') || isolate(email)}
+      busy={setAvatar.isPending}
+      frame={frame}
+      frameStyle={frameStyle}
+    />
+    </>
   );
 }
 
@@ -1319,7 +1410,14 @@ function EditProfileScreen() {
             : t('profile.editProfile');
   return (
     <Screen edges={[]}>
-      <Stack.Screen options={{ title }} />
+      {/* The hub draws its photo header under a clear bar (iOS) and the name is the title. */}
+      <Stack.Screen
+        options={
+          section
+            ? { title }
+            : { title: Platform.OS === 'ios' ? '' : title, ...clearBarOptions }
+        }
+      />
       {section === 'name' ? (
         <NameForm />
       ) : section === 'phone' ? (

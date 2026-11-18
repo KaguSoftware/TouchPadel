@@ -22,13 +22,13 @@
  */
 import { beforeEach, jest } from '@jest/globals';
 import { webcrypto } from 'node:crypto';
-import { createContext, createElement, useEffect, type ReactNode } from 'react';
+import { createContext, createElement, useEffect, useRef, type ReactNode } from 'react';
 // react-native's OWN `Text`, not `src/i18n/text` (the restricted-import rule is
 // turned off for this file in eslint.config.mjs). The one use below is the
 // stand-in for a UIKit tab-bar label, which is not app copy and has no
 // paragraph direction to carry — the app's `Text` would drag LocaleProvider
 // into a mock that has to work before any provider is mounted.
-import { Alert, Text, View } from 'react-native';
+import { Alert, ScrollView, Text, View } from 'react-native';
 import { routerState } from './src/test/routerState';
 import { authState } from './src/test/authState';
 import { alertState } from './src/test/alertState';
@@ -49,6 +49,8 @@ import { alertState } from './src/test/alertState';
  * module, from a test file), long after this module has finished evaluating.
  */
 const mockView = View;
+const mockScrollView = ScrollView;
+const mockUseRef = useRef;
 const mockText = Text;
 const mockH = createElement;
 const mockCreateContext = createContext;
@@ -583,6 +585,44 @@ jest.mock('./src/features/profile/push', () => ({
   unregisterPushTokenLocally: () => Promise.resolve(false),
   getPushPermissionState: () => Promise.resolve('undetermined'),
   permissionStateAfter: () => 'undetermined',
+}));
+
+/**
+ * Reanimated and its worklets, replaced by plain JavaScript.
+ *
+ * The Edit profile header (`ProfileHero`) animates on the UI thread, which does not exist in Node, and
+ * both packages ship ESM that this runner does not transform. The stand-ins keep what a render needs:
+ * the animated components are the plain ones, a shared value is a box, a derived value computes on read,
+ * an animated style is the style once, and a scroll handler never fires. Nothing about the animation is
+ * assertable from a render tree; its geometry is `heroState.ts`, pinned by vitest.
+ */
+jest.mock('react-native-reanimated', () => {
+  return {
+    __esModule: true,
+    default: { View: mockView, ScrollView: mockScrollView, createAnimatedComponent: <T,>(c: T) => c },
+    Easing: { bezier: () => (t: number) => t },
+    interpolate: (x: number, input: number[], output: number[]) => {
+      const last = input.length - 1;
+      if (x <= input[0]!) return output[0]!;
+      if (x >= input[last]!) return output[last]!;
+      const i = input.findIndex((v) => x < v) - 1;
+      return output[i]! + ((x - input[i]!) / (input[i + 1]! - input[i]!)) * (output[i + 1]! - output[i]!);
+    },
+    Extrapolation: { CLAMP: 'clamp' },
+    useSharedValue: <T,>(initial: T) => mockUseRef({ value: initial }).current,
+    useDerivedValue: <T,>(compute: () => T) => ({
+      get value() {
+        return compute();
+      },
+    }),
+    useAnimatedStyle: <T,>(style: () => T) => style(),
+    useAnimatedScrollHandler: () => () => {},
+    withTiming: <T,>(to: T) => to,
+  };
+});
+jest.mock('react-native-worklets', () => ({
+  __esModule: true,
+  scheduleOnRN: (fn: (...a: unknown[]) => void, ...args: unknown[]) => fn(...args),
 }));
 
 /**

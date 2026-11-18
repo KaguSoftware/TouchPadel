@@ -6,6 +6,7 @@
  * Every interactive piece takes its `testID` from the call site and forwards
  * it explicitly (apps/mobile/CLAUDE.md "Tests").
  */
+import { IOS_ROUND } from '../../../components/iosRound';
 import { useCallback, useState, type ReactNode } from 'react';
 import {
   ActivityIndicator,
@@ -70,6 +71,7 @@ export function ListCard({ children }: { children: ReactNode }) {
         borderWidth: 1,
         borderColor: colors.line,
         borderRadius: radius.card,
+        ...IOS_ROUND,
         overflow: 'hidden',
       }}
     >

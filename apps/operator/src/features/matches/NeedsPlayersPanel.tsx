@@ -20,6 +20,7 @@ import { formatNumber, formatTime, formatTimeRange, type MessageKey } from '@tou
 import { Button } from '../../components/ui';
 import { Panel, StatusBadge, ViewMore, useListCap, type Tone } from '../../components/kit';
 import { Icon } from '../../components/icons';
+import { BrandBall } from '../../components/brand';
 import { useLocale } from '../../lib/i18n';
 import { MATCH_SEATS, matchTone, needsPlayersRows, type MatchReadStatus, type NeedsPlayersTag } from './matchLogic';
 import { MatchReadNotice } from './MatchReadNotice';
@@ -48,6 +49,8 @@ export interface NeedsPlayersPanelProps {
   hideStart?: boolean;
   /** Courts › Open matches: one coloured card per match instead of the Today board's rows. */
   cards?: boolean;
+  /** Cards view: the page is showing a day other than today, so the empty line says "on this day", not "tonight". */
+  otherDay?: boolean;
   onRetry: () => void;
 }
 
@@ -89,7 +92,12 @@ export function NeedsPlayersPanel(p: NeedsPlayersPanelProps) {
         <MatchReadNotice status={p.status} onRetry={p.onRetry} tz={p.tz} compact />
         {!enabled && <p style={{ margin: 0, fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>{tr('ws.matches.today.off')}</p>}
         {rows.length === 0 ? (
-          <p style={{ margin: 0, color: 'var(--tp-muted-fg)' }}>{tr('ws.matches.today.none')}</p>
+          <div
+            style={{ display: 'grid', justifyItems: 'center', alignContent: 'center', gap: 'var(--tp-sp-3)', minBlockSize: 'calc(100dvh - 24rem)', textAlign: 'center' }}
+          >
+            <BrandBall size={80} />
+            <p style={{ margin: 0, color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-lg, 1.125rem)', fontWeight: 600 }}>{tr(p.otherDay ? 'ws.matches.today.noneOtherDay' : 'ws.matches.today.none')}</p>
+          </div>
         ) : (
           <ul aria-label={tr('ws.matches.today.title')} className="tp-match-grid">
             {cap.shown.map((row) => {

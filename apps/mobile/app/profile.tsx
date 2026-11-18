@@ -1,5 +1,6 @@
 import { Children, cloneElement, isValidElement, useRef, useState, type ReactElement, type ReactNode } from 'react';
 import { Alert, Image, Pressable, ScrollView, View } from 'react-native';
+import { SymbolGlyph } from '../src/components/SymbolGlyph';
 import { Text } from '../src/i18n/text';
 import { Stack, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -20,6 +21,7 @@ import { radius, space, useTheme } from '../src/theme';
 import { useIconChip } from '../src/components/iconChip';
 import { Button, Card, ErrorText, Screen, SectionLabel } from '../src/components/ui';
 import { MenuRow } from '../src/components/booking';
+import { IOS_ROUND } from '../src/components/iosRound';
 import { anyCoaching } from '../src/features/coaching/logic';
 import { anyTournaments } from '../src/features/tournaments/logic';
 import { useMyRanks } from '../src/features/ranks/hooks';
@@ -73,7 +75,9 @@ function MenuGroup({ label, children }: { label: string; children: ReactNode }) 
           backgroundColor: colors.card,
           borderWidth: 1,
           borderColor: colors.line,
+          // iOS Settings: a rounder group with continuous corners.
           borderRadius: radius.card,
+          ...IOS_ROUND,
           overflow: 'hidden',
         }}
       >
@@ -294,7 +298,7 @@ export default function ProfileScreen() {
             onPress={() => openEdit()}
             style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
           >
-          <Card style={{ flexDirection: 'row', direction: 'ltr', gap: 13, alignItems: 'center' }}>
+          <Card style={[{ flexDirection: 'row', direction: 'ltr', gap: 13, alignItems: 'center' }, IOS_ROUND]}>
             <ProfileAvatar
               path={profile.data?.avatar_path}
               initials={initials}
@@ -453,7 +457,7 @@ export default function ProfileScreen() {
               onPress={() => downToTab({ pathname: '/club', params: { show: 'card' } })}
               style={({ pressed }) => ({ marginTop: space.m, opacity: pressed ? 0.7 : 1 })}
             >
-              <Card style={{ flexDirection: 'row', gap: 13, alignItems: 'center' }}>
+              <Card style={[{ flexDirection: 'row', gap: 13, alignItems: 'center' }, IOS_ROUND]}>
                 <View
                   style={{
                     width: 40,
@@ -466,7 +470,7 @@ export default function ProfileScreen() {
                     justifyContent: 'center',
                   }}
                 >
-                  <QrIcon size={20} color={chip.fg} />
+                  <SymbolGlyph name="qrcode" size={21} color={chip.fg} fallback={<QrIcon size={20} color={chip.fg} />} />
                 </View>
                 <View style={{ flex: 1, minWidth: 0 }}>
                   <Text style={{ fontFamily: fonts.display800, fontSize: 15, color: colors.ink }}>
@@ -504,6 +508,7 @@ export default function ProfileScreen() {
             {showLoyalty ? (
               <MenuRow
                 testID="profile.loyalty"
+                symbol="gift.fill"
                 icon={<TagIcon size={15} color={colors.gstrong} />}
                 label={t('loyalty.guest.home.title')}
                 onPress={() => router.push('/loyalty')}
@@ -511,6 +516,7 @@ export default function ProfileScreen() {
             ) : null}
             <MenuRow
               testID="profile.cafe-menu"
+              symbol="cup.and.saucer.fill"
               icon={<CupIcon size={15} color={colors.gstrong} />}
               label={t('profile.cafeMenu')}
               onPress={() => downToTab({ pathname: '/club', params: { show: 'menu' } })}
@@ -522,6 +528,7 @@ export default function ProfileScreen() {
                 bookings, matches and tournament entries, with the full history behind it. */}
             <MenuRow
               testID="profile.bookings"
+              symbol="calendar"
               icon={<CalendarIcon size={15} color={colors.gstrong} />}
               label={t('booking.myBookings')}
               onPress={() => router.push('/bookings')}
@@ -529,6 +536,7 @@ export default function ProfileScreen() {
             {coachEntry ? (
               <MenuRow
                 testID="profile.coach-mode"
+                symbol="figure.tennis"
                 icon={<CalendarIcon size={15} color={colors.gstrong} />}
                 label={t(
                   coachEntry === '/coach-mode-statements'
@@ -541,6 +549,7 @@ export default function ProfileScreen() {
             {coaching ? (
               <MenuRow
                 testID="profile.my-lessons"
+                symbol="book.fill"
                 icon={<CalendarIcon size={15} color={colors.gstrong} />}
                 label={t('profile.myLessons')}
                 onPress={() => router.push('/my-lessons')}
@@ -549,6 +558,7 @@ export default function ProfileScreen() {
             {myRanks ? (
               <MenuRow
                 testID="profile.ranks"
+                symbol="trophy.fill"
                 icon={<TrophyIcon size={15} color={colors.gstrong} />}
                 label={[
                   t('ranks.profileRow'),
@@ -563,6 +573,7 @@ export default function ProfileScreen() {
             {tournaments ? (
               <MenuRow
                 testID="profile.my-tournaments"
+                symbol="flag.fill"
                 icon={<CalendarIcon size={15} color={colors.gstrong} />}
                 label={t('tournaments.guest.entry.mine')}
                 // My reservations lists the guest's tournaments (play-coaches §1).
@@ -574,6 +585,7 @@ export default function ProfileScreen() {
             {onlinePaymentsShipped() ? (
               <MenuRow
                 testID="profile.tickets"
+                symbol="ticket.fill"
                 icon={<ReceiptIcon size={15} color={colors.gstrong} />}
                 label={t('profile.tickets')}
                 onPress={() => router.push('/tickets')}
@@ -586,6 +598,7 @@ export default function ProfileScreen() {
             {phoneOtpEnabled() && !session?.user.phone ? (
               <MenuRow
                 testID="profile.verify-phone"
+                symbol="phone.fill"
                 icon={<PhoneIcon size={15} color={colors.gstrong} />}
                 label={t('auth.verifyPhoneRow')}
                 onPress={() => router.push({ pathname: '/phone-sign-in', params: { mode: 'link' } })}
@@ -594,12 +607,14 @@ export default function ProfileScreen() {
             {/* Open matches ship in every build (paid at the desk without online payment). */}
             <MenuRow
               testID="profile.blocked-players"
+              symbol="hand.raised.fill"
               icon={<CloseIcon size={15} color={colors.gstrong} />}
               label={t('profile.blockedPlayers')}
               onPress={() => router.push('/blocked-players')}
             />
             <MenuRow
               testID="profile.settings"
+              symbol="gearshape.fill"
               icon={<SlidersIcon size={15} color={colors.gstrong} />}
               label={t('settings.title')}
               onPress={() => router.push('/settings')}
@@ -609,6 +624,7 @@ export default function ProfileScreen() {
           <MenuGroup label={t('profile.groupVenue')}>
             <MenuRow
               testID="profile.call-venue"
+              symbol="phone.fill"
               icon={<PhoneIcon size={15} color={colors.gstrong} />}
               label={t('profile.callVenue')}
               onPress={onCallVenue}
@@ -632,7 +648,7 @@ export default function ProfileScreen() {
             size="medium"
             onPress={confirmSignOut}
             labelColor={colors.redtext}
-            style={{ marginTop: space.m, backgroundColor: colors.bg }}
+            style={[{ marginTop: space.m, backgroundColor: colors.bg }, IOS_ROUND]}
           />
         </ScrollView>
       )}

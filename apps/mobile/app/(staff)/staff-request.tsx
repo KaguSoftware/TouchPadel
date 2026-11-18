@@ -139,6 +139,7 @@ function RequestsScreen() {
           <ListCard>
             <MenuRow
               testID="staff-request.deductions"
+              symbol="minus.circle.fill"
               icon={<CardIcon size={15} color={colors.gstrong} />}
               label={t('staff.deductions.mineRow')}
               onPress={() =>

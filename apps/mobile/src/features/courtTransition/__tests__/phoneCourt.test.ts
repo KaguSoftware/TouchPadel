@@ -25,18 +25,18 @@ describe('the phone court', () => {
   });
 
   it.each(['rally', 'drill'] as const)(
-    'in the top view (%s) the logo is the Book court\'s, same size and spot, clear of the net and the machine',
+    'in the top view (%s) the logo is the Book court\'s, bigger, centred on the court, short of the machine',
     (scene) => {
       const book = buildPhoneCourt('lite');
       const court = buildPhoneCourt('lite', false, { scene, view: 'top' });
       const logo = logoOf(court);
-      const bookLogo = logoOf(book);
-      expect(logo.rotation.y).toBe(0);
-      expect(logo.scale.toArray()).toEqual(bookLogo.scale.toArray());
-      expect(logo.position.toArray()).toEqual(bookLogo.position.toArray());
+      expect(logo.rotation.y).toBeCloseTo(Math.PI / 2); // upright on the landscape screen
+      expect(logo.scale.toArray()).toEqual([1.3, 1.3, 1.3]); // bigger than the Book's
       logo.updateMatrixWorld(true);
       const box = new THREE.Box3().setFromObject(logo);
-      expect(box.max.z).toBeLessThan(-0.3); // clear of the net
+      expect((box.min.z + box.max.z) / 2).toBeCloseTo(0, 1); // centred across the court
+      // The gap between the text rows (not the whole ink) is on the centre line (x 0).
+      expect((box.min.x + box.max.x) / 2).toBeCloseTo(0.187 * 1.3, 1); // ink sits that far off, gap on x 0
       expect(box.min.z).toBeGreaterThan(MACHINE.z + 0.5); // short of the machine's drum
       expect(box.min.y).toBeGreaterThan(0); // still above the turf
       court.dispose();

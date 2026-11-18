@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Pressable, RefreshControl, ScrollView, View } from 'react-native';
+import { Pressable, ScrollView, View } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -30,6 +30,7 @@ import {
   tierName,
 } from '../src/features/loyalty/logic';
 import { usePullRefresh } from '../src/lib/usePullRefresh';
+import { usePullBall } from '../src/components/PullBall';
 import { radius, space, useTheme } from '../src/theme';
 import { Button, Card, Hint, MicroLabel, Screen } from '../src/components/ui';
 import { EmptyState, ErrorState, SkeletonList } from '../src/components/states';
@@ -75,6 +76,7 @@ function LoyaltyScreen() {
   const refetchDeals = deals.refetch;
   const refetchVouchers = vouchers.refetch;
   const pull = usePullRefresh(() => Promise.all([refetchMine(), refetchDeals(), refetchVouchers()]));
+  const ball = usePullBall(pull);
   const tz = useVenueSettings().data?.timezone ?? DEFAULT_TZ;
   // 0415: rewards redeemed here, and the one being confirmed.
   const router = useRouter();
@@ -154,16 +156,14 @@ function LoyaltyScreen() {
     const min = l.points_off_enabled ? l.min_redeem_points : 0;
     const usable = min > 0 ? Math.min(1, l.balance / min) : 1;
     return (
+      <View style={{ flex: 1 }} {...ball.wrapHandlers}>
       <ScrollView
         contentContainerStyle={{ paddingTop: 4, paddingBottom: 40 + insets.bottom, gap: space.sm }}
         showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={pull.refreshing}
-            onRefresh={pull.onRefresh}
-            tintColor={colors.blue}
-          />
-        }
+        onScroll={ball.onScroll}
+        bounces={ball.bounces}
+        scrollEventThrottle={16}
+        refreshControl={ball.refreshControl}
       >
         {/* 0. Ready to collect (0415): rewards redeemed here and not yet scanned, soonest to end
             first. Green, as everything ready on this screen is. */}
@@ -567,6 +567,8 @@ function LoyaltyScreen() {
           )}
         </View>
       </ScrollView>
+      {ball.overlay}
+      </View>
     );
   })();
 

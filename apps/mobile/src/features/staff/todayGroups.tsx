@@ -6,6 +6,7 @@
  */
 import type { ComponentType } from 'react';
 import { View } from 'react-native';
+import type { SFSymbol } from 'expo-symbols';
 import { useQuery } from '@tanstack/react-query';
 import { MenuRow } from '../../components/booking';
 import { space, useTheme } from '../../theme';
@@ -91,6 +92,49 @@ export const ROW_ICONS: Record<string, ComponentType<IconProps>> = {
   order: TableIcon,
   receipt: ReceiptIcon,
 };
+
+/** The SF Symbol of each row on iOS (same rows as ROW_ICONS; Android keeps the drawn icons). */
+export const ROW_SYMBOLS: Record<string, SFSymbol> = {
+  protocols: 'clock.fill',
+  start: 'pencil',
+  production: 'stopwatch.fill',
+  shopping: 'tag.fill',
+  run: 'tag.fill',
+  purchases: 'creditcard.fill',
+  marketing: 'globe',
+  requests: 'envelope.fill',
+  notes: 'calendar',
+  ideas: 'sun.max.fill',
+  teachings: 'checkmark.circle.fill',
+  recipes: 'magnifyingglass',
+  'recipe-changes': 'lock.fill',
+  stock: 'shippingbox.fill',
+  suggestions: 'bell.fill',
+  'ask-marketing': 'globe',
+  'marketing-inbox': 'checkmark.circle.fill',
+  calls: 'phone.fill',
+  deductions: 'minus.circle.fill',
+  incidents: 'exclamationmark.triangle.fill',
+  content: 'photo.fill',
+  'stock-log': 'plus.square.fill',
+  'stock-move': 'arrow.left.arrow.right',
+  'stock-count': 'list.clipboard.fill',
+  order: 'tablecells.fill',
+  receipt: 'receipt',
+};
+
+/** The SF Symbol of each group's tile on Today (iOS). */
+export const GROUP_SYMBOLS: Record<string, SFSymbol> = {
+  floor: 'tablecells.fill',
+  protocols: 'list.clipboard.fill',
+  supplies: 'box.truck.fill',
+  recipes: 'fork.knife',
+  daily: 'calendar',
+  people: 'person.2.fill',
+  team: 'envelope.fill',
+};
+
+export const rowSymbol = (id: string): SFSymbol => ROW_SYMBOLS[id] ?? 'slider.horizontal.3';
 
 export const rowIcon = (id: string): ComponentType<IconProps> => ROW_ICONS[id] ?? SlidersIcon;
 
@@ -320,6 +364,7 @@ export function GroupRows({
             key={row.id}
             testID={row.testID}
             icon={<Icon size={15} color={colors.gstrong} />}
+            symbol={rowSymbol(row.id)}
             label={label(row)}
             onPress={() => onOpen(row)}
             last={i === rows.length - 1}

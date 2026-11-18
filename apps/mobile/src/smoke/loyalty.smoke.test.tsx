@@ -67,7 +67,9 @@ const TIERS = [
     multiplier: 1.25,
     min_points_12m: 1500,
     color: 'silver',
-    perks: [{ id: 'perk-syrup', kind: 'free_addons', name_en: 'Free syrup', name_ar: 'نكهة مجانية' }],
+    perks: [
+      { id: 'perk-syrup', kind: 'free_addons', name_en: 'Free syrup', name_ar: 'نكهة مجانية' },
+    ],
     deals: [{ id: 'd-locked', name_en: 'Silver breakfast', name_ar: 'فطور الفضي' }],
   },
   {
@@ -78,7 +80,12 @@ const TIERS = [
     min_points_12m: 4000,
     color: 'gold',
     perks: [
-      { id: 'perk-addons', kind: 'free_addons', name_en: 'Every add-on free', name_ar: 'كل الإضافات مجانًا' },
+      {
+        id: 'perk-addons',
+        kind: 'free_addons',
+        name_en: 'Every add-on free',
+        name_ar: 'كل الإضافات مجانًا',
+      },
       { id: 'perk-racket', kind: 'custom', name_en: 'A racket to borrow', name_ar: 'مضرب للإعارة' },
     ],
     deals: [],
@@ -193,7 +200,13 @@ const RAW_DEALS = [
     min_spend_iqd: null,
     per_customer: null,
     used: 0,
-    tier: { id: 'tier-1', name_en: 'Silver', name_ar: 'فضي', color: 'silver', min_points_12m: 1500 },
+    tier: {
+      id: 'tier-1',
+      name_en: 'Silver',
+      name_ar: 'فضي',
+      color: 'silver',
+      min_points_12m: 1500,
+    },
     state: 'locked',
     venue_id: null,
     on: { items: [], categories: [], courts: false },
@@ -252,7 +265,10 @@ const vouchersFixture = (status = 'active', minutesLeft = 10) =>
 const homeSeeds = (
   over: Record<string, unknown> = {},
   deals: ReturnType<typeof parseMyDeals> | null = dealsFixture(),
-  vouchers: ReturnType<typeof parseMyRewardVouchers> = parseMyRewardVouchers({ now: new Date().toISOString(), vouchers: [] }),
+  vouchers: ReturnType<typeof parseMyRewardVouchers> = parseMyRewardVouchers({
+    now: new Date().toISOString(),
+    vouchers: [],
+  }),
 ): Seeds => [
   ...venue,
   [loyaltyKeys.mine, loyaltyFixture(over)],
@@ -339,8 +355,12 @@ describe.each(LOCALES)('loyalty states in %s', (locale) => {
     });
     try {
       expect(live.getByTestId('reward-voucher.qr')).toBeTruthy();
-      expect(within(live.getByTestId('reward-voucher.code')).getByText('TPV-8F3K-2QXM-9ABC')).toBeTruthy();
-      expect(String(live.getByTestId('reward-voucher.time').props.children)).toMatch(/^(9:5\d|10:00)$/);
+      expect(
+        within(live.getByTestId('reward-voucher.code')).getByText('TPV-8F3K-2QXM-9ABC'),
+      ).toBeTruthy();
+      expect(String(live.getByTestId('reward-voucher.time').props.children)).toMatch(
+        /^(9:5\d|10:00)$/,
+      );
       expect(live.getByTestId('reward-voucher.cancel')).toBeTruthy();
     } finally {
       live.unmount();
@@ -352,7 +372,11 @@ describe.each(LOCALES)('loyalty states in %s', (locale) => {
       queryData: homeSeeds({}, dealsFixture(), vouchersFixture('used')),
     });
     try {
-      expect(within(done.getByTestId('reward-voucher.collected')).getByText(t('loyalty.guest.voucher.collectedTitle'))).toBeTruthy();
+      expect(
+        within(done.getByTestId('reward-voucher.collected')).getByText(
+          t('loyalty.guest.voucher.collectedTitle'),
+        ),
+      ).toBeTruthy();
       expect(done.queryByTestId('reward-voucher.qr')).toBeNull();
     } finally {
       done.unmount();
@@ -409,8 +433,12 @@ describe.each(LOCALES)('loyalty states in %s', (locale) => {
     try {
       expect(screen.getByTestId('loyalty.use-progress')).toBeTruthy();
       // The points as a number with the tier beside it (2026-11-13): no card, no card button.
-      expect(within(screen.getByTestId('loyalty.balance')).getByText(isolateLtr('1,250'))).toBeTruthy();
-      expect(within(screen.getByTestId('loyalty.tier')).getByText(locale === 'ar' ? 'عضو' : 'Member')).toBeTruthy();
+      expect(
+        within(screen.getByTestId('loyalty.balance')).getByText(isolateLtr('1,250')),
+      ).toBeTruthy();
+      expect(
+        within(screen.getByTestId('loyalty.tier')).getByText(locale === 'ar' ? 'عضو' : 'Member'),
+      ).toBeTruthy();
       expect(screen.queryByTestId('loyalty.show-card')).toBeNull();
       // The way to the next card (0410): its name, the points to go, the bar, what it adds.
       const silver = locale === 'ar' ? 'فضي' : 'Silver';
@@ -427,7 +455,9 @@ describe.each(LOCALES)('loyalty states in %s', (locale) => {
       ).toBeTruthy();
       expect(
         within(adds).getByText(
-          t('loyalty.guest.gives.multiplier', { times: isolateLtr(`${formatNumber(1.25, locale)}×`) }),
+          t('loyalty.guest.gives.multiplier', {
+            times: isolateLtr(`${formatNumber(1.25, locale)}×`),
+          }),
         ),
       ).toBeTruthy();
       expect(within(adds).getByText(locale === 'ar' ? 'نكهة مجانية' : 'Free syrup')).toBeTruthy();
@@ -442,10 +472,18 @@ describe.each(LOCALES)('loyalty states in %s', (locale) => {
       // The cards (0410) sit in the same block, the next card's list in its own row: the base one
       // is theirs, the one past the next says what it still needs (the next one's is the head's).
       const tiers = within(next).getByTestId('loyalty.tiers');
-      expect(within(within(tiers).getByTestId('loyalty.tier.tier-1')).getByTestId('loyalty.next-card.gives')).toBeTruthy();
-      expect(within(screen.getByTestId('loyalty.tier.tier-1')).queryByText(t('loyalty.guest.next.toGo'))).toBeNull();
       expect(
-        within(screen.getByTestId('loyalty.tier.tier-0')).getByText(t('loyalty.guest.ladder.yours')),
+        within(within(tiers).getByTestId('loyalty.tier.tier-1')).getByTestId(
+          'loyalty.next-card.gives',
+        ),
+      ).toBeTruthy();
+      expect(
+        within(screen.getByTestId('loyalty.tier.tier-1')).queryByText(t('loyalty.guest.next.toGo')),
+      ).toBeNull();
+      expect(
+        within(screen.getByTestId('loyalty.tier.tier-0')).getByText(
+          t('loyalty.guest.ladder.yours'),
+        ),
       ).toBeTruthy();
       expect(
         within(screen.getByTestId('loyalty.tier.tier-0')).getByText(t('loyalty.guest.ladder.base')),
@@ -456,7 +494,9 @@ describe.each(LOCALES)('loyalty states in %s', (locale) => {
       expect(
         within(gold).getByText(t('loyalty.guest.ladder.from', { points: isolateLtr('4,000') })),
       ).toBeTruthy();
-      expect(within(gold).getByText(locale === 'ar' ? 'مضرب للإعارة' : 'A racket to borrow')).toBeTruthy();
+      expect(
+        within(gold).getByText(locale === 'ar' ? 'مضرب للإعارة' : 'A racket to borrow'),
+      ).toBeTruthy();
       expect(screen.getByTestId('loyalty.reward.r-1')).toBeTruthy();
       expect(
         within(screen.getByTestId('loyalty.history.l-1')).getByText(
@@ -483,7 +523,9 @@ describe.each(LOCALES)('loyalty states in %s', (locale) => {
     try {
       fireEvent.press(screen.getByTestId('loyalty.deal-show.d-open'));
       // useBack pops to the card when there is history; a test has none, so it lands on the card.
-      expect(routerState.calls).toEqual([{ method: 'replace', arg: { pathname: '/club', params: { show: 'card' } } }]);
+      expect(routerState.calls).toEqual([
+        { method: 'replace', arg: { pathname: '/club', params: { show: 'card' } } },
+      ]);
     } finally {
       screen.unmount();
     }
@@ -498,16 +540,21 @@ describe.each(LOCALES)('loyalty states in %s', (locale) => {
     try {
       // The top card (0410) says so, has no bar, and lists everything the card holds.
       const top = screen.getByTestId('loyalty.top-card');
-      expect(within(top).getByText(t('loyalty.guest.next.topLabel'))).toBeTruthy();
+      // 'Your card' is the head's label and the member's own card's mark: both read it.
+      expect(within(top).getAllByText(t('loyalty.guest.next.topLabel')).length).toBeGreaterThan(0);
       expect(within(top).getByText(t('loyalty.guest.next.top'))).toBeTruthy();
       // Its cards are in the same block: its own row marked, the ones under it included.
       expect(within(top).getByTestId('loyalty.tier-yours')).toBeTruthy();
-      expect(within(top).getByText(locale === 'ar' ? 'كل الإضافات مجانًا' : 'Every add-on free')).toBeTruthy();
+      expect(
+        within(top).getByText(locale === 'ar' ? 'كل الإضافات مجانًا' : 'Every add-on free'),
+      ).toBeTruthy();
       expect(within(top).getByText(locale === 'ar' ? 'نكهة مجانية' : 'Free syrup')).toBeTruthy();
       expect(screen.queryByTestId('loyalty.next-card')).toBeNull();
       expect(screen.queryByTestId('loyalty.top-card.progress')).toBeNull();
       expect(
-        within(screen.getByTestId('loyalty.tier.tier-1')).getByText(t('loyalty.guest.ladder.included')),
+        within(screen.getByTestId('loyalty.tier.tier-1')).getByText(
+          t('loyalty.guest.ladder.included'),
+        ),
       ).toBeTruthy();
       expect(screen.getByTestId('loyalty.history-empty')).toBeTruthy();
       expect(screen.getByTestId('loyalty.reward-soon.0')).toBeTruthy();
@@ -519,7 +566,9 @@ describe.each(LOCALES)('loyalty states in %s', (locale) => {
   it('a deal of each kind reads its state: open, not right now, locked, used (0410)', () => {
     const screen = renderRoute(LoyaltyScreen, { locale, session: 'in', queryData: homeSeeds() });
     try {
-      expect(within(screen.getByTestId('loyalty.deals')).getByText(t('loyalty.guest.deals.title'))).toBeTruthy();
+      expect(
+        within(screen.getByTestId('loyalty.deals')).getByText(t('loyalty.guest.deals.title')),
+      ).toBeTruthy();
 
       const open = screen.getByTestId('loyalty.deal.d-open');
       expect(
@@ -529,14 +578,18 @@ describe.each(LOCALES)('loyalty states in %s', (locale) => {
       ).toBeTruthy();
       expect(within(open).getByText(locale === 'ar' ? 'ساعة السعادة' : 'Happy hour')).toBeTruthy();
       // The owner's line, not what the deal covers.
-      expect(within(open).getByText(locale === 'ar' ? 'كل المشروبات الساخنة.' : 'Every hot drink.')).toBeTruthy();
+      expect(
+        within(open).getByText(locale === 'ar' ? 'كل المشروبات الساخنة.' : 'Every hot drink.'),
+      ).toBeTruthy();
       expect(within(open).queryByText(t('loyalty.guest.deals.wholeBill'))).toBeNull();
       expect(within(open).getByText(t('loyalty.guest.deals.minSpend'))).toBeTruthy();
       expect(within(open).getByText(isolate(formatIQD(5000, locale)))).toBeTruthy();
       expect(within(open).getByText(t('loyalty.guest.deals.usesLeft'))).toBeTruthy();
       expect(within(open).getByText(isolateLtr('2'))).toBeTruthy();
       expect(
-        within(screen.getByTestId('loyalty.deal-use.d-open')).getByText(t('loyalty.guest.deals.use')),
+        within(screen.getByTestId('loyalty.deal-use.d-open')).getByText(
+          t('loyalty.guest.deals.use'),
+        ),
       ).toBeTruthy();
 
       // Outside its hours: still theirs to pick for later, and it says so with its days and hours.
@@ -594,7 +647,9 @@ describe.each(LOCALES)('loyalty states in %s', (locale) => {
       expect(screen.client.getQueryData(loyaltyKeys.deals)).toMatchObject({ picked_id: 'd-open' });
       await waitFor(() => expect(screen.getByTestId('loyalty.deal-show.d-open')).toBeTruthy());
       expect(
-        within(screen.getByTestId('loyalty.deal.d-open')).getByText(t('loyalty.guest.deals.picked')),
+        within(screen.getByTestId('loyalty.deal.d-open')).getByText(
+          t('loyalty.guest.deals.picked'),
+        ),
       ).toBeTruthy();
       expect(screen.queryByTestId('loyalty.deal-use.d-open')).toBeNull();
     } finally {
@@ -638,7 +693,7 @@ describe.each(LOCALES)('loyalty states in %s', (locale) => {
     }
   });
 
-  it('a refused pick says why, in the shared catalogue\'s words, and stays on the screen', async () => {
+  it("a refused pick says why, in the shared catalogue's words, and stays on the screen", async () => {
     stubAppRpc({ data: null, error: { message: 'DEAL_USED', code: 'P0001' } });
     const screen = renderRoute(LoyaltyScreen, { locale, session: 'in', queryData: homeSeeds() });
     try {
@@ -728,7 +783,9 @@ describe.each(LOCALES)('loyalty states in %s', (locale) => {
       expect(screen.getByTestId('loyalty.next-card.progress')).toBeTruthy();
       expect(
         within(screen.getByTestId('loyalty.next-card.gives')).getByText(
-          t('loyalty.guest.gives.multiplier', { times: isolateLtr(`${formatNumber(1.25, locale)}×`) }),
+          t('loyalty.guest.gives.multiplier', {
+            times: isolateLtr(`${formatNumber(1.25, locale)}×`),
+          }),
         ),
       ).toBeTruthy();
       expect(screen.getByTestId('loyalty.balance')).toBeTruthy();

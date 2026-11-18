@@ -299,7 +299,7 @@ export function CategoryBar({ chips, active, onPick, testID }: CategoryBarProps)
               style={{
                 fontFamily: on ? fonts.display800 : fonts.display600,
                 fontSize: 13,
-                color: on ? selected : colors.fnt2,
+                color: on ? selected : colors.ink,
               }}
             >
               {label}

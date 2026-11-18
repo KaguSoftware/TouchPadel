@@ -11,6 +11,36 @@ import { PhotoViewer, type PhotoOrigin } from './PhotoViewer';
 import { menuPhotoUrl, pickText, type MenuViewItem } from './logic';
 
 const BTN = 28;
+const PHOTO_BLEED = 40;
+
+/** The photo is 4:3 across the sheet, but never taller than this. */
+const photoHeight = (width: number) => Math.min(Math.round((width * 3) / 4), 300);
+
+/**
+ * How tall the sheet's content wants to be, worked out from the item alone so the iOS sheet can be
+ * sized once, before it opens (a detent changed while it presents breaks the open animation).
+ * The text is an estimate; if it comes up short the content scrolls, if long a little shows below.
+ */
+export function itemContentHeight(
+  item: MenuViewItem,
+  locale: 'en' | 'ar',
+  width: number,
+  max: number,
+  bottomInset: number,
+): number {
+  const lines = (text: string, perLine: number) => Math.max(1, Math.ceil(text.length / perLine));
+  const description = pickText(item.description_en, item.description_ar, locale);
+  const hook = pickText(item.hook_en, item.hook_ar, locale);
+  const perLine = Math.max(20, Math.floor((width - 2 * space.xl) / 7));
+  let h = photoHeight(width) + 68; // the photo and the name header
+  const body =
+    (hook ? 20 : 0) +
+    (description ? lines(description, perLine) * 21 + 8 : 0) +
+    (item.allergens.length > 0 ? 30 : 0) +
+    (item.sizes.length > 1 ? 40 + item.sizes.length * 40 : 0);
+  h += space.m + body + Math.max(bottomInset, space.l);
+  return Math.min(h, max);
+}
 
 /**
  * The inside of the item sheet, laid out as the web menu's item sheet is (`ItemSheet.tsx`): the
@@ -28,13 +58,18 @@ export function ItemDetailContent({
   categoryEn,
   testID,
   height,
+  fixed,
   screenOffset,
 }: {
   item: MenuViewItem;
   categoryEn: string;
   testID: string;
-  /** The sheet's height, which the hosted view fills. */
+  /**
+   * With `fixed`, the exact height the hosted view fills (the iOS sheet, sized once up front by
+   * `itemContentHeight`); otherwise the most it may take, and it is only as tall as it needs.
+   */
   height: number;
+  fixed?: boolean;
   /**
    * Where this content's top-left corner is on the screen, when the host puts it somewhere the
    * layout cannot see (the iOS sheet: React measures from the hidden host, not from the sheet).
@@ -44,7 +79,7 @@ export function ItemDetailContent({
   const { t, locale } = useLocale();
   const { colors, fonts, tracking } = useTheme();
   const insets = useSafeAreaInsets();
-  const { width } = useWindowDimensions();
+  const width = useWindowDimensions().width;
   const [zoom, setZoom] = useState(false);
   const [origin, setOrigin] = useState<PhotoOrigin | null>(null);
   const photoRef = useRef<ComponentRef<typeof View>>(null);
@@ -59,7 +94,12 @@ export function ItemDetailContent({
     node.measureInWindow((x, y, w, h) => {
       setOrigin(
         w > 0 && h > 0
-          ? { x: x + (screenOffset?.x ?? 0), y: y + (screenOffset?.y ?? 0), width: w, height: h }
+          ? {
+              x: x + (screenOffset?.x ?? 0),
+              y: y + (screenOffset?.y ?? 0),
+              width: Math.min(w, width),
+              height: h,
+            }
           : null,
       );
       setZoom(true);
@@ -86,14 +126,15 @@ export function ItemDetailContent({
   };
 
   return (
-    <View style={{ width, height, backgroundColor: colors.card }}>
+    <View style={{ width, height: fixed ? height : undefined, backgroundColor: colors.card }}>
       <View
         ref={photoRef}
         collapsable={false}
         style={{
-          width: '100%',
-          aspectRatio: 4 / 3,
-          maxHeight: height * 0.42,
+          // Wider than the sheet on purpose: the sheet clips it, and the iOS host lays this view
+          // out a few points narrower than the sheet, which showed as a blue strip beside it.
+          width: width + PHOTO_BLEED,
+          height: photoHeight(width),
           overflow: 'hidden',
         }}
       >
@@ -167,9 +208,9 @@ export function ItemDetailContent({
 
       <ScrollView
         testID={`${testID}.scroll`}
-        style={{ flex: 1 }}
+        style={fixed ? { flex: 1 } : { maxHeight: height * 0.58, flexGrow: 0 }}
         stickyHeaderIndices={[0]}
-        contentContainerStyle={{ paddingBottom: space.l }}
+        contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, space.l) }}
         showsVerticalScrollIndicator={false}
       >
         <View
@@ -179,33 +220,51 @@ export function ItemDetailContent({
             paddingVertical: space.m,
             borderBottomWidth: 1,
             borderBottomColor: colors.line,
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: space.m,
           }}
         >
-          <Text
-            style={{
-              fontFamily: fonts.body700,
-              fontSize: 11,
-              color: colors.mut,
-              textTransform: 'uppercase',
-              letterSpacing: tracking(1.2),
-            }}
-          >
-            {t('cafe.menu')}
-          </Text>
-          <Text
-            testID={`${testID}.name`}
-            style={{
-              fontFamily: fonts.display800,
-              fontSize: 22,
-              lineHeight: 28,
-              color: colors.ink,
-              textTransform: 'uppercase',
-              letterSpacing: tracking(0.9),
-              marginTop: 2,
-            }}
-          >
-            {name}
-          </Text>
+          <View style={{ flex: 1 }}>
+            <Text
+              style={{
+                fontFamily: fonts.body700,
+                fontSize: 11,
+                color: colors.mut,
+                textTransform: 'uppercase',
+                letterSpacing: tracking(1.2),
+              }}
+            >
+              {t('cafe.menu')}
+            </Text>
+            <Text
+              testID={`${testID}.name`}
+              style={{
+                fontFamily: fonts.display800,
+                fontSize: 22,
+                lineHeight: 28,
+                color: colors.ink,
+                textTransform: 'uppercase',
+                letterSpacing: tracking(0.9),
+                marginTop: 2,
+              }}
+            >
+              {name}
+            </Text>
+          </View>
+          {fallback ? (
+            <Text
+              testID={`${testID}.price`}
+              style={{
+                fontFamily: fonts.display800,
+                fontSize: 20,
+                color: colors.gtext,
+                fontVariant: ['tabular-nums'],
+              }}
+            >
+              {formatIQD(fallback.price_iqd, locale)}
+            </Text>
+          ) : null}
         </View>
 
         <View style={{ paddingHorizontal: space.xl, paddingTop: space.m, gap: space.s }}>
@@ -299,34 +358,6 @@ export function ItemDetailContent({
           ) : null}
         </View>
       </ScrollView>
-
-      {fallback ? (
-        <View
-          style={{
-            flexDirection: 'row',
-            alignItems: 'baseline',
-            justifyContent: 'flex-end',
-            paddingHorizontal: space.xl,
-            paddingTop: space.m,
-            paddingBottom: Math.max(insets.bottom, space.m),
-            borderTopWidth: 1,
-            borderTopColor: colors.line,
-            backgroundColor: colors.card,
-          }}
-        >
-          <Text
-            testID={`${testID}.price`}
-            style={{
-              fontFamily: fonts.display800,
-              fontSize: 22,
-              color: colors.gtext,
-              fontVariant: ['tabular-nums'],
-            }}
-          >
-            {formatIQD(fallback.price_iqd, locale)}
-          </Text>
-        </View>
-      ) : null}
 
       {zoom && url ? (
         <PhotoViewer url={url} testID={testID} origin={origin} onClose={() => setZoom(false)} />

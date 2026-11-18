@@ -22,6 +22,8 @@ import { mirror } from '../src/i18n/direction';
 import Svg, { Path } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BrandPattern } from '../src/components/BrandPattern';
+import type { SFSymbol } from 'expo-symbols';
+import { SymbolGlyph } from '../src/components/SymbolGlyph';
 import { brand, radius, space, useTheme, withAlpha } from '../src/theme';
 import {
   Button,
@@ -50,7 +52,7 @@ import { coachModeEntry, useCoachStatus } from '../src/features/coach/useCoachSt
 import { greetingName } from '../src/features/staff/greetingName';
 import { showsVenuePicker } from '../src/features/staff/venue';
 import { useWaitingCount, useWorkAlerts } from '../src/features/staff/workAlerts';
-import { GroupRows, useTodayGroups, type TodayGroup } from '../src/features/staff/todayGroups';
+import { GROUP_SYMBOLS, GroupRows, useTodayGroups, type TodayGroup } from '../src/features/staff/todayGroups';
 import type { StaffRowDef } from '../src/features/staff/rows';
 import { fetchMyRewards } from '../src/features/staff/rewards/api';
 import { RewardTrack } from '../src/features/staff/rewards/RewardTrack';
@@ -112,6 +114,7 @@ function useGlass() {
 function GroupTile({
   testID,
   icon: Icon,
+  symbol,
   title,
   waiting,
   preview,
@@ -120,6 +123,8 @@ function GroupTile({
 }: {
   testID: string;
   icon: ComponentType<IconProps>;
+  /** This symbol (SF on iOS, Ionicons on Android) instead of `icon`. */
+  symbol?: SFSymbol;
   title: string;
   waiting: boolean;
   preview: string;
@@ -170,7 +175,11 @@ function GroupTile({
             justifyContent: 'center',
           }}
         >
-          <Icon size={17} color={glass.ringFg} />
+          {symbol ? (
+            <SymbolGlyph name={symbol} size={18} color={glass.ringFg} fallback={<Icon size={17} color={glass.ringFg} />} />
+          ) : (
+            <Icon size={17} color={glass.ringFg} />
+          )}
           {/* No page count (owner, 2026-10-01); a red dot on the icon's corner
               says something in the group is waiting on the person (red like
               the work alerts badge, owner, 2026-10-16). */}
@@ -405,6 +414,7 @@ function TilePages({
 function AccountButton({
   testID,
   icon: Icon,
+  symbol,
   label,
   warn,
   busy,
@@ -414,6 +424,8 @@ function AccountButton({
 }: {
   testID: string;
   icon: ComponentType<IconProps>;
+  /** This symbol (SF on iOS, Ionicons on Android) instead of `icon`. */
+  symbol?: SFSymbol;
   label: string;
   warn?: boolean;
   busy?: boolean;
@@ -469,7 +481,11 @@ function AccountButton({
           justifyContent: 'center',
         }}
       >
-        <Icon size={17} color={warn ? colors.ambtext : glass.ringFg} />
+        {symbol ? (
+          <SymbolGlyph name={symbol} size={18} color={warn ? colors.ambtext : glass.ringFg} fallback={<Icon size={17} color={warn ? colors.ambtext : glass.ringFg} />} />
+        ) : (
+          <Icon size={17} color={warn ? colors.ambtext : glass.ringFg} />
+        )}
         {/* The count on the icon's corner, like the red dot on a tile's icon. */}
         {count > 0 ? (
           <View
@@ -836,6 +852,7 @@ function TodayScreen() {
                 key={group.key}
                 testID={`staff.group.${group.key}`}
                 icon={group.icon}
+                symbol={GROUP_SYMBOLS[group.key]}
                 title={t(group.titleKey)}
                 waiting={waiting(group)}
                 preview={t(group.infoKey)}
@@ -860,6 +877,7 @@ function TodayScreen() {
                   <GroupTile
                     key="coach-mode"
                     testID="staff.coach-mode"
+                    symbol="stopwatch.fill"
                     icon={StopwatchIcon}
                     title={t(
                       coachEntry === '/coach-mode'
@@ -883,6 +901,7 @@ function TodayScreen() {
                   <GroupTile
                     key="rewards"
                     testID="staff.rewards-admin"
+                    symbol="trophy.fill"
                     icon={TrophyIcon}
                     title={t('staff.rewards.admin.entry')}
                     waiting={false}
@@ -898,6 +917,7 @@ function TodayScreen() {
                   <GroupTile
                     key="screenshots"
                     testID="staff.screenshots"
+                    symbol="camera.fill"
                     icon={CameraIcon}
                     title={t('staff.screenshots.entry')}
                     waiting={false}
@@ -913,6 +933,7 @@ function TodayScreen() {
                   <GroupTile
                     key="activity"
                     testID="staff.activity"
+                    symbol="clock.fill"
                     icon={ClockIcon}
                     title={t('staff.activity.entry')}
                     waiting={false}
@@ -952,6 +973,7 @@ function TodayScreen() {
           <View style={{ flexDirection: 'row', gap: space.s }}>
             <AccountButton
               testID="staff.alerts"
+              symbol="bell.fill"
               icon={BellIcon}
               label={t('staff.shell.account.alerts')}
               warn={alertsOff}
@@ -963,6 +985,7 @@ function TodayScreen() {
                 the tabs comes back here. The toast says it is live, not a demo. */}
             <AccountButton
               testID="staff.guest-view"
+              symbol="eye.fill"
               icon={EyeIcon}
               label={t('staff.shell.guestView.tile')}
               compact={compact}
@@ -974,6 +997,7 @@ function TodayScreen() {
             />
             <AccountButton
               testID="staff.settings"
+              symbol="gearshape.fill"
               icon={SlidersIcon}
               label={t('settings.title')}
               compact={compact}

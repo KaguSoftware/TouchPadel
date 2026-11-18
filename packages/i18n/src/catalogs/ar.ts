@@ -902,6 +902,7 @@ export const ar: Messages = {
     emailSection: 'البريد الإلكتروني',
     photoAdd: 'إضافة صورة',
     photoChange: 'تغيير الصورة',
+    photoEdit: 'تعديل',
     photoSourceTitle: 'صورة الملف الشخصي',
     photoTake: 'التقاط صورة',
     photoChoose: 'اختيار من المعرض',
@@ -1204,7 +1205,7 @@ export const ar: Messages = {
     guest: {
       card: {
         title: 'بطاقة العضوية',
-        sayNumber: 'أو قل رقم هاتفك عند الكاشير',
+        sayNumber: 'أو قل رقم هاتفك',
         show: 'اعرض هذا الرمز عند الكاشير',
         memberCode: 'رمز العضوية',
         refreshesIn: 'رمز جديد بعد {seconds} ث',
@@ -1344,7 +1345,7 @@ export const ar: Messages = {
         from: 'ابتداءً من {points} نقطة',
         base: 'بطاقة البداية للجميع',
         yours: 'بطاقتك',
-        included: 'مشمولة في بطاقتك',
+        included: 'مكتسبة',
       },
       off: 'النقاط والمكافآت غير مفعّلة بعد. ستتوفر قريبًا.',
     },

@@ -264,7 +264,13 @@ export function MemberCardPanel({
     return (
       <ScrollView
         ref={scroll}
+        // The scroll view reaches out over the page's gutter and gives it back as padding, so a
+        // card that tilts (or its shadow) has room to swing past its own edge instead of being
+        // cut where the scroll view ends.
+        style={{ marginStart: -space.l, marginEnd: -space.l }}
         contentContainerStyle={{
+          paddingStart: space.l,
+          paddingEnd: space.l,
           paddingTop: space.l,
           paddingBottom: bottomPad,
           alignItems: 'stretch',
@@ -286,7 +292,9 @@ export function MemberCardPanel({
             borderWidth: 1,
             borderColor: colors.line,
             // Tight round the code (Majed, 2026-10-22): the QR's own quiet zone is margin enough.
-            paddingTop: space.m,
+            // The line below is pulled up over the QR's quiet zone; keep the QR's white square
+            // (and so its top) off the card's border (the two lines are 40 high).
+            paddingTop: Math.max(space.m, qrQuiet - space.sm - 40 + 4),
             paddingBottom: space.m,
             paddingStart: space.m,
             paddingEnd: space.m,
@@ -295,20 +303,41 @@ export function MemberCardPanel({
           {/* The deal this scan applies (0410), first on the paper. */}
           {deal ? <DealNote testID={`${testID}.deal`} deal={deal} /> : null}
           {/* What to do with it, on the white above the code (Sait, 2026-10-20). */}
-          <Text
+          <View
             style={{
               // Over the QR's white border, the same 12 pt from the squares as the code
               // below; in front of it, or the border's white square hides the line.
               marginBottom: space.sm - qrQuiet,
               zIndex: 1,
-              fontFamily: fonts.body700,
-              fontSize: 14,
-              color: QR_INK,
-              textAlign: 'center',
+              alignItems: 'center',
             }}
           >
-            {t('loyalty.guest.card.show')}
-          </Text>
+            <Text
+              style={{
+                lineHeight: 20,
+                fontFamily: fonts.body700,
+                fontSize: 14,
+                color: QR_INK,
+                textAlign: 'center',
+              }}
+            >
+              {t('loyalty.guest.card.show')}
+            </Text>
+            {/* The till's other way in, said only: no number on the card (Sait, 2026-10-20).
+                On the white, so in the paper's own muted ink in both themes. */}
+            <Text
+              style={{
+                marginTop: 2,
+                lineHeight: 18,
+                fontFamily: fonts.body600,
+                fontSize: 13,
+                color: palettes.light.mut,
+                textAlign: 'center',
+              }}
+            >
+              {t('loyalty.guest.card.sayNumber')}
+            </Text>
+          </View>
           <View
             testID={`${testID}.qr`}
             accessible
@@ -379,19 +408,6 @@ export function MemberCardPanel({
             }}
           >
             {t('loyalty.guest.card.refreshesIn', { seconds: isolateLtr(String(live.secondsLeft)) })}
-          </Text>
-          {/* The till's other way in, said only: no number on the card (Sait, 2026-10-20).
-              On the white, so in the paper's own muted ink in both themes. */}
-          <Text
-            style={{
-              marginTop: space.sm,
-              fontFamily: fonts.body600,
-              fontSize: 13,
-              color: palettes.light.mut,
-              textAlign: 'center',
-            }}
-          >
-            {t('loyalty.guest.card.sayNumber')}
           </Text>
         </View>
 

@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import {
   Animated,
   Pressable,
-  RefreshControl,
   StyleSheet,
   View,
   useWindowDimensions,
@@ -65,6 +64,7 @@ import {
 } from '../../src/features/play/timeline';
 import { playCourt } from '../../src/features/play/court';
 import { usePullRefresh } from '../../src/lib/usePullRefresh';
+import { usePullBall } from '../../src/components/PullBall';
 import { Text } from '../../src/i18n/text';
 import { radius, space, useTheme } from '../../src/theme';
 import { usePlayProfile } from '../../src/features/playProfile/hooks';
@@ -467,6 +467,7 @@ export default function PlayScreen() {
   );
   const pull = usePullRefresh(refetchAll);
   const scroll = useScrollY();
+  const ball = usePullBall(pull, { scrollY: scroll.y, enabled: signedIn });
 
   // ── What one entry looks like ─────────────────────────────────────────────
   const multiBranch = (pub.data?.branches.length ?? 0) > 1;
@@ -1170,7 +1171,7 @@ export default function PlayScreen() {
           />
         ) : null}
         <Frost scrollY={scroll.y} span={heroH} />
-        <View style={{ flex: 1, marginTop: titleH, overflow: 'hidden' }}>
+        <View style={{ flex: 1, marginTop: titleH, overflow: 'hidden' }} {...ball.wrapHandlers}>
           {/* The night headers stick under the pinned controls, and the next
               night pushes the one before it out (owner, 2026-10-13). In the sheet
               the slot's foot overlaps the gap by space.sm, so a stuck header rides
@@ -1220,17 +1221,11 @@ export default function PlayScreen() {
                   });
                 }, 250);
               }}
-              refreshControl={
-                signedIn ? (
-                  <RefreshControl
-                    refreshing={pull.refreshing}
-                    onRefresh={pull.onRefresh}
-                    tintColor={colors.blue}
-                  />
-                ) : undefined
-              }
+              bounces={ball.bounces}
+              refreshControl={ball.refreshControl}
             />
           </StickyOffset.Provider>
+          {ball.overlay}
           {controls && controlsY !== null ? (
             <Animated.View
               onLayout={(e) => setControlsH(e.nativeEvent.layout.height)}

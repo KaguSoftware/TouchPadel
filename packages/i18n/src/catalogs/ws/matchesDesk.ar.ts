@@ -51,6 +51,7 @@ export const matchesDeskAr: DeepMessages<typeof matchesDeskEn> = {
     open: 'فتح',
     off: 'المباريات المفتوحة متوقفة هنا، وتستمر المباريات التي بدأت.',
     none: 'لا مباريات مفتوحة الليلة',
+    noneOtherDay: 'لا مباريات مفتوحة في هذا اليوم',
     playersOwing: 'لاعبون لم يدفعوا: {count}',
   },
   create: {

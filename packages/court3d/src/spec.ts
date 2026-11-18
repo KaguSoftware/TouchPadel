@@ -56,7 +56,7 @@ export const SPEC = {
     dim: [0.35, 0.85] as Range,
     opacity: [1, 1] as Range,
   },
-  lines: { range: [0.3, 0.7] as Range, opacity: [1, 0.4] as Range },
+  lines: { range: [0.3, 0.7] as Range, opacity: [0.65, 0.65] as Range },
   /**
    * The bottom end wall and the side walls' bottom glass sections fade with the
    * pitch so they do not block the view: mesh, glass, frame. The side walls' mesh

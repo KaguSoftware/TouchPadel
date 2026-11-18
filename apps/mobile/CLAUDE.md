@@ -211,6 +211,11 @@ rewards ("Ready to collect"). A screenshot works by Majed's call (whoever holds 
 - Migrations reach hosted before a build that calls them. `eas` and `expo` run from `apps/mobile`,
   never the repo root. Production `eas build` and any store submit are Parsa's to run; prepare the
   command and hand it over.
+- Reanimated (`react-native-reanimated` 4.7.1 with `react-native-worklets` 0.13.0, the versions Expo SDK 58
+  bundles; owner, 2026-11-16) animates the Edit profile header on the UI thread
+  (`src/components/ProfileHero.tsx`, geometry in `src/features/profile/heroState.ts`, whose functions are
+  'worklet's). `babel.config.js` carries the worklets plugin, LAST in `plugins`; `jest.setup.ts` stands in for
+  both packages. It is native code: no phone has it until the next dev client and store build.
 - Native modules reach phones only in a new dev client and store build. The date-time picker
   (`@react-native-community/datetimepicker`, wrapped once in `src/components/DateTimeField.tsx`)
   is one: coach mode's pickers need the coaching build (coaching R19). So is `expo-screen-capture`

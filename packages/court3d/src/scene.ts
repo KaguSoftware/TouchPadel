@@ -457,7 +457,7 @@ export function buildCourtScene(
   const lineMat = new THREE.MeshBasicMaterial({
     color: 0xffffff,
     transparent: true,
-    opacity: 1,
+    opacity: SPEC.lines.opacity[0],
     polygonOffset: true,
     polygonOffsetFactor: -2,
     polygonOffsetUnits: -2,
@@ -472,10 +472,13 @@ export function buildCourtScene(
   line(10, LW, 0, 10 - LW / 2);
   line(LW, 20, -5 + LW / 2, 0);
   line(LW, 20, 5 - LW / 2, 0);
-  line(10, LW, 0, -7);
-  line(10, LW, 0, 7);
-  line(LW, 3, 0, -8.5);
-  line(LW, 3, 0, 8.5);
+  // Service lines sit SVC m either side of the net; the centre lines run net to
+  // service line, so each sits in the middle of its service area.
+  const SVC = 6; // level with the side wall's first post (z ±6)
+  line(10, LW, 0, -SVC);
+  line(10, LW, 0, SVC);
+  line(LW, SVC, 0, -SVC / 2);
+  line(LW, SVC, 0, SVC / 2);
 
   // net: posts stand just inside the court, touching the sidelines' inner edge (x = ±4.83 m)
   const netMat = new THREE.MeshBasicMaterial({

@@ -33,7 +33,7 @@ import {
 import { lessonErrorText } from '../../src/features/coaching/errors';
 import { callPhone } from '../../src/lib/phone';
 import { usePullRefresh } from '../../src/lib/usePullRefresh';
-import { space, useTheme } from '../../src/theme';
+import { radius, space, useTheme } from '../../src/theme';
 import { Button, Screen, TAB_TITLE_TOP, Title } from '../../src/components/ui';
 import { AccountButton } from '../../src/components/AccountButton';
 import { EmptyState, ErrorState, SkeletonList } from '../../src/components/states';
@@ -119,6 +119,7 @@ export default function CoachesScreen() {
       pub.data && venueId && !pub.data.off ? showcaseOrder(coachesAt(pub.data, venueId), seed) : [],
     [pub.data, venueId, seed],
   );
+  const noCoaches = on && !!pub.data && !pub.data.off && all.length === 0;
   const shown = useMemo(() => coachesForLevel(all, level), [all, level]);
 
   // One column width for every card: the cards never size to their content.
@@ -237,11 +238,20 @@ export default function CoachesScreen() {
   const grid = () => {
     if (all.length === 0) {
       return (
-        <EmptyState
-          testID="coaches.empty"
-          title={t('coaching.guest.coaches.emptyTitle')}
-          message={t('coaching.guest.coaches.empty')}
-        />
+        <View
+          style={{
+            backgroundColor: colors.card,
+            borderWidth: 1,
+            borderColor: colors.line,
+            borderRadius: radius.card,
+          }}
+        >
+          <EmptyState
+            testID="coaches.empty"
+            title={t('coaching.guest.coaches.emptyTitle')}
+            message={t('coaching.guest.coaches.empty')}
+          />
+        </View>
       );
     }
     if (shown.length === 0) {
@@ -390,6 +400,8 @@ export default function CoachesScreen() {
         <View style={{ flex: 1, marginTop: titleH }}>
           <Animated.ScrollView
             testID="coaches.scroll"
+            // Nothing to scroll to when the branch has no coaches yet.
+            scrollEnabled={!noCoaches}
             onScroll={onScroll}
             scrollEventThrottle={16}
             showsVerticalScrollIndicator={false}
