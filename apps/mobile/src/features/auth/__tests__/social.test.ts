@@ -3,8 +3,11 @@ import {
   SocialAuthError,
   appleDisplayName,
   bookingGateHref,
+  BROWSER_SEEN_MS,
   bookingGateState,
+  browserNeverShown,
   buildProfilePatch,
+  deviceDetail,
   firstGoogleAttempt,
   googleBrowserFallback,
   googleStartsInBrowser,
@@ -405,5 +408,41 @@ describe('googleStartsInBrowser', () => {
 
   it('never applies off Android', () => {
     expect(googleStartsInBrowser('ios', 'HUAWEI')).toBe(false);
+  });
+});
+
+describe('browserNeverShown', () => {
+  it('reads a browser session over in under a second and a half as never on screen', () => {
+    expect(browserNeverShown(0)).toBe(true);
+    expect(browserNeverShown(BROWSER_SEEN_MS - 1)).toBe(true);
+  });
+
+  it('reads a longer one as the guest closing the browser', () => {
+    expect(browserNeverShown(BROWSER_SEEN_MS)).toBe(false);
+    expect(browserNeverShown(20_000)).toBe(false);
+  });
+});
+
+describe('deviceDetail', () => {
+  it('reads the maker, brand and model Android reports', () => {
+    expect(deviceDetail({ Manufacturer: 'HUAWEI', Brand: 'HUAWEI', Model: 'MNA-LX9', Serial: 'x' })).toEqual({
+      manufacturer: 'HUAWEI',
+      brand: 'HUAWEI',
+      model: 'MNA-LX9',
+    });
+  });
+
+  it('gives null for what is missing, blank or not a string, and for no constants at all', () => {
+    expect(deviceDetail({ Manufacturer: '  ', Brand: 7, Model: undefined })).toEqual({
+      manufacturer: null,
+      brand: null,
+      model: null,
+    });
+    expect(deviceDetail(null)).toEqual({ manufacturer: null, brand: null, model: null });
+    expect(deviceDetail(undefined)).toEqual({ manufacturer: null, brand: null, model: null });
+  });
+
+  it('trims and caps a value', () => {
+    expect(deviceDetail({ Model: ` ${'a'.repeat(100)} ` }).model).toBe('a'.repeat(64));
   });
 });

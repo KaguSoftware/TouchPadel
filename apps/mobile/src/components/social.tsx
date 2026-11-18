@@ -111,9 +111,9 @@ export function SocialSignInBlock({
   disabled?: boolean;
   onPress: (provider: SocialProvider) => void;
   /**
-   * Android, once the phone's Google sheet was closed: a link to Google's own
-   * page in the browser, for phones whose Play services cannot sign in
-   * (useSocialSignIn, googleBrowserFallback). `${testID}.google-browser`.
+   * Android: a link to Google's own page in the browser under the button, for
+   * phones whose Play services cannot sign in, like a Huawei with GBox
+   * (useSocialSignIn, GOOGLE_BROWSER_LINK). `${testID}.google-browser`.
    */
   googleBrowserOffer?: boolean;
   onGoogleBrowser?: () => void;

@@ -7,9 +7,9 @@
  *
  * Android Google has a second way in: Google's page in the browser
  * (./providers/googleWeb.ts), first on a Huawei (googleStartsInBrowser), taken
- * when the phone's sheet fails and offered when it is closed (social.ts,
- * googleBrowserFallback). It ends in a session like the id-token grant and
- * runs the same steps after it.
+ * by itself when the phone's sheet fails (social.ts, googleBrowserFallback),
+ * and always one tap away through the link under the button. It ends in a
+ * session like the id-token grant and runs the same steps after it.
  *
  * The provider SDKs are behind ./providers/*; everything decidable without them
  * is in ./social.ts and unit-tested there.
@@ -36,6 +36,7 @@ import {
   buildProfilePatch,
   googleBrowserFallback,
   googleStartsInBrowser,
+  deviceDetail,
   mapSocialError,
   postSignInStep,
   refusesSocialSignIn,
@@ -53,12 +54,21 @@ export type GoogleVia = 'native' | 'browser';
 const MANUFACTURER = Platform.OS === 'android' ? Platform.constants.Manufacturer : undefined;
 
 /**
+ * The "Continue in your browser" link under the Google button: on Android,
+ * from the start (2026-11-18). It used to appear only after the phone's sheet
+ * was closed, but a Huawei with GBox reports a maker googleStartsInBrowser does
+ * not know and fails its sheet in a way that never reached the offer, leaving
+ * the guest no way in. Every other phone keeps its sheet; the link costs a line.
+ */
+const GOOGLE_BROWSER_LINK = Platform.OS === 'android';
+
+/**
  * Google through the phone's sheet, or its page in the browser. A Huawei goes
  * to the browser first (googleStartsInBrowser). A native failure the guest did
- * not choose goes straight on to the browser; a cancel calls `onOffer` so the
- * screen can show the browser link (googleBrowserFallback).
+ * not choose goes straight on to the browser (googleBrowserFallback); a cancel
+ * leaves the guest on the screen, with the browser link under the button.
  */
-async function signInWithGoogle(via: GoogleVia, onOffer: () => void): Promise<User | null> {
+async function signInWithGoogle(via: GoogleVia): Promise<User | null> {
   if (via === 'browser' || googleStartsInBrowser(Platform.OS, MANUFACTURER)) {
     return signInWithGoogleInBrowser();
   }
@@ -67,15 +77,16 @@ async function signInWithGoogle(via: GoogleVia, onOffer: () => void): Promise<Us
   try {
     token = (await requestGoogleIdToken(nonce.hashed)).idToken;
   } catch (error) {
-    const fallback = googleBrowserFallback(error, Platform.OS);
-    if (fallback === 'offer') onOffer();
-    if (fallback !== 'auto') throw error;
+    if (googleBrowserFallback(error, Platform.OS) !== 'auto') throw error;
     // How many guests the phone's sheet fails, and why: a rise on one build
     // is a client or SHA-1 problem, a steady trickle is phones like GBox ones.
+    // The maker says which, and whether googleStartsInBrowser should know it.
     captureMessage('auth.google.browserFallback', 'warning', {
       code: error instanceof SocialAuthError ? error.code : undefined,
+      message: error instanceof SocialAuthError ? error.message : undefined,
+      ...deviceDetail(Platform.OS === 'android' ? Platform.constants : null),
     });
-    return signInWithGoogleInBrowser();
+    return signInWithGoogleInBrowser({ afterSheet: true });
   }
   // RAW nonce here — GoTrue hashes it and compares with the token's claim.
   const { user } = await signInWithIdToken(supabase, { provider: 'google', token, nonce: nonce.raw });
@@ -94,7 +105,7 @@ export interface UseSocialSignIn {
   busyProvider: SocialProvider | null;
   errorText: string | null;
   clearError: () => void;
-  /** Android, after the phone's Google sheet was closed: offer Google in the browser. */
+  /** Android: show the link to Google in the browser under the button (GOOGLE_BROWSER_LINK). */
   googleBrowserOffer: boolean;
   signInWith: (provider: SocialProvider, via?: GoogleVia) => Promise<void>;
 }
@@ -115,7 +126,6 @@ export function useSocialSignIn(opts: { onComplete: () => void; disabled?: boole
   }));
   const [busyProvider, setBusyProvider] = useState<SocialProvider | null>(null);
   const [errorText, setErrorText] = useState<string | null>(null);
-  const [googleBrowserOffer, setGoogleBrowserOffer] = useState(false);
   const busyRef = useRef(false);
 
   useEffect(() => {
@@ -153,7 +163,7 @@ export function useSocialSignIn(opts: { onComplete: () => void; disabled?: boole
             nonce: nonce.raw,
           }));
         } else {
-          user = await signInWithGoogle(via, () => setGoogleBrowserOffer(true));
+          user = await signInWithGoogle(via);
         }
 
         // Staff sign in with email and password only (build-contracts §6.6).
@@ -253,5 +263,5 @@ export function useSocialSignIn(opts: { onComplete: () => void; disabled?: boole
 
   const clearError = useCallback(() => setErrorText(null), []);
 
-  return { available, busyProvider, errorText, clearError, googleBrowserOffer, signInWith };
+  return { available, busyProvider, errorText, clearError, googleBrowserOffer: GOOGLE_BROWSER_LINK, signInWith };
 }

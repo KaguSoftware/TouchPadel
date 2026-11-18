@@ -33,6 +33,7 @@ import type * as GoogleLib from 'react-native-nitro-google-signin';
 import { captureException, captureMessage } from '../../../lib/telemetry';
 import {
   SocialAuthError,
+  deviceDetail,
   firstGoogleAttempt,
   isGoogleClientId,
   nextGoogleStep,
@@ -140,7 +141,7 @@ export async function requestGoogleIdToken(hashedNonce: string): Promise<GoogleC
       // exists, so EVERY Android cancel is recorded with the step as context: a
       // spike of them on one build means a missing SHA-1 client, not shy guests.
       if (Platform.OS === 'android') {
-        captureMessage('auth.google.cancelled', 'warning', { attempt });
+        captureMessage('auth.google.cancelled', 'warning', { attempt, ...deviceDetail(Platform.constants) });
       }
       throw new SocialAuthError('CANCELLED', 'google', `cancelled at ${attempt}`);
     }
