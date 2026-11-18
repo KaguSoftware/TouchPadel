@@ -180,4 +180,12 @@ export const staffAssistantEn = {
     loadFailed: 'This chat could not be loaded.',
     notFound: 'This chat is not in your list.',
   },
+  /** The AI notice before the first question (App Review 5.1.2(i); features/assistant/aiConsent.ts). */
+  aiNotice: {
+    title: 'Before you ask',
+    body: 'Answers here are written by AI and can be wrong: check anything important.',
+    data: 'What you type is sent to an outside AI provider to write the answer. The owner’s assistant also sends the business figures it reads. The Privacy Policy names the provider.',
+    accept: 'I understand, continue',
+    later: 'Not now',
+  },
 } as const;

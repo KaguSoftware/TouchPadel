@@ -17,6 +17,104 @@ is a line in that file.
 
 ## Migrations
 
+- **0445 (2026-11-14, loyalty_card_gifts; Majed: Green = a birthday drink + a premium profile
+  ring, Blue = free add-ons, the drink card full at 6 not 8, a tea or water free with any dessert,
+  a drink and a dessert on the birthday; every privilege set up in the operator):**
+  `loyalty_tier_perks.config` and kinds `gift` (birthday: categoryIds/itemIds, days 1..31),
+  `free_with`, `frame` (card-green | card-blue | card-black) and `stamp_size`, checked by
+  `upsert_loyalty_tier_perk`. The drink card: `loyalty_stamp_card` (one row, off by default;
+  `stamp_card_settings`, `set_stamp_card`) and the ledger `loyalty_stamps` (earn | redeem, one each
+  per tab, deferred trigger `tabs_loyalty_stamps` beside `tabs_loyalty_earn`). One bill engine:
+  `app.loyalty_perks_detail` (stamp, gift, free_with, free_addons, a unit freed once);
+  **0445 holds `loyalty_perks_plan`, `loyalty_perks_refresh`, `loyalty_perks_json`,
+  `upsert_loyalty_tier_perk`, `delete_loyalty_tier_perk`, `loyalty_tab_benefits`** (0410 no
+  longer; the plan is still one row per line, reason_code `loyalty_tier_perk`), and
+  `loyalty_perk_lines` keeps the detail (how a gift is known used and a free drink spends stamps).
+  A gift needs `profiles.birth_date_set_at` 30 days before its window (**0445 holds
+  `set_my_birth_date`**, 0302 no longer). Card rings: **0445 holds `frame_ids`, `frame_unlocked`,
+  `my_frames`** (0317/0318 no longer) plus `profiles_avatar_frame_chk`; trigger
+  `loyalty_accounts_card_frame` and `app.card_frame_reset` take a ring off when the card or the
+  privilege goes. Guest `my_card_extras`, staff `loyalty_card_extras`. Approved later the same day:
+  gift `when` monthly | card_up (`loyalty_accounts.tier_up_at`, stamped on a move up by
+  `loyalty_accounts_tier_up`, NULL after a move down and for accounts before 0445) and `target`
+  court_hour (table `reservation_card_gifts`, one per booking, kept by
+  `app.loyalty_court_gift_sync` under the court lock; **0445 holds `court_reward_iqd`** (0403 no
+  longer), which adds it, so court_fee_remaining and both customer court discounts count it), and
+  kind `size_upgrade` (the next size down). `app.loyalty_card_gifts` replaced the draft
+  birthday-only helper. **0445 holds `profile_merge_columns`** (0415 no longer: loyalty_stamps,
+  loyalty_perk_lines, reservation_card_gifts repoint).
+  **Redeem in the app (Majed, 2026-11-15, also in 0445):** a free drink and every card gift reach
+  a bill only after a claim (`loyalty_reward_claims`, one row per member and reward, no client
+  grant; a free drink's claim holds 7 days, a gift's to the end of its window), pressed by the
+  guest (`claim_card_reward(p_kind stamp | gift, p_perk_id, p_venue_id)`) or by a desk role for a
+  member without the app (`claim_card_reward_for_tab`, audited `loyalty.claim`); REWARD_NOT_READY.
+  The engine reads `app.loyalty_claim_until`; a reward already on the bill stays. The extras carry
+  `claimed_until`. **Buy one, get one (also 0445):** `promotions.type` `free_item` (value = percent
+  off each unit given, 100 = free; scope `itemIds`/`categoryIds` given, `buyItemIds`/
+  `buyCategoryIds` or `courtIds` earn it, `perBill` 1..10 stored), priced inside
+  **0445's `promotion_base_iqd` and `promotion_amount_iqd`** (0067 no longer) so
+  `eligible_promotions` and `apply_best_promotion` are untouched; **0445 holds
+  `upsert_promotion_internal`** (0309 no longer) **and `my_deals`** (0410 no longer: `look` from
+  `app.deal_look_json`, the phone's picture). deal-ideas' 0427 re-issues `my_deals` from 0410: it
+  must start from 0445's body. The price and promo protocol stays percent | amount.
+  **A deal's own QR (also 0445):** `loyalty_deal_vouchers` (no client grant; TPD- + 12 Crockford
+  base32, 15 minutes + 1 minute of grace, status active | used | cancelled, expired read from the
+  clock, no sweep, no points), guest `redeem_deal` (pick_deal's checks; one live code per member),
+  `cancel_deal_voucher`, `my_deal_vouchers`; till `use_deal_voucher(p_tab_id, p_code, key,
+  device)`: the bill takes the voucher's member when it has none (VOUCHER_OTHER_MEMBER otherwise),
+  the deal becomes their pick and `apply_best_promotion` applies it, else DEAL_NOT_ON_BILL and
+  nothing kept; the code is spent last (lock rank `loyalty_deal_vouchers` before
+  `loyalty_reward_vouchers`).
+  `tests/loyalty-card-gifts.test.ts`.
+- **0442 (2026-11-15, staff_clock; Majed: staff log arriving and leaving from the phone, impossible
+  from home; set hours with any number of shifts and second jobs; one QR a day; lateness by
+  itself):** tables `staff_clock_places` (per branch: point, `radius_m` 120, `max_accuracy_m` 60),
+  `station_clock_keys` (a desk station's 20-byte secret), `staff_shifts` (ISO weekday, start, end
+  at/before start = next day, `role` = the job), `staff_clock_devices` (sha256 of the one logging
+  phone), `staff_clock_events` (every attempt, accepted or refused with the reason and the fix),
+  all RLS on with NO client grant and `zz_branch_guard` where scoped; `staff_attendance` gains
+  `source` (manual | clock) and `recorded_by` NULL for a clock day (`staff_attendance_source_chk`).
+  The code is TOTP **computed on the station** (`app.clock_code`, HMAC-SHA1 30 s, twin of
+  `@touch/core/staff/clock` `clockCode`, which reuses `loyalty/totp` `hotp`), because
+  `x-station-id` is a header any session can forge: no RPC ever returns a code.
+  `clock_punch` answers refusals as data so the attempt is kept (TOO_MANY_TRIES = 8 refusals an
+  hour, NO_PLACE, NO_STATION, WRONG_DEVICE, LOCATION_STALE > 2 min, MOCK_LOCATION,
+  LOCATION_ROUGH, NOT_HERE, CODE_WRONG steps −2..+1, ALREADY_IN, NOT_IN) and runs under
+  `app.lock_wage`. An in matches the first shift not ended that starts within 3 h; an out is
+  measured against the end of the block (touching shifts) its in matched, so a gap costs nothing.
+  `app.clock_attendance_sync` writes the day from the accepted scans and never touches a manual
+  or paid row. RPCs `my_clock`, `clock_punch` (any staff but the owner, member of the branch),
+  `clock_setup`, `issue_station_clock_key`, `staff_shifts_get`, `set_staff_shifts`, `clock_day`,
+  `clock_reset_device` (MGMT), `set_clock_place` (owner). **0442 holds `record_attendance` and
+  `attendance_month`** (0271 no longer: `source`). `app.access_area_rpcs` rows for attendance and
+  admin. Rule drop 42. Contract `docs/design/clock-in/contracts-2026-11-15.md`;
+  `tests/staff-clock.test.ts`.
+- **0443–0444 (2026-11-16, ranks_touch_level + ranks_boards; Majed: "just playing shouldn't make
+  them top", every number changeable in the operator; plan `docs/design/ranks/plan-2026-11-13.md`):**
+  two numbers per player. The **Touch Level** (1.0–7.0) is DERIVED: `app.ranks_rebuild()` replays
+  every `ranks_level_checks` row and confirmed `game_results` row in time order (checks first, in
+  `seq` order) into `ranks_player_levels` and `ranks_result_scores` (both emptied first), under
+  `app.ranks_rules()` = `app.ranks_rules_default()` || `ranks_settings.rules` (the owner's
+  overrides only; `app.ranks_rules_check` validates, detail = the key). It runs from the statement
+  triggers `game_results_ranks_rebuild_ins/_upd` (a confirm, a void, a merge repoint), from
+  `profiles_ranks_level_check` (any write of `profiles.level_confirmed` is a Level check:
+  advanced = A, intermediate = B, beginner = C) and from `set_ranks_rules`; it takes
+  `ranks_rebuild_state` FOR UPDATE first (unranked, taken last). A win never lowers a level and a
+  loss never raises one. The **Season Race** (season = `ranks_settings.period`, quarter by default)
+  is read live by `app.ranks_race`: best `race_best_matches` `ranks_result_scores.race_points`
+  (tournament matches score 0 there) + best `race_best_tournaments` finishes
+  (`app.ranks_tournament_points`, `tournament_standings`) + `ranks_ledger` adjusts. The 0364
+  ledger is still written (lifetime, Season 0). **0444 holds `ranks_board`, `my_ranks`,
+  `ranks_result_json`, `ranks_levels_json`, `ranks_admin`, `set_ranks_levels`** (0364 no longer);
+  new client RPCs `set_ranks_rules` (owner), `ranks_level_checks_list` (manager, owner),
+  `ranks_results_to_check`, `ranks_staff_confirm`, `ranks_edit_result` (court desk, manager, owner;
+  an edit voids the old row "edited: <reason>" and inserts a corrected confirmed desk row),
+  `ranks_coach_record` (a coach, `app.coach_self`; source desk) and `set_my_play_level` (the
+  player's own type while no check counted and under provisional_games games, else
+  `RANKS_LEVEL_LOCKED`; trigger `profiles_ranks_self_level` replays on a play_level change). `ranks_levels.min_level` (tiers by level;
+  `min_points` = min_level × 100 for older builds). No FK to profiles on the new tables, so
+  `profile_merge_columns` is not re-issued. No index beyond primary keys.
+  `tests/ranks-touch-level.test.ts`; `tests/ranks-leaderboard.test.ts` updated (points = Race).
 - **0431 (2026-11-15, match_guest_lock; audit finding 27):** while matches are paid at the desk
   (0370), `ticket_pick` locked no ticket rows, so two joins by one guest at two branches at once
   both passed the cross-branch clash check (R41). The internal `app.lock_match_guest(p_guest)`
@@ -43,8 +141,9 @@ is a line in that file.
   permission once at sign-in when the install never has, so a reinstall gets its notifications
   back); today's duplicates stay with the account that signed in last.
   `tests/audit-fixes-0430.test.ts` (one rolled-back psql transaction). 0420–0424 are the
-  assistant batch (below); 0425–0427 are held by other worktrees, and a later migration that
-  re-issues `eligible_promotions` (deal-ideas' 0427) starts from 0430's body.
+  assistant batch (below); 0426–0427 are held by another worktree (deal-ideas), and a later
+  migration that re-issues `eligible_promotions` (deal-ideas' 0427) starts from 0430's body, one
+  that re-issues `my_deals` from 0445's.
 - **0424 (2026-11-13, assistant_cafe_history; 0412 put the old café till's days into
   `panel_headline`, so `history_figures` no longer equalled the panel):** needs 0412 and 0413.
   **0424 holds `assistant_history_figures`** (0420 no longer): totals add `app.legacy_cafe_totals`
@@ -353,8 +452,8 @@ is a line in that file.
   `tests/sweeps-report.test.ts` counts handlers against `app.monitor` calls in each latest body.
   `app.monitor_scrub_text` masks any run of eight digits, dashes included, so a digit-heavy uuid
   in a message or detail is stored as `[number]`.
-- Ordinal strictly greater than the current max, never a reused one. Latest is `0424`
-  (0380–0391, 0402–0416 and 0420–0424 are at the top of this list; 0392–0401 are in their own headers, and
+- Ordinal strictly greater than the current max, never a reused one. Latest is `0445`
+  (0380–0391, 0402–0416, 0420–0424, 0430, 0431, 0442 and 0445 are at the top of this list; 0392–0401 are in their own headers, and
   0377–0379 have no file). Before them: (0376 loyalty_tier_colors, 2026-10-31 (Ameen: a tier made "from 100 points" never reached a
   gifted account, and the owner picks each tier's card colour): `loyalty_tiers.color` (classic |
   bronze | silver | gold | platinum | black, default classic, `loyalty_tiers_color`; the same keys
@@ -664,7 +763,7 @@ is a line in that file.
   0149 assistant-cap, 0150 move-not-into-past, 0151 out-of-stock-alert, 0152 my-reservations,
   0153 terms-consent, 0154 analytics-returning-guest, 0155–0157 six new staff roles, 0158–0206
   protocols and the staff phone (change-order line 10), 0207–0227 multi-venue slices 2–4); the next is
-  `0425`. **Check the directory, not this line** — it said 0146 while 0147–0149 were already on
+  `0446`. **Check the directory, not this line** — it said 0146 while 0147–0149 were already on
   disk, and later 0150 while 0154 was, and a reused ordinal fails `check-migrations.mjs` after the
   file is written.
 - `0069` and `0071` are already doubled; `0023`, `0040` and `0101` have no file, so leave the gaps.
@@ -1065,7 +1164,7 @@ is a line in that file.
   (`WEB_OVERRIDES`, `MOBILE_OVERRIDES`).
 - No WHERE-less write (`scripts/check-safe-update.mjs`). `app.lock_court` (0042) before any
   reservation write. Lock order
-  `day_sessions → match_money_advisory → coach_advisory → tournaments → tournament_entries → tabs → promotions → loyalty_attempts_advisory → orders → order_items → tickets → payments → till_shifts → refunds → stock_batches → court_advisory → venues → reservations → match_venue_advisory → match_tickets → loyalty_reward_vouchers → loyalty_gift_advisory → loyalty_accounts`
+  `day_sessions → match_money_advisory → coach_advisory → tournaments → tournament_entries → tabs → promotions → loyalty_attempts_advisory → orders → order_items → tickets → payments → till_shifts → refunds → stock_batches → court_advisory → venues → reservations → match_venue_advisory → match_tickets → loyalty_deal_vouchers → loyalty_reward_vouchers → loyalty_gift_advisory → loyalty_accounts`
   (`coach_advisory` since coaching, `app.lock_coach`, once per sequence; a `FOR UPDATE … SKIP
   LOCKED` on reservations never waits and is not ranked, like `pg_try_advisory_xact_lock`;
   `venues` since 0291: a lesson body's branch row FOR KEY SHARE, once per sequence, the one share

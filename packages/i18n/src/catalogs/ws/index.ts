@@ -119,6 +119,9 @@ import { ranksAr } from './ranks.ar';
 // Who a player is (0368/0369): the record's Player card and the levels queue.
 import { playersEn } from './players.en';
 import { playersAr } from './players.ar';
+// Staff clock-in (0442): the desk QR, its setup, set hours and Attendance › Today.
+import { clockEn } from './clock.en';
+import { clockAr } from './clock.ar';
 
 export const wsEn = {
   shell: shellEn,
@@ -164,6 +167,7 @@ export const wsEn = {
   plan: planEn,
   ranks: ranksEn,
   players: playersEn,
+  clock: clockEn,
 } as const;
 
 export const wsAr = {
@@ -210,4 +214,5 @@ export const wsAr = {
   plan: planAr,
   ranks: ranksAr,
   players: playersAr,
+  clock: clockAr,
 } as const;

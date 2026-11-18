@@ -1143,6 +1143,7 @@ export type Database = {
         }[]
       }
       cancel_coach_time_off: { Args: { p_id: string }; Returns: Json }
+      cancel_deal_voucher: { Args: { p_voucher_id: string }; Returns: Json }
       cancel_deduction: {
         Args: { p_id: string; p_reason: string }
         Returns: Json
@@ -1167,6 +1168,11 @@ export type Database = {
           p_tab_id: string
         }
         Returns: Json
+      }
+      card_frame_reset: { Args: { p_profile?: string }; Returns: number }
+      card_frame_unlocked: {
+        Args: { p_frame: string; p_profile: string }
+        Returns: boolean
       }
       checklist_board: {
         Args: { p_business_date?: string; p_venue_id?: string }
@@ -1233,6 +1239,19 @@ export type Database = {
         Args: { p_template_id: string }
         Returns: number
       }
+      claim_card_reward: {
+        Args: { p_kind: string; p_perk_id?: string; p_venue_id?: string }
+        Returns: Json
+      }
+      claim_card_reward_for_tab: {
+        Args: {
+          p_device_id?: string
+          p_kind: string
+          p_perk_id?: string
+          p_tab_id: string
+        }
+        Returns: Json
+      }
       claim_due_index: {
         Args: { p_limit?: number }
         Returns: Database["public"]["Tables"]["assistant_index_queue"]["Row"][]
@@ -1277,6 +1296,69 @@ export type Database = {
       clear_pin_lockout: { Args: { p_staff_id: string }; Returns: Json }
       clear_staff_pin: { Args: { p_staff_id: string }; Returns: undefined }
       clear_table_token_secret_prev: { Args: never; Returns: Json }
+      clock_attendance_sync: {
+        Args: { p_date: string; p_staff: string; p_venue: string }
+        Returns: undefined
+      }
+      clock_code: {
+        Args: { p_secret: string; p_step: number }
+        Returns: string
+      }
+      clock_day: {
+        Args: { p_date?: string; p_venue_id: string }
+        Returns: Json
+      }
+      clock_distance_m: {
+        Args: { p_lat1: number; p_lat2: number; p_lng1: number; p_lng2: number }
+        Returns: number
+      }
+      clock_member_guard: { Args: { p_venue: string }; Returns: undefined }
+      clock_mgmt_guard: { Args: { p_venue: string }; Returns: undefined }
+      clock_open_in: {
+        Args: { p_staff: string; p_venue: string }
+        Returns: Database["public"]["Tables"]["staff_clock_events"]["Row"]
+        SetofOptions: {
+          from: "*"
+          to: "staff_clock_events"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      clock_plan: {
+        Args: { p_from: string; p_staff: string; p_to: string; p_venue: string }
+        Returns: {
+          block_ends: string
+          block_starts: string
+          ends: string
+          role: Database["public"]["Enums"]["staff_role"]
+          starts: string
+          work_date: string
+        }[]
+      }
+      clock_plan_json: {
+        Args: { p_date: string; p_staff: string; p_venue: string }
+        Returns: Json
+      }
+      clock_punch: {
+        Args: {
+          p_accuracy_m: number
+          p_code: string
+          p_device_id: string
+          p_fix_at: string
+          p_kind: string
+          p_lat: number
+          p_lng: number
+          p_mocked: boolean
+          p_platform: string
+          p_venue_id: string
+        }
+        Returns: Json
+      }
+      clock_reset_device: {
+        Args: { p_staff_id: string; p_venue_id: string }
+        Returns: Json
+      }
+      clock_setup: { Args: { p_venue_id: string }; Returns: Json }
       close_branch: {
         Args: { p_venue: string }
         Returns: Database["public"]["Tables"]["venues"]["Row"]
@@ -1849,6 +1931,15 @@ export type Database = {
       }
       day_close_online: { Args: { p_day_session_id?: string }; Returns: Json }
       day_close_shop: { Args: { p_day_session_id?: string }; Returns: Json }
+      deal_look_json: { Args: { p_scope: Json }; Returns: Json }
+      deal_look_side: { Args: { p_cats: Json; p_items: Json }; Returns: Json }
+      deal_voucher_code_new: { Args: never; Returns: string }
+      deal_voucher_json: {
+        Args: {
+          p_voucher: Database["public"]["Tables"]["loyalty_deal_vouchers"]["Row"]
+        }
+        Returns: Json
+      }
       decide_content: {
         Args: {
           p_decision: string
@@ -2398,6 +2489,7 @@ export type Database = {
       }
       is_staff_media_path: { Args: { p_name: string }; Returns: boolean }
       is_venue_file_path: { Args: { p_name: string }; Returns: boolean }
+      issue_station_clock_key: { Args: { p_station_id: string }; Returns: Json }
       item_active_groups: {
         Args: { p_chosen_modifier_ids: string[]; p_item_id: string }
         Returns: string[]
@@ -2410,6 +2502,7 @@ export type Database = {
         }[]
       }
       jsonb_top_keys_text: { Args: { p: Json }; Returns: string }
+      jsonb_uuids: { Args: { p: Json }; Returns: string[] }
       kds_ack_tickets: { Args: { p_ticket_ids: string[] }; Returns: Json }
       kitchen_board: { Args: { p_venue_id?: string }; Returns: Json }
       kitchen_reach: { Args: { p_since?: string }; Returns: Json }
@@ -2982,6 +3075,10 @@ export type Database = {
         Args: { p_code: string; p_ok: boolean; p_uid: string }
         Returns: undefined
       }
+      loyalty_birthday_window: {
+        Args: { p_birth: string; p_day: string; p_days: number }
+        Returns: unknown
+      }
       loyalty_card_ensure: {
         Args: { p_profile: string }
         Returns: Database["public"]["Tables"]["loyalty_cards"]["Row"]
@@ -2992,6 +3089,53 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      loyalty_card_extras: { Args: { p_profile_id: string }; Returns: Json }
+      loyalty_card_gifts: {
+        Args: {
+          p_except_reservation?: string
+          p_except_tab?: string
+          p_profile: string
+          p_venue: string
+        }
+        Returns: {
+          authorized_by: string
+          category_ids: string[]
+          claimed_until: string
+          eligible: boolean
+          gift_when: string
+          item_ids: string[]
+          name_ar: string
+          name_en: string
+          perk_id: string
+          target: string
+          used: boolean
+          window_from: string
+          window_to: string
+        }[]
+      }
+      loyalty_claim: {
+        Args: {
+          p_by: string
+          p_kind: string
+          p_perk: string
+          p_profile: string
+          p_venue: string
+        }
+        Returns: string
+      }
+      loyalty_claim_until: {
+        Args: {
+          p_kind: string
+          p_perk: string
+          p_profile: string
+          p_since?: string
+        }
+        Returns: string
+      }
+      loyalty_court_gift_sync: {
+        Args: { p_customer: string; p_tab_id: string }
+        Returns: boolean
+      }
       loyalty_court_reward: { Args: { p_tab_id: string }; Returns: Json }
       loyalty_customer: { Args: { p_profile_id: string }; Returns: Json }
       loyalty_deal_uses: {
@@ -2999,6 +3143,10 @@ export type Database = {
         Returns: number
       }
       loyalty_display_name: { Args: { p_profile: string }; Returns: string }
+      loyalty_extras_json: {
+        Args: { p_profile: string; p_venue: string; p_with_dates: boolean }
+        Returns: Json
+      }
       loyalty_history: {
         Args: { p_limit: number; p_profile: string }
         Returns: Json
@@ -3011,6 +3159,7 @@ export type Database = {
         Args: { p_code: string; p_venue_id: string }
         Returns: Json
       }
+      loyalty_item_stamps: { Args: { p_item: string }; Returns: boolean }
       loyalty_ladder_json: { Args: never; Returns: Json }
       loyalty_me: { Args: never; Returns: string }
       loyalty_member_code: { Args: never; Returns: string }
@@ -3019,6 +3168,18 @@ export type Database = {
       loyalty_nightly_one: {
         Args: { p_expire_months: number; p_profile: string; p_since: string }
         Returns: string
+      }
+      loyalty_perks_detail: {
+        Args: { p_tab_id: string }
+        Returns: {
+          amount_iqd: number
+          authorized_by: string
+          kind: string
+          order_item_id: string
+          perk_id: string
+          stamps_spent: number
+          units: number
+        }[]
       }
       loyalty_perks_json: {
         Args: { p_all?: boolean; p_tier: string }
@@ -3071,6 +3232,8 @@ export type Database = {
       }
       loyalty_retier: { Args: never; Returns: undefined }
       loyalty_settings_json: { Args: never; Returns: Json }
+      loyalty_stamp_balance: { Args: { p_profile: string }; Returns: number }
+      loyalty_stamp_size: { Args: { p_profile: string }; Returns: number }
       loyalty_tab_benefits: { Args: { p_tab_id: string }; Returns: Json }
       loyalty_tab_paid_at_settle: {
         Args: { p_tab_id: string }
@@ -3672,6 +3835,7 @@ export type Database = {
       }
       my_birth_date: { Args: never; Returns: Json }
       my_campaign_drafts: { Args: { p_venue_id?: string }; Returns: Json }
+      my_card_extras: { Args: { p_venue_id?: string }; Returns: Json }
       my_checklist_history: {
         Args: {
           p_before_date?: string
@@ -3682,7 +3846,9 @@ export type Database = {
         Returns: Json
       }
       my_checklists_today: { Args: { p_venue_id?: string }; Returns: Json }
+      my_clock: { Args: { p_venue_id: string }; Returns: Json }
       my_coach_statements: { Args: { p_month?: string }; Returns: Json }
+      my_deal_vouchers: { Args: never; Returns: Json }
       my_deals: { Args: never; Returns: Json }
       my_deduction_proposals: {
         Args: { p_limit?: number; p_venue_id?: string }
@@ -4369,6 +4535,18 @@ export type Database = {
       ranks_admin: { Args: never; Returns: Json }
       ranks_award: { Args: { p_result_id: string }; Returns: undefined }
       ranks_board: { Args: never; Returns: Json }
+      ranks_class: { Args: { p_level: number; p_rules: Json }; Returns: string }
+      ranks_coach_record: {
+        Args: {
+          p_a1: string
+          p_a2: string
+          p_b1: string
+          p_b2: string
+          p_score: string
+          p_winner: string
+        }
+        Returns: Json
+      }
       ranks_confirm: {
         Args: { p_accept: boolean; p_result_id: string }
         Returns: Json
@@ -4389,15 +4567,60 @@ export type Database = {
         Args: { p_limit: number; p_status: string }
         Returns: Json
       }
+      ranks_edit_result: {
+        Args: {
+          p_a1: string
+          p_a2: string
+          p_b1: string
+          p_b2: string
+          p_reason: string
+          p_result_id: string
+          p_score: string
+          p_winner: string
+        }
+        Returns: Json
+      }
       ranks_find_player: { Args: { p_username: string }; Returns: Json }
+      ranks_is_offpeak: {
+        Args: { p_at: string; p_venue: string; p_windows: Json }
+        Returns: boolean
+      }
+      ranks_level_checks_list: { Args: { p_limit: number }; Returns: Json }
       ranks_level_json: { Args: { p_lifetime: number }; Returns: Json }
       ranks_levels_json: { Args: never; Returns: Json }
       ranks_period_start: { Args: { p_period: string }; Returns: string }
       ranks_player_json: { Args: { p_profile_id: string }; Returns: Json }
+      ranks_player_stats: {
+        Args: { p_rules: Json }
+        Returns: {
+          games: number
+          games_window: number
+          klass: string
+          last_game_at: string
+          level: number
+          opponents_window: number
+          profile_id: string
+          provisional_left: number
+          reliable: boolean
+        }[]
+      }
       ranks_profile_by_username: {
         Args: { p_username: string }
         Returns: string
       }
+      ranks_public_rules: { Args: { p_rules: Json }; Returns: Json }
+      ranks_race: {
+        Args: { p_from: string; p_rules: Json }
+        Returns: {
+          last_at: string
+          matches: number
+          matches_counted: number
+          points: number
+          profile_id: string
+          tournaments: number
+        }[]
+      }
+      ranks_rebuild: { Args: never; Returns: undefined }
       ranks_report: {
         Args: {
           p_opponent1: string
@@ -4416,8 +4639,35 @@ export type Database = {
         }
         Returns: Json
       }
+      ranks_results_to_check: { Args: { p_days: number }; Returns: Json }
+      ranks_row_json: {
+        Args: { p_profile_id: string; p_rank: number }
+        Returns: Json
+      }
+      ranks_rules: { Args: never; Returns: Json }
+      ranks_rules_check: { Args: { p_rules: Json }; Returns: undefined }
+      ranks_rules_default: { Args: never; Returns: Json }
+      ranks_score_games: { Args: { p_score: string }; Returns: number[] }
+      ranks_season_of: {
+        Args: { p_at: string; p_period: string }
+        Returns: string
+      }
+      ranks_seed: {
+        Args: { p_profile_id: string; p_rules: Json }
+        Returns: number
+      }
       ranks_settings_json: { Args: never; Returns: Json }
+      ranks_staff_confirm: { Args: { p_result_id: string }; Returns: Json }
       ranks_staff_player_json: { Args: { p_profile_id: string }; Returns: Json }
+      ranks_tier_json: { Args: { p_level: number }; Returns: Json }
+      ranks_tournament_points: {
+        Args: { p_from: string; p_rules: Json }
+        Returns: {
+          points: number
+          profile_id: string
+          tournament_id: string
+        }[]
+      }
       ranks_unaward: {
         Args: { p_note: string; p_result_id: string }
         Returns: undefined
@@ -4584,6 +4834,7 @@ export type Database = {
         Returns: undefined
       }
       redact_incident: { Args: { p_id: string }; Returns: Json }
+      redeem_deal: { Args: { p_promotion_id: string }; Returns: Json }
       redeem_reward: {
         Args: { p_idempotency_key?: string; p_reward_id: string }
         Returns: Json
@@ -5047,6 +5298,16 @@ export type Database = {
         }
         Returns: undefined
       }
+      set_clock_place: {
+        Args: {
+          p_lat: number
+          p_lng: number
+          p_max_accuracy_m?: number
+          p_radius_m?: number
+          p_venue_id: string
+        }
+        Returns: Json
+      }
       set_coach_branches: {
         Args: { p_coach_id: string; p_venue_ids: string[] }
         Returns: Json
@@ -5149,6 +5410,7 @@ export type Database = {
         Returns: Json
       }
       set_my_gender: { Args: { p_gender: string }; Returns: Json }
+      set_my_play_level: { Args: { p_level: string }; Returns: Json }
       set_my_play_profile: {
         Args: { p_level?: string; p_wants?: string[]; p_years?: string }
         Returns: Json
@@ -5202,6 +5464,7 @@ export type Database = {
         }
       }
       set_ranks_levels: { Args: { p_levels: Json }; Returns: Json }
+      set_ranks_rules: { Args: { p_rules: Json }; Returns: Json }
       set_ranks_settings: { Args: { p_patch: Json }; Returns: Json }
       set_recipe: {
         Args: { p_lines?: Json; p_target: string; p_target_id: string }
@@ -5249,6 +5512,10 @@ export type Database = {
         }
         Returns: Json
       }
+      set_staff_shifts: {
+        Args: { p_shifts: Json; p_staff_id: string; p_venue_id: string }
+        Returns: Json
+      }
       set_staff_venues: {
         Args: { p_staff_id: string; p_venue_ids: string[] }
         Returns: Json
@@ -5263,6 +5530,7 @@ export type Database = {
         }
         Returns: Json
       }
+      set_stamp_card: { Args: { p_card: Json }; Returns: Json }
       set_station_staff: {
         Args: { p_staff_id: string; p_station_ids: string[] }
         Returns: Json
@@ -5493,6 +5761,10 @@ export type Database = {
         Args: { p_customer_id: string; p_level: string; p_note?: string }
         Returns: Json
       }
+      staff_shifts_get: {
+        Args: { p_staff_id: string; p_venue_id: string }
+        Returns: Json
+      }
       staff_stock_view: {
         Args: { p_kind?: string; p_venue_id?: string }
         Returns: Json
@@ -5507,6 +5779,7 @@ export type Database = {
       }
       staff_venue_ids: { Args: never; Returns: string[] }
       staff_visible_to_me: { Args: { p_staff_id: string }; Returns: boolean }
+      stamp_card_settings: { Args: never; Returns: Json }
       start_break: {
         Args: { p_device_id: string; p_pin: string }
         Returns: Json
@@ -6303,6 +6576,15 @@ export type Database = {
           p_sort_order?: number
         }
         Returns: string
+      }
+      use_deal_voucher: {
+        Args: {
+          p_code: string
+          p_device_id?: string
+          p_idempotency_key?: string
+          p_tab_id: string
+        }
+        Returns: Json
       }
       use_reward_voucher: {
         Args: { p_code: string; p_idempotency_key?: string; p_tab_id: string }
@@ -10645,6 +10927,7 @@ export type Database = {
           points_12m: number
           profile_id: string
           tier_id: string | null
+          tier_up_at: string | null
           updated_at: string
         }
         Insert: {
@@ -10654,6 +10937,7 @@ export type Database = {
           points_12m?: number
           profile_id: string
           tier_id?: string | null
+          tier_up_at?: string | null
           updated_at?: string
         }
         Update: {
@@ -10663,6 +10947,7 @@ export type Database = {
           points_12m?: number
           profile_id?: string
           tier_id?: string | null
+          tier_up_at?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -10733,6 +11018,74 @@ export type Database = {
           },
         ]
       }
+      loyalty_deal_vouchers: {
+        Row: {
+          code: string
+          created_at: string
+          ended_at: string | null
+          expires_at: string
+          id: string
+          profile_id: string
+          promotion_id: string
+          status: string
+          tab_id: string | null
+          used_by: string | null
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          ended_at?: string | null
+          expires_at: string
+          id?: string
+          profile_id: string
+          promotion_id: string
+          status?: string
+          tab_id?: string | null
+          used_by?: string | null
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          ended_at?: string | null
+          expires_at?: string
+          id?: string
+          profile_id?: string
+          promotion_id?: string
+          status?: string
+          tab_id?: string | null
+          used_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "loyalty_deal_vouchers_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "loyalty_deal_vouchers_promotion_id_fkey"
+            columns: ["promotion_id"]
+            isOneToOne: false
+            referencedRelation: "promotions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "loyalty_deal_vouchers_tab_id_fkey"
+            columns: ["tab_id"]
+            isOneToOne: false
+            referencedRelation: "tabs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "loyalty_deal_vouchers_used_by_fkey"
+            columns: ["used_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       loyalty_ledger: {
         Row: {
           actor_id: string | null
@@ -10799,6 +11152,122 @@ export type Database = {
             columns: ["venue_id"]
             isOneToOne: false
             referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      loyalty_perk_lines: {
+        Row: {
+          amount_iqd: number
+          created_at: string
+          id: string
+          kind: string
+          order_item_id: string
+          perk_id: string | null
+          profile_id: string
+          stamps_spent: number | null
+          tab_id: string
+          units: number
+        }
+        Insert: {
+          amount_iqd: number
+          created_at?: string
+          id?: string
+          kind: string
+          order_item_id: string
+          perk_id?: string | null
+          profile_id: string
+          stamps_spent?: number | null
+          tab_id: string
+          units?: number
+        }
+        Update: {
+          amount_iqd?: number
+          created_at?: string
+          id?: string
+          kind?: string
+          order_item_id?: string
+          perk_id?: string | null
+          profile_id?: string
+          stamps_spent?: number | null
+          tab_id?: string
+          units?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "loyalty_perk_lines_order_item_id_fkey"
+            columns: ["order_item_id"]
+            isOneToOne: false
+            referencedRelation: "order_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "loyalty_perk_lines_perk_id_fkey"
+            columns: ["perk_id"]
+            isOneToOne: false
+            referencedRelation: "loyalty_tier_perks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "loyalty_perk_lines_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "loyalty_perk_lines_tab_id_fkey"
+            columns: ["tab_id"]
+            isOneToOne: false
+            referencedRelation: "tabs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      loyalty_reward_claims: {
+        Row: {
+          claimed_at: string
+          claimed_by: string | null
+          expires_at: string
+          id: string
+          kind: string
+          perk_id: string | null
+          profile_id: string
+          reward_key: string | null
+        }
+        Insert: {
+          claimed_at?: string
+          claimed_by?: string | null
+          expires_at: string
+          id?: string
+          kind: string
+          perk_id?: string | null
+          profile_id: string
+          reward_key?: string | null
+        }
+        Update: {
+          claimed_at?: string
+          claimed_by?: string | null
+          expires_at?: string
+          id?: string
+          kind?: string
+          perk_id?: string | null
+          profile_id?: string
+          reward_key?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "loyalty_reward_claims_perk_id_fkey"
+            columns: ["perk_id"]
+            isOneToOne: false
+            referencedRelation: "loyalty_tier_perks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "loyalty_reward_claims_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -11023,9 +11492,90 @@ export type Database = {
           },
         ]
       }
+      loyalty_stamp_card: {
+        Row: {
+          category_ids: string[]
+          enabled: boolean
+          excluded_item_ids: string[]
+          id: boolean
+          size: number
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          category_ids?: string[]
+          enabled?: boolean
+          excluded_item_ids?: string[]
+          id?: boolean
+          size?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          category_ids?: string[]
+          enabled?: boolean
+          excluded_item_ids?: string[]
+          id?: boolean
+          size?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "loyalty_stamp_card_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      loyalty_stamps: {
+        Row: {
+          created_at: string
+          delta: number
+          id: string
+          kind: string
+          profile_id: string
+          tab_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          delta: number
+          id?: string
+          kind: string
+          profile_id: string
+          tab_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          delta?: number
+          id?: string
+          kind?: string
+          profile_id?: string
+          tab_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "loyalty_stamps_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "loyalty_stamps_tab_id_fkey"
+            columns: ["tab_id"]
+            isOneToOne: false
+            referencedRelation: "tabs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       loyalty_tier_perks: {
         Row: {
           active: boolean
+          config: Json
           created_at: string
           created_by: string
           id: string
@@ -11039,6 +11589,7 @@ export type Database = {
         }
         Insert: {
           active?: boolean
+          config?: Json
           created_at?: string
           created_by: string
           id?: string
@@ -11052,6 +11603,7 @@ export type Database = {
         }
         Update: {
           active?: boolean
+          config?: Json
           created_at?: string
           created_by?: string
           id?: string
@@ -13890,6 +14442,7 @@ export type Database = {
           avatar_frame_style: string
           avatar_path: string | null
           birth_date: string | null
+          birth_date_set_at: string | null
           created_at: string
           deleted_at: string | null
           expo_push_token: string | null
@@ -13925,6 +14478,7 @@ export type Database = {
           avatar_frame_style?: string
           avatar_path?: string | null
           birth_date?: string | null
+          birth_date_set_at?: string | null
           created_at?: string
           deleted_at?: string | null
           expo_push_token?: string | null
@@ -13960,6 +14514,7 @@ export type Database = {
           avatar_frame_style?: string
           avatar_path?: string | null
           birth_date?: string | null
+          birth_date_set_at?: string | null
           created_at?: string
           deleted_at?: string | null
           expo_push_token?: string | null
@@ -14825,10 +15380,50 @@ export type Database = {
           },
         ]
       }
+      ranks_level_checks: {
+        Row: {
+          applied: boolean
+          applied_level: number | null
+          checked_at: string
+          checked_by: string | null
+          id: string
+          level: string
+          note: string | null
+          profile_id: string
+          role: string | null
+          seq: number
+        }
+        Insert: {
+          applied?: boolean
+          applied_level?: number | null
+          checked_at?: string
+          checked_by?: string | null
+          id?: string
+          level: string
+          note?: string | null
+          profile_id: string
+          role?: string | null
+          seq?: number
+        }
+        Update: {
+          applied?: boolean
+          applied_level?: number | null
+          checked_at?: string
+          checked_by?: string | null
+          id?: string
+          level?: string
+          note?: string | null
+          profile_id?: string
+          role?: string | null
+          seq?: number
+        }
+        Relationships: []
+      }
       ranks_levels: {
         Row: {
           created_at: string
           id: string
+          min_level: number | null
           min_points: number
           name_ar: string
           name_en: string
@@ -14836,6 +15431,7 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
+          min_level?: number | null
           min_points: number
           name_ar: string
           name_en: string
@@ -14843,9 +15439,115 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
+          min_level?: number | null
           min_points?: number
           name_ar?: string
           name_en?: string
+        }
+        Relationships: []
+      }
+      ranks_player_levels: {
+        Row: {
+          first_game_at: string | null
+          games: number
+          last_check_at: string | null
+          last_game_at: string | null
+          level: number
+          profile_id: string
+          provisional_left: number
+          start_level: number
+          updated_at: string
+        }
+        Insert: {
+          first_game_at?: string | null
+          games?: number
+          last_check_at?: string | null
+          last_game_at?: string | null
+          level: number
+          profile_id: string
+          provisional_left?: number
+          start_level: number
+          updated_at?: string
+        }
+        Update: {
+          first_game_at?: string | null
+          games?: number
+          last_check_at?: string | null
+          last_game_at?: string | null
+          level?: number
+          profile_id?: string
+          provisional_left?: number
+          start_level?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      ranks_rebuild_state: {
+        Row: {
+          id: boolean
+          ms: number
+          rebuilt_at: string | null
+          results: number
+        }
+        Insert: {
+          id?: boolean
+          ms?: number
+          rebuilt_at?: string | null
+          results?: number
+        }
+        Update: {
+          id?: boolean
+          ms?: number
+          rebuilt_at?: string | null
+          results?: number
+        }
+        Relationships: []
+      }
+      ranks_result_scores: {
+        Row: {
+          boost: number
+          boost_kind: string | null
+          expected: number
+          level_after: number
+          level_before: number
+          opponents: string[]
+          played_at: string
+          profile_id: string
+          race_points: number
+          result_id: string
+          season_start: string
+          source: string
+          won: string
+        }
+        Insert: {
+          boost?: number
+          boost_kind?: string | null
+          expected: number
+          level_after: number
+          level_before: number
+          opponents?: string[]
+          played_at: string
+          profile_id: string
+          race_points?: number
+          result_id: string
+          season_start: string
+          source: string
+          won: string
+        }
+        Update: {
+          boost?: number
+          boost_kind?: string | null
+          expected?: number
+          level_after?: number
+          level_before?: number
+          opponents?: string[]
+          played_at?: string
+          profile_id?: string
+          race_points?: number
+          result_id?: string
+          season_start?: string
+          source?: string
+          won?: string
         }
         Relationships: []
       }
@@ -14860,6 +15562,7 @@ export type Database = {
           loss_points: number
           period: string
           report_hours: number
+          rules: Json
           updated_at: string
           updated_by: string | null
           win_points: number
@@ -14874,6 +15577,7 @@ export type Database = {
           loss_points?: number
           period?: string
           report_hours?: number
+          rules?: Json
           updated_at?: string
           updated_by?: string | null
           win_points?: number
@@ -14888,6 +15592,7 @@ export type Database = {
           loss_points?: number
           period?: string
           report_hours?: number
+          rules?: Json
           updated_at?: string
           updated_by?: string | null
           win_points?: number
@@ -15486,6 +16191,68 @@ export type Database = {
             columns: ["venue_id"]
             isOneToOne: false
             referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reservation_card_gifts: {
+        Row: {
+          amount_iqd: number
+          applied_by: string | null
+          authorized_by: string | null
+          created_at: string
+          perk_id: string | null
+          profile_id: string
+          reservation_id: string
+          tab_id: string | null
+        }
+        Insert: {
+          amount_iqd: number
+          applied_by?: string | null
+          authorized_by?: string | null
+          created_at?: string
+          perk_id?: string | null
+          profile_id: string
+          reservation_id: string
+          tab_id?: string | null
+        }
+        Update: {
+          amount_iqd?: number
+          applied_by?: string | null
+          authorized_by?: string | null
+          created_at?: string
+          perk_id?: string | null
+          profile_id?: string
+          reservation_id?: string
+          tab_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reservation_card_gifts_perk_id_fkey"
+            columns: ["perk_id"]
+            isOneToOne: false
+            referencedRelation: "loyalty_tier_perks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reservation_card_gifts_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reservation_card_gifts_reservation_id_fkey"
+            columns: ["reservation_id"]
+            isOneToOne: true
+            referencedRelation: "reservations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reservation_card_gifts_tab_id_fkey"
+            columns: ["tab_id"]
+            isOneToOne: false
+            referencedRelation: "tabs"
             referencedColumns: ["id"]
           },
         ]
@@ -16412,7 +17179,8 @@ export type Database = {
           penalty_iqd: number | null
           penalty_rule_iqd: number
           recorded_at: string
-          recorded_by: string
+          recorded_by: string | null
+          source: string
           staff_id: string
           venue_id: string
           work_date: string
@@ -16427,7 +17195,8 @@ export type Database = {
           penalty_iqd?: number | null
           penalty_rule_iqd: number
           recorded_at?: string
-          recorded_by: string
+          recorded_by?: string | null
+          source?: string
           staff_id: string
           venue_id: string
           work_date: string
@@ -16442,7 +17211,8 @@ export type Database = {
           penalty_iqd?: number | null
           penalty_rule_iqd?: number
           recorded_at?: string
-          recorded_by?: string
+          recorded_by?: string | null
+          source?: string
           staff_id?: string
           venue_id?: string
           work_date?: string
@@ -16524,6 +17294,178 @@ export type Database = {
             foreignKeyName: "staff_breaks_venue_id_fkey"
             columns: ["venue_id"]
             isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      staff_clock_devices: {
+        Row: {
+          bound_at: string
+          device_hash: string
+          platform: string
+          staff_id: string
+        }
+        Insert: {
+          bound_at?: string
+          device_hash: string
+          platform: string
+          staff_id: string
+        }
+        Update: {
+          bound_at?: string
+          device_hash?: string
+          platform?: string
+          staff_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_clock_devices_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: true
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      staff_clock_events: {
+        Row: {
+          accuracy_m: number | null
+          at: string
+          device_hash: string | null
+          distance_m: number | null
+          early_minutes: number
+          fix_at: string | null
+          id: string
+          in_event_id: string | null
+          kind: string
+          lat: number | null
+          late_minutes: number
+          lng: number | null
+          mocked: boolean | null
+          platform: string | null
+          refusal: string | null
+          staff_id: string
+          station_id: string | null
+          status: string
+          venue_id: string
+          work_date: string | null
+        }
+        Insert: {
+          accuracy_m?: number | null
+          at?: string
+          device_hash?: string | null
+          distance_m?: number | null
+          early_minutes?: number
+          fix_at?: string | null
+          id?: string
+          in_event_id?: string | null
+          kind: string
+          lat?: number | null
+          late_minutes?: number
+          lng?: number | null
+          mocked?: boolean | null
+          platform?: string | null
+          refusal?: string | null
+          staff_id: string
+          station_id?: string | null
+          status: string
+          venue_id: string
+          work_date?: string | null
+        }
+        Update: {
+          accuracy_m?: number | null
+          at?: string
+          device_hash?: string | null
+          distance_m?: number | null
+          early_minutes?: number
+          fix_at?: string | null
+          id?: string
+          in_event_id?: string | null
+          kind?: string
+          lat?: number | null
+          late_minutes?: number
+          lng?: number | null
+          mocked?: boolean | null
+          platform?: string | null
+          refusal?: string | null
+          staff_id?: string
+          station_id?: string | null
+          status?: string
+          venue_id?: string
+          work_date?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_clock_events_in_event_id_fkey"
+            columns: ["in_event_id"]
+            isOneToOne: false
+            referencedRelation: "staff_clock_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_clock_events_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_clock_events_station_id_fkey"
+            columns: ["station_id"]
+            isOneToOne: false
+            referencedRelation: "stations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_clock_events_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      staff_clock_places: {
+        Row: {
+          lat: number
+          lng: number
+          max_accuracy_m: number
+          radius_m: number
+          updated_at: string
+          updated_by: string | null
+          venue_id: string
+        }
+        Insert: {
+          lat: number
+          lng: number
+          max_accuracy_m?: number
+          radius_m?: number
+          updated_at?: string
+          updated_by?: string | null
+          venue_id: string
+        }
+        Update: {
+          lat?: number
+          lng?: number
+          max_accuracy_m?: number
+          radius_m?: number
+          updated_at?: string
+          updated_by?: string | null
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_clock_places_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_clock_places_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: true
             referencedRelation: "venues"
             referencedColumns: ["id"]
           },
@@ -16838,6 +17780,64 @@ export type Database = {
           },
         ]
       }
+      staff_shifts: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          ends_at: string
+          id: string
+          role: Database["public"]["Enums"]["staff_role"] | null
+          staff_id: string
+          starts_at: string
+          venue_id: string
+          weekday: number
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          ends_at: string
+          id?: string
+          role?: Database["public"]["Enums"]["staff_role"] | null
+          staff_id: string
+          starts_at: string
+          venue_id: string
+          weekday: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          ends_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["staff_role"] | null
+          staff_id?: string
+          starts_at?: string
+          venue_id?: string
+          weekday?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_shifts_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_shifts_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_shifts_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       staff_suggestions: {
         Row: {
           author_id: string
@@ -16984,6 +17984,52 @@ export type Database = {
           },
           {
             foreignKeyName: "staff_wages_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      station_clock_keys: {
+        Row: {
+          issued_at: string
+          issued_by: string | null
+          secret: string
+          station_id: string
+          venue_id: string
+        }
+        Insert: {
+          issued_at?: string
+          issued_by?: string | null
+          secret: string
+          station_id: string
+          venue_id: string
+        }
+        Update: {
+          issued_at?: string
+          issued_by?: string | null
+          secret?: string
+          station_id?: string
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "station_clock_keys_issued_by_fkey"
+            columns: ["issued_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "station_clock_keys_station_id_fkey"
+            columns: ["station_id"]
+            isOneToOne: true
+            referencedRelation: "stations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "station_clock_keys_venue_id_fkey"
             columns: ["venue_id"]
             isOneToOne: false
             referencedRelation: "venues"

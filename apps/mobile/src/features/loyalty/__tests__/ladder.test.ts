@@ -3,8 +3,11 @@ import type { MyLoyalty } from '@touch/core/loyalty';
 import {
   cardHolds,
   givesAnything,
+  ladderHasBirthdayGift,
   ladderPosition,
   parseLadder,
+  perkDetail,
+  perkMark,
   parseMyLoyalty,
   rungGives,
   tierProgress,
@@ -203,5 +206,158 @@ describe('tierProgress with the threshold the server now sends (0410)', () => {
   it('runs from the current card to the next, not from zero', () => {
     // 900 of the way from Silver (500) to Gold (1500): 400 / 1000.
     expect(tierProgress(loyalty())).toEqual({ fraction: 0.4, remaining: 600 });
+  });
+});
+
+// ── what the Green and Blue cards give (0445) ─────────────────────────────────
+
+const CARD_TIERS = [
+  { id: 'white', name_en: 'White', name_ar: 'الأبيض', multiplier: 1, min_points_12m: 0, color: 'white', perks: [], deals: [] },
+  {
+    id: 'green',
+    name_en: 'Touch Padel green',
+    name_ar: 'تتش بادل الأخضر',
+    multiplier: 1,
+    min_points_12m: 250,
+    color: 'green',
+    perks: [
+      { id: 'g-drink', kind: 'gift', name_en: 'A drink on your birthday', name_ar: 'مشروب في عيد ميلادك', config: { when: 'birthday', categoryIds: ['c1'], itemIds: [], days: 7 } },
+      { id: 'g-ring', kind: 'frame', name_en: 'The green ring', name_ar: 'الإطار الأخضر', config: { frameId: 'card-green' } },
+      { id: 'g-stamps', kind: 'stamp_size', name_en: 'Drink card at 7', name_ar: 'بطاقة المشروبات عند 7', config: { size: 7 } },
+    ],
+    deals: [],
+  },
+  {
+    id: 'blue',
+    name_en: 'Touch Padel blue',
+    name_ar: 'تتش بادل الأزرق',
+    multiplier: 1,
+    min_points_12m: 1000,
+    color: 'blue',
+    perks: [
+      { id: 'b-addons', kind: 'free_addons', name_en: 'Free add-ons', name_ar: 'إضافات مجانية' },
+      { id: 'b-stamps', kind: 'stamp_size', name_en: 'Drink card full at 6', name_ar: 'بطاقة المشروبات تمتلئ عند 6', config: { size: 6 } },
+      { id: 'b-tea', kind: 'free_with', name_en: 'Tea or water with any dessert', name_ar: 'شاي أو ماء مع أي حلى', config: { triggerCategoryIds: ['desserts'], triggerItemIds: [], freeCategoryIds: [], freeItemIds: ['tea', 'water'] } },
+      { id: 'b-cake', kind: 'gift', name_en: 'A dessert on your birthday', name_ar: 'حلى في عيد ميلادك', config: { when: 'birthday', categoryIds: ['desserts'], itemIds: [] } },
+    ],
+    deals: [],
+  },
+];
+
+describe('the card privileges (0445)', () => {
+  const tiers = parseLadder(CARD_TIERS);
+  const perk = (id: string) => tiers.flatMap((t) => t.perks).find((p) => p.id === id);
+
+  it('reads every new kind with its config', () => {
+    expect(perk('g-drink')).toMatchObject({ kind: 'gift', config: { days: 7, categoryIds: ['c1'] } });
+    expect(perk('g-ring')).toMatchObject({ kind: 'frame', config: { frameId: 'card-green' } });
+    expect(perk('b-stamps')).toMatchObject({ kind: 'stamp_size', config: { size: 6 } });
+    expect(perk('b-tea')).toMatchObject({ kind: 'free_with', config: { freeItemIds: ['tea', 'water'] } });
+    // A gift without days lasts the server's default week.
+    expect(perk('b-cake')?.config).toMatchObject({ days: 7 });
+  });
+
+  it('a config that does not read leaves the line as its name alone', () => {
+    const [t] = parseLadder([
+      {
+        ...CARD_TIERS[1],
+        perks: [
+          { id: 'x1', kind: 'frame', name_en: 'Ring', name_ar: '', config: { frameId: 'gold-racket' } },
+          { id: 'x2', kind: 'stamp_size', name_en: 'Stamps', name_ar: '', config: { size: 40 } },
+        ],
+      },
+    ]);
+    expect(t?.perks.map((p) => p.config)).toEqual([undefined, undefined]);
+    expect(t?.perks.map(perkDetail)).toEqual([null, null]);
+  });
+
+  it('a kind-specific line under each name, none for add-ons and custom lines', () => {
+    expect(perkDetail(perk('g-drink')!)).toEqual({ key: 'loyalty.guest.gives.giftBirthday', days: 7 });
+    expect(perkDetail(perk('b-tea')!)).toEqual({ key: 'loyalty.guest.gives.freeWithDetail' });
+    expect(perkDetail(perk('b-stamps')!)).toEqual({ key: 'loyalty.guest.gives.stampSizeDetail', size: 6 });
+    expect(perkDetail(perk('g-ring')!)).toEqual({ key: 'loyalty.guest.gives.frameDetail', frameId: 'card-green' });
+    expect(perkDetail(perk('b-addons')!)).toBeNull();
+  });
+
+  it('Blue holds Green gifts too, and the drink card line is only the smaller size', () => {
+    const blue = cardHolds(
+      ladderPosition({ points_12m: 1200, tier: CARD_TIERS[2] as never, tiers }),
+    );
+    const ids = blue.perks.map((p) => p.id);
+    expect(ids).toEqual(['b-addons', 'b-stamps', 'b-tea', 'b-cake', 'g-drink', 'g-ring']);
+    expect(ids).not.toContain('g-stamps');
+    const green = cardHolds(ladderPosition({ points_12m: 300, tier: CARD_TIERS[1] as never, tiers }));
+    expect(green.perks.map((p) => p.id)).toEqual(['g-drink', 'g-ring', 'g-stamps']);
+  });
+
+  it('Edit profile notes the 30 days only when some card carries a birthday gift', () => {
+    expect(ladderHasBirthdayGift({ enabled: true, tiers })).toBe(true);
+    expect(ladderHasBirthdayGift({ enabled: false, tiers })).toBe(false);
+    expect(ladderHasBirthdayGift({ enabled: true, tiers: parseLadder(RAW_TIERS) })).toBe(false);
+    expect(ladderHasBirthdayGift(null)).toBe(false);
+  });
+});
+
+describe('monthly, card-up and court-hour gifts, and the free size up (0445)', () => {
+  const gift = (id: string, config: Record<string, unknown>) => ({ id, kind: 'gift', name_en: id, name_ar: id, config });
+  const RUNGS = [
+    { ...CARD_TIERS[0] },
+    {
+      ...CARD_TIERS[1],
+      perks: [
+        gift('green-welcome', { when: 'card_up', target: 'items', categoryIds: ['c'], itemIds: [] }),
+        gift('green-month', { when: 'monthly', target: 'items', categoryIds: ['c'], itemIds: [], days: 9 }),
+      ],
+    },
+    {
+      ...CARD_TIERS[2],
+      perks: [
+        gift('blue-welcome', { when: 'card_up', target: 'court_hour', categoryIds: [], itemIds: [], days: 14 }),
+        gift('blue-bday-court', { when: 'birthday', target: 'court_hour', categoryIds: [], itemIds: [] }),
+        { id: 'blue-size', kind: 'size_upgrade', name_en: 'Size up', name_ar: 'حجم أكبر', config: { categoryIds: ['coffee'], itemIds: [] } },
+      ],
+    },
+  ];
+  const tiers = parseLadder(RUNGS);
+  const perk = (id: string) => tiers.flatMap((t) => t.perks).find((p) => p.id === id)!;
+
+  it('reads when, target and days with the server defaults', () => {
+    expect(perk('green-welcome').config).toMatchObject({ when: 'card_up', target: 'items', days: 30 });
+    // Monthly takes no days, whatever was sent.
+    expect(perk('green-month').config).not.toHaveProperty('days');
+    expect(perk('blue-welcome').config).toMatchObject({ when: 'card_up', target: 'court_hour', days: 14 });
+    expect(perk('blue-bday-court').config).toMatchObject({ when: 'birthday', target: 'court_hour', days: 7 });
+    expect(perk('blue-size')).toMatchObject({ kind: 'size_upgrade', config: { categoryIds: ['coffee'] } });
+    // An unknown when or target reads as the defaults.
+    const [odd] = parseLadder([{ ...RUNGS[1], perks: [gift('odd', { when: 'weekly', target: 'spa' })] }]);
+    expect(odd?.perks[0]?.config).toMatchObject({ when: 'birthday', target: 'items', days: 7 });
+  });
+
+  it('says when each gift opens, and that a court hour is one', () => {
+    expect(perkDetail(perk('green-month'))).toEqual({ key: 'loyalty.guest.gives.giftMonthly', days: null });
+    expect(perkDetail(perk('green-welcome'))).toEqual({ key: 'loyalty.guest.gives.giftCardUp', days: 30 });
+    expect(perkDetail(perk('blue-welcome'))).toEqual({ key: 'loyalty.guest.gives.giftCardUpCourt', days: 14 });
+    expect(perkDetail(perk('blue-bday-court'))).toEqual({ key: 'loyalty.guest.gives.giftBirthdayCourt', days: 7 });
+    expect(perkDetail(perk('blue-size'))).toEqual({ key: 'loyalty.guest.gives.sizeUpgradeDetail' });
+  });
+
+  it('marks each line: court hours with the court, item gifts by when they open', () => {
+    expect(perkMark(perk('green-month'))).toBe('monthly');
+    expect(perkMark(perk('green-welcome'))).toBe('cardUp');
+    expect(perkMark(perk('blue-welcome'))).toBe('court');
+    expect(perkMark(perk('blue-bday-court'))).toBe('court');
+    expect(perkMark(perk('blue-size'))).toBe('sizeUp');
+    expect(perkMark(parseLadder(CARD_TIERS)[1]!.perks[0]!)).toBe('birthday');
+  });
+
+  it('a card above does not hold a lower card\'s card-up welcome; its own it does', () => {
+    const blue = cardHolds(ladderPosition({ points_12m: 1200, tier: RUNGS[2] as never, tiers }));
+    expect(blue.perks.map((p) => p.id)).toEqual(['blue-welcome', 'blue-bday-court', 'blue-size', 'green-month']);
+  });
+
+  it('only a birthday gift brings the 30-day note', () => {
+    const noBirthday = parseLadder([RUNGS[0], RUNGS[1]]);
+    expect(ladderHasBirthdayGift({ enabled: true, tiers: noBirthday })).toBe(false);
+    expect(ladderHasBirthdayGift({ enabled: true, tiers })).toBe(true);
   });
 });

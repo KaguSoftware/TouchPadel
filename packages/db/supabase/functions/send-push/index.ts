@@ -114,7 +114,7 @@ const STRINGS: Record<Lang, Record<string, { title: string; body: (court: string
   ar: {
     booking_confirmed: {
       title: 'أُكّد الحجز',
-      body: (court, when) => `حجزك في ${court}، ${when}. نراك هناك.`,
+      body: (court, when) => `حجزك في ${court}، ${when}. نراك هناك!`,
     },
     booking_reminder: {
       title: 'مباراتك بعد 3 ساعات',
@@ -126,7 +126,7 @@ const STRINGS: Record<Lang, Record<string, { title: string; body: (court: string
     },
     booking_no_show: {
       title: 'أُغلق الحجز',
-      body: (court, when) => `أُغلق حجزك في ${court}، ${when}، لعدم الحضور. راجع الاستقبال إذا كان ذلك غير صحيح.`,
+      body: (court, when) => `أُغلق حجزك في ${court}، ${when}، لعدم الحضور. يمكنك مراجعة الاستقبال إذا كان ذلك غير صحيح.`,
     },
     test: {
       title: 'إشعار تجريبي',

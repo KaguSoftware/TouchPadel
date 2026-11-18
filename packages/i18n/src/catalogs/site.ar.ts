@@ -55,7 +55,7 @@ export const siteAr: DeepMessages<typeof siteEn> = {
   // 11 فما فوق ساعة. «حتى ساعتين قبل الموعد» لا «حتى 2 ساعات». تأتي «ساعتين» مجرورة لأن
   // العبارة تقع دائمًا بعد حرف جر («حتى»، «أقل من»).
   hoursCount: {
-    zero: '{count} ساعة',
+    zero: '{count} ساعات',
     one: 'ساعة واحدة',
     two: 'ساعتين',
     few: '{count} ساعات',

@@ -34,6 +34,11 @@ import {
   toggleWeekday,
   validateDraft,
   weekdaysText,
+  freeItemText,
+  freeItemValueText,
+  listedAndAuto,
+  valueForType,
+  type MenuNames,
 } from './promotionLogic';
 import type { PromotionRow } from './promotionsApi';
 
@@ -402,5 +407,77 @@ describe("the listing in the guests' app (0410)", () => {
     expect(appColumnsMissing({ message: "Could not find the 'app_blurb_en' column" })).toBe(true);
     expect(appColumnsMissing({ message: 'JWT expired', code: 'PGRST301' })).toBe(false);
     expect(appColumnsMissing(null)).toBe(false);
+  });
+});
+
+// 0445: buy one, get one (promotion type free_item).
+describe('buy one, get one (0445)', () => {
+  const en = makeT('en');
+  const names: MenuNames = {
+    item: (id) => ({ latte: 'Latte', mocha: 'Mocha', flat: 'Flat white', croissant: 'Croissant', water: 'Water' })[id] ?? null,
+    category: (id) => ({ hot: 'Hot drinks', pastry: 'Pastries' })[id] ?? null,
+  };
+  const bogoRow: PromotionRow = {
+    ...row,
+    type: 'free_item',
+    value: 100,
+    scope: { itemIds: ['croissant'], buyItemIds: ['latte'], perBill: 2 },
+  };
+  const bogo = fromRow(bogoRow);
+
+  it('reads the buy side and the times per bill from the scope, and sends them only for free_item', () => {
+    expect(bogo.buy).toEqual({ categoryIds: [], itemIds: ['latte'] });
+    expect(bogo.perBill).toBe(2);
+    expect(toRpcArgs(bogo, 'p1').p_scope).toEqual({ courtIds: [], categoryIds: [], itemIds: ['croissant'], buyCategoryIds: [], buyItemIds: ['latte'], perBill: 2 });
+    // The server refuses the buy keys on any other type, even empty.
+    expect(toRpcArgs({ ...bogo, type: 'percent', value: 10 }, 'p1').p_scope).toEqual({ courtIds: [], categoryIds: [], itemIds: ['croissant'] });
+    expect(fromRow(row).buy).toEqual({ categoryIds: [], itemIds: [] });
+    expect(fromRow(row).perBill).toBe(1);
+  });
+
+  it('mirrors the server: something given, something that earns it, 1..10 per bill, 1..100 percent', () => {
+    const ok = { ...bogo, startsOn: '', endsOn: '' };
+    expect(validateDraft(ok)).toEqual([]);
+    expect(validateDraft({ ...ok, scope: { ...ok.scope, itemIds: [] } })).toContain('getNone');
+    expect(validateDraft({ ...ok, buy: { categoryIds: [], itemIds: [] } })).toContain('buyNone');
+    // A court booking alone earns it.
+    expect(validateDraft({ ...ok, buy: { categoryIds: [], itemIds: [] }, scope: { ...ok.scope, courtIds: ['c1'] } })).toEqual([]);
+    expect(validateDraft({ ...ok, perBill: 0 })).toContain('perBill');
+    expect(validateDraft({ ...ok, perBill: 11 })).toContain('perBill');
+    expect(validateDraft({ ...ok, value: 101 })).toContain('percent');
+    expect(validateDraft({ ...ok, value: 50 })).toEqual([]);
+    expect(saveBlocker(['perBill', 'getNone', 'hours'])).toBe('getNone');
+  });
+
+  it('words it the way a guest would read it', () => {
+    expect(freeItemText({ ...bogo, perBill: 1 }, en, 'en', names)).toBe('Buy Latte, get Croissant free');
+    expect(freeItemText(bogo, en, 'en', names)).toBe('Buy Latte, get Croissant free · Up to 2 per bill');
+    expect(freeItemText({ ...bogo, perBill: 1, value: 50 }, en, 'en', names)).toBe('Buy Latte, get Croissant at 50% off');
+    expect(
+      freeItemText({ ...bogo, perBill: 1, buy: { categoryIds: ['hot'], itemIds: ['latte', 'mocha', 'flat'] } }, en, 'en', names),
+    ).toBe('Buy Latte or Mocha +2 more, get Croissant free');
+    expect(freeItemText({ ...bogo, perBill: 1, buy: { categoryIds: [], itemIds: [] }, scope: { courtIds: ['c1'], categoryIds: [], itemIds: ['water'] } }, en, 'en', names)).toBe(
+      'Book a court, get Water free',
+    );
+    // Before the menu is read, or for a deleted item: no ids on screen.
+    expect(freeItemText({ ...bogo, perBill: 1 }, en, 'en', null)).toBe('Buy the chosen items, get the chosen items free');
+    expect(describePromotion({ ...bogo, perBill: 1, startsOn: '', endsOn: '', weekdays: [], hourFrom: '', hourTo: '' }, en, 'en', null, names)).toBe(
+      'Buy Latte, get Croissant free · Any day, any time · Total uses: 100',
+    );
+    expect(freeItemValueText(100, en, 'en')).toBe('Free');
+    expect(freeItemValueText(50, en, 'en')).toBe('50% off');
+  });
+
+  it('a type change gives the value a sane start', () => {
+    expect(valueForType('free_item', 10)).toBe(100);
+    expect(valueForType('percent', 100)).toBe(10);
+    expect(valueForType('percent', 25)).toBe(25);
+    expect(valueForType('amount', 100)).toBe(100);
+  });
+
+  it('flags a listed deal that is also automatic (everyone would get it)', () => {
+    expect(listedAndAuto({ inApp: true, auto: true })).toBe(true);
+    expect(listedAndAuto({ inApp: true, auto: false })).toBe(false);
+    expect(listedAndAuto({ inApp: false, auto: true })).toBe(false);
   });
 });

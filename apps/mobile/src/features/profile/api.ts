@@ -321,8 +321,18 @@ export interface MyFrames {
   /** 0316: games played and paid in full, and tournaments won. */
   played?: number;
   tournaments_won?: number;
-  /** goal and progress are null for a free frame (always unlocked). */
-  frames: { id: string; unlocked: boolean; goal?: number | null; progress?: number | null }[];
+  /**
+   * goal and progress are null for a free frame (always unlocked) and a card
+   * ring. 0445: a card ring's `card` names the lowest card that unlocks it,
+   * null when none does (`offeredCardFrames` in frames.ts reads it).
+   */
+  frames: {
+    id: string;
+    unlocked: boolean;
+    goal?: number | null;
+    progress?: number | null;
+    card?: { tier_id: string; name_en: string; name_ar: string; color: string } | null;
+  }[];
 }
 
 /** app.my_frames (0314): the closed list with what the caller has unlocked. */

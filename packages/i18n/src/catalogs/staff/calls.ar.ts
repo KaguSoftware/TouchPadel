@@ -13,7 +13,7 @@ export const staffCallsAr: DeepMessages<typeof staffCallsEn> = {
   emptyTitle: 'لا أحد ينتظر',
   emptyBody: 'عندما تنادي طاولة نادلًا، يظهر النداء هنا ويهتز هاتفك.',
   answered: 'سبق أن ردّ شخص آخر على هذا النداء.',
-  notLive: 'لا تتحدّث القائمة تلقائيًا الآن. اسحب للأسفل للتحديث.',
+  notLive: 'لا تتحدّث القائمة تلقائيًا الآن. يمكنك السحب للأسفل للتحديث.',
   age: {
     minutes: '{minutes} د',
     hours: '{hours} س {minutes} د',

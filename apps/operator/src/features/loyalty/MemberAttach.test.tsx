@@ -18,6 +18,8 @@ let tokenSpent = false;
 let pointsOff = true;
 /** 0403: the free court hour already on the tab's booking (loyalty_court_reward.reward). */
 let courtReward: Record<string, unknown> | null = null;
+/** 0445: what use_deal_voucher raises for the next scan; null puts the deal on the bill. */
+let dealRefusal: string | null = null;
 const TAB = 't1';
 let tabRow: {
   id: string;
@@ -58,6 +60,7 @@ vi.mock('../../lib/venueScope', async (importOriginal) => ({
 vi.mock('../../lib/idem', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
   onlineKey: (rpc: string) => `TILL-1:${rpc}:01JABCDEFGHJKMNPQRSTVWXYZ0`,
+  deviceId: () => 'TILL-1',
 }));
 vi.mock('../../lib/appRpc', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
@@ -67,7 +70,7 @@ vi.mock('../../lib/appRpc', async (importOriginal) => ({
 import type { ComponentProps } from 'react';
 import type { TabBenefits } from '@touch/core/loyalty';
 import { AppRpcError, appRpc } from '../../lib/appRpc';
-import { MemberAttach } from './MemberAttach';
+import { MemberAttach, dispatchMemberScan } from './MemberAttach';
 
 const rpc = vi.mocked(appRpc);
 
@@ -147,6 +150,34 @@ function mount(
           refused: courtReward ? 'REWARD_ALREADY_ON_BOOKING' : null,
           reward: courtReward,
         };
+      case 'use_deal_voucher':
+        if (dealRefusal) throw new AppRpcError(dealRefusal, dealRefusal);
+        // The server attaches the code's member to a bill that has none.
+        tabRow = { ...tabRow, customer_id: tabRow.customer_id ?? 'p1' };
+        return {
+          voucherId: 'dv1',
+          promotionId: 'pr1',
+          name_en: 'Happy hour',
+          name_ar: 'ساعة السعادة',
+          amountIqd: 2500,
+          customerId: 'p1',
+        };
+      case 'use_reward_voucher':
+        return {
+          voucher_id: 'rv1',
+          reward_id: 'r1',
+          name_en: 'Free tea',
+          name_ar: 'شاي',
+          kind: 'iqd_off',
+          points: 200,
+          amount_iqd: 1000,
+          adjustment_id: 'a1',
+          order_item_id: null,
+          item_added: false,
+          court_reward_id: null,
+          reservation_id: null,
+          member_name: null,
+        };
       case 'verify_manager_pin':
         if (args?.p_pin !== '1234') return null;
         grants += 1;
@@ -177,6 +208,7 @@ describe('MemberAttach', () => {
     tokenSpent = false;
     pointsOff = true;
     courtReward = null;
+    dealRefusal = null;
     tabRow = { id: TAB, status: 'open', customer_id: null, tab_adjustments: [] };
   });
 
@@ -458,6 +490,101 @@ describe('MemberAttach', () => {
       mount(TAB, 12_340, { benefits: given });
       await screen.findByTestId('member-chip');
       expect(screen.queryByTestId('member-benefits')).toBeNull();
+    });
+  });
+  // 0445: a deal the guest redeemed in the app (TPD-…), scanned or typed at the till.
+  describe('a deal code from the app (0445)', () => {
+    const DEAL = 'TPD-8F3K-2QXM-9ABC';
+    const DEAL_CANONICAL = 'TPD-8F3K2QXM9ABC';
+
+    it('a scan puts the deal on the bill with a fresh key, attaches its member and refreshes the bill', async () => {
+      const invalidate = vi.spyOn(QueryClient.prototype, 'invalidateQueries');
+      mount(TAB, 12_340, { listenScans: true });
+      await screen.findByTestId('member-button');
+      dispatchMemberScan(DEAL);
+      await waitFor(() =>
+        expect(calls('use_deal_voucher')).toEqual([
+          {
+            p_tab_id: TAB,
+            p_code: DEAL_CANONICAL,
+            p_idempotency_key: 'TILL-1:use_deal_voucher:01JABCDEFGHJKMNPQRSTVWXYZ0',
+            p_device_id: 'TILL-1',
+          },
+        ]),
+      );
+      // never the member lookup, never the reward path
+      expect(calls('loyalty_identify')).toEqual([]);
+      expect(calls('use_reward_voucher')).toEqual([]);
+      expect(await screen.findByText('Deal applied: Happy hour, 2,500 IQD off the bill.')).toBeTruthy();
+      expect(screen.queryByRole('dialog')).toBeNull();
+      // the bill (its adjustments, promotion and card benefits ride under ['tab', id]) and the new member
+      const keys = invalidate.mock.calls.map((c) => JSON.stringify(c[0]?.queryKey));
+      expect(keys).toContain(JSON.stringify(['tab', TAB]));
+      expect(keys).toContain(JSON.stringify(['loyaltyMember', 'p1']));
+      expect(await screen.findByTestId('member-chip')).toBeTruthy();
+    });
+
+    it('a deal code typed into the member field goes to the deal, not the member lookup', async () => {
+      const user = userEvent.setup();
+      mount();
+      await user.click(await screen.findByRole('button', { name: 'Member' }));
+      await user.type(within(await screen.findByRole('dialog')).getByTestId('member-code'), `${DEAL.toLowerCase()}{Enter}`);
+      await waitFor(() => expect(calls('use_deal_voucher')).toHaveLength(1));
+      expect(calls('use_deal_voucher')[0]).toMatchObject({ p_code: DEAL_CANONICAL });
+      expect(calls('loyalty_identify')).toEqual([]);
+    });
+
+    it('the code button takes a typed deal code and names it as a deal before it is applied', async () => {
+      const user = userEvent.setup();
+      mount();
+      await user.click(await screen.findByTestId('member-voucher'));
+      const dialog = within(await screen.findByRole('dialog', { name: 'Reward or deal code' }));
+      await user.type(dialog.getByTestId('voucher-code'), DEAL);
+      expect(await screen.findByRole('dialog', { name: 'Deal code' })).toBeTruthy();
+      expect(dialog.getByTestId('voucher-give').textContent).toContain('Apply deal');
+      await user.click(dialog.getByTestId('voucher-give'));
+      await waitFor(() => expect(calls('use_deal_voucher')).toHaveLength(1));
+      expect(calls('use_reward_voucher')).toEqual([]);
+    });
+
+    it('a reward code in the same dialog still goes to the reward path', async () => {
+      mount(TAB, 12_340, { listenScans: true });
+      await screen.findByTestId('member-button');
+      dispatchMemberScan('TPV-8F3K-2QXM-9ABC');
+      await waitFor(() => expect(calls('use_reward_voucher')).toHaveLength(1));
+      expect(calls('use_deal_voucher')).toEqual([]);
+    });
+
+    it('refuses text that is neither code without calling the server', async () => {
+      const user = userEvent.setup();
+      mount();
+      await user.click(await screen.findByTestId('member-voucher'));
+      const dialog = within(await screen.findByRole('dialog'));
+      await user.type(dialog.getByTestId('voucher-code'), 'TPD-1234{Enter}');
+      expect(await dialog.findByText(/isn’t a reward or deal code/)).toBeTruthy();
+      expect(calls('use_deal_voucher')).toEqual([]);
+    });
+
+    it.each([
+      ['VOUCHER_NOT_FOUND', 'No deal has that code. Scan the deal QR again.'],
+      ['VOUCHER_USED', 'This deal code was already used or cancelled. The guest can redeem the deal again in the app.'],
+      ['VOUCHER_EXPIRED', 'This deal code has expired. The guest can redeem the deal again in the app.'],
+      ['VOUCHER_WRONG_BRANCH', 'This deal belongs to another branch.'],
+      ['VOUCHER_OTHER_MEMBER', 'This deal code belongs to another member than the one on this bill.'],
+      ['DEAL_NOT_ON_BILL', 'This bill can’t take that deal right now: check its hours, its minimum and what it covers.'],
+      ['TAB_NOT_OPEN', 'This tab is not open.'],
+      ['MEMBER_NOT_FOUND', 'No account has that member code or phone number.'],
+      ['FORBIDDEN', 'You do not have permission for that.'],
+      ['TAB_NOT_FOUND', 'Tab not found.'],
+      ['VENUE_MISMATCH', 'This belongs to another branch. Switch to that branch to do this.'],
+    ])('shows %s beside the field and keeps the dialog open', async (code, words) => {
+      dealRefusal = code;
+      mount(TAB, 12_340, { listenScans: true });
+      await screen.findByTestId('member-button');
+      dispatchMemberScan(DEAL);
+      const dialog = within(await screen.findByRole('dialog', { name: 'Deal code' }));
+      expect((await dialog.findByRole('alert')).textContent).toBe(words);
+      expect(screen.queryByText(/Deal applied/)).toBeNull();
     });
   });
 });

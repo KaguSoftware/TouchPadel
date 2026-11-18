@@ -89,4 +89,68 @@ describe('RecordResultDialog', () => {
     expect(screen.getByTestId('ranks-record-errors').textContent).toContain('Fill both sides of a set');
     expect(rpc).not.toHaveBeenCalledWith('ranks_desk_record', expect.anything());
   });
+
+  it('corrects a result: starts from it, asks for a reason, sends ranks_edit_result', async () => {
+    rpc.mockImplementation(async (fn: string) => {
+      if (fn === 'ranks_edit_result') return { id: 'g9', status: 'confirmed', replaces: 'g1' };
+      throw new Error(`unexpected ${fn}`);
+    });
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const onClose = vi.fn();
+    const p = (id: string, name: string) => ({ id, name, username: null, former: false });
+    render(
+      <QueryClientProvider client={client}>
+        <LocaleProvider>
+          <ToastProvider>
+            <RecordResultDialog
+              edit={{
+                id: 'g1',
+                source: 'player',
+                status: 'pending',
+                winner: 'b',
+                score: '4-6',
+                played_at: '2026-11-15T18:00:00Z',
+                reported_at: '2026-11-15T19:30:00Z',
+                reservation_id: 'r1',
+                void_reason: null,
+                court: null,
+                a: [p('p1', 'Ali Hassan'), null],
+                b: [p('p3', 'Omar Saleh'), null],
+              }}
+              onClose={onClose}
+            />
+          </ToastProvider>
+        </LocaleProvider>
+      </QueryClientProvider>,
+    );
+    expect(screen.getByText('Edit this result')).toBeTruthy();
+    expect(screen.getByTestId('ranks-seat-b1-name').textContent).toBe('Omar Saleh');
+    expect((screen.getByTestId('ranks-set-1-a') as HTMLInputElement).value).toBe('4');
+
+    await userEvent.click(screen.getByTestId('ranks-winner-a'));
+    await userEvent.clear(screen.getByTestId('ranks-set-1-a'));
+    await userEvent.type(screen.getByTestId('ranks-set-1-a'), '6');
+    await userEvent.clear(screen.getByTestId('ranks-set-1-b'));
+    await userEvent.type(screen.getByTestId('ranks-set-1-b'), '4');
+    // No reason yet: nothing is sent.
+    await userEvent.click(screen.getByTestId('ranks-record-submit'));
+    expect(screen.getByText('Write a reason of at least 3 characters.')).toBeTruthy();
+    expect(rpc).not.toHaveBeenCalled();
+
+    await userEvent.type(screen.getByTestId('ranks-edit-reason'), 'Sides swapped');
+    await userEvent.click(screen.getByTestId('ranks-record-submit'));
+    await waitFor(() =>
+      expect(rpc).toHaveBeenCalledWith('ranks_edit_result', {
+        p_result_id: 'g1',
+        p_a1: 'p1',
+        p_a2: null,
+        p_b1: 'p3',
+        p_b2: null,
+        p_winner: 'a',
+        p_score: '6-4',
+        p_reason: 'Sides swapped',
+      }),
+    );
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+  });
 });

@@ -9,7 +9,11 @@ import { iqd, type IQD } from './iqd';
  * show the same figure the server will stamp, bit-for-bit.
  */
 
-export type PromotionType = 'percent' | 'amount';
+/**
+ * `free_item` (0445) is buy one, get one: `value` is the percent off each unit given (100 = free)
+ * and the base is what those units cost (the server's `app.promotion_base_iqd` picks them).
+ */
+export type PromotionType = 'percent' | 'amount' | 'free_item';
 
 /**
  * The discount a promotion takes off a base, in integer IQD — the TS twin of
@@ -17,6 +21,7 @@ export type PromotionType = 'percent' | 'amount';
  *
  *   percent: base - apply_pct_discount(base, pct)      (pct 1..99, half-up)
  *   amount:  min(value, base)                          (value >= 1)
+ *   free_item: base at 100, else base - apply_pct_discount(base, value)   (value 1..100)
  *
  * The percent branch is defined THROUGH `applyPctDiscountIqd` (twin of
  * `app.apply_pct_discount`, 0030) rather than as a rounding of its own, so the
@@ -34,7 +39,11 @@ export function promotionDiscountIqd(base: number, type: PromotionType, value: n
   if (type === 'amount') {
     return iqd(Math.min(value, b));
   }
-  throw new RangeError(`promotion type must be percent or amount, got ${String(type)}`);
+  if (type === 'free_item') {
+    if (value > 100) throw new RangeError(`free_item promotions are 1..100, got ${value}`);
+    return value === 100 ? b : iqd(b - applyPctDiscountIqd(b, value));
+  }
+  throw new RangeError(`promotion type must be percent, amount or free_item, got ${String(type)}`);
 }
 
 /**

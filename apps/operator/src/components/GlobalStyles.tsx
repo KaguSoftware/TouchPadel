@@ -210,6 +210,10 @@ details[open] > .tp-crash-details .tp-crash-chev { transform: rotate(90deg); }
 [data-workspace='cashier'] .tp-iconbtn, [data-workspace='prep'] .tp-iconbtn {
   inline-size: var(--tp-touch); min-block-size: var(--tp-touch);
 }
+/* The till's service rail scrolls; its panels never shrink. A framed panel
+   clips its overflow, so in a flex column it would squeeze to a sliver (the
+   scanned slips at 2px on a 720px screen) instead of the rail scrolling. */
+.tp-till-rail > * { flex-shrink: 0; }
 
 .tp-req::after {
   content: '*';

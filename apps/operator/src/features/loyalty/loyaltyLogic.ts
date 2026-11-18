@@ -6,14 +6,29 @@
  * what the screen offers before it asks. Tested in loyaltyLogic.test.ts under node.
  */
 import {
+  CARD_FRAME_IDS,
   CARD_LADDER,
+  GIFT_TARGETS,
+  GIFT_WHENS,
   MEMBER_TOKEN_RE,
+  TIER_PERK_KINDS,
   TIER_PERK_REASON_CODE,
+  isDealVoucherCode,
   isVoucherCode,
+  parseDealVoucherCode,
   parseMemberInput,
+  parseVoucherCode,
   redeemAmount,
   tierColor,
   type TierColor,
+  type CardExtras,
+  type CardFrameId,
+  type GiftTarget,
+  type GiftWhen,
+  type PerkLine,
+  type PerkLineKind,
+  type StampCardSettings,
+  type TierPerkConfig,
   type CourtRewardState,
   type IdentifiedMember,
   type LedgerKind,
@@ -50,11 +65,42 @@ export function isMemberScan(code: string): boolean {
 }
 
 /**
- * 0415: true when a scanner burst is a member card or a reward voucher (TPV-…): the till routes
- * both to the bill's member block instead of the quick add.
+ * 0415: true when a scanner burst is a member card or a reward voucher (TPV-…), and (0445) a
+ * deal's code (TPD-…): the till routes all three to the bill's member block instead of the
+ * quick add.
  */
 export function isLoyaltyScan(code: string): boolean {
-  return isMemberScan(code) || isVoucherCode(code);
+  return isMemberScan(code) || isVoucherCode(code) || isDealVoucherCode(code);
+}
+
+/** 0445: a code from the guest's app, read from a scan or what was typed; null when it is neither. */
+export type AppCode = { kind: 'reward'; code: string } | { kind: 'deal'; code: string };
+
+/**
+ * 0445: which code from the app this is (a reward's TPV-…, a deal's TPD-…), canonical, or null.
+ * Neither kind is ever a member card, so a code that answers here never reaches loyalty_identify.
+ */
+export function parseAppCode(raw: string): AppCode | null {
+  const reward = parseVoucherCode(raw);
+  if (reward) return { kind: 'reward', code: reward };
+  const deal = parseDealVoucherCode(raw);
+  return deal ? { kind: 'deal', code: deal } : null;
+}
+
+/** The refusals of use_deal_voucher whose shared line speaks of a reward and its points. */
+const DEAL_CODE_REFUSALS = ['VOUCHER_NOT_FOUND', 'VOUCHER_USED', 'VOUCHER_EXPIRED', 'VOUCHER_WRONG_BRANCH'] as const;
+type DealCodeRefusal = (typeof DEAL_CODE_REFUSALS)[number];
+
+/**
+ * 0445: the deal code's own words for a refusal the shared catalogue words for reward codes
+ * (VOUCHER_EXPIRED there says the points went back; a deal holds none). Null: the catalogue's
+ * line is right as it is (DEAL_NOT_ON_BILL, VOUCHER_OTHER_MEMBER, TAB_NOT_OPEN, …).
+ */
+export function dealCodeErrorKey(error: unknown): `ws.loyalty.dealCode.errors.${DealCodeRefusal}` | null {
+  const code = (error as { code?: unknown } | null)?.code;
+  return typeof code === 'string' && (DEAL_CODE_REFUSALS as readonly string[]).includes(code)
+    ? `ws.loyalty.dealCode.errors.${code as DealCodeRefusal}`
+    : null;
 }
 
 // ---------------------------------------------------------------------------
@@ -164,13 +210,18 @@ export function readTabBenefits(raw: unknown): TabBenefits | null {
       due_iqd: Number(addons.due_iqd ?? 0) || 0,
       needs_refresh: addons.needs_refresh === true,
     },
+    // 0445: why each line is free; an older server sends none.
+    lines: readPerkLines(r.lines),
+    // 0445: the court hour a card gift took off the bill's booking.
+    court_gift: readCourtGift(r.court_gift),
     deal:
       d && typeof d.promotion_id === 'string'
         ? {
             promotion_id: d.promotion_id,
             name_en: String(d.name_en ?? ''),
             name_ar: String(d.name_ar ?? ''),
-            type: d.type === 'amount' ? 'amount' : 'percent',
+            // 0445: free_item is buy one, get one (value = percent off each unit given, 100 = free).
+            type: d.type === 'amount' ? 'amount' : d.type === 'free_item' ? 'free_item' : 'percent',
             value: Number(d.value ?? 0) || 0,
             applied: d.applied === true,
           }
@@ -205,6 +256,293 @@ export function perksRefreshSignature(b: TabBenefits, version: string): string {
  */
 export function benefitsShown(b: TabBenefits | null | undefined): b is TabBenefits {
   return Boolean(b && b.enabled && b.customer_id && (b.perks.length > 0 || b.deal));
+}
+
+/**
+ * 0445: the bill can show the member's card at all: loyalty on and a customer known. What it then
+ * shows (privileges, the drink card, a birthday gift, the deal) each decide for themselves, so a
+ * starter card with nothing but a drink card still shows the card.
+ */
+export function memberCardShown(b: TabBenefits | null | undefined): b is TabBenefits {
+  return Boolean(b && b.enabled && b.customer_id);
+}
+
+/** The order the till explains free lines in: the engine's own (app.loyalty_perks_detail). */
+export const PERK_LINE_KINDS: readonly PerkLineKind[] = ['stamp', 'gift', 'free_with', 'size_upgrade', 'free_addons'];
+
+/** loyalty_tab_benefits.lines with every figure a number; rows that make no sense are dropped. */
+export function readPerkLines(raw: unknown): PerkLine[] {
+  if (!Array.isArray(raw)) return [];
+  const out: PerkLine[] = [];
+  for (const r of raw as Partial<PerkLine>[]) {
+    if (!r || typeof r.order_item_id !== 'string' || !PERK_LINE_KINDS.includes(r.kind as PerkLineKind)) continue;
+    const amount = Number(r.amount_iqd ?? 0) || 0;
+    if (amount <= 0) continue;
+    out.push({
+      order_item_id: r.order_item_id,
+      kind: r.kind as PerkLineKind,
+      perk_id: typeof r.perk_id === 'string' ? r.perk_id : null,
+      units: Math.max(0, Number(r.units ?? 0) || 0),
+      amount_iqd: amount,
+    });
+  }
+  return out;
+}
+
+/** The privileges a bill lists for the cashier: a ring and a drink card size do nothing on a bill. */
+export function billPerks<T extends { kind: string }>(perks: readonly T[]): T[] {
+  return perks.filter((p) => p.kind !== 'frame' && p.kind !== 'stamp_size');
+}
+
+/** A bill privilege's gift `when` (gift privileges only), from its config; null otherwise. */
+export function perkGiftWhen(p: { kind: string; config?: unknown } | null | undefined): GiftWhen | null {
+  return p && p.kind === 'gift' ? giftWhenOf(configOf(p).when) : null;
+}
+
+/** The court hour a card gift took off the bill's booking, read safely; null when none. */
+export function readCourtGift(raw: unknown): NonNullable<TabBenefits['court_gift']> | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const r = raw as Partial<NonNullable<TabBenefits['court_gift']>>;
+  const amount = Number(r.amount_iqd ?? 0) || 0;
+  if (amount <= 0) return null;
+  return {
+    perk_id: typeof r.perk_id === 'string' ? r.perk_id : null,
+    name_en: typeof r.name_en === 'string' ? r.name_en : null,
+    name_ar: typeof r.name_ar === 'string' ? r.name_ar : null,
+    amount_iqd: amount,
+  };
+}
+
+/**
+ * How the cashier meets a privilege on a bill: the till frees it by itself (add-ons, a birthday
+ * gift, a free-with), or the staff give it by hand (custom).
+ */
+export function perkHandling(kind: string): 'till' | 'hand' {
+  return kind === 'custom' ? 'hand' : 'till';
+}
+
+/** One reason a line is free, ready for its label: the kind, and the privilege's names when known. */
+export interface PerkLineReason {
+  kind: PerkLineKind;
+  /** The privilege that freed it (gift, free_with), as the bill's perks name it; null when unknown. */
+  perk: { name_en: string; name_ar: string } | null;
+  /** A gift's `when` (birthday, monthly, card_up), from the privilege's config; null when unknown. */
+  when: GiftWhen | null;
+  units: number;
+  amount_iqd: number;
+}
+
+/**
+ * The reasons of one bill line, in the engine's order, merged by kind and privilege (a refresh
+ * keeps one detail row per reason, but a merge or an older bill can carry two).
+ */
+export function lineReasons(
+  orderItemId: string,
+  lines: readonly PerkLine[] | undefined,
+  perks: readonly { id: string; kind?: string; name_en: string; name_ar: string; config?: unknown }[],
+): PerkLineReason[] {
+  const by = new Map<string, PerkLineReason>();
+  for (const l of lines ?? []) {
+    if (l.order_item_id !== orderItemId) continue;
+    const key = `${l.kind}:${l.perk_id ?? ''}`;
+    const had = by.get(key);
+    if (had) {
+      had.units += l.units;
+      had.amount_iqd += l.amount_iqd;
+      continue;
+    }
+    const p = l.perk_id ? perks.find((x) => x.id === l.perk_id) : undefined;
+    by.set(key, {
+      kind: l.kind,
+      perk: p ? { name_en: p.name_en, name_ar: p.name_ar } : null,
+      when: l.kind === 'gift' && p ? giftWhenOf(configOf(p).when) : null,
+      units: l.units,
+      amount_iqd: l.amount_iqd,
+    });
+  }
+  return [...by.values()].sort((a, b) => PERK_LINE_KINDS.indexOf(a.kind) - PERK_LINE_KINDS.indexOf(b.kind));
+}
+
+export interface PerkLineTotal {
+  kind: PerkLineKind;
+  /** Gifts are summed by their `when` (a birthday gift and a monthly one are told apart); null otherwise or unknown. */
+  when: GiftWhen | null;
+  units: number;
+  amount_iqd: number;
+}
+
+/**
+ * The whole bill's free lines summed by reason, for the member block: one row per kind, and per
+ * `when` for gifts (read off the privilege in `perks`), in the engine's order.
+ */
+export function perkLineTotals(
+  lines: readonly PerkLine[] | undefined,
+  perks: readonly { id: string; kind?: string; config?: unknown }[] = [],
+): PerkLineTotal[] {
+  const by = new Map<string, PerkLineTotal>();
+  for (const l of lines ?? []) {
+    const p = l.kind === 'gift' && l.perk_id ? perks.find((x) => x.id === l.perk_id) : undefined;
+    const when = p ? giftWhenOf(configOf(p).when) : null;
+    const key = `${l.kind}:${when ?? ''}`;
+    const had = by.get(key) ?? { kind: l.kind, when, units: 0, amount_iqd: 0 };
+    had.units += l.units;
+    had.amount_iqd += l.amount_iqd;
+    by.set(key, had);
+  }
+  const whenOrder = (w: GiftWhen | null) => (w ? GIFT_WHENS.indexOf(w) : GIFT_WHENS.length);
+  return [...by.values()].sort(
+    (a, b) => PERK_LINE_KINDS.indexOf(a.kind) - PERK_LINE_KINDS.indexOf(b.kind) || whenOrder(a.when) - whenOrder(b.when),
+  );
+}
+
+/** A claim's end as the server sent it (an ISO timestamp), or null for none or anything else. */
+function claimedUntil(v: unknown): string | null {
+  return typeof v === 'string' && v !== '' && !Number.isNaN(Date.parse(v)) ? v : null;
+}
+
+/** app.loyalty_card_extras with every figure a number, whatever came back; null when not an answer. */
+export function readCardExtras(raw: unknown): CardExtras | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const r = raw as Partial<CardExtras>;
+  if (!r.stamps || typeof r.stamps !== 'object' || !r.birthday || typeof r.birthday !== 'object') return null;
+  const s = r.stamps as Partial<CardExtras['stamps']>;
+  const b = r.birthday as Partial<CardExtras['birthday']>;
+  const str = (v: unknown) => (typeof v === 'string' ? v : '');
+  return {
+    stamps: {
+      enabled: s.enabled === true,
+      count: Math.max(0, Number(s.count ?? 0) || 0),
+      size: Math.max(1, Number(s.size ?? STAMP_SIZE_STANDARD) || STAMP_SIZE_STANDARD),
+      ready: s.ready === true,
+      held: s.held === true,
+      // 0445 (Redeem in the app): until when the member's Redeem press holds; only while ready.
+      claimed_until: claimedUntil(s.claimed_until),
+    },
+    birthday: {
+      has_date: b.has_date === true,
+      gifts: (Array.isArray(b.gifts) ? b.gifts : [])
+        .filter((g) => g && typeof g.perk_id === 'string')
+        .map((g) => ({
+          perk_id: g.perk_id,
+          name_en: str(g.name_en),
+          name_ar: str(g.name_ar),
+          target: giftTargetOf(g.target),
+          window_from: typeof g.window_from === 'string' ? g.window_from : null,
+          window_to: typeof g.window_to === 'string' ? g.window_to : null,
+          eligible: g.eligible === true,
+          used: g.used === true,
+          claimed_until: claimedUntil(g.claimed_until),
+        })),
+      counts_from: typeof b.counts_from === 'string' ? b.counts_from : null,
+      gifts_on_card: (Array.isArray(b.gifts_on_card) ? b.gifts_on_card : [])
+        .filter((g) => g && typeof g.perk_id === 'string')
+        .map((g) => ({
+          perk_id: g.perk_id,
+          name_en: str(g.name_en),
+          name_ar: str(g.name_ar),
+          target: giftTargetOf(g.target),
+          days: Number(g.days ?? GIFT_DAYS_DEFAULT) || GIFT_DAYS_DEFAULT,
+        })),
+    },
+    // 0445: the monthly and card-up gifts open now; absent from an older answer.
+    gifts: (Array.isArray(r.gifts) ? r.gifts : [])
+      .filter((g) => g && typeof g.perk_id === 'string' && (g.when === 'monthly' || g.when === 'card_up'))
+      .map((g) => ({
+        perk_id: g.perk_id,
+        name_en: str(g.name_en),
+        name_ar: str(g.name_ar),
+        when: g.when,
+        target: giftTargetOf(g.target),
+        window_to: str(g.window_to),
+        used: g.used === true,
+        claimed_until: claimedUntil(g.claimed_until),
+      })),
+  };
+}
+
+/**
+ * Where the member's drink card stands, as the desk reads it at a glance:
+ *   off           the drink card (or loyalty) is off: nothing shown;
+ *   filling       count of size, no free drink yet;
+ *   onThisBill    this bill carries the free drink (a stamp line);
+ *   heldElsewhere another open bill of theirs carries it;
+ *   ready         full: the next bill a till opens frees their dearest stamping drink.
+ */
+export type StampState = 'off' | 'filling' | 'ready' | 'onThisBill' | 'heldElsewhere';
+
+export function stampState(extras: CardExtras | null | undefined, lines: readonly PerkLine[] | undefined): StampState {
+  const s = extras?.stamps;
+  if (!s || !s.enabled) return 'off';
+  if ((lines ?? []).some((l) => l.kind === 'stamp')) return 'onThisBill';
+  if (s.held) return 'heldElsewhere';
+  if (s.ready || s.count >= s.size) return 'ready';
+  return 'filling';
+}
+
+export type GiftTodayState = 'onThisBill' | 'open' | 'used' | 'tooRecent';
+
+export interface GiftToday {
+  perk_id: string;
+  name_en: string;
+  name_ar: string;
+  when: GiftWhen;
+  target: GiftTarget;
+  state: GiftTodayState;
+  /**
+   * 0445 (Redeem in the app): until when the member's Redeem press (or a till's "Give it now")
+   * holds, else null. A gift reaches a bill only once redeemed.
+   */
+  claimed_until: string | null;
+}
+
+/**
+ * The card gifts open now (birthday first, then monthly, then card-up), in the four states the
+ * desk tells the guest about: on this bill (a gift line of it, or the court hour it took off this
+ * bill's booking), open, already used (or held by another bill), or, for a birthday gift only,
+ * not given because the birth date is too new.
+ */
+export function giftsToday(
+  extras: CardExtras | null | undefined,
+  lines: readonly PerkLine[] | undefined,
+  courtGift: TabBenefits['court_gift'] = null,
+): GiftToday[] {
+  const onBill = new Set((lines ?? []).filter((l) => l.kind === 'gift' && l.perk_id).map((l) => l.perk_id as string));
+  if (courtGift?.perk_id) onBill.add(courtGift.perk_id);
+  const birthday: GiftToday[] = (extras?.birthday.gifts ?? []).map((g) => ({
+    perk_id: g.perk_id,
+    name_en: g.name_en,
+    name_ar: g.name_ar,
+    when: 'birthday',
+    target: giftTargetOf(g.target),
+    state: onBill.has(g.perk_id) ? 'onThisBill' : !g.eligible ? 'tooRecent' : g.used ? 'used' : 'open',
+    claimed_until: g.claimed_until ?? null,
+  }));
+  const others: GiftToday[] = (extras?.gifts ?? []).map((g) => ({
+    perk_id: g.perk_id,
+    name_en: g.name_en,
+    name_ar: g.name_ar,
+    when: g.when,
+    target: giftTargetOf(g.target),
+    state: onBill.has(g.perk_id) ? 'onThisBill' : g.used ? 'used' : 'open',
+    claimed_until: g.claimed_until ?? null,
+  }));
+  return [...birthday, ...others.sort((a, b) => GIFT_WHENS.indexOf(a.when) - GIFT_WHENS.indexOf(b.when))];
+}
+
+/**
+ * 0445 (Redeem in the app): a ready free drink or an open gift reaches a bill only after a claim.
+ * `claimed` (with when it ends) once the member pressed Redeem, or a till gave it; `waiting`
+ * otherwise, which is when the till offers "Give it now" for a member without the app.
+ */
+export type RewardClaim = { kind: 'claimed'; until: string } | { kind: 'waiting' };
+
+export function rewardClaim(claimedUntilIso: string | null | undefined): RewardClaim {
+  return claimedUntilIso ? { kind: 'claimed', until: claimedUntilIso } : { kind: 'waiting' };
+}
+
+/** True when the extras have anything for the bill to show. */
+export function extrasShown(extras: CardExtras | null | undefined): boolean {
+  return Boolean(extras && (extras.stamps.enabled || extras.birthday.gifts.length > 0 || (extras.gifts ?? []).length > 0));
 }
 
 /** What the staff side knows of the settings: the point value may be unreadable for a cashier. */
@@ -561,6 +899,65 @@ export interface AddonGroup {
   name_ar: string;
 }
 
+/** A menu section or item as a picker and a privilege's summary name it. */
+export interface MenuNamed {
+  id: string;
+  name_en: string;
+  name_ar: string;
+}
+
+/** The café menu's sections and items, as names (useAdminMenu). */
+export interface MenuNames {
+  categories: readonly MenuNamed[];
+  items: readonly MenuNamed[];
+}
+
+/** The ids the menu still has; null where the menu has not been read. */
+export interface MenuKnown {
+  categories: ReadonlySet<string>;
+  items: ReadonlySet<string>;
+}
+
+/** The menu's ids as sets, for perkErrors / perkPayload / the drink card. */
+export function menuKnown(menu: MenuNames | null | undefined): MenuKnown | null {
+  if (!menu) return null;
+  return { categories: new Set(menu.categories.map((c) => c.id)), items: new Set(menu.items.map((i) => i.id)) };
+}
+
+/** 0445: a birthday gift's window, in days from the birthday (the server's 1..31, default 7). */
+export const GIFT_DAYS_DEFAULT = 7;
+export const GIFT_DAYS_MAX = 31;
+/** A card-up gift's window, in days from the day the member reached the card (1..90, default 30). */
+export const CARD_UP_DAYS_DEFAULT = 30;
+export const CARD_UP_DAYS_MAX = 90;
+
+/** The days a gift's `when` starts with; monthly has none (the calendar month). */
+export function giftDaysDefault(when: GiftWhen): number | null {
+  return when === 'birthday' ? GIFT_DAYS_DEFAULT : when === 'card_up' ? CARD_UP_DAYS_DEFAULT : null;
+}
+
+/** The most days a gift's `when` allows; null for monthly. */
+export function giftDaysMax(when: GiftWhen): number | null {
+  return when === 'birthday' ? GIFT_DAYS_MAX : when === 'card_up' ? CARD_UP_DAYS_MAX : null;
+}
+
+/** A gift's `when`, read safely (absent = birthday, as the server defaults it). */
+export function giftWhenOf(v: unknown): GiftWhen {
+  return (GIFT_WHENS as readonly unknown[]).includes(v) ? (v as GiftWhen) : 'birthday';
+}
+
+/** A gift's `target`, read safely (absent = items, as the server defaults it). */
+export function giftTargetOf(v: unknown): GiftTarget {
+  return (GIFT_TARGETS as readonly unknown[]).includes(v) ? (v as GiftTarget) : 'items';
+}
+/** 0445: a drink card fills at 2..20 stamps; the club's standard starts at 8. */
+export const STAMP_SIZE_MIN = 2;
+export const STAMP_SIZE_MAX = 20;
+export const STAMP_SIZE_STANDARD = 8;
+
+/** The order the editor offers the kinds in (TIER_PERK_KINDS: the till's own kinds first, by hand last). */
+export const PERK_KINDS: readonly TierPerkKind[] = TIER_PERK_KINDS;
+
 export interface PerkDraft {
   id: string | null;
   tier_id: string;
@@ -568,16 +965,67 @@ export interface PerkDraft {
   name_en: string;
   name_ar: string;
   /**
-   * True until the owner types a name: the two names then follow the choice of add-ons
-   * (defaultPerkNames). An existing privilege keeps the names it was saved with.
+   * True until the owner types a name: the two names then follow what the privilege gives
+   * (defaultNamesFor). An existing privilege keeps the names it was saved with.
    */
   autoName: boolean;
   /** free_addons: every paid add-on, or only the groups chosen. */
   scope: 'all' | 'groups';
   modifier_group_ids: string[];
+  /** gift (0445): when it opens (birthday, every month, on reaching this card). */
+  giftWhen: GiftWhen;
+  /** gift: one unit of a matching menu item, or one hour of the booking's court fee. */
+  giftTarget: GiftTarget;
+  /** gift, target items: the menu sections and items one unit of which is free. */
+  giftCategoryIds: string[];
+  giftItemIds: string[];
+  /** gift: how many days it can be used from its start (text, as typed); unused for monthly. */
+  giftDays: string;
+  /** size_upgrade (0445): the menu sections and items charged one size down. */
+  sizeCategoryIds: string[];
+  sizeItemIds: string[];
+  /** free_with (0445): what must be on the bill, and what one unit of comes free with each. */
+  triggerCategoryIds: string[];
+  triggerItemIds: string[];
+  freeCategoryIds: string[];
+  freeItemIds: string[];
+  /** frame (0445): the profile ring the card unlocks. */
+  frameId: CardFrameId;
+  /** stamp_size (0445): the stamps this card's drink card fills at (text, as typed). */
+  stampSize: string;
   active: boolean;
   /** Null on a new privilege: the server puts it after the tier's last one. */
   sort: number | null;
+}
+
+/** The ring a frame privilege names, read safely (an unknown one reads as the green card's). */
+export function frameIdOf(v: unknown): CardFrameId {
+  return (CARD_FRAME_IDS as readonly unknown[]).includes(v) ? (v as CardFrameId) : 'card-green';
+}
+
+/** The card word of a ring: card-green → green. */
+export function frameWord(id: CardFrameId): 'green' | 'blue' | 'black' {
+  return id === 'card-blue' ? 'blue' : id === 'card-black' ? 'black' : 'green';
+}
+
+function idList(v: unknown): string[] {
+  return Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string' && x !== '') : [];
+}
+
+function configOf(p: { config?: unknown } | null | undefined): Record<string, unknown> {
+  const c = p?.config;
+  return c && typeof c === 'object' && !Array.isArray(c) ? (c as Record<string, unknown>) : {};
+}
+
+function namesIn(list: readonly MenuNamed[], locale: 'en' | 'ar'): string[] {
+  return list
+    .map((g) => (locale === 'ar' ? g.name_ar || g.name_en : g.name_en || g.name_ar).trim())
+    .filter(Boolean);
+}
+
+function pickedNamed(ids: readonly string[], from: readonly MenuNamed[] | undefined): MenuNamed[] {
+  if (!from) return [];
+  return ids.map((id) => from.find((x) => x.id === id)).filter((x): x is MenuNamed => Boolean(x));
 }
 
 /**
@@ -592,7 +1040,7 @@ export function defaultPerkNames(
     const tr = makeT(locale);
     const K = 'ws.loyalty.setup.perks.defaults';
     if (scope === 'all') return tr(`${K}.all`);
-    const names = groups.map((g) => (locale === 'ar' ? g.name_ar || g.name_en : g.name_en || g.name_ar).trim()).filter(Boolean);
+    const names = namesIn(groups, locale);
     if (names.length === 0) return tr(`${K}.some`);
     const line = tr(`${K}.groups`, { groups: names.join(tr(`${K}.sep`)) });
     return line.length <= PERK_NAME_MAX ? line : tr(`${K}.some`);
@@ -600,26 +1048,132 @@ export function defaultPerkNames(
   return { name_en: one('en'), name_ar: one('ar') };
 }
 
-/** The draft with its names brought in line with its add-ons, while they are still the default. */
-export function withAutoNames(d: PerkDraft, groups: readonly AddonGroup[]): PerkDraft {
+/**
+ * 0445: the names any kind starts with, in both languages. A birthday gift names what it frees
+ * ("Birthday gift: Hot drinks"), a free-with privilege both sides ("Free Tea with Desserts"), a
+ * ring its card, a smaller drink card its size; each falls back to a plain line when the menu's
+ * names are unknown or too long for the 80 characters a name may have. Something else: none.
+ */
+export function defaultNamesFor(
+  d: PerkDraft,
+  groups: readonly AddonGroup[],
+  menu: MenuNames | null,
+): { name_en: string; name_ar: string } {
+  if (d.kind === 'free_addons') {
+    const chosen = d.scope === 'groups' ? groups.filter((g) => d.modifier_group_ids.includes(g.id)) : [];
+    return defaultPerkNames(d.scope, chosen);
+  }
+  if (d.kind === 'custom') return { name_en: '', name_ar: '' };
+  const K = 'ws.loyalty.setup.perks.defaults';
+  const fit = (line: string, plain: string) => (line.length <= PERK_NAME_MAX ? line : plain);
+  const one = (locale: 'en' | 'ar') => {
+    const tr = makeT(locale);
+    const sep = tr(`${K}.sep`);
+    const list = (cats: readonly string[], items: readonly string[]) =>
+      [...namesIn(pickedNamed(cats, menu?.categories), locale), ...namesIn(pickedNamed(items, menu?.items), locale)];
+    switch (d.kind) {
+      case 'gift': {
+        const plain = tr(`${K}.giftPlain.${d.giftWhen}`);
+        if (d.giftTarget === 'court_hour') return tr(`${K}.giftCourt.${d.giftWhen}`);
+        const what = list(d.giftCategoryIds, d.giftItemIds);
+        return what.length === 0 ? plain : fit(tr(`${K}.gift.${d.giftWhen}`, { what: what.join(sep) }), plain);
+      }
+      case 'size_upgrade': {
+        const what = list(d.sizeCategoryIds, d.sizeItemIds);
+        return what.length === 0 ? tr(`${K}.sizeUpgradePlain`) : fit(tr(`${K}.sizeUpgrade`, { what: what.join(sep) }), tr(`${K}.sizeUpgradePlain`));
+      }
+      case 'free_with': {
+        const free = list(d.freeCategoryIds, d.freeItemIds);
+        const trigger = list(d.triggerCategoryIds, d.triggerItemIds);
+        if (free.length === 0 || trigger.length === 0) return tr(`${K}.freeWithPlain`);
+        return fit(tr(`${K}.freeWith`, { free: free.join(sep), trigger: trigger.join(sep) }), tr(`${K}.freeWithPlain`));
+      }
+      case 'frame':
+        return tr(`${K}.frame.${frameWord(d.frameId)}`);
+      case 'stamp_size': {
+        const n = parseWhole(d.stampSize);
+        return n === null ? tr(`${K}.stampSizePlain`) : tr(`${K}.stampSize`, { n });
+      }
+      default:
+        return '';
+    }
+  };
+  return { name_en: one('en'), name_ar: one('ar') };
+}
+
+/** The draft with its names brought in line with what it gives, while they are still the default. */
+export function withAutoNames(d: PerkDraft, groups: readonly AddonGroup[], menu: MenuNames | null = null): PerkDraft {
   if (!d.autoName) return d;
-  if (d.kind === 'custom') return { ...d, name_en: '', name_ar: '' };
-  const chosen = d.scope === 'groups' ? groups.filter((g) => d.modifier_group_ids.includes(g.id)) : [];
-  return { ...d, ...defaultPerkNames(d.scope, chosen) };
+  return { ...d, ...defaultNamesFor(d, groups, menu) };
+}
+
+const EMPTY_KIND_FIELDS = {
+  scope: 'all' as const,
+  modifier_group_ids: [] as string[],
+  giftWhen: 'birthday' as GiftWhen,
+  giftTarget: 'items' as GiftTarget,
+  giftCategoryIds: [] as string[],
+  giftItemIds: [] as string[],
+  giftDays: String(GIFT_DAYS_DEFAULT),
+  sizeCategoryIds: [] as string[],
+  sizeItemIds: [] as string[],
+  triggerCategoryIds: [] as string[],
+  triggerItemIds: [] as string[],
+  freeCategoryIds: [] as string[],
+  freeItemIds: [] as string[],
+  frameId: 'card-green' as CardFrameId,
+  stampSize: '',
+};
+
+function giftFields(c: Record<string, unknown>) {
+  const when = giftWhenOf(c.when);
+  const fallback = giftDaysDefault(when) ?? GIFT_DAYS_DEFAULT;
+  return {
+    giftWhen: when,
+    giftTarget: giftTargetOf(c.target),
+    giftCategoryIds: idList(c.categoryIds),
+    giftItemIds: idList(c.itemIds),
+    giftDays: String(Number(c.days) > 0 ? Number(c.days) : fallback),
+  };
+}
+
+/**
+ * The draft with a gift's `when` changed: the days move to that `when`'s default (a birthday
+ * week, a month after reaching the card), since a number typed for one rarely fits the other.
+ */
+export function withGiftWhen(d: PerkDraft, when: GiftWhen): Partial<PerkDraft> {
+  if (d.giftWhen === when) return {};
+  const days = giftDaysDefault(when);
+  return { giftWhen: when, ...(days !== null ? { giftDays: String(days) } : {}) };
 }
 
 export function perkDraft(p: LoyaltyAdminPerk | null, tierId: string): PerkDraft {
   if (p) {
     const ids = Array.isArray(p.modifier_group_ids) ? p.modifier_group_ids : [];
+    const c = configOf(p);
+    const kind: TierPerkKind = (TIER_PERK_KINDS as readonly string[]).includes(p.kind) ? p.kind : 'free_addons';
     return {
       id: p.id,
       tier_id: p.tier_id ?? tierId,
-      kind: p.kind === 'custom' ? 'custom' : 'free_addons',
+      kind,
       name_en: p.name_en,
       name_ar: p.name_ar,
       autoName: false,
+      ...EMPTY_KIND_FIELDS,
       scope: ids.length > 0 ? 'groups' : 'all',
       modifier_group_ids: [...ids],
+      ...(kind === 'gift' ? giftFields(c) : {}),
+      ...(kind === 'size_upgrade' ? { sizeCategoryIds: idList(c.categoryIds), sizeItemIds: idList(c.itemIds) } : {}),
+      ...(kind === 'free_with'
+        ? {
+            triggerCategoryIds: idList(c.triggerCategoryIds),
+            triggerItemIds: idList(c.triggerItemIds),
+            freeCategoryIds: idList(c.freeCategoryIds),
+            freeItemIds: idList(c.freeItemIds),
+          }
+        : {}),
+      ...(kind === 'frame' ? { frameId: frameIdOf(c.frameId) } : {}),
+      ...(kind === 'stamp_size' && Number(c.size) > 0 ? { stampSize: String(Number(c.size)) } : {}),
       active: p.active !== false,
       sort: typeof p.sort === 'number' ? p.sort : null,
     };
@@ -630,48 +1184,128 @@ export function perkDraft(p: LoyaltyAdminPerk | null, tierId: string): PerkDraft
     kind: 'free_addons',
     ...defaultPerkNames('all', []),
     autoName: true,
-    scope: 'all',
-    modifier_group_ids: [],
+    ...EMPTY_KIND_FIELDS,
     active: true,
     sort: null,
   };
 }
 
 /**
- * The groups a draft frees that the menu still has. `known` null (the menu has not been read)
+ * The ids a draft names that the menu still has. `known` null (the menu has not been read)
  * keeps every id: nothing can be told apart yet.
  */
-export function liveGroupIds(ids: readonly string[], known: ReadonlySet<string> | null): string[] {
+export function liveGroupIds(ids: readonly string[], known: ReadonlySet<string> | null | undefined): string[] {
   return known ? ids.filter((id) => known.has(id)) : [...ids];
+}
+
+export interface PerkErrors {
+  names?: true;
+  groups?: true;
+  /** gift (target items): no menu section or item chosen (or none left on the menu). */
+  giftItems?: true;
+  /** gift: days outside its `when`'s range (birthday 1..31, card_up 1..90). */
+  days?: true;
+  /** size_upgrade: no menu section or item chosen (or none left on the menu). */
+  sizeItems?: true;
+  /** free_with: nothing chosen that must be on the bill. */
+  trigger?: true;
+  /** free_with: nothing chosen that comes free. */
+  free?: true;
+  /** stamp_size: not 2..20. */
+  size?: true;
 }
 
 /**
  * `groups` matters most: an empty list means EVERY add-on to the server, so "only these groups"
  * with none left (none ticked, or every ticked one since removed from the menu) must never be
- * saved as it stands. It would quietly make every add-on free.
+ * saved as it stands. It would quietly make every add-on free. The 0445 kinds need what the
+ * server checks (app.upsert_loyalty_tier_perk): something to give, and the numbers in range.
  */
-export function perkErrors(
-  d: PerkDraft,
-  known: ReadonlySet<string> | null,
-): { names?: true; groups?: true } {
+export function perkErrors(d: PerkDraft, known: ReadonlySet<string> | null, menu: MenuKnown | null = null): PerkErrors {
   const en = d.name_en.trim();
   const ar = d.name_ar.trim();
-  return {
-    ...(en === '' || ar === '' || en.length > PERK_NAME_MAX || ar.length > PERK_NAME_MAX
-      ? { names: true as const }
-      : {}),
-    ...(d.kind === 'free_addons' && d.scope === 'groups' && liveGroupIds(d.modifier_group_ids, known).length === 0
-      ? { groups: true as const }
-      : {}),
-  };
+  const out: PerkErrors = {};
+  if (en === '' || ar === '' || en.length > PERK_NAME_MAX || ar.length > PERK_NAME_MAX) out.names = true;
+  const none = (cats: readonly string[], items: readonly string[]) =>
+    liveGroupIds(cats, menu?.categories).length + liveGroupIds(items, menu?.items).length === 0;
+  switch (d.kind) {
+    case 'free_addons':
+      if (d.scope === 'groups' && liveGroupIds(d.modifier_group_ids, known).length === 0) out.groups = true;
+      break;
+    case 'gift': {
+      if (d.giftTarget === 'items' && none(d.giftCategoryIds, d.giftItemIds)) out.giftItems = true;
+      const max = giftDaysMax(d.giftWhen);
+      if (max !== null) {
+        const n = parseWhole(d.giftDays);
+        if (n === null || n < 1 || n > max) out.days = true;
+      }
+      break;
+    }
+    case 'size_upgrade':
+      if (none(d.sizeCategoryIds, d.sizeItemIds)) out.sizeItems = true;
+      break;
+    case 'free_with':
+      if (none(d.triggerCategoryIds, d.triggerItemIds)) out.trigger = true;
+      if (none(d.freeCategoryIds, d.freeItemIds)) out.free = true;
+      break;
+    case 'stamp_size': {
+      const n = parseWhole(d.stampSize);
+      if (n === null || n < STAMP_SIZE_MIN || n > STAMP_SIZE_MAX) out.size = true;
+      break;
+    }
+    default:
+      break;
+  }
+  return out;
+}
+
+/** The config app.upsert_loyalty_tier_perk checks for a 0445 kind; null for free_addons and custom. */
+export function perkConfig(d: PerkDraft, menu: MenuKnown | null = null): TierPerkConfig | null {
+  switch (d.kind) {
+    case 'gift': {
+      const items = d.giftTarget === 'items';
+      const days = giftDaysMax(d.giftWhen) === null ? null : (parseWhole(d.giftDays) ?? giftDaysDefault(d.giftWhen));
+      return {
+        when: d.giftWhen,
+        target: d.giftTarget,
+        categoryIds: items ? liveGroupIds(d.giftCategoryIds, menu?.categories) : [],
+        itemIds: items ? liveGroupIds(d.giftItemIds, menu?.items) : [],
+        ...(days !== null ? { days } : {}),
+      };
+    }
+    case 'size_upgrade':
+      return {
+        categoryIds: liveGroupIds(d.sizeCategoryIds, menu?.categories),
+        itemIds: liveGroupIds(d.sizeItemIds, menu?.items),
+      };
+    case 'free_with':
+      return {
+        triggerCategoryIds: liveGroupIds(d.triggerCategoryIds, menu?.categories),
+        triggerItemIds: liveGroupIds(d.triggerItemIds, menu?.items),
+        freeCategoryIds: liveGroupIds(d.freeCategoryIds, menu?.categories),
+        freeItemIds: liveGroupIds(d.freeItemIds, menu?.items),
+      };
+    case 'frame':
+      return { frameId: d.frameId };
+    case 'stamp_size':
+      return { size: parseWhole(d.stampSize) ?? STAMP_SIZE_STANDARD };
+    default:
+      return null;
+  }
 }
 
 /**
  * The p_perk app.upsert_loyalty_tier_perk takes (no id: a new privilege); call only when
- * perkErrors is empty. A custom privilege and "every add-on" both carry no groups; a group the
- * menu no longer has is left out (the server refuses an unknown one).
+ * perkErrors is empty. A custom privilege and "every add-on" both carry no groups; a group, menu
+ * section or item the menu no longer has is left out (the server refuses an unknown one). Only
+ * the 0445 kinds carry a config: for free add-ons and custom the server keeps it empty.
  */
-export function perkPayload(d: PerkDraft, known: ReadonlySet<string> | null): Record<string, unknown> {
+export function perkPayload(
+  d: PerkDraft,
+  known: ReadonlySet<string> | null,
+  menu: MenuKnown | null = null,
+): Record<string, unknown> {
+  const config = perkConfig(d, menu);
   return {
     ...(d.id ? { id: d.id } : {}),
     tier_id: d.tier_id,
@@ -680,12 +1314,27 @@ export function perkPayload(d: PerkDraft, known: ReadonlySet<string> | null): Re
     name_ar: d.name_ar.trim(),
     modifier_group_ids:
       d.kind === 'free_addons' && d.scope === 'groups' ? liveGroupIds(d.modifier_group_ids, known) : [],
+    ...(config ? { config } : {}),
     active: d.active,
     ...(d.sort !== null ? { sort: d.sort } : {}),
   };
 }
 
-/** What a privilege gives, for its row: a hand-honoured line, every add-on, or the named groups. */
+/** Chosen menu ids, read against the menu: the ones it has by name, and how many it lost. */
+export interface MenuPick {
+  named: MenuNamed[];
+  missing: number;
+  count: number;
+}
+
+function menuPick(cats: readonly string[], items: readonly string[], menu: MenuNames | null): MenuPick {
+  const count = cats.length + items.length;
+  if (!menu) return { named: [], missing: 0, count };
+  const named = [...pickedNamed(cats, menu.categories), ...pickedNamed(items, menu.items)];
+  return { named, missing: count - named.length, count };
+}
+
+/** What a privilege gives, for its row in plain words. */
 export type PerkGives =
   | { kind: 'custom' }
   | { kind: 'all' }
@@ -697,19 +1346,153 @@ export type PerkGives =
       missing: number;
       /** How many were chosen, known or not. */
       count: number;
-    };
+    }
+  | { kind: 'gift'; when: GiftWhen; target: GiftTarget; what: MenuPick; days: number | null }
+  | { kind: 'size_upgrade'; what: MenuPick }
+  | { kind: 'free_with'; trigger: MenuPick; free: MenuPick }
+  | { kind: 'frame'; frameId: CardFrameId }
+  | { kind: 'stamp_size'; size: number };
 
-/** `groups` null: the menu has not been read (or could not be), so only the count is known. */
+/** `groups` / `menu` null: not read (or could not be), so only the counts are known. */
 export function perkGives(
-  p: Pick<LoyaltyAdminPerk, 'kind' | 'modifier_group_ids'>,
+  p: Pick<LoyaltyAdminPerk, 'kind' | 'modifier_group_ids'> & { config?: unknown },
   groups: readonly AddonGroup[] | null,
+  menu: MenuNames | null = null,
 ): PerkGives {
-  if (p.kind === 'custom') return { kind: 'custom' };
+  const c = configOf(p);
+  switch (p.kind) {
+    case 'custom':
+      return { kind: 'custom' };
+    case 'gift': {
+      const when = giftWhenOf(c.when);
+      const target = giftTargetOf(c.target);
+      return {
+        kind: 'gift',
+        when,
+        target,
+        what: target === 'items' ? menuPick(idList(c.categoryIds), idList(c.itemIds), menu) : { named: [], missing: 0, count: 0 },
+        days: giftDaysDefault(when) === null ? null : Number(c.days) > 0 ? Number(c.days) : giftDaysDefault(when),
+      };
+    }
+    case 'size_upgrade':
+      return { kind: 'size_upgrade', what: menuPick(idList(c.categoryIds), idList(c.itemIds), menu) };
+    case 'free_with':
+      return {
+        kind: 'free_with',
+        trigger: menuPick(idList(c.triggerCategoryIds), idList(c.triggerItemIds), menu),
+        free: menuPick(idList(c.freeCategoryIds), idList(c.freeItemIds), menu),
+      };
+    case 'frame':
+      return { kind: 'frame', frameId: frameIdOf(c.frameId) };
+    case 'stamp_size':
+      return { kind: 'stamp_size', size: Number(c.size) > 0 ? Number(c.size) : STAMP_SIZE_STANDARD };
+    default:
+      break;
+  }
   const ids = Array.isArray(p.modifier_group_ids) ? p.modifier_group_ids : [];
   if (ids.length === 0) return { kind: 'all' };
   if (!groups) return { kind: 'groups', groups: [], missing: 0, count: ids.length };
   const found = ids.map((id) => groups.find((g) => g.id === id)).filter((g): g is AddonGroup => Boolean(g));
   return { kind: 'groups', groups: found, missing: ids.length - found.length, count: ids.length };
+}
+
+/** True when a privilege's row should warn: something it names is gone from the menu. */
+export function perkMissing(g: PerkGives): number {
+  if (g.kind === 'groups') return g.missing;
+  if (g.kind === 'gift' || g.kind === 'size_upgrade') return g.what.missing;
+  if (g.kind === 'free_with') return g.trigger.missing + g.free.missing;
+  return 0;
+}
+
+/**
+ * 0445: the drink card size each card's privileges set (the lowest active stamp_size of the card
+ * and every card below it, as app.loyalty_stamp_size takes it), for the cards that change it.
+ */
+export function stampSizesByCard(
+  tiers: readonly Pick<LoyaltyAdminTier, 'id' | 'sort' | 'perks' | 'name_en' | 'name_ar'>[],
+  standard: number,
+): { tier: Pick<LoyaltyAdminTier, 'id' | 'name_en' | 'name_ar'>; size: number }[] {
+  const sorted = [...tiers].sort((a, b) => a.sort - b.sort);
+  const out: { tier: Pick<LoyaltyAdminTier, 'id' | 'name_en' | 'name_ar'>; size: number }[] = [];
+  let lowest = standard;
+  for (const t of sorted) {
+    for (const p of t.perks ?? []) {
+      if (p.kind !== 'stamp_size' || p.active === false) continue;
+      const n = Number(configOf(p).size);
+      if (n >= STAMP_SIZE_MIN && n < lowest) lowest = n;
+    }
+    if (lowest < standard) out.push({ tier: t, size: lowest });
+  }
+  return out;
+}
+
+// ---------------------------------------------------------------------------
+// Setup › Loyalty: the drink card (0445)
+// ---------------------------------------------------------------------------
+
+/** app.stamp_card_settings with every list a list, whatever came back; null when not an answer. */
+export function readStampCard(raw: unknown): StampCardSettings | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const r = raw as Partial<StampCardSettings>;
+  if (typeof r.enabled !== 'boolean' && r.size === undefined) return null;
+  const size = Number(r.size);
+  return {
+    enabled: r.enabled === true,
+    size: Number.isInteger(size) && size >= STAMP_SIZE_MIN && size <= STAMP_SIZE_MAX ? size : STAMP_SIZE_STANDARD,
+    category_ids: idList(r.category_ids),
+    excluded_item_ids: idList(r.excluded_item_ids),
+    updated_at: typeof r.updated_at === 'string' ? r.updated_at : null,
+  };
+}
+
+export interface StampCardDraft {
+  enabled: boolean;
+  size: string;
+  category_ids: string[];
+  excluded_item_ids: string[];
+}
+
+export function stampCardDraft(s: StampCardSettings): StampCardDraft {
+  return {
+    enabled: s.enabled,
+    size: String(s.size),
+    category_ids: [...s.category_ids],
+    excluded_item_ids: [...s.excluded_item_ids],
+  };
+}
+
+/**
+ * What app.set_stamp_card refuses, asked first: a size outside 2..20, and a drink card that is on
+ * with no menu section to stamp (none chosen, or every chosen one gone from the menu).
+ */
+export function stampCardErrors(d: StampCardDraft, menu: MenuKnown | null): { size?: true; categories?: true } {
+  const n = parseWhole(d.size);
+  return {
+    ...(n === null || n < STAMP_SIZE_MIN || n > STAMP_SIZE_MAX ? { size: true as const } : {}),
+    ...(d.enabled && liveGroupIds(d.category_ids, menu?.categories).length === 0 ? { categories: true as const } : {}),
+  };
+}
+
+/** The p_card app.set_stamp_card takes; ids the menu no longer has are left out (the server refuses them). */
+export function stampCardPayload(d: StampCardDraft, menu: MenuKnown | null): StampCardSettings {
+  return {
+    enabled: d.enabled,
+    size: parseWhole(d.size) ?? STAMP_SIZE_STANDARD,
+    category_ids: liveGroupIds(d.category_ids, menu?.categories),
+    excluded_item_ids: liveGroupIds(d.excluded_item_ids, menu?.items),
+  };
+}
+
+/**
+ * The items the "never stamp" picker offers: the items of the stamping sections, and any item
+ * already excluded (so one whose section was taken off can still be removed).
+ */
+export function excludableItems<T extends { id: string; category_id: string }>(
+  items: readonly T[],
+  d: Pick<StampCardDraft, 'category_ids' | 'excluded_item_ids'>,
+): T[] {
+  const cats = new Set(d.category_ids);
+  return items.filter((i) => cats.has(i.category_id) || d.excluded_item_ids.includes(i.id));
 }
 
 /** A tier's privileges in the order the guest reads them. */

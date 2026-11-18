@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -7,7 +7,7 @@ import { type AssistantScope } from '@touch/core/assistant/tools';
 import { Text } from '../../src/i18n/text';
 import { useLocale } from '../../src/i18n/LocaleProvider';
 import { radius, space, useTheme } from '../../src/theme';
-import { Hint, MicroLabel, Screen } from '../../src/components/ui';
+import { Button, Hint, MicroLabel, Screen } from '../../src/components/ui';
 import { KeyboardAvoid } from '../../src/components/KeyboardAvoid';
 import { ErrorState, SkeletonList } from '../../src/components/states';
 import { ClockIcon, PlusIcon, SlidersIcon, SparkIcon } from '../../src/components/icons';
@@ -40,6 +40,8 @@ import { SettingsSheet } from '../../src/features/assistant/SettingsSheet';
 import { FreeThread } from '../../src/features/assistant/FreeThread';
 import { freeFrom } from '../../src/features/assistant/free';
 import { setFreeMode, useFreeMode } from '../../src/features/assistant/freeMode';
+import { acceptAiConsent, useAiConsent } from '../../src/features/assistant/aiConsent';
+import { useBack } from '../../src/navigation/back';
 import { captureException } from '../../src/lib/telemetry';
 
 /**
@@ -538,11 +540,59 @@ function AssistantScreen() {
   );
 }
 
+/**
+ * The AI notice (App Review 5.1.2(i)): until it is accepted on this phone, the page says the
+ * answers are AI-written and that questions go to an outside provider, and nothing can be sent.
+ * While the flag is read the page stays empty (a moment, once per launch).
+ */
+function AiNoticeGate({ children }: { children: ReactNode }) {
+  const { t } = useLocale();
+  const { colors, fonts } = useTheme();
+  // Staff never reach the guest tabs: without a page behind, back is Today.
+  const back = useBack('/staff');
+  const consent = useAiConsent();
+  if (consent === true) return <>{children}</>;
+  return (
+    <Screen edges={[]}>
+      <Stack.Screen options={{ title: t('staff.assistant.title') }} />
+      {consent === false ? (
+        <ScrollView contentContainerStyle={{ padding: space.l, gap: space.m }}>
+          <SparkIcon size={28} color={colors.blue} />
+          <Text style={{ fontFamily: fonts.display800, fontSize: 22, color: colors.ink }}>
+            {t('staff.assistant.aiNotice.title')}
+          </Text>
+          <Text style={{ fontFamily: fonts.body600, fontSize: 15, lineHeight: 22, color: colors.ink }}>
+            {t('staff.assistant.aiNotice.body')}
+          </Text>
+          <Text style={{ fontFamily: fonts.body400, fontSize: 14, lineHeight: 21, color: colors.mut }}>
+            {t('staff.assistant.aiNotice.data')}
+          </Text>
+          <Button
+            testID={`${T}.ai-notice.accept`}
+            label={t('staff.assistant.aiNotice.accept')}
+            variant="cta"
+            onPress={acceptAiConsent}
+            style={{ marginTop: space.s }}
+          />
+          <Button
+            testID={`${T}.ai-notice.later`}
+            label={t('staff.assistant.aiNotice.later')}
+            variant="ghost"
+            onPress={back}
+          />
+        </ScrollView>
+      ) : null}
+    </Screen>
+  );
+}
+
 export default function StaffAssistantRoute() {
   return (
     // Every staff role: the owner's paid assistant or anyone's free one (AssistantScreen decides).
     <RequireStaff page="staff-assistant">
-      <AssistantScreen />
+      <AiNoticeGate>
+        <AssistantScreen />
+      </AiNoticeGate>
     </RequireStaff>
   );
 }

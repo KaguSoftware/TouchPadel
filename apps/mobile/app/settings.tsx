@@ -24,6 +24,7 @@ import { space, useTheme, type AppearancePreference } from '../src/theme';
 import { Button, Card, Hint, MicroLabel, Screen, SegmentedControl } from '../src/components/ui';
 import { BellIcon, GlobeIcon, MoonIcon } from '../src/components/icons';
 import { useToast } from '../src/components/overlays';
+import { useStaffStatus } from '../src/features/staff/StaffStatusProvider';
 
 /**
  * Settings (design 2026-08-31): Appearance (System/Light/Dark — app-driven
@@ -109,6 +110,11 @@ export default function SettingsScreen() {
     if (next.errored) toast(t('errors.generic'), 'error');
     setBusyPush(false);
   };
+
+  // The test send is a support tool: staff phones only (and dev builds). A guest
+  // never sees a "test" control in a store build (App Review 2.1).
+  const { status: staffStatus } = useStaffStatus();
+  const showTestPush = __DEV__ || staffStatus.kind === 'staff';
 
   /**
    * "Send a test notification" — a REAL push through the production path
@@ -256,15 +262,17 @@ export default function SettingsScreen() {
               >
                 ✓ {t('settings.notifGranted')}
               </Text>
-              <Button
-                testID="settings.send-test-push"
-                label={t('settings.sendTestPush')}
-                variant="secondary"
-                size="compact"
-                busy={busyTest}
-                onPress={() => void onSendTest()}
-                style={{ marginTop: 10 }}
-              />
+              {showTestPush ? (
+                <Button
+                  testID="settings.send-test-push"
+                  label={t('settings.sendTestPush')}
+                  variant="secondary"
+                  size="compact"
+                  busy={busyTest}
+                  onPress={() => void onSendTest()}
+                  style={{ marginTop: 10 }}
+                />
+              ) : null}
             </>
           ) : pushState === 'denied' ? (
             <>

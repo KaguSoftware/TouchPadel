@@ -710,7 +710,7 @@ export function PointsCard({
     <Pressable
       testID={testID}
       accessibilityRole="button"
-      accessibilityLabel={`${t('loyalty.guest.home.title')}, ${t('loyalty.guest.home.balance')} ${balance}`}
+      accessibilityLabel={`${t('loyalty.guest.home.title')}, ${t('loyalty.guest.home.balance')} ${balance}. ${t('loyalty.guest.card.seeRewards')}`}
       onPress={onPress}
       onPressIn={(e) => {
         void Haptics.selectionAsync().catch(() => {});
@@ -835,16 +835,15 @@ export function PointsCard({
                   </MicroLabel>
                 ) : null}
               </View>
-              <View>
-                <MicroLabel style={{ color: ink }}>{t('loyalty.guest.home.balance')}</MicroLabel>
-                {/* The number and the way in on one line, the chevron level with the digits. */}
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm }}>
+              {/* The points and, beside them, the clear way to what they buy (Majed, 2026-11-15). */}
+              <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: space.sm }}>
+                <View style={{ flex: 1 }}>
+                  <MicroLabel style={{ color: ink }}>{t('loyalty.guest.home.balance')}</MicroLabel>
                   <Text
                     testID={`${testID}.balance`}
                     numberOfLines={1}
                     adjustsFontSizeToFit
                     style={{
-                      flex: 1,
                       fontFamily: fonts.display900,
                       fontSize: 44,
                       lineHeight: 50,
@@ -854,27 +853,36 @@ export function PointsCard({
                   >
                     {balance}
                   </Text>
-                  <View
-                    style={{
-                      width: 34,
-                      height: 34,
-                      borderRadius: radius.pill,
-                      backgroundColor: withAlpha(brand.white, 0.12),
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}
-                  >
-                    <ChevronIcon size={16} color={brand.white} />
-                  </View>
+                  {worth ? (
+                    <Text
+                      numberOfLines={1}
+                      style={{ fontFamily: fonts.body600, fontSize: 13, color: ink }}
+                    >
+                      {worth}
+                    </Text>
+                  ) : null}
                 </View>
-                {worth ? (
-                  <Text
-                    numberOfLines={1}
-                    style={{ fontFamily: fonts.body600, fontSize: 13, color: ink }}
-                  >
-                    {worth}
+                <View
+                  testID={`${testID}.see-rewards`}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 4,
+                    marginBottom: 6,
+                    borderRadius: radius.pill,
+                    borderWidth: 1,
+                    borderColor: withAlpha(brand.white, 0.3),
+                    backgroundColor: withAlpha(brand.white, 0.14),
+                    paddingVertical: 7,
+                    paddingStart: 12,
+                    paddingEnd: 8,
+                  }}
+                >
+                  <Text style={{ fontFamily: fonts.body700, fontSize: 13, color: brand.white }}>
+                    {t('loyalty.guest.card.seeRewards')}
                   </Text>
-                ) : null}
+                  <ChevronIcon size={14} color={brand.white} />
+                </View>
               </View>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm }}>
                 <View style={{ flex: 1 }}>

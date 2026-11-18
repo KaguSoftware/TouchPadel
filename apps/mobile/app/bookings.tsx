@@ -711,7 +711,7 @@ export default function BookingsScreen() {
 
   // "In 2 days" / "On now" for the hero's chip. The unit steps hand off exactly
   // (see startProximity), so there is no gap that renders an empty chip; days
-  // takes a singular of its own because the catalogs carry no plural rules.
+  // is a counted phrase (the Arabic dual, plural and singular forms), 1 day has its own line.
   const proximityLabel = (p: StartProximity) => {
     switch (p.unit) {
       case 'live':
@@ -725,7 +725,7 @@ export default function BookingsScreen() {
       case 'days':
         return p.value === 1
           ? t('booking.startsInDay')
-          : t('booking.startsInDays', { count: p.value });
+          : countPhrase('booking.startsInDaysCount', p.value, locale);
     }
   };
 

@@ -9,15 +9,15 @@ import type { branchesEn } from './branches.en';
 export const branchesAr: DeepMessages<typeof branchesEn> = {
   common: {
     branch: 'الفرع',
-    chooseBranch: 'اختر فرعًا',
+    chooseBranch: 'اختيار فرع',
     changeBranch: 'تغيير الفرع',
-    allBranches: 'جميع الفروع',
+    allBranches: 'كل الفروع',
     address: 'العنوان',
     directions: 'الاتجاهات',
-    call: 'اتصل بـ {name}',
+    call: 'الاتصال بـ{name}',
   },
   mobile: {
-    pickerTitle: 'أين تريد أن تلعب؟',
+    pickerTitle: 'أي فرع يناسبك للعب؟',
     pickerHint: 'يمكنك تغيير ذلك في أي وقت.',
     bookingAt: 'الحجز في {name}',
   },

@@ -51,6 +51,10 @@ describe('the disk cache', () => {
     expect(dehydrates(loyaltyKeys.deals)).toBe(false);
   });
 
+  it('never writes the drink card or birthday gifts (0445): a free drink read back could be had', () => {
+    expect(dehydrates(loyaltyKeys.extras)).toBe(false);
+  });
+
   it('keeps the balance read, so Profile offers the card on an offline cold start', () => {
     expect(dehydrates(loyaltyKeys.mine)).toBe(true);
   });

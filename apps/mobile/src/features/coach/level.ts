@@ -24,6 +24,14 @@ export interface StudentLevel {
   note: string | null;
 }
 
+/**
+ * The Level check's choices, A first (0443/0444, Majed 2026-11-16: "type a b c, A starts
+ * highest"): each one is its own starting Touch Level (A 4.5, B 3.2, C 2.0, New 1.0 by
+ * default), so `new` is offered and matched exactly, never folded into C. The values sent are
+ * the stored codes.
+ */
+export const CHECK_LEVELS = ['advanced', 'intermediate', 'beginner', 'new'] as const satisfies readonly PlayLevel[];
+
 /** The note's cap, the server's (left(…, 120)). */
 export const LEVEL_NOTE_MAX = 120;
 

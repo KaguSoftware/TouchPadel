@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { businessTodayISO } from '@touch/core';
@@ -76,13 +76,13 @@ vi.mock('../../lib/appRpc', async (importOriginal) => ({
 
 import { AttendancePageScreen } from './AttendancePage';
 
-function renderPage(locale: 'en' | 'ar' = 'en') {
+function renderPage(locale: 'en' | 'ar' = 'en', tab: 'today' | 'month' | 'hours' = 'month') {
   try {
     localStorage.setItem('touch-operator-locale', locale);
   } catch {
     /* no storage */
   }
-  return render(
+  const view = render(
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
       <LocaleProvider>
         <ConfirmProvider>
@@ -91,6 +91,9 @@ function renderPage(locale: 'en' | 'ar' = 'en') {
       </LocaleProvider>
     </QueryClientProvider>,
   );
+  // 0442: the page opens on Today (the clock-in board); these tests are about the month.
+  if (tab !== 'today') fireEvent.click(screen.getAllByRole('tab')[tab === 'month' ? 1 : 2]!);
+  return view;
 }
 
 beforeEach(() => {
@@ -209,5 +212,32 @@ describe('AttendancePageScreen', () => {
   it('reads in Arabic', async () => {
     renderPage('ar');
     expect(await screen.findByRole('heading', { level: 1, name: 'التأخير والانصراف المبكر' })).toBeTruthy();
+  });
+
+  it('opens on Today, the clock-in board, with Month and Set hours beside it', () => {
+    renderPage('en', 'today');
+    const tabs = screen.getAllByRole('tab').map((t) => t.textContent);
+    expect(tabs).toEqual(['Today', 'Month', 'Set hours']);
+    expect(screen.getByTestId('clock-board')).toBeTruthy();
+    expect(screen.queryByTestId('attendance.rule')).toBeNull();
+  });
+
+  it('marks a day made from scans as such, and warns that saving it makes it a hand record', async () => {
+    const user = userEvent.setup();
+    days = [day({ source: 'clock', recorded_by_name: null, note: null })];
+    renderPage();
+    expect(await screen.findByTestId('attendance.fromClock.a1')).toBeTruthy();
+    expect(screen.queryByText(/Recorded by/)).toBeNull();
+    await user.click(screen.getByTestId('attendance.edit.a1'));
+    expect(await screen.findByText(/Once you save it, it is a hand record/)).toBeTruthy();
+  });
+
+  it('Set hours lists the people the viewer may record for', async () => {
+    const user = userEvent.setup();
+    renderPage('en', 'hours');
+    const hours = await screen.findByTestId('attendance.hours');
+    expect(within(hours).getByText('Person')).toBeTruthy();
+    await user.click(within(hours).getByRole('combobox'));
+    expect(await screen.findByRole('option', { name: /Yusuf/ })).toBeTruthy();
   });
 });

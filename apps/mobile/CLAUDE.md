@@ -94,6 +94,30 @@ beyond reading the ladder (`ladderPosition`, `cardHolds` in `logic.ts`; deal par
 already used), the pick runs now or fails now, and a server without 0410 (`PGRST202`) reads as no
 deals and no ladder, never as an error.
 
+Deal tiles and a deal's own QR (Majed, 2026-11-15; 0445): deals live on the Club tab only
+(Points & rewards shows none: rewards and the cards). A deal is a full-width card, one to a row:
+its picture with the deal's name over the value (`DealArt.tsx`, "B+", picked by `dealArt` in `deals.ts`): a poster on one
+solid ground (blue café, navy court, navy card shade when locked or used), the value in white
+with its word in green, and on the far side the photo cut in on a slanted green court line or a
+drawing in the café menu's style hanging off the corner (the category's own when the deal is on
+one category; the racket or the receipt from `dealDrawings.tsx` otherwise). No gradients, glow
+or dark wash. A tap opens `DealSheet` (native sheet: name,
+line, every fact, Redeem). Redeem (`redeem_deal`) gives the deal its own single-use TPD- code
+alive 15 minutes, shown at `app/deal-voucher.tsx` like a reward's (shared `VoucherParts.tsx`);
+one live code per member; the till scans it (`use_deal_voucher`). `['loyalty','deal-vouchers']`
+stays off disk. Words and facts are pure (`dealText.ts`). The free drink and every card gift wait
+for Redeem too (`RedeemAction.tsx`, `useCardRedeem`, `claim_card_reward`). The Club tab's points
+card says "See rewards" beside the points.
+
+Reward tiles on Points & rewards (Majed, 2026-11-16, "AD-1"; `RewardTiles.tsx`, order in the pure
+`rewardLadder.ts`): two a row, cheapest first; the ones the balance covers, then a "You · 340" line
+naming the next reward and its points to go, then the rest. Each tile is the navy card shade and
+fills with green from the bottom as the points come in (top edge slanted, white line on it: a
+skewY box with the green face counter-skewed inside, same trick as the deal photo cut). All green =
+ready, Redeem on the tile (same confirm + TPV code as before). Drawing on top (racket for a court
+hour, receipt for money off, a gift for an item: rewards do not say which item), the reward and its
+points in the middle, Redeem or "to go" at the bottom. Theme-invariant, no gradients or glow.
+
 Reward vouchers (Majed, 2026-11-13; migration 0415): a READY reward on Points & rewards has
 Redeem. The phone's own alert confirms, `redeem_reward` takes the points at once, and
 `app/reward-voucher.tsx` shows a fixed single-use QR for that one reward (`TPV-` code, grouped
@@ -103,6 +127,19 @@ polls `my_reward_vouchers` every 4 s and turns to Collected when the till scans 
 and cancelled say the points are back and offer Redeem again. Codes not yet collected head Points &
 rewards ("Ready to collect"). A screenshot works by Majed's call (whoever holds the code collects).
 `['loyalty','vouchers']` stays off disk; pure logic is `features/loyalty/vouchers.ts`.
+
+Clock-in (Majed, 2026-11-15; migration 0442; `docs/design/clock-in/contracts-2026-11-15.md`):
+every staff member but the owner logs Start work / Finish work from the work card under Today's
+greeting (`src/features/staff/clock/WorkCard.tsx`, from `my_clock`) through
+`app/(staff)/staff-clock.tsx`: location ("while using" only), then the camera, scan the desk
+station's `TPCLOCK:` QR (or type its 6 digits), then `clock_punch` with one fresh fix, its `mocked`
+flag and the app-scoped device id. Refusals are data and each has its own words
+(`clock/logic.ts`); the server decides everything. `clock/native.ts` is the ONLY file that names
+expo-location or expo-camera and loads them lazily, so a binary built before them never crashes
+at launch (the page says "update the app"); a guest is never asked for location. The store
+privacy rows (Precise Location, Device ID) and the iOS manifest changed with it
+(`privacyManifest.test.ts`). The customer "nearby offer" is NOT built: it needs its own
+decision and store review.
 
 ## Commits
 
@@ -220,8 +257,9 @@ rewards ("Ready to collect"). A screenshot works by Majed's call (whoever holds 
   (`@react-native-community/datetimepicker`, wrapped once in `src/components/DateTimeField.tsx`)
   is one: coach mode's pickers need the coaching build (coaching R19). So is `expo-screen-capture`
   (the screenshot guard): until the build after 2026-10-07 is installed, staff phones neither block
-  nor report screenshots. On Android 13 and older the report needs a media permission the guard asks
-  for; check on a real phone whether Android 14 reports an attempt FLAG_SECURE blocks.
+  nor report screenshots. On Android 13 and older nothing is reported: the report would need a media
+  permission the manifest blocks (store review, 2026-11-17), so the guard no longer asks; check on a real
+  phone whether Android 14 reports an attempt FLAG_SECURE blocks.
 
 ## Tests
 

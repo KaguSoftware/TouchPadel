@@ -15,7 +15,7 @@ export const staffScanAr: DeepMessages<typeof staffScanEn> = {
     receipt: 'مسح إيصال',
   },
   slip: {
-    tileTitle: 'صوّر ورقة الطلب',
+    tileTitle: 'تصوير ورقة الطلب',
     tileHint: 'يقرؤها الكاشير ويرسلها إلى المطبخ',
     title: 'مسح طلب',
     send: 'إرسال إلى كاشير الكافيه',
@@ -28,7 +28,7 @@ export const staffScanAr: DeepMessages<typeof staffScanEn> = {
     setAside: 'وُضعت جانبًا: {reason}',
   },
   receipt: {
-    tileTitle: 'صوّر الإيصال',
+    tileTitle: 'تصوير الإيصال',
     tileHint: 'يراجعه المدير في «استلام البضائع»',
     title: 'مسح إيصال',
     send: 'إرسال إلى استلام البضائع',

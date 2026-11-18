@@ -3,6 +3,10 @@
  * optionally, the score set by set. Confirmed at once and its points written. Opened from the
  * ranks page (no booking) and from a booking's screen at the court desk (that booking, its
  * booker already on side A), where it replaces a player's report still waiting on that booking.
+ *
+ * With `edit` it corrects a result instead (0444 app.ranks_edit_result, court desk and up): the
+ * form starts from that result and asks for a reason; the server voids the old row ("edited:
+ * <reason>") and puts a confirmed desk result in its place.
  */
 import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
@@ -10,23 +14,27 @@ import { formatNumber } from '@touch/i18n';
 import { useLocale } from '../../lib/i18n';
 import { useStationReach } from '../../lib/stationReach';
 import { useToast } from '../../components/toast';
-import { Button, ErrorText, Modal, inputStyle } from '../../components/ui';
+import { Button, ErrorText, Field, Modal, inputStyle } from '../../components/ui';
 import { MessagePresenter, SegmentedControl } from '../../components/kit';
 import { digitsOnly } from '../../components/inputs';
 import {
   MAX_SETS,
   buildScore,
+  draftFromResult,
+  editArgs,
+  editReasonOk,
   recordArgs,
   recordDraft,
   recordErrors,
   seatPlayer,
+  type DeskResult,
   type RecordDraft,
   type RecordError,
   type SeatKey,
   type SeatPlayer,
   type Winner,
 } from './ranksLogic';
-import { invalidateRanks, recordResult } from './useRanks';
+import { editResult, invalidateRanks, recordResult } from './useRanks';
 import { PlayerPicker } from './PlayerPicker';
 
 const K = 'ws.ranks.record';
@@ -41,35 +49,41 @@ const ERROR_KEY: Record<RecordError, `${typeof K}.${'errorSides' | 'errorTwice' 
 export function RecordResultDialog({
   reservationId = null,
   booker = null,
+  edit = null,
   onClose,
 }: {
   reservationId?: string | null;
   booker?: SeatPlayer | null;
+  /** Correct this result instead of recording a new one. */
+  edit?: DeskResult | null;
   onClose: () => void;
 }) {
   const { tr, locale } = useLocale();
   const qc = useQueryClient();
   const toast = useToast();
   const { reachable } = useStationReach();
-  const [d, setD] = useState<RecordDraft>(() => recordDraft({ reservationId, booker }));
+  const [d, setD] = useState<RecordDraft>(() => (edit ? draftFromResult(edit) : recordDraft({ reservationId, booker })));
+  const [reason, setReason] = useState('');
   const [touched, setTouched] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const errors = touched ? recordErrors(d) : [];
+  const reasonBad = Boolean(edit) && touched && !editReasonOk(reason);
   const seat = (k: SeatKey) => (p: SeatPlayer | null) => setD((x) => seatPlayer(x, k, p));
   const setSet = (i: number, side: 'a' | 'b', v: string) =>
     setD((x) => ({ ...x, sets: x.sets.map((s, j) => (j === i ? { ...s, [side]: digitsOnly(v).slice(0, 2) } : s)) }));
 
   async function submit() {
     setTouched(true);
-    const args = recordArgs(d);
+    const args = edit ? editArgs(d, edit.id, reason) : recordArgs(d);
     if (!args) return;
     setBusy(true);
     setError(null);
     try {
-      await recordResult(args);
+      if (edit) await editResult(args);
+      else await recordResult(args);
       invalidateRanks(qc);
-      toast.ok(tr(`${K}.recorded`));
+      toast.ok(tr(edit ? `${K}.edited` : `${K}.recorded`));
       onClose();
     } catch (e) {
       setError(e);
@@ -92,8 +106,8 @@ export function RecordResultDialog({
 
   return (
     <Modal
-      title={tr(reservationId ? `${K}.titleBooking` : `${K}.title`)}
-      subtitle={tr(`${K}.lead`)}
+      title={tr(edit ? `${K}.titleEdit` : reservationId ? `${K}.titleBooking` : `${K}.title`)}
+      subtitle={tr(edit ? `${K}.leadEdit` : `${K}.lead`)}
       size="lg"
       dismissible={!busy}
       onClose={onClose}
@@ -110,13 +124,13 @@ export function RecordResultDialog({
             onClick={() => void submit()}
             data-testid="ranks-record-submit"
           >
-            {tr(`${K}.submit`)}
+            {tr(edit ? `${K}.submitEdit` : `${K}.submit`)}
           </Button>
         </>
       )}
     >
       <div style={{ display: 'grid', gap: 'var(--tp-sp-4)' }} data-testid="ranks-record">
-        {reservationId && <MessagePresenter tone="info" message={tr(`${K}.replaces`)} />}
+        {reservationId && !edit && <MessagePresenter tone="info" message={tr(`${K}.replaces`)} />}
 
         <div style={{ display: 'grid', gap: 'var(--tp-sp-3)', gridTemplateColumns: 'repeat(auto-fit, minmax(15rem, 1fr))' }}>
           {(['a', 'b'] as const).map((side) => {
@@ -223,6 +237,24 @@ export function RecordResultDialog({
             </div>
           )}
         </div>
+
+        {edit && (
+          <Field
+            label={tr(`${K}.reason`)}
+            hint={tr(`${K}.reasonHint`)}
+            error={reasonBad ? tr(`${K}.errorReason`) : undefined}
+            style={{ marginBlockEnd: 0 }}
+          >
+            <input
+              style={inputStyle}
+              value={reason}
+              maxLength={200}
+              disabled={busy}
+              onChange={(e) => setReason(e.target.value)}
+              data-testid="ranks-edit-reason"
+            />
+          </Field>
+        )}
 
         {errors.length > 0 && (
           <ul

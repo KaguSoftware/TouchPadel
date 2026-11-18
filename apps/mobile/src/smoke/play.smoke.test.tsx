@@ -87,7 +87,7 @@ const LOCALES: Locale[] = ['en', 'ar'];
 describe.each(LOCALES)('Play states in %s', (locale) => {
   const t = makeT(locale);
 
-  it('mixes the match and the tournaments on one timeline, each kind with its own card', () => {
+  it('opens on the matches, and the switch shows the tournaments, each kind with its own card', () => {
     const screen = renderRoute(PlayScreen, {
       locale,
       session: 'in',
@@ -99,11 +99,16 @@ describe.each(LOCALES)('Play states in %s', (locale) => {
       expect(match.getByText(t('matches.detail.join'))).toBeTruthy();
       // No names on a match card (GD-5).
       expect(match.queryByText(/Ahmed|Sara/)).toBeNull();
+      expect(screen.getByTestId('play.filter')).toBeTruthy();
+      // No "All" any more (2026-11-15): the tournaments are the switch's other side.
+      expect(screen.queryByTestId(`play.tournament.${TOUR_ID}`)).toBeNull();
+      expect(screen.queryByTestId('play.kind.all')).toBeNull();
+      fireEvent.press(screen.getByTestId('play.kind.tournaments'));
       const entered = within(screen.getByTestId(`play.tournament.${TOUR_ID}`));
       expect(entered.getByText(t('tournaments.common.entryStatus.registered'))).toBeTruthy();
       expect(screen.getByTestId(`play.tournament.${TOUR_ID_2}`)).toBeTruthy();
+      expect(screen.queryByTestId(`play.match.${TEST_MATCH_ID}`)).toBeNull();
       expect(screen.getByTestId('play.kind')).toBeTruthy();
-      expect(screen.getByTestId('play.filter')).toBeTruthy();
       expect(screen.direction()).toBe(locale === 'ar' ? 'rtl' : 'ltr');
     } finally {
       screen.unmount();
@@ -182,7 +187,8 @@ describe.each(LOCALES)('Play states in %s', (locale) => {
     });
     try {
       expect(screen.getByTestId('play.sign-in')).toBeTruthy();
-      expect(screen.getByText(t('play.signIn.both'))).toBeTruthy();
+      // The page opens on the matches (no "All" since 2026-11-15).
+      expect(screen.getByText(t('play.signIn.matches'))).toBeTruthy();
       expect(screen.queryByTestId(`play.tournament.${TOUR_ID}`)).toBeNull();
       expect(
         screen.queryByTestId(`play.slot.${Date.parse(matchSlotsFixture()[0]!.startAt)}-0`),
@@ -271,7 +277,8 @@ describe.each(LOCALES)('Play states in %s', (locale) => {
     });
     try {
       expect(screen.getByTestId('play.empty')).toBeTruthy();
-      expect(screen.getByText(t('play.emptyBody'))).toBeTruthy();
+      // The matches side's own words: the page opens on the matches.
+      expect(screen.getByText(t('matches.list.emptyBody'))).toBeTruthy();
       fireEvent.press(screen.getByTestId('play.empty.start'));
       expect(takeBookingSheetRequest()).toBe(true);
       expect(routerState.calls).toContainEqual({ method: 'navigate', arg: '/(tabs)' });

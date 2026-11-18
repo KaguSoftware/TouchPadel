@@ -9,14 +9,14 @@ export const staffActivityAr: DeepMessages<typeof staffActivityEn> = {
     all: 'الجميع',
     online: 'المتصلون الآن',
   },
-  summary: 'المتصلون الآن: {operator} على تطبيق سطح المكتب، و{mobile} على الهاتف',
+  summary: 'المتصلون الآن: {operator} على تطبيق التشغيل، و{mobile} على الهاتف',
   surface: {
-    operator: 'تطبيق سطح المكتب',
+    operator: 'تطبيق التشغيل',
     mobile: 'تطبيق الهاتف',
   },
   status: {
     online: 'متصل',
-    away: 'خامل',
+    away: 'غير نشط',
     offline: 'غير متصل',
     never: 'لم يُستخدم قط',
   },

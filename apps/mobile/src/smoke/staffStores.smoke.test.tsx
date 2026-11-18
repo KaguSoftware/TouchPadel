@@ -288,7 +288,8 @@ describe.each(LOCALES)('who sees what on the store pages in %s', (locale) => {
         t('staff.stores.errors.short.cafe', {
           qty: t('staff.supplies.qtyUnit', {
             qty: '40',
-            unit: t('staff.supplies.units.many.pc'),
+            // Arabic counts 11 and up with the singular («40 قطعة»); English keeps «40 pieces».
+            unit: t(locale === 'ar' ? 'staff.supplies.units.one.pc' : 'staff.supplies.units.many.pc'),
           }),
         }),
       );

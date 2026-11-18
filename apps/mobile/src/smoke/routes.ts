@@ -299,6 +299,9 @@ export const SMOKE_ROUTES: readonly SmokeRoute[] = [
   // Rewards for orders placed (0332), cased by staffRewards.smoke.test.tsx: the person's own
   // page (its how-it-counts note is always there) and the owner's page.
   { file: '(staff)/staff-rewards.tsx', route: 'staff-rewards', primary: 'staff-rewards.how' },
+  // Starting and finishing work (0442), cased by staffClock.smoke.test.tsx: the page's body,
+  // which shows its first step (location, the camera or the scan) once the permissions are read.
+  { file: '(staff)/staff-clock.tsx', route: 'staff-clock', primary: 'staff-clock.body' },
   {
     file: '(staff)/staff-rewards-admin.tsx',
     route: 'staff-rewards-admin',
@@ -367,6 +370,8 @@ export const SMOKE_ROUTES: readonly SmokeRoute[] = [
   { file: 'loyalty.tsx', route: 'loyalty', primary: 'loyalty.points' },
   // 0415: a reward redeemed in the app; the primary is its QR (a mark, like the card's).
   { file: 'reward-voucher.tsx', route: 'reward-voucher', primary: 'reward-voucher.qr' },
+  // 0445: a deal redeemed in the app, its own 15-minute code; the primary is its QR, as above.
+  { file: 'deal-voucher.tsx', route: 'deal-voucher', primary: 'deal-voucher.qr' },
   // ── coach mode ────────────────────────────────────────────────────────────
   // docs/design/coaching/guest.md §4.17, cased by coachMode.smoke.test.tsx in
   // EN and AR with the `coach` render option (a signed-in account that
@@ -403,6 +408,11 @@ export const SMOKE_ROUTES: readonly SmokeRoute[] = [
     file: '(coach-mode)/coach-mode-statements.tsx',
     route: 'coach-mode-statements',
     primary: 'coach-mode-statements.month',
+  },
+  {
+    file: '(coach-mode)/coach-mode-result.tsx',
+    route: 'coach-mode-result',
+    primary: 'coach-mode-result.submit',
   },
   // ── root ──────────────────────────────────────────────────────────────────
   // No primary action of its own: the root layout is providers and chrome.

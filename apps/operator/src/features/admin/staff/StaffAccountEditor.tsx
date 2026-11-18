@@ -46,6 +46,7 @@ import { Button, Field, inputStyle } from '../../../components/ui';
 import { MessagePresenter, Panel, StatusBadge } from '../../../components/kit';
 import { RoleField, StaffErrorText } from './staffParts';
 import { STAFF_QUERY_KEY, approvesWithPin, type StaffRow } from './staffModel';
+import { HoursEditor } from '../../clock/HoursEditor';
 
 export function StaffAccountEditor({
   staff,
@@ -190,6 +191,14 @@ export function StaffAccountEditor({
       </Section>
 
       <AccessField staff={staff} locked={locked || !staff.is_active} onError={setError} />
+
+      {/* Set hours (0442): the person's week of shifts, which log-ins are measured against.
+          The owner has no hours; an inactive account keeps none it could use. */}
+      {staff.role !== 'owner' && staff.is_active && (
+        <Section title={tr('ws.clock.hours.title')}>
+          <HoursEditor staffId={staff.id} compact />
+        </Section>
+      )}
 
       <Section title={tr('ws.owner.staff.pin.title')}>
         {/* Every role holds a PIN since 0105; the note says what THIS one does. */}

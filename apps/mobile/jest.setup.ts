@@ -32,6 +32,7 @@ import { Alert, ScrollView, Text, View } from 'react-native';
 import { routerState } from './src/test/routerState';
 import { authState } from './src/test/authState';
 import { alertState } from './src/test/alertState';
+import { clockState } from './src/test/clockState';
 
 /**
  * THE `mock` PREFIX IS NOT DECORATION.
@@ -63,6 +64,7 @@ const mockContainerRef = {
   dispatch: () => {},
 };
 const mockAuthState = authState;
+const mockClockState = clockState;
 
 /**
  * The slice of bottom-tabs' screen options the `Tabs` stand-in below reads.
@@ -440,7 +442,79 @@ jest.mock('expo-application', () => ({
   nativeApplicationVersion: '0.1.0',
   nativeBuildVersion: '1',
   applicationId: 'com.touch.padel',
+  // The staff clock's device id (src/features/staff/clock/device.ts).
+  getIosIdForVendorAsync: jest.fn(() => Promise.resolve('00000000-JEST-IDFV-0000-000000000000')),
+  getAndroidId: jest.fn(() => 'jestandroidid0001'),
 }));
+
+/**
+ * Staff clock-in (src/features/staff/clock/native.ts, the only file that
+ * requires these): permissions, the phone's location switch and the fix read
+ * from src/test/clockState.ts; the scanner is a View whose
+ * `onBarcodeScanned` a case calls by its `testID`.
+ */
+jest.mock('expo-location', () => {
+  const perm = () => ({
+    status: mockClockState.location.status,
+    granted: mockClockState.location.status === 'granted',
+    canAskAgain: mockClockState.location.canAskAgain,
+    expires: 'never',
+    ios: { scope: 'whenInUse', accuracy: mockClockState.location.precise ? 'full' : 'reduced' },
+  });
+  const loc = () => ({
+    coords: {
+      latitude: 33.3152,
+      longitude: 44.3661,
+      accuracy: mockClockState.accuracy,
+      altitude: null,
+      altitudeAccuracy: null,
+      heading: null,
+      speed: null,
+    },
+    timestamp: Date.now(),
+    mocked: mockClockState.mocked,
+  });
+  return {
+    Accuracy: { Lowest: 1, Low: 2, Balanced: 3, High: 4, Highest: 5, BestForNavigation: 6 },
+    getForegroundPermissionsAsync: jest.fn(() => Promise.resolve(perm())),
+    requestForegroundPermissionsAsync: jest.fn(() => {
+      mockClockState.locationAsks += 1;
+      Object.assign(mockClockState.location, mockClockState.locationAfterAsk);
+      return Promise.resolve(perm());
+    }),
+    hasServicesEnabledAsync: jest.fn(() => Promise.resolve(mockClockState.servicesOn)),
+    enableNetworkProviderAsync: jest.fn(() => Promise.resolve()),
+    getCurrentPositionAsync: jest.fn(() => Promise.resolve(loc())),
+    watchPositionAsync: jest.fn((_o: unknown, cb: (l: unknown) => void) => {
+      mockClockState.watching += 1;
+      cb(loc());
+      return Promise.resolve({
+        remove: () => {
+          mockClockState.watching -= 1;
+        },
+      });
+    }),
+  };
+});
+
+jest.mock('expo-camera', () => {
+  const perm = () => ({
+    status: mockClockState.camera.status,
+    granted: mockClockState.camera.status === 'granted',
+    canAskAgain: mockClockState.camera.canAskAgain,
+    expires: 'never',
+  });
+  return {
+    CameraView: (props: Record<string, unknown>) => mockH(mockView, { ...props, testID: 'mock-camera' }),
+    Camera: {
+      getCameraPermissionsAsync: jest.fn(() => Promise.resolve(perm())),
+      requestCameraPermissionsAsync: jest.fn(() => {
+        mockClockState.camera = { status: 'granted', canAskAgain: true };
+        return Promise.resolve(perm());
+      }),
+    },
+  };
+});
 
 jest.mock('expo-crypto', () => ({
   digestStringAsync: jest.fn(() => Promise.resolve('digest')),

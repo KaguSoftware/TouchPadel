@@ -85,6 +85,24 @@ if (!googleIosUrlScheme) {
   );
 }
 
+/**
+ * The system prompts' purpose strings (Info.plist base, English); locales/ios.{en,ar}.json carry
+ * both languages under the same keys. Each is declared once here because two plugins write the
+ * same key and the last writer would win: the camera (expo-image-picker and expo-camera) and the
+ * motion text (expo-sensors and expo-location, which links CoreMotion's activity API).
+ */
+const CAMERA_PERMISSION =
+  'Touch Padel uses the camera only when you take a profile photo or a work photo, or scan the desk QR code to start or finish work.';
+const MOTION_PERMISSION =
+  "Touch Padel uses your phone's motion only to move your points card as you tilt the phone. It never counts steps or tracks activity.";
+/**
+ * Staff clock-in (0442). Apple rejects a vague purpose, so it says exactly when and why, and
+ * that nothing runs in the background. Only the staff clock page ever asks
+ * (src/features/staff/clock/location.ts); a guest never sees this prompt.
+ */
+const LOCATION_PERMISSION =
+  'Touch Padel uses your location only when a staff member starts or finishes work, to check they are at the club. It is read at that moment only, never in the background.';
+
 const plugins: NonNullable<ExpoConfig['plugins']> = [
   'expo-router',
   // Declared per SDK 57's `expo install --fix` (both packages are already deps).
@@ -197,8 +215,41 @@ const plugins: NonNullable<ExpoConfig['plugins']> = [
     'expo-image-picker',
     {
       photosPermission: 'Touch Padel uses your photos only when you choose a profile photo or attach a work photo.',
-      cameraPermission: 'Touch Padel uses the camera only when you take a profile photo or a work photo.',
+      cameraPermission: CAMERA_PERMISSION,
       microphonePermission: false,
+    },
+  ],
+  // Staff clock-in (0442; docs/design/clock-in/contracts-2026-11-15.md §5): the desk QR is
+  // scanned with expo-camera's barcode scanner, and the phone's location is read once per scan
+  // to check the person is at the club. Camera: the same purpose string as the picker, no
+  // microphone (no RECORD_AUDIO, no microphone string). Location: "while using the app" ONLY.
+  // No background location on either platform (no UIBackgroundModes location, no
+  // ACCESS_BACKGROUND_LOCATION, no foreground service), no "Always" strings (false removes
+  // them), and no temporary full-accuracy request (the page sends a person with Precise
+  // Location off to Settings instead). Both modules are required by src/features/staff/clock/
+  // alone. NATIVE CHANGE: needs a new dev client and store build; until then the clock page
+  // cannot open on a phone.
+  [
+    'expo-camera',
+    {
+      cameraPermission: CAMERA_PERMISSION,
+      microphonePermission: false,
+      recordAudioAndroid: false,
+      barcodeScannerEnabled: true,
+    },
+  ],
+  [
+    'expo-location',
+    {
+      locationWhenInUsePermission: LOCATION_PERMISSION,
+      locationAlwaysAndWhenInUsePermission: false,
+      locationAlwaysPermission: false,
+      locationFullAccuracyPermission: false,
+      motionUsagePermission: MOTION_PERMISSION,
+      isIosBackgroundLocationEnabled: false,
+      isAndroidBackgroundLocationEnabled: false,
+      isAndroidForegroundServiceEnabled: false,
+      isAndroidMotionActivityEnabled: false,
     },
   ],
   // The Club tab's points card leans with the phone (src/features/loyalty/useCardMotion.ts,
@@ -211,8 +262,7 @@ const plugins: NonNullable<ExpoConfig['plugins']> = [
   [
     'expo-sensors',
     {
-      motionPermission:
-        "Touch Padel uses your phone's motion only to move your points card as you tilt the phone. It never counts steps or tracks activity.",
+      motionPermission: MOTION_PERMISSION,
     },
   ],
 ];
@@ -279,8 +329,9 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   // `pnpm --filter @touch/mobile icons` (see assets/README.md). Square and
   // full-bleed on purpose: iOS and Android apply their own corner masks.
   icon: './assets/icon.png',
-  // Per-language system prompts: the camera and photo-library permission text
-  // in EN and AR (iOS only; the files nest their keys under `ios`).
+  // Per-language system prompts: the camera, photo-library, motion and
+  // location permission text in EN and AR (iOS only; the files nest their
+  // keys under `ios`). Each EN line equals its constant above.
   locales: { en: './locales/ios.en.json', ar: './locales/ios.ar.json' },
   ios: {
     supportsTablet: false,
@@ -342,6 +393,10 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         // Crash and error reports to the venue's monitoring page (F-15), linked
         // to the account when someone is signed in.
         'NSPrivacyCollectedDataTypeCrashData',
+        // Staff clock-in (0442): one location fix per Start/Finish work press,
+        // and the hashed app-scoped device id that binds the logging phone.
+        'NSPrivacyCollectedDataTypePreciseLocation',
+        'NSPrivacyCollectedDataTypeDeviceID',
       ].map((type) => ({
         NSPrivacyCollectedDataType: type,
         NSPrivacyCollectedDataTypeLinked: true,
@@ -390,8 +445,9 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       monochromeImage: './assets/adaptive-icon-monochrome.png',
       backgroundColor: '#FFFFFF',
     },
-    // The system photo picker needs no storage or media permission, and the
-    // app records no sound, so none of these reaches the manifest whatever a
+    // The system photo picker needs no storage or media permission, the app
+    // records no sound and reads no location in the background, so none of
+    // these reaches the manifest whatever a
     // library declares (expo-image-picker asks for READ_EXTERNAL_STORAGE up to
     // API 32). UNVERIFIED against SDK 57 on an Android 12 phone (§8.4).
     blockedPermissions: [
@@ -403,6 +459,10 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       // (src/features/loyalty/useCardMotion.ts), which needs no permission, and has no health
       // feature. Play flags the permission under its Health apps policy, so strip it.
       'android.permission.ACTIVITY_RECOGNITION',
+      // Staff clock-in reads the location only while its page is open (0442): never in the
+      // background, never from a service, whatever a library declares.
+      'android.permission.ACCESS_BACKGROUND_LOCATION',
+      'android.permission.FOREGROUND_SERVICE_LOCATION',
     ],
   },
   plugins,

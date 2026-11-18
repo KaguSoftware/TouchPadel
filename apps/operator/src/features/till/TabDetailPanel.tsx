@@ -82,6 +82,8 @@ import { DRAWER_REASONS } from './drawerReasons';
 import { useTillShiftOptional } from '../tillShift/shiftContext';
 import { MemberAttach } from '../loyalty/MemberAttach';
 import { useCourtReward, useMemberBenefits } from '../loyalty/useLoyalty';
+import { lineReasons, type PerkLineReason } from '../loyalty/loyaltyLogic';
+import { lineReasonLabel } from '../loyalty/MemberBenefits';
 import { loyaltyDiscountIqd } from '../loyalty/loyaltyLogic';
 import { LOCAL_TAB_PREFIX } from '../../lib/offlineTabs';
 import { BillDiscountDialog } from '../discounts/BillDiscountDialog';
@@ -482,6 +484,8 @@ export function TabDetailPanel({
   const label = tabAnchorLabel(tab, tr('op.till.table'), tr('op.till.forReservation'), tr('ws.matches.common.openMatch'));
   const liveOrders = tab.orders.filter((o) => o.status !== 'voided');
   const allLines = liveOrders.flatMap((o) => o.order_items);
+  // 0445: why a line is free (the member's card), only from the benefits read for this bill.
+  const benefitsHere = benefits && benefits.tab_id === tabId ? benefits : null;
   /* Voided lines are waste, not the order: they used to sit in place among the
      lines with a "Voided" tag on each, so a long tab read as a mix of what the
      guest is having and what was thrown away. They are collected into their
@@ -585,6 +589,7 @@ export function TabDetailPanel({
                 <TabLine
                   key={line.id}
                   line={line}
+                  reasons={benefitsHere ? lineReasons(line.id, benefitsHere.lines, benefitsHere.perks) : undefined}
                   settled={Boolean(settled)}
                   busy={busy}
                   pending={!line.voided && pendingVoids.pending.has(line.id)}
@@ -697,6 +702,15 @@ export function TabDetailPanel({
               <span>{tr('ws.cashier.detail.courtPaidEarlier')}</span>
             </div>
           ) : null}
+          {/* 0445: the court hour a card gift took off this bill's booking (the fee above already has it off). */}
+          {benefitsHere?.court_gift && !courtPending && (
+            <span style={{ ...muted, fontSize: 'var(--tp-fs-xs)' }} data-testid="court-card-gift-note">
+              {tr('ws.loyalty.benefits.courtGift', {
+                name: pickName(locale, { name_en: benefitsHere.court_gift.name_en ?? '', name_ar: benefitsHere.court_gift.name_ar ?? '' }) || tr('ws.loyalty.benefits.courtGiftPlain'),
+                amount: formatIQD(benefitsHere.court_gift.amount_iqd, locale),
+              })}
+            </span>
+          )}
           {freeHour && !courtPending && (
             <span style={{ ...muted, fontSize: 'var(--tp-fs-xs)' }} data-testid="court-free-hour-note">
               {tr('ws.loyalty.redeem.courtRow', { amount: formatIQD(freeHour.amount_iqd, locale) })}
@@ -1154,6 +1168,7 @@ function OrderDeliveryRow({ delivery, editable, onEdit }: { delivery: OrderDeliv
  */
 function TabLine({
   line,
+  reasons,
   settled,
   busy,
   pending = false,
@@ -1163,6 +1178,8 @@ function TabLine({
   onVoid,
 }: {
   line: TabLineRow;
+  /** 0445: what the member's card frees on this line, and why (lineReasons). */
+  reasons?: PerkLineReason[];
   settled: boolean;
   busy: boolean;
   /** A void for this line is on the durable queue, unanswered (item 9). */
@@ -1192,6 +1209,16 @@ function TabLine({
         {line.notes && (
           <span style={{ display: 'block', ...muted, fontSize: 'var(--tp-fs-xs)', fontStyle: 'italic' }}>
             <bdi>{line.notes}</bdi>
+          </span>
+        )}
+        {/* 0445: the card's reason this line is free, in whole or part (the bill's "Card privileges" row carries the sum). */}
+        {!line.voided && reasons && reasons.length > 0 && (
+          <span style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--tp-sp-1)', marginBlockStart: 'var(--tp-sp-0)' }} data-testid="line-perk-reasons">
+            {reasons.map((r) => (
+              <span key={`${r.kind}:${r.perk?.name_en ?? ''}`} data-kind={r.kind}>
+                <StatusBadge tone="success" size="sm" dot={false} icon={r.kind === 'gift' ? 'gift' : 'star'} label={lineReasonLabel(r, line.qty, tr, locale)} />
+              </span>
+            ))}
           </span>
         )}
       </span>

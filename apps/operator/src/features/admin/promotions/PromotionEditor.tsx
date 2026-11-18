@@ -36,6 +36,15 @@
  *    loyalty switched off, means nobody gets it, and the panel says so.
  *  - Long pickers (menu items) start from what is chosen plus a search, rather
  *    than ~190 chips in a clipped scroll box.
+ *  - "Buy one, get one" (0445, type free_item, Majed: every deal look in the
+ *    app must be something the owner can set up here): "When they buy" is
+ *    something from the menu (buyItemIds / buyCategoryIds, courts optional as
+ *    on any promotion) or a court booking (courtIds alone); "They get" is
+ *    itemIds / categoryIds; "Off what they get" is Free (100) or a percent;
+ *    "Times per bill" is scope.perBill (1..10). The buy keys are sent only
+ *    for this type (the server refuses them on another, even empty).
+ *  - A deal listed in the app that is also automatic reaches every bill that
+ *    qualifies, not only the members who pick it; the listing panel warns.
  *
  * A manager reads a promotion here and proposes (#57, build-contracts-2026-09-23
  * §5.5): the form is read-only, and Save gives way to "Change this promotion"
@@ -44,7 +53,7 @@
  * Generate code is the owner's: a manager's code is drawn in the change's
  * own form.
  */
-import { useEffect, useState, type FocusEvent, type ReactNode } from 'react';
+import { useEffect, useState, type FocusEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useBlocker, useNavigate, useParams } from '@tanstack/react-router';
 import { formatDate, formatNumber } from '@touch/i18n';
@@ -63,7 +72,6 @@ import {
   PageHeader,
   Panel,
   PermissionRefusedNotice,
-  SearchField,
   SegmentedControl,
   StatusBadge,
   asyncStatus,
@@ -75,18 +83,23 @@ import { Switch } from '../../../components/Switch';
 import { useToast } from '../../../components/toast';
 import { useConfirm } from '../../../components/ConfirmDialog';
 import { useAdminMenu } from '../menu/useAdminMenu';
+import { ChipPicker } from '../../../components/ChipPicker';
 import { PriceChangeButton, PriceLockNote, usePriceChangeStart } from './PriceChangeStart';
 import {
   APP_BLURB_MAX,
   EMPTY_DRAFT,
+  FREE_ITEM_FULL,
+  PER_BILL_MAX,
   appListingArgs,
   appListingChanged,
   appListingKnown,
   describePromotion,
+  earnedByCourt,
   fromRow,
   isAppOnly,
   isDirty,
   lifecycle,
+  listedAndAuto,
   minEndOn,
   minStartOn,
   promotionChanged,
@@ -96,6 +109,8 @@ import {
   toggleId,
   toggleWeekday,
   validateDraft,
+  valueForType,
+  type MenuNames,
   type PromotionDraft,
   type PromotionLifecycle,
 } from './promotionLogic';
@@ -110,6 +125,12 @@ type TouchKey = 'name' | 'value' | 'dates' | 'hours' | 'blurb';
 
 /** The three ways a promotion reaches a bill, as "How it is applied" offers them. */
 type How = 'auto' | 'code' | 'app';
+
+/** 0445: what earns a buy-one-get-one, as "When they buy" offers it. */
+type Earn = 'menu' | 'court';
+
+/** 0445: the percent a buy-one-get-one opens with when the owner picks "Percent off". */
+const FREE_ITEM_PERCENT_START = 50;
 
 const hintStyle = { fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)', marginBlockStart: 'var(--tp-sp-1)' } as const;
 
@@ -158,6 +179,8 @@ function Editor({ id, row }: { id: string | null; row: PromotionRow | null }) {
    * promotion with no code yet reads as "in the app only" until its code is generated.
    */
   const [howPick, setHowPick] = useState<Exclude<How, 'auto'> | null>(null);
+  /** 0445: "When they buy" as pressed, while the draft alone cannot say it (court chosen, menu pressed). */
+  const [earnPick, setEarnPick] = useState<Earn | null>(null);
   const [touched, setTouched] = useState<ReadonlySet<TouchKey>>(new Set());
   const dirty = isDirty(draft, saved);
   // A server without 0410 sends no `in_app`: the listing is then not offered at all. A new
@@ -208,6 +231,24 @@ function Editor({ id, row }: { id: string | null; row: PromotionRow | null }) {
   const cards = [...(loyaltyQ.data?.tiers ?? [])].sort((a, b) => a.sort - b.sort);
   const tierMinCard = draft.limits.tierMin ? cards.find((t) => t.id === draft.limits.tierMin) ?? null : null;
   const menu = useAdminMenu();
+  // 0445: names for the buy-one-get-one summary ("Buy Latte, get Croissant free").
+  const menuNames: MenuNames | null = menu.data
+    ? {
+        item: (mid) => {
+          const it = menu.data.items.find((i) => i.id === mid);
+          return it ? pickName(locale, it) : null;
+        },
+        category: (cid) => {
+          const c = menu.data.categories.find((x) => x.id === cid);
+          return c ? pickName(locale, c) : null;
+        },
+      }
+    : null;
+  const categoryOptions = (menu.data?.categories ?? []).map((c) => ({ id: c.id, label: pickName(locale, c) }));
+  /** Active items, and any inactive one a list already holds (so it can be taken off). */
+  const itemOptions = (held: readonly string[]) =>
+    (menu.data?.items ?? []).filter((i) => i.is_active || held.includes(i.id)).map((i) => ({ id: i.id, label: pickName(locale, i) }));
+  const courtOptions = (courtsQ.data ?? []).map((c) => ({ id: c.id, label: pickName(locale, c) }));
 
   const patch = (part: Partial<PromotionDraft>) => setDraft((d) => ({ ...d, ...part }));
 
@@ -284,6 +325,15 @@ function Editor({ id, row }: { id: string | null; row: PromotionRow | null }) {
   const neverApplies = codeOnly && !draft.publicCode && !draft.inApp;
   // The code a promotion had, which "in the app only" takes away with the save.
   const codeLost = how === 'app' && saved.publicCode && !draft.publicCode ? saved.publicCode : null;
+  const freeItem = draft.type === 'free_item';
+  const earn: Earn = earnPick ?? (earnedByCourt(draft) ? 'court' : 'menu');
+
+  function pickEarn(next: Earn) {
+    setEarnPick(next);
+    // A court booking earns it alone: the menu's buy side goes. Menu keeps any courts, which then
+    // narrow the bills that qualify, as on every promotion.
+    if (next === 'court') patch({ buy: { categoryIds: [], itemIds: [] } });
+  }
 
   function pickHow(next: How) {
     setHowPick(next === 'auto' ? null : next);
@@ -324,6 +374,7 @@ function Editor({ id, row }: { id: string | null; row: PromotionRow | null }) {
                   onClick={() => {
                     setDraft(saved);
                     setHowPick(null);
+                    setEarnPick(null);
                     setAppError(null);
                   }}
                 >
@@ -356,7 +407,7 @@ function Editor({ id, row }: { id: string | null; row: PromotionRow | null }) {
         {!nothingToRead && (
           <p style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--tp-sp-2)', margin: 0, fontSize: 'var(--tp-fs-lg)', fontWeight: 600 }}>
             <Icon name="tag" size={16} style={{ color: 'var(--tp-accent)', flex: '0 0 auto', marginBlockStart: '0.2rem' }} />
-            <bdi>{describePromotion(draft, tr, locale, tierMinCard ? pickName(locale, tierMinCard) : null)}</bdi>
+            <bdi>{describePromotion(draft, tr, locale, tierMinCard ? pickName(locale, tierMinCard) : null, menuNames)}</bdi>
           </p>
         )}
         {proposes ? (
@@ -380,18 +431,60 @@ function Editor({ id, row }: { id: string | null; row: PromotionRow | null }) {
               error={shown('name', 'name') ? tr('ws.manager.promotions.editor.errors.name') : undefined}
             />
           </div>
-          <Field label={tr('ws.manager.promotions.editor.type')}>
+          {/* A group: a wrapping label named the first segment "Type Percentage off". */}
+          <Field label={tr('ws.manager.promotions.editor.type')} group>
             <SegmentedControl
               value={draft.type}
-              onChange={(type) => patch({ type, value: type === 'percent' ? Math.min(99, Math.max(1, draft.value)) : draft.value })}
+              onChange={(type) => patch({ type, value: valueForType(type, draft.value) })}
               options={[
                 { value: 'percent', label: tr('ws.manager.promotions.editor.percent'), disabled: readOnly },
                 { value: 'amount', label: tr('ws.manager.promotions.editor.amount'), disabled: readOnly },
+                // 0445: buy one, get one (free_item).
+                { value: 'free_item', label: tr('ws.manager.promotions.editor.freeItem'), disabled: readOnly, testId: 'promo-type-free-item' },
               ]}
             />
           </Field>
           <div onBlur={leave('value')}>
-            {draft.type === 'percent' ? (
+            {freeItem ? (
+              <>
+                <Field label={tr('ws.manager.promotions.editor.freeOff')} group error={shown('value', 'percent', 'value') ? tr('ws.manager.promotions.editor.errors.percent') : undefined}>
+                  <div style={{ display: 'flex', gap: 'var(--tp-sp-2)', alignItems: 'center', flexWrap: 'wrap' }}>
+                    <SegmentedControl<'free' | 'percent'>
+                      aria-label={tr('ws.manager.promotions.editor.freeOff')}
+                      value={draft.value >= FREE_ITEM_FULL ? 'free' : 'percent'}
+                      onChange={(v) => patch({ value: v === 'free' ? FREE_ITEM_FULL : FREE_ITEM_PERCENT_START })}
+                      options={[
+                        { value: 'free', label: tr('ws.manager.promotions.editor.freeFull'), disabled: readOnly, testId: 'promo-free-full' },
+                        { value: 'percent', label: tr('ws.manager.promotions.editor.freePercent'), disabled: readOnly, testId: 'promo-free-percent' },
+                      ]}
+                    />
+                    {draft.value < FREE_ITEM_FULL && (
+                      <span style={{ inlineSize: '7rem' }}>
+                        <PercentInput value={draft.value} onChange={(value) => patch({ value })} min={1} max={99} disabled={readOnly} />
+                      </span>
+                    )}
+                  </div>
+                </Field>
+                <Field
+                  label={tr('ws.manager.promotions.editor.perBill')}
+                  hint={tr('ws.manager.promotions.editor.perBillHint')}
+                  error={errors.includes('perBill') ? tr('ws.manager.promotions.editor.errors.perBill') : undefined}
+                >
+                  <input
+                    style={{ ...inputStyle, inlineSize: '6rem' }}
+                    dir="ltr"
+                    inputMode="numeric"
+                    data-testid="promo-per-bill"
+                    value={String(draft.perBill)}
+                    disabled={readOnly}
+                    onChange={(e) => {
+                      const digits = digitsOnly(e.target.value).slice(0, 2);
+                      patch({ perBill: digits === '' ? 0 : Math.min(PER_BILL_MAX, Number(digits)) });
+                    }}
+                  />
+                </Field>
+              </>
+            ) : draft.type === 'percent' ? (
               <Field
                 label={tr('ws.manager.promotions.editor.percentValue')}
                 error={shown('value', 'percent', 'value') ? tr('ws.manager.promotions.editor.errors.percent') : undefined}
@@ -476,32 +569,117 @@ function Editor({ id, row }: { id: string | null; row: PromotionRow | null }) {
           </div>
         </Panel>
 
-        {/* Scope */}
-        <Panel title={tr('ws.manager.promotions.editor.scopeTitle')}>
-          <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', marginBlockEnd: 'var(--tp-sp-3)' }}>{tr('ws.manager.promotions.editor.scopeHint')}</p>
-          <ChipPicker
-            label={tr('ws.manager.promotions.editor.courts')}
-            hint={tr('ws.manager.promotions.editor.courtsHint')}
-            options={(courtsQ.data ?? []).map((c) => ({ id: c.id, label: pickName(locale, c) }))}
-            selected={draft.scope.courtIds}
-            disabled={readOnly}
-            onToggle={(cid) => patch({ scope: { ...draft.scope, courtIds: toggleId(draft.scope.courtIds, cid) } })}
-          />
-          <ChipPicker
-            label={tr('ws.manager.promotions.editor.categories')}
-            options={(menu.data?.categories ?? []).map((c) => ({ id: c.id, label: pickName(locale, c) }))}
-            selected={draft.scope.categoryIds}
-            disabled={readOnly}
-            onToggle={(cid) => patch({ scope: { ...draft.scope, categoryIds: toggleId(draft.scope.categoryIds, cid) } })}
-          />
-          <ChipPicker
-            label={tr('ws.manager.promotions.editor.items')}
-            options={(menu.data?.items ?? []).filter((i) => i.is_active || draft.scope.itemIds.includes(i.id)).map((i) => ({ id: i.id, label: pickName(locale, i) }))}
-            selected={draft.scope.itemIds}
-            disabled={readOnly}
-            onToggle={(iid) => patch({ scope: { ...draft.scope, itemIds: toggleId(draft.scope.itemIds, iid) } })}
-          />
-        </Panel>
+        {/* Scope: for a buy-one-get-one (0445), what earns it and what they get. */}
+        {freeItem ? (
+          <Panel title={tr('ws.manager.promotions.editor.scopeTitle')} data-testid="promo-free-item-scope">
+            <Field
+              label={tr('ws.manager.promotions.editor.buyTitle')}
+              group
+              error={errors.includes('buyNone') && touched.has('value') ? tr('ws.manager.promotions.editor.errors.buyNone') : undefined}
+            >
+              <SegmentedControl<Earn>
+                aria-label={tr('ws.manager.promotions.editor.buyTitle')}
+                value={earn}
+                onChange={pickEarn}
+                options={[
+                  { value: 'menu', label: tr('ws.manager.promotions.editor.buyMenu'), disabled: readOnly, testId: 'promo-earn-menu' },
+                  { value: 'court', label: tr('ws.manager.promotions.editor.buyCourt'), icon: 'court', disabled: readOnly, testId: 'promo-earn-court' },
+                ]}
+              />
+            </Field>
+            {earn === 'menu' ? (
+              <>
+                <p style={{ ...hintStyle, marginBlockStart: 0, marginBlockEnd: 'var(--tp-sp-3)' }}>{tr('ws.manager.promotions.editor.buyHint')}</p>
+                <ChipPicker
+                  label={tr('ws.manager.promotions.editor.buyCategories')}
+                  options={categoryOptions}
+                  selected={draft.buy.categoryIds}
+                  disabled={readOnly}
+                  testId="promo-buy-categories"
+                  onToggle={(cid) => patch({ buy: { ...draft.buy, categoryIds: toggleId(draft.buy.categoryIds, cid) } })}
+                />
+                <ChipPicker
+                  label={tr('ws.manager.promotions.editor.buyItems')}
+                  options={itemOptions(draft.buy.itemIds)}
+                  selected={draft.buy.itemIds}
+                  disabled={readOnly}
+                  testId="promo-buy-items"
+                  onToggle={(iid) => patch({ buy: { ...draft.buy, itemIds: toggleId(draft.buy.itemIds, iid) } })}
+                />
+                <ChipPicker
+                  label={tr('ws.manager.promotions.editor.courts')}
+                  hint={tr('ws.manager.promotions.editor.courtsHint')}
+                  options={courtOptions}
+                  selected={draft.scope.courtIds}
+                  disabled={readOnly}
+                  onToggle={(cid) => patch({ scope: { ...draft.scope, courtIds: toggleId(draft.scope.courtIds, cid) } })}
+                />
+              </>
+            ) : (
+              <ChipPicker
+                label={tr('ws.manager.promotions.editor.courts')}
+                hint={tr('ws.manager.promotions.editor.buyCourtHint')}
+                options={courtOptions}
+                selected={draft.scope.courtIds}
+                disabled={readOnly}
+                testId="promo-earn-courts"
+                onToggle={(cid) => patch({ scope: { ...draft.scope, courtIds: toggleId(draft.scope.courtIds, cid) } })}
+              />
+            )}
+            <div style={{ borderBlockStart: '1px solid var(--tp-border)', paddingBlockStart: 'var(--tp-sp-3)', marginBlockStart: 'var(--tp-sp-1)' }}>
+              <p style={{ fontSize: 'var(--tp-fs-sm)', fontWeight: 600, margin: 0 }}>{tr('ws.manager.promotions.editor.getTitle')}</p>
+              <p style={{ ...hintStyle, marginBlockStart: 'var(--tp-sp-0)', marginBlockEnd: 'var(--tp-sp-3)' }}>{tr('ws.manager.promotions.editor.getHint')}</p>
+              <ChipPicker
+                label={tr('ws.manager.promotions.editor.getCategories')}
+                options={categoryOptions}
+                selected={draft.scope.categoryIds}
+                disabled={readOnly}
+                testId="promo-get-categories"
+                onToggle={(cid) => patch({ scope: { ...draft.scope, categoryIds: toggleId(draft.scope.categoryIds, cid) } })}
+              />
+              <ChipPicker
+                label={tr('ws.manager.promotions.editor.getItems')}
+                options={itemOptions(draft.scope.itemIds)}
+                selected={draft.scope.itemIds}
+                disabled={readOnly}
+                testId="promo-get-items"
+                onToggle={(iid) => patch({ scope: { ...draft.scope, itemIds: toggleId(draft.scope.itemIds, iid) } })}
+              />
+              {errors.includes('getNone') && touched.has('value') && (
+                <span role="alert" style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-1)', fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-danger-fg)', fontWeight: 600 }}>
+                  <Icon name="alert" size={14} />
+                  {tr('ws.manager.promotions.editor.errors.getNone')}
+                </span>
+              )}
+            </div>
+          </Panel>
+        ) : (
+          <Panel title={tr('ws.manager.promotions.editor.scopeTitle')}>
+            <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', marginBlockEnd: 'var(--tp-sp-3)' }}>{tr('ws.manager.promotions.editor.scopeHint')}</p>
+            <ChipPicker
+              label={tr('ws.manager.promotions.editor.courts')}
+              hint={tr('ws.manager.promotions.editor.courtsHint')}
+              options={courtOptions}
+              selected={draft.scope.courtIds}
+              disabled={readOnly}
+              onToggle={(cid) => patch({ scope: { ...draft.scope, courtIds: toggleId(draft.scope.courtIds, cid) } })}
+            />
+            <ChipPicker
+              label={tr('ws.manager.promotions.editor.categories')}
+              options={categoryOptions}
+              selected={draft.scope.categoryIds}
+              disabled={readOnly}
+              onToggle={(cid) => patch({ scope: { ...draft.scope, categoryIds: toggleId(draft.scope.categoryIds, cid) } })}
+            />
+            <ChipPicker
+              label={tr('ws.manager.promotions.editor.items')}
+              options={itemOptions(draft.scope.itemIds)}
+              selected={draft.scope.itemIds}
+              disabled={readOnly}
+              onToggle={(iid) => patch({ scope: { ...draft.scope, itemIds: toggleId(draft.scope.itemIds, iid) } })}
+            />
+          </Panel>
+        )}
 
         {/* Limits */}
         <Panel title={tr('ws.manager.promotions.editor.limitsTitle')}>
@@ -671,6 +849,16 @@ function Editor({ id, row }: { id: string | null; row: PromotionRow | null }) {
                     </span>
                   )}
                   {draft.inApp && !draft.enabled && <p style={hintStyle}>{tr('ws.manager.promotions.editor.app.offNote')}</p>}
+                  {/* The known rule: a deal meant for the members who pick it has auto off. */}
+                  {listedAndAuto(draft) && (
+                    <span
+                      data-testid="promotion-app-auto"
+                      style={{ display: 'inline-flex', alignItems: 'flex-start', gap: 'var(--tp-sp-1)', fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-warn-fg)', fontWeight: 600, marginBlockStart: 'var(--tp-sp-1)' }}
+                    >
+                      <Icon name="alert" size={14} style={{ flex: '0 0 auto', marginBlockStart: '0.15rem' }} />
+                      {tr('ws.manager.promotions.editor.app.autoListed')}
+                    </span>
+                  )}
                 </div>
                 {/* The lines show with the listing, and stay while they hold text so a half-written pair can be fixed. */}
                 {(draft.inApp || draft.appBlurb.en !== '' || draft.appBlurb.ar !== '') && (
@@ -767,112 +955,5 @@ function CountInput({ value, onChange, disabled }: { value: number | null; onCha
         onChange(digits === '' ? null : Number(digits));
       }}
     />
-  );
-}
-
-/** Above this many options a picker starts from a search instead of every chip. */
-const SEARCH_ABOVE = 16;
-/** Search results drawn at once; the rest wait for a narrower search. */
-const RESULTS_SHOWN = 24;
-
-/**
- * Pick ids by name. A short list (a venue's courts) shows every chip in a
- * bordered box that grows to fit — nothing clipped. A long list (menu items)
- * shows what is chosen, then a search; results appear only once something is
- * typed. The old picker cut chips in half at the bottom of a borderless
- * 9rem scroll area and drew ~190 of them for items.
- */
-function ChipPicker({
-  label,
-  hint,
-  options,
-  selected,
-  onToggle,
-  disabled,
-}: {
-  label: string;
-  hint?: string;
-  options: { id: string; label: string }[];
-  selected: readonly string[];
-  onToggle: (id: string) => void;
-  disabled?: boolean;
-}) {
-  const { tr, locale } = useLocale();
-  const [q, setQ] = useState('');
-  const searchable = options.length > SEARCH_ABOVE;
-  const chosen = options.filter((o) => selected.includes(o.id));
-  const needle = q.trim().toLowerCase();
-  const matches = needle ? options.filter((o) => !selected.includes(o.id) && o.label.toLowerCase().includes(needle)) : [];
-
-  const chip = (o: { id: string; label: string }) => {
-    const on = selected.includes(o.id);
-    return (
-      <Button key={o.id} size="sm" kind={on ? 'primary' : 'default'} icon={on ? 'check' : undefined} aria-pressed={on} disabled={disabled} onClick={() => onToggle(o.id)}>
-        <bdi>{o.label}</bdi>
-      </Button>
-    );
-  };
-
-  return (
-    <fieldset style={{ border: 'none', padding: 0, margin: 0, marginBlockEnd: 'var(--tp-sp-4)', minInlineSize: 0 }}>
-      <legend style={{ fontSize: 'var(--tp-fs-sm)', fontWeight: 600, marginBlockEnd: 'var(--tp-sp-1)' }}>
-        {label}
-        {selected.length > 0 && (
-          <span style={{ color: 'var(--tp-muted-fg)', fontWeight: 400 }}>
-            {' · '}
-            {tr('ws.manager.promotions.editor.chosen', { n: formatNumber(selected.length, locale) })}
-          </span>
-        )}
-      </legend>
-      {hint && <p style={{ ...hintStyle, marginBlockStart: 0, marginBlockEnd: 'var(--tp-sp-1-5)' }}>{hint}</p>}
-
-      {!searchable ? (
-        <ChipBox>{options.length === 0 ? <span style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>{tr('ws.kit.common.none')}</span> : options.map(chip)}</ChipBox>
-      ) : (
-        <div style={{ display: 'grid', gap: 'var(--tp-sp-1-5)' }}>
-          {chosen.length > 0 && <div style={{ display: 'flex', gap: 'var(--tp-sp-1)', flexWrap: 'wrap' }}>{chosen.map(chip)}</div>}
-          {/* Read-only with nothing chosen used to draw a bare heading: say so. */}
-          {disabled && chosen.length === 0 && (
-            <span style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>{tr('ws.pricing.promotions.noneChosen')}</span>
-          )}
-          {!disabled && <SearchField value={q} onChange={setQ} aria-label={`${label}: ${tr('ws.kit.search.placeholder')}`} />}
-          {!disabled &&
-            (needle === '' ? (
-              <span style={{ ...hintStyle, marginBlockStart: 0 }}>{tr('ws.manager.promotions.editor.searchToAdd')}</span>
-            ) : (
-              <ChipBox>
-                {matches.length === 0 ? (
-                  <span style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>{tr('ws.manager.promotions.editor.noResults')}</span>
-                ) : (
-                  matches.slice(0, RESULTS_SHOWN).map(chip)
-                )}
-                {matches.length > RESULTS_SHOWN && (
-                  <span style={{ ...hintStyle, flexBasis: '100%' }}>
-                    {tr('ws.manager.promotions.editor.moreResults', { shown: formatNumber(RESULTS_SHOWN, locale) })}
-                  </span>
-                )}
-              </ChipBox>
-            ))}
-        </div>
-      )}
-    </fieldset>
-  );
-}
-
-function ChipBox({ children }: { children: ReactNode }) {
-  return (
-    <div
-      style={{
-        display: 'flex',
-        gap: 'var(--tp-sp-1)',
-        flexWrap: 'wrap',
-        padding: 'var(--tp-sp-2)',
-        border: '1px solid var(--tp-border)',
-        borderRadius: 'var(--tp-radius-ctl)',
-        background: 'var(--tp-surface-2)',
-      }}
-    >
-      {children}
-    </div>
   );
 }

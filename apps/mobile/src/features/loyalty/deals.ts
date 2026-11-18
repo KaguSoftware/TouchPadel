@@ -11,7 +11,7 @@
  * value or a state this build knows is left out, because a card the guest cannot trust is worse
  * than a missing one.
  */
-import type { Deal, DealName, DealState, MyDeals } from '@touch/core/loyalty';
+import type { Deal, DealLook, DealName, DealState, DealThing, MyDeals } from '@touch/core/loyalty';
 import { tierColor } from '@touch/core/loyalty';
 import { isObj, list, num, str, strOrNull, tierName } from './logic';
 
@@ -35,6 +35,28 @@ function parseName(raw: unknown): DealName | null {
   return name_en || name_ar ? { name_en, name_ar } : null;
 }
 
+/** What a deal with no picture data (an older server) reads as. */
+export const NO_LOOK: DealLook = { get: [], buy: [], per_bill: null, courts: false };
+
+function parseThing(raw: unknown): DealThing | null {
+  const name = parseName(raw);
+  if (!name || !isObj(raw)) return null;
+  const photo = strOrNull(raw.photo_path);
+  return { ...name, photo_path: photo, category_en: strOrNull(raw.category_en) };
+}
+
+/** app.deal_look_json (0445). Unreadable parts read as empty, never as a crash. */
+export function parseLook(raw: unknown): DealLook {
+  if (!isObj(raw)) return NO_LOOK;
+  const per = positiveInt(raw.per_bill);
+  return {
+    get: list(raw.get, parseThing).slice(0, 3),
+    buy: list(raw.buy, parseThing).slice(0, 3),
+    per_bill: per !== null && per <= 10 ? per : null,
+    courts: raw.courts === true,
+  };
+}
+
 function parseDealTier(raw: unknown): Deal['tier'] {
   if (!isObj(raw) || !str(raw.id)) return null;
   return {
@@ -51,15 +73,19 @@ function parseDeal(raw: unknown): Deal | null {
   const name_en = str(raw.name_en).trim();
   const name_ar = str(raw.name_ar).trim();
   if (!name_en && !name_ar) return null;
-  const type = raw.type === 'percent' || raw.type === 'amount' ? raw.type : null;
+  const type =
+    raw.type === 'percent' || raw.type === 'amount' || raw.type === 'free_item' ? raw.type : null;
   const state = STATES.includes(raw.state as DealState) ? (raw.state as DealState) : null;
   if (!type || !state) return null;
   // An amount is whole IQD (formatIQD refuses anything else); a percent keeps what was sent.
   const value = type === 'amount' ? Math.round(num(raw.value)) : num(raw.value);
-  if (!(value > 0) || (type === 'percent' && value > 100)) return null;
+  if (!(value > 0) || (type !== 'amount' && value > 100)) return null;
   const from = HHMM.test(str(raw.hour_from)) ? str(raw.hour_from) : null;
   const to = HHMM.test(str(raw.hour_to)) ? str(raw.hour_to) : null;
   const on = isObj(raw.on) ? raw.on : {};
+  const look = parseLook(raw.look);
+  // A buy-one-get-one names what it gives; one that names nothing cannot be drawn or trusted.
+  if (type === 'free_item' && look.get.length === 0) return null;
   const endsAt = strOrNull(raw.ends_at);
   return {
     id: str(raw.id),
@@ -92,6 +118,7 @@ function parseDeal(raw: unknown): Deal | null {
       categories: list(on.categories, parseName),
       courts: on.courts === true,
     },
+    look,
   };
 }
 
@@ -141,11 +168,49 @@ export function dealBlurb(d: Pick<Deal, 'blurb_en' | 'blurb_ar'>, locale: 'en' |
   return (locale === 'ar' ? d.blurb_ar || d.blurb_en : d.blurb_en || d.blurb_ar) || null;
 }
 
-/** What the big figure is made of: the screen formats the number in the guest's language. */
-export type DealValue = { kind: 'percent'; percent: number } | { kind: 'amount'; iqd: number };
+/**
+ * What the big figure is made of: the screen formats the number in the guest's language.
+ * free: a buy-one-get-one, `percent` off each unit given (100 = free).
+ */
+export type DealValue =
+  | { kind: 'percent'; percent: number }
+  | { kind: 'amount'; iqd: number }
+  | { kind: 'free'; percent: number };
 
 export function dealValue(d: Pick<Deal, 'type' | 'value'>): DealValue {
+  if (d.type === 'free_item') return { kind: 'free', percent: d.value };
   return d.type === 'percent' ? { kind: 'percent', percent: d.value } : { kind: 'amount', iqd: d.value };
+}
+
+/**
+ * The picture on a deal's card (Majed, 2026-11-15), most specific first:
+ *   split  buy one, get one: what earns it and what is given, one picture split down a slanted
+ *          court line (`buy` null: a court booking earns it, drawn as a court);
+ *   item   money off one named thing: the value glowing over its photo;
+ *   court  money off with a court booking: the value floating above a court;
+ *   amount the whole bill, a sum off: the figure itself, huge;
+ *   percent the whole bill, a percent off: the percent, glowing.
+ */
+export type DealArt =
+  | { kind: 'split'; buy: DealThing | null; get: DealThing; percent: number }
+  | { kind: 'item'; value: Exclude<DealValue, { kind: 'free' }>; thing: DealThing }
+  | { kind: 'court'; value: Exclude<DealValue, { kind: 'free' }> }
+  | { kind: 'amount'; iqd: number }
+  | { kind: 'percent'; percent: number };
+
+export function dealArt(d: Pick<Deal, 'type' | 'value' | 'look' | 'on'>): DealArt {
+  const v = dealValue(d);
+  const look = d.look ?? NO_LOOK;
+  if (v.kind === 'free') {
+    const get = look.get[0];
+    // parseDeal drops a free_item with nothing to give; this is the type's guard.
+    if (get) return { kind: 'split', buy: look.buy[0] ?? null, get, percent: v.percent };
+    return { kind: 'percent', percent: v.percent };
+  }
+  const thing = look.get[0];
+  if (thing) return { kind: 'item', value: v, thing };
+  if (look.courts || d.on.courts) return { kind: 'court', value: v };
+  return v.kind === 'amount' ? { kind: 'amount', iqd: v.iqd } : { kind: 'percent', percent: v.percent };
 }
 
 /** How many names a card lists before it says "and more". */

@@ -62,6 +62,9 @@ describe('readAttendanceMonth', () => {
     expect(m.people[0]!.days).toHaveLength(2);
     expect(m.people[0]!.days[1]!.locked).toBe(true);
     expect(m.windowDays).toBe(60);
+    // 0442: a day made from scans says so; anything else (and an older server) is manual.
+    expect(m.people[0]!.days[0]!.source).toBe('manual');
+    expect(readAttendanceMonth({ ...payload, people: [{ ...payload.people[0], days: [day({ source: 'clock' })] }] }).people[0]!.days[0]!.source).toBe('clock');
   });
 
   it('reads garbage as an empty month with the rule off', () => {

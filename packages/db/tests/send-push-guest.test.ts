@@ -301,7 +301,7 @@ describe('guestMessage — coaching (docs/design/coaching/guest.md §4.6)', () =
     expect(msg('en', 'lesson.reminder').title).toBe('Your lesson is in 3 hours');
     expect(msg('ar', 'lesson.reminder').title).toBe('حصتك بعد 3 ساعات');
     expect(msg('en', 'coach.statement_ready').title).toBe('Your coach statement');
-    expect(msg('ar', 'coach.statement_paid').title).toBe('كشف حساب المدرّب');
+    expect(msg('ar', 'coach.statement_paid').title).toBe('كشف حسابك كمدرّب');
   });
 
   it('isolates the places LTR as one unit, and drops them without both counts (a private lesson)', () => {

@@ -12,8 +12,20 @@
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@touch/db';
-import type { MemberCard, MyDeals, MyLoyalty, MyRewardVouchers, RedeemRewardResult } from '@touch/core/loyalty';
+import type {
+  CardExtras,
+  CardRewardKind,
+  MyDealVouchers,
+  RedeemDealResult,
+  MemberCard,
+  MyDeals,
+  MyLoyalty,
+  MyRewardVouchers,
+  RedeemRewardResult,
+} from '@touch/core/loyalty';
 import { NO_DEALS, isMissingRpc, parseMyDeals } from './deals';
+import { NO_EXTRAS, parseCardExtras } from './extras';
+import { NO_DEAL_VOUCHERS, parseMyDealVouchers, parseRedeemDeal } from './dealVouchers';
 import { parseMemberCard, parseMyLoyalty } from './logic';
 import { NO_VOUCHERS, parseMyRewardVouchers, parseRedeemResult } from './vouchers';
 
@@ -106,4 +118,63 @@ export async function fetchMyRewardVouchers(client: Client): Promise<MyRewardVou
     throw error;
   }
   return parseMyRewardVouchers(data);
+}
+
+/**
+ * app.my_card_extras (0445): the drink card (stamps, size, ready, held) and the birthday gifts,
+ * the window read in the club's default branch. A server without 0445 reads as neither.
+ */
+/**
+ * app.redeem_deal (0445, Majed 2026-11-15): a deal's own QR, a TPD- code alive 15 minutes; the
+ * guest's live code before it is cancelled. DEAL_UNAVAILABLE, DEAL_LOCKED, DEAL_USED as they came.
+ */
+export async function redeemDeal(client: Client, promotionId: string): Promise<RedeemDealResult> {
+  const { data, error } = await client.schema('app').rpc('redeem_deal', { p_promotion_id: promotionId });
+  if (error) throw error;
+  return parseRedeemDeal(data);
+}
+
+/** app.cancel_deal_voucher: the guest's own live code; answers their deal codes again. */
+export async function cancelDealVoucher(client: Client, voucherId: string): Promise<MyDealVouchers> {
+  const { data, error } = await client.schema('app').rpc('cancel_deal_voucher', { p_voucher_id: voucherId });
+  if (error) throw error;
+  return parseMyDealVouchers(data);
+}
+
+/** app.my_deal_vouchers: the live code and those ended in the last half hour. Without 0445: none. */
+export async function fetchMyDealVouchers(client: Client): Promise<MyDealVouchers> {
+  const { data, error } = await client.schema('app').rpc('my_deal_vouchers');
+  if (error) {
+    if (isMissingRpc(error)) return NO_DEAL_VOUCHERS;
+    throw error;
+  }
+  return parseMyDealVouchers(data);
+}
+
+/**
+ * app.claim_card_reward (0445, Majed 2026-11-15): the guest's Redeem on their free drink (`stamp`)
+ * or one card gift (`gift` + its privilege). The next bill a till opens for them frees it while
+ * the press holds. Answers the drink card and gifts again; REWARD_NOT_READY (and the account
+ * refusals) are thrown as they came. State-idempotent: a second press only renews it, so no key.
+ */
+export async function claimCardReward(
+  client: Client,
+  kind: CardRewardKind,
+  perkId: string | null,
+): Promise<CardExtras> {
+  // As pick_deal: the generated types call every argument a string; null is "no privilege".
+  const { data, error } = await client
+    .schema('app')
+    .rpc('claim_card_reward', { p_kind: kind, p_perk_id: perkId as unknown as string });
+  if (error) throw error;
+  return parseCardExtras(data);
+}
+
+export async function fetchMyCardExtras(client: Client): Promise<CardExtras> {
+  const { data, error } = await client.schema('app').rpc('my_card_extras');
+  if (error) {
+    if (isMissingRpc(error)) return NO_EXTRAS;
+    throw error;
+  }
+  return parseCardExtras(data);
 }

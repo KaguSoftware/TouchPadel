@@ -17,7 +17,10 @@ export interface AlertRecord {
 
 export const alertState: { log: AlertRecord[] } = { log: [] };
 
-/** Waits for an alert whose body contains `text` (the alerts are batched a few ms). */
+/**
+ * Waits for an alert whose body contains `text` (the alerts are batched a few ms).
+ * Five seconds, like the suites' other waits: CI's runner is slower than a laptop.
+ */
 export function expectAlerted(text: string) {
-  return waitFor(() => expect(alertState.log.some((a) => a.body.includes(text))).toBe(true));
+  return waitFor(() => expect(alertState.log.some((a) => a.body.includes(text))).toBe(true), { timeout: 5000 });
 }

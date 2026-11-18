@@ -76,7 +76,7 @@ export const matchesAdminAr: DeepMessages<typeof matchesAdminEn> = {
       forfeited: 'مفقودة',
       cashedOut: 'مستردّة',
       everyBranch: 'التذاكر صالحة في كل الفروع.',
-      pending: 'دفع قيد الإتمام',
+      pending: 'عملية دفع جارية',
       purchases: 'المشتريات',
       noPurchases: 'لم تُشترَ أي تذاكر بعد.',
       paid: 'المدفوع {amount}',

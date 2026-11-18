@@ -18,6 +18,8 @@ export const staffSuppliesEn = {
   units: {
     one: { g: 'g', ml: 'ml', pc: 'piece', pack: 'pack' },
     many: { g: 'g', ml: 'ml', pc: 'pieces', pack: 'packs' },
+    // Arabic only: exactly 2 is the dual and stands without a digit (formatQty); English never reads it.
+    two: { pc: '2 pieces', pack: '2 packs' },
   },
   // "2 packs", "500 g"
   qtyUnit: '{qty} {unit}',

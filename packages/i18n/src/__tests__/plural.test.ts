@@ -71,3 +71,21 @@ describe('countPhrase', () => {
     }
   });
 });
+
+describe('booking.startsInDaysCount (the Next up chip on My reservations)', () => {
+  const n = (count: number) => isolateLtr(String(count));
+
+  it('says the Arabic dual, plural and singular forms from 2 days up', () => {
+    expect(countPhrase('booking.startsInDaysCount', 2, 'ar')).toBe('خلال يومين');
+    expect(countPhrase('booking.startsInDaysCount', 3, 'ar')).toBe(`خلال ${n(3)} أيام`);
+    expect(countPhrase('booking.startsInDaysCount', 10, 'ar')).toBe(`خلال ${n(10)} أيام`);
+    expect(countPhrase('booking.startsInDaysCount', 11, 'ar')).toBe(`خلال ${n(11)} يومًا`);
+    expect(countPhrase('booking.startsInDaysCount', 30, 'ar')).toBe(`خلال ${n(30)} يومًا`);
+    expect(countPhrase('booking.startsInDaysCount', 100, 'ar')).toBe(`خلال ${n(100)} يوم`);
+  });
+
+  it('keeps the English line the same for every count', () => {
+    expect(countPhrase('booking.startsInDaysCount', 3, 'en')).toBe(`In ${n(3)} days`);
+    expect(countPhrase('booking.startsInDaysCount', 2, 'en')).toBe(`In ${n(2)} days`);
+  });
+});

@@ -3,10 +3,11 @@ import { Image, View } from 'react-native';
 import Svg, { Circle, ClipPath, Defs, G, LinearGradient, Path, Rect, Stop } from 'react-native-svg';
 import { Text } from '../i18n/text';
 import { useLocale } from '../i18n/LocaleProvider';
-import { brand, frame as metal, radius, useTheme } from '../theme';
+import { brand, cardRing, frame as metal, radius, useTheme } from '../theme';
 import { useAvatarUrl } from '../features/profile/hooks';
 import {
   badgeCentre,
+  cardToneOf,
   DEFAULT_FRAME,
   frameDrawing,
   type ColorName,
@@ -25,7 +26,8 @@ import {
  *
  * The ring art never mirrors in Arabic; only an earned frame's badge follows
  * the reading direction (bottom end corner). `frameStyle` (0317) draws a free
- * frame as court lines.
+ * frame as court lines. A card ring (0445) is a woven metal band in its card's
+ * colour (`cardRing` tokens) with a small card badge.
  */
 export function ProfileAvatar({
   path,
@@ -98,7 +100,21 @@ const COLOR: Record<ColorName, string> = {
 };
 
 function paintOf(p: Paint, id: string): string {
-  return p.kind === 'solid' ? COLOR[p.color] : `url(#${id}-${p.metal})`;
+  if (p.kind === 'solid') return COLOR[p.color];
+  if (p.kind === 'metal') return `url(#${id}-${p.metal})`;
+  return p.part === 'band' ? `url(#${id}-card)` : cardRing[p.tone][p.part];
+}
+
+/**
+ * Only the rings of a frame, at `size`, with nothing inside and no badge: the
+ * mark beside a "profile ring" privilege on Points & rewards (0445).
+ */
+export function FrameRing({ frame, size }: { frame: FrameId; size: number }) {
+  return (
+    <View style={{ width: size, height: size }} accessible={false} importantForAccessibility="no">
+      <FrameLayer frame={frame} frameStyle="solid" size={size} rtl={false} rim="transparent" badge={false} />
+    </View>
+  );
 }
 
 /** The rings and badge of one frame, over the photo. Pointer events pass through. */
@@ -108,20 +124,51 @@ function FrameLayer({
   size,
   rtl,
   rim,
+  badge: withBadge = true,
 }: {
   frame: FrameId;
   frameStyle: FrameStyle;
   size: number;
   rtl: boolean;
   rim: string;
+  badge?: boolean;
 }) {
   const d = frameDrawing(frame, size, frameStyle);
   const id = `f${frame}${frameStyle}${size}`;
   const c = size / 2;
+  const tone = cardToneOf(frame);
   const rings = d.rings.map((ring, i) => {
     // The ring's centre line: inside every ring drawn before it.
     const mid = c - d.rings.slice(0, i).reduce((sum, x) => sum + x.width, 0) - ring.width / 2;
     const stroke = paintOf(ring.paint, id);
+    if (ring.weave) {
+      // 0445: the woven band. Two half-width rings of light cells over the
+      // metal, the inner one half a cell round, so the cells interlace.
+      const half = ring.width / 2;
+      const cells = (r: number, shift: boolean) => {
+        const cell = (2 * Math.PI * r) / (ring.weave ?? 1);
+        return (
+          <Circle
+            cx={c}
+            cy={c}
+            r={r}
+            fill="none"
+            stroke={brand.white}
+            strokeOpacity={0.26}
+            strokeWidth={half}
+            strokeDasharray={`${cell / 2} ${cell / 2}`}
+            strokeDashoffset={shift ? cell / 2 : 0}
+          />
+        );
+      };
+      return (
+        <G key={i}>
+          <Circle cx={c} cy={c} r={mid} fill="none" stroke={stroke} strokeWidth={ring.width} />
+          {cells(mid + half / 2, false)}
+          {cells(mid - half / 2, true)}
+        </G>
+      );
+    }
     if (ring.dashes) {
       const n = ring.dashes;
       const seg = (2 * Math.PI * mid) / n;
@@ -166,7 +213,7 @@ function FrameLayer({
   });
 
   let badge = null;
-  if (d.badge) {
+  if (d.badge && withBadge) {
     const B = d.badge.size;
     const { x, y } = badgeCentre(size, d.inset, B, rtl);
     const s = (B - 3) / 24;
@@ -176,6 +223,8 @@ function FrameLayer({
         <G transform={`translate(${x - (B - 3) / 2} ${y - (B - 3) / 2}) scale(${s})`}>
           {d.badge.glyph === 'trophy' ? (
             <Trophy color={metal.gold} />
+          ) : d.badge.glyph === 'card' ? (
+            <CardGlyph color={COLOR[d.badge.ink]} stripe={paintOf(d.badge.fill, id)} />
           ) : (
             <Racket color={COLOR[d.badge.ink]} clipId={`${id}-face`} />
           )}
@@ -197,6 +246,18 @@ function FrameLayer({
           <Stop offset="0.5" stopColor={metal.silver} />
           <Stop offset="1" stopColor={metal.silverLo} />
         </LinearGradient>
+        {tone ? (
+          // 0445: a card ring's sheen. Laid corner to corner, so round the ring
+          // it is bright at the top start, dark along the sides and catches the
+          // light again at the bottom end, like a turned metal bezel.
+          <LinearGradient id={`${id}-card`} x1="0" y1="0" x2="1" y2="1">
+            <Stop offset="0" stopColor={cardRing[tone].hi} />
+            <Stop offset="0.28" stopColor={cardRing[tone].face} />
+            <Stop offset="0.5" stopColor={cardRing[tone].lo} />
+            <Stop offset="0.72" stopColor={cardRing[tone].face} />
+            <Stop offset="1" stopColor={cardRing[tone].hi} />
+          </LinearGradient>
+        ) : null}
         <ClipPath id={`${id}-top`}>
           <Rect x={0} y={0} width={size} height={c} />
         </ClipPath>
@@ -252,6 +313,20 @@ function Racket({ color, clipId }: { color: string; clipId: string }) {
       <Path d={RACKET_STRINGS} stroke={color} strokeWidth={0.7} clipPath={`url(#${clipId})`} />
       <Rect x={-1.95} y={-10.2} width={3.9} height={9} rx={1.2} fill={color} />
       <Rect x={-2.3} y={-1.4} width={4.6} height={1.4} rx={0.6} fill={color} />
+    </G>
+  );
+}
+
+/**
+ * The card glyph (0445), drawn in a 24-unit box: a member card seen small, in
+ * the badge's ink, with its stripe in the badge's own metal.
+ */
+function CardGlyph({ color, stripe }: { color: string; stripe: string }) {
+  return (
+    <G>
+      <Rect x={3} y={6} width={18} height={12} rx={2.5} fill={color} />
+      <Rect x={3} y={9} width={18} height={2.6} fill={stripe} />
+      <Rect x={5.5} y={14} width={6} height={1.8} rx={0.9} fill={stripe} />
     </G>
   );
 }

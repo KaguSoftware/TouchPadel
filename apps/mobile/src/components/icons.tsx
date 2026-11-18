@@ -410,6 +410,40 @@ export const ClipboardIcon = (p: IconProps) => (
 export const CupIcon = (p: IconProps) => (
   <StrokeIcon d={['M5 9h12v5a5 5 0 0 1-5 5h-2a5 5 0 0 1-5-5V9zM17 10h1a2 2 0 0 1 0 4h-1']} {...p} />
 );
+// 0445: what a loyalty card gives.
+/** A birthday gift: a box with its ribbon and bow; never mirrored. */
+export const GiftIcon = (p: IconProps) => (
+  <StrokeIcon
+    d={['M4.5 11h15v9h-15zM3.5 7.5h17V11h-17zM12 7.5V20M12 7.5c-1.6-3.6-5.8-3-4.6 0M12 7.5c1.6-3.6 5.8-3 4.6 0']}
+    {...p}
+  />
+);
+/** Free with: a cup and a plus beside it. */
+export const CupPlusIcon = (p: IconProps) => (
+  <StrokeIcon d={['M3 10h11v4a4.5 4.5 0 0 1-4.5 4.5h-2A4.5 4.5 0 0 1 3 14v-4zM19 7.5v6M16 10.5h6']} {...p} />
+);
+/** The drink card: a card with a row of stamps, the last one ringed. */
+export const StampCardIcon = (p: IconProps) => (
+  <StrokeIcon
+    d={[
+      'M3 6.5h18v11H3z',
+      'M6.5 12a1 1 0 1 0 2 0 1 1 0 1 0-2 0M10.5 12a1 1 0 1 0 2 0 1 1 0 1 0-2 0',
+      'M14.5 12a2 2 0 1 0 4 0 2 2 0 1 0-4 0',
+    ]}
+    {...p}
+  />
+);
+/** A card-up gift: a member card with an arrow rising beside it; never mirrored. */
+export const CardUpIcon = (p: IconProps) => (
+  <StrokeIcon d={['M2.5 8.5h12v10h-12zM2.5 12h12M19 18V5.5M15.5 9l3.5-3.5L22.5 9']} {...p} />
+);
+/** A free size up: a small cup beside a bigger one. */
+export const SizeUpIcon = (p: IconProps) => (
+  <StrokeIcon
+    d={['M2.5 12.5h6V16a3 3 0 0 1-6 0v-3.5zM11.5 7.5h10v7a5 5 0 0 1-10 0v-7z']}
+    {...p}
+  />
+);
 /** The kitchen's roles (hiring): a chef's hat over its band. */
 export const ChefHatIcon = (p: IconProps) => (
   <StrokeIcon d={['M8 17h8v3.5H8V17zM6 13a4 4 0 1 1 3-6.5 4 4 0 0 1 6 0A4 4 0 1 1 18 13v4H6v-4z']} {...p} />

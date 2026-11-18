@@ -22,7 +22,12 @@ export interface PromotionDraft {
   /** HH:MM or '' */
   hourFrom: string;
   hourTo: string;
+  /** For free_item, itemIds / categoryIds are what is GIVEN; courtIds can be what earns it. */
   scope: PromotionScope;
+  /** 0445, free_item only: what earns it (sent only for that type; the server refuses it on another). */
+  buy: { categoryIds: string[]; itemIds: string[] };
+  /** 0445, free_item only: how many units one bill can get, 1..10. */
+  perBill: number;
   limits: PromotionLimits;
   auto: boolean;
   publicCode: string | null;
@@ -37,6 +42,11 @@ export interface PromotionDraft {
 /** promotions.app_blurb_en / app_blurb_ar: 1 to 160 characters. */
 export const APP_BLURB_MAX = 160;
 
+/** 0445: a free_item promotion's value when what they get is free (100 percent off). */
+export const FREE_ITEM_FULL = 100;
+/** 0445: scope.perBill is 1..10 (upsert_promotion_internal). */
+export const PER_BILL_MAX = 10;
+
 export const EMPTY_DRAFT: PromotionDraft = {
   name: { en: '', ar: '' },
   type: 'percent',
@@ -47,6 +57,8 @@ export const EMPTY_DRAFT: PromotionDraft = {
   hourFrom: '',
   hourTo: '',
   scope: { courtIds: [], categoryIds: [], itemIds: [] },
+  buy: { categoryIds: [], itemIds: [] },
+  perBill: 1,
   limits: { total: null, perCustomer: null, minSpendIqd: null, tierMin: null },
   auto: true,
   publicCode: null,
@@ -119,6 +131,8 @@ export function fromRow(row: PromotionRow): PromotionDraft {
       categoryIds: row.scope?.categoryIds ?? [],
       itemIds: row.scope?.itemIds ?? [],
     },
+    buy: { categoryIds: row.scope?.buyCategoryIds ?? [], itemIds: row.scope?.buyItemIds ?? [] },
+    perBill: typeof row.scope?.perBill === 'number' ? row.scope.perBill : 1,
     limits: {
       total: row.limits?.total ?? null,
       perCustomer: row.limits?.perCustomer ?? null,
@@ -182,6 +196,11 @@ export function toRpcArgs(draft: PromotionDraft, id: string | null): Record<stri
       courtIds: draft.scope.courtIds,
       categoryIds: draft.scope.categoryIds,
       itemIds: draft.scope.itemIds,
+      // 0445: the buy side and perBill belong to a buy-one-get-one only; on any other type the
+      // server refuses the keys, even empty.
+      ...(draft.type === 'free_item'
+        ? { buyCategoryIds: draft.buy.categoryIds, buyItemIds: draft.buy.itemIds, perBill: draft.perBill }
+        : {}),
     },
     p_limits: {
       total: draft.limits.total,
@@ -225,6 +244,12 @@ export type DraftError =
   | 'name'
   | 'value'
   | 'percent'
+  /** 0445, free_item: nothing chosen to give. */
+  | 'getNone'
+  /** 0445, free_item: nothing earns it (no item, category or court booking). */
+  | 'buyNone'
+  /** 0445, free_item: times per bill outside 1..10. */
+  | 'perBill'
   | 'startsPast'
   | 'endsPast'
   | 'dates'
@@ -240,6 +265,14 @@ export function validateDraft(d: PromotionDraft, savedStartsOn = '', savedEndsOn
   if (d.name.en.trim() === '' || d.name.ar.trim() === '') errors.push('name');
   if (!(d.value > 0)) errors.push('value');
   else if (d.type === 'percent' && (d.value < 1 || d.value > 99)) errors.push('percent');
+  else if (d.type === 'free_item' && (d.value < 1 || d.value > FREE_ITEM_FULL)) errors.push('percent');
+  // Mirrors upsert_promotion_internal (0445): a buy-one-get-one names what is given and what
+  // earns it (menu items or categories, or a court booking), and perBill is 1..10.
+  if (d.type === 'free_item') {
+    if (d.scope.itemIds.length + d.scope.categoryIds.length === 0) errors.push('getNone');
+    if (d.buy.itemIds.length + d.buy.categoryIds.length + d.scope.courtIds.length === 0) errors.push('buyNone');
+    if (!Number.isInteger(d.perBill) || d.perBill < 1 || d.perBill > PER_BILL_MAX) errors.push('perBill');
+  }
   // The input's `min` already stops the picker; this catches a typed-in date,
   // which the browser accepts out of range.
   if (d.startsOn && d.startsOn < minStartOn(savedStartsOn, now)) errors.push('startsPast');
@@ -471,7 +504,15 @@ export function describePromotion(
   locale: Locale,
   /** 0416: the name of the card limits.tierMin names; null when it is gone or not loaded. */
   tierName: string | null = null,
+  /** 0445: menu names, for a buy-one-get-one ("Buy Latte, get Croissant free"); null: not loaded. */
+  names: MenuNames | null = null,
 ): string {
+  if (d.type === 'free_item') {
+    const parts = [freeItemText(d, tr, locale, names)];
+    // Courts beside a menu buy side narrow which bills qualify; alone, they are the buy side.
+    if (d.scope.courtIds.length > 0 && d.buy.itemIds.length + d.buy.categoryIds.length > 0) parts.push(tr('ws.manager.promotions.summary.courts'));
+    return [...parts, ...describeRest(d, tr, locale, tierName)].join(' · ');
+  }
   const off =
     d.type === 'percent'
       ? tr('ws.manager.promotions.summary.percentOff', { value: formatNumber(d.value, locale) })
@@ -489,6 +530,12 @@ export function describePromotion(
   );
   const parts = [tr('ws.manager.promotions.summary.offWhat', { off, what })];
   if (d.scope.courtIds.length > 0) parts.push(tr('ws.manager.promotions.summary.courts'));
+  return [...parts, ...describeRest(d, tr, locale, tierName)].join(' · ');
+}
+
+/** Everything after "what it takes off": when, the limits, who, and how it reaches a bill. */
+function describeRest(d: PromotionDraft, tr: Translate, locale: Locale, tierName: string | null): string[] {
+  const parts: string[] = [];
   parts.push(scheduleText(d, tr, locale));
   if (d.limits.minSpendIqd !== null && d.limits.minSpendIqd > 0) {
     parts.push(tr('ws.manager.promotions.summary.minSpend', { amount: formatIQD(d.limits.minSpendIqd, locale) }));
@@ -504,11 +551,92 @@ export function describePromotion(
   }
   const how = howText(d, tr);
   if (how) parts.push(how);
-  return parts.join(' · ');
+  return parts;
+}
+
+// ---------------------------------------------------------------------------
+// Buy one, get one (0445)
+// ---------------------------------------------------------------------------
+
+/** Menu names by id, for the words of a buy-one-get-one; null for an id not found. */
+export interface MenuNames {
+  item: (id: string) => string | null;
+  category: (id: string) => string | null;
+}
+
+/** Names shown before "+N more". */
+const NAMES_SHOWN = 2;
+
+/**
+ * Up to two names joined by "or", then "+N more"; "the chosen items" when none can be named (the
+ * menu not read yet, or deleted items); "(not chosen yet)" while the side is empty.
+ */
+function nameList(ids: { items: readonly string[]; categories: readonly string[] }, tr: Translate, locale: Locale, names: MenuNames | null): string {
+  const all = ids.items.length + ids.categories.length;
+  if (all === 0) return tr('ws.manager.promotions.bogo.notChosen');
+  const known = names
+    ? [...ids.items.map((id) => names.item(id)), ...ids.categories.map((id) => names.category(id))].filter((n): n is string => Boolean(n))
+    : [];
+  if (known.length === 0) return tr('ws.manager.promotions.bogo.chosen');
+  const shown = known.slice(0, NAMES_SHOWN).join(tr('ws.manager.promotions.bogo.or'));
+  const more = all - Math.min(known.length, NAMES_SHOWN);
+  return more > 0 ? tr('ws.manager.promotions.bogo.more', { list: shown, n: formatNumber(more, locale) }) : shown;
+}
+
+/** True when a court booking, not something from the menu, earns the buy-one-get-one. */
+export function earnedByCourt(d: Pick<PromotionDraft, 'buy' | 'scope'>): boolean {
+  return d.buy.itemIds.length + d.buy.categoryIds.length === 0 && d.scope.courtIds.length > 0;
+}
+
+/**
+ * A buy-one-get-one in one line: "Buy Latte, get Croissant free", "Book a court, get Water at
+ * 50% off", then "Up to 2 per bill" when a bill can get more than one.
+ */
+export function freeItemText(
+  d: Pick<PromotionDraft, 'value' | 'buy' | 'scope' | 'perBill'>,
+  tr: Translate,
+  locale: Locale,
+  names: MenuNames | null = null,
+): string {
+  const get = nameList({ items: d.scope.itemIds, categories: d.scope.categoryIds }, tr, locale, names);
+  const free = d.value >= FREE_ITEM_FULL;
+  const value = formatNumber(d.value, locale);
+  const head = earnedByCourt(d)
+    ? tr(free ? 'ws.manager.promotions.bogo.courtGetFree' : 'ws.manager.promotions.bogo.courtGetPercent', { get, value })
+    : tr(free ? 'ws.manager.promotions.bogo.getFree' : 'ws.manager.promotions.bogo.getPercent', {
+        buy: nameList({ items: d.buy.itemIds, categories: d.buy.categoryIds }, tr, locale, names),
+        get,
+        value,
+      });
+  return d.perBill > 1 ? `${head} · ${tr('ws.manager.promotions.bogo.perBill', { n: formatNumber(d.perBill, locale) })}` : head;
+}
+
+/** The list's Discount cell for a buy-one-get-one: "Free" or "50% off". */
+export function freeItemValueText(value: number, tr: Translate, locale: Locale): string {
+  return value >= FREE_ITEM_FULL ? tr('ws.manager.promotions.bogo.free') : tr('ws.manager.promotions.summary.percentOff', { value: formatNumber(value, locale) });
+}
+
+/**
+ * The value a draft takes when its type changes: a buy-one-get-one starts free (100); a percent
+ * keeps a value inside 1..99 and otherwise starts at the new promotion's 10 (a free item's 100
+ * is not a 99% discount); an amount keeps what was typed.
+ */
+export function valueForType(type: PromotionType, value: number): number {
+  if (type === 'free_item') return FREE_ITEM_FULL;
+  if (type === 'percent') return value >= 1 && value <= 99 ? value : EMPTY_DRAFT.value;
+  return value;
+}
+
+/**
+ * Listed in the app AND automatic: every bill that qualifies gets it, not only the members who
+ * pick it (the known rule: a deal meant for app members has auto off). The editor warns.
+ */
+export function listedAndAuto(d: Pick<PromotionDraft, 'inApp' | 'auto'>): boolean {
+  return d.inApp && d.auto;
 }
 
 /** The single reason Save is unavailable, in the order the form reads. */
 export function saveBlocker(errors: readonly DraftError[]): DraftError | null {
-  const order: DraftError[] = ['name', 'value', 'percent', 'startsPast', 'endsPast', 'dates', 'hours', 'blurbPair', 'blurbLong', 'appSingleUse'];
+  const order: DraftError[] = ['name', 'value', 'percent', 'getNone', 'buyNone', 'perBill', 'startsPast', 'endsPast', 'dates', 'hours', 'blurbPair', 'blurbLong', 'appSingleUse'];
   return order.find((e) => errors.includes(e)) ?? null;
 }

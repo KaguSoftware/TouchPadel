@@ -87,3 +87,68 @@ export function voucherMsLeft(expiresAt: string, serverNow: string, readAt: numb
   const skew = Date.parse(serverNow) - readAt;
   return Math.max(0, Date.parse(expiresAt) - (deviceNow + skew));
 }
+
+// ── a deal's own QR (0445, Majed 2026-11-15) ─────────────────────────────────
+// Redeem on a deal gives a fixed single-use code, TPD- and twelve characters of the same
+// alphabet, alive 15 minutes like a reward's. The till scans it (app.use_deal_voucher) and the
+// deal goes on that bill for that member. No points are held.
+
+/** The canonical deal code, as the server stores it and the QR carries it. */
+export const DEAL_VOUCHER_CODE_RE = /^TPD-[0-9A-HJKMNP-TV-Z]{12}$/;
+
+/** A deal code from what a scanner or a person typed (any case, spaces or dashes); null otherwise. */
+export function parseDealVoucherCode(raw: string): string | null {
+  const s = raw.toUpperCase().replace(/[\s-]/g, '');
+  const m = /^TPD([0-9A-HJKMNP-TV-Z]{12})$/.exec(s);
+  return m ? `TPD-${m[1]}` : null;
+}
+
+/** True when a scanner burst or a typed string is a deal code. */
+export function isDealVoucherCode(raw: string): boolean {
+  return parseDealVoucherCode(raw) !== null;
+}
+
+/** The deal code for reading aloud or typing: TPD-XXXX-XXXX-XXXX. */
+export function formatDealVoucherCode(code: string): string {
+  const c = parseDealVoucherCode(code);
+  if (!c) return code;
+  const body = c.slice(4);
+  return `TPD-${body.slice(0, 4)}-${body.slice(4, 8)}-${body.slice(8)}`;
+}
+
+/** One deal code as app.my_deal_vouchers and app.redeem_deal answer it. */
+export interface DealVoucher {
+  id: string;
+  code: string;
+  promotion_id: string;
+  name_en: string;
+  name_ar: string;
+  type: 'percent' | 'amount' | 'free_item';
+  value: number;
+  status: VoucherStatus;
+  created_at: string;
+  expires_at: string;
+  ended_at: string | null;
+}
+
+/** app.my_deal_vouchers (the live code and those ended in the last 30 minutes) and the server clock. */
+export interface MyDealVouchers {
+  now: string;
+  vouchers: DealVoucher[];
+}
+
+/** app.redeem_deal: the new code and the server clock. */
+export interface RedeemDealResult {
+  now: string;
+  voucher: DealVoucher;
+}
+
+/** app.use_deal_voucher: what the till applied. */
+export interface UseDealVoucherResult {
+  voucherId: string;
+  promotionId: string;
+  name_en: string;
+  name_ar: string;
+  amountIqd: number;
+  customerId: string;
+}

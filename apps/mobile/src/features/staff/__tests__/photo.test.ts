@@ -299,7 +299,9 @@ describe('the native config (§6.10)', () => {
       [string, Record<string, unknown>] | undefined;
     expect(plugin?.[1]).toEqual({
       photosPermission: 'Touch Padel uses your photos only when you choose a profile photo or attach a work photo.',
-      cameraPermission: 'Touch Padel uses the camera only when you take a profile photo or a work photo.',
+      // Shared with expo-camera's desk-QR scan (0442): one NSCameraUsageDescription, two plugins.
+      cameraPermission:
+        'Touch Padel uses the camera only when you take a profile photo or a work photo, or scan the desk QR code to start or finish work.',
       microphonePermission: false,
     });
 
@@ -317,6 +319,8 @@ describe('the native config (§6.10)', () => {
       expect(Object.keys(file)).toEqual(['ios']);
       expect(Object.keys(file.ios).sort()).toEqual([
         'NSCameraUsageDescription',
+        // Staff clock-in (0442): clock/__tests__/nativeConfig.test.ts checks its line.
+        'NSLocationWhenInUseUsageDescription',
         'NSMotionUsageDescription',
         'NSPhotoLibraryUsageDescription',
       ]);
@@ -350,6 +354,9 @@ describe('the native config (§6.10)', () => {
       'android.permission.READ_MEDIA_VIDEO',
       'android.permission.READ_EXTERNAL_STORAGE',
       'android.permission.RECORD_AUDIO',
+      // Staff clock-in (0442): no location in the background, ever.
+      'android.permission.ACCESS_BACKGROUND_LOCATION',
+      'android.permission.FOREGROUND_SERVICE_LOCATION',
     ]);
     expect(config.version).toBe('1.1.0');
   });

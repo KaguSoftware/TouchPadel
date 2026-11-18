@@ -34,6 +34,7 @@ export const coachingCoachEn = {
     hours: 'Hours and time off',
     new: 'New session or course',
     book: 'Book for a student',
+    result: 'Enter a result',
     statements: 'Statements',
     paused: 'Paused',
     week: 'Next 7 days',
@@ -200,7 +201,16 @@ export const coachingCoachEn = {
     claimedNone: 'They have not said their level',
     set: 'Set level',
     sheetTitle: 'Level of {name}',
-    sheetBody: 'The level you confirm is the one the club matches them at. You can change it after any lesson.',
+    sheetBody: 'Pick their type, A the highest. Their ranking level starts from it, and their games move it after that.',
+    // The Level check's choices (0443/0444, Majed 2026-11-16: "type a b c, A starts highest"),
+    // in the words used everywhere (Type A, B, C; playerType.ts) and the operator's (ws.ranks).
+    // The values sent stay advanced | intermediate | beginner | new.
+    type: {
+      advanced: 'Type A',
+      intermediate: 'Type B',
+      beginner: 'Type C',
+      new: 'New',
+    },
     pick: 'Their level',
     note: 'Note (optional)',
     notePlaceholder: 'What you saw, in one line',
@@ -216,6 +226,21 @@ export const coachingCoachEn = {
       manager: 'by a manager',
       owner: 'by the owner',
     },
+  },
+  // A game the coach watched, for the rankings (0444 ranks_coach_record): it counts at once.
+  result: {
+    title: 'Enter a result',
+    intro: 'A game you watched. It counts at once for every player in it.',
+    sideA: 'Side A',
+    sideB: 'Side B',
+    player1: 'First player',
+    player2: 'Second player (optional)',
+    winner: 'Who won?',
+    winA: 'Side A',
+    winB: 'Side B',
+    draw: 'Draw',
+    submit: 'Save the result',
+    saved: 'Saved. It counts now.',
   },
   remove: {
     title: 'Remove {name}?',

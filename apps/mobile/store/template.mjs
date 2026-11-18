@@ -5,12 +5,12 @@
  * the same template renders 6.9" iPhone, 6.5" iPhone and Google Play phone
  * without a second set of numbers to keep in sync.
  */
-import { pathToFileURL } from 'node:url';
 import path from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { brand, DEVICE_PT } from './tokens.mjs';
 import { SCREENS, screenCss } from './screens.mjs';
 
-const HERE = path.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1'));
+const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.resolve(HERE, '..', '..', '..');
 
 const fileUrl = (...p) => pathToFileURL(path.join(REPO, ...p)).href;
@@ -87,7 +87,10 @@ export function posterHtml({ size, locale, dir, t, frame, capture }) {
   const platform = size.platform ?? 'ios';
   const inner = capture
     ? `<img class="capture" src="${capture}" alt=""/>`
-    : `<div class="scr-scaler" dir="${dir}">${SCREENS[frame.screen](t, LOGO, platform)}</div>`;
+    : frame.screen && SCREENS[frame.screen]
+      ? `<div class="scr-scaler" dir="${dir}">${SCREENS[frame.screen](t, LOGO, platform)}</div>`
+      : // --draft with no recreation for this screen: say what belongs here.
+        `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#fff;font:600 40px system-ui;text-align:center;padding:40px">Capture needed:<br>${frame.slug}</div>`;
 
   const headline = frame.headline.map((line) => `<div class="hl-line">${line}</div>`).join('');
 

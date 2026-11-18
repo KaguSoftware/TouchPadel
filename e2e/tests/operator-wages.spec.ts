@@ -53,6 +53,8 @@ const COPY = {
   en: {
     wages: 'Wages',
     attendance: 'Late and early',
+    // 0442: the page opens on Today (clock-in); the rule and the record form are on Month.
+    monthTab: 'Month',
     salary: /Monthly salary/,
     grace: /Minutes allowed/,
     penalty: /Cost of a day over the limit/,
@@ -66,6 +68,7 @@ const COPY = {
   ar: {
     wages: 'الرواتب',
     attendance: 'التأخير والانصراف المبكر',
+    monthTab: 'الشهر',
     salary: /الراتب الشهري/,
     grace: /الدقائق المسموح بها/,
     penalty: /قيمة خصم اليوم المتجاوز للحد/,
@@ -149,6 +152,7 @@ test.describe('operator wages and attendance', () => {
     const manager = await signIn(browser, SEED_STAFF.manager, locale);
     await manager.goto(`${OPERATOR_URL}/attendance`);
     await expect(manager.getByRole('heading', { level: 1, name: copy.attendance })).toBeVisible({ timeout: 30_000 });
+    await manager.getByRole('tab', { name: copy.monthTab, exact: true }).click();
     const rule = manager.getByTestId('attendance.rule');
     const grace = rule.getByRole('textbox', { name: copy.grace });
     await expect(grace).toBeEnabled();

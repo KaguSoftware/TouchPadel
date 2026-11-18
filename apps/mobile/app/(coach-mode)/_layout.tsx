@@ -18,6 +18,7 @@ export default function CoachModeLayout() {
       <Stack.Screen name="coach-mode-new" />
       <Stack.Screen name="coach-mode-book" />
       <Stack.Screen name="coach-mode-statements" />
+      <Stack.Screen name="coach-mode-result" />
     </Stack>
   );
 }

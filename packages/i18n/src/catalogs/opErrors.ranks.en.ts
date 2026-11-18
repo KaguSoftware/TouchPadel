@@ -13,4 +13,5 @@ export const opErrorsRanksEn = {
   RANKS_ALREADY_REPORTED: 'A result for this game has already been reported.',
   RANKS_NOT_YOURS: 'Only one of the two opponents can answer this result.',
   RANKS_RESULT_CLOSED: 'This result has already been confirmed, turned down or closed.',
+  RANKS_LEVEL_LOCKED: 'Your type is set now. Ask the desk or a coach to change it.',
 };

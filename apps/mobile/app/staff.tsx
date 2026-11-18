@@ -56,6 +56,8 @@ import { GROUP_SYMBOLS, GroupRows, useTodayGroups, type TodayGroup } from '../sr
 import type { StaffRowDef } from '../src/features/staff/rows';
 import { fetchMyRewards } from '../src/features/staff/rewards/api';
 import { RewardTrack } from '../src/features/staff/rewards/RewardTrack';
+import { WorkCard } from '../src/features/staff/clock/WorkCard';
+import { clocksIn } from '../src/features/staff/clock/logic';
 import { staffKeys } from '../src/features/staff/keys';
 import { useReduceMotion } from '../src/lib/useReduceMotion';
 import { useToast } from '../src/components/overlays';
@@ -720,6 +722,11 @@ function TodayScreen() {
   const { staff } = status;
   const hasReward =
     !!venueId && staff.role !== 'owner' && (myRewards.data?.rewards.length ?? 0) > 0;
+  // Start / Finish work (0442): everyone but the owner, at the picked branch. It takes one
+  // row of tiles' room, so the first page holds two tiles fewer.
+  const showsClock = !!venueId && clocksIn(staff.role);
+  const firstPageSize =
+    (hasReward ? TILES_FIRST_PAGE_WITH_REWARD : TILES_PER_PAGE) - (showsClock ? 2 : 0);
   // Every role's page is drawn at the owner's size, a little tighter so the
   // grid fits a phone without scrolling (owner 2026-10-07: "bigger a bit";
   // one size for all roles, Sait 2026-11-02).
@@ -823,6 +830,9 @@ function TodayScreen() {
           <AssistantButton testID="staff.assistant.header" size={46} glass />
         </Card>
 
+        {/* Start or finish work, first under the greeting (0442). */}
+        {showsClock ? <WorkCard venueId={venueId!} mainRole={staff.role} /> : null}
+
         {showsVenuePicker(status.venues) ? (
           <Card style={{ padding: space.m }}>
             <MicroLabel>{t('staff.shell.venue.label')}</MicroLabel>
@@ -839,7 +849,7 @@ function TodayScreen() {
         {status.venues.length === 0 ? <Hint>{t('staff.shell.venue.none')}</Hint> : null}
 
         <TilePages
-          firstPageSize={hasReward ? TILES_FIRST_PAGE_WITH_REWARD : TILES_PER_PAGE}
+          firstPageSize={firstPageSize}
           // Rewards for orders placed: the owner sets them, so the owner has none.
           header={
             venueId && staff.role !== 'owner' ? (

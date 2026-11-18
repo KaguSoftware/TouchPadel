@@ -248,6 +248,10 @@ export function readTargets(raw: unknown): Targets {
     .filter((a) => a.modifier_id !== '');
   const promotions = arr(raw.promotions)
     .filter(isObj)
+    // A buy-one-get-one (0445 free_item) is set up in the promotion editor only: the price and
+    // promo protocol speaks percent and amount (the server refuses anything else), so offering it
+    // here would turn it into a percent promotion.
+    .filter((p) => p.type !== 'free_item')
     .map((p) => ({
       promotion_id: str(p.promotion_id) ?? '',
       name_en: str(p.name_en) ?? '',

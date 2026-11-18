@@ -294,6 +294,30 @@ function viewMatch(b: BookingBill, match = false) {
   );
 }
 
+describe('CourtBillView — a card gift on the court fee (0445)', () => {
+  it('names the court hour a card gift took off the booking, beside the court fee', async () => {
+    role = 'manager';
+    vi.mocked(appRpc).mockImplementation(async (fn: string) =>
+      fn === 'loyalty_tab_benefits'
+        ? {
+            tab_id: 't1',
+            customer_id: 'p1',
+            enabled: true,
+            tier: null,
+            perks: [],
+            addons: { on_bill_iqd: 0, due_iqd: 0, needs_refresh: false },
+            lines: [],
+            court_gift: { perk_id: 'm1', name_en: 'Monthly court hour', name_ar: 'ساعة الشهر', amount_iqd: 20000 },
+            deal: null,
+          }
+        : {},
+    );
+    view(bill({ live_tab: tab({ court_iqd: 10000, total_iqd: 25000, due_iqd: 25000 }) }));
+    expect((await screen.findByTestId('court-card-gift-note')).querySelector('dd')?.textContent).toBe('Monthly court hour: 20,000 IQD off the court fee');
+    vi.mocked(appRpc).mockImplementation(async () => ({}));
+  });
+});
+
 describe('CourtBillView — an open match booking', () => {
   it('says what the players owe between them, keeps Cash and Card, and offers no cafe bill (DF-16)', () => {
     viewMatch(bill({ match: matchMoney(), court_remaining_iqd: 40000 }));

@@ -37,6 +37,7 @@ import {
   ClockIcon,
   RoundedPlusIcon,
   SlipIcon,
+  TrophyIcon,
 } from '../../src/components/icons';
 import {
   CoachAvatar,
@@ -397,6 +398,13 @@ function CoachModeBody({ coach }: { coach: CoachMe }) {
       icon: SlipIcon,
       label: t('coaching.coach.home.statements'),
       href: '/coach-mode-statements',
+    },
+    // A game the coach watched, for the rankings (0444): confirmed at once.
+    {
+      key: 'result',
+      icon: TrophyIcon,
+      label: t('coaching.coach.home.result'),
+      href: '/coach-mode-result',
     },
   ];
   const actionRows: (typeof actions)[] = [];

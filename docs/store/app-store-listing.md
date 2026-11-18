@@ -3,19 +3,20 @@
 Everything that gets **typed** into App Store Connect, in both listing languages.
 Everything that gets **answered** (privacy labels, age rating, review notes) is
 in `app-store-submission.md`. The browser agent that types both into App Store
-Connect is `docs/client/app-store-connect-chrome-prompt.md`. Screenshots are generated —
+Connect is `docs/client/store-release-chrome-prompt.md`. Screenshots are generated —
 `apps/mobile/store/README.md`.
 
 - **Bundle ID:** `com.kagu.touchpadel`
-- **Primary language:** English (U.S.)
-- **Second localization:** Arabic — required, because `CFBundleLocalizations`
+- **Primary language:** **Arabic** (the App Store Connect record was created that way and stays so; on Google Play
+  the default language is Arabic too). English (U.S.) is the second localization.
+- **Arabic** is required either way, because `CFBundleLocalizations`
   ships `['en','ar']` and the app is fully RTL. A listing without it shows Iraqi
   users an English-only page for an app that is half Arabic.
 - **SKU:** `touch-padel-ios`
 - **Version:** **1.1.0** (`apps/mobile/app.config.ts`), the first version submitted to the store.
 - **What this build does (2026-11-01, F-02/F-03):** court booking, open matches, lessons with the club's
-  coaches, tournaments, the Club tab (member card with points and rewards, the Ranks leaderboard, the café
-  menu to look at), My Bookings and Profile. **No online payment and no tickets**: the production profile in
+  coaches, tournaments, the Rankings tab (the leaderboard, first in the bar since 2026-11-12), the Club tab
+  (member card with points and rewards, the café menu to look at), and Profile with My reservations. **No online payment and no tickets**: the production profile in
   `apps/mobile/eas.json` sets `EXPO_PUBLIC_ONLINE_PAYMENTS` to "off", and `EXPO_PUBLIC_TOURNAMENTS` stays "on".
   Open matches are on: since 0370 each player pays their seat at the front desk, and with online payment off
   the app never asks for a ticket (`useMatchPayAtDesk`). Everything is paid at the front desk. The listing, the review notes
@@ -269,3 +270,38 @@ metadata rejection on apps like this one:
   ```
   المباريات المفتوحة: ابدأ مباراة في أي وقت متاح أو انضم إلى واحدة. يحجز أربعة لاعبين الملعب معًا، ويدفع كلٌّ حصته عند الاستقبال.
   ```
+
+---
+
+## 4 · Google Play, English
+
+Play's main store listing (Play Console → Grow users → Store presence → Main store listing). The **full
+description** is the App Store one (§1 Description, under 4,000, which is Play's limit too): paste it as is.
+Play has no keywords, subtitle or promotional text. Graphics come from `apps/mobile/store/out/` (play-phone
+screenshots, `feature-graphic.png` 1024×500, `play-icon-512.png`).
+
+### Play Title — 11 / 30
+
+```
+Touch Padel
+```
+
+### Short description — 73 / 80
+
+```
+Book padel courts, join open matches, book lessons and enter tournaments.
+```
+
+## 5 · Google Play, Arabic
+
+### Play Title — 8 / 30
+
+```
+تتش بادل
+```
+
+### Short description — 74 / 80
+
+```
+احجز ملعبًا، وانضم إلى مباراة مفتوحة، واحجز حصة، وشارك في بطولات تتش بادل.
+```

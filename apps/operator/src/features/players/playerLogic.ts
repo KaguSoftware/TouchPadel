@@ -224,3 +224,20 @@ export function saveSteps(
         : 'keep',
   };
 }
+
+/**
+ * Where the level on record came from (Majed 2026-11-16: the player picks their own type and it
+ * stands; staff confirm, change or set it). `checked` once a coach, the desk, a manager or the
+ * owner has set it; `picked` while only the player's own choice stands; `none` otherwise.
+ */
+export type LevelSource = 'checked' | 'picked' | 'none';
+
+export function levelSource(facts: PlayerFacts): LevelSource {
+  if (facts.confirmedLevel) return 'checked';
+  return facts.claimedLevel ? 'picked' : 'none';
+}
+
+/** The one-tap "Confirm Type X": the player's own pick, while no staff check stands. */
+export function claimToConfirm(facts: PlayerFacts): PlayLevel | null {
+  return levelSource(facts) === 'picked' ? facts.claimedLevel : null;
+}

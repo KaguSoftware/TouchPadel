@@ -27,7 +27,7 @@ export const receiptsAr: DeepMessages<typeof receiptsEn> = {
     read: 'جاهز للمراجعة',
     failed: 'تعذّرت القراءة',
     confirmed: 'في المخزون',
-    rejected: 'مستبعد',
+    rejected: 'موضوع جانبًا',
   },
   error: {
     READER_NOT_CONFIGURED: 'لا يوجد ذكاء اصطناعي مرتبط لقراءة الإيصالات بعد. اكتب الأسطر من الصورة.',

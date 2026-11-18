@@ -60,6 +60,8 @@ apps/mobile/dist/
 
 # Firebase / FCM — Android push credentials
 apps/mobile/google-services.json
+# Google Play service account for eas submit (apps/mobile/eas.json submit.production.android)
+apps/mobile/secrets/
 google-services.json
 credentials.json
 *.jks
@@ -67,10 +69,14 @@ credentials.json
 # Store screenshot renders. The generator (apps/mobile/store/) is the source of truth,
 # but the 6.9" set actually uploaded to App Store Connect is committed, so the images the
 # listing shows can be found and diffed from any machine (owner decision 2026-09-15).
-# Other sizes (iphone-6.5, play-phone) and --html dumps stay local.
+# Other sizes (iphone-6.5) and --html dumps stay local.
 !apps/mobile/store/out/
 apps/mobile/store/out/*
 !apps/mobile/store/out/iphone-6.9/
+# Google Play's uploaded set too (store submission, 2026-11-17).
+!apps/mobile/store/out/play-phone/
+!apps/mobile/store/out/play-feature-graphic/
+!apps/mobile/store/out/play-icon-512.png
 
 # Bench results (packages/db/bench). Every nightly run writes a fresh results.json;
 # the committed artefact is bench/baseline.json, taken from the CI runner.

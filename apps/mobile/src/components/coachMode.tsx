@@ -32,12 +32,12 @@ import { ChevronIcon, PhoneIcon, TrashIcon } from './icons';
 import { DateTimeField } from './DateTimeField';
 import {
   LEVEL_NOTE_MAX,
+  CHECK_LEVELS,
   levelIssue,
   levelRole,
   startingLevel,
   type StudentLevel,
 } from '../features/coach/level';
-import { PICKABLE_LEVELS, levelForPick, sameType } from '@touch/core';
 import { type PlayLevel } from '../features/playProfile/logic';
 import {
   belowMinimum,
@@ -1146,7 +1146,8 @@ export function StatementCard({
 
 // ── A linked student's level (0401, F-70) ───────────────────────────────────
 
-const levelKey = (level: PlayLevel): MessageKey => `playProfile.survey.level.${level}.title` as MessageKey;
+/** "Type A", "Type B", "Type C", "New": the words used everywhere (playerType.ts) and on the operator. */
+const levelKey = (level: PlayLevel): MessageKey => `coaching.coach.level.type.${level}` as MessageKey;
 
 /**
  * Under a linked student's row: the club's confirmed level (and who confirmed it), what the
@@ -1219,7 +1220,7 @@ export function StudentLevelLine({
 }
 
 /**
- * The level sheet: Type A, B and C, an optional one-line note (at most 120 characters), Save,
+ * The level sheet (a Level check): A, B, C or New, an optional one-line note (at most 120 characters), Save,
  * and Clear while a level is confirmed. The write is the screen's (coach_set_student_level).
  */
 export function StudentLevelSheet({
@@ -1294,9 +1295,9 @@ export function StudentLevelSheet({
             {t('coaching.coach.level.pick')}
           </Text>
           <View style={{ gap: space.s }}>
-            {/* One choice per player type (A, B, C); a stored `new` lights Type C and is kept. */}
-            {PICKABLE_LEVELS.map((value) => {
-              const on = sameType(picked, value);
+            {/* A, B, C and New: each its own starting level, matched exactly (0444). */}
+            {CHECK_LEVELS.map((value) => {
+              const on = picked === value;
               return (
                 <Pressable
                   key={value}
@@ -1304,7 +1305,7 @@ export function StudentLevelSheet({
                   accessibilityRole="radio"
                   accessibilityState={{ checked: on }}
                   onPress={() => {
-                    setPicked(levelForPick(value, picked));
+                    setPicked(value);
                     setIssue(null);
                   }}
                   style={{

@@ -48,6 +48,8 @@ export interface AttendanceDay {
   note: string | null;
   recordedByName: string | null;
   recordedAt: string | null;
+  /** 'clock': made from the person's log-in and log-out scans (0442); 'manual': recorded by a manager. */
+  source: 'manual' | 'clock';
 }
 
 export interface AttendancePerson {
@@ -128,6 +130,7 @@ export function readAttendanceMonth(payload: unknown): AttendanceMonth {
               note: str(d.note),
               recordedByName: str(d.recorded_by_name),
               recordedAt: str(d.recorded_at),
+              source: d.source === 'clock' ? ('clock' as const) : ('manual' as const),
             })),
         }),
       ),

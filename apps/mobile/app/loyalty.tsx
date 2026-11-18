@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
-import Svg, { Circle, Path } from 'react-native-svg';
+import Svg, { Path } from 'react-native-svg';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TIER_SWATCH } from '@touch/core/loyalty';
@@ -13,15 +13,17 @@ import { mapErrorToKey } from '../src/features/booking/errors';
 import { useVenueSettings } from '../src/features/availability/hooks';
 import { DEFAULT_TZ } from '../src/features/availability/assemble';
 import {
-  useMyDeals,
+  useMyCardExtras,
   useMyLoyalty,
   useMyRewardVouchers,
-  usePickDeal,
   useRedeemReward,
 } from '../src/features/loyalty/hooks';
 import { activeVouchers, formatCountdown } from '../src/features/loyalty/vouchers';
-import { DealsSection } from '../src/features/loyalty/DealCards';
 import { NextCardBlock } from '../src/features/loyalty/NextCardBlock';
+import { DrinkCard } from '../src/features/loyalty/DrinkCard';
+import { useCardRedeem } from '../src/features/loyalty/useCardRedeem';
+import { drinkCardView } from '../src/features/loyalty/extras';
+import { RewardTiles } from '../src/features/loyalty/RewardTiles';
 import { useBack, useReturnTo } from '../src/navigation/back';
 import {
   LEDGER_KIND_KEYS,
@@ -32,22 +34,21 @@ import {
 import { usePullRefresh } from '../src/lib/usePullRefresh';
 import { usePullBall } from '../src/components/PullBall';
 import { radius, space, useTheme } from '../src/theme';
-import { Button, Card, Hint, MicroLabel, Screen } from '../src/components/ui';
+import { Card, Hint, MicroLabel, Screen } from '../src/components/ui';
 import { EmptyState, ErrorState, SkeletonList } from '../src/components/states';
 import { ConfirmAlert, useToast } from '../src/components/overlays';
 
 /**
- * Points and rewards (loyalty plan §5.1; build contracts §1.3 `my_loyalty`; 0410 `my_deals`), in
- * the order a guest asks about them: the balance (a number: the card is the Club tab's), the way to
- * the next card and what that card gives, the deals to use at the cashier, the rewards the points
- * reach, every card from the base up, and the last 50 ledger rows.
+ * Points and rewards (loyalty plan §5.1; build contracts §1.3 `my_loyalty`), in the order a guest
+ * asks about them: the balance (a number: the card is the Club tab's), the way to the next card
+ * and what that card gives (the drink card's stamps between them since 0445), the rewards the
+ * points reach, every card from the base up, and the last 50 ledger rows. No deals here (Majed,
+ * 2026-11-15: "strictly rewards and the upcoming cards"): they live on the Club tab.
  *
  * A ready reward is redeemed here (0415, Majed 2026-11-13): Redeem, the phone's own alert to
  * confirm, and the points leave at once for a QR of that one reward (app/reward-voucher.tsx) that
  * the cashier scans within 15 minutes. Codes not yet collected head the screen ("Ready to
- * collect"), so a guest who closed one finds it again. A DEAL (0410) is picked here too:
- * "Use at the cashier" picks it (`pick_deal`) and takes them to their member card, where the
- * cashier's scan applies it. While the owner has loyalty switched off (`enabled` false, L-1) the
+ * collect"), so a guest who closed one finds it again. While the owner has loyalty switched off (`enabled` false, L-1) the
  * screen says so and offers nothing.
  */
 function LoyaltyScreen() {
@@ -62,20 +63,23 @@ function LoyaltyScreen() {
     from === 'club'
       ? back()
       : returnTo({ pathname: '/club', params: { show: 'card' } }, '(tabs)');
+  // 2026-11-15: the free drink's Redeem; once it holds, the member card is where the cashier scans.
+  const cardRedeem = useCardRedeem(showCard);
   const insets = useSafeAreaInsets();
   const { session } = useAuth();
   const member = !!session && !session.user.is_anonymous;
   const mine = useMyLoyalty(member);
-  // 0410. A server without deals, or a read that failed, is simply no deals to show.
-  const deals = useMyDeals(member);
   // 0415: the rewards redeemed here and not yet collected.
   const vouchers = useMyRewardVouchers(member);
-  const pick = usePickDeal();
+  // 0445: the drink card, shown under the points while the owner has it on.
+  const extras = useMyCardExtras(member && mine.data?.enabled === true);
   const toast = useToast();
   const refetchMine = mine.refetch;
-  const refetchDeals = deals.refetch;
   const refetchVouchers = vouchers.refetch;
-  const pull = usePullRefresh(() => Promise.all([refetchMine(), refetchDeals(), refetchVouchers()]));
+  const refetchExtras = extras.refetch;
+  const pull = usePullRefresh(() =>
+    Promise.all([refetchMine(), refetchVouchers(), refetchExtras()]),
+  );
   const ball = usePullBall(pull);
   const tz = useVenueSettings().data?.timezone ?? DEFAULT_TZ;
   // 0415: rewards redeemed here, and the one being confirmed.
@@ -98,22 +102,6 @@ function LoyaltyScreen() {
     if (!c || redeem.isPending) return;
     redeem.mutate(c.id, {
       onSuccess: (v) => openVoucher(v.id),
-      onError: (err) => toast(t(mapErrorToKey(err)), 'error'),
-    });
-  };
-
-  // "Use at the cashier": the pick lands on the member card, so that is where the guest goes.
-  const pickForCashier = (id: string) => {
-    if (pick.isPending) return;
-    pick.mutate(id, {
-      onSuccess: showCard,
-      onError: (err) => toast(t(mapErrorToKey(err)), 'error'),
-    });
-  };
-  const unpick = () => {
-    if (pick.isPending) return;
-    pick.mutate(null, {
-      onSuccess: () => toast(t('loyalty.guest.deals.cleared'), 'info'),
       onError: (err) => toast(t(mapErrorToKey(err)), 'error'),
     });
   };
@@ -319,6 +307,20 @@ function LoyaltyScreen() {
           ) : null}
         </View>
 
+        {/* 1b. The drink card (0445): the stamps to a free drink, or that the next one is on us. */}
+        {drinkCardView(extras.data?.stamps) ? (
+          <View style={{ marginTop: space.s }}>
+            <DrinkCard
+              testID="loyalty.drink-card"
+              stamps={extras.data?.stamps}
+              tz={tz}
+              busy={cardRedeem.drinkBusy}
+              onRedeem={cardRedeem.redeemDrink}
+              onShowCode={showCard}
+            />
+          </View>
+        ) : null}
+
         {/* 2. The way to the next card in that card's own colour, and every card under it with
             what each gives, the next one in full (0410; one part since 2026-11-15). */}
         <NextCardBlock
@@ -327,160 +329,18 @@ function LoyaltyScreen() {
           loyalty={l}
         />
 
-        {/* 3. Deals (0410): picked here, applied by the cashier's scan of the member card. */}
-        <DealsSection
-          testID="loyalty"
-          deals={deals.data}
-          points12m={l.points_12m}
-          tz={tz}
-          pending={pick.isPending ? pick.variables : undefined}
-          onUse={pickForCashier}
-          onShowCard={showCard}
-          onClear={unpick}
-        />
-
-        {/* 4. Rewards: a ready one is redeemed here for a code the cashier scans (0415). */}
+        {/* 3. Rewards (0415; "AD-1", Majed 2026-11-16): two a row, cheapest first, the "You"
+            line between what the balance covers and what is next, each tile filling with green
+            as the points come in. A ready one is redeemed here for a code the cashier scans. */}
         <View style={{ gap: 7, marginTop: space.s }}>
           <MicroLabel>{t('loyalty.guest.rewards.title')}</MicroLabel>
-          <View
-            accessibilityLabel={l.rewards.length === 0 ? t('loyalty.guest.rewards.empty') : undefined}
-            style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', gap: space.sm }}
-          >
-            {l.rewards.length === 0
-              ? [0, 1].map((i) => (
-                  <View
-                    key={i}
-                    testID={`loyalty.reward-soon.${i}`}
-                    style={{
-                      width: '48%',
-                      alignItems: 'center',
-                      gap: 6,
-                      paddingVertical: 14,
-                      paddingHorizontal: 8,
-                      borderRadius: radius.card,
-                      borderWidth: 1,
-                      borderStyle: 'dashed',
-                      borderColor: colors.line,
-                    }}
-                  >
-                    <View
-                      style={{
-                        width: 60,
-                        height: 60,
-                        borderRadius: 30,
-                        borderWidth: 5,
-                        borderColor: colors.line,
-                      }}
-                    />
-                    <Text style={{ fontFamily: fonts.body400, fontSize: 12, color: colors.mut }}>
-                      {t('loyalty.guest.rewards.soon')}
-                    </Text>
-                  </View>
-                ))
-              : l.rewards.map((r) => {
-                  const fraction = r.cost_points > 0 ? Math.min(1, l.balance / r.cost_points) : 1;
-                  const ready = fraction >= 1;
-                  const stroke = ready ? colors.gstrong : colors.blue;
-                  return (
-                    <View
-                      key={r.id}
-                      testID={`loyalty.reward.${r.id}`}
-                      style={{
-                        width: '48%',
-                        alignItems: 'center',
-                        gap: 7,
-                        paddingVertical: 14,
-                        paddingHorizontal: 8,
-                        borderRadius: radius.card,
-                        borderWidth: 1,
-                        borderColor: ready ? colors.gstrong : colors.line,
-                        backgroundColor: ready ? colors.gtint : colors.card,
-                      }}
-                    >
-                      <View style={{ width: 60, height: 60, alignItems: 'center', justifyContent: 'center' }}>
-                        <Svg width={60} height={60} style={{ position: 'absolute' }}>
-                          <Circle cx={30} cy={30} r={27.5} stroke={colors.line} strokeWidth={5} fill="none" />
-                          {fraction > 0 ? (
-                            <Circle
-                              cx={30}
-                              cy={30}
-                              r={27.5}
-                              stroke={stroke}
-                              strokeWidth={5}
-                              fill="none"
-                              strokeLinecap="round"
-                              strokeDasharray={`${2 * Math.PI * 27.5 * fraction} ${2 * Math.PI * 27.5}`}
-                              rotation={-90}
-                              origin="30, 30"
-                            />
-                          ) : null}
-                        </Svg>
-                        <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-                          <Path
-                            d={
-                              r.kind === 'court_hour'
-                                ? // 0403: a free court hour: a court seen from above, net across the middle.
-                                  'M5 3h14v18H5zM5 12h14M9 3v4.5M15 3v4.5M9 16.5V21M15 16.5V21'
-                                : 'M4 9h16v4H4zM6 13h12v7H6zM12 9v11M12 9c-2-4-6-3-5 0M12 9c2-4 6-3 5 0'
-                            }
-                            stroke={colors.ink}
-                            strokeWidth={1.8}
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          />
-                        </Svg>
-                      </View>
-                      <Text
-                        style={{
-                          fontFamily: fonts.body700,
-                          fontSize: 12,
-                          lineHeight: 15,
-                          textAlign: 'center',
-                          color: colors.ink,
-                        }}
-                      >
-                        {rewardName(r, locale)}
-                      </Text>
-                      <Text
-                        style={{
-                          fontFamily: fonts.display800,
-                          fontSize: 13,
-                          color: colors.ink,
-                          fontVariant: ['tabular-nums'],
-                        }}
-                      >
-                        {t('loyalty.guest.rewards.pts', { points: points(r.cost_points) })}
-                      </Text>
-                      <Text
-                        style={{
-                          fontFamily: ready ? fonts.body700 : fonts.body400,
-                          fontSize: 11,
-                          color: ready ? colors.gtext : colors.mut,
-                        }}
-                      >
-                        {ready
-                          ? t('loyalty.guest.rewards.ready')
-                          : t('loyalty.guest.rewards.toGo', {
-                              points: points(r.cost_points - l.balance),
-                            })}
-                      </Text>
-                      {ready ? (
-                        <Button
-                          testID={`loyalty.reward.${r.id}.redeem`}
-                          size="compact"
-                          label={t('loyalty.guest.rewards.redeem')}
-                          busy={redeem.isPending && redeem.variables === r.id}
-                          disabled={redeem.isPending}
-                          style={{ alignSelf: 'stretch', marginTop: 2 }}
-                          onPress={() =>
-                            setConfirming({ id: r.id, name: rewardName(r, locale), points: r.cost_points })
-                          }
-                        />
-                      ) : null}
-                    </View>
-                  );
-                })}
-          </View>
+          <RewardTiles
+            rewards={l.rewards}
+            balance={l.balance}
+            busyId={redeem.isPending ? (redeem.variables ?? null) : null}
+            disabled={redeem.isPending}
+            onRedeem={(r) => setConfirming({ id: r.id, name: rewardName(r, locale), points: r.cost_points })}
+          />
           {l.rewards.length > 0 ? <Hint>{t('loyalty.guest.rewards.note')}</Hint> : null}
           <ConfirmAlert
             visible={confirming !== null}

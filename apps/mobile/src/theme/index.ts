@@ -3,6 +3,7 @@ export {
   brand,
   frame,
   tierFinish,
+  cardRing,
   GLASS_SMOKE,
   vendor,
   space,

@@ -24,7 +24,7 @@ const { ranksKeys } = await import('../keys');
 
 describe('leaderboard writes', () => {
   it('a report and an answer run now or fail now, and are never sent again by themselves', () => {
-    for (const name of ['report', 'confirm'] as const) {
+    for (const name of ['report', 'confirm', 'my-type', 'coach-record'] as const) {
       const d = queryClient.getMutationDefaults(ranksKeys.mutation(name));
       expect(d.networkMode).toBe('always');
       expect(d.retry).toBe(false);

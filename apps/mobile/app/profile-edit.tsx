@@ -59,9 +59,12 @@ import {
   frameOf,
   frameRuleKey,
   frameStyleOf,
+  offeredCardFrames,
   type FrameId,
   type FrameStyle,
 } from '../src/features/profile/frames';
+import { useMyLoyalty } from '../src/features/loyalty/hooks';
+import { ladderHasBirthdayGift, tierName } from '../src/features/loyalty/logic';
 import { errorCode } from '@touch/i18n';
 import { useSetMyGender } from '../src/features/matches/hooks';
 import { pickAvatarPhoto, PhotoError, type PhotoSource } from '../src/features/staff/photo';
@@ -202,6 +205,7 @@ function HubRow({
   onPress,
   last,
   chevron = true,
+  note,
 }: {
   testID: string;
   icon: React.ReactNode;
@@ -216,6 +220,8 @@ function HubRow({
   last?: boolean;
   /** False on a read-only row (Email, a set gender): tapping explains, nothing opens. */
   chevron?: boolean;
+  /** 0445: one quiet line under the value (the date of birth's 30-day note). */
+  note?: string;
 }) {
   const { colors, fonts } = useTheme();
   const chip = useIconChip();
@@ -299,6 +305,20 @@ function HubRow({
             }}
           >
             {value}
+          </Text>
+        ) : null}
+        {note ? (
+          <Text
+            style={{
+              marginTop: 4,
+              fontFamily: fonts.body400,
+              fontSize: 11.5,
+              lineHeight: 16,
+              color: colors.mut,
+              textAlign: 'auto',
+            }}
+          >
+            {note}
           </Text>
         ) : null}
       </View>
@@ -479,6 +499,10 @@ function Hub() {
   const birth = useMyBirthDate(!!session);
   const saveBirth = useSetBirthDate();
   const [birthOpen, setBirthOpen] = useState(false);
+  // 0445: a new or changed date counts for a birthday gift after 30 days; said only while some
+  // card carries one (the balance read is the persisted one Profile already makes).
+  const loyalty = useMyLoyalty(!!session && !session.user.is_anonymous);
+  const birthGiftNote = ladderHasBirthdayGift(loyalty.data) ? t('profile.birthGiftNote') : undefined;
   const setAvatar = useSetAvatar();
   // The header's flight plays by itself once the page scrolls a little; the bar follows it in <HeroBar>.
   const flight = useHeroFlight();
@@ -621,6 +645,7 @@ function Hub() {
         testID="profile-edit.birth-sheet"
         visible={birthOpen}
         title={t('profile.birthSection')}
+        message={birthGiftNote}
         value={birth.data ?? defaultBirthDate()}
         min={BIRTH_MIN}
         max={todayBirthDate()}
@@ -725,6 +750,7 @@ function Hub() {
           icon={<CalendarIcon size={15} color={colors.gstrong} />}
           label={t('profile.birthSection')}
           value={birthDate ? formatDate(birthDate, locale, BIRTH_TZ) : t('profile.notSet')}
+          note={birthGiftNote}
           onPress={() => !saveBirth.isPending && setBirthOpen(true)}
         />
         {/* The sign-up play survey's answers; the same sheet, prefilled. */}
@@ -1154,12 +1180,15 @@ function UsernameForm() {
  * Photo frame (0314): the five free frames and their style (Normal or Court
  * lines; 0317), then the four earned ones, locked
  * with their rule and progress (10 / 50; 0316) until the server says the guest
- * earned them: games played AND paid in full, or a tournament win. The avatar at
+ * earned them: games played AND paid in full, or a tournament win. Then (0445)
+ * the card rings a loyalty card unlocks, each locked with the lowest card that
+ * unlocks it ("Green card and up") until the guest's card does; a ring no card
+ * unlocks is not shown, and a server before 0445 shows no card section. The avatar at
  * the top previews the pick; Save writes it. Save sits under both grids, out of
  * sight on most phones, so leaving with an unsaved pick asks first.
  */
 function FrameForm() {
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
   const { colors, fonts } = useTheme();
   const { session } = useAuth();
   const profile = useOwnProfile(!!session);
@@ -1182,6 +1211,9 @@ function FrameForm() {
   const unlocked = new Set((frames.data?.frames ?? []).filter((f) => f.unlocked).map((f) => f.id));
   // 0316: how far the guest is towards each earned frame.
   const progressOf = (id: FrameId) => frames.data?.frames.find((f) => f.id === id);
+  // 0445: the card rings some card unlocks, with that card.
+  const cardOffers = offeredCardFrames(frames.data?.frames);
+  const cardOf = (id: FrameId) => cardOffers.find((o) => o.id === id)?.card ?? null;
   const { first, last } = nameFieldsOf(profile.data ?? {});
   const initials = initialsOf(first, last, session?.user.email ?? '');
   const dirty = selected !== current || selectedStyle !== currentStyle;
@@ -1215,6 +1247,7 @@ function FrameForm() {
     const locked = !FREE_FRAMES.includes(id) && !unlocked.has(id);
     const isSel = id === selected;
     const rule = frameRuleKey(id);
+    const unlockedBy = cardOf(id);
     const goal = progressOf(id)?.goal ?? null;
     const progress = progressOf(id)?.progress ?? 0;
     return (
@@ -1285,6 +1318,20 @@ function FrameForm() {
             {t(rule)}
           </Text>
         ) : null}
+        {locked && unlockedBy ? (
+          <Text
+            testID={`profile-edit.frame.${id}.card`}
+            numberOfLines={2}
+            style={{
+              fontFamily: fonts.body400,
+              fontSize: 10.5,
+              color: colors.mut,
+              textAlign: 'center',
+            }}
+          >
+            {t('profile.frameCardRule', { card: isolate(tierName(unlockedBy, locale)) })}
+          </Text>
+        ) : null}
         {locked && goal ? (
           <View style={{ alignItems: 'center', gap: 3 }}>
             <View
@@ -1342,6 +1389,10 @@ function FrameForm() {
         }}
       >
         {ids.map(tile)}
+        {/* Fillers to a whole row, so a short last row keeps the grid's columns. */}
+        {Array.from({ length: (3 - (ids.length % 3)) % 3 }, (_, i) => (
+          <View key={`fill.${i}`} style={{ width: '31%' }} />
+        ))}
       </View>
       {footer}
     </View>
@@ -1383,6 +1434,7 @@ function FrameForm() {
       </View>
       {card(t('profile.frameFree'), FREE_FRAMES, styleSwitch)}
       {card(t('profile.frameEarned'), EARNED_FRAMES)}
+      {cardOffers.length > 0 ? card(t('profile.frameCard'), cardOffers.map((o) => o.id)) : null}
       <Button
         testID="profile-edit.save-frame"
         label={t('profile.frameSave')}

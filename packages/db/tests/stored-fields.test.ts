@@ -186,6 +186,8 @@ const GUEST_DATA: Record<string, Record<string, Field>> = {
       why: 'an optional date of birth the guest adds; only they read it',
       onDelete: 'scrub',
     },
+    // 0445: when the date last changed, so a birthday gift only counts 30 days after it.
+    birth_date_set_at: n,
     // 0314 (Phase 2): the public handle other players and the desk see beside
     // the short name, when it last changed, and the photo frame. Deletion
     // empties the username (held 90 days in username_holds) and resets the
@@ -603,6 +605,37 @@ const GUEST_DATA: Record<string, Record<string, Field>> = {
     status: n, created_at: n, expires_at: n, ended_at: n, used_by: n, tab_id: n,
     tab_adjustment_id: n, reservation_reward_id: n,
   },
+  // 0445: the drink card. One earn row (paid stamping units) and at most one redeem row per
+  // settled bill; and what a member's card freed on each bill line and why. Both follow the
+  // points trail (loyalty_ledger keeps its rows on deletion; these cascade with the profile).
+  loyalty_stamps: {
+    id: n, profile_id: n, tab_id: n, kind: n, created_at: n,
+    delta: { category: 'Purchase history', why: 'the drink card stamps a guest earned on a bill, or spent on a free drink', onDelete: 'row' },
+  },
+  // 0445: the court hour a card gift took off one booking.
+  reservation_card_gifts: {
+    reservation_id: n, tab_id: n, profile_id: n, perk_id: n, applied_by: n, authorized_by: n, created_at: n,
+    amount_iqd: { category: 'Purchase history', why: 'the court fee a guest\'s card gift (a free hour) took off their booking', onDelete: 'row' },
+  },
+  // 0445 (a deal's own QR, 2026-11-15): the 15-minute single-use code of a deal a member redeemed.
+  loyalty_deal_vouchers: {
+    id: n, profile_id: n, promotion_id: n, code: n, status: n, used_by: n, tab_id: n,
+    created_at: { category: 'App activity', why: 'when the guest redeemed a deal in the app for a code', onDelete: 'row' },
+    expires_at: { category: 'App activity', why: 'until when that deal code works at the counter', onDelete: 'row' },
+    ended_at: { category: 'Purchase history', why: 'when the deal code was used on a bill or cancelled', onDelete: 'row' },
+  },
+  // 0445 (Redeem in the app, 2026-11-15): a member's press of Redeem on their free drink or a
+  // card gift, which lets the next bill free it. Cascades with the profile.
+  loyalty_reward_claims: {
+    id: n, profile_id: n, kind: n, perk_id: n, claimed_by: n, reward_key: n,
+    claimed_at: { category: 'App activity', why: 'when the guest pressed Redeem on a free drink or a card gift', onDelete: 'row' },
+    expires_at: { category: 'App activity', why: 'until when that Redeem press lets a bill free the reward', onDelete: 'row' },
+  },
+  loyalty_perk_lines: {
+    id: n, tab_id: n, order_item_id: n, profile_id: n, perk_id: n, kind: n, units: n, created_at: n,
+    amount_iqd: { category: 'Purchase history', why: 'what the guest\'s card took off a bill line (a birthday gift, a free drink, free add-ons)', onDelete: 'row' },
+    stamps_spent: { category: 'Purchase history', why: 'the stamps a free drink spent', onDelete: 'row' },
+  },
   // 0308 (c3): every member-code or phone lookup at the till and the café link, success or not, for
   // the throttle; pruned after a day, so a deletion does not need to reach it.
   loyalty_token_attempts: {
@@ -616,6 +649,7 @@ const GUEST_DATA: Record<string, Record<string, Field>> = {
     lifetime_earned: { category: 'Purchase history', why: 'the points a guest has earned in all', onDelete: 'row' },
     points_12m: { category: 'Purchase history', why: 'the points earned in the last 12 months, which set the tier', onDelete: 'row' },
     tier_id: n, last_activity_at: n, updated_at: n,
+    tier_up_at: n,   // 0445: when they moved up to the card they hold (a card-up gift's window)
   },
   // 0364 ranks_leaderboard. A game's result names its players (a1, a2, b1, b2; reported_by and
   // decided_by are the reporter's or the staff member's id) and the ledger their leaderboard
@@ -637,6 +671,31 @@ const GUEST_DATA: Record<string, Record<string, Field>> = {
     earned_at: n, actor_id: n,
     note: { category: 'User content', why: 'the owner’s reason for a points correction, or a manager’s for a void; kept with the ledger it explains', onDelete: 'keep' },
     created_at: n,
+  },
+  // 0443 ranks_touch_level. A Level check names the player and the class staff gave them; the
+  // Touch Level and Race tables are DERIVED from game_results and the checks by app.ranks_rebuild
+  // (rebuilt whole on every replay). None has a client grant; a deleted account drops off every
+  // board (profiles.deleted_at) and its rows stay as the other players' record, as game_results do.
+  ranks_level_checks: {
+    id: n, seq: n, profile_id: n,
+    level: { category: 'App activity', why: 'the class (A, B, C or new) a coach or the desk judged the player at; where their Touch Level starts', onDelete: 'keep' },
+    checked_by: n, role: n, checked_at: n,
+    note: { category: 'User content', why: 'the checker’s one-line note on the level, kept with the check it explains', onDelete: 'keep' },
+    applied: n, applied_level: n,
+  },
+  ranks_player_levels: {
+    profile_id: n,
+    level: { category: 'App activity', why: 'the player’s Touch Level, derived from their confirmed games; on the public board for reliable players only', onDelete: 'keep' },
+    start_level: { category: 'App activity', why: 'where their Touch Level started (a check or the sign-up level)', onDelete: 'keep' },
+    games: n, provisional_left: n, first_game_at: n, last_game_at: n, last_check_at: n, updated_at: n,
+  },
+  ranks_result_scores: {
+    result_id: n, profile_id: n, played_at: n, source: n, won: n,
+    level_before: { category: 'App activity', why: 'the player’s Touch Level before a game, derived', onDelete: 'keep' },
+    level_after: { category: 'App activity', why: 'the player’s Touch Level after a game, derived', onDelete: 'keep' },
+    expected: n,
+    race_points: { category: 'App activity', why: 'the Season Race points a game gave the player, derived', onDelete: 'keep' },
+    boost: n, boost_kind: n, season_start: n, opponents: n,
   },
 };
 

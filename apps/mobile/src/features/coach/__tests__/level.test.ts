@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@touch/db';
 import {
+  CHECK_LEVELS,
   LEVEL_NOTE_MAX,
   cleanLevelNote,
   levelArgs,
@@ -20,6 +21,12 @@ import { coachLessonRaw, ENROLMENT_ID, ENROLMENT_2_ID } from '../../../test/coac
  * place, never a profile id, and set with coach_set_student_level keyed on the place.
  */
 const LEVEL = { claimed: 'beginner', confirmed: 'intermediate', confirmed_role: 'coach', confirmed_at: '2026-10-31T10:00:00Z', note: 'Good at the net' };
+
+describe('the Level check choices', () => {
+  it('offers A, B, C and New in that order, as the stored codes (0444)', () => {
+    expect([...CHECK_LEVELS]).toEqual(['advanced', 'intermediate', 'beginner', 'new']);
+  });
+});
 
 describe('parseStudentLevel', () => {
   it('reads a linked place\'s level', () => {

@@ -8,7 +8,16 @@
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@touch/db';
-import { normaliseUsername, parseBoard, parseMyRanks, type Board, type MyRanks } from './logic';
+import {
+  coachRecordArgs,
+  normaliseUsername,
+  parseBoard,
+  parseMyRanks,
+  type Board,
+  type CoachRecordInput,
+  type MyRanks,
+  type TypeCode,
+} from './logic';
 
 type Client = SupabaseClient<Database>;
 
@@ -73,5 +82,32 @@ export async function answerResult(client: Client, resultId: string, accept: boo
   const { error } = await client
     .schema('app')
     .rpc('ranks_confirm', { p_result_id: resultId, p_accept: accept });
+  if (error) throw error;
+}
+
+/**
+ * app.set_my_play_level (0444): the player picks their own type while `touch.can_change_type`;
+ * after a Level check or their first games it is RANKS_LEVEL_LOCKED (the desk or a coach
+ * changes it). State-idempotent: no key.
+ */
+export async function setMyPlayLevel(client: Client, level: TypeCode): Promise<void> {
+  const { error } = await client.schema('app').rpc('set_my_play_level', { p_level: level });
+  if (error) throw error;
+}
+
+/**
+ * app.ranks_coach_record (0444): a coach enters a game they watched, confirmed at once. Every
+ * argument is sent, an empty second seat and no score as null.
+ */
+export async function coachRecordGame(client: Client, input: CoachRecordInput): Promise<void> {
+  const args = coachRecordArgs(input);
+  const { error } = await client.schema('app').rpc('ranks_coach_record', {
+    p_a1: args.p_a1,
+    p_a2: args.p_a2 as string,
+    p_b1: args.p_b1,
+    p_b2: args.p_b2 as string,
+    p_winner: args.p_winner,
+    p_score: args.p_score as string,
+  });
   if (error) throw error;
 }

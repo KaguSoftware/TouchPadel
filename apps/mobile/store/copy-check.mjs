@@ -18,8 +18,9 @@
  */
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const HERE = path.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1'));
+const HERE = path.dirname(fileURLToPath(import.meta.url));
 const DOC = path.resolve(HERE, '..', '..', '..', 'docs', 'store', 'app-store-listing.md');
 
 /** Apple's hard limits, by the field name as it appears in App Store Connect. */
@@ -31,6 +32,9 @@ const LIMITS = {
   Keywords: 100,
   "What's New": 4000,
   Copyright: 100,
+  // Google Play (docs/store/app-store-listing.md §4–5).
+  'Play Title': 30,
+  'Short description': 80,
 };
 
 const count = (s) => [...s].length;

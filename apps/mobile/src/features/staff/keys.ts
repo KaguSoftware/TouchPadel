@@ -63,7 +63,9 @@ export type StaffMutationName =
   | 'reward.set'
   | 'reward.end'
   // Push settings (0363): the owner's protocol status pushes; state-idempotent, no key.
-  | 'push_prefs.set';
+  | 'push_prefs.set'
+  // Starting and finishing work (0442): one scan, never repeated (eight refusals in an hour stop the phone).
+  | 'clock.punch';
 
 export const staffKeys = {
   all: ['staff'] as const,
@@ -160,6 +162,8 @@ export const staffKeys = {
   /** Every branch's myRewards: what an order placed from this phone invalidates. */
   myRewardsAll: ['staff', 'myRewards'] as const,
   rewardsBoard: (venue: string) => ['staff', 'rewardsBoard', venue] as const,
+  // Starting and finishing work (0442): the caller's own day at the branch (my_clock).
+  myClock: (venue: string) => ['staff', 'myClock', venue] as const,
   // Push settings (0363): the signed-in owner's own.
   pushPrefs: (uid: string) => ['staff', 'pushPrefs', uid] as const,
   /** The prefix src/lib/queryClient.ts sets the staff write defaults on. */
