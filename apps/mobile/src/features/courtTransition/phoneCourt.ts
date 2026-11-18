@@ -8,10 +8,10 @@
  * view) and `instancing` (what the renderer can draw) pass through. Every other option is left at its default, which is the
  * phone's.
  *
- * THE LOGO IN THE TOP VIEW is the Book court's, untouched: the same size, the
- * same spot in the far service area and the same orientation, so it runs top
- * to bottom across the horizontal court (Majed, 2026-10-11: "the logo can stay
- * vertical"; "the logo size is inconsistent with the court in book").
+ * THE LOGO IN THE TOP VIEW is 1.3× the Book court's size, centred on the court
+ * (z 0) with the gap between its two text rows on the court's centre line, and turned 90° counter-clockwise so it reads upright and landscape in
+ * the middle of the Join and Coaches pages (it used to run top to bottom,
+ * Majed, 2026-10-11).
  */
 import {
   buildCourtScene,
@@ -49,7 +49,14 @@ export function buildPhoneCourt(
     field: !overlay,
   });
   if (overlay) return court;
-  const logo = buildCourtLogo();
+  // Top view (Join, Coaches): the badge sits in the middle of the landscape court.
+  const logo = buildCourtLogo(view === 'top' ? 0 : undefined, view === 'top');
+  // Seen from above, screen-up is -x, so a quarter turn about y stands the lockup upright (90° counter-clockwise on screen).
+  // ×1.3: 10.4 m across the 20 m court, still short of the Coaches machine at z -6.
+  if (view === 'top') {
+    logo.group.rotation.y = Math.PI / 2;
+    logo.group.scale.setScalar(1.3);
+  }
   court.scene.add(logo.group);
   return {
     ...court,

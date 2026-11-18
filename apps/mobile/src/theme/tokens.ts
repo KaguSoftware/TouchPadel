@@ -417,11 +417,14 @@ export const tierFinish = {
     rim: 'rgba(224,224,225,0.34)',
   },
   gold: {
-    tint: '#E9BF72',
-    smoke: CLEAR,
-    lines: frame.goldHi,
-    linesAlpha: 0.26,
-    word: '#F3D79B',
+    // A true yellow gold: washed over blue mode's navy, the old muted amber (#E9BF72) went khaki
+    // and read as bronze. More saturated and yellower than bronze's orange (#E0A67A), and clearer
+    // glass so the wash isn't dulled by the smoke.
+    tint: '#FFC21A',
+    smoke: { light: 0.5, dark: 0.12 },
+    lines: '#FFD54D',
+    linesAlpha: 0.32,
+    word: '#FFE07A',
     metal: { hi: '#F6DEA8', face: frame.gold, lo: frame.goldLo, shade: '#5C410F' },
     rim: 'rgba(243,215,155,0.36)',
   },
@@ -437,10 +440,12 @@ export const tierFinish = {
   // Smoked glass: charcoal lines, the word in pale steel, the name in gunmetal with its white
   // crest, so the raised letters still read on the dark.
   black: {
-    tint: '#6B6E76',
-    smoke: { light: 0.82, dark: 0.55 },
-    lines: '#8A8D95',
-    linesAlpha: 0.3,
+    // A true black: the old mid-gray wash (#6B6E76) over a light smoke read as the silver card's
+    // cousin. Near-black tint and heavy smoke on either theme; the lines are the only light in it.
+    tint: '#050608',
+    smoke: { light: 0.92, dark: 0.88 },
+    lines: '#7C7F88',
+    linesAlpha: 0.34,
     word: '#D4D6DB',
     metal: { hi: '#B4B7BE', face: '#7A7D85', lo: '#3A3C41', shade: '#1C1D20' },
     rim: 'rgba(212,214,219,0.26)',
@@ -536,8 +541,8 @@ export const shadows = {
    * by the scroll view's edges and darkened the gap above the QR, 2026-10-22), and a tight contact
    * one. Navy-tinted on paper; brand black, lighter, in blue mode.
    */
-  pointsCard: '0 14px 22px -10px rgba(23,44,79,0.45), 0 2px 6px rgba(23,44,79,0.2)',
-  pointsCardDark: '0 14px 22px -10px rgba(0,0,0,0.5), 0 2px 6px rgba(0,0,0,0.25)',
+  pointsCard: '0 18px 36px -12px rgba(23,44,79,0.32), 0 6px 14px -4px rgba(23,44,79,0.14)',
+  pointsCardDark: '0 18px 36px -12px rgba(0,0,0,0.4), 0 6px 14px -4px rgba(0,0,0,0.2)',
 } as const;
 
 /**

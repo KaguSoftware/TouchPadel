@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Pressable, RefreshControl, SectionList, View } from 'react-native';
+import { Pressable, SectionList, View } from 'react-native';
 import { Text } from '../src/i18n/text';
-import { Stack, useRouter } from 'expo-router';
+import { Stack } from 'expo-router';
+import { useRouter } from '../src/navigation/useRouter';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { clearBarOptions, useClearBarPad } from '../src/navigation/clearBar';
 import { useDownToTab } from '../src/navigation/back';
@@ -91,6 +92,7 @@ import {
 import { EmptyState, ErrorState, SkeletonList } from '../src/components/states';
 import { useToast } from '../src/components/overlays';
 import { serverNow } from '../src/lib/serverClock';
+import { usePullBall } from '../src/components/PullBall';
 
 /** Which list the chips under the title are showing. */
 type Tab = 'upcoming' | 'played' | 'cancelled';
@@ -244,6 +246,7 @@ export default function BookingsScreen() {
     [refetchBookings, refetchMatches, refetchLessons, refetchTournaments, lessonsOn, tournamentsOn],
   );
   const pull = usePullRefresh(refetchAll);
+  const ball = usePullBall(pull);
   const [tab, setTab] = useState<Tab>('upcoming');
   // Every open branch's courts: a guest's bookings can be at any branch.
   const courts = useAllCourts();
@@ -1092,7 +1095,8 @@ export default function BookingsScreen() {
           </View>
         </>
       ) : (
-        <SectionList
+        <View style={{ flex: 1 }} {...ball.wrapHandlers}>
+<SectionList
           sections={sections}
           keyExtractor={(item) =>
             item.kind === 'booking'
@@ -1105,13 +1109,10 @@ export default function BookingsScreen() {
           stickySectionHeadersEnabled={false}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={bottomPad}
-          refreshControl={
-            <RefreshControl
-              refreshing={pull.refreshing}
-              onRefresh={pull.onRefresh}
-              tintColor={colors.blue}
-            />
-          }
+          bounces={ball.bounces}
+onScroll={ball.onScroll}
+scrollEventThrottle={16}
+refreshControl={ball.refreshControl}
           renderSectionHeader={({ section }) => (
             <ListHeading
               icon={
@@ -1179,6 +1180,8 @@ export default function BookingsScreen() {
             renderItem(item, index, section.key, section.data.length)
           }
         />
+{ball.overlay}
+</View>
       )}
     </Screen>
   );

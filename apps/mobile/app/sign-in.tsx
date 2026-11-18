@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { Stack, useLocalSearchParams } from 'expo-router';
+import { useRouter } from '../src/navigation/useRouter';
 import { supabase } from '../src/lib/supabase';
 import { sendSignInCode, signIn } from '../src/features/auth/api';
 import { linkErrorParam } from '../src/features/auth/deepLink';

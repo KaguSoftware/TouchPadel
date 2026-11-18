@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { Pressable, RefreshControl, ScrollView, View } from 'react-native';
-import { useRouter } from 'expo-router';
+import { Pressable, ScrollView, View } from 'react-native';
+import { useRouter } from '../../navigation/useRouter';
 import { isolateLtr } from '@touch/i18n';
 import { Text } from '../../i18n/text';
 import { useLocale } from '../../i18n/LocaleProvider';
@@ -8,6 +8,7 @@ import { Button, MicroLabel, SegmentedControl } from '../../components/ui';
 import { EmptyState, ErrorState, Skeleton } from '../../components/states';
 import { useToast } from '../../components/overlays';
 import { usePullRefresh } from '../../lib/usePullRefresh';
+import { usePullBall } from '../../components/PullBall';
 import { useScreenFocused } from '../../lib/useScreenFocused';
 import { space, useTheme } from '../../theme';
 import { useAuth } from '../auth/context';
@@ -56,6 +57,7 @@ export function RanksView({ bottomPad, testID }: { bottomPad: number; testID?: s
   // re-reads the board and their page (features/ranks/live.ts), only while this screen is in front.
   useRanksLive(useScreenFocused());
   const pull = usePullRefresh(() => Promise.all([board.refetch(), member ? my.refetch() : null]));
+  const ball = usePullBall(pull);
 
   const mine = my.data?.enabled ? my.data : null;
   const waiting = mine ? mine.results.filter((r) => r.canConfirm) : [];
@@ -179,13 +181,15 @@ export function RanksView({ bottomPad, testID }: { bottomPad: number; testID?: s
   };
 
   return (
+    <View style={{ flex: 1 }} {...ball.wrapHandlers}>
       <ScrollView
         testID={testID ?? 'ranks.scroll'}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: bottomPad, gap: space.xxl }}
-        refreshControl={
-          <RefreshControl refreshing={pull.refreshing} onRefresh={pull.onRefresh} tintColor={colors.blue} />
-        }
+        onScroll={ball.onScroll}
+        bounces={ball.bounces}
+        scrollEventThrottle={16}
+        refreshControl={ball.refreshControl}
       >
         {/* The period, said once, quietly, and the way to the rules in plain words. */}
         {live ? (
@@ -304,6 +308,8 @@ export function RanksView({ bottomPad, testID }: { bottomPad: number; testID?: s
           onClose={() => setHowOpen(false)}
         />
       </ScrollView>
+      {ball.overlay}
+    </View>
   );
 }
 

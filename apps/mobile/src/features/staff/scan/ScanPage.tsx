@@ -17,7 +17,8 @@
  */
 import { useRef, useState, type ComponentRef } from 'react';
 import { ActivityIndicator, Image, Linking, Pressable, RefreshControl, ScrollView, View } from 'react-native';
-import { Stack, useRouter } from 'expo-router';
+import { Stack } from 'expo-router';
+import { useRouter } from '../../../navigation/useRouter';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { formatDateTime, formatIQD, isolate, type MessageKey } from '@touch/i18n';

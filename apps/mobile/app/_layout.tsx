@@ -62,6 +62,9 @@ import { ErrorState, OfflineBanner } from '../src/components/states';
 import { ToastProvider } from '../src/components/overlays';
 import { ThemeProvider, useTheme } from '../src/theme';
 import { useIsOnScreen } from '../src/navigation/back';
+import { installNavigationDedupe } from '../src/navigation/dedupeNavigation';
+
+installNavigationDedupe();
 
 /**
  * `/` is owned by (tabs)/index.tsx. A separate app/index.tsx used to redirect

@@ -1,5 +1,6 @@
 import { View } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
+import { useRouter } from '../src/navigation/useRouter';
 import { Text, MinFontSize, STAFF_MIN_FONT } from '../src/i18n/text';
 import { useLocale } from '../src/i18n/LocaleProvider';
 import { space, useTheme } from '../src/theme';

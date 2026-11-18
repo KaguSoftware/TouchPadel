@@ -1,6 +1,7 @@
 import { useRef, useState, type MutableRefObject } from 'react';
 import { View } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
+import { useRouter } from '../../src/navigation/useRouter';
 import { useLocale } from '../../src/i18n/LocaleProvider';
 import { useTabBarHeight } from '../../src/components/useTabBarHeight';
 import { AccountButton } from '../../src/components/AccountButton';

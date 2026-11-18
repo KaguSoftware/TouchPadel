@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
-import { useRouter, type Href } from 'expo-router';
+import { type Href } from 'expo-router';
+import { useRouter } from '../../navigation/useRouter';
 import { useAuth } from './context';
 
 /**

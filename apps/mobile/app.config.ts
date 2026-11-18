@@ -265,6 +265,19 @@ const plugins: NonNullable<ExpoConfig['plugins']> = [
       motionPermission: MOTION_PERMISSION,
     },
   ],
+  // Play Console "DEX code optimization" (Obfuscation 1%, release 0.4.0, fix by Feb 2027):
+  // Expo leaves R8 off in release builds. On = code shrunk and obfuscated, resources shrunk.
+  // NATIVE CHANGE: needs a new binary. If a release build breaks on something reflective,
+  // add keep rules via `extraProguardRules` here.
+  [
+    'expo-build-properties',
+    {
+      android: {
+        enableMinifyInReleaseBuilds: true,
+        enableShrinkResourcesInReleaseBuilds: true,
+      },
+    },
+  ],
 ];
 if (googleIosUrlScheme) {
   plugins.push(['react-native-nitro-google-signin', { iosUrlScheme: googleIosUrlScheme }]);
@@ -455,6 +468,10 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       'android.permission.READ_MEDIA_VIDEO',
       'android.permission.READ_EXTERNAL_STORAGE',
       'android.permission.RECORD_AUDIO',
+      // expo-sensors declares this for its Pedometer. The app reads only the gyroscope
+      // (src/features/loyalty/useCardMotion.ts), which needs no permission, and has no health
+      // feature. Play flags the permission under its Health apps policy, so strip it.
+      'android.permission.ACTIVITY_RECOGNITION',
       // Staff clock-in reads the location only while its page is open (0442): never in the
       // background, never from a service, whatever a library declares.
       'android.permission.ACCESS_BACKGROUND_LOCATION',

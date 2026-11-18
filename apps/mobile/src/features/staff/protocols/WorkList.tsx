@@ -12,7 +12,7 @@
  */
 import type { ReactNode } from 'react';
 import { Pressable, View } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter } from '../../../navigation/useRouter';
 import { useQuery } from '@tanstack/react-query';
 import { formatDateTime, isolate, type MessageKey } from '@touch/i18n';
 import { Text } from '../../../i18n/text';

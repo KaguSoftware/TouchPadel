@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Redirect, Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { Redirect, Stack, useLocalSearchParams } from 'expo-router';
+import { useRouter } from '../src/navigation/useRouter';
 import { supabase } from '../src/lib/supabase';
 import { startPhoneLink } from '../src/features/auth/api';
 import {

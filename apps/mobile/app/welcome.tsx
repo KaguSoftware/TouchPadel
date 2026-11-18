@@ -1,6 +1,6 @@
 import { Image, Pressable, View } from 'react-native';
 import { Text } from '../src/i18n/text';
-import { useRouter } from 'expo-router';
+import { useRouter } from '../src/navigation/useRouter';
 import { RequireNoSession } from '../src/features/auth/RequireNoSession';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';

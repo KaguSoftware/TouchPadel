@@ -1,5 +1,6 @@
 import { RefreshControl, ScrollView, View, Pressable } from 'react-native';
-import { Stack, useRouter } from 'expo-router';
+import { Stack } from 'expo-router';
+import { useRouter } from '../../src/navigation/useRouter';
 import { useQuery } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { formatDateTime } from '@touch/i18n';

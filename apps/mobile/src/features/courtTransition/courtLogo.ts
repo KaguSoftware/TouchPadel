@@ -23,12 +23,12 @@ import { buildLogoLineShapes } from './logoMark';
 
 /** Width of the lockup in metres (the court is 10 m wide); height follows at 900:332. */
 const WIDTH = 8;
-/** Centre of the far service area (net at z 0, service line at z -7). */
+/** Centre of the badge on the far half (net at z 0; the far service line is at z -6, level with the side wall's first post). */
 const CENTRE_Z = -3.5;
-/** Just above the turf, under the lines (0.02). */
-const LIFT = 0.015;
+/** Above the court lines (0.02): the centre line runs underneath the badge. */
+const LIFT = 0.03;
 /** The ball: a hair above the wordmark, so the two never fight where they touch. */
-const BALL_LIFT = 0.018;
+const BALL_LIFT = 0.033;
 /** Curve segments per bezier; the mark is a few metres wide, seen from ~60 m. */
 const SEGMENTS = 6;
 /** Metres of court one carpet tile covers: ~1-2 screen px a texel at the court view's distance. */
@@ -112,11 +112,30 @@ function buildCarpet(): { color: THREE.DataTexture; grain: THREE.DataTexture } {
  */
 let lineShapes: ReturnType<typeof buildLogoLineShapes> | null = null;
 
-export function buildCourtLogo(): CourtLogo {
+/**
+ * Where the gap between the lockup's two text rows lies, in the mark's own
+ * frame (metres at WIDTH 8, y up): the first row spans -1.474 to 0.163, the
+ * second 0.211 to 1.185, so the gap's middle is (0.163 + 0.211) / 2.
+ */
+const ROW_GAP_Y = 0.187;
+
+/**
+ * `centreZ` defaults to the Book court's spot; the top view passes 0, the middle
+ * of the court. `onRowGap` puts the gap between the two text rows (not the
+ * centre of the whole ink, ball included) on that spot, so a line along it
+ * runs between the rows.
+ */
+export function buildCourtLogo(centreZ: number = CENTRE_Z, onRowGap = false): CourtLogo {
   const carpet = buildCarpet();
   const { wordmark, ball } = (lineShapes ??= buildLogoLineShapes(WIDTH));
   const paint = (color: string, map: THREE.Texture) =>
-    new THREE.MeshStandardMaterial({ color, map, roughness: 0.85, metalness: 0 });
+    new THREE.MeshStandardMaterial({ color, map, roughness: 0.85,
+      metalness: 0,
+      // The lines pull forward with polygonOffset -2; pull harder so the badge wins.
+      polygonOffset: true,
+      polygonOffsetFactor: -4,
+      polygonOffsetUnits: -4,
+    });
   const layers = [
     // White, so the carpet's own blue comes through unchanged.
     { shapes: wordmark, material: paint(brand.white, carpet.color), y: LIFT },
@@ -132,7 +151,8 @@ export function buildCourtLogo(): CourtLogo {
   for (const { geometry, material, y } of layers) {
     const mesh = new THREE.Mesh(geometry, material);
     mesh.rotation.x = -Math.PI / 2;
-    mesh.position.set(0, y, CENTRE_Z);
+    // Shape y maps to -z, so the gap (shape y = ROW_GAP_Y) is brought to centreZ by +ROW_GAP_Y.
+    mesh.position.set(0, y, centreZ + (onRowGap ? ROW_GAP_Y : 0));
     // Takes the ball's cast shadow like the turf does; a no-op on the lite
     // tier, which draws no shadow map.
     mesh.receiveShadow = true;

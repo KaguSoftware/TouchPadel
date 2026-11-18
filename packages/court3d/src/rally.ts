@@ -90,10 +90,10 @@ export interface Player {
 
 /** Four rackets stand in for players: far pair at z −6.3, near pair at z +6.3. */
 export const PLAYERS: readonly Player[] = [
-  { x: -2.3, z: -6.3, face: -1, seed: 0.0, hand: 1 },
-  { x: 2.3, z: -6.3, face: -1, seed: 1.7, hand: -1 },
-  { x: -2.3, z: 6.3, face: 1, seed: 3.1, hand: 1 },
-  { x: 2.3, z: 6.3, face: 1, seed: 4.4, hand: -1 },
+  { x: -3, z: -6.3, face: -1, seed: 0.0, hand: 1 },
+  { x: 3, z: -6.3, face: -1, seed: 1.7, hand: -1 },
+  { x: -3, z: 6.3, face: 1, seed: 3.1, hand: 1 },
+  { x: 3, z: 6.3, face: 1, seed: 4.4, hand: -1 },
 ];
 
 /** One leg of the rally, seconds; four legs A(0) → D(3) → B(1) → C(2) → A … */

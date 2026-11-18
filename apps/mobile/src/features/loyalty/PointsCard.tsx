@@ -40,7 +40,7 @@ import { useCardMotion } from './useCardMotion';
 /** A bank card's own proportions (ISO/IEC 7810 ID-1), so it reads as a card before it is read. */
 const CARD_RATIO = 85.6 / 53.98;
 /** How far the card leans under a finger at its very edge. */
-const TILT_DEG = 9;
+const TILT_DEG = 5;
 /** The lockup's width on the card. */
 const LOGO_W = 84;
 
@@ -729,194 +729,210 @@ export function PointsCard({
       // A little more air under it than the panel's gap, for the shadow to land in.
       style={{ width: '100%', aspectRatio: CARD_RATIO, marginBottom: space.s }}
     >
-      <Animated.View
+      {/* The shadow sits on a layer that does not turn, so it stays one soft pool under the card
+          instead of swinging hard-edged with the tilt. */}
+      <View
         pointerEvents="none"
         style={{
           flex: 1,
           borderRadius: radius.sheet,
-          // Clear: the card is glass, and the page shows through it.
           backgroundColor: 'transparent',
           boxShadow: appearance === 'dark' ? shadows.pointsCardDark : shadows.pointsCard,
-          transform: [{ perspective: 900 }, { rotateX }, { rotateY }, { scale }],
         }}
       >
-        <View style={{ flex: 1, borderRadius: radius.sheet, overflow: 'hidden' }}>
-          {/* Smoked underneath where the page is too light for white ink (and a black tier). */}
-          {smoke > 0 ? (
-            <View
-              style={[StyleSheet.absoluteFill, { backgroundColor: withAlpha(GLASS_SMOKE, smoke) }]}
-            />
-          ) : null}
-          {/* The frost: clear glass, a touch whiter than what is behind it. */}
-          <LinearGradient
-            colors={[
-              withAlpha(brand.white, 0.1),
-              withAlpha(brand.white, 0.05),
-              withAlpha(brand.white, 0.02),
-            ]}
-            locations={[0, 0.55, 1]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={StyleSheet.absoluteFill}
-          />
-          {/* The tier's colour washed into the glass, strongest at the top corner. */}
-          <LinearGradient
-            colors={[
-              withAlpha(finish.tint, 0.5),
-              withAlpha(finish.tint, 0.34),
-              withAlpha(finish.tint, 0.22),
-            ]}
-            locations={[0, 0.55, 1]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={StyleSheet.absoluteFill}
-          />
-          {/* The glow in the glass: the tier's colour, soft, from the middle out. */}
-          {size ? (
-            <Svg
-              pointerEvents="none"
-              width={size.w}
-              height={size.h}
+        <Animated.View
+          pointerEvents="none"
+          style={{
+            flex: 1,
+            borderRadius: radius.sheet,
+            // Clear: the card is glass, and the page shows through it.
+            backgroundColor: 'transparent',
+            // A long perspective, so a turned corner does not swing out past the card's own
+            // width, where the scroll view cut it.
+            transform: [{ perspective: 1600 }, { rotateX }, { rotateY }, { scale }],
+          }}
+        >
+          <View style={{ flex: 1, borderRadius: radius.sheet, overflow: 'hidden' }}>
+            {/* Smoked underneath where the page is too light for white ink (and a black tier). */}
+            {smoke > 0 ? (
+              <View
+                style={[
+                  StyleSheet.absoluteFill,
+                  { backgroundColor: withAlpha(GLASS_SMOKE, smoke) },
+                ]}
+              />
+            ) : null}
+            {/* The frost: clear glass, a touch whiter than what is behind it. */}
+            <LinearGradient
+              colors={[
+                withAlpha(brand.white, 0.1),
+                withAlpha(brand.white, 0.05),
+                withAlpha(brand.white, 0.02),
+              ]}
+              locations={[0, 0.55, 1]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
               style={StyleSheet.absoluteFill}
-            >
-              <Defs>
-                <RadialGradient id="tierGlow" cx="50%" cy="48%" rx="62%" ry="78%">
-                  <Stop offset="0" stopColor={finish.tint} stopOpacity={0.35} />
-                  <Stop offset="0.6" stopColor={finish.tint} stopOpacity={0.1} />
-                  <Stop offset="1" stopColor={finish.tint} stopOpacity={0} />
-                </RadialGradient>
-              </Defs>
-              <Rect x={0} y={0} width={size.w} height={size.h} fill="url(#tierGlow)" />
-            </Svg>
-          ) : null}
-          <BrandPattern opacity={finish.linesAlpha} color={finish.lines} />
-          {/* The sheen of the glass's face: brighter at the top edge, gone by the middle. */}
-          <LinearGradient
-            colors={[withAlpha(brand.white, 0.16), withAlpha(brand.white, 0)]}
-            locations={[0, 0.5]}
-            style={StyleSheet.absoluteFill}
-          />
-          {fx}
-          <View
-            style={{
-              flex: 1,
-              paddingHorizontal: space.xl,
-              paddingVertical: space.l,
-              justifyContent: 'space-between',
-            }}
-          >
+            />
+            {/* The tier's colour washed into the glass, strongest at the top corner. */}
+            <LinearGradient
+              colors={[
+                withAlpha(finish.tint, 0.5),
+                withAlpha(finish.tint, 0.34),
+                withAlpha(finish.tint, 0.22),
+              ]}
+              locations={[0, 0.55, 1]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={StyleSheet.absoluteFill}
+            />
+            {/* The glow in the glass: the tier's colour, soft, from the middle out. */}
+            {size ? (
+              <Svg
+                pointerEvents="none"
+                width={size.w}
+                height={size.h}
+                style={StyleSheet.absoluteFill}
+              >
+                <Defs>
+                  <RadialGradient id="tierGlow" cx="50%" cy="48%" rx="62%" ry="78%">
+                    <Stop offset="0" stopColor={finish.tint} stopOpacity={0.35} />
+                    <Stop offset="0.6" stopColor={finish.tint} stopOpacity={0.1} />
+                    <Stop offset="1" stopColor={finish.tint} stopOpacity={0} />
+                  </RadialGradient>
+                </Defs>
+                <Rect x={0} y={0} width={size.w} height={size.h} fill="url(#tierGlow)" />
+              </Svg>
+            ) : null}
+            <BrandPattern opacity={finish.linesAlpha} color={finish.lines} />
+            {/* The sheen of the glass's face: brighter at the top edge, gone by the middle. */}
+            <LinearGradient
+              colors={[withAlpha(brand.white, 0.16), withAlpha(brand.white, 0)]}
+              locations={[0, 0.5]}
+              style={StyleSheet.absoluteFill}
+            />
+            {fx}
             <View
               style={{
-                flexDirection: 'row',
-                alignItems: 'flex-start',
+                flex: 1,
+                paddingHorizontal: space.xl,
+                paddingVertical: space.l,
                 justifyContent: 'space-between',
-                gap: space.sm,
               }}
             >
-              <Lockup />
-              {loyalty.tier ? (
-                <MicroLabel style={{ color: finish.word, flexShrink: 1 }}>
-                  {tierName(loyalty.tier, locale)}
-                </MicroLabel>
-              ) : null}
-            </View>
-            {/* The points and, beside them, the clear way to what they buy (Majed, 2026-11-15). */}
-            <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: space.sm }}>
-            <View style={{ flex: 1 }}>
-              <MicroLabel style={{ color: ink }}>{t('loyalty.guest.home.balance')}</MicroLabel>
-              <Text
-                testID={`${testID}.balance`}
-                numberOfLines={1}
-                adjustsFontSizeToFit
-                style={{
-                  fontFamily: fonts.display900,
-                  fontSize: 44,
-                  lineHeight: 50,
-                  color: brand.white,
-                  fontVariant: ['tabular-nums'],
-                }}
-              >
-                {balance}
-              </Text>
-              {worth ? (
-                <Text
-                  numberOfLines={1}
-                  style={{ fontFamily: fonts.body600, fontSize: 13, color: ink }}
-                >
-                  {worth}
-                </Text>
-              ) : null}
-            </View>
               <View
-                testID={`${testID}.see-rewards`}
                 style={{
                   flexDirection: 'row',
-                  alignItems: 'center',
-                  gap: 4,
-                  marginBottom: 6,
-                  borderRadius: radius.pill,
-                  borderWidth: 1,
-                  borderColor: withAlpha(brand.white, 0.3),
-                  backgroundColor: withAlpha(brand.white, 0.14),
-                  paddingVertical: 7,
-                  paddingStart: 12,
-                  paddingEnd: 8,
+                  alignItems: 'flex-start',
+                  justifyContent: 'space-between',
+                  gap: space.sm,
                 }}
               >
-                <Text style={{ fontFamily: fonts.body700, fontSize: 13, color: brand.white }}>
-                  {t('loyalty.guest.card.seeRewards')}
-                </Text>
-                <ChevronIcon size={14} color={brand.white} />
-              </View>
-            </View>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm }}>
-              <View style={{ flex: 1 }}>
-                {holder ? (
-                  <EmbossedName
-                    name={holder}
-                    metal={finish.metal}
-                    sweep={sweep}
-                    lean={leanX}
-                    moving={!reduce}
-                  />
+                <Lockup />
+                {loyalty.tier ? (
+                  <MicroLabel style={{ color: finish.word, flexShrink: 1 }}>
+                    {tierName(loyalty.tier, locale)}
+                  </MicroLabel>
                 ) : null}
               </View>
-              {memberCode ? (
-                <View style={{ alignItems: 'flex-end' }}>
-                  <MicroLabel style={{ color: ink }}>
-                    {t('loyalty.guest.card.memberCode')}
-                  </MicroLabel>
+              {/* The points and, beside them, the clear way to what they buy (Majed, 2026-11-15). */}
+              <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: space.sm }}>
+                <View style={{ flex: 1 }}>
+                  <MicroLabel style={{ color: ink }}>{t('loyalty.guest.home.balance')}</MicroLabel>
                   <Text
-                    testID={`${testID}.member-code`}
+                    testID={`${testID}.balance`}
                     numberOfLines={1}
+                    adjustsFontSizeToFit
                     style={{
-                      fontFamily: fonts.display800,
-                      fontSize: 15,
-                      letterSpacing: 1.5,
+                      fontFamily: fonts.display900,
+                      fontSize: 44,
+                      lineHeight: 50,
                       color: brand.white,
-                      writingDirection: 'ltr',
                       fontVariant: ['tabular-nums'],
                     }}
                   >
-                    {isolateLtr(memberCode)}
+                    {balance}
                   </Text>
+                  {worth ? (
+                    <Text
+                      numberOfLines={1}
+                      style={{ fontFamily: fonts.body600, fontSize: 13, color: ink }}
+                    >
+                      {worth}
+                    </Text>
+                  ) : null}
                 </View>
-              ) : null}
+                <View
+                  testID={`${testID}.see-rewards`}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 4,
+                    marginBottom: 6,
+                    borderRadius: radius.pill,
+                    borderWidth: 1,
+                    borderColor: withAlpha(brand.white, 0.3),
+                    backgroundColor: withAlpha(brand.white, 0.14),
+                    paddingVertical: 7,
+                    paddingStart: 12,
+                    paddingEnd: 8,
+                  }}
+                >
+                  <Text style={{ fontFamily: fonts.body700, fontSize: 13, color: brand.white }}>
+                    {t('loyalty.guest.card.seeRewards')}
+                  </Text>
+                  <ChevronIcon size={14} color={brand.white} />
+                </View>
+              </View>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm }}>
+                <View style={{ flex: 1 }}>
+                  {holder ? (
+                    <EmbossedName
+                      name={holder}
+                      metal={finish.metal}
+                      sweep={sweep}
+                      lean={leanX}
+                      moving={!reduce}
+                    />
+                  ) : null}
+                </View>
+                {memberCode ? (
+                  <View style={{ alignItems: 'flex-end' }}>
+                    <MicroLabel style={{ color: ink }}>
+                      {t('loyalty.guest.card.memberCode')}
+                    </MicroLabel>
+                    <Text
+                      testID={`${testID}.member-code`}
+                      numberOfLines={1}
+                      style={{
+                        fontFamily: fonts.display800,
+                        fontSize: 15,
+                        letterSpacing: 1.5,
+                        color: brand.white,
+                        writingDirection: 'ltr',
+                        fontVariant: ['tabular-nums'],
+                      }}
+                    >
+                      {isolateLtr(memberCode)}
+                    </Text>
+                  </View>
+                ) : null}
+              </View>
             </View>
+            {/* The cut edge catching the light, over everything. */}
+            <View
+              style={[
+                StyleSheet.absoluteFill,
+                {
+                  borderRadius: radius.sheet,
+                  borderWidth: 1,
+                  borderColor: finish.rim,
+                },
+              ]}
+            />
           </View>
-          {/* The cut edge catching the light, over everything. */}
-          <View
-            style={[
-              StyleSheet.absoluteFill,
-              {
-                borderRadius: radius.sheet,
-                borderWidth: 1,
-                borderColor: finish.rim,
-              },
-            ]}
-          />
-        </View>
-      </Animated.View>
+        </Animated.View>
+      </View>
     </Pressable>
   );
 }

@@ -1,6 +1,7 @@
 import { useState, type ComponentType, type ReactNode } from 'react';
 import { Image, Pressable, ScrollView, View } from 'react-native';
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { Stack, useLocalSearchParams } from 'expo-router';
+import { useRouter } from '../../src/navigation/useRouter';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { VENUE_TZ, formatDate, formatNumber, formatTime, type MessageKey } from '@touch/i18n';

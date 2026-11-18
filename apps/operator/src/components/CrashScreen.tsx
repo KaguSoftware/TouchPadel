@@ -123,7 +123,7 @@ function RestartButton({ label }: { label: string }) {
       icon="power"
       className="tp-crash-restart"
       onClick={() => window.location.reload()}
-      style={{ minBlockSize: 0, paddingBlock: 'var(--tp-sp-1-5)', paddingInline: 'var(--tp-sp-3)', gap: 'var(--tp-sp-1-5)' }}
+      style={{ flex: '1 1 0', minBlockSize: '2.5rem', paddingInline: 'var(--tp-sp-3)', gap: 'var(--tp-sp-1-5)' }}
     >
       {label}
     </Button>
@@ -145,7 +145,16 @@ const REPORT_LINE = {
  * it. Offline it is kept and sent when the station is back online, and the
  * line under the button says so. Once sent the button stays disabled.
  */
-export function ReportCrashButton({ error, where }: { error: unknown; where: string }) {
+export function ReportCrashButton({
+  error,
+  where,
+  compact = false,
+}: {
+  error: unknown;
+  where: string;
+  /** Half-width in a row beside Restart; the status line is shown by the caller's layout (under the row). */
+  compact?: boolean;
+}) {
   const { tr } = useLocale();
   const [state, setState] = useState<ReportState>('idle');
   const done = state === 'sent' || state === 'queued';
@@ -155,13 +164,13 @@ export function ReportCrashButton({ error, where }: { error: unknown; where: str
     setState(outcome);
   };
   return (
-    <div style={{ display: 'grid', justifyItems: 'center', gap: 'var(--tp-sp-1-5)', inlineSize: '100%' }}>
+    <div style={{ display: 'grid', justifyItems: 'center', gap: 'var(--tp-sp-1-5)', inlineSize: compact ? 'auto' : '100%', flex: compact ? '1 1 0' : undefined }}>
       <Button
         icon={done ? 'check' : 'upload'}
         onClick={() => void send()}
         disabled={state === 'sending' || done}
         data-testid="crash-report"
-        style={fullWidth}
+        style={compact ? { inlineSize: '100%', minBlockSize: '2.5rem' } : fullWidth}
       >
         {tr('crashReport.button')}
       </Button>
@@ -207,14 +216,17 @@ export function CrashPanel({
             </Button>
           )}
         </div>
-        {/* What to do if the cheap escapes do not hold, in words: nothing on
-            this screen can report the fault, a person can. */}
-        <p style={hint}>{tr('op.crash.again')}</p>
-        <ReportCrashButton error={error} where={fullBleed ? 'shell' : 'route'} />
         <div style={divider} />
-        <div style={{ display: 'grid', justifyItems: 'center', gap: 'var(--tp-sp-2)' }}>
-          {/* Reload always works, so the station is never left with zero ways out. */}
-          <RestartButton label={tr('op.crash.reload')} />
+        <div style={{ display: 'grid', justifyItems: 'center', gap: 'var(--tp-sp-3)' }}>
+          {/* What to do if the cheap escapes do not hold, in words: nothing on
+              this screen can report the fault, a person can. */}
+          <p style={hint}>{tr('op.crash.again')}</p>
+          {/* The two last resorts side by side: report it, or restart. Reload
+              always works, so the station is never left with zero ways out. */}
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--tp-sp-2-5)', inlineSize: '100%' }}>
+            <ReportCrashButton error={error} where={fullBleed ? 'shell' : 'route'} compact />
+            <RestartButton label={tr('op.crash.reload')} />
+          </div>
           <details style={{ inlineSize: '100%' }}>
             {/* The marker is our own chevron (.tp-crash-details), centred with
                 the label; it turns down when the details are open. */}

@@ -10,7 +10,8 @@ import {
   type LayoutRectangle,
 } from 'react-native';
 import { Text } from '../../src/i18n/text';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useFocusEffect, useNavigation } from 'expo-router';
+import { useRouter } from '../../src/navigation/useRouter';
 import { useAuth } from '../../src/features/auth/context';
 import { useOwnProfile } from '../../src/features/profile/hooks';
 import { profileGateState } from '../../src/features/auth/social';
@@ -504,6 +505,7 @@ export default function BookHomeScreen() {
   );
   const tabBarHeight = useTabBarHeight();
   const router = useRouter();
+  const navigation = useNavigation();
   const { session } = useAuth();
   const ownProfile = useOwnProfile(!!session);
 
@@ -662,6 +664,16 @@ export default function BookHomeScreen() {
     if (sheetBusy) return;
     closeBooking();
   }, [sheetBusy, closeBooking]);
+
+  // While the sheet is open only its own back button leaves it: the iOS
+  // edge-swipe of any stack above the tabs would otherwise pop the whole page.
+  useEffect(() => {
+    if (!isOpen) return;
+    const parents: { setOptions: (o: { gestureEnabled?: boolean }) => void }[] = [];
+    for (let p = navigation.getParent(); p; p = p.getParent()) parents.push(p);
+    parents.forEach((p) => p.setOptions({ gestureEnabled: false }));
+    return () => parents.forEach((p) => p.setOptions({ gestureEnabled: undefined }));
+  }, [isOpen, navigation]);
 
   // Android back reverses the transition instead of leaving the tab — only
   // while this screen is focused, so a pushed Review keeps its own back.

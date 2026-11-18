@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Pressable, Switch, View } from 'react-native';
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { Stack, useLocalSearchParams } from 'expo-router';
+import { useRouter } from '../../src/navigation/useRouter';
 import { countPhrase, formatDate, formatIQD, formatTime, isolate, isolateLtr } from '@touch/i18n';
 import { needsTermsAcceptance } from '@touch/core';
 import { Text } from '../../src/i18n/text';

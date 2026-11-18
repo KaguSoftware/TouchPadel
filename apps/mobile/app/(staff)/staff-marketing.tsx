@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, RefreshControl, View, type ScrollViewInstance } from 'react-native';
-import { Stack, useRouter } from 'expo-router';
+import { Stack } from 'expo-router';
+import { useRouter } from '../../src/navigation/useRouter';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { localIsoDate, parseTypedDate } from '@touch/core';
@@ -12,6 +13,7 @@ import { Button, Card, ErrorText, Field, Hint, MicroLabel, Screen, SegmentedCont
 import { KeyboardScroll } from '../../src/components/KeyboardScroll';
 import { EmptyState, ErrorState, SkeletonList } from '../../src/components/states';
 import { MenuRow } from '../../src/components/booking';
+import { IOS_ROUND } from '../../src/components/iosRound';
 import { CheckIcon, EnvelopeIcon } from '../../src/components/icons';
 import { useToast } from '../../src/components/overlays';
 import { PhotoButton, type AttachedPhoto } from '../../src/components/PhotoButton';
@@ -704,9 +706,10 @@ function MarketingScreen() {
         refreshControl={<RefreshControl refreshing={pull.refreshing} onRefresh={pull.onRefresh} />}
       >
         {venue === '' ? <Hint>{t('staff.shell.venue.none')}</Hint> : null}
-        <Card style={{ padding: 0, overflow: 'hidden' }}>
+        <Card style={[{ padding: 0, overflow: 'hidden' }, IOS_ROUND]}>
           <MenuRow
             testID="staff-marketing.requests"
+            symbol="envelope.fill"
             icon={<EnvelopeIcon size={15} color={colors.gstrong} />}
             label={
               openCount > 0
@@ -717,6 +720,7 @@ function MarketingScreen() {
           />
           <MenuRow
             testID="staff-marketing.content"
+            symbol="photo.fill"
             icon={<CheckIcon size={15} color={colors.gstrong} />}
             label={
               (contentChanges.data?.total ?? 0) > 0

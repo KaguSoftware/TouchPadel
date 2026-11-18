@@ -16,7 +16,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Platform } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter } from '../../navigation/useRouter';
 import type { User } from '@supabase/supabase-js';
 import { useQueryClient } from '@tanstack/react-query';
 import { isolate } from '@touch/i18n';

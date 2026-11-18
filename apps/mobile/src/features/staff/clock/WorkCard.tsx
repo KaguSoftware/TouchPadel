@@ -10,7 +10,8 @@
  */
 import { useCallback } from 'react';
 import { View } from 'react-native';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useFocusEffect } from 'expo-router';
+import { useRouter } from '../../../navigation/useRouter';
 import { useQuery } from '@tanstack/react-query';
 import { formatTime, formatTimeRangeShort, type MessageKey } from '@touch/i18n';
 import type { StaffRole } from '@touch/core';

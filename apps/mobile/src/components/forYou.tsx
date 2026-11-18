@@ -15,7 +15,7 @@
  * lists everything. Signed out, staff, or a profile not known yet: nothing.
  */
 import { View, Pressable } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter } from '../navigation/useRouter';
 import { useAccountPush } from '../features/auth/useAccountPush';
 import { Text } from '../i18n/text';
 import { useLocale } from '../i18n/LocaleProvider';

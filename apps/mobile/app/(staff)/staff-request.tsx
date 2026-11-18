@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { RefreshControl, ScrollView, View } from 'react-native';
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { Stack, useLocalSearchParams } from 'expo-router';
+import { useRouter } from '../../src/navigation/useRouter';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { formatDate, formatIQD, isolate } from '@touch/i18n';
@@ -139,6 +140,7 @@ function RequestsScreen() {
           <ListCard>
             <MenuRow
               testID="staff-request.deductions"
+              symbol="minus.circle.fill"
               icon={<CardIcon size={15} color={colors.gstrong} />}
               label={t('staff.deductions.mineRow')}
               onPress={() =>

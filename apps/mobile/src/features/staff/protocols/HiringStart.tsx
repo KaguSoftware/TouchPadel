@@ -11,7 +11,7 @@
  */
 import { useRef, useState, type ComponentType, type ReactNode } from 'react';
 import { Pressable, View, type ScrollViewInstance } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter } from '../../../navigation/useRouter';
 import { useMutation } from '@tanstack/react-query';
 import * as Haptics from 'expo-haptics';
 import { RECORD_CAPS, TEXT_CAPS, type FieldIssue, type StaffRole } from '@touch/core';

@@ -17,7 +17,17 @@
  * `lint` on any call site that leaves one off.
  */
 import { ErrorAlert } from './overlays';
-import { useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode, type Ref } from 'react';
+import {
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ComponentType,
+  type ReactNode,
+  type Ref,
+} from 'react';
 import {
   ActivityIndicator,
   Animated,
@@ -164,17 +174,20 @@ export function FormScreen({
   children,
   contentStyle,
   bottomInset = 40,
+  scrollAs: Scroll = ScrollView,
   ...scrollProps
 }: ScrollViewProps & {
   children: ReactNode;
   contentStyle?: StyleProp<ViewStyle>;
   /** Extra space under the last control, added to the safe-area bottom. */
   bottomInset?: number;
+  /** The scroll view to draw: Reanimated's, on a page whose header is animated by the scroll offset. */
+  scrollAs?: ComponentType<ScrollViewProps>;
 }) {
   const insets = useSafeAreaInsets();
   return (
     <KeyboardAvoid androidBehavior="height">
-      <ScrollView
+      <Scroll
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
         showsVerticalScrollIndicator={false}
@@ -185,7 +198,7 @@ export function FormScreen({
         ]}
       >
         {children}
-      </ScrollView>
+      </Scroll>
     </KeyboardAvoid>
   );
 }

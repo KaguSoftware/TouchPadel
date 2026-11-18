@@ -2,7 +2,6 @@ import { useMemo, useRef, useState } from 'react';
 import {
   Image,
   Pressable,
-  RefreshControl,
   ScrollView,
   View,
   type NativeScrollEvent,
@@ -31,6 +30,7 @@ import {
   type MenuViewItem,
 } from './logic';
 import { usePullRefresh } from '../../lib/usePullRefresh';
+import { usePullBall } from '../../components/PullBall';
 
 const THUMB = 56;
 
@@ -97,6 +97,7 @@ export function CafeMenuView({
   const guest = useGuestVenue();
   const menu = useCafeMenu(guest.venueId);
   const pull = usePullRefresh(() => Promise.all([guest.query.refetch(), menu.refetch()]));
+  const ball = usePullBall(pull);
   const sections = useMemo(() => menu.data ?? [], [menu.data]);
   // The first screenful is drawn at once (from the copy on the phone when there is one); the
   // rest join as the guest scrolls toward them, so a photo is fetched only once its row nears.
@@ -108,6 +109,7 @@ export function CafeMenuView({
   const [category, setCategory] = useState<string | null>(null);
   const [opened, setOpened] = useState<{ item: MenuViewItem; categoryEn: string } | null>(null);
   const scrollRef = useRef<ScrollViewInstance>(null);
+  // The chips sit outside the scroll view now, so nothing of the content is covered.
   const headerH = useRef(0);
   const listY = useRef(0);
   const sectionY = useRef<Record<string, number>>({});
@@ -128,6 +130,7 @@ export function CafeMenuView({
   const drawMore = () => setLimit((n) => (n === limit ? n + MENU_MORE_ROWS : n));
 
   const onScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    ball.onScroll(e);
     const { contentOffset, layoutMeasurement, contentSize } = e.nativeEvent;
     const left = contentSize.height - (contentOffset.y + layoutMeasurement.height);
     // Within a screen of the end: draw the next rows before the guest reaches them.
@@ -386,62 +389,58 @@ export function CafeMenuView({
   };
 
   return (
-    <ScrollView
-      ref={scrollRef}
-      onScroll={onScroll}
-      onScrollBeginDrag={() => {
-        jumpingTo.current = null;
-      }}
-      scrollEventThrottle={32}
-      onLayout={(e) => {
-        viewH.current = e.nativeEvent.layout.height;
-      }}
-      // A tall phone can show every drawn row with nothing to scroll: draw on until it can't.
-      onContentSizeChange={(_, h) => {
-        if (more && viewH.current > 0 && h < viewH.current * 1.25) drawMore();
-      }}
-      // Child 1 is the chips (child 0 is the branch picker, empty when the guest has one branch).
-      stickyHeaderIndices={sections.length > 1 ? [1] : undefined}
-      contentContainerStyle={{ paddingTop: space.m, paddingBottom: bottomPad }}
-      showsVerticalScrollIndicator={false}
-      refreshControl={
-        <RefreshControl
-          refreshing={pull.refreshing}
-          onRefresh={pull.onRefresh}
-          tintColor={colors.blue}
-        />
-      }
-    >
-      <View style={{ gap: space.m, paddingBottom: space.sm }}>
-        {guest.showPicker ? <BranchPicker testID={`${testID}.branch`} /> : null}
-      </View>
-
+    <View style={{ flex: 1 }}>
+      {/* The chips are part of the top bar (Majed, 2026-11-16): fixed under the page's switch, not
+          stuck over the rows, so the list scrolls out beneath them and `headerH` stays 0. */}
       {sections.length > 1 ? (
-        <View
-          style={{ paddingTop: space.xs, paddingBottom: space.sm }}
-          onLayout={(e) => {
-            headerH.current = e.nativeEvent.layout.height;
-          }}
-        >
+        <View style={{ paddingTop: space.xs, paddingBottom: space.sm }}>
           <CategoryBar testID={testID} chips={chipList} active={active} onPick={jumpTo} />
         </View>
       ) : null}
+      <View style={{ flex: 1 }} {...ball.wrapHandlers}>
+        <ScrollView
+          ref={scrollRef}
+          onScroll={onScroll}
+          bounces={ball.bounces}
+          onScrollBeginDrag={() => {
+            jumpingTo.current = null;
+          }}
+          scrollEventThrottle={16}
+          onLayout={(e) => {
+            viewH.current = e.nativeEvent.layout.height;
+          }}
+          // A tall phone can show every drawn row with nothing to scroll: draw on until it can't.
+          onContentSizeChange={(_, h) => {
+            if (more && viewH.current > 0 && h < viewH.current * 1.25) drawMore();
+          }}
+          contentContainerStyle={{ paddingBottom: bottomPad }}
+          showsVerticalScrollIndicator={false}
+          refreshControl={ball.refreshControl}
+        >
+          {guest.showPicker ? (
+            <View style={{ paddingTop: space.m, paddingBottom: space.sm }}>
+              <BranchPicker testID={`${testID}.branch`} />
+            </View>
+          ) : null}
 
-      <View
-        testID={`${testID}.list`}
-        style={{ marginTop: space.xs }}
-        onLayout={(e) => {
-          listY.current = e.nativeEvent.layout.y;
-        }}
-      >
-        {body()}
+          <View
+            testID={`${testID}.list`}
+            style={{ marginTop: space.xs }}
+            onLayout={(e) => {
+              listY.current = e.nativeEvent.layout.y;
+            }}
+          >
+            {body()}
+          </View>
+          <ItemDetail
+            item={opened?.item ?? null}
+            categoryEn={opened?.categoryEn ?? ''}
+            testID={`${testID}.detail`}
+            onClose={() => setOpened(null)}
+          />
+        </ScrollView>
+        {ball.overlay}
       </View>
-      <ItemDetail
-        item={opened?.item ?? null}
-        categoryEn={opened?.categoryEn ?? ''}
-        testID={`${testID}.detail`}
-        onClose={() => setOpened(null)}
-      />
-    </ScrollView>
+    </View>
   );
 }

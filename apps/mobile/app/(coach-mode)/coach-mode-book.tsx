@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { LayoutAnimation, Pressable, ScrollView, View, type ScrollViewInstance } from 'react-native';
-import { Stack, useRouter } from 'expo-router';
+import { Stack } from 'expo-router';
+import { useRouter } from '../../src/navigation/useRouter';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   countPhrase,

@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
 import { KeyboardScroll } from '../../src/components/KeyboardScroll';
-import { Alert, RefreshControl, View } from 'react-native';
-import { Stack, useRouter } from 'expo-router';
+import { Alert, View } from 'react-native';
+import { Stack } from 'expo-router';
+import { useRouter } from '../../src/navigation/useRouter';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ceilToLessonGrid } from '@touch/core';
 import { isolate, isolateLtr, type MessageKey } from '@touch/i18n';
@@ -58,6 +59,7 @@ import {
 } from '../../src/features/coach/logic';
 import { usePullRefresh } from '../../src/lib/usePullRefresh';
 import { useBackGuard } from '../../src/navigation/back';
+import { usePullBall } from '../../src/components/PullBall';
 
 /**
  * Hours and time off (docs/design/coaching/guest.md §4.13.3; C-4, CD-10).
@@ -111,6 +113,7 @@ function CoachHoursBody({ coach }: { coach: CoachMe }) {
   const hours = useCoachHours();
   const save = useSetMyHours();
   const pull = usePullRefresh(hours.refetch);
+  const ball = usePullBall(pull);
 
   const branches: HoursBranch[] = useMemo(() => hours.data?.branches ?? [], [hours.data]);
   const [picked, setPicked] = useState<string | null>(null);
@@ -262,7 +265,8 @@ function CoachHoursBody({ coach }: { coach: CoachMe }) {
   return (
     <Screen edges={[]} keyboard>
       <Stack.Screen options={{ title: t('coaching.coach.hours.title') }} />
-      <KeyboardScroll
+      <View style={{ flex: 1 }} {...ball.wrapHandlers}>
+<KeyboardScroll
         contentContainerStyle={{
           paddingTop: space.sm,
           paddingBottom: 40 + insets.bottom,
@@ -271,13 +275,10 @@ function CoachHoursBody({ coach }: { coach: CoachMe }) {
         keyboardShouldPersistTaps="handled"
         automaticallyAdjustKeyboardInsets
         showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={pull.refreshing}
-            onRefresh={pull.onRefresh}
-            tintColor={colors.blue}
-          />
-        }
+        bounces={ball.bounces}
+onScroll={ball.onScroll}
+scrollEventThrottle={16}
+refreshControl={ball.refreshControl}
       >
         <CoachBanners testID="coach-mode-hours.banner" coach={coach} />
         {!hours.data ? (
@@ -358,6 +359,8 @@ function CoachHoursBody({ coach }: { coach: CoachMe }) {
           />
         ) : null}
       </KeyboardScroll>
+{ball.overlay}
+</View>
     </Screen>
   );
 }

@@ -1,5 +1,7 @@
 import type { ReactNode } from 'react';
-import { View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import Svg, { Defs, RadialGradient, Rect, Stop } from 'react-native-svg';
 import { TIER_SWATCH, tierWantsLightInk, type TierColor, type TierPerk } from '@touch/core/loyalty';
 import { countPhrase, formatNumber, isolate, isolateLtr, type Locale } from '@touch/i18n';
 import { Text } from '../../i18n/text';
@@ -19,7 +21,8 @@ import {
   type IconProps,
 } from '../../components/icons';
 import { FrameRing } from '../../components/ProfileAvatar';
-import { brand, useTheme, withAlpha } from '../../theme';
+import { BrandPattern } from '../../components/BrandPattern';
+import { GLASS_SMOKE, brand, radius, tierFinish, useTheme, withAlpha } from '../../theme';
 import { perkDetail, perkMark, tierName, type CardGives, type PerkMark } from './logic';
 
 type Translate = ReturnType<typeof useLocale>['t'];
@@ -98,11 +101,24 @@ export function TierChip({ color, width = 30 }: { color: TierColor; width?: numb
  * ring itself in place of an icon. `block` is the way-to-the-next-card list, read as the pitch;
  * `row` is the quieter list under a rung of the ladder.
  */
-export function GivesList({ gives, tone }: { gives: CardGives; tone: 'block' | 'row' }) {
+export function GivesList({
+  gives,
+  tone,
+  ink,
+}: {
+  gives: CardGives;
+  tone: 'block' | 'row';
+  /** Set when the list sits on a card's own colour: icons and lines take this ink. */
+  ink?: string;
+}) {
   const { t, locale } = useLocale();
   const { colors, fonts } = useTheme();
   const block = tone === 'block';
-  const icon = { size: block ? 15 : 13, color: block ? colors.ink : colors.mut, strokeWidth: 2 };
+  const icon = {
+    size: block ? 15 : 13,
+    color: ink ?? (block ? colors.ink : colors.mut),
+    strokeWidth: 2,
+  };
   type Line = { key: string; mark: ReactNode; text: string; detail: string | null; ring: boolean };
   const iconMark = (Icon: (p: IconProps) => ReactNode) => <Icon {...icon} />;
   const lines: Line[] = [
@@ -149,7 +165,7 @@ export function GivesList({ gives, tone }: { gives: CardGives; tone: 'block' | '
                 height: 26,
                 borderRadius: 13,
                 // A ring is its own mark: no chip behind it.
-                backgroundColor: ring ? undefined : colors.tint,
+                backgroundColor: ring ? undefined : ink ? withAlpha(ink, 0.14) : colors.tint,
                 alignItems: 'center',
                 justifyContent: 'center',
               }}
@@ -166,7 +182,7 @@ export function GivesList({ gives, tone }: { gives: CardGives; tone: 'block' | '
                 fontFamily: block ? fonts.body700 : fonts.body400,
                 fontSize: block ? 14 : 12.5,
                 lineHeight: block ? 20 : 18,
-                color: block ? colors.ink : colors.mut,
+                color: ink ?? (block ? colors.ink : colors.mut),
               }}
             >
               {text}
@@ -186,6 +202,72 @@ export function GivesList({ gives, tone }: { gives: CardGives; tone: 'block' | '
           </View>
         </View>
       ))}
+    </View>
+  );
+}
+
+/**
+ * A tier's card face, the same glass the member card is drawn on (PointsCard): the smoke under it,
+ * the frost, the tier's colour washed in from the top corner, the glow in its middle, the court
+ * lines, the sheen of its face and the cut edge. Fills whatever it is put in; the parent clips it
+ * to its own corners and puts the ink (white) on top.
+ */
+export function TierGlass({ color, idKey }: { color: TierColor; idKey: string }) {
+  const { appearance } = useTheme();
+  const finish = tierFinish[color] ?? tierFinish.classic;
+  const smoke = finish.smoke[appearance];
+  const glow = `tierGlow.${idKey}`;
+  return (
+    <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+      {smoke > 0 ? (
+        <View
+          style={[StyleSheet.absoluteFill, { backgroundColor: withAlpha(GLASS_SMOKE, smoke) }]}
+        />
+      ) : null}
+      <LinearGradient
+        colors={[
+          withAlpha(brand.white, 0.1),
+          withAlpha(brand.white, 0.05),
+          withAlpha(brand.white, 0.02),
+        ]}
+        locations={[0, 0.55, 1]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={StyleSheet.absoluteFill}
+      />
+      <LinearGradient
+        colors={[
+          withAlpha(finish.tint, 0.5),
+          withAlpha(finish.tint, 0.34),
+          withAlpha(finish.tint, 0.22),
+        ]}
+        locations={[0, 0.55, 1]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={StyleSheet.absoluteFill}
+      />
+      <Svg width="100%" height="100%" style={StyleSheet.absoluteFill}>
+        <Defs>
+          <RadialGradient id={glow} cx="50%" cy="48%" rx="62%" ry="78%">
+            <Stop offset="0" stopColor={finish.tint} stopOpacity={0.35} />
+            <Stop offset="0.6" stopColor={finish.tint} stopOpacity={0.1} />
+            <Stop offset="1" stopColor={finish.tint} stopOpacity={0} />
+          </RadialGradient>
+        </Defs>
+        <Rect x={0} y={0} width="100%" height="100%" fill={`url(#${glow})`} />
+      </Svg>
+      <BrandPattern opacity={finish.linesAlpha} color={finish.lines} />
+      <LinearGradient
+        colors={[withAlpha(brand.white, 0.16), withAlpha(brand.white, 0)]}
+        locations={[0, 0.5]}
+        style={StyleSheet.absoluteFill}
+      />
+      <View
+        style={[
+          StyleSheet.absoluteFill,
+          { borderRadius: radius.sheet, borderWidth: 1, borderColor: finish.rim },
+        ]}
+      />
     </View>
   );
 }

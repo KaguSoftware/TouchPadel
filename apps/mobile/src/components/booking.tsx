@@ -29,6 +29,9 @@ import {
   type ViewStyle,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
+import type { SFSymbol } from 'expo-symbols';
+import { SymbolGlyph } from './SymbolGlyph';
+import { SystemChevron } from './SystemChevron';
 import { Text } from '../i18n/text';
 import {
   formatDayNumber,
@@ -2009,6 +2012,7 @@ export function CourtLaneRow({
 export function MenuRow({
   icon,
   iconBg,
+  symbol,
   label,
   onPress,
   last,
@@ -2016,6 +2020,8 @@ export function MenuRow({
   testID,
 }: {
   icon: ReactNode;
+  /** Draw this symbol (SF on iOS, Ionicons on Android), in the chip's green, instead of `icon`. */
+  symbol?: SFSymbol;
   /**
    * The disc behind the icon. Green (`gtint`) by default, which is right for
    * every ordinary row and wrong for the one destructive row: a red trash icon
@@ -2056,11 +2062,25 @@ export function MenuRow({
         paddingTop: 15,
         paddingBottom: 15,
         backgroundColor: pressed ? colors.sub : 'transparent',
-        borderBottomWidth: last ? 0 : 1,
+        borderBottomWidth: last || Platform.OS === 'ios' ? 0 : 1,
         borderBottomColor: colors.sub,
         opacity: disabled ? 0.5 : 1,
       })}
     >
+      {/* iOS Settings style: the divider starts at the label, not under the icon tile. */}
+      {Platform.OS === 'ios' && !last ? (
+        <View
+          pointerEvents="none"
+          style={{
+            position: 'absolute',
+            bottom: 0,
+            end: 0,
+            start: space.l + 30 + 11,
+            height: StyleSheet.hairlineWidth,
+            backgroundColor: colors.line,
+          }}
+        />
+      ) : null}
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 11, flex: 1 }}>
         <View
           style={{
@@ -2074,7 +2094,9 @@ export function MenuRow({
             justifyContent: 'center',
           }}
         >
-          {!iconBg && isValidElement<{ color?: string }>(icon)
+          {symbol && !iconBg ? (
+            <SymbolGlyph name={symbol} size={16} color={chip.fg} fallback={icon as React.ReactElement} />
+          ) : !iconBg && isValidElement<{ color?: string }>(icon)
             ? cloneElement(icon, { color: chip.fg })
             : icon}
         </View>
@@ -2088,7 +2110,7 @@ export function MenuRow({
           {label}
         </Text>
       </View>
-      <ChevronIcon size={16} color={colors.fnt2} />
+      <SystemChevron />
     </Pressable>
   );
 }

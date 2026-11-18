@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { FlatList, RefreshControl, View } from 'react-native';
+import { FlatList, View } from 'react-native';
 import { Stack } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { formatDate } from '@touch/i18n';
@@ -14,6 +14,7 @@ import { radius, space, useTheme } from '../src/theme';
 import { Button, Screen } from '../src/components/ui';
 import { EmptyState, ErrorState, SkeletonList } from '../src/components/states';
 import { ConfirmAlert, useToast } from '../src/components/overlays';
+import { usePullBall } from '../src/components/PullBall';
 
 /**
  * The players the guest blocked (docs/design/open-matches/guest.md §4.17),
@@ -29,6 +30,7 @@ function BlockedPlayersScreen() {
   const blocks = useMyMatchBlocks();
   const unblock = useUnblockPlayer();
   const pull = usePullRefresh(blocks.refetch);
+  const ball = usePullBall(pull);
   const [asking, setAsking] = useState<{ blockId: string; name: string } | null>(null);
 
   const onUnblock = () => {
@@ -105,7 +107,8 @@ function BlockedPlayersScreen() {
           <SkeletonList rows={3} height={72} />
         )
       ) : (
-        <FlatList
+        <View style={{ flex: 1 }} {...ball.wrapHandlers}>
+<FlatList
           testID="blocked-players.list"
           data={blocks.data}
           keyExtractor={(b) => b.blockId}
@@ -117,13 +120,10 @@ function BlockedPlayersScreen() {
             paddingBottom: 40 + insets.bottom,
           }}
           showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl
-              refreshing={pull.refreshing}
-              onRefresh={pull.onRefresh}
-              tintColor={colors.blue}
-            />
-          }
+          bounces={ball.bounces}
+onScroll={ball.onScroll}
+scrollEventThrottle={16}
+refreshControl={ball.refreshControl}
           ListEmptyComponent={
             <EmptyState
               testID="blocked-players.empty"
@@ -133,6 +133,8 @@ function BlockedPlayersScreen() {
             />
           }
         />
+{ball.overlay}
+</View>
       )}
 
       <ConfirmAlert

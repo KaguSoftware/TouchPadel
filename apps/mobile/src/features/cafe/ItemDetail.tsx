@@ -9,14 +9,14 @@ import { useTheme } from '../../theme';
 import { ItemDetailContent } from './ItemDetailContent';
 import type { ItemDetailProps } from './ItemDetail.types';
 
-/** The sheet's share of the screen; the content scrolls inside it. */
+/** The most of the screen the sheet takes; the content is only as tall as it needs. */
 const HEIGHT_FRACTION = 0.85;
 
 export function ItemDetail({ item, categoryEn, testID, onClose }: ItemDetailProps) {
   const { colors } = useTheme();
   const { height } = useWindowDimensions();
   if (!item) return null;
-  const sheetHeight = Math.round(height * HEIGHT_FRACTION);
+  const sheetHeight = Math.round(height * HEIGHT_FRACTION) - 40; // less the drag handle; the sheet hugs its content
   return (
     <Host>
       <ModalBottomSheet

@@ -25,6 +25,7 @@
   "dependencies": {
     "@expo/metro-runtime": "~58.0.17",
     "@expo/ui": "~58.0.28",
+    "@expo/vector-icons": "^15.1.1",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@react-native-community/datetimepicker": "9.2.1",
     "@react-native-community/netinfo": "12.0.1",
@@ -40,6 +41,7 @@
     "expo-apple-authentication": "~58.0.3",
     "expo-application": "~58.1.2",
     "expo-blur": "~58.0.6",
+    "expo-build-properties": "~58.0.12",
     "expo-camera": "~58.0.14",
     "expo-constants": "~58.0.16",
     "expo-crypto": "~58.0.8",
@@ -72,9 +74,11 @@
     "react-native-get-random-values": "~1.11.0",
     "react-native-nitro-google-signin": "2.3.0",
     "react-native-nitro-modules": "^0.37.1",
+    "react-native-reanimated": "4.7.1",
     "react-native-safe-area-context": "~5.11.1",
     "react-native-screens": "~4.30.0",
     "react-native-svg": "15.16.0",
+    "react-native-worklets": "0.13.0",
     "three": "0.160.0"
   },
   "devDependencies": {

@@ -21,7 +21,7 @@
  * is cased by exactly one suite; smokeCoverage.test.ts).
  */
 import { useState } from 'react';
-import { Alert, Animated, RefreshControl } from 'react-native';
+import { Alert, Animated } from 'react-native';
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { act, fireEvent, waitFor, within } from '@testing-library/react-native';
 import { formatIQD, isolate, makeT, type Locale } from '@touch/i18n';
@@ -92,6 +92,15 @@ import ProfileScreen from '../../app/profile';
 import BookingsScreen from '../../app/bookings';
 import PayStatusScreen from '../../app/pay/status';
 import { onlinePaymentsOnForFile } from '../test/onlinePaymentsEnv';
+
+// The pull-to-refresh ball is a drag gesture; the stub keeps the refresh it was handed.
+const mockBallPull: { current: { onRefresh: () => void } | null } = { current: null };
+jest.mock('../components/PullBall', () => ({
+  usePullBall: (pull: { onRefresh: () => void }) => {
+    mockBallPull.current = pull;
+    return { onScroll: () => undefined, bounces: true, wrapHandlers: {}, refreshControl: undefined, overlay: null };
+  },
+}));
 
 onlinePaymentsOnForFile();
 
@@ -1065,7 +1074,8 @@ describe.each(LOCALES)('coaching states in %s', (locale) => {
       try {
         rpc.mockClear();
         await act(async () => {
-          screen.UNSAFE_getByType(RefreshControl).props.onRefresh();
+          // The ball's pull is a finger drag jest cannot make: take the refresh the screen gave it.
+          mockBallPull.current?.onRefresh();
         });
         const lessonReads = () => rpc.mock.calls.filter(([name]) => name === 'my_lessons');
         if (on) await waitFor(() => expect(lessonReads().length).toBeGreaterThan(0));

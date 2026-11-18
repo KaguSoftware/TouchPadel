@@ -1,6 +1,7 @@
 import { ScrollView, View } from 'react-native';
 import { Text } from '../src/i18n/text';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
+import { useRouter } from '../src/navigation/useRouter';
 import { RequireSession } from '../src/features/auth/RequireSession';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';

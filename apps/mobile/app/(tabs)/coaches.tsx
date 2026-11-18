@@ -1,14 +1,5 @@
 import { useMemo, useRef, useState } from 'react';
-import {
-  Animated,
-  RefreshControl,
-  StyleSheet,
-  View,
-  useWindowDimensions,
-  type LayoutChangeEvent,
-  type LayoutRectangle,
-  type ViewInstance,
-} from 'react-native';
+import { Animated, StyleSheet, View, useWindowDimensions, type LayoutChangeEvent, type LayoutRectangle, type ViewInstance } from 'react-native';
 import { useAccountPush } from '../../src/features/auth/useAccountPush';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { formatIQD, isolate } from '@touch/i18n';
@@ -33,7 +24,7 @@ import {
 import { lessonErrorText } from '../../src/features/coaching/errors';
 import { callPhone } from '../../src/lib/phone';
 import { usePullRefresh } from '../../src/lib/usePullRefresh';
-import { space, useTheme } from '../../src/theme';
+import { radius, space, useTheme } from '../../src/theme';
 import { Button, Screen, TAB_TITLE_TOP, Title } from '../../src/components/ui';
 import { AccountButton } from '../../src/components/AccountButton';
 import { EmptyState, ErrorState, SkeletonList } from '../../src/components/states';
@@ -46,6 +37,7 @@ import { Frost, FrostTarget, PinnedTitle } from '../../src/components/scrollFros
 import { useTabBarHeight } from '../../src/components/useTabBarHeight';
 import { useToast } from '../../src/components/overlays';
 import { GlassPlate, ShowcaseCard, ShowcaseLink } from '../../src/components/coachShowcase';
+import { usePullBall } from '../../src/components/PullBall';
 
 /** The gap between the two columns and between rows. */
 const GAP = space.sm;
@@ -100,6 +92,7 @@ export default function CoachesScreen() {
   // Switch off means no work: the read waits for the branch to say on.
   const pub = useCoachingPublic(on ? venueId : null);
   const pull = usePullRefresh(pub.refetch);
+  const ball = usePullBall(pull, { scrollY });
   const phone = venuePhoneOf(settings.data);
   const branch = guest.branch ? branchName(guest.branch, locale) : '';
 
@@ -119,6 +112,7 @@ export default function CoachesScreen() {
       pub.data && venueId && !pub.data.off ? showcaseOrder(coachesAt(pub.data, venueId), seed) : [],
     [pub.data, venueId, seed],
   );
+  const noCoaches = on && !!pub.data && !pub.data.off && all.length === 0;
   const shown = useMemo(() => coachesForLevel(all, level), [all, level]);
 
   // One column width for every card: the cards never size to their content.
@@ -237,11 +231,20 @@ export default function CoachesScreen() {
   const grid = () => {
     if (all.length === 0) {
       return (
-        <EmptyState
-          testID="coaches.empty"
-          title={t('coaching.guest.coaches.emptyTitle')}
-          message={t('coaching.guest.coaches.empty')}
-        />
+        <View
+          style={{
+            backgroundColor: colors.card,
+            borderWidth: 1,
+            borderColor: colors.line,
+            borderRadius: radius.card,
+          }}
+        >
+          <EmptyState
+            testID="coaches.empty"
+            title={t('coaching.guest.coaches.emptyTitle')}
+            message={t('coaching.guest.coaches.empty')}
+          />
+        </View>
       );
     }
     if (shown.length === 0) {
@@ -388,8 +391,11 @@ export default function CoachesScreen() {
         </FrostTarget>
         <Frost scrollY={scrollY} span={heroH} target={frostTarget} />
         <View style={{ flex: 1, marginTop: titleH }}>
-          <Animated.ScrollView
+          <View style={{ flex: 1 }} {...ball.wrapHandlers}>
+<Animated.ScrollView
             testID="coaches.scroll"
+            // Nothing to scroll to when the branch has no coaches yet.
+            scrollEnabled={!noCoaches}
             onScroll={onScroll}
             scrollEventThrottle={16}
             showsVerticalScrollIndicator={false}
@@ -398,17 +404,14 @@ export default function CoachesScreen() {
               paddingEnd: gutter,
               paddingBottom: tabBarHeight + 24,
             }}
-            refreshControl={
-              <RefreshControl
-                refreshing={pull.refreshing}
-                onRefresh={pull.onRefresh}
-                tintColor={colors.blue}
-              />
-            }
+            bounces={ball.bounces}
+refreshControl={ball.refreshControl}
           >
             {header}
             {body}
           </Animated.ScrollView>
+{ball.overlay}
+</View>
         </View>
         <PinnedTitle onHeight={setTitleH}>
           <View

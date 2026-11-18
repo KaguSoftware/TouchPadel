@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { View } from 'react-native';
 import { Text } from '../src/i18n/text';
-import { useRouter } from 'expo-router';
+import { useRouter } from '../src/navigation/useRouter';
 import { supabase } from '../src/lib/supabase';
 import { updatePassword } from '../src/features/auth/api';
 import { useAuth } from '../src/features/auth/context';

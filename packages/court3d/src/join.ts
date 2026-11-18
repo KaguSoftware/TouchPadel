@@ -69,7 +69,7 @@ export interface JoinSeats {
 /**
  * Seat → rally player (PLAYERS index), in fill order. Left to right the card's
  * first seat is its top-left one: screen-left is the court's +z half and
- * screen-up −x, so PLAYERS[2] (x −2.3, z +6.3), then its partner below, then
+ * screen-up −x, so PLAYERS[2] (x −3, z +6.3), then its partner below, then
  * the far pair top to bottom. Mirrored, the pairs swap halves.
  */
 const SEAT_PLAYER = {

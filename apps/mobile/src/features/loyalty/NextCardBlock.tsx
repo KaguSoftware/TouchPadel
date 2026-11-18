@@ -1,4 +1,5 @@
-import { StyleSheet, View } from 'react-native';
+import { useState } from 'react';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import type { LadderTier, MyLoyalty } from '@touch/core/loyalty';
 import { formatNumber, isolate, isolateLtr } from '@touch/i18n';
@@ -7,7 +8,7 @@ import { useLocale } from '../../i18n/LocaleProvider';
 import { Hint, MicroLabel } from '../../components/ui';
 import { CheckIcon } from '../../components/icons';
 import { brand, radius, space, useTheme, withAlpha } from '../../theme';
-import { GivesList, TierChip, tierGround } from './cardParts';
+import { GivesList, TierGlass, tierGround } from './cardParts';
 import { givesAnything, ladderPosition, rungGives, tierName, tierProgress } from './logic';
 
 /**
@@ -29,6 +30,9 @@ import { givesAnything, ladderPosition, rungGives, tierName, tierProgress } from
  * ladder. With no ladder (a server before 0410) the head still draws and the body is only what the
  * next card gives (its points rate). Draws nothing when the answer names no tier at all.
  */
+/** Space between two cards in the row; the next one peeks in by this much more than a gutter. */
+const SLIDE_GAP = 12;
+
 export function NextCardBlock({
   testID,
   route,
@@ -43,6 +47,9 @@ export function NextCardBlock({
   const { t, locale } = useLocale();
   const { colors, fonts } = useTheme();
   const points = (n: number) => isolateLtr(formatNumber(n, locale));
+  // A card is most of the row's width, so the next one shows at its edge and says "swipe".
+  const [rowW, setRowW] = useState(0);
+  const slideW = rowW > 0 ? Math.round((rowW - space.l * 2) * 0.82) : 260;
 
   const position = ladderPosition(l);
   const progress = tierProgress(l);
@@ -170,40 +177,54 @@ export function NextCardBlock({
 
       {position.rungs.length > 0 ? (
         <View testID={`${route}.tiers`}>
-          <View style={{ paddingHorizontal: space.l, paddingTop: space.m, paddingBottom: space.xs }}>
+          <View
+            style={{ paddingHorizontal: space.l, paddingTop: space.m, paddingBottom: space.xs }}
+          >
             <MicroLabel>{t('loyalty.guest.ladder.title')}</MicroLabel>
           </View>
-          {position.rungs.map(({ tier, state, remaining }) => {
-            const isNext = next !== null && tier.id === next.id;
-            const gives = isNext ? nextGives(tier) : rungGives(tier);
-            return (
-              <View
-                key={tier.id}
-                testID={`${route}.tier.${tier.id}`}
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'flex-start',
-                  gap: space.sm,
-                  paddingVertical: isNext ? space.m : space.sm,
-                  paddingHorizontal: space.l,
-                  backgroundColor: state === 'current' ? colors.tint : undefined,
-                  borderTopWidth: 1,
-                  borderTopColor: colors.line,
-                }}
-              >
-                {/* Level with the name's line. */}
-                <View style={{ height: 21, justifyContent: 'center' }}>
-                  <TierChip color={tier.color} />
-                </View>
-                <View style={{ flex: 1, gap: 2 }}>
+          {/* The cards, side by side: swipe to the next, the one after it peeking in. Each is
+              that card in its own colour: its name, where it starts, what it gives. */}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            decelerationRate="fast"
+            snapToInterval={slideW + SLIDE_GAP}
+            snapToAlignment="start"
+            contentContainerStyle={{
+              paddingHorizontal: space.l,
+              paddingVertical: space.sm,
+              gap: SLIDE_GAP,
+            }}
+            onLayout={(e) => setRowW(e.nativeEvent.layout.width)}
+          >
+            {position.rungs.map(({ tier, state, remaining }) => {
+              const isNext = next !== null && tier.id === next.id;
+              const gives = isNext ? nextGives(tier) : rungGives(tier);
+              // The member card's own glass and its white ink, not a flat swatch.
+              const ti = brand.white;
+              const tg = brand.navy;
+              return (
+                <View
+                  key={tier.id}
+                  testID={`${route}.tier.${tier.id}`}
+                  style={{
+                    width: slideW,
+                    borderRadius: radius.sheet,
+                    overflow: 'hidden',
+                    padding: space.m,
+                    gap: space.sm,
+                  }}
+                >
+                  <TierGlass color={tier.color} idKey={tier.id} />
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.s }}>
                     <Text
+                      numberOfLines={1}
                       style={{
                         flex: 1,
-                        fontFamily: fonts.body700,
-                        fontSize: 15,
-                        lineHeight: 21,
-                        color: colors.ink,
+                        fontFamily: fonts.display900,
+                        fontSize: 24,
+                        lineHeight: 30,
+                        color: ti,
                       }}
                     >
                       {tierName(tier, locale)}
@@ -213,35 +234,33 @@ export function NextCardBlock({
                         testID={`${route}.tier-yours`}
                         style={{
                           borderRadius: radius.pill,
-                          borderWidth: 1,
-                          borderColor: colors.gline,
-                          backgroundColor: colors.gtint,
+                          backgroundColor: ti,
                           paddingVertical: 3,
-                          paddingHorizontal: 9,
+                          paddingHorizontal: 10,
                         }}
                       >
-                        <Text style={{ fontFamily: fonts.body700, fontSize: 11.5, color: colors.gtext }}>
+                        <Text style={{ fontFamily: fonts.body700, fontSize: 11.5, color: tg }}>
                           {t('loyalty.guest.ladder.yours')}
                         </Text>
                       </View>
                     ) : state === 'held' ? (
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                        <CheckIcon size={12} color={colors.mut} strokeWidth={2.4} />
-                        <Text style={{ fontFamily: fonts.body600, fontSize: 11.5, color: colors.mut }}>
+                        <CheckIcon size={12} color={ti} strokeWidth={2.4} />
+                        <Text style={{ fontFamily: fonts.body700, fontSize: 11.5, color: ti }}>
                           {t('loyalty.guest.ladder.included')}
                         </Text>
                       </View>
                     ) : isNext ? null : (
                       // The next card's points to go are the head's big figure; the cards past it say theirs here.
                       <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 5 }}>
-                        <Text style={{ fontFamily: fonts.body600, fontSize: 11.5, color: colors.mut }}>
+                        <Text style={{ fontFamily: fonts.body600, fontSize: 11.5, color: ti }}>
                           {t('loyalty.guest.next.toGo')}
                         </Text>
                         <Text
                           style={{
                             fontFamily: fonts.display800,
                             fontSize: 14,
-                            color: colors.ink,
+                            color: ti,
                             fontVariant: ['tabular-nums'],
                           }}
                         >
@@ -250,27 +269,34 @@ export function NextCardBlock({
                       </View>
                     )}
                   </View>
-                  <Text style={{ fontFamily: fonts.body400, fontSize: 12.5, lineHeight: 18, color: colors.mut }}>
+                  <Text
+                    style={{ fontFamily: fonts.body700, fontSize: 14, lineHeight: 20, color: ti }}
+                  >
                     {tier.min_points_12m > 0
                       ? t('loyalty.guest.ladder.from', { points: points(tier.min_points_12m) })
                       : t('loyalty.guest.ladder.base')}
                   </Text>
                   {gives && givesAnything(gives) ? (
                     isNext ? (
-                      <View testID={`${testID}.gives`} style={{ marginTop: space.sm, gap: space.sm }}>
-                        <MicroLabel>{t('loyalty.guest.next.gives', { tier: isolate(name) })}</MicroLabel>
-                        <GivesList gives={gives} tone="block" />
+                      <View
+                        testID={`${testID}.gives`}
+                        style={{ marginTop: space.xs, gap: space.sm }}
+                      >
+                        <MicroLabel style={{ color: ti }}>
+                          {t('loyalty.guest.next.gives', { tier: isolate(name) })}
+                        </MicroLabel>
+                        <GivesList gives={gives} tone="block" ink={ti} />
                       </View>
                     ) : (
-                      <View style={{ marginTop: 3 }}>
-                        <GivesList gives={gives} tone="row" />
+                      <View style={{ marginTop: space.xs }}>
+                        <GivesList gives={gives} tone="block" ink={ti} />
                       </View>
                     )
                   ) : null}
                 </View>
-              </View>
-            );
-          })}
+              );
+            })}
+          </ScrollView>
           <View style={{ paddingHorizontal: space.l, paddingBottom: space.m }}>
             <Hint>{t('loyalty.guest.tier.window')}</Hint>
           </View>

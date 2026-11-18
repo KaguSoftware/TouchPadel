@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
-import { RefreshControl, ScrollView, View } from 'react-native';
-import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { ScrollView, View } from 'react-native';
+import { Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { useRouter } from '../../../src/navigation/useRouter';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   formatDate,
@@ -66,6 +67,7 @@ import {
   TournamentRound,
   TournamentTicket,
 } from '../../../src/components/tournament';
+import { usePullBall } from '../../../src/components/PullBall';
 
 /** A refusal the server raised, shown under the action: amber, or red for a match ban. */
 interface Notice {
@@ -111,6 +113,7 @@ export default function TournamentDetailScreen() {
   );
   const tour = useTournamentPublic(id, { poll: focused });
   const pull = usePullRefresh(tour.refetch);
+  const ball = usePullBall(pull);
   // A clear native bar, like the list's (clearBar.ts).
   const barPad = useClearBarPad();
   const uid = session && !session.user.is_anonymous ? session.user.id : null;
@@ -451,20 +454,18 @@ export default function TournamentDetailScreen() {
   return (
     <Screen edges={[]} style={barPad}>
       {header}
-      <ScrollView
+      <View style={{ flex: 1 }} {...ball.wrapHandlers}>
+<ScrollView
         contentContainerStyle={{
           paddingTop: space.sm,
           paddingBottom: hasFooter ? space.l : 40 + insets.bottom,
           gap: space.m,
         }}
         showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={pull.refreshing}
-            onRefresh={pull.onRefresh}
-            tintColor={colors.blue}
-          />
-        }
+        bounces={ball.bounces}
+onScroll={ball.onScroll}
+scrollEventThrottle={16}
+refreshControl={ball.refreshControl}
       >
         <TournamentTicket
           status={d.status ? t(`tournaments.common.status.${d.status}`) : null}
@@ -615,6 +616,8 @@ export default function TournamentDetailScreen() {
           <Text style={sub}>{t('tournaments.guest.detail.scheduleLater')}</Text>
         ) : null}
       </ScrollView>
+{ball.overlay}
+</View>
       {/* The action is pinned to the bottom of the screen, its notices just above it (owner, 2026-10-09). */}
       {hasFooter ? (
         <View

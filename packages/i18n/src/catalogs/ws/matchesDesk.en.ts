@@ -55,6 +55,7 @@ export const matchesDeskEn = {
     open: 'Open',
     off: 'Open matches are switched off here. Matches already started carry on.',
     none: 'No open matches tonight',
+    noneOtherDay: 'No open matches on this day',
     playersOwing: 'Players owing: {count}',
   },
   // The new-booking dialog's additions (§5.10).

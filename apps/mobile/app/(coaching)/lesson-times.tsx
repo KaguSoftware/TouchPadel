@@ -9,7 +9,8 @@ import {
   View,
 } from 'react-native';
 import { GlassView } from 'expo-glass-effect';
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { Stack, useLocalSearchParams } from 'expo-router';
+import { useRouter } from '../../src/navigation/useRouter';
 import { HeaderHeightContext } from 'expo-router/react-navigation';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { dayOfWeekOfDate, wallTimeToUtc } from '@touch/core';

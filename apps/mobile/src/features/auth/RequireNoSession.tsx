@@ -74,7 +74,11 @@ export function RequireNoSession({
     })
   ) {
     case 'loading':
-      return <Loading />;
+      // Only the cold-start auth read blanks the screen. Once a session lands
+      // from this screen's own submit, the profile/staff reads that decide the
+      // redirect run behind the form (its button is still busy) instead of
+      // swapping it for a spinner, which flashed before the app opened.
+      return initializing ? <Loading /> : <>{children}</>;
     case 'redirect':
       return <Redirect href="/(tabs)" />;
     case 'redirect-complete-profile':

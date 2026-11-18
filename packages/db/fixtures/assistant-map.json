@@ -1,5 +1,5 @@
 {
-  "generated_from": "733e8962452fd14b4ed21a46dfe73fadb3264c93",
+  "generated_from": "0db675aa7a3aabec5308f29daa22fad2464a758d",
   "chunks": [
     {
       "kind": "page",
@@ -37334,7 +37334,7 @@
       "ref": "label:ws.matches.today",
       "lang": "ar",
       "title": "ws.matches.today (packages/i18n/src/catalogs/ws/matchesDesk.ar.ts)",
-      "body": "title: مباريات مفتوحة تحتاج إلى لاعبين\nstartMatch: بدء مباراة مفتوحة\nplayers: اللاعبون {taken} من {total}\ntilePlayers: اللاعبون\ntileStarts: البداية\nuntil: حتى {time}\nrequests: الطلبات {count}\ncloses: تُغلق {time}\nlastCourt: آخر ملعب متاح\nbookedSeatFree: محجوزة · مقعد شاغر\naddPlayer: إضافة لاعب\nopen: فتح\noff: المباريات المفتوحة متوقفة هنا، وتستمر المباريات التي بدأت.\nnone: لا مباريات مفتوحة الليلة\nplayersOwing: لاعبون لم يدفعوا: {count}",
+      "body": "title: مباريات مفتوحة تحتاج إلى لاعبين\nstartMatch: بدء مباراة مفتوحة\nplayers: اللاعبون {taken} من {total}\ntilePlayers: اللاعبون\ntileStarts: البداية\nuntil: حتى {time}\nrequests: الطلبات {count}\ncloses: تُغلق {time}\nlastCourt: آخر ملعب متاح\nbookedSeatFree: محجوزة · مقعد شاغر\naddPlayer: إضافة لاعب\nopen: فتح\noff: المباريات المفتوحة متوقفة هنا، وتستمر المباريات التي بدأت.\nnone: لا مباريات مفتوحة الليلة\nnoneOtherDay: لا مباريات مفتوحة في هذا اليوم\nplayersOwing: لاعبون لم يدفعوا: {count}",
       "route": "/desk/today"
     },
     {
@@ -37342,7 +37342,7 @@
       "ref": "label:ws.matches.today",
       "lang": "en",
       "title": "ws.matches.today (packages/i18n/src/catalogs/ws/matchesDesk.en.ts)",
-      "body": "title: Open matches needing players\nstartMatch: Start an open match\nplayers: Players {taken} of {total}\ntilePlayers: Players\ntileStarts: Starts\nuntil: Until {time}\nrequests: Requests {count}\ncloses: Closes {time}\nlastCourt: Last court free\nbookedSeatFree: Booked · a seat is free\naddPlayer: Add player\nopen: Open\noff: Open matches are switched off here. Matches already started carry on.\nnone: No open matches tonight\nplayersOwing: Players owing: {count}",
+      "body": "title: Open matches needing players\nstartMatch: Start an open match\nplayers: Players {taken} of {total}\ntilePlayers: Players\ntileStarts: Starts\nuntil: Until {time}\nrequests: Requests {count}\ncloses: Closes {time}\nlastCourt: Last court free\nbookedSeatFree: Booked · a seat is free\naddPlayer: Add player\nopen: Open\noff: Open matches are switched off here. Matches already started carry on.\nnone: No open matches tonight\nnoneOtherDay: No open matches on this day\nplayersOwing: Players owing: {count}",
       "route": "/desk/today"
     },
     {

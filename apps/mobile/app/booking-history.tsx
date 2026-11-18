@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
-import { FlatList, RefreshControl, View } from 'react-native';
-import { Stack, useRouter } from 'expo-router';
+import { FlatList, View } from 'react-native';
+import { Stack } from 'expo-router';
+import { useRouter } from '../src/navigation/useRouter';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { formatDate, formatTime } from '@touch/i18n';
 import { pickLocale } from '@touch/core';
@@ -17,12 +18,13 @@ import { DEFAULT_TZ } from '../src/features/availability/assemble';
 import { mapErrorToKey } from '../src/features/booking/errors';
 import { useAllCourts, useVenueSettings } from '../src/features/availability/hooks';
 import { formatPrice } from '../src/lib/price';
-import { space, useTheme } from '../src/theme';
+import { space } from '../src/theme';
 import { Button, Hint, Screen } from '../src/components/ui';
 import { ListHeading, PastBookingRow } from '../src/components/booking';
 import { ClockIcon } from '../src/components/icons';
 import { EmptyState, ErrorState, SkeletonList } from '../src/components/states';
 import { ConfirmAlert, useToast } from '../src/components/overlays';
+import { usePullBall } from '../src/components/PullBall';
 
 /**
  * Booking history (owner, 2026-09-08) — every previous game, and the only place
@@ -48,7 +50,6 @@ import { ConfirmAlert, useToast } from '../src/components/overlays';
  */
 function BookingHistoryScreen() {
   const { t, locale } = useLocale();
-  const { colors } = useTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const bookings = useMyBookings();
@@ -62,6 +63,7 @@ function BookingHistoryScreen() {
     [refetchBookings, refetchRecent, refetchPast],
   );
   const pull = usePullRefresh(refetchAll);
+  const ball = usePullBall(pull);
   const settings = useVenueSettings();
   const tz = settings.data?.timezone ?? DEFAULT_TZ;
   // Every open branch's courts: past bookings can be at any branch.
@@ -174,18 +176,16 @@ function BookingHistoryScreen() {
   return (
     <Screen edges={[]}>
       {header}
-      <FlatList
+      <View style={{ flex: 1 }} {...ball.wrapHandlers}>
+<FlatList
         data={history}
         keyExtractor={(item) => (item.kind === 'booking' ? item.row.id : `match-${item.row.matchId}`)}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingTop: 6, paddingBottom: 32 + insets.bottom, flexGrow: 1 }}
-        refreshControl={
-          <RefreshControl
-            refreshing={pull.refreshing}
-            onRefresh={pull.onRefresh}
-            tintColor={colors.blue}
-          />
-        }
+        bounces={ball.bounces}
+onScroll={ball.onScroll}
+scrollEventThrottle={16}
+refreshControl={ball.refreshControl}
         ListHeaderComponent={
           history.length > 0 ? (
             <ListHeading
@@ -223,6 +223,8 @@ function BookingHistoryScreen() {
           ) : undefined
         }
       />
+{ball.overlay}
+</View>
 
       <ConfirmAlert
         visible={dialogOpen}

@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { FlatList, Pressable, RefreshControl, View } from 'react-native';
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { FlatList, Pressable, View } from 'react-native';
+import { Stack, useLocalSearchParams } from 'expo-router';
+import { useRouter } from '../../src/navigation/useRouter';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   countPhrase,
@@ -70,6 +71,7 @@ import type { PlayLevel } from '../../src/features/playProfile/logic';
 import { callPhone } from '../../src/lib/phone';
 import { usePullRefresh } from '../../src/lib/usePullRefresh';
 import { otherPersonName } from '../../src/components/fieldKeyboard';
+import { usePullBall } from '../../src/components/PullBall';
 
 /**
  * One lesson's roster (docs/design/coaching/guest.md §4.13.4; C-16, CD-3,
@@ -160,6 +162,7 @@ function LessonDetail({
   const reschedule = useReschedule();
   const add = useAddStudent();
   const setLevel = useSetStudentLevel();
+  const ball = usePullBall(pull);
 
   const l = detail.lesson;
   const tz = tzOf(coach, l.venueId);
@@ -662,7 +665,8 @@ function LessonDetail({
 
   return (
     <>
-      <FlatList
+      <View style={{ flex: 1 }} {...ball.wrapHandlers}>
+<FlatList
         testID="coach-mode-lesson.roster"
         data={detail.roster}
         keyExtractor={(r) => r.enrolmentId}
@@ -690,14 +694,13 @@ function LessonDetail({
         keyboardShouldPersistTaps="handled"
         automaticallyAdjustKeyboardInsets
         showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={pull.refreshing}
-            onRefresh={pull.onRefresh}
-            tintColor={colors.blue}
-          />
-        }
+        bounces={ball.bounces}
+onScroll={ball.onScroll}
+scrollEventThrottle={16}
+refreshControl={ball.refreshControl}
       />
+{ball.overlay}
+</View>
       <StudentLevelSheet
         testID="coach-mode-lesson.level-sheet"
         name={levelEntry ? levelEntry.name : null}

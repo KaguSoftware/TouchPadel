@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from 'react';
 import { Pressable, RefreshControl, View } from 'react-native';
-import { Stack, useRouter } from 'expo-router';
+import { Stack } from 'expo-router';
+import { useRouter } from '../../src/navigation/useRouter';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { formatDateTime, isolate } from '@touch/i18n';
@@ -13,6 +14,7 @@ import { DetailsFold } from '../../src/components/DetailsFold';
 import { ChecklistRow } from '../../src/components/ChecklistRow';
 import { EmptyState, ErrorState, SkeletonList } from '../../src/components/states';
 import { MenuRow } from '../../src/components/booking';
+import { IOS_ROUND } from '../../src/components/iosRound';
 import { CardIcon, CheckIcon, ChevronIcon } from '../../src/components/icons';
 import { useToast } from '../../src/components/overlays';
 import { GroupLabel, MULTILINE_BOX, MULTILINE_TEXT } from '../../src/features/staff/checklists/parts';
@@ -630,9 +632,10 @@ function ShoppingScreen() {
               onPress={onRecord}
               style={{ marginTop: space.s }}
             />
-            <Card style={{ padding: 0, overflow: 'hidden', marginTop: space.s }}>
+            <Card style={[{ padding: 0, overflow: 'hidden', marginTop: space.s }, IOS_ROUND]}>
               <MenuRow
                 testID="staff-shopping.purchases"
+                symbol="creditcard.fill"
                 icon={<CardIcon size={15} color={colors.gstrong} />}
                 label={t('staff.supplies.shopping.run.purchases')}
                 onPress={() => router.push('/staff-purchase')}

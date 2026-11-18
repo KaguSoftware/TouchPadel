@@ -354,6 +354,7 @@ describe('the native config (§6.10)', () => {
       'android.permission.READ_MEDIA_VIDEO',
       'android.permission.READ_EXTERNAL_STORAGE',
       'android.permission.RECORD_AUDIO',
+      'android.permission.ACTIVITY_RECOGNITION',
       // Staff clock-in (0442): no location in the background, ever.
       'android.permission.ACCESS_BACKGROUND_LOCATION',
       'android.permission.FOREGROUND_SERVICE_LOCATION',

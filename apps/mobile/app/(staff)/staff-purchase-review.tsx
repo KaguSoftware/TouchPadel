@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Alert, Image, View } from 'react-native';
-import { Stack, useRouter } from 'expo-router';
+import { Stack } from 'expo-router';
+import { useRouter } from '../../src/navigation/useRouter';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { formatIQD, isolate } from '@touch/i18n';
 import { Text } from '../../src/i18n/text';

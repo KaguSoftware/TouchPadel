@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, RefreshControl, ScrollView, View } from 'react-native';
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { Pressable, ScrollView, View } from 'react-native';
+import { Stack, useLocalSearchParams } from 'expo-router';
+import { useRouter } from '../src/navigation/useRouter';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { needsTermsAcceptance } from '@touch/core';
 import {
@@ -33,6 +34,7 @@ import { Button, Card, ErrorText, Hint, MicroLabel, Screen, SegmentedControl } f
 import { ChevronIcon } from '../src/components/icons';
 import { ErrorState, SkeletonList } from '../src/components/states';
 import { withOnlinePaymentsGate } from '../src/features/deposit/OnlinePaymentsGate';
+import { usePullBall } from '../src/components/PullBall';
 
 /** "How tickets work" (guest.md §4.10.1), in order. */
 const RULES: readonly MessageKey[] = [
@@ -81,6 +83,7 @@ function TicketsScreen() {
   const consent = useOwnConsent(session && !session.user.is_anonymous ? session.user.id : null);
   const wallet = useMyTickets();
   const pull = usePullRefresh(wallet.refetch);
+  const ball = usePullBall(pull);
   const settings = useVenueSettings();
   const phone = venuePhoneOf(settings.data);
   const tz = settings.data?.timezone ?? DEFAULT_TZ;
@@ -182,12 +185,14 @@ function TicketsScreen() {
     const ended = w.tickets.filter((k) => k.status === 'forfeited' || k.status === 'cashed_out');
     const lineStyle = { fontFamily: fonts.body600, fontSize: 13, lineHeight: 19, color: colors.mut } as const;
     return (
-      <ScrollView
+      <View style={{ flex: 1 }} {...ball.wrapHandlers}>
+<ScrollView
         contentContainerStyle={{ paddingTop: 4, paddingBottom: 40 + insets.bottom, gap: space.sm }}
         showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl refreshing={pull.refreshing} onRefresh={pull.onRefresh} tintColor={colors.blue} />
-        }
+        bounces={ball.bounces}
+onScroll={ball.onScroll}
+scrollEventThrottle={16}
+refreshControl={ball.refreshControl}
       >
         {/* 1. The wallet: not pressable, the count is the whole point. */}
         <Card>
@@ -417,6 +422,8 @@ function TicketsScreen() {
         {/* 7. Money back (OM-48, R13): at the desk, never here. */}
         <Hint style={{ marginTop: space.xs }}>{t('matches.tickets.cashOut')}</Hint>
       </ScrollView>
+{ball.overlay}
+</View>
     );
   })();
 

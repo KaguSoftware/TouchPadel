@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { Pressable, View } from 'react-native';
-import { useRouter, type Href } from 'expo-router';
+import { type Href } from 'expo-router';
+import { useRouter } from '../../../navigation/useRouter';
 import { useQuery } from '@tanstack/react-query';
 import { Text } from '../../../i18n/text';
 import { useLocale } from '../../../i18n/LocaleProvider';

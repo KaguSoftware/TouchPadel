@@ -13,7 +13,8 @@
  */
 import { useEffect, useRef, useState, type ComponentType, type ReactNode } from 'react';
 import { Pressable, ScrollView, Switch, View, type ScrollViewInstance } from 'react-native';
-import { Stack, useRouter } from 'expo-router';
+import { Stack } from 'expo-router';
+import { useRouter } from '../../../navigation/useRouter';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';

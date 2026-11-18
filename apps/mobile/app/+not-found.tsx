@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
-import { Stack, usePathname, useRouter } from 'expo-router';
+import { Stack, usePathname } from 'expo-router';
+import { useRouter } from '../src/navigation/useRouter';
 import { useLocale } from '../src/i18n/LocaleProvider';
 import { captureMessage } from '../src/lib/telemetry';
 import { requestBookingSheet } from '../src/features/courtTransition/openIntent';

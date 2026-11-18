@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { ActivityIndicator, ScrollView, View } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
+import { useRouter } from '../../src/navigation/useRouter';
 import { countPhrase, formatDate, formatTime } from '@touch/i18n';
 import { pickLocale } from '@touch/core';
 import { Text } from '../../src/i18n/text';
