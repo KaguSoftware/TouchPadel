@@ -17,16 +17,53 @@
  * session waits a moment for it before calling it a cancel. A link that comes
  * back with nobody waiting (the app was restarted under the browser) is
  * exchanged by useAuthDeepLink itself, the verifier being in storage.
+ *
+ * STRAIGHT AFTER THE PHONE'S SHEET (2026-11-18). When the sheet fails and the
+ * browser is opened by itself (useSocialSignIn, `afterSheet`), the app is still
+ * coming back to the front from the sheet: a browser launched then never showed
+ * on a Huawei with GBox, and the app turning active read as the browser
+ * closing. So that path waits for the app to be active and settled first, and
+ * a session that ends before the browser can have been seen (browserNeverShown)
+ * is a failure the guest is told about, not a silent cancel.
  */
+import { AppState, Platform } from 'react-native';
 import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
 import type { User } from '@supabase/supabase-js';
 import { supabase } from '../../../lib/supabase';
 import { OAUTH_CALLBACK_PATH, parseAuthLink } from '../deepLink';
-import { SocialAuthError, oauthCallbackOutcome } from '../social';
+import { captureMessage } from '../../../lib/telemetry';
+import { SocialAuthError, browserNeverShown, deviceDetail, oauthCallbackOutcome } from '../social';
 
 /** How long a dismissed browser waits for a return link already on its way. */
 const LATE_LINK_MS = 3000;
+/** How long the app is given after the phone's sheet before a browser is launched over it. */
+const SETTLE_MS = 600;
+/** The longest wait for the app to turn active again after the sheet. */
+const ACTIVE_WAIT_MS = 2000;
+
+const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+/** Resolves once the app is active (or after ACTIVE_WAIT_MS), then SETTLE_MS more. */
+async function settleInForeground(): Promise<void> {
+  if (AppState.currentState !== 'active') {
+    await new Promise<void>((resolve) => {
+      let done = false;
+      const finish = () => {
+        if (done) return;
+        done = true;
+        sub.remove();
+        clearTimeout(timer);
+        resolve();
+      };
+      const sub = AppState.addEventListener('change', (state) => {
+        if (state === 'active') finish();
+      });
+      const timer = setTimeout(finish, ACTIVE_WAIT_MS);
+    });
+  }
+  await sleep(SETTLE_MS);
+}
 
 let waiting: ((url: string) => void) | null = null;
 
@@ -37,7 +74,11 @@ export function deliverOAuthCallback(url: string): boolean {
   return true;
 }
 
-export async function signInWithGoogleInBrowser(): Promise<User | null> {
+/**
+ * `afterSheet`: opened by itself straight after the phone's Google sheet failed
+ * (not by the guest's tap on the browser link), so the app settles first.
+ */
+export async function signInWithGoogleInBrowser(opts: { afterSheet?: boolean } = {}): Promise<User | null> {
   const redirectTo = Linking.createURL(OAUTH_CALLBACK_PATH);
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
@@ -56,16 +97,32 @@ export async function signInWithGoogleInBrowser(): Promise<User | null> {
     waiting = resolve;
   });
   let url: string | null;
+  let browserType: string;
+  let elapsedMs: number;
   try {
+    if (opts.afterSheet) await settleInForeground();
+    const openedAt = Date.now();
     // createTask false, as for the payment page: the Custom Tab joins the
     // app's task, so the return link brings the app forward over it.
     const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo, { createTask: false });
+    elapsedMs = Date.now() - openedAt;
+    browserType = result.type;
     url =
       result.type === 'success'
         ? result.url
         : await Promise.race([late, new Promise<null>((r) => setTimeout(() => r(null), LATE_LINK_MS))]);
   } finally {
     waiting = null;
+  }
+
+  if (url === null && browserNeverShown(elapsedMs)) {
+    captureMessage('auth.google.browserNotShown', 'warning', {
+      afterSheet: opts.afterSheet === true,
+      type: browserType,
+      elapsedMs,
+      ...deviceDetail(Platform.OS === 'android' ? Platform.constants : null),
+    });
+    throw new SocialAuthError('FAILED', 'google', `browser not shown (${browserType}, ${elapsedMs} ms)`);
   }
 
   const outcome = oauthCallbackOutcome(parseAuthLink(url));

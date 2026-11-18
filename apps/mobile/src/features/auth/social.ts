@@ -412,8 +412,9 @@ export function firstGoogleAttempt(os: string): GoogleAttempt {
  *
  *   auto   a failure the guest did not choose: open the browser sign-in now.
  *   offer  a cancel: Credential Manager reports a real dismissal and a broken
- *          sheet the same way, so the browser is offered under the button
- *          instead of opened over a guest who meant to close the sheet.
+ *          sheet the same way, so the browser is not opened over a guest who
+ *          meant to close the sheet. The browser link under the button is
+ *          there for it (shown on Android from the start since 2026-11-18).
  *   none   iOS (the Google SDK there is not Play services), a double tap, or a
  *          build with no Google client.
  */
@@ -444,6 +445,40 @@ export function googleBrowserFallback(err: unknown, os: string): GoogleBrowserFa
     default:
       return 'auto';
   }
+}
+
+/**
+ * A browser sign-in that ended sooner than this with no return link was never
+ * on screen: nobody reads Google's page and closes it in a second and a half.
+ * Seen on a Huawei with GBox (2026-11-18): the browser opened straight after
+ * the phone's Google sheet failed came back at once as closed, the attempt read
+ * as a cancel and the guest was left with nothing. It is a failure, said on
+ * screen, not a cancel.
+ */
+export const BROWSER_SEEN_MS = 1500;
+
+export function browserNeverShown(elapsedMs: number): boolean {
+  return elapsedMs < BROWSER_SEEN_MS;
+}
+
+export interface DeviceDetail {
+  manufacturer: string | null;
+  brand: string | null;
+  model: string | null;
+}
+
+/**
+ * What the phone says it is (Android's Platform.constants), for the Google
+ * sign-in monitoring events. GBox runs the app in a container that may present
+ * another maker, which is what googleStartsInBrowser keys on, so the events
+ * carry what the app really sees. Not an identifier: a maker and a model.
+ */
+export function deviceDetail(constants: object | null | undefined): DeviceDetail {
+  const read = (key: string): string | null => {
+    const value = constants ? (constants as Record<string, unknown>)[key] : undefined;
+    return typeof value === 'string' && value.trim() ? value.trim().slice(0, 64) : null;
+  };
+  return { manufacturer: read('Manufacturer'), brand: read('Brand'), model: read('Model') };
 }
 
 export type OAuthCallbackOutcome =
