@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
-import { FlatList, RefreshControl, View } from 'react-native';
-import { Stack, useRouter } from 'expo-router';
+import { FlatList, View } from 'react-native';
+import { Stack } from 'expo-router';
+import { useRouter } from '../../src/navigation/useRouter';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   countPhrase,
@@ -31,6 +32,7 @@ import { EmptyState, ErrorState, SkeletonList } from '../../src/components/state
 import { MatchNotice } from '../../src/components/match';
 import { ClassRow } from '../../src/components/coaching';
 import { RequireSession } from '../../src/features/auth/RequireSession';
+import { usePullBall } from '../../src/components/PullBall';
 
 /**
  * Group sessions and courses with places (docs/design/coaching/guest.md
@@ -48,6 +50,7 @@ function ClassesScreen() {
   const venueId = guest.venueId;
   const pub = useCoachingPublic(on ? venueId : null);
   const pull = usePullRefresh(pub.refetch);
+  const ball = usePullBall(pull);
   const [filter, setFilter] = useState<ClassFilter>('all');
   const tz = settings.data?.timezone ?? DEFAULT_TZ;
 
@@ -134,7 +137,8 @@ function ClassesScreen() {
       return <SkeletonList rows={3} height={96} />;
     }
     return (
-      <FlatList
+      <View style={{ flex: 1 }} {...ball.wrapHandlers}>
+<FlatList
         testID="classes.list"
         data={rows}
         keyExtractor={(r) => classTarget(r.session)?.id ?? r.session.startAt}
@@ -149,13 +153,10 @@ function ClassesScreen() {
         ItemSeparatorComponent={() => <View style={{ height: space.s }} />}
         contentContainerStyle={{ paddingBottom: 40 + insets.bottom }}
         showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={pull.refreshing}
-            onRefresh={pull.onRefresh}
-            tintColor={colors.blue}
-          />
-        }
+        bounces={ball.bounces}
+onScroll={ball.onScroll}
+scrollEventThrottle={16}
+refreshControl={ball.refreshControl}
         renderItem={({ item: r }) => {
           const target = classTarget(r.session);
           if (!target) return null;
@@ -178,6 +179,8 @@ function ClassesScreen() {
           );
         }}
       />
+{ball.overlay}
+</View>
     );
   })();
 

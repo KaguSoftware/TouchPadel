@@ -8,7 +8,8 @@ import {
   type NativeSyntheticEvent,
   type ScrollViewInstance,
 } from 'react-native';
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { Stack, useLocalSearchParams } from 'expo-router';
+import { useRouter } from '../../src/navigation/useRouter';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { formatIQD, formatNumber, isolate } from '@touch/i18n';
 import { Text } from '../../src/i18n/text';

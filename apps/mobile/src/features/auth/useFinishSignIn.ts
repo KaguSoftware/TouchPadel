@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { useRouter } from 'expo-router';
+import { useRouter } from '../../navigation/useRouter';
 import { useQueryClient } from '@tanstack/react-query';
 import type { User } from '@supabase/supabase-js';
 import { readOwnStaffRow } from '../staff/api';

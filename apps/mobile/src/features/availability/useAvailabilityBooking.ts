@@ -23,7 +23,7 @@
  * off none of it runs, and a tap holds exactly as before.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useRouter } from 'expo-router';
+import { useRouter } from '../../navigation/useRouter';
 import { bookableDurations, pickLocale } from '@touch/core';
 import {
   formatDayNumber,

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { Stack, useLocalSearchParams } from 'expo-router';
+import { useRouter } from '../../../src/navigation/useRouter';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { clearBarOptions, useClearBarPad } from '../../../src/navigation/clearBar';
 import { needsTermsAcceptance } from '@touch/core';

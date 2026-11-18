@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { Stack, useLocalSearchParams } from 'expo-router';
+import { useRouter } from '../src/navigation/useRouter';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TIER_SWATCH } from '@touch/core/loyalty';
 import { formatDate, formatNumber, isolateLtr } from '@touch/i18n';

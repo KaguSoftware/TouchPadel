@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { ScrollView, View, useWindowDimensions } from 'react-native';
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { Stack, useLocalSearchParams } from 'expo-router';
+import { useRouter } from '../src/navigation/useRouter';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   QR_INK,

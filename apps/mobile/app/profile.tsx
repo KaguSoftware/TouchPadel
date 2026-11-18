@@ -2,7 +2,8 @@ import { Children, cloneElement, isValidElement, useRef, useState, type ReactEle
 import { Alert, Image, Pressable, ScrollView, View } from 'react-native';
 import { SymbolGlyph } from '../src/components/SymbolGlyph';
 import { Text } from '../src/i18n/text';
-import { Stack, useRouter } from 'expo-router';
+import { Stack } from 'expo-router';
+import { useRouter } from '../src/navigation/useRouter';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { formatNumber, isolate, isolateLtr } from '@touch/i18n';
 import { useLocale } from '../src/i18n/LocaleProvider';
@@ -536,7 +537,7 @@ export default function ProfileScreen() {
             {coachEntry ? (
               <MenuRow
                 testID="profile.coach-mode"
-                symbol="figure.tennis"
+                symbol="tennisball.fill"
                 icon={<CalendarIcon size={15} color={colors.gstrong} />}
                 label={t(
                   coachEntry === '/coach-mode-statements'

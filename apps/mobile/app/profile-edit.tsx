@@ -20,7 +20,8 @@ import {
 } from 'react-native';
 import Animated from 'react-native-reanimated';
 import { Text } from '../src/i18n/text';
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { Stack, useLocalSearchParams } from 'expo-router';
+import { useRouter } from '../src/navigation/useRouter';
 import { formatDate, isolate, isolateLtr, type MessageKey } from '@touch/i18n';
 import { useLocale } from '../src/i18n/LocaleProvider';
 import type { SFSymbol } from 'expo-symbols';

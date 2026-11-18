@@ -1,5 +1,5 @@
 import { Pressable, View } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter } from '../navigation/useRouter';
 import { useLocale } from '../i18n/LocaleProvider';
 import { radius, useTheme } from '../theme';
 import { titleCentreOffset } from './ui';

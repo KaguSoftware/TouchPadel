@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Pressable } from 'react-native';
-import { Stack, useRouter } from 'expo-router';
+import { Stack } from 'expo-router';
+import { useRouter } from '../../src/navigation/useRouter';
 import { Text } from '../../src/i18n/text';
 import { useLocale } from '../../src/i18n/LocaleProvider';
 import { radius, space, useTheme } from '../../src/theme';

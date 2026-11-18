@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { Animated, ScrollView, View } from 'react-native';
 import { Text } from '../src/i18n/text';
-import { useLocalSearchParams, useNavigation, useRouter, Stack } from 'expo-router';
+import { useLocalSearchParams, useNavigation, Stack } from 'expo-router';
+import { useRouter } from '../src/navigation/useRouter';
 import { RequireSession } from '../src/features/auth/RequireSession';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';

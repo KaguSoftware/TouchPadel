@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Redirect, Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { Redirect, Stack, useLocalSearchParams } from 'expo-router';
+import { useRouter } from '../src/navigation/useRouter';
 import { RequireNoSession } from '../src/features/auth/RequireNoSession';
 import { isPhoneFieldError, mapOtpError, validatePhoneInput } from '../src/features/auth/phoneOtp';
 import { supabase } from '../src/lib/supabase';

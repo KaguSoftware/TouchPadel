@@ -35,7 +35,7 @@
  * router.replace('/review') below fired from an unmounted screen.
  */
 import { useCallback } from 'react';
-import { useRouter } from 'expo-router';
+import { useRouter } from '../../navigation/useRouter';
 import { useLocale } from '../../i18n/LocaleProvider';
 import { useToast } from '../../components/overlays';
 import { useHoldSlot } from './hooks';

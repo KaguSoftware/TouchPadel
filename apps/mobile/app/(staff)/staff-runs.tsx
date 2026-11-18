@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, View } from 'react-native';
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { Stack, useLocalSearchParams } from 'expo-router';
+import { useRouter } from '../../src/navigation/useRouter';
 import { useQuery } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { type RunRow } from '@touch/core';

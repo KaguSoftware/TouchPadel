@@ -9,7 +9,8 @@ import {
   type SectionList,
   type SectionListData,
 } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
+import { useRouter } from '../../src/navigation/useRouter';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { wallTimeToUtc } from '@touch/core';

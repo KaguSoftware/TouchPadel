@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { View } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
+import { useRouter } from '../src/navigation/useRouter';
 import { Text } from '../src/i18n/text';
 import { RequireNoSession } from '../src/features/auth/RequireNoSession';
 import { supabase } from '../src/lib/supabase';

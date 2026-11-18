@@ -10,7 +10,8 @@ import {
   type LayoutRectangle,
 } from 'react-native';
 import { Text } from '../../src/i18n/text';
-import { useFocusEffect, useNavigation, useRouter } from 'expo-router';
+import { useFocusEffect, useNavigation } from 'expo-router';
+import { useRouter } from '../../src/navigation/useRouter';
 import { useAuth } from '../../src/features/auth/context';
 import { useOwnProfile } from '../../src/features/profile/hooks';
 import { profileGateState } from '../../src/features/auth/social';

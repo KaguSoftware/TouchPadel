@@ -33,7 +33,7 @@ const { Icon, Label } = NativeTabs.Trigger;
  * to `app/profile.tsx`. Club (the member card's QR and the café menu, in SF
  * Symbols' `qrcode`) took the centre on 2026-10-19; Book took it back on
  * 2026-10-22, swapping places with Club (Majed). Book is the initial route
- * (`(tabs)/_layout`). Book keeps its `figure.tennis`; Coaches wears
+ * (`(tabs)/_layout`). Book keeps its `tennisball.fill`; Coaches wears
  * `graduationcap` (lessons) rather than a second player figure, since two tabs
  * in the same glyph read as one. Play wears a padel court (assets/tabs/play*.png,
  * the Android TabPlayIcon drawn out), since SF Symbols has none.
@@ -77,7 +77,7 @@ export default function TabsLayoutIOS() {
         <Label>{t('tabs.play')}</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="index">
-        <Icon sf="figure.tennis" />
+        <Icon sf="tennisball.fill" />
         <Label>{t('tabs.book')}</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="club">

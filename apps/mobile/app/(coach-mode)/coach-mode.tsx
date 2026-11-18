@@ -1,15 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
-import {
-  Modal,
-  Platform,
-  Pressable,
-  RefreshControl,
-  ScrollView,
-  SectionList,
-  StyleSheet,
-  View,
-} from 'react-native';
-import { Stack, useRouter, type Href } from 'expo-router';
+import { Modal, Platform, Pressable, ScrollView, SectionList, StyleSheet, View } from 'react-native';
+import { Stack, type Href } from 'expo-router';
+import { useRouter } from '../../src/navigation/useRouter';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { localParts, wallTimeToUtc } from '@touch/core';
 import {
@@ -65,6 +57,7 @@ import {
 } from '../../src/features/coach/logic';
 import { useBlueHeaderOptions } from '../../src/navigation/blueHeader';
 import { usePullRefresh } from '../../src/lib/usePullRefresh';
+import { usePullBall } from '../../src/components/PullBall';
 
 /**
  * Coach mode (docs/design/coaching/guest.md §4.13.2): the coach's own day.
@@ -119,6 +112,7 @@ function CoachModeBody({ coach }: { coach: CoachMe }) {
     await schedule.refetch();
   }, [retry, schedule]);
   const pull = usePullRefresh(refresh);
+  const ball = usePullBall(pull);
 
   const [sheetClosed, setSheetClosed] = useState(false);
   const sheetOpen = !coach.publicAccepted && !sheetClosed;
@@ -466,7 +460,8 @@ function CoachModeBody({ coach }: { coach: CoachMe }) {
   return (
     <Screen edges={[]} padded={false}>
       <Stack.Screen options={headerOptions} />
-      <SectionList<ScheduleItem, ScheduleSection>
+      <View style={{ flex: 1 }} {...ball.wrapHandlers}>
+<SectionList<ScheduleItem, ScheduleSection>
         testID="coach-mode.schedule"
         sections={sections}
         keyExtractor={(item) => item.key}
@@ -482,14 +477,13 @@ function CoachModeBody({ coach }: { coach: CoachMe }) {
         ListFooterComponent={footer}
         contentContainerStyle={{ paddingBottom: 40 + insets.bottom }}
         showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={pull.refreshing}
-            onRefresh={pull.onRefresh}
-            tintColor={brand.white}
-          />
-        }
+        bounces={ball.bounces}
+onScroll={ball.onScroll}
+scrollEventThrottle={16}
+refreshControl={ball.refreshControl}
       />
+{ball.overlay}
+</View>
       <AcceptSheet coach={coach} visible={sheetOpen} onClose={() => setSheetClosed(true)} />
     </Screen>
   );

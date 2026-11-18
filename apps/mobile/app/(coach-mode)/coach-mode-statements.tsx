@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { RefreshControl, ScrollView, View } from 'react-native';
+import { ScrollView, View } from 'react-native';
 import { Stack } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { countPhrase, formatIQD, formatMonthYear, isolate, isolateLtr } from '@touch/i18n';
@@ -17,6 +17,7 @@ import { useMyCoachStatements } from '../../src/features/coach/hooks';
 import { coachErrorText } from '../../src/features/coach/errors';
 import { pickName, type CoachMe, type CoachMeRetired } from '../../src/features/coach/logic';
 import { usePullRefresh } from '../../src/lib/usePullRefresh';
+import { usePullBall } from '../../src/components/PullBall';
 
 /**
  * The coach's statements (docs/design/coaching/guest.md §4.13.7; C-12, CM-12):
@@ -51,6 +52,7 @@ function CoachStatementsBody({ coach }: { coach: CoachMe | CoachMeRetired }) {
   const pull = usePullRefresh(async () => {
     await Promise.all([summaries.refetch(), month ? detail.refetch() : Promise.resolve()]);
   });
+  const ball = usePullBall(pull);
 
   const statements =
     detail.data?.statements ?? (summaries.data?.statements ?? []).filter((s) => s.month === month);
@@ -67,20 +69,18 @@ function CoachStatementsBody({ coach }: { coach: CoachMe | CoachMeRetired }) {
   return (
     <Screen edges={[]}>
       <Stack.Screen options={{ title: t('coaching.coach.statements.title') }} />
-      <ScrollView
+      <View style={{ flex: 1 }} {...ball.wrapHandlers}>
+<ScrollView
         contentContainerStyle={{
           paddingTop: space.sm,
           paddingBottom: 40 + insets.bottom,
           gap: space.sm,
         }}
         showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={pull.refreshing}
-            onRefresh={pull.onRefresh}
-            tintColor={colors.blue}
-          />
-        }
+        bounces={ball.bounces}
+onScroll={ball.onScroll}
+scrollEventThrottle={16}
+refreshControl={ball.refreshControl}
       >
         <ListHeading icon={ReceiptIcon} label={t('coaching.coach.statements.title')} />
         <ScrollView
@@ -168,6 +168,8 @@ function CoachStatementsBody({ coach }: { coach: CoachMe | CoachMeRetired }) {
 
         <Hint>{t('coaching.coach.statements.note')}</Hint>
       </ScrollView>
+{ball.overlay}
+</View>
     </Screen>
   );
 }

@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from 'react';
 import { Pressable, RefreshControl, View } from 'react-native';
-import { Stack, useRouter } from 'expo-router';
+import { Stack } from 'expo-router';
+import { useRouter } from '../../src/navigation/useRouter';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { formatDateTime, isolate } from '@touch/i18n';

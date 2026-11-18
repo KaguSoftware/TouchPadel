@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { FlatList, RefreshControl, View } from 'react-native';
-import { Stack, useRouter } from 'expo-router';
+import { FlatList, View } from 'react-native';
+import { Stack } from 'expo-router';
+import { useRouter } from '../../src/navigation/useRouter';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { formatDateTime } from '@touch/i18n';
 import { useLocale } from '../../src/i18n/LocaleProvider';
@@ -25,6 +26,7 @@ import { Screen, SegmentedControl } from '../../src/components/ui';
 import { EmptyState, ErrorState, SkeletonList } from '../../src/components/states';
 import { LessonRow, LinkConfirmCard } from '../../src/components/coaching';
 import { ConfirmAlert, useToast } from '../../src/components/overlays';
+import { usePullBall } from '../../src/components/PullBall';
 
 /**
  * My lessons (docs/design/coaching/guest.md §4.8.8): Upcoming, Past and
@@ -44,6 +46,7 @@ function MyLessonsScreen() {
   const [scope, setScope] = useState<LessonScope>('upcoming');
   const mine = useMyLessons(scope);
   const pull = usePullRefresh(mine.refetch);
+  const ball = usePullBall(pull);
   const branches = useBranches();
   const confirm = useConfirmLessonLink();
   const [removing, setRemoving] = useState<string | null>(null);
@@ -167,7 +170,8 @@ function MyLessonsScreen() {
       return <SkeletonList rows={3} height={84} />;
     }
     return (
-      <FlatList
+      <View style={{ flex: 1 }} {...ball.wrapHandlers}>
+<FlatList
         data={list}
         keyExtractor={(r) => r.enrolmentId}
         ListHeaderComponent={
@@ -190,15 +194,14 @@ function MyLessonsScreen() {
         ItemSeparatorComponent={() => <View style={{ height: space.s }} />}
         contentContainerStyle={{ paddingBottom: 40 + insets.bottom }}
         showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={pull.refreshing}
-            onRefresh={pull.onRefresh}
-            tintColor={colors.blue}
-          />
-        }
+        bounces={ball.bounces}
+onScroll={ball.onScroll}
+scrollEventThrottle={16}
+refreshControl={ball.refreshControl}
         renderItem={({ item }) => renderRow(item)}
       />
+{ball.overlay}
+</View>
     );
   })();
 

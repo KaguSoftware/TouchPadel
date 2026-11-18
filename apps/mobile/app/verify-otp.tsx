@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
-import { Redirect, Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { Redirect, Stack, useLocalSearchParams } from 'expo-router';
+import { useRouter } from '../src/navigation/useRouter';
 import { useQueryClient } from '@tanstack/react-query';
 import { displayPhone } from '../src/features/profile/phone';
 import { isolate } from '@touch/i18n';

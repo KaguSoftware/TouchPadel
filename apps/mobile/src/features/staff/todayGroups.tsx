@@ -116,18 +116,18 @@ export const ROW_SYMBOLS: Record<string, SFSymbol> = {
   deductions: 'minus.circle.fill',
   incidents: 'exclamationmark.triangle.fill',
   content: 'photo.fill',
-  'stock-log': 'plus.square.fill',
+  'stock-log': 'plus.circle.fill',
   'stock-move': 'arrow.left.arrow.right',
   'stock-count': 'list.clipboard.fill',
-  order: 'tablecells.fill',
+  order: 'square.grid.2x2.fill',
   receipt: 'receipt',
 };
 
 /** The SF Symbol of each group's tile on Today (iOS). */
 export const GROUP_SYMBOLS: Record<string, SFSymbol> = {
-  floor: 'tablecells.fill',
+  floor: 'square.grid.2x2.fill',
   protocols: 'list.clipboard.fill',
-  supplies: 'box.truck.fill',
+  supplies: 'basket.fill',
   recipes: 'fork.knife',
   daily: 'calendar',
   people: 'person.2.fill',

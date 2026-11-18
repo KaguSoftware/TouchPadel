@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Redirect, Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { Redirect, Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { useRouter } from '../src/navigation/useRouter';
 import type { Locale } from '@touch/i18n';
 import { useLocale } from '../src/i18n/LocaleProvider';
 import { useAuth } from '../src/features/auth/context';

@@ -1,14 +1,5 @@
 import { useMemo, useRef, useState } from 'react';
-import {
-  Animated,
-  RefreshControl,
-  StyleSheet,
-  View,
-  useWindowDimensions,
-  type LayoutChangeEvent,
-  type LayoutRectangle,
-  type ViewInstance,
-} from 'react-native';
+import { Animated, StyleSheet, View, useWindowDimensions, type LayoutChangeEvent, type LayoutRectangle, type ViewInstance } from 'react-native';
 import { useAccountPush } from '../../src/features/auth/useAccountPush';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { formatIQD, isolate } from '@touch/i18n';
@@ -46,6 +37,7 @@ import { Frost, FrostTarget, PinnedTitle } from '../../src/components/scrollFros
 import { useTabBarHeight } from '../../src/components/useTabBarHeight';
 import { useToast } from '../../src/components/overlays';
 import { GlassPlate, ShowcaseCard, ShowcaseLink } from '../../src/components/coachShowcase';
+import { usePullBall } from '../../src/components/PullBall';
 
 /** The gap between the two columns and between rows. */
 const GAP = space.sm;
@@ -100,6 +92,7 @@ export default function CoachesScreen() {
   // Switch off means no work: the read waits for the branch to say on.
   const pub = useCoachingPublic(on ? venueId : null);
   const pull = usePullRefresh(pub.refetch);
+  const ball = usePullBall(pull, { scrollY });
   const phone = venuePhoneOf(settings.data);
   const branch = guest.branch ? branchName(guest.branch, locale) : '';
 
@@ -398,7 +391,8 @@ export default function CoachesScreen() {
         </FrostTarget>
         <Frost scrollY={scrollY} span={heroH} target={frostTarget} />
         <View style={{ flex: 1, marginTop: titleH }}>
-          <Animated.ScrollView
+          <View style={{ flex: 1 }} {...ball.wrapHandlers}>
+<Animated.ScrollView
             testID="coaches.scroll"
             // Nothing to scroll to when the branch has no coaches yet.
             scrollEnabled={!noCoaches}
@@ -410,17 +404,14 @@ export default function CoachesScreen() {
               paddingEnd: gutter,
               paddingBottom: tabBarHeight + 24,
             }}
-            refreshControl={
-              <RefreshControl
-                refreshing={pull.refreshing}
-                onRefresh={pull.onRefresh}
-                tintColor={colors.blue}
-              />
-            }
+            bounces={ball.bounces}
+refreshControl={ball.refreshControl}
           >
             {header}
             {body}
           </Animated.ScrollView>
+{ball.overlay}
+</View>
         </View>
         <PinnedTitle onHeight={setTitleH}>
           <View

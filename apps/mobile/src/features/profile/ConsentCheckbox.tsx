@@ -1,5 +1,5 @@
 import { Pressable, View } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter } from '../../navigation/useRouter';
 import { Text } from '../../i18n/text';
 import { useLocale } from '../../i18n/LocaleProvider';
 import { splitSentence } from '../auth/linkedSentence';

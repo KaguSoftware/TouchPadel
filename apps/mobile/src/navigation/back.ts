@@ -15,14 +15,8 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Platform } from 'react-native';
-import {
-  useNavigation,
-  useNavigationContainerRef,
-  usePreventRemove,
-  useRoute,
-  useRouter,
-  type Href,
-} from 'expo-router';
+import { useNavigation, useNavigationContainerRef, usePreventRemove, useRoute, type Href } from 'expo-router';
+import { useRouter } from './useRouter';
 import type { NavigationAction } from 'expo-router/react-navigation';
 
 /**

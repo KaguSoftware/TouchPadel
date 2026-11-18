@@ -31,7 +31,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { SymbolView } from 'expo-symbols';
-import { useRouter } from 'expo-router';
+import { useRouter } from '../navigation/useRouter';
 import { wallTimeToUtc } from '@touch/core';
 import { projectTop, TOP_VIEW } from '@touch/court3d/camera';
 import { seatSpot } from '@touch/court3d/join';
