@@ -33,6 +33,7 @@ import { routerState } from './src/test/routerState';
 import { authState } from './src/test/authState';
 import { alertState } from './src/test/alertState';
 import { clockState } from './src/test/clockState';
+import type * as DedupeNavigation from './src/navigation/dedupeNavigation';
 
 /**
  * THE `mock` PREFIX IS NOT DECORATION.
@@ -736,6 +737,12 @@ globalThis.crypto ??= webcrypto as unknown as Crypto;
 // overlays.tsx is never left waiting on one that nothing will close. Installed
 // per case: `restoreMocks` in jest.config.js undoes a spy made at module scope.
 beforeEach(() => {
+  // The repeat-tap guard (src/navigation/dedupeNavigation.ts) would drop a case's second press of the
+  // same button, or an AR case's press right after its EN twin; it is off for every render here.
+  // Required here, not imported at the top, so expo-router's mock above is not evaluated before the
+  // state it closes over.
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  (require('./src/navigation/dedupeNavigation') as typeof DedupeNavigation).disableNavigationDedupe();
   alertState.log.length = 0;
   jest.spyOn(Alert, 'alert').mockImplementation((title, body, buttons) => {
     alertState.log.push({ title: title ?? '', body: body ?? '' });

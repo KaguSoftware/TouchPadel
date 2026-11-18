@@ -154,6 +154,13 @@
       "reason": "Mitigation for compromised eMudhra intermediate certificates. The shell talks only to our own Supabase/API hosts and loads no remote content; no eMudhra-issued certificate is in its trust path for those hosts. Cleared by the Electron upgrade (33 -> 42.11.16) the other electron waivers date. Waived 2026-10-24 on Majed's word to get main green; expires 2026-11-16 with the other Electron waivers. Extended again 2026-11-17 to 2026-12-17 on Majed's word (\"extend\"): reachability unchanged (no remote content, no child or offscreen windows, no webview, no protocol handler); the Electron upgrade is still owed.",
       "owner": "DEV",
       "expires": "2026-12-17"
+    },
+    {
+      "id": "GHSA-fc5q-39xc-vjpf",
+      "module": "picomatch",
+      "reason": "ReDoS through single-branch repeated extglobs. picomatch is reached only through jest (@jest/globals > jest-message-util, and jest-haste-map > anymatch), the mobile smoke-test runner on a developer machine or CI, matching the repo's own fixed globs; nothing from a user reaches it and it ships in no app bundle, web build or edge function. 4.0.7 is the latest release and the advisory names no patched version. Waived 2026-11-18 on Parsa's word to keep main green; remove when picomatch publishes a fix.",
+      "owner": "DEV",
+      "expires": "2026-12-18"
     }
   ]
 }

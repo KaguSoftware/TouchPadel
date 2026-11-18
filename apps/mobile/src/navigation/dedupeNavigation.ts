@@ -11,16 +11,29 @@ export const BACK_DEDUPE_MS = 400;
 
 type Call = (...args: unknown[]) => unknown;
 
+let disabled = false;
+
+/**
+ * Test-only: the smoke renders press the same button in EN and then AR, or twice in one case, far
+ * inside the window, and assert each navigation. `jest.setup.ts` turns the guard off; the guard
+ * itself is pinned by `__tests__/dedupeNavigation.test.ts`.
+ */
+export function disableNavigationDedupe(): void {
+  disabled = true;
+}
+
 export function createDedupe(now: () => number = Date.now) {
   let lastKey = '';
   let lastAt = -Infinity;
-  return function allow(key: string, windowMs: number): boolean {
+  const allow = (key: string, windowMs: number): boolean => {
+    if (disabled) return true;
     const t = now();
     if (key === lastKey && t - lastAt < windowMs) return false;
     lastKey = key;
     lastAt = t;
     return true;
   };
+  return allow;
 }
 
 /** One window shared by `router` and every `useRouter()`, so the two paths dedupe each other. */
