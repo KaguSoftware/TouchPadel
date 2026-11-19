@@ -293,6 +293,15 @@ const plugins: NonNullable<ExpoConfig['plugins']> = [
           // field name; the "does not implement Enumerable" warnings in the device log are these.
           '-keepclassmembers enum expo.modules.** { *; }',
           '-keepclassmembers enum io.github.expo.** { *; }',
+          // Expo modules are reflection and JNI all the way down: native code calls Java classes and
+          // methods by name (expo-gl calls GLContext.flush(), expo-updates its BSPatch, modules-core
+          // its jni/* classes), which R8 renames. versionCode 19 died on expo-gl's `flush` with
+          // "NoSuchMethodError: Lnh3;.flush()V". Keep every Expo module whole rather than chase the
+          // next one build by build; the app's own Java/Kotlin and the other libraries stay shrunk.
+          '-keep class expo.modules.** { *; }',
+          '-keep class io.github.expo.** { *; }',
+          // Native methods and the classes that carry them, wherever they are.
+          '-keepclasseswithmembernames,includedescriptorclasses class * { native <methods>; }',
           // Expo reads Kotlin types and annotations by reflection (argument converters, records).
           '-keepattributes *Annotation*,Signature,InnerClasses,EnclosingMethod,RuntimeVisibleAnnotations',
           '-keep class kotlin.Metadata { *; }',
