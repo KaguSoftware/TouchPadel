@@ -104,6 +104,8 @@ const LOCATION_PERMISSION =
   'Touch Padel uses your location only when a staff member starts or finishes work, to check they are at the club. It is read at that moment only, never in the background.';
 
 const plugins: NonNullable<ExpoConfig['plugins']> = [
+  // Wi-Fi and portrait are optional hardware features for Play's device compatibility.
+  './plugins/withOptionalFeatures',
   'expo-router',
   // Declared per SDK 57's `expo install --fix` (both packages are already deps).
   'expo-font',
