@@ -19342,6 +19342,7 @@ export type Database = {
           device_id: string | null
           id: string
           idempotency_key: string | null
+          kds_seen_at: string | null
           last_actor_label: string | null
           order_id: string
           ready_at: string | null
@@ -19357,6 +19358,7 @@ export type Database = {
           device_id?: string | null
           id?: string
           idempotency_key?: string | null
+          kds_seen_at?: string | null
           last_actor_label?: string | null
           order_id: string
           ready_at?: string | null
@@ -19372,6 +19374,7 @@ export type Database = {
           device_id?: string | null
           id?: string
           idempotency_key?: string | null
+          kds_seen_at?: string | null
           last_actor_label?: string | null
           order_id?: string
           ready_at?: string | null

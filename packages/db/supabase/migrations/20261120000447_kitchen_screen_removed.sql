@@ -6,7 +6,6 @@
 --   * the screen's reads and writes: app.kitchen_board (0158 ... 0352), app.kds_ack_tickets and
 --     app.recall_ticket (0396), app.kitchen_reach (0399, 0400), app.set_order_item_ready (0061 ...
 --     0217) and app.set_ticket_status (0015 ... 0217), the bump the screen called;
---   * tickets.kds_seen_at (0396), which only the screen's ack wrote;
 --   * the item_ready realtime event and its trigger (0061): only the screen's item ticks fired it;
 --   * the access area 'kds': its app.access_area_rpcs rows, and the word in staff.blocked_areas
 --     (scrubbed from every row, then the CHECK and app.set_staff_access re-issued without it);
@@ -15,16 +14,15 @@
 --     bumping tickets they would only ever grow, so the manager's "Kitchen orders running late"
 --     row would never clear.
 --
+-- tickets.kds_seen_at (0396) stays as an unused nullable column: dropping a column is refused by the
+-- migration gate on a direct push, and nothing reads it any more.
+--
 -- What stays, on purpose: the tickets table and a ticket per sent order (till_add_items, the
 -- counter orders, order_service, the Telegram group, the reports all write or read it),
 -- app.ticket_transition (the Telegram buttons), the 'kds' realtime topic (waiter calls and the
 -- delivery announcements ride it) and the 'prep' staff role. A ticket now stays 'queued' unless a
 -- Telegram button moves it; reports count an order as served once its tab settles
 -- (o.status = 'served' or t.status = 'settled'), so no figure waits on a ticket.
---
--- MIGRATION-RISK-ACCEPTED: tickets.kds_seen_at was read and written only by the kitchen screen's
--- ack and the till's "not received by the kitchen" flag, both removed in this change; an operator
--- build from before it fails on the dropped functions, so every station takes the new build first.
 --
 -- covered by packages/db/tests/kitchen-screen-removed.test.ts
 
@@ -46,11 +44,6 @@ drop function if exists app.set_ticket_status(uuid, ticket_status, text);
 -- ===========================================================================
 drop trigger if exists order_items_ready_rt on order_items;
 drop function if exists app.rt_order_item_ready();
-
--- ===========================================================================
--- 3. The seen-on-a-screen stamp
--- ===========================================================================
-alter table tickets drop column if exists kds_seen_at;
 
 -- ===========================================================================
 -- 4. app.queueable_rpcs — 0395's list without recall_ticket

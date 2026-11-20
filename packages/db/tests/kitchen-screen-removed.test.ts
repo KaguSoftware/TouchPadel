@@ -3,7 +3,7 @@
  * only fed it.
  *
  *   * its six functions are no longer there (a call is PGRST202, "no function
- *     with that signature"), and tickets.kds_seen_at with them;
+ *     with that signature");
  *   * the 'kds' access area is gone from app.access_area_rpcs, from the CHECK
  *     on staff.blocked_areas and from set_staff_access, which now refuses it;
  *   * app.queueable_rpcs no longer lists recall_ticket;
@@ -71,11 +71,6 @@ describe.skipIf(!up)('0447 kitchen screen removed: through the API', () => {
         expect(res.error?.code, `${who} ${fn}`).toBe('PGRST202');
       }
     }
-  });
-
-  it('tickets has no kds_seen_at column', async () => {
-    const res = await svc.from('tickets').select('kds_seen_at').limit(1);
-    expect(res.error).not.toBeNull();
   });
 
   it('a sent order still gets its ticket, queued, and keeps the till’s service choice', async () => {

@@ -1,5 +1,5 @@
 {
-  "generated_from": "a6a7b72c81821d651c2c68fe10c16d1c42c20ff7",
+  "generated_from": "53a8f066d2e694244814f783968d764beffe7813",
   "chunks": [
     {
       "kind": "page",
@@ -15605,8 +15605,16 @@
       "kind": "table",
       "ref": "table:tickets",
       "lang": "en",
-      "title": "table tickets",
+      "title": "table tickets (part 1 of 2)",
       "body": "Created in migration 0015.\nColumns:\n  id uuid primary key default gen_random_uuid()\n  order_id uuid not null unique references orders(id)\n  status ticket_status not null default 'queued'\n  target_seconds int not null default 600\n  created_at timestamptz not null default now()\n  started_at timestamptz\n  ready_at timestamptz\n  completed_at timestamptz\n  actual_prep_seconds int — stamped at completion (scope: stored per ticket)\n  device_id text\n  idempotency_key text unique\n  last_actor_label text — Label of the last non-staff actor that moved this ticket ('Telegram: Ahmed'). NULL when only staff devices touched it.\n  venue_id uuid",
+      "route": null
+    },
+    {
+      "kind": "table",
+      "ref": "table:tickets~2",
+      "lang": "en",
+      "title": "table tickets (part 2 of 2)",
+      "body": "Created in migration 0015.\n  idempotency_key text unique\n  last_actor_label text — Label of the last non-staff actor that moved this ticket ('Telegram: Ahmed'). NULL when only staff devices touched it.\n  venue_id uuid\n  kds_seen_at timestamptz — 0396 (F-11): when a kitchen screen first showed this ticket (app.kds_ack_tickets); NULL = no kitchen screen has shown it yet. The till flags an order whose ticket stays NULL.",
       "route": null
     },
     {
@@ -24271,6 +24279,14 @@
       "lang": "en",
       "title": "tickets.actual_prep_seconds",
       "body": "int\nstamped at completion (scope: stored per ticket)",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:tickets.kds_seen_at",
+      "lang": "en",
+      "title": "tickets.kds_seen_at",
+      "body": "timestamptz\n0396 (F-11): when a kitchen screen first showed this ticket (app.kds_ack_tickets); NULL = no kitchen screen has shown it yet. The till flags an order whose ticket stays NULL.",
       "route": null
     },
     {
