@@ -540,6 +540,8 @@ export function DayClose() {
                 style={{ ...inputStyle, textAlign: 'end', fontSize: 'var(--tp-fs-xl)' }}
                 dir="ltr"
                 inputMode="numeric"
+                // The AmountPad below is this field's touch keyboard.
+                data-osk="off"
                 value={openingFloat}
                 onChange={(e) => setOpeningFloat(Number(digitsOnly(e.target.value)) || 0)}
               />
@@ -722,6 +724,7 @@ export function DayClose() {
                           allowEmpty
                           max={MAX_COUNTED_IQD}
                           disabled={busy}
+                          besidePad
                           style={{ fontSize: 'var(--tp-fs-xl)' }}
                         />
                       </Field>

@@ -71,6 +71,7 @@ import { appRpc, AppRpcError } from '../lib/appRpc';
 import { supabase } from '../lib/supabase';
 import { useCafeSettings } from '../lib/settings';
 import { GlobalStyles } from '../components/GlobalStyles';
+import { TouchDisabledReason, TouchKeyboard } from '../components/TouchKeyboard';
 import { ToastProvider } from '../components/toast';
 import { ConfirmProvider, useConfirm } from '../components/ConfirmDialog';
 import { touch, type UpdateReadyInfo } from '../ipc/bridge';
@@ -130,6 +131,10 @@ function RootProviders() {
                 says the button was pressed. */}
             <QuitToDesktop variant="windowClose" />
             <RootShell />
+            {/* The touch stations' keyboard (owner call 2026-11-20): every
+                screen, sign-in and the lock included, types with a finger. */}
+            <TouchKeyboard />
+            <TouchDisabledReason />
           </ConfirmProvider>
         </ToastProvider>
       </ScreenOwnerProvider>
@@ -500,7 +505,8 @@ function WorkspaceShell({ who, venue, idleLockSeconds }: { who: StaffAccess; ven
       <GuideProvider workspace={active}>
       <div
         data-workspace={noNav && !board ? undefined : active}
-        style={{ display: 'flex', flexDirection: 'column', blockSize: '100vh', background: board ? 'var(--tp-kds-bg)' : 'var(--tp-bg)' }}
+        // Shorter by the on-screen keyboard while it is up (components/TouchKeyboard.tsx), so the field typed into stays above the keys.
+        style={{ display: 'flex', flexDirection: 'column', blockSize: 'calc(100vh - var(--tp-osk-inset, 0px))', background: board ? 'var(--tp-kds-bg)' : 'var(--tp-bg)' }}
       >
         <IdleLock serverSeconds={idleLockSeconds} />
         {goToOpen && managing && <GoToPalette workspaceKey={active} onClose={() => setGoToOpen(false)} />}
@@ -1380,6 +1386,8 @@ function IdleLock({ serverSeconds }: { serverSeconds: number | null }) {
       style={{
         position: 'fixed',
         inset: 0,
+        // The PIN and password are typed on the on-screen keyboard: the card centres above it.
+        insetBlockEnd: 'var(--tp-osk-inset, 0px)',
         zIndex: 'var(--tp-z-lock)',
         background: 'var(--tp-rail)',
         display: 'flex',

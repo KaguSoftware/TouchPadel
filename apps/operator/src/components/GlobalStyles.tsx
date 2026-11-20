@@ -253,6 +253,32 @@ details[open] > .tp-crash-details .tp-crash-chev { transform: rotate(90deg); }
 .tp-tile:hover:not(:disabled) { background: var(--tp-hover); color: var(--tp-hover-fg); }
 .tp-tile:active:not(:disabled) { transform: scale(0.99); }
 .tp-tile:disabled { cursor: not-allowed; }
+/* The on-screen keyboard (components/TouchKeyboard.tsx). --tp-osk-inset is its
+   height while it is up: the body is padded by it so a screen taller than what
+   is left can still scroll its field above the keys (the shell, the lock and
+   dialogs shrink by it instead). The pressed look is set from data-down, not
+   :active, because the keys keep focus off themselves and a touch never
+   reaches :active on them. */
+body { padding-block-end: var(--tp-osk-inset, 0px); }
+/* The keys cover the bottom of the window: scrollIntoView must stop above them. */
+html { scroll-padding-block-end: var(--tp-osk-inset, 0px); }
+/* A field scrolled clear of the keys stops a little above them, not with its focus ring on their edge. */
+input, textarea, form { scroll-margin-block-end: var(--tp-sp-3); }
+.tp-osk-key { background: var(--tp-surface); color: var(--tp-fg); font-family: inherit; font-size: var(--tp-fs-xl); }
+.tp-osk-key[data-big] { font-size: var(--tp-fs-2xl); }
+.tp-osk-key .tp-osk-sub { font-size: var(--tp-fs-sm); white-space: nowrap; }
+/* A narrow or short screen: smaller faces, and a special key keeps only what
+   names it (Enter its tick, the language key its word). */
+@media (max-width: 760px), (max-height: 540px) {
+  .tp-osk-key { font-size: var(--tp-fs-lg); }
+  .tp-osk-key[data-big] { font-size: var(--tp-fs-xl); }
+  .tp-osk-key [data-osk-optional] { display: none !important; }
+}
+.tp-osk-key[data-tone='special'] { background: var(--tp-surface-3); }
+.tp-osk-key[data-tone='accent'] { background: var(--tp-accent); border-color: var(--tp-accent) !important; color: var(--tp-accent-contrast); }
+.tp-osk-key[data-active] { background: var(--tp-accent); border-color: var(--tp-accent) !important; color: var(--tp-accent-contrast); }
+.tp-osk-key[data-down] { background: var(--tp-hover); color: var(--tp-hover-fg); transform: translateY(1px); }
+.tp-osk-key[data-tone='accent'][data-down] { filter: brightness(0.92); background: var(--tp-accent); color: var(--tp-accent-contrast); }
 /* The workspace picker's tiles (routes/workspaces.tsx, Majed 2026-10-19). A
    head in the rail's colour carries a line drawing of what the workspace runs
    (components/WorkspaceArt) in the court-line stroke; the body holds the name

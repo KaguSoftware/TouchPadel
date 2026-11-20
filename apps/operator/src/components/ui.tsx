@@ -173,6 +173,8 @@ export function Button(props: ButtonProps) {
       style={overlaySpinner ? { position: 'relative', ...style } : style}
       autoFocus={autoFocus}
       title={showReason ? disabledReason : title}
+      // Read by TouchDisabledReason: a touch screen never hovers, so a tap says it.
+      data-disabled-reason={showReason ? disabledReason : undefined}
       aria-label={ariaLabel}
       aria-pressed={ariaPressed}
       aria-expanded={ariaExpanded}
@@ -659,6 +661,8 @@ export function Modal({
       style={{
         position: 'fixed',
         inset: 0,
+        // Centred above the on-screen keyboard while it is up (TouchKeyboard).
+        insetBlockEnd: 'var(--tp-osk-inset, 0px)',
         background: 'var(--tp-overlay)',
         display: 'flex',
         alignItems: 'center',

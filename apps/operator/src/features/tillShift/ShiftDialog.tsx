@@ -359,7 +359,7 @@ export function ShiftDialog({
           <>
             <div style={pad}>
               <Field label={tr('ws.tillShift.start.counted')} hint={tr('ws.tillShift.start.countedHint')} style={{ flex: '1 1 12rem', minInlineSize: 0, marginBlockEnd: 0 }}>
-                <MoneyInput value={floatIqd} onChange={setFloatIqd} allowEmpty max={MAX_COUNT_IQD} disabled={busy} style={{ fontSize: 'var(--tp-fs-xl)' }} />
+                <MoneyInput value={floatIqd} onChange={setFloatIqd} allowEmpty max={MAX_COUNT_IQD} disabled={busy} besidePad style={{ fontSize: 'var(--tp-fs-xl)' }} />
               </Field>
               <AmountPad nullable value={floatIqd} onChange={setFloatIqd} max={MAX_COUNT_IQD} disabled={busy} onConfirm={() => floatIqd !== null && void start(floatIqd)} />
             </div>
@@ -425,7 +425,7 @@ export function ShiftDialog({
           <p style={{ ...lead, marginBlockEnd: 0 }}>{tr('ws.tillShift.close.countLead')}</p>
           <div style={pad}>
             <Field label={tr('ws.tillShift.close.counted')} style={{ flex: '1 1 12rem', minInlineSize: 0, marginBlockEnd: 0 }}>
-              <MoneyInput value={counted} onChange={setCounted} allowEmpty max={MAX_COUNT_IQD} style={{ fontSize: 'var(--tp-fs-xl)' }} />
+              <MoneyInput value={counted} onChange={setCounted} allowEmpty max={MAX_COUNT_IQD} besidePad style={{ fontSize: 'var(--tp-fs-xl)' }} />
             </Field>
             <AmountPad nullable value={counted} onChange={setCounted} max={MAX_COUNT_IQD} onConfirm={() => counted !== null && setCountConfirmed(true)} />
           </div>

@@ -449,6 +449,8 @@ export const operatorVars = {
   // The column header band, one height in every table (Sait, 2026-10-19).
   '--tp-row-h-head': '44px',
   '--tp-touch': '44px',
+  /** A key of the on-screen keyboard (components/TouchKeyboard.tsx): a finger's width, px so it never drifts. */
+  '--tp-osk-key-h': '56px',
   '--tp-tile-min-block': '72px',
   /** Prose measure. Seven hand-picked maxInlineSize values existed. */
   '--tp-measure-form': '44rem',
@@ -536,6 +538,11 @@ export const operatorVars = {
    */
   '--tp-z-tooltip': '130',
   '--tp-z-lock': '150',
+  /**
+   * The on-screen keyboard: above the idle lock, whose PIN and password are
+   * typed on it, and below a toast.
+   */
+  '--tp-z-keyboard': '160',
   '--tp-z-toast': '200',
 
   // fonts — mono only, and the four text tokens are absent on purpose.

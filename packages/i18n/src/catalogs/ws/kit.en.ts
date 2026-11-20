@@ -191,6 +191,20 @@ export const kitEn = {
     empty: 'No transactions in this range.',
     close: 'Close',
   },
+  /** The on-screen keyboard of the touch stations (components/TouchKeyboard.tsx). */
+  osk: {
+    shift: 'Shift',
+    backspace: 'Delete',
+    enter: 'Enter',
+    space: 'space',
+    switchLang: 'Switch language',
+    symbols: 'Numbers and symbols',
+    letters: 'Letters',
+    hide: 'Hide keyboard',
+    keyboard: 'Keyboard',
+    show: 'Show keyboard',
+    noField: 'There is nothing to type into on this screen.',
+  },
   keypad: {
     clear: 'Clear',
     backspace: 'Delete',

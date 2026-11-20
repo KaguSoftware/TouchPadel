@@ -74,6 +74,13 @@ const navPolicy: NavigationPolicy = { devServerUrl, isDev };
 const TRAFFIC_LIGHT_INSET = 52;
 
 
+// The tills are touch screens (owner call 2026-11-20): a row that is
+// reordered by dragging (the menu editors, the add-on lists) must drag under
+// a finger too. Chromium starts an HTML5 drag from touch (a long press) only
+// with this feature on; it is already the default on some Windows 11 builds,
+// where asking again changes nothing. Must be set before the app is ready.
+app.commandLine.appendSwitch('enable-features', 'TouchDragAndDrop');
+
 // Single-instance lock (design-arch.md §2.5 kiosk behavior).
 //
 // This used to call `app.quit()` and fall through: module evaluation continued,

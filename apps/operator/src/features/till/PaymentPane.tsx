@@ -242,6 +242,8 @@ export function PaymentPane({
               style={{ ...inputStyle, ...numeric, fontSize: 'var(--tp-fs-2xl)', textAlign: 'end', minBlockSize: 'var(--tp-touch)' }}
               dir="ltr"
               inputMode="numeric"
+              // The AmountPad beside it is this field's touch keyboard.
+              data-osk="off"
               autoFocus
               value={tendered || ''}
               placeholder="0"
