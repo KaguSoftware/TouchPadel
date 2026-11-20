@@ -189,6 +189,14 @@ function roomTarget(el: TypingEl, room: number): { node: Element; bottom: number
   return { node: el, bottom: field.bottom, block: 'nearest' };
 }
 
+/** Scrolls what must be in view (roomTarget) clear of the keys; the layout is read on the spot. */
+function scrollClear(el: TypingEl): void {
+  const panel = document.querySelector(`[${OSK_ATTR}] [role="group"]`);
+  const h = panel ? panel.getBoundingClientRect().height : 0;
+  const t = roomTarget(el, window.innerHeight - h);
+  t.node.scrollIntoView?.({ block: t.block, inline: 'nearest' });
+}
+
 export function TouchKeyboard() {
   const { locale, tr } = useLocale();
   const [enabled] = useState(oskEnabled);
@@ -204,12 +212,16 @@ export function TouchKeyboard() {
    * view (the till's search at the top, most dialogs) moves nothing.
    */
   const [pushed, setPushed] = useState(false);
+  const pushedRef = useRef(pushed);
+  pushedRef.current = pushed;
   const panelHeight = useRef(0);
   const lastShiftTap = useRef(0);
   const lastPointer = useRef<string>('mouse');
   /** Pointers held down right now, so the screen never moves under a press that is still going. */
   const pointersDown = useRef(new Set<number>());
   const releaseWhenUp = useRef(false);
+  /** Room is owed to the field, waiting for the press under way to lift (see makeRoom). */
+  const roomWhenUp = useRef(false);
   const ownedRef = useRef<Owned | null>(null);
   ownedRef.current = owned;
   const localeRef = useRef(locale);
@@ -266,9 +278,28 @@ export function TouchKeyboard() {
     setPushed(false);
   }, []);
 
+  /**
+   * Make room for the field (or, already made, bring it into view). Never
+   * while a finger or the mouse button is still down: moving the screen
+   * mid-press slid the field out from under it, the press then landed on
+   * empty space and took focus away, and the keys closed again. A tap on the
+   * sign-in field, which is focused before anyone touches it, did exactly
+   * that. So a press under way gets the room on its release instead.
+   */
+  const makeRoom = useCallback((el: TypingEl) => {
+    if (pointersDown.current.size > 0) {
+      roomWhenUp.current = true;
+      return;
+    }
+    roomWhenUp.current = false;
+    if (pushedRef.current) scrollClear(el);
+    else setPushed(true);
+  }, []);
+
   const close = useCallback(() => {
     const prev = ownedRef.current;
     if (prev) restoreOsKeyboard(prev.el);
+    roomWhenUp.current = false;
     setOwned(null);
     releaseRoom();
   }, [releaseRoom]);
@@ -294,7 +325,15 @@ export function TouchKeyboard() {
     };
     const onUp = (e: PointerEvent) => {
       pointersDown.current.delete(e.pointerId);
-      if (pointersDown.current.size > 0 || !releaseWhenUp.current) return;
+      if (pointersDown.current.size > 0) return;
+      if (roomWhenUp.current) {
+        // After the click this release produces, so the press lands where it started.
+        window.setTimeout(() => {
+          const cur = ownedRef.current;
+          if (roomWhenUp.current && cur && pointersDown.current.size === 0) makeRoom(cur.el);
+        }, 0);
+      }
+      if (!releaseWhenUp.current) return;
       // After the click this release produces, which is dispatched in the same task.
       window.setTimeout(() => {
         if (releaseWhenUp.current && !ownedRef.current && pointersDown.current.size === 0) {
@@ -316,7 +355,7 @@ export function TouchKeyboard() {
       window.removeEventListener('blur', onBlur);
       window.clearTimeout(releaseFallback.current);
     };
-  }, [enabled, open]);
+  }, [enabled, open, makeRoom]);
 
   // Follow focus: up for a typing field reached by touch, kept while focus moves field to field, down when it leaves.
   useEffect(() => {
@@ -366,15 +405,10 @@ export function TouchKeyboard() {
     const covered = roomTarget(owned.el, room).bottom > room - 8;
     if (!covered) return;
     // Once made, the room stays until the keys go down, so moving field to field never jumps the screen twice.
-    setPushed(true);
-    const raf = requestAnimationFrame(() =>
-      requestAnimationFrame(() => {
-        const t = roomTarget(owned.el, window.innerHeight - panelHeight.current);
-        t.node.scrollIntoView?.({ block: t.block, inline: 'nearest' });
-      }),
-    );
-    return () => cancelAnimationFrame(raf);
-  }, [owned]);
+    // Room already made (the next field of a form): bring this one into view. Otherwise the effect below does
+    // it in the same frame the room appears, so no frame ever shows the field under the keys.
+    makeRoom(owned.el);
+  }, [owned, makeRoom]);
 
   // Publish the room. A ResizeObserver keeps it right if the panel's height changes (a window resize).
   useLayoutEffect(() => {
@@ -384,6 +418,9 @@ export function TouchKeyboard() {
       return;
     }
     root.style.setProperty(INSET_VAR, `${panelHeight.current}px`);
+    // Before the frame paints, so there is never a frame with the field under the keys.
+    const cur = ownedRef.current;
+    if (cur) scrollClear(cur.el);
     const panel = panelRef.current;
     const ro =
       panel && typeof ResizeObserver === 'function'

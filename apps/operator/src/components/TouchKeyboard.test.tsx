@@ -182,6 +182,11 @@ describe('TouchKeyboard', () => {
     });
   }
   const inset = () => document.documentElement.style.getPropertyValue('--tp-osk-inset');
+  /** Room is made just after the press that opened the keys lifts (one task later). */
+  const settle = () =>
+    act(async () => {
+      await new Promise((r) => setTimeout(r, 5));
+    });
 
   it('re-renders none of itself for a typed letter (the press look is set on the key, not through React)', () => {
     let commits = 0;
@@ -209,6 +214,7 @@ describe('TouchKeyboard', () => {
     try {
       mount(<Text />);
       touchFocus(screen.getByLabelText('name'));
+      await settle();
       expect(inset()).toBe('260px');
       // A press that never lifts (the window lost focus mid-press), then the keys go down.
       fireEvent.pointerDown(document.body, { pointerType: 'touch', pointerId: 42 });
@@ -235,14 +241,36 @@ describe('TouchKeyboard', () => {
     }
   });
 
-  it('makes room when the field would be under the keys, and gives it back when they go down', () => {
+  it('makes room when the field would be under the keys, and gives it back when they go down', async () => {
     const spy = layout(700);
     try {
       mount(<Text />);
       touchFocus(screen.getByLabelText('name'));
+      await settle();
       expect(inset()).toBe('260px');
       tap('hide');
       expect(inset()).toBe('');
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it('never moves the screen under a press: a tap on the already-focused field gets its room on release', async () => {
+    const spy = layout(700);
+    try {
+      mount(<Text />);
+      const input = screen.getByLabelText('name');
+      // Focused before anyone touched it, as the sign-in email is.
+      act(() => input.focus());
+      fireEvent.pointerDown(input, { pointerType: 'touch', pointerId: 5 });
+      expect(screen.getByTestId('osk')).toBeTruthy();
+      // The finger is still down: moving the screen now would slide the field out from under it.
+      await settle();
+      expect(inset()).toBe('');
+      fireEvent.pointerUp(input, { pointerType: 'touch', pointerId: 5 });
+      await settle();
+      expect(inset()).toBe('260px');
+      expect(document.activeElement).toBe(input);
     } finally {
       spy.mockRestore();
     }
@@ -258,6 +286,7 @@ describe('TouchKeyboard', () => {
         </>,
       );
       touchFocus(screen.getByLabelText('name'));
+      await settle();
       expect(inset()).toBe('260px');
       // The mouse goes down on a dialog button, which takes focus: the keys go down at once...
       const confirm = screen.getByText('Confirm');

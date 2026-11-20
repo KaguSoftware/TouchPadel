@@ -70,6 +70,12 @@ async function fit(page: Page) {
   });
 }
 
+/** The keys fit, and the field and the submit button are clear of them, once the screen has settled. */
+async function expectFit(page: Page) {
+  await expect.poll(() => fit(page), { timeout: 5_000 }).toEqual({ share: expect.any(Number), fieldClear: true, submitClear: true, keysOnScreen: true });
+  expect((await fit(page)).share).toBeLessThanOrEqual(0.4);
+}
+
 async function signInByFill(page: Page) {
   await page.locator('input[type="email"]').fill(SEED_STAFF.cashier);
   await page.locator('input[type="password"]').fill(DEV_PASSWORD);
@@ -87,11 +93,7 @@ test.describe('on-screen keyboard (touch stations)', () => {
     await expect(page.locator('input[type="email"]')).toHaveValue(SEED_STAFF.cashier);
 
     await page.locator('input[type="password"]').tap();
-    const f = await fit(page);
-    expect(f.share).toBeLessThanOrEqual(0.4);
-    expect(f.fieldClear).toBe(true);
-    expect(f.submitClear).toBe(true);
-    expect(f.keysOnScreen).toBe(true);
+    await expectFit(page);
 
     await typeOnKeys(page, DEV_PASSWORD);
     await key(page, 'enter').tap();
@@ -106,11 +108,7 @@ test.describe('on-screen keyboard (touch stations)', () => {
     const page = await touchPage(browser, { width: 800, height: 480 });
     await page.locator('input[type="password"]').tap();
     await expect(keyboard(page)).toBeVisible();
-    const f = await fit(page);
-    expect(f.share).toBeLessThanOrEqual(0.4);
-    expect(f.fieldClear).toBe(true);
-    expect(f.submitClear).toBe(true);
-    expect(f.keysOnScreen).toBe(true);
+    await expectFit(page);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.context().close();
   });
