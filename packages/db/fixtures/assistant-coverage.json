@@ -1519,6 +1519,7 @@
     "trg_sanitise_series": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client",
     "trg_sanitise_tournament": "excluded: service_role only — the tournament name and prize sanitiser trigger (tournaments_schema_money migration), never called by a client",
     "trg_sanitise_tournament_score_event": "excluded: service_role only — the score correction reason sanitiser trigger (tournaments_schema_money migration), never called by a client",
+    "trg_staff_barista_cashier": "excluded: service_role only — the staff trigger (baristas_work_the_till migration) that keeps the cashier job on every barista, never called by a client",
     "trg_staff_default_venue": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client",
     "trg_stock_movement_location": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client",
     "trg_ticket_consume": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client",
