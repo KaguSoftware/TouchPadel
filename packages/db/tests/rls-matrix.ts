@@ -8199,3 +8199,19 @@ export const matrix: MatrixRule[] = [
     drop: 41,
   },
 ];
+
+// ── 0446 (2026-11-20, Majed): every barista is also a cashier ──────────────
+// The trigger staff_barista_cashier keeps cashier as a second job on the bar
+// team (head_barista, barista, assistant_barista), and every guard counts a
+// second job. So wherever the cashier gets further than a bar-team principal,
+// the bar-team principal gets the cashier's result. A guard that reads the
+// main role alone would show here as a mismatch.
+{
+  const OPENNESS: Record<string, number> = { denied: 0, guarded: 1, silence: 1, execute: 2, rows: 2, allowed: 2 };
+  const BAR_TEAM = ['head_barista', 'barista', 'assistant_barista'] as const;
+  for (const rule of matrix) {
+    const e = { ...rule.expect } as Record<Principal, string>;
+    for (const p of BAR_TEAM) if (OPENNESS[e.cashier]! > OPENNESS[e[p]]!) e[p] = e.cashier;
+    (rule as { expect: Record<Principal, string> }).expect = e;
+  }
+}

@@ -285,7 +285,7 @@ describe.skipIf(!up)('0155/0156/0157 new staff roles', () => {
     expect(ownerSees.data).toHaveLength(1);
   });
 
-  it('no new role takes money', async () => {
+  it('no new role takes money (the bar team only as a cashier, 0446)', async () => {
     for (const role of NEW_ROLES) {
       const c = as[role];
       const settle = await appRpc(c, 'settle_tab', {
@@ -293,7 +293,10 @@ describe.skipIf(!up)('0155/0156/0157 new staff roles', () => {
         p_method: 'cash',
         p_idempotency_key: testIdemKey('tab.settle'),
       });
-      expect(settle.error?.message, `${role} settle_tab`).toBe('FORBIDDEN');
+      // 0446: every barista is also a cashier, so the bar passes the door and
+      // stops at the money check instead (nothing is paid either way).
+      if (role === 'head_barista' || role === 'barista') expect(settle.error?.message, `${role} settle_tab`).not.toBe('FORBIDDEN');
+      else expect(settle.error?.message, `${role} settle_tab`).toBe('FORBIDDEN');
       const paid = await c.from('payments').select('id').eq('tab_id', tabId);
       expect(paid.error).toBeNull();
       expect(paid.data, `${role} reads no payments`).toHaveLength(0);
@@ -316,7 +319,11 @@ describe.skipIf(!up)('0155/0156/0157 new staff roles', () => {
       ] as const) {
         const rows = await c.from(table).select(column).eq(column, id);
         expect(rows.error).toBeNull();
-        expect(rows.data, `${role} reads no ${table}`).toHaveLength(0);
+        // 0446: the bar team holds the cashier job, so it reads what the till reads.
+        const till = role === 'head_barista' || role === 'barista'
+          ? (await cashier.from(table).select(column).eq(column, id)).data ?? []
+          : [];
+        expect(rows.data, `${role} reads ${table}`).toHaveLength(till.length);
       }
     }
     // The till still reads them.

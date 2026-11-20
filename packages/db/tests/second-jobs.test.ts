@@ -145,6 +145,9 @@ describe.skipIf(!docker)('0446 every barista works the till', () => {
     const r = scenario([
       MK('b1', 'barista'),
       MK('h1', 'head_barista'),
+      FX(`insert into day_sessions (business_date, opened_by, opening_float_iqd, venue_id)
+          select date '3000-01-01' + (random() * 300000)::int, {{owner}}::uuid, 0, {{venue}}::uuid
+           where not exists (select 1 from day_sessions where venue_id = {{venue}}::uuid and status in ('open', 'closing'))`),
       Q('b1.jobs', JOBS('b1')),
       T('cafe', 'b1', `select app.open_tab(p_label => 'LDB counter')`),
       LET('tab', `select coalesce((select id from tabs where label = 'LDB counter'), gen_random_uuid())`),

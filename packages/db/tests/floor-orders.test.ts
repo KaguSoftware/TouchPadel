@@ -125,7 +125,8 @@ end $f$;
 select pg_temp.mk('wtr', 'waiter');
 select pg_temp.mk('drv', 'driver');
 select pg_temp.mk('mkt', 'marketing');
-select pg_temp.mk('bar', 'barista');
+-- The chef: a role off the floor (a barista is a cashier too since 0446).
+select pg_temp.mk('bar', 'chef');
 
 -- An open day at venue A (inside this transaction only).
 do $d$
@@ -357,7 +358,7 @@ describe.skipIf(!docker)('floor orders (rolled-back transactions)', () => {
       place('wtr', 'long_label', `{{table}}, null, repeat('n', 41), '[]'`),
       place('wtr', 'bad_items', `{{table}}, null, null, '{}'`),
       place('wtr', 'no_table', `gen_random_uuid(), null, null, '[]'`),
-      place('bar', 'barista', `{{table}}, null, null, '[]'`),
+      place('bar', 'chef', `{{table}}, null, null, '[]'`),
       place('drv', 'driver', `{{table}}, null, null, '[]'`),
       T('floor', 'wtr', `select app.floor_tables({{venue}})`),
       T('floor_cashier', 'cashier', `select app.floor_tables({{venue}})`),
@@ -387,7 +388,7 @@ describe.skipIf(!docker)('floor orders (rolled-back transactions)', () => {
     expect(refused(r, 'long_label')).toBe('TEXT_TOO_LONG:label');
     expect(refused(r, 'bad_items')).toBe('INVALID_ARGUMENT:items');
     expect(refused(r, 'no_table')).toBe('TABLE_NOT_FOUND');
-    expect(refused(r, 'barista')).toBe('FORBIDDEN');
+    expect(refused(r, 'chef')).toBe('FORBIDDEN');
     expect(refused(r, 'driver')).toBe('FORBIDDEN');
 
     const table = ok<{ tables: FloorTable[] }>(r, 'floor').tables.find((t) => t.table_number === `T${TABLE_NO}`)!;

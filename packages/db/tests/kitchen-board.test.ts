@@ -455,12 +455,13 @@ describe.skipIf(!up)('kitchen_board_read: app.kitchen_board', () => {
     }
   });
 
-  it('fills the booking for cashier and MGMT only', async () => {
+  it('fills the booking for cashier, the bar team (cashiers too, 0446) and MGMT only', async () => {
     for (const [role, c] of board) {
       const court = (await boardOf(c, role)).find((t) => t.id === courtTicketId);
       expect(court, `${role} sees the court ticket`).toBeTruthy();
       expect(court!.order?.tab?.table).toBeNull();
-      const expected = ['cashier', 'manager', 'owner'].includes(role)
+      // 0446: every barista is also a cashier, so the bar team reads the booking too.
+      const expected = ['cashier', 'manager', 'owner', 'head_barista', 'barista', 'assistant_barista'].includes(role)
         ? { id: reservationId, guest_name: 'Kitchen Board Guest' }
         : null;
       expect(court!.order?.tab?.reservation, `${role} booking`).toEqual(expected);
@@ -668,7 +669,9 @@ describe.skipIf(!up)('kitchen_board_read: app.kitchen_board', () => {
       ]) {
         const direct = await c.from('order_items').select('id').in('id', lineIds);
         expect(direct.error).toBeNull();
-        expect(direct.data, `${role} reads no line directly`).toHaveLength(0);
+        // 0446: the bar team holds the cashier job, so it reads the till's lines.
+        const cashierToo = ['head_barista', 'barista', 'assistant_barista'].includes(role);
+        expect(direct.data, `${role} reads ${cashierToo ? 'every' : 'no'} line directly`).toHaveLength(cashierToo ? lineIds.length : 0);
         const probe = (await boardOf(c, role)).find((t) => t.id === ticketId);
         expect(probe?.order?.order_items.map((l) => l.id), `${role} board lines`).toEqual(lineIds);
       }
