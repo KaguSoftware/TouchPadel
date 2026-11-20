@@ -5,7 +5,7 @@ import { AppErrorBoundary, CrashPanel, NotFoundPanel } from './CrashScreen';
 import { LocaleProvider } from '../lib/i18n';
 import { setReporter, type Reporter } from '../lib/telemetry';
 
-// A blank kiosk is the failure mode these guard against: till and KDS stations
+// A blank kiosk is the failure mode these guard against: till stations
 // run with `kiosk: true` and `autoHideMenuBar: true`, so before this existed a
 // render throw left a cashier with no menu, no address bar and no way back
 // mid-service — and the shell's `render-process-gone` reload never fires,

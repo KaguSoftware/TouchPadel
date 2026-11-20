@@ -3,7 +3,7 @@
  *
  * Renders the real shared primitives with static props, so the design of the
  * rail, the table, the status vocabulary, the four async states and the
- * kitchen board can be LOOKED at without a backend, a session or fixtures.
+ * till board can be LOOKED at without a backend, a session or fixtures.
  * It imports the same components the app does, so what it shows is what
  * ships; it is not a mock and it must never be given its own styles.
  *
@@ -302,24 +302,6 @@ function Gallery() {
                 <BrandSwoosh opacity={0.9} />
               </div>
             </div>
-          </div>
-        </Section>
-
-        <Section title="Kitchen board">
-          <div data-workspace="prep" style={{ background: 'var(--tp-kds-bg)', borderRadius: 'var(--tp-radius-panel)', padding: '1rem', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem' }}>
-            {(['fresh', 'warm', 'late'] as const).map((state) => (
-              <div key={state} style={{ background: 'var(--tp-kds-card)', border: '1px solid var(--tp-kds-border)', borderRadius: 'var(--tp-radius-panel)', overflow: 'hidden' }}>
-                <div style={{ background: `var(--tp-kds-${state})`, color: 'var(--tp-kds-on-fill)', paddingBlock: '0.5rem', paddingInline: '0.75rem', display: 'flex', justifyContent: 'space-between', fontWeight: 700, fontSize: 'var(--tp-fs-kds)' }}>
-                  <span>Table 4</span>
-                  <span>{state === 'fresh' ? '1:20' : state === 'warm' ? '6:05' : '12:44'}</span>
-                </div>
-                <div style={{ padding: '0.75rem', color: 'var(--tp-kds-fg)', fontSize: 'var(--tp-fs-kds-sm)', display: 'grid', gap: '0.35rem' }}>
-                  <span>2 × Cappuccino</span>
-                  <span>1 × Club sandwich</span>
-                  <span style={{ color: 'var(--tp-kds-muted)' }}>no onions</span>
-                </div>
-              </div>
-            ))}
           </div>
         </Section>
 

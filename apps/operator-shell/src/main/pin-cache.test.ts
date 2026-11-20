@@ -151,7 +151,7 @@ describe('own-PIN tier (F-05, F-07)', () => {
     expect(unlockOwnPinOffline('5150', null)).toBe(false);
   });
 
-  it("a 'self' PIN never authorises a manager action, the pairing card or the way out", () => {
+  it("a 'self' PIN never authorises a manager action or the way out", () => {
     observePin('5150', 'self', CASHIER);
     expect(unlockPinOffline('5150')).toBeNull();
     expect(mayLeave('5150', null)).toBe('pin not recognised');

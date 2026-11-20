@@ -7,11 +7,9 @@
  *   * app.order_set_delivery sets pick up or bring it, to a table, to a
  *     booking's court, or to nowhere yet, at any time after the order was
  *     placed; its refusals; audited; cashier and MGMT only.
- *   * app.kitchen_board carries order.deliver_table / order.deliver_court to
- *     every board role.
  *   * orders_deliver_spot holds the shape for every writer.
  *
- * Probe rows stay behind, as kitchen-board.test.ts's do.
+ * Probe rows stay behind.
  */
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -31,13 +29,6 @@ import {
 
 const up = await stackAvailable();
 
-interface BoardOrder {
-  id: string;
-  service: string;
-  deliver_table: { table_number: string } | null;
-  deliver_court: { name_en: string; name_ar: string } | null;
-}
-
 describe.skipIf(!up)('counter_orders (0352)', () => {
   let svc: SupabaseClient;
   let cashier: SupabaseClient;
@@ -45,7 +36,6 @@ describe.skipIf(!up)('counter_orders (0352)', () => {
   let prep: SupabaseClient;
   let item: { itemId: string; variantId: string };
   let tableId: string;
-  let tableNumber: string;
   let reservationId: string;
   let courtName: string;
 
@@ -80,12 +70,6 @@ describe.skipIf(!up)('counter_orders (0352)', () => {
     return r.data as { service: string; deliver_table_id: string | null; deliver_reservation_id: string | null };
   }
 
-  async function boardOrder(c: SupabaseClient, ticketId: string): Promise<BoardOrder | undefined> {
-    const res = await appRpc(c, 'kitchen_board', {});
-    if (res.error) throw new Error(`kitchen_board: ${res.error.message}`);
-    return (res.data as { tickets: { id: string; order: BoardOrder }[] }).tickets.find((t) => t.id === ticketId)?.order;
-  }
-
   beforeAll(async () => {
     svc = serviceClient();
     cashier = await signedInClient(SEED_STAFF.cashier);
@@ -95,9 +79,6 @@ describe.skipIf(!up)('counter_orders (0352)', () => {
     await ensureOpenDay(manager, svc);
     item = await createTestMenuItem(svc, 'counter-orders', 3000);
     tableId = await createTestCafeTable(svc, 'counter-orders');
-    const t = await svc.from('cafe_tables').select('table_number').eq('id', tableId).single();
-    if (t.error) throw new Error(t.error.message);
-    tableNumber = (t.data as { table_number: string }).table_number;
 
     courtName = `Counter Orders ${Date.now()}`;
     const courtId = await createTestCourt(svc, courtName);
@@ -150,18 +131,13 @@ describe.skipIf(!up)('counter_orders (0352)', () => {
   });
 
   describe('app.order_set_delivery', () => {
-    it('attaches a table after the order was placed, and every board role reads it', async () => {
+    it('attaches a table after the order was placed', async () => {
       const { tabId } = await counterTab();
       const sent = await send(tabId);
       const res = await setDelivery(cashier, { p_order_id: sent.order_id, p_service: 'deliver', p_table_id: tableId });
       expect(res.error).toBeNull();
       expect(res.data).toMatchObject({ service: 'deliver', deliver_table_id: tableId, deliver_reservation_id: null });
       expect(await row(sent.order_id)).toEqual({ service: 'deliver', deliver_table_id: tableId, deliver_reservation_id: null });
-      for (const [who, c] of [['prep', prep], ['cashier', cashier]] as const) {
-        const o = await boardOrder(c, sent.ticket_id);
-        expect(o?.deliver_table, who).toEqual({ table_number: tableNumber });
-        expect(o?.deliver_court, who).toBeNull();
-      }
       const audit = await svc.from('audit_log').select('action').eq('entity_id', sent.order_id).eq('action', 'order.delivery');
       expect(audit.data ?? []).toHaveLength(1);
     });
@@ -170,11 +146,11 @@ describe.skipIf(!up)('counter_orders (0352)', () => {
       const { tabId } = await counterTab();
       const sent = await send(tabId, 'deliver');
       expect((await setDelivery(manager, { p_order_id: sent.order_id, p_service: 'deliver', p_reservation_id: reservationId })).error).toBeNull();
-      expect((await boardOrder(prep, sent.ticket_id))?.deliver_court).toEqual({ name_en: courtName, name_ar: `ملعب اختبار ${courtName}` });
+      expect(await row(sent.order_id)).toEqual({ service: 'deliver', deliver_table_id: null, deliver_reservation_id: reservationId });
       expect((await setDelivery(cashier, { p_order_id: sent.order_id, p_service: 'deliver' })).error).toBeNull();
       expect(await row(sent.order_id)).toEqual({ service: 'deliver', deliver_table_id: null, deliver_reservation_id: null });
       expect((await setDelivery(cashier, { p_order_id: sent.order_id, p_service: 'pickup' })).error).toBeNull();
-      expect((await boardOrder(prep, sent.ticket_id))?.service).toBe('pickup');
+      expect((await row(sent.order_id)).service).toBe('pickup');
     });
 
     it('refuses a bad shape: an unknown service, two spots, a pick up with a spot', async () => {

@@ -7,7 +7,7 @@
  *  (a) the barista posts a suggestion from the phone; the manager reads it on
  *      /suggestions, signed with name and role, and marks it seen, and the
  *      barista's own list says seen (#63);
- *  (b) the chef assistant sends a new-item idea; the head chef's kitchen board
+ *  (b) the chef assistant sends a new-item idea; the head chef's My tasks
  *      offers "My tasks (N)" counting it, and /tasks lists it under Ideas from
  *      your team with the way back to the board (#65, §5.1);
  *  (c) @ar — the head chef declines an idea in Arabic, a reason required, and
@@ -140,27 +140,17 @@ test.describe('operator role pages', () => {
     }
   });
 
-  test('a chef assistant’s idea reaches the head chef’s kitchen board and My tasks', async ({ browser }) => {
+  test('a chef assistant’s idea reaches the head chef’s My tasks', async ({ browser }) => {
     const ideaId = await sendIdea(`كيكة التمر ${stamp}`, `e2e:idea:${stamp}`);
 
     const page = await signIn(browser, staff.head_chef!.email);
-    await page.goto(`${OPERATOR_URL}/kds`);
-    const button = page.getByTestId('kds-tasks');
-    await expect(button).toBeVisible({ timeout: 15_000 });
-    // Its steps to do plus the team's ideas: at least this one.
-    await expect.poll(async () => Number(await button.getAttribute('data-count'))).toBeGreaterThanOrEqual(1);
-    await expect(button).toHaveText(/My tasks \(\d+\)/);
-    await button.click();
-
+    await page.goto(`${OPERATOR_URL}/tasks`);
     await expect(page).toHaveURL(/\/tasks/);
     await expect(page.getByRole('heading', { level: 1, name: 'My tasks' })).toBeVisible();
-    await expect(page.getByTestId('tasks.back-to-board')).toBeVisible();
     await expect(page.getByTestId('tasks.start.product_release')).toBeVisible();
     const idea = page.getByTestId(`idea-${ideaId}`);
     await expect(idea).toBeVisible();
     await expect(idea).toContainText(staff.chef!.name);
-    await page.getByTestId('tasks.back-to-board').click();
-    await expect(page).toHaveURL(/\/kds/);
     await page.context().close();
   });
 

@@ -16,9 +16,8 @@
  *  3. **What do I do on the phone?** A read-only copy of those pages, marked
  *     as such (PhoneCopies).
  *
- * The driver's and marketing's landing screen, a rail row for the till and
- * the desk, and the kitchen board's "My tasks" button: from the board the
- * page has no rail, so it carries its own way back.
+ * The driver's, marketing's, bar's and kitchen's landing screen, and a rail
+ * row for the till and the desk.
  *
  * A finished product release shows here as done, with no figures: the day-30
  * review is management's alone (#54), and this page never reads it.
@@ -29,7 +28,6 @@ import { useNavigate, useSearch } from '@tanstack/react-router';
 import { formatDateTime, formatNumber, isolate } from '@touch/i18n';
 import { can, useAuth } from '../../lib/auth';
 import { useLocale } from '../../lib/i18n';
-import { useWorkspaceOrNull } from '../../routes/__root';
 import { Button, ErrorText } from '../../components/ui';
 import { PageHeader, Panel, StatusBadge, ViewMore, useListCap } from '../../components/kit';
 import { CardTitle, MARK_FG } from '../ops/OpsVisuals';
@@ -50,7 +48,6 @@ export function MyTasksScreen() {
   const { tr, locale } = useLocale();
   const { staff } = useAuth();
   const navigate = useNavigate();
-  const workspace = useWorkspaceOrNull();
   const search = useSearch({ strict: false }) as TasksSearch;
   const starts = useMemo(() => taskStarts(staff), [staff]);
   const reviewsIdeas = can(staff, 'reviewIdeas');
@@ -60,7 +57,7 @@ export function MyTasksScreen() {
   const ideasQ = useIdeasToReview(reviewsIdeas);
   const ideas = readIdeasToReview(ideasQ.data);
 
-  // Open sheets live in the URL, so the kitchen board, the desk's event blocks
+  // Open sheets live in the URL, so the desk's event blocks
   // and a reload land on the same step or form.
   const setSearch = (next: TasksSearch) => void navigate({ to: '/tasks', search: next, replace: true });
   const openStep = search.step ?? null;
@@ -68,23 +65,13 @@ export function MyTasksScreen() {
   const [idea, setIdea] = useState<IdeaRow | null>(null);
   const startIdea = idea ?? (search.idea ? (ideas.ideas.find((i) => i.id === search.idea) ?? null) : null);
 
-  // From the kitchen board the page has no rail: the board is the way back.
-  const onBoard = workspace?.active === 'prep';
-
   return (
-    // With no rail beside it (from the board), the page sits in the middle of
-    // the screen rather than against its edge.
-    <div style={{ display: 'grid', gap: 'var(--tp-sp-4)', maxInlineSize: '72rem', marginInline: onBoard ? 'auto' : undefined }}>
+    <div style={{ display: 'grid', gap: 'var(--tp-sp-4)', maxInlineSize: '72rem' }}>
       <PageHeader
         title={tr('ws.team.tasks.title')}
         subtitle={tr('ws.team.tasks.lead')}
         actions={
           <span style={{ display: 'flex', gap: 'var(--tp-sp-2)', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-            {onBoard && (
-              <Button icon="chevronStart" onClick={() => void navigate({ to: '/kds' })} data-testid="tasks.back-to-board">
-                {tr('ws.team.tasks.backToBoard')}
-              </Button>
-            )}
             {starts.map((s) => (
               <Button key={s} kind="primary" icon={START_ICON[s]} onClick={() => setSearch({ start: s })} data-testid={`tasks.start.${s}`}>
                 {tr(`ws.team.tasks.start.button.${s}`)}

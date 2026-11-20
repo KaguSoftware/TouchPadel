@@ -12,8 +12,6 @@ import { courtDeskEn } from './courtDesk.en';
 import { courtDeskAr } from './courtDesk.ar';
 import { cashierEn } from './cashier.en';
 import { cashierAr } from './cashier.ar';
-import { prepEn } from './prep.en';
-import { prepAr } from './prep.ar';
 import { managerEn } from './manager.en';
 import { managerAr } from './manager.ar';
 import { ownerEn } from './owner.en';
@@ -66,7 +64,7 @@ import { shopAr } from './shop.ar';
 // matchesAdmin.*.
 import { matchesEn } from './matches.en';
 import { matchesAr } from './matches.ar';
-// The workspace guides (court desk, till, kitchen, Touch Shop).
+// The workspace guides (court desk, till, Touch Shop).
 import { guideEn } from './guide.en';
 import { guideAr } from './guide.ar';
 // Wages and attendance (0270–0272): the owner's Wages page, the manager's Late and early page.
@@ -128,7 +126,6 @@ export const wsEn = {
   kit: kitEn,
   courtDesk: courtDeskEn,
   cashier: cashierEn,
-  prep: prepEn,
   manager: managerEn,
   owner: ownerEn,
   reports: reportsEn,
@@ -175,7 +172,6 @@ export const wsAr = {
   kit: kitAr,
   courtDesk: courtDeskAr,
   cashier: cashierAr,
-  prep: prepAr,
   manager: managerAr,
   owner: ownerAr,
   reports: reportsAr,

@@ -5,12 +5,7 @@ export const teamAr: DeepMessages<typeof teamEn> = {
   tasks: {
     title: 'مهامي',
     lead: 'خطواتك في الأصناف الجديدة والبطولات وتغييرات الأسعار، وما تنجزه على هاتف الموظفين.',
-    backToBoard: 'العودة إلى شاشة المطبخ',
     cancel: 'إلغاء',
-    kds: {
-      button: 'مهامي',
-      buttonCount: 'مهامي ({count})',
-    },
     work: {
       title: 'خطوات البروتوكولات',
       none: 'لا شيء بانتظارك في الأصناف الجديدة أو البطولات أو تغييرات الأسعار.',

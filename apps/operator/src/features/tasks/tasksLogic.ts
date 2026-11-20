@@ -82,7 +82,7 @@ export function readMyWork(payload: unknown): MyWork {
   return { todo: rows('todo', 'opened_at'), waiting: rows('waiting', 'submitted_at'), decided: rows('decided', 'decided_at') };
 }
 
-/** The kitchen board's My tasks count: steps to do, plus the ideas a head has to review (§5.4). */
+/** The My tasks count: steps to do, plus the ideas a head has to review (§5.4). */
 export function kitchenTaskCount(work: unknown, ideas: number): number {
   const p = isObject(work) ? work : {};
   const counts = isObject(p.counts) ? p.counts : {};

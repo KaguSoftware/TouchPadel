@@ -13,7 +13,7 @@ export interface MutationEnvelope {
   localId: string;
   /** '{station}:{mutation_type}:{ulid}' — station segment MUST equal deviceId. */
   idempotencyKey: string;
-  /** 'order.create' | 'order.add_items' | 'ticket.status' | 'payment.record' | 'reservation.create' | ... */
+  /** 'order.create' | 'order.add_items' | 'payment.record' | 'reservation.create' | ... */
   mutationType: string;
   /** zod-validated by the main process before the SQLite insert (design-arch.md §2.2). */
   payload: unknown;
@@ -74,42 +74,6 @@ export interface QueueRowInfo {
   createdAt: string;
 }
 
-/** A LAN-delivered kitchen ticket — identified by the order envelope's key. */
-export interface KitchenTicket {
-  ref: string;
-  tabLabel: string | null;
-  /** 0351: absent from an older till's frame, which meant deliver. */
-  service?: 'deliver' | 'pickup';
-  items: {
-    variantId: string;
-    qty: number;
-    notes?: string;
-    modifiers: { modifierId: string; qty: number }[];
-  }[];
-  createdAt: string;
-  status: 'queued' | 'preparing' | 'ready' | 'completed';
-  /** F-11: on the server already; absent from an older till's frame. */
-  synced?: boolean;
-}
-
-/** Why a LAN bump did not land (F-57): refused by the till, or never sent ('link-down'). */
-export type LanBumpRefusal = 'no-staff' | 'enqueue-failed' | 'malformed' | 'link-down';
-
-export type LanFrame =
-  | { type: 'ticket.new'; data: KitchenTicket }
-  | { type: 'ticket.snapshot'; data: KitchenTicket[] }
-  | { type: 'status.update'; data: { ref: string; status: KitchenTicket['status'] } }
-  | { type: 'ticket.synced'; data: { ref: string; ticketId: string | null } }
-  | { type: 'ticket.dropped'; data: { ref: string } }
-  | { type: 'error'; data: { reason: LanBumpRefusal; ref?: string } }
-  | { type: 'link'; data: { up: boolean } };
-
-/** F-11: the till's view of its LAN kitchen screens (shell ipc-channels LanReach). */
-export interface LanReach {
-  acked: string[];
-  kdsConnected: number;
-}
-
 // Cached reference data keys (design-arch.md §2.3). Payload types tighten when
 // @touch/db types.gen.ts exists. 'day' joined on day 14 — the till's
 // "no business day is open" gate must not fire just because the network died.
@@ -163,7 +127,7 @@ export type Role =
   | 'shop_staff'
   | 'dev';
 
-export type StationMode = 'till' | 'desk' | 'kds' | 'shop';
+export type StationMode = 'till' | 'desk' | 'shop';
 
 /** What quitApp / exitFullscreen answer (ipc-channels.ts LeaveResult). */
 export type LeaveResult = { ok: true } | { ok: false; error: string };
@@ -171,7 +135,6 @@ export type LeaveResult = { ok: true } | { ok: false; error: string };
 export interface StationInfo {
   stationId: string; // e.g. 'TILL1'
   mode: StationMode;
-  tillHost?: string;
   /** false ⇔ station.json does not exist yet: first run, show the setup screen. */
   configured: boolean;
   /** station.json exists but could not be read; the shell runs on dev defaults. */
@@ -192,31 +155,11 @@ export interface StationInfo {
 export interface StationSetupRequest {
   stationId: string;
   mode: StationMode;
-  /** kds only: the till's private IPv4 (discovered, or typed under Advanced). */
-  tillHost?: string;
-  /** kds only: the NORMALISED 10-char pairing code from the till. */
-  pairingCode?: string;
 }
 
 export type StationSetupResult =
   | { ok: true }
   | { ok: false; error: 'already-configured' | 'write-failed' };
-
-export type PairingInfoResult =
-  | { ok: true; stationId: string; host: string | null; port: number; code: string }
-  | { ok: false; error: 'pin not recognised' | 'not-a-till' | 'no-psk' | 'custom-psk' };
-
-export interface DiscoverRequest {
-  code: string;
-  /** Advanced path: confirm this one host instead of sweeping the subnet. */
-  host?: string;
-}
-
-export type DiscoverResult =
-  | { status: 'found'; tills: string[] }
-  | { status: 'bad-code'; candidates: string[] }
-  | { status: 'none' }
-  | { status: 'no-lan' };
 
 export interface UpdateReadyInfo {
   version: string;
@@ -260,17 +203,6 @@ export type SupplierPageResult =
 export interface TouchBridge {
   enqueue(m: MutationEnvelope): Promise<{ localId: string; state: 'queued' }>;
   onQueueUpdate(cb: (s: QueueStatus) => void): Unsub;
-  onLanTicket(cb: (frame: LanFrame) => void): Unsub;
-  /** KDS stations only: carry a bump to the till over the LAN when the cloud is down. */
-  sendLanStatus(update: { ref: string; status: 'preparing' | 'ready' | 'completed' }): void;
-  /** F-11, KDS stations: refs of LAN tickets this screen has drawn. */
-  sendLanAck(refs: string[]): void;
-  /** F-57, KDS stations: the LAN link to the till; null = this station has none. */
-  getLanLink(): Promise<boolean | null>;
-  /** F-11, till stations: the cloud's statuses of tickets the LAN ring may hold. */
-  pushLanCloudStatus(updates: { ref: string; status: KitchenTicket['status'] }[]): void;
-  /** F-11, till stations: which LAN tickets a kitchen screen drew (null = no LAN server). */
-  onLanReach(cb: (reach: LanReach | null) => void): Unsub;
   getCachedRef(key: RefKey): Promise<CachedRef | undefined>;
   print(job: PrintJob): Promise<PrintResult>;
   /** OFFLINE pin check only (authorisation-token cache, 14-day TTL) — online
@@ -286,12 +218,6 @@ export interface TouchBridge {
   pushAuthState(s: AuthState | null): void;
   /** Push the heartbeat's server-reachability verdict after every beat. */
   pushConnState(online: boolean): void;
-  /**
-   * The screen on show wants a bare window (the kitchen board): hides the
-   * macOS traffic lights while it is up, restores them when it is not. A
-   * no-op where the window has no buttons — kiosks, Windows, the browser.
-   */
-  pushChromeless(chromeless: boolean): void;
   /** Store a fresh reference-data payload for offline trading (fetched_at stamped in main). */
   cachePut(key: RefKey, payload: unknown): void;
   /**
@@ -332,10 +258,6 @@ export interface TouchBridge {
   exitFullscreen(pin: string): Promise<LeaveResult>;
   /** First run only: write station.json and relaunch. */
   saveStation(req: StationSetupRequest): Promise<StationSetupResult | IpcRefusal>;
-  /** Till only, behind the manager PIN: what a kitchen screen needs to pair. */
-  getPairingInfo(pin: string): Promise<PairingInfoResult | IpcRefusal>;
-  /** Unconfigured kitchen screen: find the till that accepts this code. */
-  discoverTill(req: DiscoverRequest): Promise<DiscoverResult | IpcRefusal>;
   /** Fires (also on subscribe, if already the case) once an update has downloaded; null withdraws it. */
   onUpdateReady(cb: (info: UpdateReadyInfo | null) => void): Unsub;
   /** Restart into the downloaded update. */
@@ -366,28 +288,10 @@ const mock: TouchBridge = {
     cb({ depth: 0, uploadBlocked: false, conflicts: 0, failed: 0, blocking: 0 });
     return () => {};
   },
-  onLanTicket() {
-    return () => {};
-  },
-  sendLanStatus() {
-    // Browser mode has no LAN peer.
-  },
-  sendLanAck() {},
-  async getLanLink() {
-    return null;
-  },
-  pushLanCloudStatus() {},
-  onLanReach(cb) {
-    cb(null);
-    return () => {};
-  },
   pushAuthState() {
     // Browser mode has no main process; writes go straight to the network.
   },
   pushConnState() {},
-  pushChromeless() {
-    // Browser mode has no window chrome to hide.
-  },
   onFullscreenState(cb) {
     // A browser tab is never the app's own full screen.
     cb(false);
@@ -441,12 +345,6 @@ const mock: TouchBridge = {
   async saveStation() {
     console.warn('[touch:mock] saveStation: no station.json outside Electron');
     return { ok: false, error: 'write-failed' };
-  },
-  async getPairingInfo() {
-    return { ok: false, error: 'not-a-till' };
-  },
-  async discoverTill() {
-    return { status: 'no-lan' };
   },
   onUpdateReady() {
     return () => {};

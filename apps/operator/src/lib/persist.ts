@@ -6,7 +6,7 @@
  * the background.
  *
  * Whitelist, not everything: money detail (['tab', id]) must never render
- * stale-as-current, the KDS queue must never show yesterday's tickets, and
+ * stale-as-current, a queue must never show yesterday's tickets, and
  * analytics/audit are heavy and owner-only. The buster drops the whole cache
  * whenever the app version changes — a shape change in any cached query must
  * never be deserialised into new code.

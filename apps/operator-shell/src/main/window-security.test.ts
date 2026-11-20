@@ -132,8 +132,8 @@ describe('shouldShowTrafficLights', () => {
     expect(shouldShowTrafficLights({ ...mac, isDev: true, mode: 'till' })).toBe(true);
   });
 
-  it('shows them on a KDS station', () => {
-    expect(shouldShowTrafficLights({ ...mac, mode: 'kds' })).toBe(true);
+  it('shows them on a shop station', () => {
+    expect(shouldShowTrafficLights({ ...mac, mode: 'shop' })).toBe(true);
   });
 
   it('shows them on an unconfigured station, whatever the default mode', () => {

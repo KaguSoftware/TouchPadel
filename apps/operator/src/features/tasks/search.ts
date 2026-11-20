@@ -1,6 +1,6 @@
 /**
  * `/tasks` search params — hand parser, the /protocols shape (features/protocols/search.ts).
- *   ?step=<uuid>                   open one of my steps (the kitchen board, a
+ *   ?step=<uuid>                   open one of my steps (a
  *                                  way back from the desk's event blocks)
  *   ?start=product_release|price_promo|tournament
  *                                  open that start form, when the role may start it

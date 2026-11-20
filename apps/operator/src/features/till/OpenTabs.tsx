@@ -78,7 +78,6 @@ import { formatElapsed } from './elapsed';
 import { reservationNameOf } from '../matches/matchLogic';
 import { OPEN_TABS_QUERY, tabAnchorLabel, tabHasWebOrder, tabRemovalBlocker, type TabListRow, type TabRemovalBlocker } from './tillData';
 import { muted } from './tillStyles';
-import { KitchenReachFlag } from './KitchenReachFlag';
 
 export type TabsSort = 'table' | 'court' | 'name';
 
@@ -351,8 +350,6 @@ export function OpenTabsBoard({
               </strong>
               {r.status !== 'open' && <TabStatusIndicator status={r.status} size="sm" />}
               {r.web && <StatusBadge tone="info" icon="globe" dot={false} size="sm" label={tr('ws.cashier.tabs.sourceWeb')} />}
-              {/* F-11: an order on this tab no kitchen screen has shown yet. */}
-              <KitchenReachFlag tabId={r.id} compact />
             </span>
             {sub.length > 0 && (
               <span style={{ ...muted, fontSize: 'var(--tp-fs-xs)' }}>

@@ -1,14 +1,14 @@
 /**
  * Setup's settings pages (management rebuild, 2026-10-17). "Venue settings"
  * was one screen with four tabs, the last of which held fourteen unrelated
- * panels: the owner looking for the deposit rules or the kitchen screen's
+ * panels: the owner looking for the deposit rules or the offline mode's
  * pairing had to know to open "Venue details" and scroll. Each panel is now a
  * page with its own address, in the family it belongs to
  * (lib/workspaces.ts):
  *
  *   Venue    › Details · Opening hours (/admin/hours) · Business day · Analytics
  *   Courts   › Courts · Booking rules · Online deposit · Open matches · Tournaments
- *   Devices  › Devices · Stations · Kitchen screens · Offline mode
+ *   Devices  › Devices · Stations · Offline mode
  *   Coaches  › … · Lesson rules (features/admin/coaches/CoachesAdmin.tsx)
  *
  * Nothing about a panel changed: the same component, the same read, the same
@@ -26,7 +26,6 @@ import { AsyncStateWrapper, EmptyState, MessagePresenter, PageHeader, asyncStatu
 import { BranchDetails } from '../branches/BranchesAdmin';
 import { DepositSettingsPanel } from '../../deposits/DepositSettingsPanel';
 import { useOnlinePaymentsLive } from '../../deposits/useOnlinePaymentsLive';
-import { KitchenPairingPanel } from '../KitchenPairing';
 import { AnalyticsTab } from './AnalyticsTab';
 import { DayServiceTab } from './DayServiceTab';
 import { DevicesPanel } from './DevicesPanel';
@@ -171,7 +170,7 @@ export function TournamentsSettingsScreen() {
 
 // --- Devices ----------------------------------------------------------------
 
-/** Devices › Devices (`/admin/settings/devices`): every till, desk and kitchen screen that reported in. */
+/** Devices › Devices (`/admin/settings/devices`): every till and desk that reported in. */
 export function DevicesScreen() {
   return (
     <SettingsPage title="ws.shell.nav.devices">
@@ -196,14 +195,6 @@ export function StationsScreen() {
   );
 }
 
-/** Devices › Kitchen screens (`/admin/settings/kitchen`): pair a kitchen screen to this till. Owner only. */
-export function KitchenScreensScreen() {
-  return (
-    <SettingsPage title="ws.shell.nav.kitchenScreens">
-      <KitchenPairingPanel />
-    </SettingsPage>
-  );
-}
 
 /** Devices › Offline mode (`/admin/settings/offline`). */
 export function OfflineModeScreen() {

@@ -1,8 +1,8 @@
 # Operator desktop — install runbook (Windows)
 
-The operator app installs on Touch's three machines: the **till** (REG/TILL),
-the **desk** machine, and the **kitchen screen** (KDS). One installer, three
-station roles — the role is chosen on the machine's first launch and lives in
+The operator app installs on Touch's machines: the **till** (REG/TILL), the
+**desk** machine and the **shop** desk. One installer, one station role per
+machine — the role is chosen on the machine's first launch and lives in
 `station.json`, not in the build.
 
 ## 1. Get the installer
@@ -90,44 +90,37 @@ the app opens the **station setup screen** instead of sign-in:
 1. **Till** → keep or edit the station id (`TILL-01`) → **Finish setup**. The
    app restarts as a kiosk. It has minted its own pairing code.
 2. **Desk** → station id (`DESK-01`) → **Finish setup**.
-3. **Kitchen screen** → station id (`KDS-01`) → type the **pairing code** shown
-   on the till (sidebar → **Pair a kitchen screen**, manager PIN) → **Finish
-   setup**. The kitchen screen finds the till on the LAN by itself; if it
-   cannot, **Advanced: till address** takes the till's LAN IP, and "Save
-   anyway" keeps it even while the till is off.
+3. **Touch Shop desk** → station id (`SHOP-01`) → **Finish setup**.
 
 The first launch is a normal, closable window; kiosk mode starts on the
-restart after setup. Windows Firewall asks once, on the till, to allow the app
-on private networks (the LAN server on port 47810) — allow it.
+restart after setup. The app opens no listening port, so Windows Firewall has
+nothing to ask about.
 
 Scripted alternative (unchanged): launch once from a shortcut with flags, which
 writes `station.json` and skips the screen:
 
 ```text
 # till
-"Touch Padel Operator.exe" --station-id=TILL-01 --station-mode=till --lan-psk=<CODE>
+"Touch Padel Operator.exe" --station-id=TILL-01 --station-mode=till
 # desk
 "Touch Padel Operator.exe" --station-id=DESK-01 --station-mode=desk
-# kitchen screen
-"Touch Padel Operator.exe" --station-id=KDS-01 --station-mode=kds --till-host=<TILL-LAN-IP> --lan-psk=<SAME-CODE>
+# shop desk
+"Touch Padel Operator.exe" --station-id=SHOP-01 --station-mode=shop
 ```
 
-Use a 10-character pairing code (Crockford base32, e.g. `ABCDEFGHJK`) as the
-`--lan-psk` if you want the till's "Pair a kitchen screen" card to work; any
-other value works for the LAN but the card will say the key is custom.
+A machine whose `station.json` still says `"mode": "kds"` (a retired kitchen
+screen) is refused as an unknown mode: delete its `station.json` and set it up
+again, or retire the machine.
 
 Manual alternative: copy `station.json.example` (shipped beside the app in
 `resources/`) to `%APPDATA%/touch-padel-operator/station.json` and edit it.
 
-The till binds its LAN server to the first private IPv4 automatically; pin it
-with `--lan-bind=<ip>` / `"lan_bind"` if the machine has several NICs. Give the
-till a **static LAN IP** (router reservation) so the KDS's `till_host` never
-moves. To re-do setup on a machine, delete `station.json` and relaunch.
+To re-do setup on a machine, delete `station.json` and relaunch.
 
 ## 4. Kiosk behaviour
 
-- Every configured station is a kiosk, in every mode (till, desk and kitchen
-  screen) and on every platform (owner call, 2026-09-23): no frame, it cannot
+- Every configured station is a kiosk, in every mode (till, desk and shop)
+  and on every platform (owner call, 2026-09-23): no frame, it cannot
   be minimised, and the window cannot be closed.
 - There are two ways out: **Quit to desktop** (in the sidebar, and in the top
   corner of the sign-in screen) and **Exit forced full screen**. Both take a
@@ -142,17 +135,14 @@ moves. To re-do setup on a machine, delete `station.json` and relaunch.
 
 1. Launch and sign in **while online** — the sync worker and the offline
    caches are fed by a signed-in session. The till and the desk sign in with
-   the station's staff account. The kitchen board is signed in by whoever runs
-   it, with their own account: every bar and kitchen worker has one (head
-   barista, barista, head chef, chef), created on the Staff page, and a prep
-   account is moved to barista or chef first (Setup ▸ Worth checking lists
-   them). Personal work (tasks, checklists, the shopping list, requests) is on
+   the station's staff account. Every bar and kitchen worker has their own
+   account (head barista, barista, head chef, chef), created on the Staff page,
+   and a prep account is moved to barista or chef first (Setup ▸ Worth
+   checking lists them). Personal work (tasks, checklists, the shopping list, requests) is on
    the staff area of the phone app, not on the station
    (`docs/design/protocols/plan-2026-09-23.md` §9).
 2. Till: confirm the banner is absent (venue not degraded) and open the day.
-3. KDS: confirm a test ticket appears; unplug the WAN briefly and confirm the
-   board switches to LAN tickets.
-4. Record the machine's station id and the sidebar's version line in the venue
+3. Record the machine's station id and the sidebar's version line in the venue
    sheet.
 
 ## 6. Updating
@@ -162,8 +152,7 @@ Every packaged station checks the public releases repo when the app starts
 and downloads a newer installer silently. Nothing installs by itself while the
 app is open. A downloaded update goes in one of three ways:
 
-- **Update ready.** The sidebar shows an **Update ready** row; the kitchen
-  screen, which has no sidebar, shows a pill in the corner. Tapping it closes
+- **Update ready.** The sidebar shows an **Update ready** row. Tapping it closes
   the app, installs the update and opens the app again on the new version.
 - **Quit to desktop.** While an update is ready, the Quit dialog says so:
   quitting installs it, and then the app opens again by itself. On a locked

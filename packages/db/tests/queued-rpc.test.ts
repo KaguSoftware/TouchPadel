@@ -24,7 +24,8 @@ import {
   SEED_STAFF,
 } from './helpers';
 
-const MIGRATION = path.resolve(import.meta.dirname, '../supabase/migrations/20261101000395_queued_rpc.sql');
+// 0447 re-issued the list without recall_ticket.
+const MIGRATION = path.resolve(import.meta.dirname, '../supabase/migrations/20261120000447_kitchen_screen_removed.sql');
 
 function sqlAllowlist(): string[] {
   const sql = readFileSync(MIGRATION, 'utf8');

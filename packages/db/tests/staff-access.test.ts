@@ -148,13 +148,13 @@ const MIGRATION = readFileSync(
   'utf8',
 );
 
-// 0362 re-issued the CHECK and set_staff_access with the 'content' area (0360
-// added 'insights'), so the area lists are read from it; the second-job lists
-// from 0345 and 0362 alike.
+// 0447 re-issued the CHECK and set_staff_access without the 'kds' area (0362
+// had added 'content', 0360 'insights'), so the area lists are read from it; the
+// second-job lists from 0345 and 0447 alike.
 const MIGRATION_0360 = readFileSync(
-  fileURLToPath(new URL('../supabase/migrations/20261022000362_marketing_plan.sql', import.meta.url)),
+  fileURLToPath(new URL('../supabase/migrations/20261120000447_kitchen_screen_removed.sql', import.meta.url)),
   'utf8',
-);
+).split('-- 6. The access area')[1]!; // after the queueable list and ops_overview: the CHECK and set_staff_access
 
 /** Every `array[...]::<cast>` literal of the migration with that cast, as lists. */
 function sqlArrays(cast: string, sql = MIGRATION): string[][] {
@@ -168,12 +168,12 @@ describe('0345 lists match @touch/core', () => {
     expect(lists.length).toBe(2);
     for (const l of lists) expect([...l].sort()).toEqual([...SECOND_JOB_ROLES].sort());
   });
-  it('second jobs: 0362\'s re-issued RPC holds SECOND_JOB_ROLES', () => {
+  it('second jobs: 0447\'s re-issued RPC holds SECOND_JOB_ROLES', () => {
     const lists = sqlArrays('staff_role', MIGRATION_0360).filter((l) => l.length > 0);
     expect(lists.length).toBe(1);
     for (const l of lists) expect([...l].sort()).toEqual([...SECOND_JOB_ROLES].sort());
   });
-  it('areas: the CHECK and the RPC (0362) hold ACCESS_AREA_KEYS', () => {
+  it('areas: the CHECK and the RPC (0447) hold ACCESS_AREA_KEYS', () => {
     const lists = sqlArrays('text', MIGRATION_0360).filter((l) => l.length > 0);
     expect(lists.length).toBe(2);
     for (const l of lists) expect([...l].sort()).toEqual([...ACCESS_AREA_KEYS].sort());

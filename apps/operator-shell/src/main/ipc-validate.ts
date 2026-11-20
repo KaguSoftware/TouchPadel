@@ -1,6 +1,5 @@
 import type {
   AuthState,
-  DiscoverRequest,
   MutationEnvelope,
   PrintJob,
   ResolveQueueRowRequest,
@@ -8,7 +7,6 @@ import type {
   StationSetupRequest,
   SupplierPageRequest,
 } from '../ipc-channels';
-import { ipv4Regex, isPrivateIpv4 } from './lan-net';
 
 /**
  * Runtime validation for everything crossing the IPC boundary.
@@ -56,13 +54,12 @@ function requireString(value: unknown, field: string, max: number): string {
 
 /** Crockford base32, 26 chars (no I, L, O, U). */
 const ULID_SRC = '[0-9A-HJKMNP-TV-Z]{26}';
-/** Station / device id, e.g. 'TILL-01', 'DESK-01', 'KDS-01'. */
+/** Station / device id, e.g. 'TILL-01', 'DESK-01', 'SHOP-01'. */
 const STATION_SRC = '[A-Z][A-Z0-9]*(?:-[A-Z0-9]+)*';
 
 export const MUTATION_TYPES = [
   'order.create',
   'order.add_items',
-  'ticket.status',
   'payment.record',
   'reservation.create',
   'reservation.update',
@@ -123,7 +120,7 @@ export function validateMutationEnvelope(value: unknown): MutationEnvelope {
 
   // The queue OWNER mints the key: its station segment must equal deviceId, and the
   // replay function 400s on the same mismatch. localId's station may legitimately
-  // differ — the till enqueues status updates on the KDS's behalf (single writer).
+  // differ from it.
   const deviceId = requireString(raw.deviceId, 'deviceId', 32);
   if (!stationRegex.test(deviceId)) fail('deviceId must be a station id like TILL-01');
   if (keyStation !== deviceId) {
@@ -245,32 +242,11 @@ export function validateAuthState(value: unknown): AuthState | null {
   return { accessToken, staffId, supabaseUrl: supabaseUrl.replace(/\/+$/, ''), anonKey };
 }
 
-/** Whether the renderer is showing a screen that wants no window buttons. */
-export function validateChromeless(value: unknown): boolean {
-  if (typeof value !== 'boolean') fail('chromeless must be a boolean');
-  return value;
-}
-
 export function validateConnState(value: unknown): boolean {
   if (typeof value !== 'boolean') fail('connState must be a boolean');
   return value;
 }
 
-
-/** A KDS renderer's bump, bound for the till over the LAN. kdsStation is
- *  stamped by main from station.json — never trusted from the renderer. */
-export function validateLanStatus(value: unknown): { ref: string; status: 'preparing' | 'ready' | 'completed' } {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
-    fail('lanStatus must be an object');
-  }
-  const raw = value as Record<string, unknown>;
-  const ref = requireString(raw.ref, 'ref', 128);
-  const status = requireString(raw.status, 'status', 16);
-  if (status !== 'preparing' && status !== 'ready' && status !== 'completed') {
-    fail(`unknown lan status '${status}'`);
-  }
-  return { ref, status };
-}
 
 /**
  * PIN: digits only, length-bounded. Verification is server-side against
@@ -322,35 +298,13 @@ export function validateResolveQueueRow(value: unknown): ResolveQueueRowRequest 
   return { idempotencyKey, pin: validatePin(raw.pin) };
 }
 
-// --- first-run station setup + kitchen-screen pairing --------------------------
+// --- first-run station setup ---------------------------------------------------
 
-/** Mirror of @touch/core/pairing/pairingCode — drift-tested in pairing-code.test.ts. */
-export const pairingCodeRegex = /^[0-9A-HJKMNP-TV-Z]{10}$/;
-const STATION_MODES = ['till', 'desk', 'kds', 'shop'] as const;
+const STATION_MODES = ['till', 'desk', 'shop'] as const;
 
 /**
- * The pairing code IS the LAN secret, so like the PIN it is never echoed in
- * an error message. Accepts only the canonical (normalised) form: the renderer
- * normalises what staff type before it crosses the bridge.
- */
-export function validatePairingCode(value: unknown): string {
-  if (typeof value !== 'string') fail('pairingCode must be a string');
-  const code = value as string;
-  if (!pairingCodeRegex.test(code)) fail('pairingCode must be 10 Crockford-base32 characters');
-  return code;
-}
-
-function validatePrivateHost(value: unknown, field: string): string {
-  const host = requireString(value, field, 15);
-  if (!ipv4Regex.test(host)) fail(`${field} must be an IPv4 address`);
-  if (!isPrivateIpv4(host)) fail(`${field} must be a private (LAN) address`);
-  return host;
-}
-
-/**
- * What the first-run screen sends. Till and desk carry only id + mode (a till
- * mints its own PSK in main); a kitchen screen must bring the till it found
- * and the code that opened it. Extras are dropped, as everywhere here.
+ * What the first-run screen sends: the station id and its mode, nothing else.
+ * Extras are dropped, as everywhere here.
  */
 export function validateStationSetup(value: unknown): StationSetupRequest {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
@@ -361,23 +315,7 @@ export function validateStationSetup(value: unknown): StationSetupRequest {
   if (!stationRegex.test(stationId)) fail('stationId must look like TILL-01');
   const mode = requireString(raw.mode, 'mode', 8);
   if (!(STATION_MODES as readonly string[]).includes(mode)) fail(`unknown station mode '${mode}'`);
-  if (mode !== 'kds') return { stationId, mode: mode as StationMode };
-  return {
-    stationId,
-    mode: 'kds',
-    tillHost: validatePrivateHost(raw.tillHost, 'tillHost'),
-    pairingCode: validatePairingCode(raw.pairingCode),
-  };
-}
-
-export function validateDiscoverRequest(value: unknown): DiscoverRequest {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
-    fail('discover request must be an object');
-  }
-  const raw = value as Record<string, unknown>;
-  const code = validatePairingCode(raw.code);
-  if (raw.host === undefined || raw.host === null || raw.host === '') return { code };
-  return { code, host: validatePrivateHost(raw.host, 'host') };
+  return { stationId, mode: mode as StationMode };
 }
 
 /**

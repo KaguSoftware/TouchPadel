@@ -8,7 +8,7 @@
  * are validated here once and inherited by both tabs, so switching tabs keeps
  * the owner on the same period. Each tab is a `lazyRouteComponent`, which
  * keeps Recharts (and the whole analytics feature) out of the main bundle, so
- * a till or KDS station never downloads a charting library.
+ * a till station never downloads a charting library.
  */
 import { Outlet, createRoute, redirect } from '@tanstack/react-router';
 import { rootRoute, RequireRole } from './__root';

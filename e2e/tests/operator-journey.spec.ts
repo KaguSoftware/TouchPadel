@@ -225,7 +225,7 @@ test.describe('operator journeys', () => {
     // ---- send to kitchen --------------------------------------------------
     // Basket: (4,000 + 1,000) + 3,000 = 8,000
     await expect(page.getByText('1× Cappuccino (Regular)')).toBeVisible();
-    await page.getByRole('button', { name: 'Send to kitchen' }).click();
+    await page.getByRole('button', { name: 'Place order' }).click();
     await expect(page.getByText('Basket is empty — pick items from the grid.')).toBeVisible();
     await expect(page.getByText('Subtotal')).toBeVisible();
     await expect(page.getByText('8,000 IQD').first()).toBeVisible();
@@ -482,7 +482,7 @@ test.describe('operator journeys', () => {
     const turk = page.getByRole('dialog', { name: 'Turkish Coffee' });
     await turk.getByRole('button', { name: 'Add', exact: true }).click();
     await expect(turk).toBeHidden();
-    await page.getByRole('button', { name: 'Send to kitchen' }).click();
+    await page.getByRole('button', { name: 'Place order' }).click();
     await expect(page.getByText('3,000 IQD').first()).toBeVisible();
 
     // ---- price override (L450-451): PIN + reason, same as a discount -----

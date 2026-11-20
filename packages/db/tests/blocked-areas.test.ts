@@ -17,11 +17,18 @@ const MIGRATION = readFileSync(
   fileURLToPath(new URL('../supabase/migrations/20261101000384_blocked_areas_enforced.sql', import.meta.url)),
   'utf8',
 );
-const ROWS = [...MIGRATION.matchAll(/\('([a-z]+)', '([a-z0-9_]+)'\)/g)].map((m) => ({ area: m[1]!, rpc: m[2]! }));
+// 0447 removed the 'kds' area: its rows and the CHECK's word.
+const MIGRATION_0447 = readFileSync(
+  fileURLToPath(new URL('../supabase/migrations/20261120000447_kitchen_screen_removed.sql', import.meta.url)),
+  'utf8',
+);
+const ROWS = [...MIGRATION.matchAll(/\('([a-z]+)', '([a-z0-9_]+)'\)/g)]
+  .map((m) => ({ area: m[1]!, rpc: m[2]! }))
+  .filter((r) => r.area !== 'kds');
 
 describe('0384 the map matches @touch/core', () => {
   it('the CHECK lists exactly ACCESS_AREA_KEYS', () => {
-    const chk = MIGRATION.slice(MIGRATION.indexOf('access_area_rpcs_area_chk'));
+    const chk = MIGRATION_0447.slice(MIGRATION_0447.indexOf('add constraint access_area_rpcs_area_chk'));
     const list = [...chk.slice(0, chk.indexOf('))')).matchAll(/'([a-z]+)'/g)].map((m) => m[1]);
     expect([...list].sort()).toEqual([...ACCESS_AREA_KEYS].sort());
   });

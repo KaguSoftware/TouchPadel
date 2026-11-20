@@ -2,8 +2,8 @@
  * The workspace guide: one dialog, the active workspace's sections as tabs,
  * each a numbered list of steps a new person can tick off as they learn them.
  * Content and the role filtering live in guideContent.ts; the ticks in
- * guideProgress.ts. No route of its own, so the screen behind it (the kitchen
- * board included) stays live while it is open.
+ * guideProgress.ts. No route of its own, so the screen behind it stays live
+ * while it is open.
  */
 import { useEffect, useId, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { formatNumber, type MessageKey, type TParams } from '@touch/i18n';
@@ -44,7 +44,6 @@ export interface WorkspaceGuideDialogProps {
 
 export function WorkspaceGuideDialog({ workspace, staffId, role, tab, onTab, onClose, onNavigate }: WorkspaceGuideDialogProps) {
   const { tr, locale } = useLocale();
-  const board = workspace === 'prep';
   const sections = useMemo(() => visibleGuide(workspace, role), [workspace, role]);
   const [learned, setLearned] = useState<Set<string>>(() => loadLearned(staffId, ALL_STEP_IDS));
   const [current, setCurrent] = useState<string>(() =>
@@ -99,7 +98,6 @@ export function WorkspaceGuideDialog({ workspace, staffId, role, tab, onTab, onC
   return (
     <Modal
       size="lg"
-      tone={board ? 'board' : undefined}
       title={tr('ws.guide.chrome.title', { workspace: tr(`ws.shell.workspace.${workspace}`) })}
       subtitle={
         <span data-testid="guide-progress">
@@ -130,7 +128,6 @@ export function WorkspaceGuideDialog({ workspace, staffId, role, tab, onTab, onC
                 key={step.id}
                 step={step}
                 index={i}
-                board={board}
                 title={tr(step.titleKey)}
                 body={tr(step.bodyKey, params(step))}
                 link={stepLink(step, role)}
@@ -153,7 +150,6 @@ export function WorkspaceGuideDialog({ workspace, staffId, role, tab, onTab, onC
 function GuideStepRow({
   step,
   index,
-  board,
   title,
   body,
   link,
@@ -164,7 +160,6 @@ function GuideStepRow({
 }: {
   step: GuideStep;
   index: number;
-  board: boolean;
   title: string;
   body: string;
   link: string | null;
@@ -203,11 +198,11 @@ function GuideStepRow({
         {learned ? <Icon name="check" size={18} /> : <Icon name={step.icon ?? sectionIcon} size={18} />}
       </span>
       <div style={{ display: 'grid', gap: 'var(--tp-sp-1-5)', minInlineSize: 0 }}>
-        <h3 id={titleId} style={{ fontSize: board ? 'var(--tp-fs-kds)' : 'var(--tp-fs-md)', fontWeight: 700, lineHeight: 1.3 }}>
+        <h3 id={titleId} style={{ fontSize: 'var(--tp-fs-md)', fontWeight: 700, lineHeight: 1.3 }}>
           <span style={{ color: 'var(--tp-muted-fg)', fontVariantNumeric: 'tabular-nums' }}>{formatNumber(index + 1, locale)}. </span>
           {title}
         </h3>
-        <p style={{ fontSize: board ? 'var(--tp-fs-kds-sm)' : 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', lineHeight: 1.5 }}>{body}</p>
+        <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', lineHeight: 1.5 }}>{body}</p>
         {(step.badges?.length || step.keys?.length) && (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--tp-sp-1-5)', alignItems: 'center' }}>
             {step.badges?.map((b) => (
@@ -234,7 +229,7 @@ function GuideStepRow({
               display: 'inline-flex',
               alignItems: 'center',
               gap: 'var(--tp-sp-1-5)',
-              fontSize: board ? 'var(--tp-fs-kds-sm)' : 'var(--tp-fs-sm)',
+              fontSize: 'var(--tp-fs-sm)',
               fontWeight: 600,
               cursor: 'pointer',
               minBlockSize: 'var(--tp-row-h)',

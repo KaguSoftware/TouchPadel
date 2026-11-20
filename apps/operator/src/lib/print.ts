@@ -16,7 +16,7 @@
  *     print dialog IS the printer; asked for by the same press.
  *
  * Kitchen tickets ('kitchen' in the IPC validator) are not printed anywhere:
- * the kitchen works from its screen (KDS), and a paper copy is not part of
+ * the baristas watch the orders tab, and a paper copy is not part of
  * this build.
  */
 import type { MessageKey } from '@touch/i18n';

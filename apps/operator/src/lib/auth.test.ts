@@ -88,17 +88,14 @@ describe('canAccess — longest-prefix match, default deny', () => {
 
   it('keeps the legacy top-level matrix intact', () => {
     expect(canAccess('cashier', '/till')).toBe(true);
-    expect(canAccess('cashier', '/kds')).toBe(false);
-    expect(canAccess('prep', '/kds')).toBe(true);
     expect(canAccess('court_desk', '/desk')).toBe(true);
     expect(canAccess('court_desk', '/admin')).toBe(false);
     expect(canAccess('manager', '/stock')).toBe(true);
   });
 
-  it('gives the bar and kitchen family the kitchen display and My tasks, and only those', () => {
+  it('gives the bar and kitchen family My tasks, and only that', () => {
     for (const role of KITCHEN_FAMILY) {
-      expect(canAccess(role, '/kds'), role).toBe(true);
-      // /tasks is the board's "My tasks" (§5.1); every other route answers
+      // /tasks is their landing (§5.1); every other route answers
       // exactly as it does for prep, which gets nothing new.
       expect(canAccess(role, '/tasks'), role).toBe(true);
       for (const route of Object.keys(ROUTE_ROLES).filter((r) => r !== '/tasks')) {
@@ -117,8 +114,9 @@ describe('canAccess — longest-prefix match, default deny', () => {
     }
   });
 
-  it('opens My tasks to every hireable role but management, and never to prep (§5.1)', () => {
+  it('opens My tasks to every hireable role but management, and to the retired prep role, which has no other page (§5.1)', () => {
     const TASKS = [
+      'prep',
       'cashier',
       'waiter',
       'court_desk',
@@ -161,10 +159,10 @@ describe('allowedRoutes — top-level entries only', () => {
   it('filters by role', () => {
     // Wave 5: the till reports incidents (wave5-addendum-2026-09-25 §5.2).
     expect(allowedRoutes('cashier')).toEqual(['/till', '/tasks', '/incidents']);
-    expect(allowedRoutes('prep')).toEqual(['/kds']);
-    expect(allowedRoutes('chef')).toEqual(['/kds', '/tasks']);
+    expect(allowedRoutes('prep')).toEqual(['/tasks']);
+    expect(allowedRoutes('chef')).toEqual(['/tasks']);
     expect(allowedRoutes('driver')).toEqual(['/tasks']);
-    expect(allowedRoutes('assistant_barista')).toEqual(['/kds', '/tasks']);
+    expect(allowedRoutes('assistant_barista')).toEqual(['/tasks']);
     expect(allowedRoutes('waiter')).toEqual(['/tasks']);
     expect(allowedRoutes('manager')).toContain('/admin');
     expect(allowedRoutes('manager')).not.toContain('/analytics');
@@ -208,11 +206,11 @@ describe('homeRoute', () => {
   it('lands each role on its module', () => {
     // Spec §04 workspace map: each role signs into its own landing screen.
     expect(homeRoute('cashier')).toBe('/till');
-    expect(homeRoute('prep')).toBe('/kds');
+    expect(homeRoute('prep')).toBe('/tasks');
     expect(homeRoute('court_desk')).toBe('/desk/today');
     expect(homeRoute('manager')).toBe('/ops');
     expect(homeRoute('owner')).toBe('/panel');
-    for (const role of KITCHEN_FAMILY) expect(homeRoute(role), role).toBe('/kds');
+    for (const role of KITCHEN_FAMILY) expect(homeRoute(role), role).toBe('/tasks');
     // Marketing opens on its month's content plan (0362).
     for (const role of TEAM) expect(homeRoute(role), role).toBe(role === 'marketing' ? '/plan' : '/tasks');
   });

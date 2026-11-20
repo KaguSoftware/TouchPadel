@@ -25,9 +25,6 @@ export const managerEn = {
       waiterCalls: 'Tables calling for a waiter',
       waiterCallsHint: 'Guests are asking for a waiter or the bill.',
       waiterCallsAction: 'Answer calls',
-      ticketsLate: 'Kitchen orders running late',
-      ticketsLateHint: 'They are past the time the kitchen aims for. The kitchen screen shows which.',
-      ticketsLateNote: 'Tell the kitchen',
       deposits: 'Online refunds needing attention',
       depositsHint: 'Guests paid online and the money has not gone back to them yet.',
       depositsAction: 'Review refunds',
@@ -66,9 +63,6 @@ export const managerEn = {
       cafeLink: 'See tabs',
       openTabs: 'Open tabs',
       orders: 'Orders today',
-      kitchen: 'Kitchen',
-      waiting: 'Waiting',
-      preparing: 'Being made',
     },
     // The two things that stop the day closing, then the way to Day close,
     // where the cash is counted. The badge reuses dayClose.state's words.
@@ -177,7 +171,6 @@ export const managerEn = {
     tabUnnamed: 'Tab without a name',
     writes: {
       order: 'Order',
-      ticket: 'Kitchen ticket',
       payment: 'Payment',
       booking: 'Booking',
       waiterCall: 'Waiter call',

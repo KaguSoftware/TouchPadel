@@ -108,17 +108,17 @@ describe('SetupHomeScreen', () => {
 
   it('finds a setting by what the owner calls it, and opens its page', async () => {
     renderSetup('owner');
-    await userEvent.type(screen.getByRole('searchbox', { name: 'Deposit, opening hours, kitchen screen…' }), 'kitchen');
+    await userEvent.type(screen.getByRole('searchbox', { name: 'Deposit, opening hours, offline mode…' }), 'offline');
     const results = screen.getByRole('list', { name: 'Pages and settings' });
     const first = within(results).getAllByRole('link')[0]!;
-    expect(first.getAttribute('href')).toBe('/admin/settings/kitchen');
-    expect(within(first).getByText('Kitchen screens')).toBeTruthy();
+    expect(first.getAttribute('href')).toBe('/admin/settings/offline');
+    expect(within(first).getByText('No-internet mode')).toBeTruthy();
     expect(within(first).getByText('Settings › Computers & screens')).toBeTruthy();
   });
 
   it('offers a manager only the settings a manager may open', async () => {
     renderSetup('manager');
-    await userEvent.type(screen.getByRole('searchbox', { name: 'Deposit, opening hours, kitchen screen…' }), 'staff');
+    await userEvent.type(screen.getByRole('searchbox', { name: 'Deposit, opening hours, offline mode…' }), 'staff');
     const hrefs = screen.queryAllByRole('link').map((a) => a.getAttribute('href'));
     expect(hrefs).not.toContain('/admin/staff');
   });

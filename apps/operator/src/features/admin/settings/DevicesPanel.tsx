@@ -1,7 +1,7 @@
 /**
  * The devices behind offline (degraded) mode — 0118 / C2.
  *
- * Every till, desk and kitchen screen that has ever called app.heartbeat has a
+ * Every till and desk that has ever called app.heartbeat has a
  * row here, and app.is_degraded reasons over those rows: "a till exists and no
  * till is fresh". A till that was renamed, replaced or set up against the wrong
  * project therefore keeps the venue offline until somebody removes its row,

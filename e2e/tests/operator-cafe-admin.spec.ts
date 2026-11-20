@@ -8,7 +8,6 @@
  *  (c) Tables & QR  — one A6 card per active table at print time; the bell switch persists.
  *  (d) Telegram     — the test message enqueues even with no bot configured.
  *  (e) Analytics    — the zones render sales-only, saying PostHog is missing.
- *  (f) KDS          — a ticket left queued raises the stale banner.
  *  (g) Audit log    — a real action taken here is traceable to a named actor.
  *  (h) Staff        — the owner creates an account, changes its role, removes its access.
  *  (j) Courts       — create a court, see it on the desk, switch it off.
@@ -36,7 +35,6 @@ import {
   voidOpenTabsForTable,
 } from './helpers';
 
-const KDS_TABLE = fixtureTableId(9); // T9 — kept away from the till journey's T8
 const TURKISH_COFFEE = 'f1f70000-0000-4000-8000-00000000e004';
 const KAHI = 'f1f70000-0000-4000-8000-00000000e017';
 
@@ -324,85 +322,6 @@ test.describe('operator cafe admin', () => {
     await page.getByRole('button', { name: 'Period', exact: true }).click();
     await expect(page.getByRole('button', { name: '7 days', pressed: true })).toBeVisible();
     await page.keyboard.press('Escape');
-  });
-
-  test('(f) a ticket left queued raises the KDS stale banner', async ({ page }) => {
-    await voidOpenTabsForTable(svc, KDS_TABLE);
-
-    // Build a real guest order on T9, then age its ticket past STALE_SECS (90).
-    const guest = await openGuestSession(KDS_TABLE);
-    const order = await appRpc<{ ticket_id: string }>(guest.client, 'create_guest_order', {
-      p_items: [{ variant_id: 'f1f70000-0000-4000-8000-0000f0010001', qty: 1 }],
-      p_idempotency_key: `e2e-kds-${Date.now()}`,
-    });
-    const ticketId = order.ticket_id;
-    await guest.client.auth.signOut();
-    await svc
-      .from('tickets')
-      .update({ created_at: new Date(Date.now() - 100_000).toISOString() })
-      .eq('id', ticketId);
-
-    await signIn(page, SEED_STAFF.prep);
-    await expect(page.getByText('⚠', { exact: false }).first()).toBeVisible({ timeout: 60_000 });
-    await expect(page.getByText('need attention', { exact: false })).toBeVisible();
-    await expect(page.getByText('Waiting too long').first()).toBeVisible();
-
-    // Clear it so the KDS board is clean for other runs.
-    const prep = await signedInClient(SEED_STAFF.prep);
-    try {
-      await appRpc(prep, 'set_ticket_status', { p_ticket_id: ticketId, p_status: 'preparing' });
-      await appRpc(prep, 'set_ticket_status', { p_ticket_id: ticketId, p_status: 'ready' });
-      await appRpc(prep, 'set_ticket_status', { p_ticket_id: ticketId, p_status: 'completed' });
-    } finally {
-      await prep.auth.signOut();
-    }
-    await voidOpenTabsForTable(svc, KDS_TABLE);
-  });
-
-  test('(i) an item-ready mark survives a reload — server state since 0061', async ({ page }) => {
-    await voidOpenTabsForTable(svc, KDS_TABLE);
-    const guest = await openGuestSession(KDS_TABLE);
-    const order = await appRpc<{ ticket_id: string }>(guest.client, 'create_guest_order', {
-      p_items: [
-        { variant_id: 'f1f70000-0000-4000-8000-0000f0010001', qty: 1 },
-        { variant_id: 'f1f70000-0000-4000-8000-0000f0050001', qty: 1 },
-      ],
-      p_idempotency_key: `e2e-kds-ready-${Date.now()}`,
-    });
-    const ticketId = order.ticket_id;
-    await guest.client.auth.signOut();
-
-    await signIn(page, SEED_STAFF.prep);
-    // The checkbox's accessible name is its line ("1× Espresso (Regular)") —
-    // target by name so leftovers from other cases can't shift the indexes.
-    const espresso = page.getByRole('checkbox', { name: /Espresso/ }).first();
-    const karak = page.getByRole('checkbox', { name: /Karak/ }).first();
-    await expect(espresso).toBeVisible({ timeout: 30_000 });
-
-    // Tick one item; the mark is optimistic, then persisted server-side.
-    // click(), not check(): the box is controlled, and the optimistic mark lands
-    // only after onMutate's `await cancelQueries`, so under load check()'s
-    // immediate read saw it still clear ("did not change its state"). The
-    // retrying toBeChecked waits for that tick instead.
-    await espresso.click();
-    await expect(espresso).toBeChecked();
-
-    // The audit's M1 repro: a reload used to lose every mark.
-    await page.reload();
-    await expect(page.getByRole('checkbox', { name: /Espresso/ }).first()).toBeChecked({
-      timeout: 30_000,
-    });
-    await expect(karak).not.toBeChecked();
-
-    // Clean up: run the ticket out so other cases see an empty board.
-    const prep = await signedInClient(SEED_STAFF.prep);
-    try {
-      await appRpc(prep, 'set_ticket_status', { p_ticket_id: ticketId, p_status: 'ready' });
-      await appRpc(prep, 'set_ticket_status', { p_ticket_id: ticketId, p_status: 'completed' });
-    } finally {
-      await prep.auth.signOut();
-    }
-    await voidOpenTabsForTable(svc, KDS_TABLE);
   });
 
   test('(j) courts admin: create a court, see it on the desk, deactivate it', async ({ page }) => {

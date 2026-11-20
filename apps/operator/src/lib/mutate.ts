@@ -145,11 +145,6 @@ export const DIRECT_RPC: Record<MutationType, PayloadMapper> = {
       p_expected_total_iqd: p?.expectedTotalIqd ?? null,
     },
   }),
-  'ticket.status': (p, _key, device) => ({
-    // set_ticket_status is transition-idempotent; it declares NO p_idempotency_key.
-    fn: 'set_ticket_status',
-    args: { p_ticket_id: p?.ticketId, p_status: p?.status, p_device_id: device },
-  }),
   'adjustment.apply': (p, key, device) =>
     p?.kind === 'price_override'
       ? {
@@ -273,7 +268,7 @@ export const DIRECT_RPC: Record<MutationType, PayloadMapper> = {
   }),
   'order_item.void': (p, _key, device) => ({
     // void_order_item_internal answers a repeat with {duplicate:true} (0039), so
-    // void_after_send declares NO p_idempotency_key — like set_ticket_status.
+    // void_after_send declares NO p_idempotency_key.
     fn: 'void_after_send',
     args: { p_order_item_id: p?.orderItemId, p_pin: p?.pin, p_reason_code: p?.reasonCode, p_device_id: device },
   }),

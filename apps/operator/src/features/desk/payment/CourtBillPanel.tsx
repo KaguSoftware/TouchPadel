@@ -81,7 +81,6 @@ import { useBookingBill } from './useBookingBill';
 import { BillDiscountDialog } from '../../discounts/BillDiscountDialog';
 import { canDiscount, rpcMissing, useAutoCustomerDiscount, useBillDiscount } from '../../discounts/useCustomerDiscount';
 import { useDiscountWords } from '../../discounts/useDiscountWords';
-import { KitchenReachFlag } from '../../till/KitchenReachFlag';
 
 type Method = 'cash' | 'card';
 
@@ -400,8 +399,6 @@ export function CourtBillView({
         {dayBlocked && (canTakePayment(state) || state === 'closeBill') && <MessagePresenter tone="refused" icon="lock" message={tr('ws.courtDesk.payment.dayClosed')} />}
         {notice && <MessagePresenter tone="refused" message={notice} />}
         <ErrorText error={paying || confirmClose ? null : error} />
-        {/* F-11 (0399): a café order on this booking's bill no kitchen screen has drawn. */}
-        {tab && <KitchenReachFlag tabId={tab.id} />}
         {/* 0403: also while it owes nothing, so a free hour that covered the fee keeps its Undo. */}
         {tab && (state === 'billOpen' || state === 'closeBill') && !matchBooking && (
           // No promotion apply on the desk's bill: a deal picked in the app is named, not applied here.

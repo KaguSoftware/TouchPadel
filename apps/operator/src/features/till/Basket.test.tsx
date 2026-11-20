@@ -56,7 +56,7 @@ describe('Basket — Send and the estimate hold their place', () => {
     const rows = [...view.container.querySelector('section')!.children];
     const heading = view.getByText(/Basket for/);
     const lines = view.getByText(/Turkish Coffee|Flat White/);
-    const send = view.getByRole('button', { name: /send to kitchen/i });
+    const send = view.getByRole('button', { name: /place order/i });
 
     const headingRow = rows.findIndex((r) => r.contains(heading));
     const linesRow = rows.findIndex((r) => r.contains(lines));
@@ -70,7 +70,7 @@ describe('Basket — Send and the estimate hold their place', () => {
     for (const expanded of [false, true]) {
       const view = renderBasket(expanded);
       const rows = [...view.container.querySelector('section')!.children];
-      const send = view.getByRole('button', { name: /send to kitchen/i });
+      const send = view.getByRole('button', { name: /place order/i });
       const estimate = view.getByText('Estimated total');
 
       // Last row either way: opening adds the list ABOVE these, so nothing

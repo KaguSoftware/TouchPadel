@@ -65,7 +65,6 @@ type Go = (href: string) => void;
 /** Each row's words. The wave-5 rows keep the words that live with their screens, so Observe says the same. */
 const COPY: Record<NeedKey, { title: MessageKey; hint: MessageKey; action: MessageKey }> = {
   waiterCalls: { title: 'ws.manager.ops.needs.waiterCalls', hint: 'ws.manager.ops.needs.waiterCallsHint', action: 'ws.manager.ops.needs.waiterCallsAction' },
-  ticketsLate: { title: 'ws.manager.ops.needs.ticketsLate', hint: 'ws.manager.ops.needs.ticketsLateHint', action: 'ws.manager.ops.needs.ticketsLateNote' },
   deposits: { title: 'ws.manager.ops.needs.deposits', hint: 'ws.manager.ops.needs.depositsHint', action: 'ws.manager.ops.needs.depositsAction' },
   lessonRefunds: { title: 'ws.manager.ops.needs.lessonRefunds', hint: 'ws.manager.ops.needs.lessonRefundsHintNoTotal', action: 'ws.manager.ops.needs.lessonRefundsAction' },
   matchReports: { title: 'ws.manager.ops.needs.matchReports', hint: 'ws.manager.ops.needs.matchReportsHint', action: 'ws.manager.ops.needs.matchReportsAction' },

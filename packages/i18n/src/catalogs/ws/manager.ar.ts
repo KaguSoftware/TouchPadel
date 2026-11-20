@@ -22,9 +22,6 @@ export const managerAr: DeepMessages<typeof managerEn> = {
       waiterCalls: 'طاولات تطلب النادل',
       waiterCallsHint: 'ضيوف على طاولاتهم يطلبون النادل أو الفاتورة.',
       waiterCallsAction: 'الردّ على النداءات',
-      ticketsLate: 'طلبات متأخرة في المطبخ',
-      ticketsLateHint: 'تجاوزت الوقت المحدد لتحضيرها، وتعرضها شاشة المطبخ.',
-      ticketsLateNote: 'أبلِغ المطبخ',
       deposits: 'استردادات إلكترونية تحتاج إلى متابعة',
       depositsHint: 'دفع ضيوف إلكترونيًا ولم تُردّ إليهم أموالهم بعد.',
       depositsAction: 'مراجعة الاستردادات',
@@ -61,9 +58,6 @@ export const managerAr: DeepMessages<typeof managerEn> = {
       cafeLink: 'عرض الفواتير',
       openTabs: 'الفواتير المفتوحة',
       orders: 'طلبات اليوم',
-      kitchen: 'المطبخ',
-      waiting: 'في الانتظار',
-      preparing: 'قيد التحضير',
     },
     close: {
       title: 'قبل إغلاق اليوم',
@@ -168,7 +162,6 @@ export const managerAr: DeepMessages<typeof managerEn> = {
     tabUnnamed: 'فاتورة بلا اسم',
     writes: {
       order: 'طلب',
-      ticket: 'تذكرة مطبخ',
       payment: 'دفعة',
       booking: 'حجز',
       waiterCall: 'نداء النادل',

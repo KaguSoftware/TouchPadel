@@ -1,7 +1,6 @@
 /**
  * The refusal a screen shows on a station of the wrong kind (F-29): the shop
- * till and drawer off the shop station, the kitchen board off a kitchen
- * screen or the café till. Rules in lib/stationKind.ts.
+ * till and drawer off the shop station. Rules in lib/stationKind.ts.
  */
 import type { ReactNode } from 'react';
 import { Link } from '@tanstack/react-router';
@@ -23,8 +22,8 @@ export function StationKindGate({ screen, children }: { screen: StationScreen; c
     <div role="alert" data-testid="station-kind-refused" style={{ maxInlineSize: 'var(--tp-measure-form)', marginInline: 'auto', paddingBlock: 'var(--tp-sp-5)' }}>
       <EmptyState
         icon="ban"
-        title={tr(screen === 'shopTill' ? 'ws.shell.stationKind.shopTitle' : 'ws.shell.stationKind.kdsTitle')}
-        body={tr(screen === 'shopTill' ? 'ws.shell.stationKind.shopBody' : 'ws.shell.stationKind.kdsBody', { mode })}
+        title={tr('ws.shell.stationKind.shopTitle')}
+        body={tr('ws.shell.stationKind.shopBody', { mode })}
         action={
           staff ? (
             <Link to={homeRouteFor(staff)} className="tp-link">

@@ -6,7 +6,6 @@
 export const IPC = {
   enqueue: 'touch:enqueue',
   queueUpdate: 'touch:queue-update',
-  lanTicket: 'touch:lan-ticket',
   getCachedRef: 'touch:get-cached-ref',
   print: 'touch:print',
   unlockPin: 'touch:unlock-pin',
@@ -19,14 +18,6 @@ export const IPC = {
   getStation: 'touch:get-station',
   /** Renderer → main (send): the staff session the sync worker replays with. */
   authState: 'touch:auth-state',
-  /**
-   * Renderer → main (send): the kitchen board is (or is no longer) the screen
-   * on show. A wall-mounted board has no pointer near its top corner and
-   * nobody meant to close it, so the macOS traffic lights are hidden while it
-   * is up — the window is one OS window, so this cannot be decided per screen
-   * at creation time.
-   */
-  chromeless: 'touch:chromeless',
   /** Renderer → main (send): the heartbeat's verdict on server reachability. */
   connState: 'touch:conn-state',
   /**
@@ -38,7 +29,7 @@ export const IPC = {
   closeRequested: 'touch:close-requested',
   /**
    * Main → renderer (push): the window entered or left full screen, by any
-   * route — the green traffic light, the kitchen board, kiosk mode, or the
+   * route — the green traffic light, a full-screen board, kiosk mode, or the
    * rail's own "Exit forced full screen". The rail shows that row only while
    * it is true, because in a window the macOS buttons already do the job.
    */
@@ -57,8 +48,6 @@ export const IPC = {
    * own PIN" rule for leaving the station needs it offline).
    */
   pinObserved: 'touch:pin-observed',
-  /** Renderer → main (send, KDS stations): a bump to carry over the LAN to the till. */
-  lanStatus: 'touch:lan-status',
   /**
    * Invoke (manager PIN, not the signed-in person's own): quit to desktop —
    * the only way a production window closes. Staff are kept inside the app.
@@ -72,10 +61,6 @@ export const IPC = {
   exitFullscreen: 'touch:exit-fullscreen',
   /** Invoke (first run only): write station.json, then relaunch. Refused once configured. */
   saveStation: 'touch:save-station',
-  /** Invoke (till, manager PIN): LAN host + port + the pairing code a kitchen screen types. */
-  getPairingInfo: 'touch:get-pairing-info',
-  /** Invoke (unconfigured kitchen screen): sweep the LAN for a till that accepts this code. */
-  discoverTill: 'touch:discover-till',
   /** Main → renderer (push): an update has downloaded and waits for a restart. */
   updateReady: 'touch:update-ready',
   /** Invoke: the updateReady payload, or null — for a renderer that mounted after the push. */
@@ -88,39 +73,7 @@ export const IPC = {
    * address; any other station mode answers `not_shop_station`.
    */
   fetchSupplierPage: 'touch:fetch-supplier-page',
-  /**
-   * F-11. Renderer → main (send, KDS stations): refs of LAN tickets this
-   * kitchen screen has drawn; carried to the till as a ticket.ack frame.
-   */
-  lanAck: 'touch:lan-ack',
-  /**
-   * F-11. Main → renderer (push) and invoke (till stations): which of this
-   * till's LAN tickets a kitchen screen has drawn, and how many kitchen
-   * screens are connected over the LAN.
-   */
-  lanReach: 'touch:lan-reach',
-  /**
-   * F-11. Renderer → main (send, till stations): the cloud's status of tickets
-   * the till also holds on the LAN (ref = the order's idempotency key), so a
-   * KDS that falls back to the LAN never gets a ticket finished on the cloud
-   * board as new work.
-   */
-  lanCloudStatus: 'touch:lan-cloud-status',
-  /**
-   * F-57. Invoke (KDS stations): is the LAN link to the till up? true / false,
-   * or null where this station has no LAN link at all. Changes arrive as
-   * `link` frames on lanTicket.
-   */
-  lanLink: 'touch:lan-link',
 } as const;
-
-/** F-11: the till's view of its LAN kitchen screens (IPC.lanReach). */
-export interface LanReach {
-  /** Order keys (LAN refs) a kitchen screen has drawn, recent first-in order. */
-  acked: string[];
-  /** Kitchen screens connected to this till over the LAN right now. */
-  kdsConnected: number;
-}
 
 /**
  * Pushed by the renderer on every auth change (sign-in, TOKEN_REFRESHED,
@@ -178,12 +131,12 @@ export type ResolveQueueRowResult =
 
 export interface MutationEnvelope {
   /** Client entity ref: '{station}-{ulid}' (plan override #2). The station segment may
-   *  differ from deviceId when the till enqueues on the KDS's behalf. */
+   *  differ from deviceId. */
   localId: string;
   /** '{station}:{mutation_type}:{ulid}' — station segment MUST equal deviceId (the
    *  queue owner mints the key; the replay function enforces the same pair). */
   idempotencyKey: string;
-  /** 'order.create' | 'order.add_items' | 'ticket.status' | 'payment.record' | ... */
+  /** 'order.create' | 'order.add_items' | 'payment.record' | ... */
   mutationType: string;
   payload: unknown;
   /** Station clock, informational. */
@@ -216,38 +169,6 @@ export interface QueueStatus {
   blocking: number;
 }
 
-/** What the LAN delivers (the wire types live in main/lan-frames.ts) — frames
- *  are forwarded to the KDS renderer verbatim over IPC.lanTicket. */
-export interface KitchenTicket {
-  /** The order envelope's idempotency key — the ticket's LAN identity. */
-  ref: string;
-  tabLabel: string | null;
-  /** 0351: absent from an older till's frame, which meant deliver. */
-  service?: 'deliver' | 'pickup';
-  items: {
-    variantId: string;
-    qty: number;
-    notes?: string;
-    modifiers: { modifierId: string; qty: number }[];
-  }[];
-  createdAt: string;
-  status: 'queued' | 'preparing' | 'ready' | 'completed';
-  /** F-11: on the server already (absent from an older till's frame). */
-  synced?: boolean;
-}
-
-export type LanFrameForRenderer =
-  | { type: 'ticket.new'; data: KitchenTicket }
-  | { type: 'ticket.snapshot'; data: KitchenTicket[] }
-  | { type: 'status.update'; data: { ref: string; status: KitchenTicket['status'] } }
-  // F-11 / F-57 (lan-frames.ts): the order reached the server, or was refused.
-  | { type: 'ticket.synced'; data: { ref: string; ticketId: string | null } }
-  | { type: 'ticket.dropped'; data: { ref: string } }
-  // A bump the till refused, or ('link-down') one this station could not send.
-  | { type: 'error'; data: { reason: 'no-staff' | 'enqueue-failed' | 'malformed' | 'link-down'; ref?: string } }
-  // Added by this station's main process: the socket to the till opened or closed.
-  | { type: 'link'; data: { up: boolean } };
-
 export interface PrintJob {
   kind: 'receipt' | 'kitchen' | 'reprint';
   data: unknown;
@@ -278,12 +199,11 @@ export type Role =
   | 'shop_staff'
   | 'dev';
 
-export type StationMode = 'till' | 'desk' | 'kds' | 'shop';
+export type StationMode = 'till' | 'desk' | 'shop';
 
 export interface StationInfo {
   stationId: string;
   mode: StationMode;
-  tillHost?: string;
   /** false ⇔ userData/station.json does not exist yet (first run → setup screen). */
   configured: boolean;
   /** Set when station.json exists but could not be read; dev defaults are in force. */
@@ -311,31 +231,11 @@ export interface StationInfo {
 export interface StationSetupRequest {
   stationId: string;
   mode: StationMode;
-  /** kds only: the till's private IPv4 (discovered, or typed under Advanced). */
-  tillHost?: string;
-  /** kds only: the NORMALISED 10-char pairing code from the till. */
-  pairingCode?: string;
 }
 
 export type StationSetupResult =
   | { ok: true }
   | { ok: false; error: 'already-configured' | 'write-failed' };
-
-export type PairingInfoResult =
-  | { ok: true; stationId: string; host: string | null; port: number; code: string }
-  | { ok: false; error: 'pin not recognised' | 'not-a-till' | 'no-psk' | 'custom-psk' };
-
-export interface DiscoverRequest {
-  code: string;
-  /** Advanced path: confirm this one host instead of sweeping the subnet. */
-  host?: string;
-}
-
-export type DiscoverResult =
-  | { status: 'found'; tills: string[] }
-  | { status: 'bad-code'; candidates: string[] }
-  | { status: 'none' }
-  | { status: 'no-lan' };
 
 /**
  * Why quitApp / exitFullscreen refused to let the station out. `own pin`: a

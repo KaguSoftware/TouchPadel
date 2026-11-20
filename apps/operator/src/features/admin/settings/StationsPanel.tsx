@@ -4,7 +4,7 @@
  * Until 0222 a station existed once its first heartbeat registered it, at
  * whatever branch the signed-in person resolved to. Now a manager or owner
  * registers this machine at the branch on purpose (app.register_station), with
- * what it is (till, desk, kitchen screen), and retires a station that is gone
+ * what it is (till, desk, shop), and retires a station that is gone
  * (app.retire_station: the row stays stamped, its heartbeat goes). A new
  * branch's readiness checklist waits for its first registered till.
  *
@@ -30,7 +30,7 @@ import { EmptyState, Panel, StatusBadge } from '../../../components/kit';
 interface StationRow {
   id: string;
   venue_id: string;
-  mode: 'till' | 'desk' | 'kds' | 'shop' | null;
+  mode: 'till' | 'desk' | 'shop' | null;
   is_till: boolean;
   retired_at: string | null;
   registered_at: string;
@@ -74,7 +74,7 @@ export function StationsPanel() {
       appRpc('register_station', {
         p_id: here,
         p_venue_id: branchId,
-        p_mode: hereMode === 'desk' || hereMode === 'kds' || hereMode === 'shop' ? hereMode : 'till',
+        p_mode: hereMode === 'desk' || hereMode === 'shop' ? hereMode : 'till',
       }),
     onSuccess: () => {
       toast.ok(tr('ws.branches.stations.registered'));
@@ -100,7 +100,7 @@ export function StationsPanel() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-2)', flexWrap: 'wrap' }}>
             <span dir="ltr" style={{ fontWeight: 600 }}>{here}</span>
             <span style={{ color: 'var(--tp-muted-fg)' }}>
-              {tr(`ws.branches.stations.modes.${hereMode === 'desk' || hereMode === 'kds' || hereMode === 'shop' ? hereMode : 'till'}` as MessageKey)}
+              {tr(`ws.branches.stations.modes.${hereMode === 'desk' || hereMode === 'shop' ? hereMode : 'till'}` as MessageKey)}
               {current ? ` · ${pickName(locale, current)}` : ''}
             </span>
             <Button kind="primary" size="sm" busy={register.isPending} onClick={() => register.mutate()} data-testid="station-register">

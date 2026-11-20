@@ -280,15 +280,7 @@ export function readShiftList(raw: unknown): ShiftList {
 // Who, where
 // ---------------------------------------------------------------------------
 
-export type StationMode = 'till' | 'desk' | 'kds' | 'shop';
-
-/**
- * A drawer exists at a till, at the court desk (Q28: the desk counts its own
- * cash box) and at the shop desk (0244). The kitchen screen has none.
- */
-export function stationHasDrawer(mode: StationMode): boolean {
-  return mode === 'till' || mode === 'desk' || mode === 'shop';
-}
+export type StationMode = 'till' | 'desk' | 'shop';
 
 export interface Holder {
   /** SHIFT: the settle_tab list (cashier, court_desk, manager, owner), i.e. permissions.takeCourtPayment. */
@@ -328,7 +320,7 @@ export interface GateInput extends Holder {
 const OK: ShiftGate = { kind: 'ok', banner: null };
 
 export function shiftGate(i: GateInput): ShiftGate {
-  if (!i.holdsShift || !stationHasDrawer(i.mode)) return OK;
+  if (!i.holdsShift) return OK;
   // Unknown, loading, errored or offline: fail open. A shift is a record of a
   // drawer, never a reason a guest's money is turned away.
   if (i.status === null) return OK;
@@ -371,7 +363,7 @@ export type RailShift =
  * lie), or a manager with no shift here (never asked to hold one).
  */
 export function railShift(i: GateInput): RailShift | null {
-  if (!i.holdsShift || !stationHasDrawer(i.mode) || i.status === null) return null;
+  if (!i.holdsShift || i.status === null) return null;
   const shift = i.status.shift;
   if (shift) {
     return shift.is_mine

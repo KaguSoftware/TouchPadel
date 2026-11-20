@@ -2,14 +2,9 @@ import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron';
 import {
   IPC,
   type AuthState,
-  type DiscoverRequest,
-  type DiscoverResult,
-  type LanFrameForRenderer,
-  type LanReach,
   type LeaveResult,
   type MutationEnvelope,
   type MutationResult,
-  type PairingInfoResult,
   type PinUnlockResult,
   type PrintJob,
   type PrintResult,
@@ -38,31 +33,6 @@ const touch = {
     return () => ipcRenderer.removeListener(IPC.queueUpdate, listener);
   },
 
-  onLanTicket: (cb: (frame: LanFrameForRenderer) => void): (() => void) => {
-    const listener = (_e: IpcRendererEvent, frame: LanFrameForRenderer) => cb(frame);
-    ipcRenderer.on(IPC.lanTicket, listener);
-    return () => ipcRenderer.removeListener(IPC.lanTicket, listener);
-  },
-
-  sendLanStatus: (update: { ref: string; status: 'preparing' | 'ready' | 'completed' }): void =>
-    ipcRenderer.send(IPC.lanStatus, update),
-
-  // F-11 / F-57: kitchen reach over the LAN.
-  /** KDS: refs of LAN tickets this screen has drawn. */
-  sendLanAck: (refs: string[]): void => ipcRenderer.send(IPC.lanAck, refs),
-  /** KDS: the link to the till (null = this station has none). */
-  getLanLink: (): Promise<boolean | null> => ipcRenderer.invoke(IPC.lanLink),
-  /** Till: the cloud's statuses of tickets the LAN ring may hold. */
-  pushLanCloudStatus: (updates: { ref: string; status: 'queued' | 'preparing' | 'ready' | 'completed' }[]): void =>
-    ipcRenderer.send(IPC.lanCloudStatus, updates),
-  /** Till: which of its LAN tickets a kitchen screen drew; the current state first, then every change. */
-  onLanReach: (cb: (reach: LanReach | null) => void): (() => void) => {
-    const listener = (_e: IpcRendererEvent, reach: LanReach) => cb(reach);
-    ipcRenderer.on(IPC.lanReach, listener);
-    void ipcRenderer.invoke(IPC.lanReach).then((reach: LanReach | null) => cb(reach));
-    return () => ipcRenderer.removeListener(IPC.lanReach, listener);
-  },
-
   quitApp: (pin: string): Promise<LeaveResult> => ipcRenderer.invoke(IPC.quitApp, pin),
 
   exitFullscreen: (pin: string): Promise<LeaveResult> =>
@@ -73,8 +43,6 @@ const touch = {
   // Fire-and-forget pushes: the renderer is the auth + connectivity authority.
   pushAuthState: (s: AuthState | null): void => ipcRenderer.send(IPC.authState, s),
   pushConnState: (online: boolean): void => ipcRenderer.send(IPC.connState, online),
-  /** The kitchen board is up (or gone) — hides/shows the macOS traffic lights. */
-  pushChromeless: (chromeless: boolean): void => ipcRenderer.send(IPC.chromeless, chromeless),
   cachePut: (key: string, payload: unknown): void =>
     ipcRenderer.send(IPC.cachePut, { key, payload }),
   pinObserved: (pin: string, staffId?: string, tier?: 'manager' | 'self'): void =>
@@ -120,13 +88,9 @@ const touch = {
   // value is static per boot.
   getStation: (): StationInfo => ipcRenderer.sendSync(IPC.getStation) as StationInfo,
 
-  // First-run setup + kitchen-screen pairing (main/first-run.ts, main/lan-discover.ts).
+  // First-run setup (main/first-run.ts).
   saveStation: (req: StationSetupRequest): Promise<StationSetupResult | { error: string }> =>
     ipcRenderer.invoke(IPC.saveStation, req),
-  getPairingInfo: (pin: string): Promise<PairingInfoResult | { error: string }> =>
-    ipcRenderer.invoke(IPC.getPairingInfo, pin),
-  discoverTill: (req: DiscoverRequest): Promise<DiscoverResult | { error: string }> =>
-    ipcRenderer.invoke(IPC.discoverTill, req),
 
   // Auto-update (main/updater.ts). The rail mounts after sign-in, long after
   // the push may have landed, so a subscriber first asks for the current state.

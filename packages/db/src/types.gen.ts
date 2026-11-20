@@ -2503,9 +2503,6 @@ export type Database = {
       }
       jsonb_top_keys_text: { Args: { p: Json }; Returns: string }
       jsonb_uuids: { Args: { p: Json }; Returns: string[] }
-      kds_ack_tickets: { Args: { p_ticket_ids: string[] }; Returns: Json }
-      kitchen_board: { Args: { p_venue_id?: string }; Returns: Json }
-      kitchen_reach: { Args: { p_since?: string }; Returns: Json }
       legacy_add_to_figures: {
         Args: { p_fig: Json; p_lg: Json }
         Returns: Json
@@ -4678,10 +4675,6 @@ export type Database = {
       }
       readable_venue_ids: { Args: never; Returns: string[] }
       reason_given: { Args: { p_reason: string }; Returns: boolean }
-      recall_ticket: {
-        Args: { p_device_id?: string; p_ticket_id: string }
-        Returns: Json
-      }
       receipt_begin_reading: {
         Args: { p_id: string; p_requested_by?: string }
         Returns: Json
@@ -5428,14 +5421,6 @@ export type Database = {
         }
         Returns: undefined
       }
-      set_order_item_ready: {
-        Args: {
-          p_device_id?: string
-          p_order_item_id: string
-          p_ready: boolean
-        }
-        Returns: Json
-      }
       set_promotion_app: {
         Args: {
           p_blurb_ar?: string
@@ -5551,14 +5536,6 @@ export type Database = {
           p_label?: string
           p_staff_id: string
           p_tg_user_id: number
-        }
-        Returns: Json
-      }
-      set_ticket_status: {
-        Args: {
-          p_device_id?: string
-          p_status: Database["public"]["Enums"]["ticket_status"]
-          p_ticket_id: string
         }
         Returns: Json
       }
@@ -19365,7 +19342,6 @@ export type Database = {
           device_id: string | null
           id: string
           idempotency_key: string | null
-          kds_seen_at: string | null
           last_actor_label: string | null
           order_id: string
           ready_at: string | null
@@ -19381,7 +19357,6 @@ export type Database = {
           device_id?: string | null
           id?: string
           idempotency_key?: string | null
-          kds_seen_at?: string | null
           last_actor_label?: string | null
           order_id: string
           ready_at?: string | null
@@ -19397,7 +19372,6 @@ export type Database = {
           device_id?: string | null
           id?: string
           idempotency_key?: string | null
-          kds_seen_at?: string | null
           last_actor_label?: string | null
           order_id?: string
           ready_at?: string | null

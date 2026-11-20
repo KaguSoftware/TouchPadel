@@ -239,10 +239,6 @@ export const ROUTE_ROLES: Record<string, readonly StaffRole[]> = {
   '/desk/tournaments': ['court_desk', 'manager', 'owner'],
   // The open matches list (Courts › Open matches): the desk's roles; one match (`/desk/matches/$id`) inherits `/desk`.
   '/desk/matches': ['court_desk', 'manager', 'owner'],
-  // The bar and kitchen family (0155) has exactly what prep had: this board
-  // and nothing else. Prep stays listed while accounts still hold it. The
-  // assistant barista (wave 5 §2.1) works the bar's tickets here too.
-  '/kds': ['prep', 'head_barista', 'barista', 'assistant_barista', 'head_chef', 'chef', 'manager', 'owner'],
   '/stock': ['manager', 'owner'],
   // Touch Shop's own desk (0243–0246): the shop assistant works here and
   // nowhere else; management opens it too.
@@ -262,12 +258,10 @@ export const ROUTE_ROLES: Record<string, readonly StaffRole[]> = {
   // them and works the results (void). The court desk records a result from a
   // booking's screen (recordRanks), not here.
   '/admin/ranks': ['manager', 'owner'],
-  // Setup's settings pages (management rebuild, 2026-10-17). Two stay the
-  // owner's, as they were before they became pages: what analytics leaves out
-  // (its tab was hidden from a manager) and the kitchen screen pairing (it
-  // lived on the owner-only /setup).
+  // Setup's settings pages (management rebuild, 2026-10-17). One stays the
+  // owner's, as it was before it became a page: what analytics leaves out
+  // (its tab was hidden from a manager).
   '/admin/settings/analytics': ['owner'],
-  '/admin/settings/kitchen': ['owner'],
   '/analytics': ['owner'],
   '/ops': ['manager', 'owner'],
   '/panel': ['owner'],
@@ -302,9 +296,10 @@ export const ROUTE_ROLES: Record<string, readonly StaffRole[]> = {
   // Every hireable role that is not management works its protocol steps here
   // as well as on the phone (build-contracts-2026-09-23 §5.1, Q2): the
   // driver's, marketing's and the waiter's landing screen, a rail row for the
-  // till and the desk, and the kitchen board's "My tasks" for the bar and
-  // kitchen. Manager and owner work theirs on /protocols; prep gets nothing new.
+  // till and the desk, and the bar and kitchen's own landing screen.
+  // Manager and owner work theirs on /protocols; prep gets nothing new.
   '/tasks': [
+    'prep',
     'cashier',
     'waiter',
     'court_desk',
@@ -375,7 +370,6 @@ export const SUB_ROUTES = {
     '/admin/settings/tournaments',
     '/admin/settings/devices',
     '/admin/settings/stations',
-    '/admin/settings/kitchen',
     '/admin/settings/offline',
     '/admin/staff',
     '/admin/branches',
@@ -731,13 +725,6 @@ export function homeRoute(role: StaffRole): string {
   switch (role) {
     case 'cashier':
       return '/till';
-    case 'prep':
-    case 'head_barista':
-    case 'barista':
-    case 'assistant_barista':
-    case 'head_chef':
-    case 'chef':
-      return '/kds';
     case 'court_desk':
       return '/desk/today';
     case 'manager':
@@ -749,6 +736,14 @@ export function homeRoute(role: StaffRole): string {
       return '/plan';
     case 'driver':
     case 'waiter':
+    // The bar and kitchen family lost its screen: My
+    // tasks is theirs, and the retired prep role's too, so it lands somewhere.
+    case 'prep':
+    case 'head_barista':
+    case 'barista':
+    case 'assistant_barista':
+    case 'head_chef':
+    case 'chef':
       return '/tasks';
     case 'shop_staff':
       return '/shop';

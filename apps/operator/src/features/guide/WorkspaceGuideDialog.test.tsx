@@ -87,11 +87,4 @@ describe('WorkspaceGuideDialog', () => {
     expect(screen.getByTestId('guide-progress').textContent).toMatch(/^تعلّمت 0 من \d+$/);
     expect(screen.getAllByRole('checkbox', { name: 'أعرف هذا' }).length).toBeGreaterThan(0);
   });
-
-  it('the kitchen guide uses the board tone', () => {
-    renderGuide({ workspace: 'prep', role: 'chef' });
-    expect(screen.getByRole('dialog').getAttribute('data-tone')).toBe('board');
-    renderGuide();
-    expect(screen.getAllByRole('dialog')[1]!.getAttribute('data-tone')).toBeNull();
-  });
 });

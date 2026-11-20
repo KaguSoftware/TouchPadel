@@ -2,7 +2,7 @@
   "name": "@touch/operator-shell",
   "version": "0.1.0",
   "private": true,
-  "description": "Electron shell for the Touch Padel operator app: SQLite durable queue, LAN KDS server, heartbeat, printing, kiosk.",
+  "description": "Electron shell for the Touch Padel operator app: SQLite durable queue, heartbeat, printing, kiosk.",
   "main": "dist/main/index.js",
   "scripts": {
     "build": "node esbuild.config.mjs",
@@ -20,7 +20,6 @@
   },
   "dependencies": {
     "better-sqlite3": "^12.2.0",
-    "ws": "^8.18.0",
     "electron-updater": "^6.8.9"
   },
   "devDependencies": {
@@ -28,7 +27,6 @@
     "@touch/core": "workspace:*",
     "@types/better-sqlite3": "^7.6.11",
     "@types/node": "^22.10.0",
-    "@types/ws": "^8.5.13",
     "electron": "^33.2.0",
     "electron-builder": "^26.15.3",
     "esbuild": "^0.28.2",

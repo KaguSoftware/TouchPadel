@@ -76,7 +76,6 @@ describe('rankEntries', () => {
     expect(rankEntries(entries, 'deposit')[0]?.to).toBe('/admin/settings/deposit');
     expect(rankEntries(entries, 'عربون')[0]?.to).toBe('/admin/settings/deposit');
     expect(rankEntries(entries, 'late')[0]?.to).toBe('/attendance');
-    expect(rankEntries(entries, 'kitchen')[0]?.to).toBe('/admin/settings/kitchen');
     expect(rankEntries(entries, 'القاصة')[0]?.to).toBe('/safe');
     expect(rankEntries(entries, 'opening hours')[0]?.to).toBe('/admin/hours');
   });

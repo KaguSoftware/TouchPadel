@@ -188,36 +188,12 @@ describe.skipIf(!up)('cafe flow (QR -> order -> KDS -> stock -> settle -> day cl
     expect((ticket as { status: string }).status).toBe('queued');
   });
 
-  it('prep runs the ticket ready -> completed; actual_prep_seconds stamped', async () => {
-    const ready = await appRpc(prep, 'set_ticket_status', {
-      p_ticket_id: ticketId,
-      p_status: 'ready',
-    }).then(outcome);
-    expect(ready.ok, ready.errorMessage).toBe(true);
+  it('no screen bumps the ticket any more: the bump is gone and the ticket stays queued', async () => {
+    const bump = await appRpc(prep, 'set_ticket_status', { p_ticket_id: ticketId, p_status: 'ready' });
+    expect(bump.error?.code).toBe('PGRST202');
 
-    const done = await appRpc(prep, 'set_ticket_status', {
-      p_ticket_id: ticketId,
-      p_status: 'completed',
-    }).then(outcome);
-    expect(done.ok, done.errorMessage).toBe(true);
-    const secs = (done.data as { actual_prep_seconds: number }).actual_prep_seconds;
-    expect(Number.isInteger(secs)).toBe(true);
-    expect(secs).toBeGreaterThanOrEqual(0);
-
-    const { data: t } = await svc
-      .from('tickets')
-      .select('status, ready_at, completed_at, actual_prep_seconds')
-      .eq('id', ticketId)
-      .single();
-    const tt = t as { status: string; ready_at: string; completed_at: string; actual_prep_seconds: number };
-    expect(tt.status).toBe('completed');
-    expect(tt.ready_at).not.toBeNull();
-    expect(tt.completed_at).not.toBeNull();
-    expect(tt.actual_prep_seconds).not.toBeNull();
-
-    // Mirrored onto the order for the guest status page.
-    const { data: o } = await svc.from('orders').select('status').eq('id', orderId).single();
-    expect((o as { status: string }).status).toBe('served');
+    const { data: t } = await svc.from('tickets').select('status').eq('id', ticketId).single();
+    expect((t as { status: string }).status).toBe('queued');
   });
 
   it('stock consumed FEFO and modifier-aware (oat milk row present)', async () => {

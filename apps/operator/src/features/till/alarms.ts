@@ -1,14 +1,11 @@
 /**
- * Pure stale-alarm state machine shared by KDS tickets and waiter calls
- * (operator-slice §4.2, mirrors UpperDeck §3.5).
+ * Pure stale-alarm state machine for waiter calls (operator-slice §4.2).
  *
- *   Ticket: (pending, age<STALE) FRESH --age>=STALE--> STALE --not pending--> CLEARED
+ *   Call:   (pending, age<STALE) FRESH --age>=STALE--> STALE --not pending--> CLEARED
  *   Unseen: 0 --created while hidden/unfocused--> n+1 --focus/visible--> 0
  *
- * The machine emits effects; the hook (useKdsAlarms.ts) owns the real timers.
+ * The machine emits effects; the hook (useAlarms.ts) owns the real timers.
  */
-export const STALE_SECS = 90;
-export const STALE_REPEAT_MS = 30_000;
 export const RECONCILE_MS = 10_000;
 
 export const CALL_STALE_SECS = 300;
@@ -18,13 +15,12 @@ export interface AlarmConfig {
   staleSecs: number;
   repeatMs: number;
 }
-export const KDS_ALARM_CONFIG: AlarmConfig = { staleSecs: STALE_SECS, repeatMs: STALE_REPEAT_MS };
 export const CALL_ALARM_CONFIG: AlarmConfig = { staleSecs: CALL_STALE_SECS, repeatMs: CALL_REPEAT_MS };
 
-/** Minimal shape both tickets and waiter calls satisfy. */
+/** The minimal shape a waiter call satisfies. */
 export interface AlarmSubject {
   id: string;
-  /** true while the item still needs a first human action (queued / raised). */
+  /** true while the item still needs a first human action (raised). */
   pending: boolean;
   /** epoch ms when it was created / raised. */
   createdMs: number;
@@ -39,12 +35,12 @@ export interface AlarmState {
 export type Effect =
   | { type: 'chime' }
   | { type: 'alarm' }
-  | { type: 'startAlarmTimer'; ticketId: string }
-  | { type: 'stopAlarmTimer'; ticketId: string };
+  | { type: 'startAlarmTimer'; alarmId: string }
+  | { type: 'stopAlarmTimer'; alarmId: string };
 
 export const initialAlarmState: AlarmState = { stale: new Set(), unseen: 0 };
 
-export function isStale(s: AlarmSubject, nowMs: number, cfg: AlarmConfig = KDS_ALARM_CONFIG): boolean {
+export function isStale(s: AlarmSubject, nowMs: number, cfg: AlarmConfig = CALL_ALARM_CONFIG): boolean {
   return s.pending && (nowMs - s.createdMs) / 1000 >= cfg.staleSecs;
 }
 
@@ -57,7 +53,7 @@ export function reconcile(
   subjects: readonly AlarmSubject[],
   nowMs: number,
   prev: AlarmState,
-  cfg: AlarmConfig = KDS_ALARM_CONFIG,
+  cfg: AlarmConfig = CALL_ALARM_CONFIG,
 ): { next: AlarmState; effects: Effect[] } {
   const effects: Effect[] = [];
   const stale = new Set<string>();
@@ -66,12 +62,12 @@ export function reconcile(
   let becameStale = false;
   for (const id of stale) {
     if (!prev.stale.has(id)) {
-      effects.push({ type: 'startAlarmTimer', ticketId: id });
+      effects.push({ type: 'startAlarmTimer', alarmId: id });
       becameStale = true;
     }
   }
   for (const id of prev.stale) {
-    if (!stale.has(id)) effects.push({ type: 'stopAlarmTimer', ticketId: id });
+    if (!stale.has(id)) effects.push({ type: 'stopAlarmTimer', alarmId: id });
   }
   if (becameStale) effects.push({ type: 'alarm' });
 

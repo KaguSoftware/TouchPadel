@@ -9,8 +9,8 @@ const MyTasks = lazyRouteComponent(() => import('../features/tasks/MyTasks'), 'M
  * My tasks: the protocol steps of every hireable role but management, its
  * starts, and a read-only copy of what each role does on the phone
  * (build-contracts-2026-09-23 §5.1, §5.4). The driver's and marketing's
- * landing screen, a rail row on the desk and the till, and the kitchen board's
- * "My tasks" button (ROUTE_ROLES).
+ * landing screen, the bar's and kitchen's too, and a rail row on the desk and the
+ * till (ROUTE_ROLES).
  */
 export const tasksRoute = createRoute({
   getParentRoute: () => rootRoute,

@@ -53,7 +53,7 @@ export const cashierEn = {
     basket: {
       title: 'Basket',
       lines: '{count} unsent',
-      send: 'Send to kitchen',
+      send: 'Place order',
       clear: 'Clear basket',
       remove: 'Remove line',
       estimate: 'Estimated total',
@@ -107,7 +107,7 @@ export const cashierEn = {
       open: 'Keyboard shortcuts',
       title: 'Keyboard shortcuts',
       intro: 'Money is only ever confirmed inside the payment dialog — by its button or Enter.',
-      send: 'Send the basket to the kitchen',
+      send: 'Place the order',
       cash: 'Open the cash payment pane',
       card: 'Open the card payment pane',
       newTab: 'Open a new tab',
@@ -194,10 +194,10 @@ export const cashierEn = {
     linesTitle: 'Lines',
     unsent: 'Unsent',
     sent: 'Sent',
-    sentHint: 'Sent lines are on a kitchen ticket. Voiding one records the item as waste — it is never deleted.',
+    sentHint: 'Placed lines are on the orders tab. Voiding one records the item as waste — it is never deleted.',
     voidLine: 'Void',
     voidAction: 'void a sent line',
-    voidConsequence: 'This item has already gone to the kitchen. Voiding it records it as waste, with your name and the reason. It stays on the tab, crossed out.',
+    voidConsequence: 'This item has already been placed. Voiding it records it as waste, with your name and the reason. It stays on the tab, crossed out.',
     voidRefused: 'This tab has payments, so a sent line cannot be voided now. Refund first, then void.',
     // Item 9 (0120): void and refund ride the durable queue when the link is down.
     voidQueued: 'Void waiting to sync',
@@ -393,23 +393,17 @@ export const cashierEn = {
     // 0352: order first; the table is attached to each order afterwards.
     orderTitle: 'New order',
     start: 'Start order',
-    nameLabel: 'Name or number',
-    counterHint: 'Left empty, it takes the next counter number. Attach a table to each order from the tab, once the guest sits.',
     counterSale: 'Shop counter sale',
     counterSaleHint: 'For someone buying from the shop: no table or booking, just a name or a number.',
     counterNameHint: 'Shown on the tab and on the day close.',
     needLabel: 'Type a name or a number.',
-    // The stepped New order (Sait, 2026-10-22).
-    lead: 'Café till',
-    stepName: 'Name',
-    nextNumber: 'Next number',
-    nextCounterNumber: 'Next counter number',
-    noBookingBody: 'A café order on its own.',
-    tableStepLabel: 'Table or court booking',
-    tableOrderTitle: 'Table order',
+    // New order, one screen (2026-11-20): a name, or the member's card scanned into the same field.
+    nameOrMember: 'Name or member card',
+    nameOrMemberHint: "Type a name, or scan the member's QR. Left empty, it takes the next counter number.",
+    memberSeen: 'Member card: the member goes on this bill.',
+    memberNotAllowed: 'Your role cannot put a member on a bill. Type a name instead.',
+    appCodeHere: 'That is a reward or deal code. Start the order, then scan it on the bill.',
     tableOrderBody: 'Just for {table}.',
-    bookingNote: 'Tied to a booking, the court fee is added when the bill is settled.',
-    reviewBooking: 'Booking',
   },
   // 0352: "Bring to…" on a sent order (order first, the table after).
   delivery: {
@@ -479,15 +473,6 @@ export const cashierEn = {
       items: '{count} items',
       since: 'since {time}',
     },
-  },
-  // F-11 (0396): an order no kitchen screen has shown yet.
-  kitchenReach: {
-    waiting: 'Sent. Waiting for a kitchen screen to show it…',
-    seen: 'On the kitchen screen.',
-    queued: 'Saved on this till. It goes to the kitchen when the connection is back.',
-    notReceived: 'Not received by the kitchen yet. Tell the kitchen about this order.',
-    flag: 'Kitchen has not received it',
-    flagHint: 'No kitchen screen has shown this order yet. Tell the kitchen.',
   },
   // F-06, F-09, F-32 (lane OP-RUNTIME C): the offline tab's payment and the till's disclaimers.
   offlinePay: {

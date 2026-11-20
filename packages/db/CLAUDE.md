@@ -17,6 +17,20 @@ is a line in that file.
 
 ## Migrations
 
+- **0447 (2026-11-20, kitchen_screen_removed; Majed: "fully get rid of the kitchen screen ... delete
+  it remove it erase it"; orders are no longer sent to a kitchen, they are an orders tab the baristas
+  watch):** drops `app.kitchen_board`, `app.kds_ack_tickets`, `app.recall_ticket`,
+  `app.kitchen_reach`, `app.set_order_item_ready` and `app.set_ticket_status`, the
+  `order_items_ready_rt` trigger (`item_ready` event) and `tickets.kds_seen_at`; the access area
+  `kds` leaves `app.access_area_rpcs`, the CHECK on `staff.blocked_areas` (scrubbed from every row
+  first) and `app.set_staff_access` (re-issued from 0362); `recall_ticket` leaves
+  `app.queueable_rpcs`; `app.ops_overview` (from 0292) no longer returns `ticketsQueued`,
+  `ticketsPreparing` or `ticketsLate`. **Kept on purpose:** the `tickets` table and one ticket per
+  sent order (till_add_items, counter orders, Telegram's `app.ticket_transition`, reports), the
+  `kds` realtime topic (waiter calls and delivery announcements ride it) and the `prep` role. A
+  ticket stays `queued` unless a Telegram button moves it; no figure waits on one (reports count an
+  order as served once its tab settles). `tests/kitchen-screen-removed.test.ts`; the four kitchen
+  board test files and their rls-matrix rows are gone.
 - **0446 (2026-11-20, baristas_work_the_till; Majed: "All baristas will take on cashier. Whether
   it's head or not head"):** trigger `staff_barista_cashier` (`app.trg_staff_barista_cashier`,
   BEFORE INSERT OR UPDATE OF role, extra_roles) keeps `cashier` in `staff.extra_roles` for the bar

@@ -55,9 +55,6 @@ export interface OpsOverview {
   cafe: {
     openTabs: number;
     ordersToday: number | null;
-    ticketsQueued: number;
-    ticketsPreparing: number | null;
-    ticketsLate: number;
     waiterCallsOpen: number;
   };
   stock: {
@@ -173,9 +170,6 @@ export function normalizeOverview(raw: unknown): OpsOverview {
     cafe: {
       openTabs: num(cafe.openTabs),
       ordersToday: numOrNull(cafe.ordersToday),
-      ticketsQueued: num(cafe.ticketsQueued),
-      ticketsPreparing: numOrNull(cafe.ticketsPreparing),
-      ticketsLate: num(cafe.ticketsLate),
       waiterCallsOpen: num(cafe.waiterCallsOpen),
     },
     stock: {
@@ -247,10 +241,10 @@ export const STOCK_HREF = {
  * own (online refunds, lesson money, player reports), which a manager read as
  * a second, third and fourth to-do list in three different designs.
  *
- * Order is by who is waiting, never by count, so 597 late tickets cannot push
+ * Order is by who is waiting, never by count, so 40 low ingredients cannot push
  * a guest owed money below them:
  *
- *   1. a guest in the building: a table calling, an order running late;
+ *   1. a guest in the building: a table calling;
  *   2. a guest owed money: online refunds, lesson money paid at the desk;
  *   3. a complaint about a player;
  *   4. the shelves: expired stock (nobody may use it), then running low;
@@ -262,8 +256,7 @@ export const STOCK_HREF = {
  *   - `review`: the queue opens in place, under its row, with every action it
  *     had as a panel (Try again, Refund, Settled another way, Close report,
  *     Ban, the lesson Refund, Record the handback);
- *   - `none`: nothing on this workspace fixes it. Late orders are the kitchen's
- *     to cook, so the row says "Tell the kitchen" where a button would be.
+ *   - `none`: nothing on this workspace fixes it (no row uses it today).
  *
  * The day not being open is NOT a row: it is the banner above the list,
  * because it stops the whole till and is the page's one primary action.
@@ -272,7 +265,6 @@ export const STOCK_HREF = {
  */
 export type NeedKey =
   | 'waiterCalls'
-  | 'ticketsLate'
   | 'deposits'
   | 'lessonRefunds'
   | 'matchReports'
@@ -298,7 +290,6 @@ export interface NeedDef {
 
 export const NEEDS: readonly NeedDef[] = [
   { key: 'waiterCalls', severity: 'warn', action: { kind: 'open', href: '/till/tabs' } },
-  { key: 'ticketsLate', severity: 'danger', action: { kind: 'none' } },
   // Danger while a refund failed or a paid booking is off; a refund Qi is
   // still answering is only a warn (nothing to press, see needCounts).
   { key: 'deposits', severity: 'danger', action: { kind: 'review' } },
@@ -344,7 +335,6 @@ export function needsFor(counts: NeedCounts, severity: Partial<Record<NeedKey, N
 export function overviewNeedCounts(o: OpsOverview): NeedCounts {
   return {
     waiterCalls: o.cafe.waiterCallsOpen,
-    ticketsLate: o.cafe.ticketsLate,
     expired: o.stock.expired,
     low: o.stock.low,
   };

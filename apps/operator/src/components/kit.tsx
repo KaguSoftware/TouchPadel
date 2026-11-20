@@ -588,13 +588,6 @@ export function PaymentStatusIndicator({ paymentStatus, size }: { paymentStatus:
   return <StatusBadge tone={PAYMENT_TONE[paymentStatus]} label={tr(`ws.kit.paymentStatus.${paymentStatus}`)} size={size} icon={paymentStatus === 'paid' ? 'check' : undefined} />;
 }
 
-export type TicketState = 'queued' | 'preparing' | 'ready' | 'completed' | 'voided';
-const TICKET_TONE: Record<TicketState, Tone> = { queued: 'accent', preparing: 'warn', ready: 'success', completed: 'neutral', voided: 'danger' };
-export function TicketStateIndicator({ state, size }: { state: TicketState; size?: 'sm' | 'md' }) {
-  const { tr } = useLocale();
-  return <StatusBadge tone={TICKET_TONE[state]} label={tr(`ws.kit.ticketState.${state}`)} size={size} />;
-}
-
 export type TabStatus = 'open' | 'awaiting_payment' | 'settled' | 'void';
 const TAB_TONE: Record<TabStatus, Tone> = { open: 'accent', awaiting_payment: 'warn', settled: 'success', void: 'danger' };
 export function TabStatusIndicator({ status, size }: { status: TabStatus | string; size?: 'sm' | 'md' }) {

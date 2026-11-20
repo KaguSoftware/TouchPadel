@@ -40,8 +40,8 @@ import { Button, ErrorText, card } from '../../components/ui';
 import { Icon } from '../../components/icons';
 import { ConnectionPill } from '../../components/ConnectionPill';
 import { useConfirm } from '../../components/ConfirmDialog';
-import { CALL_ALARM_CONFIG } from '../kds/alarms';
-import { useAlarmSubjects, useAlarms } from '../kds/useKdsAlarms';
+import { CALL_ALARM_CONFIG } from './alarms';
+import { useAlarmSubjects, useAlarms } from './useAlarms';
 import { formatElapsed, minutesSince } from './elapsed';
 
 type CallReason = 'order' | 'bill' | 'water' | 'assistance';

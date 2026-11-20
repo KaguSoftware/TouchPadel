@@ -154,8 +154,8 @@ describe('staffGate with a page', () => {
   });
 
   it('sends a blocked page back to Today, whichever way it was opened', () => {
-    expect(staffGate(status({ blockedAreas: ['kds'] }), undefined, 'staff-recipes')).toBe('redirect-staff-home');
-    expect(staffGate(status({ blockedAreas: ['kds'] }), undefined, 'staff-request')).toBe('allow');
+    expect(staffGate(status({ blockedAreas: ['tasks', 'admin'] }), undefined, 'staff-recipes')).toBe('redirect-staff-home');
+    expect(staffGate(status({ blockedAreas: ['tasks', 'admin'] }), undefined, 'staff-request')).toBe('allow');
     expect(staffGate(status({}), undefined, 'staff-recipes')).toBe('allow');
   });
 

@@ -44,13 +44,6 @@ export const kitAr: DeepMessages<typeof kitEn> = {
     refunded: 'مسترد',
     unknown: 'حالة الدفع غير معروفة',
   },
-  ticketState: {
-    queued: 'جديد',
-    preparing: 'قيد التحضير',
-    ready: 'جاهز',
-    completed: 'مكتمل',
-    voided: 'ملغى',
-  },
   tabStatus: {
     open: 'مفتوحة',
     awaiting_payment: 'بانتظار الدفع',
@@ -62,12 +55,6 @@ export const kitAr: DeepMessages<typeof kitEn> = {
     hold: 'حجز مؤقت',
     maintenance: 'موقوف',
     lesson: 'حصة',
-  },
-  source: {
-    web: 'الموقع',
-    till: 'كاشير الكافيه',
-    mobile: 'التطبيق',
-    desk: 'المكتب',
   },
   flags: {
     vip: 'VIP',

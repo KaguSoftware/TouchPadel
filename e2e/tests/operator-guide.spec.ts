@@ -1,14 +1,10 @@
 /**
  * The workspace guides (apps/operator features/guide): one dialog per worker
- * workspace, opened from the rail footer (court desk, till, Touch Shop) or the
- * kitchen board's key legend.
+ * workspace, opened from the rail footer (court desk, till, Touch Shop).
  *
  *  (a) cashier: open from the rail, tick a step, reload and it is still
  *      ticked, "Go there" lands on Open tabs, and Esc hands focus back to the
  *      rail row;
- *  (b) kitchen (prep login): open from the legend's pill, the dialog wears the
- *      board's dark tone, 1 and S do nothing to the tickets behind it, Esc
- *      closes it;
  *  (c) court desk: the rail row opens the desk's guide;
  *  (d) @ar: the till's guide in Arabic, the rail row on the inline start side.
  *
@@ -76,39 +72,6 @@ test.describe('workspace guides', () => {
     await page.keyboard.press('Escape');
     await expect(dialog).toBeHidden();
     await expect(page.getByTestId('rail.guide')).toBeFocused();
-    await page.context().close();
-  });
-
-  test('(b) kitchen: the legend pill, the dark tone, and keys stay off the board', async ({ browser }) => {
-    const page = await signIn(browser, SEED_STAFF.prep);
-    await expect(page.getByTestId('kitchen-display')).toBeVisible({ timeout: 30_000 });
-    // The board has no rail: the guide is the legend's pill.
-    await expect(page.getByTestId('rail.guide')).toHaveCount(0);
-    const pill = page.getByTestId('key-legend').getByTestId('kds-guide');
-    await expect(pill).toBeVisible();
-
-    const cards = page.getByTestId('ticket-card');
-    const before = await cards.evaluateAll((els) => els.map((el) => el.getAttribute('data-status')));
-
-    await pill.click();
-    const dialog = page.getByRole('dialog', { name: 'Kitchen guide' });
-    await expect(dialog).toBeVisible();
-    await expect(dialog).toHaveAttribute('data-tone', 'board');
-
-    // Keys pressed inside the guide never reach the tickets behind it.
-    await page.keyboard.press('1');
-    await page.keyboard.press('s');
-    await expect(page.locator('[data-testid="ticket-card"][data-selected]')).toHaveCount(0);
-    expect(await cards.evaluateAll((els) => els.map((el) => el.getAttribute('data-status')))).toEqual(before);
-
-    await page.keyboard.press('Escape');
-    await expect(dialog).toBeHidden();
-
-    // ? opens it again from the board itself.
-    await page.keyboard.press('?');
-    await expect(dialog).toBeVisible();
-    await page.keyboard.press('Escape');
-    await expect(dialog).toBeHidden();
     await page.context().close();
   });
 

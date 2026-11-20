@@ -5,7 +5,7 @@
  * counter tab is nowhere: the kitchen card then says "No table yet".
  *
  * One app.order_set_delivery call, online only (it moves no money, and the
- * board re-reads it from the kds broadcast the call sends).
+ * till re-reads it from the kds broadcast the call sends).
  */
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';

@@ -94,7 +94,7 @@ export function shouldRecoverToRenderer(
 /**
  * Should this window carry native macOS traffic lights?
  *
- * Every macOS window does, tills and KDS boards included. The kiosk modes used
+ * Every macOS window does, tills and desks included. The kiosk modes used
  * to be button-less on the grounds that their only exits are Quit to desktop
  * and "Exit forced full screen" — but that made the buttons appear in dev and
  * vanish in production on the same machine, which read as a bug rather than a
@@ -114,7 +114,7 @@ export function shouldShowTrafficLights(chrome: {
   platform: NodeJS.Platform;
   isDev: boolean;
   configured: boolean;
-  mode: 'till' | 'desk' | 'kds' | 'shop';
+  mode: 'till' | 'desk' | 'shop';
 }): boolean {
   return chrome.platform === 'darwin';
 }

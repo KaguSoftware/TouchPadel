@@ -16,7 +16,7 @@ import type * as BridgeModule from '../../ipc/bridge';
 
 const h = vi.hoisted(() => ({
   role: 'cashier' as string,
-  mode: 'till' as 'till' | 'desk' | 'kds',
+  mode: 'till' as 'till' | 'desk',
   signOut: vi.fn(),
   /** What app.till_shift_status answers; an Error rejects, 'never' never answers. */
   status: null as unknown,

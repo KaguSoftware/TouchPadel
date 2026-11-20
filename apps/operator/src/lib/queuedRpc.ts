@@ -4,7 +4,7 @@
  * recall, F-58 the deposit actions).
  *
  * Two ways in:
- *  - `queueRpc(fn, args)`: a screen that wants the queue on purpose (the KDS
+ *  - `queueRpc(fn, args)`: a screen that wants the queue on purpose (an admin
  *    recall, a member on a tab opened offline). Like every mutate() type it
  *    rides the queue online too, and resolves `{ queued, result }`.
  *  - `appRpc(fn, args)` of a QUEUEABLE_RPCS name while the station is offline

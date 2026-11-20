@@ -213,7 +213,7 @@ describe.skipIf(!up)('0068 reports and overviews', () => {
       ['arrived', 'cancelledToday', 'nextArrival', 'noShows', 'today', 'upcoming'].sort(),
     );
     expect(Object.keys(o.cafe!).sort()).toEqual(
-      ['openTabs', 'ordersToday', 'ticketsLate', 'ticketsPreparing', 'ticketsQueued', 'waiterCallsOpen'].sort(),
+      ['openTabs', 'ordersToday', 'waiterCallsOpen'].sort(),
     );
     expect(Object.keys(o.stock!).sort()).toEqual(
       ['belowPar', 'expired', 'expiringSoon', 'lastCountAt', 'low', 'openAlerts'].sort(),

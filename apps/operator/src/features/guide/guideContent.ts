@@ -1,13 +1,12 @@
 /**
- * The workspace guides: what a new person on the court desk, the till, the
- * kitchen board or the Touch Shop desk needs to learn, in the order a shift
- * meets it. Pure data plus the role filter, so it is tested under node
+ * The workspace guides: what a new person on the court desk, the till or the
+ * Touch Shop desk needs to learn, in the order a shift meets it. Pure data plus the role filter, so it is tested under node
  * (guideContent.test.ts) and the dialog only renders it.
  *
  * Every step was checked against the screen it describes. Button names in a
  * body are NOT typed into the catalog: they are `params` naming the key the
  * real button renders, so the guide reads whatever the button says. Numbers
- * come from the constants the code runs on (STALE_SECS and friends).
+ * come from the constants the code runs on (shift lengths and friends).
  *
  * Strings: `ws.guide.*` (packages/i18n/src/catalogs/ws/guide.{en,ar}.ts). A
  * step `<ws>.<section>.<step>` reads `ws.guide.<ws>.<section>.<step>.{title,body}`.
@@ -16,10 +15,8 @@ import type { MessageKey } from '@touch/i18n';
 import type { IconName } from '../../components/icons';
 import { can, canAccess, type Capability, type StaffRole } from '../../lib/auth';
 import type { WorkspaceKey } from '../../lib/workspaces';
-import { STALE_REPEAT_MS, STALE_SECS } from '../kds/alarms';
-import { BOARD_REFETCH_MS, COMPLETED_LINGER_MS } from '../kds/ticketView';
 
-export type GuideWorkspace = Extract<WorkspaceKey, 'courtDesk' | 'cashier' | 'prep' | 'shop'>;
+export type GuideWorkspace = Extract<WorkspaceKey, 'courtDesk' | 'cashier' | 'shop'>;
 export type GuideBadge = 'managerPin' | 'ownPin' | 'managerJob' | 'online';
 
 export interface GuideStep {
@@ -46,13 +43,12 @@ export interface GuideSection {
   steps: readonly GuideStep[];
 }
 
-export const GUIDE_WORKSPACES: readonly GuideWorkspace[] = ['courtDesk', 'cashier', 'prep', 'shop'];
+export const GUIDE_WORKSPACES: readonly GuideWorkspace[] = ['courtDesk', 'cashier', 'shop'];
 
 /** The role each guide is written for: its links must all open for it. */
 export const TRAINEE_ROLE: Record<GuideWorkspace, StaffRole> = {
   courtDesk: 'court_desk',
   cashier: 'cashier',
-  prep: 'chef',
   shop: 'shop_staff',
 };
 
@@ -186,7 +182,7 @@ const TILL: readonly GuideSection[] = [
       },
     ],
     ['others', { icon: 'users', link: '/till', badges: ['managerPin', 'online'] }],
-    ['sound', { icon: 'bell', params: { turnOnSound: k('op.kds.startShift') } }],
+    ['sound', { icon: 'bell', params: { turnOnSound: k('op.common.soundOn') } }],
   ]),
   section('cashier', 'orders', 'receipt', [
     ['floor', { icon: 'grid', link: '/till' }],
@@ -251,54 +247,6 @@ const TILL: readonly GuideSection[] = [
   ]),
 ];
 
-const KITCHEN: readonly GuideSection[] = [
-  section('prep', 'start', 'play', [
-    ['sound', { icon: 'bell', params: { turnOnSound: k('op.kds.startShift') } }],
-    ['connection', { icon: 'globe', params: { live: k('op.common.live') } }],
-  ]),
-  section('prep', 'tickets', 'receipt', [
-    ['source', { icon: 'receipt', params: { till: k('ws.kit.source.till'), web: k('ws.kit.source.web') } }],
-    ['card', { icon: 'fileText' }],
-    [
-      'band',
-      { icon: 'clock', params: { onTime: k('ws.prep.age.fresh'), gettingLate: k('ws.prep.age.warm'), late: k('ws.prep.age.late') } },
-    ],
-  ]),
-  section('prep', 'work', 'flame', [
-    ['start', { icon: 'play', params: { start: k('op.kds.start') }, keys: ['S'] }],
-    ['tick', { icon: 'check', keys: ['Space'] }],
-    ['ready', { icon: 'checkCircle', params: { ready: k('op.kds.ready') }, keys: ['R'] }],
-    [
-      'complete',
-      { icon: 'check', params: { complete: k('op.kds.complete'), minutes: COMPLETED_LINGER_MS / 60_000 }, keys: ['C'] },
-    ],
-  ]),
-  section('prep', 'alerts', 'alert', [
-    ['stale', { icon: 'alert', params: { seconds: STALE_SECS, repeat: STALE_REPEAT_MS / 1000, stale: k('op.kds.stale') } }],
-    ['voided', { icon: 'trash' }],
-  ]),
-  section('prep', 'keys', 'keyboard', [
-    ['tickets', { icon: 'keyboard', keys: ['1–9', '←', '→'] }],
-    ['items', { icon: 'keyboard', keys: ['↑', '↓', 'Space', 'Esc', '?'] }],
-    ['layout', { icon: 'globe' }],
-  ]),
-  section('prep', 'problems', 'wifiOff', [
-    ['offline', { icon: 'wifiOff' }],
-    ['error', { icon: 'refresh', params: { seconds: BOARD_REFETCH_MS / 1000 } }],
-  ]),
-  section('prep', 'tasks', 'checkCircle', [
-    [
-      'open',
-      {
-        icon: 'checkCircle',
-        link: '/tasks',
-        when: { route: '/tasks' },
-        params: { myTasks: k('ws.team.tasks.kds.button'), backToBoard: k('ws.team.tasks.backToBoard') },
-      },
-    ],
-  ]),
-];
-
 const SHOP: readonly GuideSection[] = [
   section('shop', 'start', 'play', [['shift', { icon: 'banknote', link: '/shop', badges: ['online'] }]]),
   section('shop', 'sell', 'receipt', [
@@ -347,7 +295,6 @@ const SHOP: readonly GuideSection[] = [
 export const GUIDES: Readonly<Record<GuideWorkspace, readonly GuideSection[]>> = {
   courtDesk: COURT_DESK,
   cashier: TILL,
-  prep: KITCHEN,
   shop: SHOP,
 };
 

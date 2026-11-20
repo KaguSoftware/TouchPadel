@@ -23,7 +23,6 @@ import {
   setConnOnline,
   setWorkerUnreachable,
   pruneAcked,
-  kitchenBacklog,
   QueueEncryptionUnavailableError,
 } from './queue';
 import { observePin, unlockPinOffline } from './pin-cache';
@@ -459,18 +458,6 @@ describe('pruneAcked', () => {
       .prepare(`EXPLAIN QUERY PLAN SELECT * FROM mutation_queue WHERE state IN ('pending','inflight') ORDER BY seq LIMIT 1`)
       .all() as { detail: string }[];
     expect(plan.map((p) => p.detail).join(' ')).toContain('mq_state_seq');
-  });
-});
-
-describe('kitchenBacklog', () => {
-  it('lists the undelivered kitchen rows in queue order and nothing else', () => {
-    const order = unique();
-    const bump = unique({ mutationType: 'ticket.status', payload: { ticketIdemKey: order.idempotencyKey, status: 'ready' } });
-    const payment = unique({ mutationType: 'payment.record' });
-    const delivered = unique();
-    for (const m of [order, bump, payment, delivered]) enqueue(m);
-    ack(delivered.idempotencyKey, {});
-    expect(kitchenBacklog().map((r) => r.idempotencyKey)).toEqual([order.idempotencyKey, bump.idempotencyKey]);
   });
 });
 

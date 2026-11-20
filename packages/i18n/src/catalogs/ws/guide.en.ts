@@ -1,6 +1,6 @@
 /**
  * `ws.guide.*`: the workspace guides (apps/operator features/guide), one per
- * worker workspace: the court desk, the till, the kitchen board and Touch
+ * worker workspace: the court desk, the till and Touch
  * Shop. Mirror every key in guide.ar.ts.
  *
  * Shape: `chrome.*` is the dialog itself; `<workspace>.<section>.title` names
@@ -213,11 +213,11 @@ export const guideEn = {
         body: 'Pick a category or search the menu. An item with one size and no extras goes straight into the basket; anything else opens a sheet to choose from.',
       },
       notes: {
-        title: 'Notes for the kitchen',
-        body: 'The note button on a basket line offers ready-made notes, or type one the way the kitchen should read it.',
+        title: 'Notes on an order',
+        body: 'The note button on a basket line offers ready-made notes, or type one the way the barista should read it.',
       },
       send: {
-        title: 'Send to the kitchen',
+        title: 'Place the order',
         body: 'Press {send}. Lines you have not sent are lost if you switch to another tab, so the café cashier asks first.',
       },
       calls: {
@@ -319,97 +319,6 @@ export const guideEn = {
     },
   },
 
-  prep: {
-    start: {
-      title: 'Start of shift',
-      sound: {
-        title: 'Turn on sound',
-        body: 'If the amber {turnOnSound} strip shows across the top, press it. Without sound, new orders and late tickets do not chime.',
-      },
-      connection: {
-        title: 'Check the connection',
-        body: 'The pill in the header should read {live}. Anything else means new tickets may reach this screen late.',
-      },
-    },
-    tickets: {
-      title: 'Reading a ticket',
-      source: {
-        title: 'Where tickets come from',
-        body: 'Orders sent from the café cashier and by guests on the website arrive here, oldest first. Each card says which: {till} or {web}.',
-      },
-      card: {
-        title: 'What a card shows',
-        body: 'The table or court, the ticket’s age against its target, who sent it, and each item with its size, its extras and the notes.',
-      },
-      band: {
-        title: 'The colour band',
-        body: 'The band across the top of a card goes from {onTime} to {gettingLate} to {late}. Work the most urgent first.',
-      },
-    },
-    work: {
-      title: 'Working a ticket',
-      start: {
-        title: 'Start',
-        body: 'Press {start} on a ticket when you begin it.',
-      },
-      tick: {
-        title: 'Tick items',
-        body: 'Tap an item to tick it ready, or use the key for the item under the cursor. The other kitchen screens see the ticks.',
-      },
-      ready: {
-        title: 'Ready',
-        body: 'Press {ready} when the whole ticket is done. A ticket nobody has started can go straight to {ready}.',
-      },
-      complete: {
-        title: 'Complete',
-        body: 'Press {complete} once it has gone out. It fades and leaves the board after {minutes} minutes.',
-      },
-    },
-    alerts: {
-      title: 'Late tickets',
-      stale: {
-        title: 'Not started in time',
-        body: 'A ticket not started within {seconds} seconds is marked {stale}, gets a red ring and joins the count in the red banner. It chimes every {repeat} seconds until someone starts it.',
-      },
-      voided: {
-        title: 'Voided lines',
-        body: 'When the café cashier voids a line, it disappears from its ticket.',
-      },
-    },
-    keys: {
-      title: 'Keys',
-      tickets: {
-        title: 'Move between tickets',
-        body: 'Pick a ticket by its place on the board, or step to the next or previous one. In Arabic the arrows follow the reading direction.',
-      },
-      items: {
-        title: 'Items, deselect and this guide',
-        body: 'Move between a ticket’s items, tick the one under the cursor, deselect the ticket, or open this guide.',
-      },
-      layout: {
-        title: 'Arabic keyboard',
-        body: 'The keys work by their place on the keyboard, so they do the same with an Arabic layout.',
-      },
-    },
-    problems: {
-      title: 'Problems',
-      offline: {
-        title: 'No internet',
-        body: 'Tickets keep arriving from the café cashier over the local network. Ticking items comes back when the connection does.',
-      },
-      error: {
-        title: 'Tickets could not be loaded',
-        body: 'The board tries again by itself every {seconds} seconds. If it keeps failing, check this screen’s network connection.',
-      },
-    },
-    tasks: {
-      title: 'My tasks',
-      open: {
-        title: 'Your steps',
-        body: '{myTasks} in the header opens your steps and ideas; {backToBoard} brings you back here.',
-      },
-    },
-  },
 
   shop: {
     start: {

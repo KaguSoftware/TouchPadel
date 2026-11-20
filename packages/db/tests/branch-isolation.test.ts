@@ -130,9 +130,6 @@ describe.skipIf(!docker)('0400 F-27 staff and setup reads', () => {
       T('lockOwn', 'mgrX', `select app.clear_pin_lockout({{cashX}}::uuid)`),
       T('replaysMgr', 'manager', `select to_jsonb(count(*)) from sync_replays`),
       T('tgMgr', 'manager', `select to_jsonb(count(*)) from telegram_staff`),
-      MK('drv', 'driver'),
-      T('reachDriver', 'drv', `select app.kitchen_reach(null)`),
-      T('reachX', 'mgrX', `select to_jsonb(jsonb_array_length(app.kitchen_reach(null)))`),
     ]);
     expect(r.tableX?.data).toEqual({ cashA: false, cashX: true, owner: true, self: true });
     expect(r.listX?.data).toEqual({ cashA: false, cashX: true });
@@ -142,7 +139,5 @@ describe.skipIf(!docker)('0400 F-27 staff and setup reads', () => {
     expect(r.lockOwn).toMatchObject({ ok: true });
     expect(r.replaysMgr?.data).toBe(0);
     expect(r.tgMgr?.data).toBe(0);
-    expect(r.reachDriver).toMatchObject({ ok: false, code: 'FORBIDDEN' });
-    expect(r.reachX).toMatchObject({ ok: true, data: 0 });
   });
 });

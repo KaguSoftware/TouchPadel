@@ -1,7 +1,6 @@
 /**
  * The rail footer's "Guide" row (court desk, till, Touch Shop), the first row
- * of the footer, above the options group. The kitchen has no rail; its guide
- * opens from the key legend's pill instead (KitchenDisplayScreen). Renders
+ * of the footer, above the options group. Renders
  * nothing for a workspace without a guide (manager, owner, team).
  */
 import type { CSSProperties } from 'react';

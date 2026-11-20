@@ -256,7 +256,6 @@ export const en = {
   },
   till: { title: 'Café cashier' },
   desk: { title: 'Desk calendar' },
-  kds: { title: 'Kitchen display' },
   stock: { title: 'Stock' },
   admin: { title: 'Admin' },
   analytics: {
@@ -2024,6 +2023,9 @@ export const en = {
       refusedGeneric: '{write} did not sync. See the Day close screen.',
     },
     common: {
+      connection: 'Connection',
+      soundOn: 'Turn on sound',
+      soundOnHint: 'Sound is off on this screen. Turn it on so new orders and late tickets chime.',
       forbidden: 'Your role does not have access to this screen.',
       language: 'العربية / English',
       refresh: 'Refresh',
@@ -2167,39 +2169,8 @@ export const en = {
       statusNoShow: 'No-show',
       statusExpired: 'Expired',
     },
-    kds: {
-      empty: 'No open tickets — all caught up.',
-      table: 'Table {table}',
-      court: 'Court',
-      // 0351: the guest collects it at the counter; a runner brings every other order.
-      pickup: 'Pick up',
-      // 0352: a counter order to be brought over, before the cashier attached its table.
-      noSpot: 'No table yet',
-      sourceGuest: 'QR',
-      sourceTill: 'Café cashier',
-      start: 'Start',
-      ready: 'Ready',
-      complete: 'Complete',
-      voided: 'Voided',
-      lanMode: 'Offline — tickets arriving from the café cashier over the local network.',
-      lanEmpty: 'Offline — waiting for tickets from the café cashier over the local network.',
-      statusQueued: 'Queued',
-      statusPreparing: 'Preparing',
-      statusReady: 'Ready',
-      statusCompleted: 'Completed',
-      ageTarget: 'Target {minutes} min',
-      // The strip only unlocks audio; "Start shift" read as clocking in.
-      startShift: 'Turn on sound',
-      startShiftHint:
-        'Sound is off on this screen. Turn it on so new orders and late tickets chime.',
-      // The count is printed beside this, as its own figure (no plurals).
-      staleBanner: 'tickets need attention — not started in time',
-      stale: 'Waiting too long',
-      newTicket: 'New ticket',
-      unseen: '{count} new',
-      connection: 'Connection',
-    },
     till: {
+      court: 'Court',
       openTabs: 'Open tabs',
       noTabs: 'No open tabs.',
       newTab: 'New tab',
@@ -2213,7 +2184,7 @@ export const en = {
       filterPlaceholder: 'Type to filter items… (1-9 selects a category)',
       basket: 'Basket',
       emptyBasket: 'Basket is empty — pick items from the grid.',
-      sendOrder: 'Send to kitchen',
+      sendOrder: 'Place order',
       orderSent: 'Order sent.',
       size: 'Size',
       modifiers: 'Modifiers',

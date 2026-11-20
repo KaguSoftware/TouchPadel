@@ -25,7 +25,7 @@ export function ConnectionPill({ status }: { status: BroadcastStatus }) {
         : tr('op.common.disconnected');
   return (
     <span
-      title={tr('op.kds.connection')}
+      title={tr('op.common.connection')}
       data-testid="connection-pill"
       data-status={status}
       style={{

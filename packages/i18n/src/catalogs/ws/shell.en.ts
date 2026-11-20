@@ -91,17 +91,14 @@ export const shellEn = {
     askManager: 'Ask a manager or the owner to sign in here and register it again.',
     signOut: 'Sign out',
   },
-  // F-29 (2026-11-01): the shop till and the kitchen board on a machine set up
+  // F-29 (2026-11-01): the shop till on a machine set up
   // as something else. {mode} is one of `modes` below.
   stationKind: {
     shopTitle: 'The shop till is not on this station',
     shopBody: 'This station is a {mode}. Shop sales are taken on the shop station, so their cash goes into the shop’s own drawer and shift.',
-    kdsTitle: 'The kitchen board is not on this station',
-    kdsBody: 'This station is a {mode}. Open the kitchen board on a kitchen screen or on the café till.',
     modes: {
       till: 'café till',
       desk: 'court desk',
-      kds: 'kitchen screen',
       shop: 'shop station',
     },
     home: 'Go to my home page',
@@ -109,7 +106,6 @@ export const shellEn = {
   workspace: {
     courtDesk: 'Court desk',
     cashier: 'Café cashier',
-    prep: 'Kitchen',
     // The owner and the manager both work here (2026-10-19: Operations folded in).
     management: 'Management',
     // Driver and marketing (0155): one rail row, My tasks, for now.
@@ -142,7 +138,6 @@ export const shellEn = {
   workspaceLead: {
     courtDesk: 'Bookings, arrivals and customers',
     cashier: 'Orders, tabs and payment',
-    prep: 'The ticket board the cooks work from',
     management: 'The whole business in one place',
     team: 'Tasks and checklists given to you',
     shop: 'Shop cashier, drawer, stock and products',
@@ -272,7 +267,6 @@ export const shellEn = {
     guestApp: 'Guest app',
     devices: 'Computers & tablets',
     stations: 'Cashier computers',
-    kitchenScreens: 'Kitchen screens',
     offlineMode: 'No-internet mode',
     // A rail row's count, for a screen reader: the pill itself is only a number.
     badge: '{count} waiting on you',
@@ -334,7 +328,6 @@ export const shellEn = {
     // The owner leaves without a PIN, but the shell checks the role with the
     // server first; offline and never checked, it falls back to the PIN.
     leaveOwnerUnconfirmed: "Couldn't confirm your account right now, so a manager's PIN is needed.",
-    kitchenNoNav: 'Kitchen display',
     version: 'Version {version}',
     updateReady: 'Update ready',
     restartToUpdate: 'Restart to update to {version}',
@@ -371,38 +364,16 @@ export const shellEn = {
     mode: {
       till: 'Café cashier',
       desk: 'Desk',
-      kds: 'Kitchen screen',
       shop: 'Touch Shop desk',
     },
     modeLead: {
-      till: 'Orders, tabs, payment and the receipt printer. Kitchen screens connect to it.',
+      till: 'Orders, tabs, payment and the receipt printer.',
       desk: 'Bookings, arrivals, customers and the office.',
-      kds: 'The wall-mounted ticket board. Connects to the café cashier with a code.',
       shop: 'The shop’s own PC: the shop cashier, its own drawer and receipts, the shop’s stock and products.',
     },
     stationId: 'Station name',
     stationIdHint: 'How this machine is named in the app and in reports. Capitals, digits and dashes, e.g. TILL-01',
     stationIdInvalid: 'Use capitals, digits and dashes, starting with a letter.',
-    code: 'Pairing code from the café cashier',
-    codeHint: 'On the café cashier, sign in as the owner, open Settings › Computers & screens › Kitchen screens and choose Pair a kitchen screen, then enter a manager PIN. It shows this code.',
-    codeInvalid: 'The code is 10 letters and digits.',
-    advanced: 'Enter the café cashier address yourself',
-    hostLabel: 'Café cashier address',
-    advancedHint: 'Only needed if the search cannot find the café cashier. The café cashier shows it under Settings › Computers & screens › Kitchen screens, e.g. 192.168.1.10',
-    hostInvalid: 'Enter a local network address like 192.168.1.10.',
-    scanning: 'Looking for the café cashier on this network…',
-    choose: 'More than one café cashier answered. Pick the one for this kitchen.',
-    notFound: {
-      none: 'No café cashier answered on this network. Check the café cashier is switched on and on the same network, then search again — or enter its address.',
-      badCode: 'A café cashier answered but did not accept that code. Check the code on the café cashier and type it again.',
-      noLan: 'This machine is not on a local network. Connect it to the venue network, then search again.',
-      unreachable: 'The café cashier at {host} did not answer. It may just be switched off: save anyway and this screen keeps trying until it answers.',
-    },
-    find: 'Find the café cashier',
-    searchAgain: 'Search again',
-    retypeCode: 'Type the code again',
-    enterAddress: 'Enter the café cashier address',
-    saveAnyway: 'Save anyway',
     confirm: 'Finish setup',
     saving: 'Saving and restarting…',
     failed: 'The station could not be saved.',
@@ -410,20 +381,5 @@ export const shellEn = {
     configError: 'station.json could not be read: {error}',
     back: 'Back',
     retry: 'Try again',
-  },
-  // The till's pairing card (behind the manager PIN).
-  pair: {
-    title: 'Pair a kitchen screen',
-    pinLead: 'A manager PIN shows the code a new kitchen screen needs to connect to this café cashier.',
-    reveal: 'Show the code',
-    done: 'Done',
-    step1: 'On the kitchen screen’s setup, choose Kitchen screen.',
-    step2: 'Type this code:',
-    code: 'Pairing code',
-    host: 'If it cannot find this café cashier, choose Enter the café cashier address there and type {host}.',
-    noHost: 'This café cashier has no local network address yet; kitchen screens will find it once it is on the venue network.',
-    customPsk: 'This café cashier was set up with a custom key from the command line. Pair kitchen screens with the same --lan-psk flag.',
-    notTill: 'Only a café cashier can pair kitchen screens.',
-    noPsk: 'This café cashier has no pairing key. Remove station.json and set the station up again.',
   },
 } as const;

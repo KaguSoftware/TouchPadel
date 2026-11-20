@@ -2,7 +2,7 @@
  * Error reporting seam for the operator.
  *
  * The operator had NO crash reporting, no error boundary and no 404 route —
- * in an app whose till and KDS stations run `kiosk: true` with
+ * in an app whose till stations run `kiosk: true` with
  * `autoHideMenuBar: true` (operator-shell/src/main/index.ts:21-22). A React
  * render throw there is a blank screen with no menu, no address bar and no way
  * back, and the shell's `render-process-gone` reload does not fire because a

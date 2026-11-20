@@ -23,7 +23,6 @@ import {
   tabOpenPayloadSchema,
   tabSettlePayloadSchema,
   tabSettleZeroPayloadSchema,
-  ticketStatusPayloadSchema,
   waiterCallActionPayloadSchema,
   type MutationEnvelope,
 } from './mutations';
@@ -168,8 +167,8 @@ describe('mutationEnvelopeSchema', () => {
   it('drill-critical types now refuse junk payloads', () => {
     const result = mutationEnvelopeSchema.safeParse({
       localId: makeClientRef(STATION),
-      idempotencyKey: makeIdempotencyKey(STATION, 'ticket.status'),
-      mutationType: 'ticket.status',
+      idempotencyKey: makeIdempotencyKey(STATION, 'payment.record'),
+      mutationType: 'payment.record',
       payload: { anything: 'goes' },
       createdAt: new Date().toISOString(),
       staffId: UUID_STAFF,
@@ -328,29 +327,6 @@ describe('order.add_items payload', () => {
     expect(
       tabSettlePayloadSchema.safeParse({ tabIdemKey: idemKey, method: 'card' }).success,
     ).toBe(true);
-  });
-});
-
-describe('ticket.status payload', () => {
-  it('accepts the five ticket_status enum values only', () => {
-    for (const status of ['queued', 'preparing', 'ready', 'completed', 'voided'] as const) {
-      expect(ticketStatusPayloadSchema.safeParse({ ticketId: UUID_A, status }).success).toBe(true);
-    }
-    expect(
-      ticketStatusPayloadSchema.safeParse({ ticketId: UUID_A, status: 'burnt' }).success,
-    ).toBe(false);
-  });
-
-  it('takes exactly one of ticketId / ticketIdemKey — the LAN bump reference', () => {
-    const orderKey = makeIdempotencyKey(STATION, 'order.add_items');
-    expect(
-      ticketStatusPayloadSchema.safeParse({ ticketIdemKey: orderKey, status: 'ready' }).success,
-    ).toBe(true);
-    expect(ticketStatusPayloadSchema.safeParse({ status: 'ready' }).success).toBe(false);
-    expect(
-      ticketStatusPayloadSchema.safeParse({ ticketId: UUID_A, ticketIdemKey: orderKey, status: 'ready' })
-        .success,
-    ).toBe(false);
   });
 });
 
@@ -699,7 +675,7 @@ describe('reservation.update and waiter_call.action payloads (what replay reads)
         localId: makeClientRef(STATION),
         idempotencyKey: makeIdempotencyKey(STATION, 'rpc.queued'),
         mutationType: 'rpc.queued',
-        payload: { fn: 'recall_ticket', args: { p_ticket_id: UUID_A } },
+        payload: { fn: 'deposit_refund_retry', args: { p_deposit_id: UUID_A } },
         createdAt: new Date().toISOString(),
         staffId: UUID_STAFF,
         deviceId: STATION,

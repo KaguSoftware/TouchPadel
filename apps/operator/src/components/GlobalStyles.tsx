@@ -206,8 +206,8 @@ details[open] > .tp-crash-details .tp-crash-chev { transform: rotate(90deg); }
 @media (prefers-reduced-motion: reduce) { .tp-incident-card, .tp-incident-card:hover { transition: none; transform: none; } }
 .tp-iconbtn { padding-inline: 0.45rem; inline-size: 2.25rem; }
 .tp-iconbtn[data-size='sm'] { inline-size: 1.85rem; }
-/* Fingers, not mice: the till and the kitchen board get the real target. */
-[data-workspace='cashier'] .tp-iconbtn, [data-workspace='prep'] .tp-iconbtn {
+/* Fingers, not mice: the till gets the real target. */
+[data-workspace='cashier'] .tp-iconbtn {
   inline-size: var(--tp-touch); min-block-size: var(--tp-touch);
 }
 /* The till's service rail scrolls; its panels never shrink. A framed panel
@@ -961,42 +961,6 @@ button.tp-nav-item { background: transparent; }
 }
 @media (prefers-reduced-motion: reduce) { .tp-seg-thumb { transition: none !important; } }
 .tp-seg-n { font-size: var(--tp-fs-xs); font-weight: 600; padding-inline: 0.4rem; min-inline-size: 1.25rem; line-height: 1.15rem; border-radius: var(--tp-radius-pill); text-align: center; font-variant-numeric: tabular-nums; background: color-mix(in oklab, currentColor 16%, transparent); }
-
-/* ---- kitchen board ---- */
-[data-workspace='prep'] { background: var(--tp-kds-bg); color: var(--tp-kds-fg); }
-[data-workspace='prep'] .tp-btn { background: var(--tp-kds-card-2); border-color: var(--tp-kds-border); color: var(--tp-kds-fg); }
-[data-workspace='prep'] .tp-btn[data-kind='primary'] { background: var(--tp-kds-fresh); border-color: var(--tp-kds-fresh); color: var(--tp-brand-black); }
-[data-workspace='prep'] .tp-btn:hover:not(:disabled) { background: var(--tp-hover); color: var(--tp-hover-fg); }
-[data-workspace='prep'] .tp-btn[data-kind='primary']:hover:not(:disabled) { background: var(--tp-kds-fresh); border-color: var(--tp-kds-fresh); color: var(--tp-brand-black); filter: brightness(1.1); }
-[data-workspace='prep'] :focus-visible { outline-color: var(--tp-kds-fg); }
-[data-workspace='prep'] input[type='checkbox'] { accent-color: var(--tp-kds-fresh); }
-[data-workspace='prep'] kbd { background: var(--tp-kds-card-2); border-color: var(--tp-kds-border); color: var(--tp-kds-muted); }
-/* The light-theme scrollbar painted a near-white bar down a 16%-lightness board. */
-[data-workspace='prep'] * { scrollbar-color: var(--tp-kds-border) transparent; }
-[data-workspace='prep'] ::selection { background: var(--tp-kds-card-2); color: var(--tp-kds-fg); }
-[data-workspace='prep'] .tp-skel { background: var(--tp-kds-card-2); }
-[data-workspace='prep'] .tp-skel::after { background: linear-gradient(90deg, transparent, var(--tp-kds-border), transparent); }
-/* A dialog over the board (Modal tone="board"): the desk tokens re-pointed at
-   the board's own, so the panel is dark like the wall it opens on. Only
-   existing tokens: --tp-kds-* already carry their blue-mode values. */
-[data-tone='board'] {
-  --tp-surface: var(--tp-kds-card);
-  --tp-surface-2: var(--tp-kds-card-2);
-  --tp-surface-3: var(--tp-kds-card-2);
-  --tp-fg: var(--tp-kds-fg);
-  --tp-muted-fg: var(--tp-kds-muted);
-  --tp-border: var(--tp-kds-border);
-  --tp-border-strong: var(--tp-kds-border);
-  --tp-accent: var(--tp-kds-fresh);
-  --tp-accent-soft: var(--tp-kds-card-2);
-  --tp-accent-soft-fg: var(--tp-kds-fg);
-  --tp-hover: var(--tp-kds-card-2);
-  --tp-hover-fg: var(--tp-kds-fg);
-  color: var(--tp-kds-fg);
-}
-[data-tone='board'] :focus-visible { outline-color: var(--tp-kds-fg); }
-[data-tone='board'] input[type='checkbox'] { accent-color: var(--tp-kds-fresh); }
-[data-tone='board'] * { scrollbar-color: var(--tp-kds-border) transparent; }
 
 /* ---- live floor: the zoom track beside the two step buttons ----
    A native range input keeps the keyboard, touch and slider semantics; only

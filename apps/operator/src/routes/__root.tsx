@@ -3,10 +3,8 @@
  * WorkspaceSwitcher entry, SessionLockScreen, WorkspaceShell with the
  * per-workspace navigation rail and the global DegradedBanner region.
  *
- * Six workspaces on one build: the rail is chosen by the ACTIVE WORKSPACE
- * (lib/workspaces.ts), never by filtering one shared menu. The prep workspace
- * renders no navigation at all — a wall-mounted kitchen screen has nothing to
- * get lost in.
+ * Five workspaces on one build: the rail is chosen by the ACTIVE WORKSPACE
+ * (lib/workspaces.ts), never by filtering one shared menu.
  *
  * A workspace with SECTIONS (Management: Financial, Courts, …) shows one rail
  * button per section; inside one, the rail IS the section — its own header,
@@ -218,7 +216,7 @@ export function useWorkspace(): WorkspaceContextValue {
 }
 /**
  * The same context for a screen that only ADDS something when it happens to
- * be inside the shell — the kitchen board's way back, which a unit test
+ * be inside the shell — a screen which a unit test
  * renders on its own. Nothing depends on it being there, so an absent shell
  * is a fact to read, not a bug to throw on.
  */
@@ -423,7 +421,6 @@ function WorkspaceShell({ who, venue, idleLockSeconds }: { who: StaffAccess; ven
   }, [available, role]);
 
   // Following a link into another workspace's home keeps the rail coherent:
-  // a manager who opens /kds sees the kitchen board full-bleed, not the ops rail.
   useEffect(() => {
     const ws = workspaceForRoute(path);
     if (!ws || ws === active || !(available as readonly string[]).includes(ws)) return;
@@ -441,39 +438,7 @@ function WorkspaceShell({ who, venue, idleLockSeconds }: { who: StaffAccess; ven
   }, []);
 
   const value = useMemo(() => ({ active, available, setActive }), [active, available, setActive]);
-  const workspace = WORKSPACES[active];
-  const noNav = workspace.groups.length === 0;
-  // The dark wall-screen theme belongs to the BOARD, not to every screen of
-  // the navless workspace: the bar and kitchen roles open My tasks from the
-  // board's header (/tasks, build-contracts-2026-09-23 §5.1), and a desk page
-  // on the board's black ground would be unreadable. The page carries its own
-  // way back to the board.
-  const board = noNav && (path === '/kds' || path.startsWith('/kds/'));
-  // The kitchen screen is wall-mounted: no traffic lights over its header, and
-  // so no room to reserve for them either. Both follow noNav, not the board:
-  // My tasks opened from it has no rail to keep the lights off its title
-  // either. Both are restored the moment the operator leaves the workspace.
-  useEffect(() => {
-    touch.pushChromeless(noNav);
-  }, [noNav]);
-  // Browser mode has no kiosk window to hide chrome on, so the board asks the
-  // OS itself for full screen instead — same "wall screen, no chrome" intent
-  // as pushChromeless above, just through the other door. Electron already
-  // opens its KDS window with `kiosk: true` (main/index.ts), so this would be
-  // a no-op there at best and a fight with ExitFullscreen's own control at
-  // worst; it runs in browser mode only. Best-effort: a browser can refuse
-  // fullscreen (no prior user gesture, permission policy), and the board is
-  // usable either way, so failures are swallowed rather than surfaced.
-  useEffect(() => {
-    if (isElectron()) return;
-    if (noNav) {
-      void document.documentElement.requestFullscreen?.().catch(() => {});
-    } else if (document.fullscreenElement) {
-      void document.exitFullscreen?.().catch(() => {});
-    }
-  }, [noNav]);
-  // A downloaded update waiting for a restart: a rail row where there is a
-  // rail, a floating pill on the kitchen screen, which has none.
+  // A downloaded update waiting for a restart: a rail row.
   const update = useUpdateReady();
   // Go to (Ctrl+G): Management only; the till and the desk keep their keys.
   const managing = active === 'management';
@@ -500,29 +465,20 @@ function WorkspaceShell({ who, venue, idleLockSeconds }: { who: StaffAccess; ven
           sheet for the whole shell: the rail footer row and Ctrl/⌘ K open it,
           and it is mounted once, beside the idle lock. */}
       <AssistantDrawerProvider>
-      {/* The workspace guide (court desk, till, kitchen, Touch Shop): opened
-          from the rail footer or the kitchen legend, shown by the host below. */}
+      {/* The workspace guide (court desk, till, Touch Shop): opened
+          from the rail footer, shown by the host below. */}
       <GuideProvider workspace={active}>
       <div
-        data-workspace={noNav && !board ? undefined : active}
+        data-workspace={active}
         // Shorter by the on-screen keyboard while it is up (components/TouchKeyboard.tsx), so the field typed into stays above the keys.
-        style={{ display: 'flex', flexDirection: 'column', blockSize: 'calc(100vh - var(--tp-osk-inset, 0px))', background: board ? 'var(--tp-kds-bg)' : 'var(--tp-bg)' }}
+        style={{ display: 'flex', flexDirection: 'column', blockSize: 'calc(100vh - var(--tp-osk-inset, 0px))', background: 'var(--tp-bg)' }}
       >
         <IdleLock serverSeconds={idleLockSeconds} />
         {goToOpen && managing && <GoToPalette workspaceKey={active} onClose={() => setGoToOpen(false)} />}
         <AssistantDrawer />
         <WorkspaceGuideHost />
-        {/* On the kitchen screen there is no rail, so the strip spans the
-            window as it always has. Where there IS a rail it moves inside the
-            content column instead — see below. */}
-        {noNav && <VenueStatusBanner state={venue} />}
-        {noNav && update && (
-          <UpdateReadyControl variant="pill" version={update.version} onInstall={() => void touch.installUpdate()} />
-        )}
         <div style={{ display: 'flex', flex: 1, minBlockSize: 0 }}>
-          {!noNav && (
-            <WorkspaceNav workspaceKey={active} path={path} update={update} onGoTo={managing ? () => setGoToOpen(true) : undefined} />
-          )}
+          <WorkspaceNav workspaceKey={active} path={path} update={update} onGoTo={managing ? () => setGoToOpen(true) : undefined} />
           {/* tabIndex -1 so the skip link has somewhere to land; the routed
               screen's own first heading is the next stop from here. */}
           <div id="tp-main-column" style={{ display: 'flex', flexDirection: 'column', flex: 1, minInlineSize: 0, minBlockSize: 0 }}>
@@ -532,7 +488,7 @@ function WorkspaceShell({ who, venue, idleLockSeconds }: { who: StaffAccess; ven
                 reserves room for them (its spacer). Beginning after the blue
                 panel puts the strip clear of the buttons without a second
                 inset to keep in step with the first. */}
-            {!noNav && <VenueStatusBanner state={venue} />}
+            <VenueStatusBanner state={venue} />
             <main
               id="tp-main"
               tabIndex={-1}
@@ -541,8 +497,8 @@ function WorkspaceShell({ who, venue, idleLockSeconds }: { who: StaffAccess; ven
                 minInlineSize: 0,
                 minBlockSize: 0,
                 overflow: 'auto',
-                paddingBlock: noNav ? 'var(--tp-sp-3)' : 'var(--tp-sp-4)',
-                paddingInline: noNav ? 'var(--tp-sp-3)' : 'var(--tp-sp-5)',
+                paddingBlock: 'var(--tp-sp-4)',
+                paddingInline: 'var(--tp-sp-5)',
               }}
             >
               <PageFamilyContext.Provider value={family}>
@@ -1023,7 +979,6 @@ function WorkspaceNav({
         />
         {update && (
           <UpdateReadyControl
-            variant="rail"
             version={update.version}
             onInstall={() => void touch.installUpdate()}
             style={navButtonStyle}
@@ -1579,7 +1534,7 @@ function IdleLock({ serverSeconds }: { serverSeconds: number | null }) {
 /**
  * "Exit forced full screen" — the middle ground between a kiosk and Quit.
  *
- * Production till and KDS windows open with `kiosk: true` (main/index.ts
+ * Production till windows open with `kiosk: true` (main/index.ts
  * createWindow), which on macOS takes the menu bar and the traffic lights and
  * on Windows takes the taskbar. That is right for trading and wrong for the
  * half hour where someone has to reach the OS: install a printer driver, take
@@ -1985,7 +1940,7 @@ function SignInScreen() {
             <span lang={locale === 'ar' ? 'en' : 'ar'}>{tr('ws.shell.nav.language')}</span>
           </Button>
         </div>
-        {/* A till and a kitchen screen run frameless and non-closable, and the
+        {/* A till runs frameless and non-closable, and the
             rail — the only other way out — is behind a sign-in. A station
             powered on by mistake, or signed out at the end of the night, was
             therefore a machine nobody could close. Only the placement is the

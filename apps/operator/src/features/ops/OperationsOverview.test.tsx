@@ -48,7 +48,7 @@ const payload = {
     cancelledToday: 2,
     nextArrival: { startAt: '2026-09-03T15:00:00Z', guestName: 'Ali', courtNameEn: 'Court 2', courtNameAr: 'الملعب 2' },
   },
-  cafe: { openTabs: 3, ordersToday: 41, ticketsQueued: 2, ticketsLate: 1, waiterCallsOpen: 0 },
+  cafe: { openTabs: 3, ordersToday: 41, waiterCallsOpen: 0 },
   stock: { low: 2, belowPar: 5, expiringSoon: 1, expired: 0, openAlerts: 0, lastCountAt: null },
   staffActivity: [{ staffId: 's1', name: 'Noor', role: 'cashier', ordersTaken: 9, bookingsCreated: 2 }],
   exceptions: { discounts: { count: 2, amountIqd: 15000 }, voids: { count: 0, amountIqd: 0 }, refunds: { count: 1, amountIqd: 3000 } },
@@ -151,12 +151,11 @@ describe('OperationsOverviewScreen', () => {
   });
 
   it('prints every figure once: what is in "Needs you" is not repeated in the panels', async () => {
-    answers.ops_overview = { ...payload, cafe: { ...payload.cafe, waiterCallsOpen: 3, ticketsLate: 5 }, stock: { ...payload.stock, low: 2, expired: 1 } };
+    answers.ops_overview = { ...payload, cafe: { ...payload.cafe, waiterCallsOpen: 3 }, stock: { ...payload.stock, low: 2, expired: 1 } };
     renderScreen();
     await ready();
     const needs = panel('needs-you');
     expect(needs.getByText('Tables calling for a waiter')).toBeTruthy();
-    expect(needs.getByText('Kitchen orders running late')).toBeTruthy();
     // Nowhere else on the page.
     expect(screen.getAllByText(/calling for a waiter/i)).toHaveLength(1);
     expect(panel('floor-now').queryByText(/late|target/i)).toBeNull();
@@ -166,22 +165,20 @@ describe('OperationsOverviewScreen', () => {
     expect(panel('floor-now').getByRole('button', { name: 'See tabs' })).toBeTruthy();
   });
 
-  it('gives each row one way to act, and late orders none: the kitchen cooks them', async () => {
+  it('gives each row one way to act', async () => {
     renderScreen();
     await ready();
     const needs = panel('needs-you');
-    // payload: one late order and two ingredients low; no waiter call, nothing expired.
-    expect(needs.getByText('Kitchen orders running late')).toBeTruthy();
+    // payload: two ingredients low; no waiter call, nothing expired.
     expect(needs.getByText('Ingredients running low')).toBeTruthy();
     expect(needs.queryByText('Tables calling for a waiter')).toBeNull();
-    expect(needs.getByText('Tell the kitchen')).toBeTruthy();
     expect(needs.getAllByRole('button').map((b: HTMLElement) => b.textContent)).toEqual(['See which']);
     fireEvent.click(needs.getByRole('button', { name: 'See which' }));
     await waitFor(() => expect(nav.navigate).toHaveBeenCalledWith({ href: '/stock?filter=low' }));
   });
 
   it('says "nothing needs you" on one line when nothing stands', async () => {
-    answers.ops_overview = { ...payload, cafe: { ...payload.cafe, ticketsLate: 0 }, stock: { ...payload.stock, low: 0 } };
+    answers.ops_overview = { ...payload, stock: { ...payload.stock, low: 0 } };
     renderScreen();
     expect(await screen.findByText('Nothing needs you right now.')).toBeTruthy();
     // Below par and expiring soon are still on the page, as stock to watch.
@@ -190,25 +187,8 @@ describe('OperationsOverviewScreen', () => {
     expect(stock.getByText('Expiring soon')).toBeTruthy();
   });
 
-  // Owner call 2026-10-08: a list that stacks shows three rows, then "View more".
-  it('shows three rows by who is waiting, and folds the rest behind "View more"', async () => {
-    answers.ops_overview = { ...payload, cafe: { ...payload.cafe, waiterCallsOpen: 2, ticketsLate: 900 }, stock: { ...payload.stock, low: 2, expired: 1 } };
-    renderScreen();
-    await ready();
-    const needs = panel('needs-you');
-    // Four stand: waiter calls, late orders, expired, low; never sorted by count.
-    expect(needs.getAllByRole('listitem').map((li: HTMLElement) => li.getAttribute('data-testid'))).toEqual(['need-waiterCalls', 'need-ticketsLate', 'need-expired']);
-    const more = needs.getByRole('button', { name: 'View more (1)' });
-    expect(more.getAttribute('aria-expanded')).toBe('false');
-    fireEvent.click(more);
-    expect(needs.getAllByRole('listitem')).toHaveLength(4);
-    expect(needs.getByText('Ingredients running low')).toBeTruthy();
-    fireEvent.click(needs.getByRole('button', { name: 'Show less' }));
-    expect(needs.getAllByRole('listitem')).toHaveLength(3);
-  });
-
   it('opens an online refund in place, under its row, with the actions it needs', async () => {
-    answers.ops_overview = { ...payload, cafe: { ...payload.cafe, ticketsLate: 0 }, stock: { ...payload.stock, low: 0 } };
+    answers.ops_overview = { ...payload, stock: { ...payload.stock, low: 0 } };
     answers.deposit_attention = [failedRefund()];
     renderScreen();
     const row = await screen.findByTestId('need-deposits');
@@ -227,7 +207,7 @@ describe('OperationsOverviewScreen', () => {
   });
 
   it('opens the player reports in place with Close report and Ban', async () => {
-    answers.ops_overview = { ...payload, cafe: { ...payload.cafe, ticketsLate: 0 }, stock: { ...payload.stock, low: 0 } };
+    answers.ops_overview = { ...payload, stock: { ...payload.stock, low: 0 } };
     answers.match_reports_open = [
       {
         report_id: 'r1',
@@ -248,7 +228,7 @@ describe('OperationsOverviewScreen', () => {
   });
 
   it('names the lesson money due in its row, and opens it with Refund', async () => {
-    answers.ops_overview = { ...payload, cafe: { ...payload.cafe, ticketsLate: 0 }, stock: { ...payload.stock, low: 0 } };
+    answers.ops_overview = { ...payload, stock: { ...payload.stock, low: 0 } };
     answers.lesson_refunds_due = {
       venue_id: 'v1',
       total_iqd: 30000,
@@ -283,7 +263,7 @@ describe('OperationsOverviewScreen', () => {
   // R75: a lesson whose online share Qi could not take back links to the
   // online refunds. On Today they are a folded row, so the link opens it.
   it('opens the online refunds row from a lesson refund’s "Online refunds" link', async () => {
-    answers.ops_overview = { ...payload, cafe: { ...payload.cafe, ticketsLate: 0 }, stock: { ...payload.stock, low: 0 } };
+    answers.ops_overview = { ...payload, stock: { ...payload.stock, low: 0 } };
     answers.deposit_attention = [failedRefund()];
     answers.lesson_refunds_due = {
       venue_id: 'v1',
@@ -388,26 +368,6 @@ describe('OperationsOverviewScreen', () => {
     await ready();
     fireEvent.click(panel('stock-watch').getByRole('button', { name: /Below the level you keep/ }));
     await waitFor(() => expect(nav.navigate).toHaveBeenCalledWith({ href: '/stock?filter=belowPar' }));
-  });
-
-  it('prints a figure the server does not report as "—", never as zero', async () => {
-    renderScreen();
-    await ready();
-    // payload carries no ticketsPreparing.
-    expect(rowText(panel('floor-now'), 'Being made')).toBe('Being made—');
-  });
-
-  // A late order is also a waiting or preparing one, so the kitchen's figures
-  // are listed and never added up; the late count is in "Needs you" alone.
-  it('never totals the overlapping kitchen counts', async () => {
-    answers.ops_overview = { ...payload, cafe: { openTabs: 8, ticketsQueued: 470, ticketsPreparing: 3, ticketsLate: 473, waiterCallsOpen: 0 } };
-    renderScreen();
-    await ready();
-    const floor = panel('floor-now');
-    expect(rowText(floor, 'Waiting')).toBe('Waiting470');
-    expect(rowText(floor, 'Being made')).toBe('Being made3');
-    expect(screen.queryByText('946')).toBeNull();
-    expect(within(screen.getByTestId('need-ticketsLate')).getByText('473')).toBeTruthy();
   });
 
   it('shows three people in who worked today, and the rest on "View more"', async () => {

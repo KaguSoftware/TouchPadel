@@ -1,7 +1,7 @@
 /**
  * What a station shows when a screen throws, and the boundary that catches it.
  *
- * The operator had neither. Till and KDS stations run `kiosk: true` with
+ * The operator had neither. Till stations run `kiosk: true` with
  * `autoHideMenuBar: true` (operator-shell/src/main/index.ts:21-22), so an
  * uncaught render error left a cashier looking at a white rectangle with no
  * menu, no address bar and no way out — mid-service. The shell's

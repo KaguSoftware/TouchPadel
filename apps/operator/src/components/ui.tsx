@@ -438,16 +438,8 @@ export function Modal({
   canClose,
   requireChoice,
   closeButton = true,
-  tone,
 }: {
   title: string;
-  /**
-   * 'board' draws the dialog in the kitchen board's dark palette
-   * ([data-tone='board'] in GlobalStyles points the surface, text, border and
-   * accent tokens at the --tp-kds-* ones), so a dialog over the wall screen
-   * does not flash a white panel across the kitchen.
-   */
-  tone?: 'board';
   /**
    * False drops the X beside the title. For a yes/no alert, whose footer
    * already holds the way out: an X there was a third answer to a two-answer
@@ -650,13 +642,11 @@ export function Modal({
       role="dialog"
       aria-modal="true"
       aria-label={title}
-      data-tone={tone}
       // The app's own palette again, for a dialog opened inside a zone that
       // borrows another one (the till floor's service rail is blue mode on
       // paper): without it the slip review would open blue on a white till.
-      // A board dialog keeps its tone, which a theme block here would undo.
-      data-theme={tone ? undefined : 'operator'}
-      data-mode={tone || themeMode === 'light' ? undefined : themeMode}
+      data-theme="operator"
+      data-mode={themeMode === 'light' ? undefined : themeMode}
       className="tp-fade"
       style={{
         position: 'fixed',

@@ -56,13 +56,6 @@ export const kitEn = {
     refunded: 'Refunded',
     unknown: 'Payment unknown',
   },
-  ticketState: {
-    queued: 'New',
-    preparing: 'Preparing',
-    ready: 'Ready',
-    completed: 'Complete',
-    voided: 'Voided',
-  },
   tabStatus: {
     open: 'Open',
     awaiting_payment: 'Awaiting payment',
@@ -75,12 +68,6 @@ export const kitEn = {
     maintenance: 'Blocked',
     // A lesson's court row (coaching operator.md §5.20).
     lesson: 'Lesson',
-  },
-  source: {
-    web: 'Website',
-    till: 'Café cashier',
-    mobile: 'App',
-    desk: 'Desk',
   },
   flags: {
     vip: 'VIP',
