@@ -1,5 +1,5 @@
 {
-  "generated_from": "f2ceb1082f9b150f76a2eec6219fd155363b2f76",
+  "generated_from": "9b65befb47d9af73ac0e59d17409d50147a35399",
   "chunks": [
     {
       "kind": "page",
@@ -33479,6 +33479,22 @@
       "lang": "en",
       "title": "ws.kit.list (packages/i18n/src/catalogs/ws/kit.en.ts)",
       "body": "viewMore: View more ({count})\nshowLess: Show less",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.kit.osk",
+      "lang": "ar",
+      "title": "ws.kit.osk (packages/i18n/src/catalogs/ws/kit.ar.ts)",
+      "body": "shift: الأحرف البديلة\nbackspace: حذف\nenter: إدخال\nspace: مسافة\nswitchLang: تغيير اللغة\nsymbols: الأرقام والرموز\nletters: الأحرف\nhide: إخفاء لوحة المفاتيح\nkeyboard: لوحة المفاتيح\nshow: إظهار لوحة المفاتيح\nnoField: لا يوجد حقل للكتابة في هذه الشاشة.",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.kit.osk",
+      "lang": "en",
+      "title": "ws.kit.osk (packages/i18n/src/catalogs/ws/kit.en.ts)",
+      "body": "shift: Shift\nbackspace: Delete\nenter: Enter\nspace: space\nswitchLang: Switch language\nsymbols: Numbers and symbols\nletters: Letters\nhide: Hide keyboard\nkeyboard: Keyboard\nshow: Show keyboard\nnoField: There is nothing to type into on this screen.",
       "route": null
     },
     {
