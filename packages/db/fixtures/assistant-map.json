@@ -1,5 +1,5 @@
 {
-  "generated_from": "9b65befb47d9af73ac0e59d17409d50147a35399",
+  "generated_from": "2c3fb4e1b677b15500b970d1c2684ec901b5bf19",
   "chunks": [
     {
       "kind": "page",
@@ -39222,7 +39222,7 @@
       "ref": "label:ws.owner.staff#3~2",
       "lang": "ar",
       "title": "ws.owner.staff (packages/i18n/src/catalogs/ws/owner.ar.ts) (part 2 of 4)",
-      "body": "pin.noPinUnlockOnly: غير محدّد. يفتح قفل المحطة بكلمة المرور حتى يُحدَّد.\nrefusals.roleRetired: دور «المطبخ» لم يعد يُمنح لأحد. اختر باريستا أو مساعد شيف.\nrefusals.lastOwner: هذا هو المالك الوحيد. يُرجى جعل شخص آخر مالكًا أولًا.\naccess.title: الصلاحيات\naccess.lead: يحدّد الدور الصفحات المؤشَّرة. أضف وظيفة ثانية لمن يقوم بعملين، أو أزل التأشير عن صفحة لمنعه من فتحها.\naccess.owner: المالك يفتح كل شيء، فلا شيء هنا للتأشير.\naccess.jobsTitle: وظائف إضافية\naccess.jobsHint: كل وظيفة تضيف شاشاتها وأزرارها إلى جانب دوره.\naccess.management: المدير يفتح أصلًا كاشير الكافيه ومكتب الملاعب وشاشة المطبخ والمتجر.\naccess.pagesTitle: الصفحات التي يفتحها\naccess.pagesHint: أزل التأشير عن صفحة لتختفي من قائمته ولا يستطيع فتحها.\naccess.areas.till: كاشير الكافيه\naccess.areas.desk: مكتب الملاعب",
+      "body": "pin.noPinUnlockOnly: غير محدّد. يفتح قفل المحطة بكلمة المرور حتى يُحدَّد.\nrefusals.roleRetired: دور «المطبخ» لم يعد يُمنح لأحد. اختر باريستا أو مساعد شيف.\nrefusals.lastOwner: هذا هو المالك الوحيد. يُرجى جعل شخص آخر مالكًا أولًا.\naccess.title: الصلاحيات\naccess.lead: يحدّد الدور الصفحات المؤشَّرة. أضف وظيفة ثانية لمن يقوم بعملين، أو أزل التأشير عن صفحة لمنعه من فتحها.\naccess.owner: المالك يفتح كل شيء، فلا شيء هنا للتأشير.\naccess.jobsTitle: وظائف إضافية\naccess.jobsHint: كل وظيفة تضيف شاشاتها وأزرارها إلى جانب دوره.\naccess.management: المدير يفتح أصلًا كاشير الكافيه ومكتب الملاعب وشاشة المطبخ والمتجر.\naccess.cashierWithBar: كل باريستا يعمل كاشيرًا أيضًا، لذا تبقى وظيفة الكاشير مؤشَّرة.\naccess.pagesTitle: الصفحات التي يفتحها",
       "route": "/admin/staff"
     },
     {
@@ -39238,7 +39238,7 @@
       "ref": "label:ws.owner.staff#3~3",
       "lang": "ar",
       "title": "ws.owner.staff (packages/i18n/src/catalogs/ws/owner.ar.ts) (part 3 of 4)",
-      "body": "pin.noPinUnlockOnly: غير محدّد. يفتح قفل المحطة بكلمة المرور حتى يُحدَّد.\naccess.pagesTitle: الصفحات التي يفتحها\naccess.pagesHint: أزل التأشير عن صفحة لتختفي من قائمته ولا يستطيع فتحها.\naccess.areas.till: كاشير الكافيه\naccess.areas.desk: مكتب الملاعب\naccess.areas.customers: العملاء\naccess.areas.tournaments: البطولات\naccess.areas.kds: المطبخ\naccess.areas.shop: متجر تتش\naccess.areas.tasks: مهامي\naccess.areas.insights: المؤشرات\naccess.areas.content: خطة المحتوى والمنشورات\naccess.areas.incidents: الحوادث\naccess.areas.ops: العمليات\naccess.areas.stock: المخزون\naccess.areas.admin: الإعداد (القائمة، الملاعب، إغلاق اليوم)\naccess.areas.reports: التقارير\naccess.areas.protocols: البروتوكولات\naccess.areas.suggestions: الاقتراحات\naccess.areas.deductions: الخصومات من الراتب",
+      "body": "pin.noPinUnlockOnly: غير محدّد. يفتح قفل المحطة بكلمة المرور حتى يُحدَّد.\naccess.cashierWithBar: كل باريستا يعمل كاشيرًا أيضًا، لذا تبقى وظيفة الكاشير مؤشَّرة.\naccess.pagesTitle: الصفحات التي يفتحها\naccess.pagesHint: أزل التأشير عن صفحة لتختفي من قائمته ولا يستطيع فتحها.\naccess.areas.till: كاشير الكافيه\naccess.areas.desk: مكتب الملاعب\naccess.areas.customers: العملاء\naccess.areas.tournaments: البطولات\naccess.areas.kds: المطبخ\naccess.areas.shop: متجر تتش\naccess.areas.tasks: مهامي\naccess.areas.insights: المؤشرات\naccess.areas.content: خطة المحتوى والمنشورات\naccess.areas.incidents: الحوادث\naccess.areas.ops: العمليات\naccess.areas.stock: المخزون\naccess.areas.admin: الإعداد (القائمة، الملاعب، إغلاق اليوم)\naccess.areas.reports: التقارير\naccess.areas.protocols: البروتوكولات",
       "route": "/admin/staff"
     },
     {
@@ -39246,7 +39246,7 @@
       "ref": "label:ws.owner.staff#3~3",
       "lang": "en",
       "title": "ws.owner.staff (packages/i18n/src/catalogs/ws/owner.en.ts) (part 3 of 4)",
-      "body": "pin.setFor: Set a PIN for {name}\naccess.owner: An owner opens everything, so there is nothing to tick.\naccess.jobsTitle: Second jobs\naccess.jobsHint: Each one adds that job’s screens and buttons beside their role.\naccess.management: A manager already opens the café cashier, the desk, the kitchen screen and the shop.\naccess.pagesTitle: Pages they can open\naccess.pagesHint: Untick a page to take it off their menu and keep them out of it.\naccess.areas.till: Café cashier\naccess.areas.desk: Court desk\naccess.areas.customers: Customers\naccess.areas.tournaments: Tournaments\naccess.areas.kds: Kitchen\naccess.areas.shop: Touch Shop\naccess.areas.tasks: My tasks\naccess.areas.insights: Insights\naccess.areas.content: Content plan and posts\naccess.areas.incidents: Incidents\naccess.areas.ops: Operations",
+      "body": "pin.setFor: Set a PIN for {name}\naccess.owner: An owner opens everything, so there is nothing to tick.\naccess.jobsTitle: Second jobs\naccess.jobsHint: Each one adds that job’s screens and buttons beside their role.\naccess.management: A manager already opens the café cashier, the desk, the kitchen screen and the shop.\naccess.cashierWithBar: Every barista also works as a cashier, so Cashier stays ticked.\naccess.pagesTitle: Pages they can open\naccess.pagesHint: Untick a page to take it off their menu and keep them out of it.\naccess.areas.till: Café cashier\naccess.areas.desk: Court desk\naccess.areas.customers: Customers\naccess.areas.tournaments: Tournaments\naccess.areas.kds: Kitchen\naccess.areas.shop: Touch Shop\naccess.areas.tasks: My tasks\naccess.areas.insights: Insights",
       "route": "/admin/staff"
     },
     {
@@ -39254,7 +39254,7 @@
       "ref": "label:ws.owner.staff#3~4",
       "lang": "ar",
       "title": "ws.owner.staff (packages/i18n/src/catalogs/ws/owner.ar.ts) (part 4 of 4)",
-      "body": "pin.noPinUnlockOnly: غير محدّد. يفتح قفل المحطة بكلمة المرور حتى يُحدَّد.\naccess.areas.reports: التقارير\naccess.areas.protocols: البروتوكولات\naccess.areas.suggestions: الاقتراحات\naccess.areas.deductions: الخصومات من الراتب\naccess.areas.attendance: التأخير والانصراف المبكر\naccess.save: حفظ الصلاحيات\naccess.saved: حُفظت الصلاحيات.\naccess.confirmTitle: تغيير ما يستطيع {name} فتحه؟\naccess.confirmAddJobs: يضيف الوظيفة الإضافية: {list}.",
+      "body": "pin.noPinUnlockOnly: غير محدّد. يفتح قفل المحطة بكلمة المرور حتى يُحدَّد.\naccess.areas.ops: العمليات\naccess.areas.stock: المخزون\naccess.areas.admin: الإعداد (القائمة، الملاعب، إغلاق اليوم)\naccess.areas.reports: التقارير\naccess.areas.protocols: البروتوكولات\naccess.areas.suggestions: الاقتراحات\naccess.areas.deductions: الخصومات من الراتب\naccess.areas.attendance: التأخير والانصراف المبكر\naccess.save: حفظ الصلاحيات\naccess.saved: حُفظت الصلاحيات.\naccess.confirmTitle: تغيير ما يستطيع {name} فتحه؟",
       "route": "/admin/staff"
     },
     {
@@ -39262,7 +39262,7 @@
       "ref": "label:ws.owner.staff#3~4",
       "lang": "en",
       "title": "ws.owner.staff (packages/i18n/src/catalogs/ws/owner.en.ts) (part 4 of 4)",
-      "body": "pin.setFor: Set a PIN for {name}\naccess.areas.shop: Touch Shop\naccess.areas.tasks: My tasks\naccess.areas.insights: Insights\naccess.areas.content: Content plan and posts\naccess.areas.incidents: Incidents\naccess.areas.ops: Operations\naccess.areas.stock: Stock",
+      "body": "pin.setFor: Set a PIN for {name}\naccess.areas.customers: Customers\naccess.areas.tournaments: Tournaments\naccess.areas.kds: Kitchen\naccess.areas.shop: Touch Shop\naccess.areas.tasks: My tasks\naccess.areas.insights: Insights\naccess.areas.content: Content plan and posts\naccess.areas.incidents: Incidents",
       "route": "/admin/staff"
     },
     {
@@ -39270,15 +39270,15 @@
       "ref": "label:ws.owner.staff#4",
       "lang": "ar",
       "title": "ws.owner.staff (packages/i18n/src/catalogs/ws/owner.ar.ts) (part 1 of 3)",
-      "body": "access.confirmRemoveJobs: يزيل الوظيفة الإضافية: {list}.\naccess.confirmBlock: يمنعه من فتح: {list}.\naccess.confirmUnblock: يفتح له من جديد: {list}.\naccess.confirmWhen: تتحدّث شاشاته خلال دقيقة.\neditor.close: إغلاق\neditor.selfNote: هذا حسابك. وحده مالك آخر يستطيع تغيير دورك أو إزالة صلاحيتك.\neditor.name: الاسم الظاهر في التطبيق\neditor.nameHint: لا يمكن تغيير البريد الإلكتروني المستخدم لتسجيل الدخول من هنا. لاستخدام بريد آخر، أضف حسابًا جديدًا وأزل الصلاحية عن هذا الحساب.\neditor.saveName: حفظ الاسم\neditor.saveRole: تغيير الدور\neditor.roleInactive: أعد الصلاحية لهذا الشخص قبل تغيير دوره.\neditor.roleConfirm: تغيير دور {name} إلى {role}؟\neditor.roleConfirmAction: تغيير الدور إلى {role}",
+      "body": "access.confirmAddJobs: يضيف الوظيفة الإضافية: {list}.\naccess.confirmRemoveJobs: يزيل الوظيفة الإضافية: {list}.\naccess.confirmBlock: يمنعه من فتح: {list}.\naccess.confirmUnblock: يفتح له من جديد: {list}.\naccess.confirmWhen: تتحدّث شاشاته خلال دقيقة.\neditor.close: إغلاق\neditor.selfNote: هذا حسابك. وحده مالك آخر يستطيع تغيير دورك أو إزالة صلاحيتك.\neditor.name: الاسم الظاهر في التطبيق\neditor.nameHint: لا يمكن تغيير البريد الإلكتروني المستخدم لتسجيل الدخول من هنا. لاستخدام بريد آخر، أضف حسابًا جديدًا وأزل الصلاحية عن هذا الحساب.\neditor.saveName: حفظ الاسم\neditor.saveRole: تغيير الدور\neditor.roleInactive: أعد الصلاحية لهذا الشخص قبل تغيير دوره.\neditor.roleConfirm: تغيير دور {name} إلى {role}؟\neditor.roleConfirmAction: تغيير الدور إلى {role}",
       "route": "/admin/staff"
     },
     {
       "kind": "label",
       "ref": "label:ws.owner.staff#4",
       "lang": "en",
-      "title": "ws.owner.staff (packages/i18n/src/catalogs/ws/owner.en.ts) (part 1 of 3)",
-      "body": "access.areas.admin: Setup (menu, courts, day close)\naccess.areas.reports: Reports\naccess.areas.protocols: Protocols\naccess.areas.suggestions: Suggestions\naccess.areas.deductions: Pay deductions\naccess.areas.attendance: Late and early\naccess.save: Save access\naccess.saved: Access saved.\naccess.confirmTitle: Change what {name} can open?\naccess.confirmAddJobs: Adds the second job: {list}.\naccess.confirmRemoveJobs: Takes away the second job: {list}.\naccess.confirmBlock: Keeps them out of: {list}.\naccess.confirmUnblock: Opens again: {list}.\naccess.confirmWhen: Their screens update within a minute.\neditor.close: Close\neditor.selfNote: This is your own account. Only another owner can change your role or remove your access.",
+      "title": "ws.owner.staff (packages/i18n/src/catalogs/ws/owner.en.ts) (part 1 of 4)",
+      "body": "access.areas.ops: Operations\naccess.areas.stock: Stock\naccess.areas.admin: Setup (menu, courts, day close)\naccess.areas.reports: Reports\naccess.areas.protocols: Protocols\naccess.areas.suggestions: Suggestions\naccess.areas.deductions: Pay deductions\naccess.areas.attendance: Late and early\naccess.save: Save access\naccess.saved: Access saved.\naccess.confirmTitle: Change what {name} can open?\naccess.confirmAddJobs: Adds the second job: {list}.\naccess.confirmRemoveJobs: Takes away the second job: {list}.\naccess.confirmBlock: Keeps them out of: {list}.\naccess.confirmUnblock: Opens again: {list}.\naccess.confirmWhen: Their screens update within a minute.\neditor.close: Close",
       "route": "/admin/staff"
     },
     {
@@ -39286,15 +39286,15 @@
       "ref": "label:ws.owner.staff#4~2",
       "lang": "ar",
       "title": "ws.owner.staff (packages/i18n/src/catalogs/ws/owner.ar.ts) (part 2 of 3)",
-      "body": "access.confirmRemoveJobs: يزيل الوظيفة الإضافية: {list}.\neditor.saveRole: تغيير الدور\neditor.roleInactive: أعد الصلاحية لهذا الشخص قبل تغيير دوره.\neditor.roleConfirm: تغيير دور {name} إلى {role}؟\neditor.roleConfirmAction: تغيير الدور إلى {role}\neditor.roleWhen: يسري التغيير فورًا، وتتحدّث القوائم عند تسجيل الدخول التالي.\neditor.roleSaved: غُيّر الدور.\neditor.accessTitle: الصلاحية\neditor.enabledNote: إزالة الصلاحية تُسجّل خروجه من التطبيق وتمنعه من الدخول مرة أخرى. تبقى سجلاته باسمه.\neditor.disabledNote: لا يستطيع هذا الشخص تسجيل الدخول. يبقى عمله السابق في السجلات باسمه.\neditor.removeConfirm: إزالة صلاحية {name}؟\neditor.restoreConfirm: إعادة الصلاحية إلى {name}؟\neditor.restoreBody: يستطيع تسجيل الدخول مرة أخرى بكلمة المرور القديمة وبالدور الظاهر. وسيحتاج إلى رقم سري جديد.",
+      "body": "access.confirmAddJobs: يضيف الوظيفة الإضافية: {list}.\neditor.saveRole: تغيير الدور\neditor.roleInactive: أعد الصلاحية لهذا الشخص قبل تغيير دوره.\neditor.roleConfirm: تغيير دور {name} إلى {role}؟\neditor.roleConfirmAction: تغيير الدور إلى {role}\neditor.roleWhen: يسري التغيير فورًا، وتتحدّث القوائم عند تسجيل الدخول التالي.\neditor.roleSaved: غُيّر الدور.\neditor.accessTitle: الصلاحية\neditor.enabledNote: إزالة الصلاحية تُسجّل خروجه من التطبيق وتمنعه من الدخول مرة أخرى. تبقى سجلاته باسمه.\neditor.disabledNote: لا يستطيع هذا الشخص تسجيل الدخول. يبقى عمله السابق في السجلات باسمه.\neditor.removeConfirm: إزالة صلاحية {name}؟\neditor.restoreConfirm: إعادة الصلاحية إلى {name}؟\neditor.restoreBody: يستطيع تسجيل الدخول مرة أخرى بكلمة المرور القديمة وبالدور الظاهر. وسيحتاج إلى رقم سري جديد.",
       "route": "/admin/staff"
     },
     {
       "kind": "label",
       "ref": "label:ws.owner.staff#4~2",
       "lang": "en",
-      "title": "ws.owner.staff (packages/i18n/src/catalogs/ws/owner.en.ts) (part 2 of 3)",
-      "body": "access.areas.admin: Setup (menu, courts, day close)\naccess.confirmWhen: Their screens update within a minute.\neditor.close: Close\neditor.selfNote: This is your own account. Only another owner can change your role or remove your access.\neditor.name: Name shown in the app\neditor.nameHint: The sign-in email cannot be changed here. To use a different email, add a new account and remove access from this one.\neditor.saveName: Save name\neditor.saveRole: Change role\neditor.roleInactive: Give this person access again before changing their role.\neditor.roleConfirm: Change {name}’s role to {role}?\neditor.roleConfirmAction: Change to {role}\neditor.roleWhen: The change applies straight away; their menus update the next time they sign in.\neditor.roleSaved: Role changed.\neditor.accessTitle: Access",
+      "title": "ws.owner.staff (packages/i18n/src/catalogs/ws/owner.en.ts) (part 2 of 4)",
+      "body": "access.areas.ops: Operations\naccess.confirmBlock: Keeps them out of: {list}.\naccess.confirmUnblock: Opens again: {list}.\naccess.confirmWhen: Their screens update within a minute.\neditor.close: Close\neditor.selfNote: This is your own account. Only another owner can change your role or remove your access.\neditor.name: Name shown in the app\neditor.nameHint: The sign-in email cannot be changed here. To use a different email, add a new account and remove access from this one.\neditor.saveName: Save name\neditor.saveRole: Change role\neditor.roleInactive: Give this person access again before changing their role.\neditor.roleConfirm: Change {name}’s role to {role}?\neditor.roleConfirmAction: Change to {role}",
       "route": "/admin/staff"
     },
     {
@@ -39302,15 +39302,23 @@
       "ref": "label:ws.owner.staff#4~3",
       "lang": "ar",
       "title": "ws.owner.staff (packages/i18n/src/catalogs/ws/owner.ar.ts) (part 3 of 3)",
-      "body": "access.confirmRemoveJobs: يزيل الوظيفة الإضافية: {list}.\neditor.restoreConfirm: إعادة الصلاحية إلى {name}؟\neditor.restoreBody: يستطيع تسجيل الدخول مرة أخرى بكلمة المرور القديمة وبالدور الظاهر. وسيحتاج إلى رقم سري جديد.\neditor.accessRemoved: أُزيلت الصلاحية.\neditor.accessRestored: أُعيدت الصلاحية.",
+      "body": "access.confirmAddJobs: يضيف الوظيفة الإضافية: {list}.\neditor.restoreConfirm: إعادة الصلاحية إلى {name}؟\neditor.restoreBody: يستطيع تسجيل الدخول مرة أخرى بكلمة المرور القديمة وبالدور الظاهر. وسيحتاج إلى رقم سري جديد.\neditor.accessRemoved: أُزيلت الصلاحية.\neditor.accessRestored: أُعيدت الصلاحية.",
       "route": "/admin/staff"
     },
     {
       "kind": "label",
       "ref": "label:ws.owner.staff#4~3",
       "lang": "en",
-      "title": "ws.owner.staff (packages/i18n/src/catalogs/ws/owner.en.ts) (part 3 of 3)",
-      "body": "access.areas.admin: Setup (menu, courts, day close)\neditor.roleConfirmAction: Change to {role}\neditor.roleWhen: The change applies straight away; their menus update the next time they sign in.\neditor.roleSaved: Role changed.\neditor.accessTitle: Access\neditor.enabledNote: Removing access signs them out and stops them signing in. Their records stay under their name.\neditor.disabledNote: This person cannot sign in. Their past work stays in the records under their name.\neditor.removeConfirm: Remove access for {name}?\neditor.restoreConfirm: Give {name} access again?\neditor.restoreBody: They can sign in again with their old password, in the role shown. They will need a new PIN.\neditor.accessRemoved: Access removed.\neditor.accessRestored: Access given back.",
+      "title": "ws.owner.staff (packages/i18n/src/catalogs/ws/owner.en.ts) (part 3 of 4)",
+      "body": "access.areas.ops: Operations\neditor.roleInactive: Give this person access again before changing their role.\neditor.roleConfirm: Change {name}’s role to {role}?\neditor.roleConfirmAction: Change to {role}\neditor.roleWhen: The change applies straight away; their menus update the next time they sign in.\neditor.roleSaved: Role changed.\neditor.accessTitle: Access\neditor.enabledNote: Removing access signs them out and stops them signing in. Their records stay under their name.\neditor.disabledNote: This person cannot sign in. Their past work stays in the records under their name.\neditor.removeConfirm: Remove access for {name}?\neditor.restoreConfirm: Give {name} access again?\neditor.restoreBody: They can sign in again with their old password, in the role shown. They will need a new PIN.",
+      "route": "/admin/staff"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.owner.staff#4~4",
+      "lang": "en",
+      "title": "ws.owner.staff (packages/i18n/src/catalogs/ws/owner.en.ts) (part 4 of 4)",
+      "body": "access.areas.ops: Operations\neditor.restoreConfirm: Give {name} access again?\neditor.restoreBody: They can sign in again with their old password, in the role shown. They will need a new PIN.\neditor.accessRemoved: Access removed.\neditor.accessRestored: Access given back.",
       "route": "/admin/staff"
     },
     {

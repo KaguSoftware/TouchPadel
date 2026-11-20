@@ -17,6 +17,16 @@ is a line in that file.
 
 ## Migrations
 
+- **0446 (2026-11-20, baristas_work_the_till; Majed: "All baristas will take on cashier. Whether
+  it's head or not head"):** trigger `staff_barista_cashier` (`app.trg_staff_barista_cashier`,
+  BEFORE INSERT OR UPDATE OF role, extra_roles) keeps `cashier` in `staff.extra_roles` for the bar
+  team (head_barista, barista, assistant_barista) and for a barista second job; a main role moved
+  off the bar drops it; existing baristas backfilled. Every reader already counts a second job, so
+  no client changed except the operator Access list, which shows the box locked. A test that makes
+  a barista now gets a cashier too. **0446 holds `app.assert_tab_kind_role`** (0244 no longer): it
+  read `app.staff_role()`, the main job alone, so a second-job cashier passed every till RPC's
+  `is_staff` door and was then refused `TAB_KIND_FORBIDDEN`; it now reads `app.my_staff_roles()`.
+  `tests/second-jobs.test.ts` "0446".
 - **0445 (2026-11-14, loyalty_card_gifts; Majed: Green = a birthday drink + a premium profile
   ring, Blue = free add-ons, the drink card full at 6 not 8, a tea or water free with any dessert,
   a drink and a dessert on the birthday; every privilege set up in the operator):**
@@ -452,8 +462,8 @@ is a line in that file.
   `tests/sweeps-report.test.ts` counts handlers against `app.monitor` calls in each latest body.
   `app.monitor_scrub_text` masks any run of eight digits, dashes included, so a digit-heavy uuid
   in a message or detail is stored as `[number]`.
-- Ordinal strictly greater than the current max, never a reused one. Latest is `0445`
-  (0380–0391, 0402–0416, 0420–0424, 0430, 0431, 0442 and 0445 are at the top of this list; 0392–0401 are in their own headers, and
+- Ordinal strictly greater than the current max, never a reused one. Latest is `0446`
+  (0380–0391, 0402–0416, 0420–0424, 0430, 0431, 0442, 0445 and 0446 are at the top of this list; 0392–0401 are in their own headers, and
   0377–0379 have no file). Before them: (0376 loyalty_tier_colors, 2026-10-31 (Ameen: a tier made "from 100 points" never reached a
   gifted account, and the owner picks each tier's card colour): `loyalty_tiers.color` (classic |
   bronze | silver | gold | platinum | black, default classic, `loyalty_tiers_color`; the same keys
@@ -763,7 +773,7 @@ is a line in that file.
   0149 assistant-cap, 0150 move-not-into-past, 0151 out-of-stock-alert, 0152 my-reservations,
   0153 terms-consent, 0154 analytics-returning-guest, 0155–0157 six new staff roles, 0158–0206
   protocols and the staff phone (change-order line 10), 0207–0227 multi-venue slices 2–4); the next is
-  `0446`. **Check the directory, not this line** — it said 0146 while 0147–0149 were already on
+  `0447`. **Check the directory, not this line** — it said 0146 while 0147–0149 were already on
   disk, and later 0150 while 0154 was, and a reused ordinal fails `check-migrations.mjs` after the
   file is written.
 - `0069` and `0071` are already doubled; `0023`, `0040` and `0101` have no file, so leave the gaps.

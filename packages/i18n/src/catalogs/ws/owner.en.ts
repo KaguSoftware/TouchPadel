@@ -524,6 +524,7 @@ export const ownerEn = {
       jobsTitle: 'Second jobs',
       jobsHint: 'Each one adds that job’s screens and buttons beside their role.',
       management: 'A manager already opens the café cashier, the desk, the kitchen screen and the shop.',
+      cashierWithBar: 'Every barista also works as a cashier, so Cashier stays ticked.',
       pagesTitle: 'Pages they can open',
       pagesHint: 'Untick a page to take it off their menu and keep them out of it.',
       areas: {
