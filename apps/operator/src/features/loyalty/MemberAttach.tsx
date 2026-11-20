@@ -747,7 +747,7 @@ export function MemberAttach({
  * and refuses the staff member's own PIN (FORBIDDEN self_dealing): another manager enters theirs
  * here (verify_manager_pin, the 0115 grant pattern), then the attach is sent again.
  */
-function StaffPinDialog({
+export function StaffPinDialog({
   tabId,
   member,
   onClose,

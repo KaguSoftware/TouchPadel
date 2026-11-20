@@ -267,9 +267,8 @@ export async function voidOpenTabsByLabel(svc: SupabaseClient, label: string): P
 export async function openCounterOrder(page: Page, label: string): Promise<void> {
   await page.getByRole('button', { name: /^New order/ }).click();
   const dialog = page.getByRole('dialog', { name: 'New order' });
-  await dialog.getByLabel(/^Name or number/).fill(label);
-  // A stepped dialog since 2026-10-22: the name, the court booking, Review.
-  await dialog.getByTestId('new-order.step.review').click();
+  // One screen since 2026-11-20: a name (or a member card), then Start order.
+  await dialog.getByTestId('new-order.name').fill(label);
   await dialog.getByTestId('new-order.submit').click();
   await expect(dialog).toBeHidden();
 }
