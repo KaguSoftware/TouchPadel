@@ -1,5 +1,5 @@
 {
-  "generated_from": "2c3fb4e1b677b15500b970d1c2684ec901b5bf19",
+  "generated_from": "cd135ab631980e91146d203bb18046beed564156",
   "chunks": [
     {
       "kind": "page",
@@ -28934,7 +28934,7 @@
       "ref": "label:ws.cashier.newTab",
       "lang": "ar",
       "title": "ws.cashier.newTab (packages/i18n/src/catalogs/ws/cashier.ar.ts) (part 1 of 2)",
-      "body": "title: فاتورة جديدة\nfromBooking: مرتبطة بحجز\nfromBookingHint: تُفتح هذه الفاتورة للحجز المختار من مكتب الملاعب، وتُضاف رسوم الملعب عند التسوية.\nbookingMissing: لا يمكن فتح فاتورة لهذا الحجز: له فاتورة بالفعل، أو ليس موعده اليوم.\norderTitle: طلب جديد\nstart: بدء الطلب\nnameLabel: الاسم أو الرقم\ncounterHint: إن تُرك فارغًا يأخذ رقم الكاونتر التالي. اربط كل طلب بطاولة من الفاتورة عندما يجلس الزبون.\ncounterSale: بيع من كاونتر المتجر\ncounterSaleHint: لمن يشتري من المتجر: دون طاولة أو حجز، باسم أو رقم فقط.\ncounterNameHint: يظهر على الفاتورة وفي إغلاق اليوم.\nneedLabel: اكتب اسمًا أو رقمًا.\nlead: كاشير المقهى\nstepName: الاسم\nnextNumber: الرقم التالي\nnextCounterNumber: رقم الكاونتر التالي\nnoBookingBody: طلب من المقهى وحده.\ntableStepLabel: الطاولة أو حجز الملعب",
+      "body": "title: فاتورة جديدة\nfromBooking: مرتبطة بحجز\nfromBookingHint: تُفتح هذه الفاتورة للحجز المختار من مكتب الملاعب، وتُضاف رسوم الملعب عند التسوية.\nbookingMissing: لا يمكن فتح فاتورة لهذا الحجز: له فاتورة بالفعل، أو ليس موعده اليوم.\norderTitle: طلب جديد\nstart: بدء الطلب\ncounterSale: بيع من كاونتر المتجر\ncounterSaleHint: لمن يشتري من المتجر: دون طاولة أو حجز، باسم أو رقم فقط.\ncounterNameHint: يظهر على الفاتورة وفي إغلاق اليوم.\nneedLabel: اكتب اسمًا أو رقمًا.\nnameOrMember: الاسم أو بطاقة العضوية\nnameOrMemberHint: اكتب اسمًا أو امسح رمز QR الخاص بالعضو. إن تُرك فارغًا يأخذ رقم الكاونتر التالي.\nmemberSeen: بطاقة عضوية: يُضاف العضو إلى هذه الفاتورة.\nmemberNotAllowed: لا يسمح دورك بإضافة عضو إلى الفاتورة. اكتب اسمًا بدلًا من ذلك.",
       "route": "/till"
     },
     {
@@ -28942,7 +28942,7 @@
       "ref": "label:ws.cashier.newTab",
       "lang": "en",
       "title": "ws.cashier.newTab (packages/i18n/src/catalogs/ws/cashier.en.ts) (part 1 of 2)",
-      "body": "title: New tab\nfromBooking: Bound to booking\nfromBookingHint: This tab is opened for the booking chosen on the desk; the court fee is added at settlement.\nbookingMissing: That booking is not available to open a tab on (already has a tab, or not today).\norderTitle: New order\nstart: Start order\nnameLabel: Name or number\ncounterHint: Left empty, it takes the next counter number. Attach a table to each order from the tab, once the guest sits.\ncounterSale: Shop counter sale\ncounterSaleHint: For someone buying from the shop: no table or booking, just a name or a number.\ncounterNameHint: Shown on the tab and on the day close.\nneedLabel: Type a name or a number.\nlead: Café till\nstepName: Name\nnextNumber: Next number\nnextCounterNumber: Next counter number",
+      "body": "title: New tab\nfromBooking: Bound to booking\nfromBookingHint: This tab is opened for the booking chosen on the desk; the court fee is added at settlement.\nbookingMissing: That booking is not available to open a tab on (already has a tab, or not today).\norderTitle: New order\nstart: Start order\ncounterSale: Shop counter sale\ncounterSaleHint: For someone buying from the shop: no table or booking, just a name or a number.\ncounterNameHint: Shown on the tab and on the day close.\nneedLabel: Type a name or a number.\nnameOrMember: Name or member card\nnameOrMemberHint: Type a name, or scan the member's QR. Left empty, it takes the next counter number.\nmemberSeen: Member card: the member goes on this bill.",
       "route": "/till"
     },
     {
@@ -28950,7 +28950,7 @@
       "ref": "label:ws.cashier.newTab~2",
       "lang": "ar",
       "title": "ws.cashier.newTab (packages/i18n/src/catalogs/ws/cashier.ar.ts) (part 2 of 2)",
-      "body": "title: فاتورة جديدة\nlead: كاشير المقهى\nstepName: الاسم\nnextNumber: الرقم التالي\nnextCounterNumber: رقم الكاونتر التالي\nnoBookingBody: طلب من المقهى وحده.\ntableStepLabel: الطاولة أو حجز الملعب\ntableOrderTitle: طلب طاولة\ntableOrderBody: لـ{table} فقط.\nbookingNote: عند ربطه بحجز، تُضاف رسوم الملعب عند تسوية الفاتورة.\nreviewBooking: الحجز",
+      "body": "title: فاتورة جديدة\nmemberSeen: بطاقة عضوية: يُضاف العضو إلى هذه الفاتورة.\nmemberNotAllowed: لا يسمح دورك بإضافة عضو إلى الفاتورة. اكتب اسمًا بدلًا من ذلك.\nappCodeHere: هذا رمز مكافأة أو عرض. ابدأ الطلب، ثم امسحه على الفاتورة.\ntableOrderBody: لـ{table} فقط.",
       "route": "/till"
     },
     {
@@ -28958,7 +28958,7 @@
       "ref": "label:ws.cashier.newTab~2",
       "lang": "en",
       "title": "ws.cashier.newTab (packages/i18n/src/catalogs/ws/cashier.en.ts) (part 2 of 2)",
-      "body": "title: New tab\ncounterNameHint: Shown on the tab and on the day close.\nneedLabel: Type a name or a number.\nlead: Café till\nstepName: Name\nnextNumber: Next number\nnextCounterNumber: Next counter number\nnoBookingBody: A café order on its own.\ntableStepLabel: Table or court booking\ntableOrderTitle: Table order\ntableOrderBody: Just for {table}.\nbookingNote: Tied to a booking, the court fee is added when the bill is settled.\nreviewBooking: Booking",
+      "body": "title: New tab\nnameOrMember: Name or member card\nnameOrMemberHint: Type a name, or scan the member's QR. Left empty, it takes the next counter number.\nmemberSeen: Member card: the member goes on this bill.\nmemberNotAllowed: Your role cannot put a member on a bill. Type a name instead.\nappCodeHere: That is a reward or deal code. Start the order, then scan it on the bill.\ntableOrderBody: Just for {table}.",
       "route": "/till"
     },
     {

@@ -1,5 +1,5 @@
 /**
- * New order dialog — a counter tab, or a booking's bill (app.open_tab; order
+ * New order dialog (one screen since 2026-11-20) — a counter tab, or a booking's bill (app.open_tab; order
  * first since 0352, the table attached to each order after). Also the
  * home of the reservation picker that 06.17 (charge to booking) reuses.
  *
@@ -15,11 +15,15 @@ import { LOCAL_TAB_PREFIX, addOfflineTab } from '../../lib/offlineTabs';
 import { QK, fetchVenueSettings } from '../../lib/queries';
 import { tonightScope } from '../desk/useTradingNight';
 import { useLocale, pickName } from '../../lib/i18n';
-import { useAuth } from '../../lib/auth';
-import { ErrorText, Field, inputStyle } from '../../components/ui';
-import { ReviewList, StepWizard, WizardChoice, WizardChoices, WizardNote, type WizardStep } from '../../components/StepWizard';
+import { can, useAuth } from '../../lib/auth';
+import { Button, ErrorText, Field, Modal, inputStyle } from '../../components/ui';
+import { WizardNote } from '../../components/StepWizard';
 import { SearchField } from '../../components/kit';
-import { bookingTakesNewTab, canReadBookings } from './tillData';
+import type { IdentifiedMember } from '@touch/core/loyalty';
+import { isMemberScan, parseAppCode } from '../loyalty/loyaltyLogic';
+import { identifyMember, invalidateTabLoyalty, needsAttachPin, setTabCustomer } from '../loyalty/useLoyalty';
+import { StaffPinDialog } from '../loyalty/MemberAttach';
+import { bookingTakesNewTab } from './tillData';
 import { isMatchLiteral } from '../matches/matchLogic';
 import { isLessonLiteral } from '../coaching/lessonLogic';
 import { muted, touchTarget } from './tillStyles';
@@ -175,6 +179,14 @@ export async function openTabOn(
   return `${LOCAL_TAB_PREFIX}${outcome.idempotencyKey}`;
 }
 
+/**
+ * New order, one screen (Majed, 2026-11-20): a name, or the member's card scanned into the same
+ * field, then Start order. Nothing else is asked. A scanned card (TP-…) is looked up first
+ * (loyalty_identify), the order opens under the member's name, and the member goes on the bill
+ * (set_tab_customer); a member who works here asks for another manager's PIN (StaffPinDialog), and
+ * the order stays open either way. A booking's bill comes from the desk (`/till?reservation=`) or
+ * from "Charge to booking"; a table tapped on the floor still opens its order here.
+ */
 export function NewTabDialog({
   onClose,
   onOpened,
@@ -190,41 +202,65 @@ export function NewTabDialog({
 }) {
   const { tr, locale } = useLocale();
   const { staff } = useAuth();
-  // A role that cannot read bookings (see canReadBookings) would get a select
-  // that only ever held "No booking". Shown when it can hold something, or
-  // when the desk already chose the booking.
-  const showBookings = canReadBookings(staff) || Boolean(initialReservationId);
-  const [label, setLabel] = useState('');
-  const [reservationId, setReservationId] = useState(initialReservationId ?? '');
+  const qc = useQueryClient();
+  const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
+  const [refusal, setRefusal] = useState<string | null>(null);
+  /** A member who works here: the tab is open, the attach waits on another manager's PIN. */
+  const [staffPin, setStaffPin] = useState<{ tabId: string; member: IdentifiedMember } | null>(null);
 
-  const reservationsQ = useTodaysOpenReservations(canReadBookings(staff) || Boolean(initialReservationId));
+  const reservationsQ = useTodaysOpenReservations(Boolean(initialReservationId));
   const reservations = reservationsQ.data ?? [];
-  const preboundMissing =
-    Boolean(initialReservationId) && reservationsQ.isSuccess && !reservations.some((r) => r.id === initialReservationId);
+  const bound = reservations.find((r) => r.id === initialReservationId);
+  const preboundMissing = Boolean(initialReservationId) && reservationsQ.isSuccess && !bound;
 
   // Whitespace is not a name: the server would number it like an empty one.
-  const trimmedLabel = label.trim();
+  const trimmed = text.trim();
+  const memberCard = isMemberScan(trimmed);
 
   async function submit() {
-    setBusy(true);
+    if (busy) return;
     setError(null);
+    setRefusal(null);
+    // A reward's or a deal's code belongs on a bill that exists (the member block reads it there).
+    if (parseAppCode(trimmed)) {
+      setRefusal(tr('ws.cashier.newTab.appCodeHere'));
+      return;
+    }
+    if (memberCard && !can(staff, 'attachMember')) {
+      setRefusal(tr('ws.cashier.newTab.memberNotAllowed'));
+      return;
+    }
+    setBusy(true);
     try {
+      // The card first: a refused or unknown card opens nothing.
+      const member = memberCard ? await identifyMember(trimmed.toUpperCase()) : null;
+      const name = member ? member.display_name?.trim().slice(0, 60) || undefined : trimmed || undefined;
       /* Order first (0352): a café order starts at the counter with no table.
          Where each order goes is attached to that order afterwards, from the
          tab ("Bring to…"), whenever the guest sits; a booking is still a bill
          of its own (the court fee joins it at settlement). */
-      onOpened(
-        await openTabOn(
-          {
-            label: trimmedLabel || undefined,
-            reservationId: reservationId || undefined,
-            tableId: table?.id,
-          },
-          table?.tableNumber ?? null,
-        ),
+      const tabId = await openTabOn(
+        { label: name, reservationId: initialReservationId || undefined, tableId: table?.id },
+        table?.tableNumber ?? null,
       );
+      if (member && !tabId.startsWith(LOCAL_TAB_PREFIX)) {
+        try {
+          await setTabCustomer(tabId, member.customer_id);
+          invalidateTabLoyalty(qc, tabId, member.customer_id);
+        } catch (e) {
+          // 0308 (c2): a member who works here is added only behind another manager's PIN.
+          if (needsAttachPin(e)) {
+            setStaffPin({ tabId, member });
+            return;
+          }
+          // The order is open; the member can still be added from the bill.
+          onOpened(tabId);
+          throw e;
+        }
+      }
+      onOpened(tabId);
     } catch (e) {
       setError(e);
     } finally {
@@ -232,88 +268,76 @@ export function NewTabDialog({
     }
   }
 
-  const bound = reservations.find((r) => r.id === reservationId);
-  // "19:00 · Court 1": a booking card's name, the step's note and the Review value.
-  const bookingShort = (r: OpenReservationRow) => `${formatTime(new Date(r.start_at), locale)} · ${pickName(locale, r.court)}`;
-  const tableWordName = table ? `${tr('op.till.table')} ${table.tableNumber}` : '';
-  const noBookingTitle = table ? tr('ws.cashier.newTab.tableOrderTitle') : tr('op.till.noReservation');
-  const bookingName = bound ? bookingShort(bound) : noBookingTitle;
-
-  // The stepped dialog (Sait, 2026-10-22): the name, then the court booking.
-  // A role that cannot read bookings has the name step only.
-  const steps: WizardStep[] = [
-    {
-      key: 'name',
-      label: tr('ws.cashier.newTab.stepName'),
-      note: trimmedLabel || tr('ws.cashier.newTab.nextNumber'),
-      content: (
-        <Field label={tr('ws.cashier.newTab.nameLabel')} optional hint={tr('ws.cashier.newTab.counterHint')}>
-          <input style={inputStyle} value={label} maxLength={60} autoFocus onChange={(e) => setLabel(e.target.value)} />
-        </Field>
-      ),
-    },
-    ...(showBookings
-      ? [
-          {
-            key: 'booking',
-            label: table ? tr('ws.cashier.newTab.tableStepLabel') : tr('op.till.reservationLabel'),
-            note: bookingName,
-            content: (
-              <>
-                {initialReservationId && bound && (
-                  <WizardNote>
-                    <strong>{tr('ws.cashier.newTab.fromBooking')}</strong> — <bdi>{reservationOptionLabel(tr, locale, bound)}</bdi>
-                    <br />
-                    {tr('ws.cashier.newTab.fromBookingHint')}
-                  </WizardNote>
-                )}
-                {preboundMissing && <WizardNote tone="refused">{tr('ws.cashier.newTab.bookingMissing')}</WizardNote>}
-                <WizardChoices label={tr('op.till.reservationLabel')}>
-                  <WizardChoice
-                    on={reservationId === ''}
-                    title={noBookingTitle}
-                    body={table ? tr('ws.cashier.newTab.tableOrderBody', { table: tableWordName }) : tr('ws.cashier.newTab.noBookingBody')}
-                    onPick={() => setReservationId('')}
-                  />
-                  {reservations.map((r) => (
-                    <WizardChoice
-                      key={r.id}
-                      on={reservationId === r.id}
-                      title={<bdi>{bookingShort(r)}</bdi>}
-                      body={<bdi>{r.guest_name ?? '—'}</bdi>}
-                      onPick={() => setReservationId(r.id)}
-                    />
-                  ))}
-                </WizardChoices>
-                <WizardNote>{tr('ws.cashier.newTab.bookingNote')}</WizardNote>
-              </>
-            ),
-          },
-        ]
-      : []),
-  ];
+  if (staffPin) {
+    return (
+      <StaffPinDialog
+        tabId={staffPin.tabId}
+        member={staffPin.member}
+        onClose={() => onOpened(staffPin.tabId)}
+        onDone={() => {
+          invalidateTabLoyalty(qc, staffPin.tabId, staffPin.member.customer_id);
+          onOpened(staffPin.tabId);
+        }}
+      />
+    );
+  }
 
   return (
-    <StepWizard
+    <Modal
       title={tr('ws.cashier.newTab.orderTitle')}
-      lead={tr('ws.cashier.newTab.lead')}
-      steps={steps}
-      review={(goTo) => (
-        <ReviewList
-          goTo={goTo}
-          busy={busy}
-          rows={[
-            { label: tr('ws.cashier.newTab.stepName'), value: trimmedLabel ? <bdi>{trimmedLabel}</bdi> : tr('ws.cashier.newTab.nextCounterNumber'), step: 'name' },
-            ...(showBookings ? [{ label: tr('ws.cashier.newTab.reviewBooking'), value: <bdi>{bookingName}</bdi>, step: 'booking' }] : []),
-          ]}
-        />
-      )}
-      submitLabel={tr('ws.cashier.newTab.start')}
-      onSubmit={() => void submit()}
-      busy={busy}
-      notice={error ? <ErrorText error={error} /> : undefined}
+      size="sm"
+      dismissible={!busy}
       onClose={onClose}
-      testId="new-order"
-    />
+      footer={(close) => (
+        <>
+          <Button onClick={close} disabled={busy}>
+            {tr('common.cancel')}
+          </Button>
+          <Button kind="primary" icon={memberCard ? 'userPlus' : undefined} busy={busy} onClick={() => void submit()} data-testid="new-order.submit">
+            {tr('ws.cashier.newTab.start')}
+          </Button>
+        </>
+      )}
+    >
+      {table && <WizardNote>{tr('ws.cashier.newTab.tableOrderBody', { table: `${tr('op.till.table')} ${table.tableNumber}` })}</WizardNote>}
+      {initialReservationId && bound && (
+        <WizardNote>
+          <strong>{tr('ws.cashier.newTab.fromBooking')}</strong> — <bdi>{reservationOptionLabel(tr, locale, bound)}</bdi>
+          <br />
+          {tr('ws.cashier.newTab.fromBookingHint')}
+        </WizardNote>
+      )}
+      {preboundMissing && <WizardNote tone="refused">{tr('ws.cashier.newTab.bookingMissing')}</WizardNote>}
+      <Field
+        label={tr('ws.cashier.newTab.nameOrMember')}
+        optional
+        hint={memberCard ? tr('ws.cashier.newTab.memberSeen') : tr('ws.cashier.newTab.nameOrMemberHint')}
+        error={refusal ?? undefined}
+        style={{ marginBlockEnd: 0 }}
+      >
+        <input
+          style={inputStyle}
+          value={text}
+          maxLength={60}
+          autoFocus
+          autoComplete="off"
+          spellCheck={false}
+          disabled={busy}
+          data-testid="new-order.name"
+          onChange={(e) => {
+            setText(e.target.value);
+            setRefusal(null);
+          }}
+          onKeyDown={(e) => {
+            // The scanner ends its burst with Enter, as a person does: either one starts the order.
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              void submit();
+            }
+          }}
+        />
+      </Field>
+      {error ? <ErrorText error={error} /> : null}
+    </Modal>
   );
 }

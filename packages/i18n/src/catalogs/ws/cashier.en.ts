@@ -393,23 +393,17 @@ export const cashierEn = {
     // 0352: order first; the table is attached to each order afterwards.
     orderTitle: 'New order',
     start: 'Start order',
-    nameLabel: 'Name or number',
-    counterHint: 'Left empty, it takes the next counter number. Attach a table to each order from the tab, once the guest sits.',
     counterSale: 'Shop counter sale',
     counterSaleHint: 'For someone buying from the shop: no table or booking, just a name or a number.',
     counterNameHint: 'Shown on the tab and on the day close.',
     needLabel: 'Type a name or a number.',
-    // The stepped New order (Sait, 2026-10-22).
-    lead: 'Café till',
-    stepName: 'Name',
-    nextNumber: 'Next number',
-    nextCounterNumber: 'Next counter number',
-    noBookingBody: 'A café order on its own.',
-    tableStepLabel: 'Table or court booking',
-    tableOrderTitle: 'Table order',
+    // New order, one screen (2026-11-20): a name, or the member's card scanned into the same field.
+    nameOrMember: 'Name or member card',
+    nameOrMemberHint: "Type a name, or scan the member's QR. Left empty, it takes the next counter number.",
+    memberSeen: 'Member card: the member goes on this bill.',
+    memberNotAllowed: 'Your role cannot put a member on a bill. Type a name instead.',
+    appCodeHere: 'That is a reward or deal code. Start the order, then scan it on the bill.',
     tableOrderBody: 'Just for {table}.',
-    bookingNote: 'Tied to a booking, the court fee is added when the bill is settled.',
-    reviewBooking: 'Booking',
   },
   // 0352: "Bring to…" on a sent order (order first, the table after).
   delivery: {
