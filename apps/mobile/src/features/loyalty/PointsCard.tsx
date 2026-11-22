@@ -544,9 +544,14 @@ export function PointsCard({
       return () => setFocused(false);
     }, []),
   );
+  // The phone's movement, added to the finger's lean; a lean past the edge stops at the edge.
+  const motion = useCardMotion(focused && !reduce);
+  // The band rests off the card while the phone is turning it: a running gradient on top of a
+  // tilting card is the heaviest thing the GPU draws then (Android, Galaxy A32).
+  const sweeping = !reduce && focused && !motion.moving;
   useEffect(() => {
-    if (reduce || !focused) return;
     sweep.setValue(0);
+    if (!sweeping) return;
     const loop = Animated.loop(
       Animated.sequence([
         Animated.delay(600),
@@ -561,10 +566,8 @@ export function PointsCard({
     );
     loop.start();
     return () => loop.stop();
-  }, [reduce, focused, sweep]);
+  }, [sweeping, sweep]);
 
-  // The phone's movement, added to the finger's lean; a lean past the edge stops at the edge.
-  const motion = useCardMotion(focused && !reduce);
   const leanX = Animated.add(tiltX, motion.x);
   const leanY = Animated.add(tiltY, motion.y);
 

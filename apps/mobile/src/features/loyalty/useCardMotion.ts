@@ -8,16 +8,23 @@
  * the Club tab. Lazy, that binary just gets a card that leans under a finger only. NATIVE CHANGE:
  * the motion reaches phones with the next dev client and store build.
  *
- * About 60 readings a second while listening, each one a `setValue` on a native-driven value;
- * the gyroscope stops the moment the tab, the app or the screen does.
+ * About 30 readings a second while listening. A reading becomes a `setValue` on a native-driven
+ * value only when the lean actually moved: the lean leaks toward rest without ever reaching it,
+ * so unguarded, a phone lying still still sent ~120 updates a second to the native card (a
+ * gradient, a glare and a tilted shadowed layer), which kept a mid-range Android phone's CPU
+ * busy. Under `REST_EPS` the lean snaps to exactly rest and goes quiet. The gyroscope stops the
+ * moment the tab, the app or the screen does.
  */
 import { useEffect, useState } from 'react';
 import { Animated, AppState } from 'react-native';
 import type * as Sensors from 'expo-sensors';
 import { LEAN_REST, stepLean } from './motion';
 
-/** One reading a frame at 60 Hz. Well under Android 12's 200 Hz cap, so no extra permission. */
-const INTERVAL_MS = 16;
+/** One reading every other frame (30 Hz): smooth enough for a lean that leaks over half a second.
+ * Well under Android 12's 200 Hz cap, so no extra permission. */
+const INTERVAL_MS = 33;
+/** A lean smaller than this (the card's -1..1 units, well under a pixel of tilt) is rest. */
+const REST_EPS = 0.002;
 
 function loadGyroscope(): typeof Sensors.Gyroscope | null {
   try {
@@ -28,7 +35,13 @@ function loadGyroscope(): typeof Sensors.Gyroscope | null {
   }
 }
 
-export function useCardMotion(active: boolean): { x: Animated.Value; y: Animated.Value } {
+export function useCardMotion(active: boolean): {
+  x: Animated.Value;
+  y: Animated.Value;
+  /** True while the phone is turning the card (and it has not settled): the card pauses its light sweep. */
+  moving: boolean;
+} {
+  const [moving, setMoving] = useState(false);
   const [x] = useState(() => new Animated.Value(0));
   const [y] = useState(() => new Animated.Value(0));
   const [foreground, setForeground] = useState(() => AppState.currentState === 'active');
@@ -44,6 +57,11 @@ export function useCardMotion(active: boolean): { x: Animated.Value; y: Animated
     if (!gyro) return;
     let lean = LEAN_REST;
     let last: number | null = null;
+    // What the native side holds now, so an unchanged lean sends nothing.
+    let sentX = 0;
+    let sentY = 0;
+    // Told to React only when it flips (a few times a tilt), never per reading.
+    let isMoving = false;
     let sub: { remove(): void } | null = null;
     try {
       gyro.setUpdateInterval(INTERVAL_MS);
@@ -51,9 +69,15 @@ export function useCardMotion(active: boolean): { x: Animated.Value; y: Animated
         // Both platforms stamp readings in seconds; the first one has nothing to step from.
         const dt = last === null ? 0 : r.timestamp - last;
         last = r.timestamp;
-        lean = stepLean(lean, r, dt);
-        x.setValue(lean.x);
-        y.setValue(lean.y);
+        const next = stepLean(lean, r, dt);
+        lean = {
+          x: Math.abs(next.x) < REST_EPS ? 0 : next.x,
+          y: Math.abs(next.y) < REST_EPS ? 0 : next.y,
+        };
+        if (lean.x !== sentX) x.setValue((sentX = lean.x));
+        if (lean.y !== sentY) y.setValue((sentY = lean.y));
+        const nowMoving = lean.x !== 0 || lean.y !== 0;
+        if (nowMoving !== isMoving) setMoving((isMoving = nowMoving));
       });
     } catch {
       // No gyroscope on this device, or no module in this binary: the card leans under a finger only.
@@ -61,11 +85,12 @@ export function useCardMotion(active: boolean): { x: Animated.Value; y: Animated
     }
     return () => {
       sub?.remove();
+      setMoving(false);
       // Back to rest when it stops listening, not frozen mid-lean for the next visit.
       const rest = { toValue: 0, useNativeDriver: true, speed: 12, bounciness: 0 };
       Animated.parallel([Animated.spring(x, rest), Animated.spring(y, rest)]).start();
     };
   }, [on, x, y]);
 
-  return { x, y };
+  return { x, y, moving };
 }

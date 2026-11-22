@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { memo, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   Alert,
   Animated,
@@ -36,9 +36,10 @@ import { useToast } from '../../components/overlays';
 const QR_MAX = 300;
 
 /** The clock, ticking on whole seconds (the server's TOTP counter moves on them too). */
-function useNow(): number {
+function useNow(enabled = true): number {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
+    if (!enabled) return;
     let id: ReturnType<typeof setTimeout>;
     const tick = () => {
       setNow(Date.now());
@@ -46,9 +47,59 @@ function useNow(): number {
     };
     id = setTimeout(tick, msToNextTick(Date.now()));
     return () => clearTimeout(id);
-  }, []);
+  }, [enabled]);
   return now;
 }
+
+/**
+ * The clock for the panel itself, moving only when the code does (once a step, 30 s), not every
+ * second. A per-second state change here re-rendered the whole card, its children and the Club
+ * tab's deals, and rebuilt the QR twice a second, which is what slowed Android phones down. The
+ * second-by-second parts (the "refreshes in" line, the Reduce Motion bar) tick on their own.
+ */
+function useStepNow(stepSeconds: number): number {
+  const [now, setNow] = useState(() => Date.now());
+  const stepMs = (stepSeconds > 0 ? stepSeconds : 30) * 1000;
+  useEffect(() => {
+    let id: ReturnType<typeof setTimeout>;
+    const tick = () => {
+      setNow(Date.now());
+      id = setTimeout(tick, stepMs - (Date.now() % stepMs) + 50);
+    };
+    id = setTimeout(tick, stepMs - (Date.now() % stepMs) + 50);
+    return () => clearTimeout(id);
+  }, [stepMs]);
+  return now;
+}
+
+/** "Refreshes in N s", the one line that changes every second, alone in its own render. */
+const RefreshesIn = memo(function RefreshesIn({
+  step,
+  color,
+  fontFamily,
+}: {
+  step: number;
+  color: string;
+  fontFamily: string | undefined;
+}) {
+  const { t } = useLocale();
+  const now = useNow();
+  const s = step > 0 ? step : 30;
+  const secondsLeft = s - (Math.floor(now / 1000) % s);
+  return (
+    <Text
+      style={{
+        marginTop: 6,
+        fontFamily,
+        fontSize: 12,
+        color,
+        fontVariant: ['tabular-nums'],
+      }}
+    >
+      {t('loyalty.guest.card.refreshesIn', { seconds: isolateLtr(String(secondsLeft)) })}
+    </Text>
+  );
+});
 
 /**
  * The QR, black on white with its quiet zone, whatever the theme: a scanner reads contrast, not
@@ -63,21 +114,22 @@ function useNow(): number {
  * from the code (steps are whole multiples of `step` seconds since the epoch,
  * as memberToken's are). Under Reduce Motion it moves a second at a time.
  */
-function CountdownBar({
+const CountdownBar = memo(function CountdownBar({
   testID,
   token,
   step,
-  secondsLeft,
 }: {
   testID: string;
   token: string;
   step: number;
-  secondsLeft: number;
 }) {
   const { dir } = useLocale();
   const reduce = useReduceMotion();
   const [fill] = useState(() => new Animated.Value(0));
   const stepMs = (step > 0 ? step : 30) * 1000;
+  // Only Reduce Motion needs a second-by-second tick; otherwise the native driver runs the bar.
+  const now = useNow(reduce);
+  const secondsLeft = stepMs / 1000 - (Math.floor(now / 1000) % (stepMs / 1000));
   useEffect(() => {
     if (reduce) return;
     const at = (Date.now() % stepMs) / stepMs;
@@ -121,7 +173,7 @@ function CountdownBar({
       />
     </View>
   );
-}
+});
 
 /**
  * The panel's `below`, drawn as an element: `toCode` reaches it as a prop, to be called from a
@@ -140,8 +192,14 @@ function Below({
 /** The code's size under the QR before it is fitted to the QR's width. */
 const CODE_PT = 20;
 
-function MemberQr({ token, size }: { token: string; size: number }) {
-  const { d, size: modules } = useMemo(() => qrPath(qrModules(token)), [token]);
+const MemberQr = memo(function MemberQr({
+  path,
+  size,
+}: {
+  path: { d: string; size: number };
+  size: number;
+}) {
+  const { d, size: modules } = path;
   const total = modules + QUIET_MODULES * 2;
   return (
     <Svg
@@ -153,7 +211,7 @@ function MemberQr({ token, size }: { token: string; size: number }) {
       <Path d={d} fill={QR_INK} />
     </Svg>
   );
-}
+});
 
 /**
  * The member card (loyalty plan §5.1; build contracts L-4): a rotating TOTP code as a QR the till
@@ -214,10 +272,13 @@ export function MemberCardPanel({
   const paperY = useRef(0);
   const toCode = () =>
     scroll.current?.scrollTo({ y: Math.max(0, paperY.current - space.l), animated: !reduce });
-  const now = useNow();
+  const now = useStepNow(card?.step ?? 30);
   const deal = pickedDeal(deals.data, now);
 
-  const live = card ? memberToken(card, now) : null;
+  const live = useMemo(() => (card ? memberToken(card, now) : null), [card, now]);
+  const token = live?.token ?? null;
+  // One QR build per code (every 30 s), shared by the drawing and the width maths below.
+  const qr = useMemo(() => (token ? qrPath(qrModules(token)) : null), [token]);
   const qrSize = Math.min(QR_MAX, width - space.l * 2 - space.m * 2);
   // The code under the QR runs exactly the width of the QR's black squares (Sait,
   // 2026-10-20), not the drawing's, which carries the white quiet zone. An
@@ -226,7 +287,7 @@ export function MemberCardPanel({
   // 19 characters) is set smaller to fit.
   const [codeW, setCodeW] = useState<number | null>(null);
   // The compiler memoizes this on the token, as MemberQr's own useMemo does.
-  const qrInkModules = live ? qrPath(qrModules(live.token)).size : 0;
+  const qrInkModules = qr ? qr.size : 0;
   const qrInkW =
     qrInkModules > 0 ? (qrSize * qrInkModules) / (qrInkModules + QUIET_MODULES * 2) : qrSize;
   // The quiet zone's depth round the black squares: the line above and the code
@@ -348,7 +409,7 @@ export function MemberCardPanel({
             accessibilityLabel={t('loyalty.guest.card.show')}
             style={{ direction: 'ltr' }}
           >
-            <MemberQr token={live.token} size={qrSize} />
+            <MemberQr path={qr!} size={qrSize} />
           </View>
           {/* The member code, for a till whose scanner is down: typed as printed,
               spread to the QR's width. Letter spacing also follows the last
@@ -395,23 +456,8 @@ export function MemberCardPanel({
             );
           })()}
           {/* The countdown: the bar fills as the step runs out, then the code changes. */}
-          <CountdownBar
-            testID={`${testID}.progress`}
-            token={live.token}
-            step={card.step}
-            secondsLeft={live.secondsLeft}
-          />
-          <Text
-            style={{
-              marginTop: 6,
-              fontFamily: fonts.body600,
-              fontSize: 12,
-              color: colors.fnt,
-              fontVariant: ['tabular-nums'],
-            }}
-          >
-            {t('loyalty.guest.card.refreshesIn', { seconds: isolateLtr(String(live.secondsLeft)) })}
-          </Text>
+          <CountdownBar testID={`${testID}.progress`} token={live.token} step={card.step} />
+          <RefreshesIn step={card.step} color={colors.fnt} fontFamily={fonts.body600} />
         </View>
 
         <View style={{ alignItems: 'center' }}>

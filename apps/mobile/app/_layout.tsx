@@ -305,7 +305,13 @@ function RootStack() {
         {/* The owner's assistant button is drawn inside each staff page by
             the (staff) stack's `screenLayout` (app/(staff)/_layout.tsx). */}
         <Stack screenOptions={header}>
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          {/* The tabs are a root, never a page to swipe back from: on iOS the
+              edge-swipe would pop them off the stack and reveal whatever sat
+              beneath (a blank or stale screen). */}
+          <Stack.Screen
+            name="(tabs)"
+            options={{ headerShown: false, gestureEnabled: false, fullScreenGestureEnabled: false }}
+          />
           {/* Formerly the (auth) group. Flattened for the same reason as (gated):
           a screen pushed from the tabs was the first entry of a nested stack,
           so UIKit drew no back item and a JS stand-in had to fill in. Each
