@@ -639,7 +639,8 @@ describe.skipIf(!up)('0065 customers', () => {
         p_full_name: 'Walk In',
         p_phone: `0781${tag.slice(-3)}9988`,
         p_preferred_lang: 'ar',
-        p_actor_id: SEED_STAFF_IDS.cashier,
+        // 0448: the cashier may register a customer now; the kitchen still may not.
+        p_actor_id: SEED_STAFF_IDS.prep,
       }),
     );
     expect(notDesk.errorMessage).toContain('FORBIDDEN');

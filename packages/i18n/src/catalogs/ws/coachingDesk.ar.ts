@@ -177,7 +177,7 @@ export const coachingDeskAr: DeepMessages<typeof coachingDeskEn> = {
     needsStudent: 'يُرجى اختيار زبون أو كتابة اسم.',
     nameTooLong: 'لا يتجاوز الاسم {max} حرفًا.',
     phoneInvalid: 'يتكوّن رقم الهاتف من {min} إلى {max} رقمًا.',
-    typedHint: 'يبقى المتدرّب المكتوب كما كُتب، ولا يُربط رقم له حساب إلا بعد أن يؤكّده صاحبه في التطبيق.',
+    typedHint: 'الرقم الذي له حساب في التطبيق لا يُربط إلا بعد أن يؤكّده صاحبه هناك.',
     createCustomer: 'إنشاء ملف زبون',
     findInDirectory: 'البحث في الدليل',
     joinsFrom: 'ينضمّ من الحصة {n} ويدفع عن {sessions}.',

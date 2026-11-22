@@ -90,6 +90,10 @@ export const opErrorsCodesAr: DeepMessages<typeof opErrorsCodesEn> = {
   REWARD_LIMIT: 'لا يمكن أن يكون للموظف الواحد أكثر من 5 مكافآت.',
   // Customer discounts (0342).
   SELF_DISCOUNT: 'لا يمكنك منح نفسك خصمًا. يمكنك طلب ذلك من أحد زملائك.',
+  CUSTOMER_BANNED: 'هذا الزبون محظور. ارفع الحظر من سجله أولًا.',
+  CUSTOMER_IS_STAFF: 'هذا موظف. أوقِفه من صفحة الموظفين بدلًا من ذلك.',
+  TAG_NAME_TAKEN: 'يوجد وسم بهذا الاسم.',
+  TAG_NOT_FOUND: 'هذا الوسم لم يعد موجودًا. أغلق النافذة وافتحها من جديد.',
   COURT_DISCOUNT_NOT_ALLOWED: 'خصم الملعب يُطبَّق على الحجز المؤكد فقط، لا على المباراة المفتوحة.',
   COURT_BILL_CLOSED: 'أُغلقت فاتورة هذا الحجز بهذا الخصم، فلم يعد بالإمكان تغييرها.',
   COURT_FEE_PAID: 'رسوم الملعب لهذا الحجز مدفوعة كاملةً، فلم يبقَ مبلغ للخصم.',

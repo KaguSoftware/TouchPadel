@@ -1,7 +1,8 @@
 /**
  * Staff clock-in setup (0442), on Settings › Stations: where the club is (owner; a manager reads
  * it) and each desk's QR key. "Set up this desk's QR" asks the server for a new secret for THIS
- * station (app.issue_station_clock_key) and keeps it on the machine (stationKey.ts); from then on
+ * station (app.issue_station_clock_key, through useSetUpDesk, which registers a computer that is
+ * not yet a station first) and keeps it on the machine (stationKey.ts); from then on
  * the QR draws itself on the sign-in screen and under Staff QR. Setting a desk up again replaces
  * its key: the QR it showed stops working at once, so the press asks first.
  *
@@ -22,8 +23,9 @@ import { CountInput } from '../../components/inputs';
 import { MessagePresenter, StatusBadge } from '../../components/kit';
 import { SettingsGroup, SettingsRow, settingField } from '../admin/settings/SettingsList';
 import { refusalCode, refusalHint } from '../protocols/errors';
-import { CK, fetchClockSetup, issueStationKey, saveClockPlace, type ClockPlace, type ClockSetup } from './api';
-import { announceKeyChange, useStationKey } from './ClockQr';
+import { CK, fetchClockSetup, saveClockPlace, type ClockPlace, type ClockSetup } from './api';
+import { useStationKey } from './ClockQr';
+import { isKeyNotKept, useSetUpDesk } from './useSetUpDesk';
 import {
   ACCURACY_DEFAULT,
   ACCURACY_MAX,
@@ -36,7 +38,7 @@ import {
   mapsLink,
   parsePlace,
 } from './placeParse';
-import { browserStorage, deskKeyStatus, writeStationKey } from './stationKey';
+import { deskKeyStatus } from './stationKey';
 import { StaffQrView } from './StaffQr';
 
 const muted = { color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' } as const;
@@ -46,8 +48,16 @@ export function ClockSetupPanel() {
   const { branchId } = useVenue();
   const q = useQuery({ queryKey: CK.setup(branchId), enabled: Boolean(branchId), queryFn: fetchClockSetup });
 
-  // A station on a build ahead of its server: the feature is simply not there yet.
-  if (q.error && isRpcMissing(q.error)) return null;
+  // A station on a build ahead of its server: say so, never an empty page under a setup link.
+  if (q.error && isRpcMissing(q.error)) {
+    return (
+      <SettingsGroup title={tr('ws.clock.setup.title')}>
+        <SettingsRow>
+          <MessagePresenter tone="info" message={tr('ws.clock.qr.unavailable')} />
+        </SettingsRow>
+      </SettingsGroup>
+    );
+  }
 
   return (
     <div style={{ display: 'grid', gap: 'var(--tp-sp-4)' }} data-testid="clock-setup">
@@ -243,34 +253,12 @@ function DesksGroup({ setup }: { setup: ClockSetup }) {
   const { tr, locale } = useLocale();
   const toast = useToast();
   const confirm = useConfirm();
-  const qc = useQueryClient();
-  const { branchId } = useVenue();
   const { stationId, key } = useStationKey();
   const [showQr, setShowQr] = useState(false);
   const here = setup.stations.find((s) => s.stationId === stationId) ?? null;
   const status = deskKeyStatus(key, here ? { has_key: here.hasKey, issued_at: here.issuedAt } : null);
 
-  const issue = useMutation({
-    mutationFn: async () => {
-      const { secret } = await issueStationKey(stationId);
-      const storage = browserStorage();
-      if (!writeStationKey(stationId, { secret, issued_at: null }, storage)) throw new Error('CLOCK_KEY_NOT_KEPT');
-      // Read the server's stamp back, so a later re-issue elsewhere shows as "out of date" here.
-      try {
-        const fresh = await fetchClockSetup();
-        qc.setQueryData(CK.setup(branchId), fresh);
-        const stamp = fresh.stations.find((s) => s.stationId === stationId)?.issuedAt ?? null;
-        if (stamp) writeStationKey(stationId, { secret, issued_at: stamp }, storage);
-      } catch {
-        /* the key works; the stamp is filled the next time it can be compared */
-      }
-      announceKeyChange();
-    },
-    onSuccess: () => {
-      toast.ok(tr('ws.clock.setup.desk.done'));
-      void qc.invalidateQueries({ queryKey: CK.all });
-    },
-  });
+  const issue = useSetUpDesk();
 
   async function setUp() {
     const replacing = here?.hasKey || key !== null;
@@ -284,7 +272,7 @@ function DesksGroup({ setup }: { setup: ClockSetup }) {
       });
       if (!yes) return;
     }
-    issue.mutate();
+    issue.mutate(undefined, { onSuccess: () => toast.ok(tr('ws.clock.setup.desk.done')) });
   }
 
   const keyLine = (s: ClockSetup['stations'][number]): ReactNode =>
@@ -294,7 +282,7 @@ function DesksGroup({ setup }: { setup: ClockSetup }) {
         : tr('ws.clock.setup.desk.issuedAt', { when: formatDateTime(new Date(s.issuedAt), locale) })
       : tr('ws.clock.setup.desk.noKey');
 
-  const notKept = issue.error instanceof Error && issue.error.message === 'CLOCK_KEY_NOT_KEPT';
+  const notKept = isKeyNotKept(issue.error);
 
   return (
     <>
@@ -302,7 +290,12 @@ function DesksGroup({ setup }: { setup: ClockSetup }) {
       {/* This computer first: it is the only desk that can be set up from here. */}
       <SettingsRow
         end={
-          here ? (
+          !here ? (
+            // Not a station of the branch yet: the same press registers it, then makes its QR.
+            <Button size="sm" kind="primary" icon="qr" busy={issue.isPending} onClick={() => void setUp()} data-testid="clock-desk-setup">
+              {tr('ws.clock.setup.desk.setUp')}
+            </Button>
+          ) : (
             <>
               {status === 'current' && (
                 <Button size="sm" icon="qr" onClick={() => setShowQr(true)} data-testid="clock-desk-show">
@@ -320,7 +313,7 @@ function DesksGroup({ setup }: { setup: ClockSetup }) {
                 {tr(status === 'none' ? 'ws.clock.setup.desk.setUp' : 'ws.clock.setup.desk.setUpAgain')}
               </Button>
             </>
-          ) : undefined
+          )
         }
       >
         <p style={{ margin: 0, display: 'flex', gap: 'var(--tp-sp-2)', alignItems: 'center', flexWrap: 'wrap' }}>

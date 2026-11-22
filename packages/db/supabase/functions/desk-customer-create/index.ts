@@ -5,8 +5,37 @@
  * staff-gated edge function, so the guest can later claim it").
  *
  *   POST { fullName, phone, email?, preferredLang: 'en' | 'ar', gender?: 'female' | 'male',
- *          ageBand?, playLevel? }
- *     ->  201 { id }
+ *          ageBand?, playLevel?, ifExists?: 'return' }
+ *     ->  201 { id, customer }                             a new account
+ *     ->  200 { id, existing: true, claimed, customer }    ifExists 'return' and the number is held
+ *
+ * `ifExists: 'return'` (0448, Majed 2026-11-21: every customer a desk writes
+ * down is in the customer database). A booking, an open-match seat, a lesson
+ * place or a cafe order taken with a typed name and number calls this first:
+ * the answer is the account that already holds the number (never a 409), or a
+ * new one made from the name and the number alone. The row is then written
+ * against that account, and the person finishes it on their own phone: the
+ * code that confirms the number there claims this record (0307). In this mode
+ * the cashier and the shop assistant may ask too, and the work is the booking
+ * dialogs' and the till's, not only the Customers page's. `customer` is
+ * { id, full_name, phone, gender } either way. `claimed` says whether anybody
+ * has ever signed in to the account: false is still the desk's own record of
+ * a walk-in, true is a person using the app (the lesson screens link a typed
+ * number to those only after the person confirms it, coaching C-21 / R44, so
+ * they leave such a student typed).
+ *
+ * A NAME WITH NO NUMBER (0448, Majed the same day: "it saves that name with
+ * their purchase as a customer with an incomplete account"). In the same mode
+ * `phone` may be left out: the name alone becomes a customer,
+ *     ->  201 { id, incomplete: true, customer }
+ * under `name-<uuid>@guest.touch.local`, with no phone and no key. Nothing is
+ * ever matched by name, so two people with one first name are two records.
+ * The number is added later with
+ *   POST { customerId, phone, ifExists: 'return' }
+ *     ->  200 { id, completed: true, customer }
+ *     ->  409 DUPLICATE_PHONE { id, customer }   the number already has its customer: use that one
+ *     ->  409 CUSTOMER_NOT_INCOMPLETE            not the desk's own unfinished record
+ * which makes the record an ordinary desk walk-in (app.desk_complete_customer).
  *
  * gender (0353): the operator asks for it on every new customer, so women's
  * and men's hours can hold. Optional here only so a station still on an older
@@ -45,13 +74,17 @@
  * The caller must be active staff with role court_desk, manager or owner,
  * checked against the `staff` table by `requireStaffRole`, not against a
  * claim in the token. Cashiers can search and read customers (0065) but do
- * not create them (build plan §1: /desk/customers/new is desk+manager+owner).
+ * not open the Customers page's form (build plan §1: /desk/customers/new is
+ * desk+manager+owner); with `ifExists: 'return'` a cashier and a shop
+ * assistant are let in as well (0448), since their own screens take a name
+ * and a number.
  */
 import { createServiceClient } from '../_shared/supabase.ts';
 import { requireStaffRole } from '../_shared/auth.ts';
-import { handle, json, KB, logError, pgErrorBody, readJsonBody } from '../_shared/http.ts';
+import { handle, isUuid, json, KB, logError, pgErrorBody, readJsonBody } from '../_shared/http.ts';
 import {
   isSyntheticEmail,
+  GUEST_EMAIL_DOMAIN,
   isValidPhone,
   looksLikeEmail,
   MAX_PHONE_DIGITS,
@@ -74,6 +107,25 @@ interface CreateBody {
   gender?: 'female' | 'male' | null;
   ageBand?: string | null;
   playLevel?: string | null;
+  /** 0448: 'return' answers with the account already holding the number instead of DUPLICATE_PHONE. */
+  ifExists?: 'return' | null;
+  /** 0448: with `phone` and `ifExists: 'return'`, the name-only customer the number completes. */
+  customerId?: string | null;
+}
+
+/** The Customers page's form (06.10). */
+const FORM_ROLES = ['court_desk', 'manager', 'owner'] as const;
+/** 0448: every desk that writes a customer's name and number down (the bar team holds cashier, 0446). */
+const DESK_ROLES = ['court_desk', 'manager', 'owner', 'cashier', 'shop_staff'] as const;
+/** The pages that take a typed name and number (ACCESS_AREAS): refused only when all are blocked. */
+const DESK_AREAS = ['desk', 'till', 'shop', 'customers'] as const;
+
+/** What both answers carry, so the desk can show who the row now belongs to. */
+interface CustomerBrief {
+  id: string;
+  full_name: string | null;
+  phone: string | null;
+  gender: string | null;
 }
 
 function badRequest(message: string): Response {
@@ -116,16 +168,33 @@ Deno.serve(handle('desk-customer-create', async (req) => {
   if (req.method !== 'POST') return json({ error: 'METHOD_NOT_ALLOWED' }, 405);
 
   const service = createServiceClient();
-  // The Customers page's work (ACCESS_AREAS 'customers'): blocked there = AREA_BLOCKED (0384, F-16).
-  const caller = await requireStaffRole(req, service, ['court_desk', 'manager', 'owner'], { areas: ['customers'] });
-  if (caller instanceof Response) return caller;
-
+  // The body first (capped at 16 KB): it says which screen is asking, and so who may.
   const read = await readJsonBody<CreateBody>(req, { maxBytes: MAX_BODY, badJson: () => badRequest('body must be JSON') });
   if (!read.ok) return read.response;
   const body = read.value;
+  const returnExisting = body?.ifExists === 'return';
+
+  // The Customers page's work (ACCESS_AREAS 'customers'): blocked there = AREA_BLOCKED (0384, F-16).
+  // 0448: a booking dialog or the till asking for "this number's account" is every desk's work.
+  const caller = returnExisting
+    ? await requireStaffRole(req, service, DESK_ROLES, { areas: DESK_AREAS })
+    : await requireStaffRole(req, service, FORM_ROLES, { areas: ['customers'] });
+  if (caller instanceof Response) return caller;
+
+  const phone = typeof body?.phone === 'string' ? body.phone.trim() : '';
+
+  // 0448: the number that completes a customer saved by name alone.
+  if (returnExisting && body?.customerId != null) {
+    if (!isUuid(body.customerId)) return badRequest('customerId must be a uuid');
+    if (!isValidPhone(phone)) {
+      return json({ error: 'INVALID_PHONE', message: `phone must carry ${MIN_PHONE_DIGITS}-${MAX_PHONE_DIGITS} digits` }, 400);
+    }
+    return completeCustomer(service, body.customerId, phone, caller.userId);
+  }
 
   const fullName = typeof body?.fullName === 'string' ? body.fullName.trim() : '';
-  const phone = typeof body?.phone === 'string' ? body.phone.trim() : '';
+  // 0448: a booking, a seat, a lesson or an order taken with a name and no number.
+  const nameOnly = returnExisting && phone === '';
   const preferredLang = body?.preferredLang;
   const gender = body?.gender ?? null;
   const ageBand = body?.ageBand ?? null;
@@ -144,7 +213,7 @@ Deno.serve(handle('desk-customer-create', async (req) => {
   if (playLevel !== null && !(PLAY_LEVELS as readonly string[]).includes(playLevel)) {
     return badRequest(`playLevel must be one of ${PLAY_LEVELS.join(', ')}`);
   }
-  if (!isValidPhone(phone)) {
+  if (!nameOnly && !isValidPhone(phone)) {
     return json(
       {
         error: 'INVALID_PHONE',
@@ -155,21 +224,26 @@ Deno.serve(handle('desk-customer-create', async (req) => {
   }
   if (givenEmail !== null && !looksLikeEmail(givenEmail)) return badRequest('email is not valid');
 
-  // Refuse a duplicate BEFORE creating anything: a create-then-delete of an
-  // auth user is a visible churn in the users list for an ordinary desk mistake.
-  const dup = await service.schema('app').rpc('find_customer_by_phone', { p_phone: phone });
-  if (dup.error) {
-    const refused = pgErrorBody(dup.error, 'desk-customer-create');
-    return json(refused.body, refused.status);
-  }
-  if (dup.data) {
-    return json(
-      { error: 'DUPLICATE_PHONE', message: DUPLICATE_MESSAGE.DUPLICATE_PHONE, id: dup.data },
-      409,
-    );
+  if (!nameOnly) {
+    // Refuse a duplicate BEFORE creating anything: a create-then-delete of an
+    // auth user is a visible churn in the users list for an ordinary desk mistake.
+    const dup = await service.schema('app').rpc('find_customer_by_phone', { p_phone: phone });
+    if (dup.error) {
+      const refused = pgErrorBody(dup.error, 'desk-customer-create');
+      return json(refused.body, refused.status);
+    }
+    if (dup.data) {
+      if (returnExisting) return existingCustomer(service, String(dup.data));
+      return json(
+        { error: 'DUPLICATE_PHONE', message: DUPLICATE_MESSAGE.DUPLICATE_PHONE, id: dup.data },
+        409,
+      );
+    }
   }
 
-  const email = givenEmail ?? syntheticEmail(phone);
+  // A name alone has no number to build the address from: a random one, under
+  // the same domain every desk-made record lives in.
+  const email = givenEmail ?? (nameOnly ? `name-${crypto.randomUUID()}@${GUEST_EMAIL_DOMAIN}` : syntheticEmail(phone));
 
   // user_metadata is what the 0058 signup trigger reads, so the profile row is
   // born complete; desk_register_customer then upserts the same three fields
@@ -178,7 +252,9 @@ Deno.serve(handle('desk-customer-create', async (req) => {
     email,
     password: randomPassword(),
     email_confirm: true,
-    user_metadata: { full_name: fullName, phone, preferred_lang: preferredLang, created_via: 'desk' },
+    user_metadata: nameOnly
+      ? { full_name: fullName, preferred_lang: preferredLang, created_via: 'desk' }
+      : { full_name: fullName, phone, preferred_lang: preferredLang, created_via: 'desk' },
   });
   if (created.error || !created.data.user) {
     const message = created.error?.message ?? 'could not create the account';
@@ -188,6 +264,12 @@ Deno.serve(handle('desk-customer-create', async (req) => {
     // cleared the phone from their profile), so name it as such.
     if (/already/i.test(message)) {
       const code = isSyntheticEmail(email) ? 'DUPLICATE_PHONE' : 'DUPLICATE_EMAIL';
+      // 0448: another desk made this very walk-in a moment ago (the pre-check
+      // and createUser are two round trips): hand that account back.
+      if (returnExisting && code === 'DUPLICATE_PHONE') {
+        const raced = await service.schema('app').rpc('find_customer_by_phone', { p_phone: phone });
+        if (!raced.error && raced.data) return existingCustomer(service, String(raced.data));
+      }
       return json({ error: code, message: DUPLICATE_MESSAGE[code] }, 409);
     }
     logError('desk-customer-create', created.error ?? message, 'createUser failed');
@@ -198,7 +280,7 @@ Deno.serve(handle('desk-customer-create', async (req) => {
   const { data, error } = await service.schema('app').rpc('desk_register_customer', {
     p_customer_id: userId,
     p_full_name: fullName,
-    p_phone: phone,
+    p_phone: nameOnly ? null : phone,
     p_preferred_lang: preferredLang,
     p_actor_id: caller.userId,
     p_gender: gender,
@@ -213,9 +295,71 @@ Deno.serve(handle('desk-customer-create', async (req) => {
     // The admin API answers { error }, it does not throw: rollBackUser checks it.
     await rollBackUser(service, userId);
     const refused = pgErrorBody(error, 'desk-customer-create');
+    // 0448: a duplicate that raced the pre-check names its holder in the detail.
+    if (returnExisting && refused.body.error === 'DUPLICATE_PHONE') {
+      const raced = await service.schema('app').rpc('find_customer_by_phone', { p_phone: phone });
+      if (!raced.error && raced.data) return existingCustomer(service, String(raced.data));
+    }
     const status = refused.body.error === 'DUPLICATE_PHONE' ? 409 : refused.status;
     return json(refused.body, status);
   }
 
-  return json({ id: userId, customer: data }, 201);
+  return json(nameOnly ? { id: userId, incomplete: true, customer: data } : { id: userId, customer: data }, 201);
 }));
+
+/**
+ * 0448: the number that completes a customer the desk saved by name alone.
+ * Every rule is app.desk_complete_customer's; a number that already has its
+ * customer answers 409 with that customer, so the screen can offer them.
+ */
+async function completeCustomer(
+  service: ReturnType<typeof createServiceClient>,
+  customerId: string,
+  phone: string,
+  actorId: string,
+): Promise<Response> {
+  const { data, error } = await service.schema('app').rpc('desk_complete_customer', {
+    p_customer_id: customerId,
+    p_phone: phone,
+    p_actor_id: actorId,
+  });
+  if (!error) return json({ id: customerId, completed: true, customer: data }, 200);
+  const refused = pgErrorBody(error, 'desk-customer-create');
+  if (refused.body.error === 'DUPLICATE_PHONE') {
+    const holder = await service.schema('app').rpc('find_customer_by_phone', { p_phone: phone });
+    if (!holder.error && holder.data) {
+      const brief = await service.from('profiles').select('id, full_name, phone, gender').eq('id', String(holder.data)).maybeSingle();
+      return json(
+        { error: 'DUPLICATE_PHONE', message: DUPLICATE_MESSAGE.DUPLICATE_PHONE, id: holder.data, customer: brief.error ? null : brief.data },
+        409,
+      );
+    }
+    return json({ error: 'DUPLICATE_PHONE', message: DUPLICATE_MESSAGE.DUPLICATE_PHONE }, 409);
+  }
+  const status = refused.body.error === 'CUSTOMER_NOT_INCOMPLETE' ? 409 : refused.status;
+  return json(refused.body, status);
+}
+
+/** 0448: the account that already holds the number, as the 201 describes a new one. */
+async function existingCustomer(service: ReturnType<typeof createServiceClient>, id: string): Promise<Response> {
+  const { data, error } = await service
+    .from('profiles')
+    .select('id, full_name, phone, gender')
+    .eq('id', id)
+    .maybeSingle();
+  if (error) {
+    logError('desk-customer-create', error, 'existing customer read');
+    return json({ error: 'INTERNAL' }, 500);
+  }
+  const customer: CustomerBrief = {
+    id,
+    full_name: (data?.full_name as string | null) ?? null,
+    phone: (data?.phone as string | null) ?? null,
+    gender: (data?.gender as string | null) ?? null,
+  };
+  // Whether a person has ever signed in to it. Unreadable counts as claimed:
+  // the careful answer for the one caller that reads it (the lesson screens).
+  const user = await service.auth.admin.getUserById(id);
+  const claimed = Boolean(user.error) || !user.data?.user || Boolean(user.data.user.last_sign_in_at);
+  return json({ id, existing: true, claimed, customer }, 200);
+}

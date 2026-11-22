@@ -117,6 +117,10 @@ export const opErrorsCodesEn = {
   REWARD_LIMIT: 'A person can have up to 5 rewards.',
   // Customer discounts (0342).
   SELF_DISCOUNT: 'You cannot set or give a discount to yourself. Ask a colleague to do it.',
+  CUSTOMER_BANNED: 'This customer is banned. Lift the ban on their record first.',
+  CUSTOMER_IS_STAFF: 'This is a staff member. Switch them off in Staff instead.',
+  TAG_NAME_TAKEN: 'A tag with this name already exists.',
+  TAG_NOT_FOUND: 'That tag no longer exists. Close and open the window again.',
   COURT_DISCOUNT_NOT_ALLOWED: 'A court discount goes on a confirmed booking only, not on an open match.',
   COURT_BILL_CLOSED: 'This booking’s bill was already closed with this discount, so it can no longer change.',
   COURT_FEE_PAID: 'The court fee for this booking is already paid, so there is nothing left to discount.',

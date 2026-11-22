@@ -914,6 +914,7 @@ export const managerEn = {
       courtsReorder: 'Courts reordered',
       courtsUpdate: 'Court changed',
       customerCreate: 'Customer added',
+      customerDraft: 'Customer saved by name only',
       customerFlagsSet: 'Customer flags changed',
       customerNoteAdd: 'Customer note added',
       customerNoteEdit: 'Customer note edited',

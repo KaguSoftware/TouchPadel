@@ -1816,6 +1816,15 @@ export const matrix: MatrixRule[] = [
     note: 'CRITICAL: profile registration is service-role only (the edge function names the actor)',
     drop: 5,
   },
+  {
+    kind: 'rpc',
+    schema: 'app',
+    name: 'desk_complete_customer',
+    args: { p_customer_id: NIL_UUID, p_phone: '0000000', p_actor_id: NIL_UUID },
+    expect: ex<RpcExpectation>('denied'),
+    note: 'CRITICAL (0448): adding the number to a name-only customer is service-role only, like the registration',
+    drop: 5,
+  },
 
   // ═══════════════════════════════════════════════════════════════════════════
   // DROP 5 — 0066 reservation series (reservation_series, reservations.series_id).
@@ -8141,6 +8150,89 @@ export const matrix: MatrixRule[] = [
     expect: ex<RpcExpectation>('denied'),
     note: '0445: internal; loyalty_perks_plan and loyalty_perks_refresh call it',
     drop: 41,
+  },
+  // ── 0449 customer ban + customer tags (customer-ban-tags.test.ts) ──
+  // No client grant on either tag table; the record reads and writes them
+  // through the RPCs below. A nil id fails past the role guard, nothing is
+  // written.
+  {
+    kind: 'select',
+    name: 'customer_tags',
+    expect: ex<SelectExpectation>('denied'),
+    note: '0449: no client grant; app.customer_ban_and_tags reads it',
+    drop: 43,
+  },
+  {
+    kind: 'write',
+    name: 'customer_tags',
+    op: 'insert',
+    payload: { name: 'x', created_by: NIL_UUID, updated_by: NIL_UUID },
+    expect: ex<WriteExpectation>('denied'),
+    note: '0449: app.save_customer_tag only',
+    drop: 43,
+  },
+  {
+    kind: 'select',
+    name: 'customer_tag_members',
+    expect: ex<SelectExpectation>('denied'),
+    note: '0449: no client grant; app.customer_ban_and_tags reads it',
+    drop: 43,
+  },
+  {
+    kind: 'write',
+    name: 'customer_tag_members',
+    op: 'insert',
+    payload: { customer_id: NIL_UUID, tag_id: NIL_UUID, set_by: NIL_UUID },
+    expect: ex<WriteExpectation>('denied'),
+    note: '0449: app.set_customer_tags only',
+    drop: 43,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'set_customer_ban',
+    args: { p_customer_id: NIL_UUID, p_banned: true, p_reason: 'probe' },
+    expect: ex<RpcExpectation>('guarded', {
+      anon: 'denied', court_desk: 'execute', manager: 'execute', owner: 'execute', branch_b_manager: 'execute',
+    }),
+    note: '0449: the court desk, a manager, the owner ban or lift; a nil customer is CUSTOMER_NOT_FOUND past the guard',
+    drop: 43,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'customer_ban_and_tags',
+    args: { p_customer_id: NIL_UUID },
+    expect: ex<RpcExpectation>('guarded', {
+      anon: 'denied', cashier: 'execute', court_desk: 'execute', shop_staff: 'execute',
+      manager: 'execute', owner: 'execute', branch_b_manager: 'execute',
+    }),
+    note: '0449: the 0342 discount roles read the ban, tags and catalogue; a nil customer is CUSTOMER_NOT_FOUND',
+    drop: 43,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'set_customer_tags',
+    args: { p_customer_id: NIL_UUID, p_tag_ids: [] },
+    expect: ex<RpcExpectation>('guarded', {
+      anon: 'denied', cashier: 'execute', court_desk: 'execute', shop_staff: 'execute',
+      manager: 'execute', owner: 'execute', branch_b_manager: 'execute',
+    }),
+    note: '0449: the 0342 discount roles put tags on a customer; a nil customer is CUSTOMER_NOT_FOUND',
+    drop: 43,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'save_customer_tag',
+    args: { p_tag_id: null, p_name: '', p_cafe_bp: null, p_court_bp: null },
+    expect: ex<RpcExpectation>('guarded', {
+      anon: 'denied', manager: 'execute', owner: 'execute', branch_b_manager: 'execute',
+    }),
+    note: '0449: a manager or the owner sets up tags; an empty name is NAME_LENGTH past the guard',
+    drop: 43,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'delete_customer_tag',
+    args: { p_tag_id: NIL_UUID },
+    expect: ex<RpcExpectation>('guarded', {
+      anon: 'denied', manager: 'execute', owner: 'execute', branch_b_manager: 'execute',
+    }),
+    note: '0449: a manager or the owner; a nil tag is TAG_NOT_FOUND',
+    drop: 43,
   },
 ];
 

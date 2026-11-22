@@ -78,6 +78,8 @@ export const kitEn = {
     // Open matches (operator.md §5.15): set by app.set_match_ban, never by the
     // flags editor. Its label is a ban code, read through matchBanReason.
     match_ban: 'Banned from open matches',
+    // 0449: the full ban, set by app.set_customer_ban; its label is the desk's reason.
+    ban: 'Banned',
     matchBanReason: {
       conduct: 'Conduct',
       no_shows: 'Repeated no-shows',

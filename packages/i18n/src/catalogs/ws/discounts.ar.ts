@@ -66,6 +66,7 @@ export const discountsAr: DeepMessages<typeof discountsEn> = {
     self: 'لا يمكنك تحديد خصم لنفسك. اطلب ذلك من زميل.',
   },
   bill: {
+    fromTag: 'وسم {tag}',
     keep: 'اعتمده لـ {name} على كل فاتورة',
     keepHint: 'يُحفظ في سجله، وتأخذه كل فواتيره من الآن.',
     onceHint: 'لهذه الفاتورة فقط، ويبقى سجله كما هو.',

@@ -50,7 +50,7 @@
  * 'Duration', button 'Create booking' (on Review); the kind cards are
  * `booking.kind.*`, the steps `booking.step.*`.
  */
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { bookableDurations, wallTimeToUtc } from '@touch/core';
 import { SLOT_MIN } from './useTradingNight';
@@ -70,6 +70,8 @@ import { ReviewList, StepWizard, WizardChoice, WizardChoices, WizardNote, Wizard
 import { awaitingCourtOverlap, matchesBumpedBy } from '../matches/matchLogic';
 import type { OpenMatch, OpenMatches } from '../matches/matchPayloads';
 import { CustomerPicker, type PickedCustomer } from './customers/CustomerPicker';
+import { useDeskAccount } from './customers/deskAccount';
+import { DeskAccountCheckNote, DeskAccountNote } from './customers/DeskAccountNote';
 import { PickerHint } from './wizardParts';
 import { GenderSlotNote, genderBlocksBooking, useSlotKept } from './GenderSlotNote';
 import { durationsFitting, nameFromQuery, phoneFromQuery, sanitizeName, sanitizePhone, slotTaken } from './deskLogic';
@@ -156,6 +158,12 @@ export function CreateReservationDialog({
   const queryClient = useQueryClient();
   const toast = useToast();
   const { reachable } = useStationReach();
+  // 0448: a typed name and number become a customer account before the booking is written.
+  const deskAccount = useDeskAccount();
+  // Unlink is the clerk's "book this under the typed name": no account is looked for after it.
+  const typedOnly = useRef(false);
+  // The last press found the number on an account under another name: the Who step says so.
+  const [otherName, setOtherName] = useState(false);
   const [courtId, setCourtId] = useState(initialCourtId);
   const [startIso, setStartIso] = useState(() => initialStartAt.toISOString());
   const court = courts.find((c) => c.id === courtId);
@@ -265,12 +273,39 @@ export function CreateReservationDialog({
   const waiting = awaitingCourtOverlap(openMatches, draftPeriod);
   const matchTime = (m: OpenMatch) => formatTime(new Date(m.start_at), locale, tz);
 
-  /** `onRefused`: a refusal about the court or time opens that step again. */
-  async function submit(onRefused: () => void) {
+  /**
+   * `onRefused`: a refusal about the court or time opens that step again.
+   * `onOtherName`: the typed number belongs to an account under another name; the Who step shows it.
+   */
+  async function submit(onRefused: () => void, onOtherName: () => void) {
     setBusy(true);
     setError(null);
     setConflict(false);
     try {
+      // 0448: a typed guest with a number is saved as a customer first (the
+      // account that number already has, or a new one), and the booking is
+      // theirs. No number, offline or no answer: booked under the typed name.
+      let who = customer;
+      if (!who && !typedOnly.current) {
+        const found = await deskAccount(guestName, guestPhone);
+        if (found) {
+          who = found.customer;
+          setCustomer(who);
+          // The number is somebody's under another name: the Who step shows
+          // whose, and the next press books it (or Unlink keeps the typed name).
+          if (found.check) {
+            setOtherName(true);
+            onOtherName();
+            return;
+          }
+          // Gender hours (0353) judge an account, never a typed name: the
+          // note under the time now offers Set gender for this customer.
+          if (genderBlocksBooking(kept, who)) {
+            onRefused();
+            return;
+          }
+        }
+      }
       const outcome = await mutate('reservation.create', {
         clientRef: clientRef(),
         courtId,
@@ -280,7 +315,7 @@ export function CreateReservationDialog({
         endAt: endAt.toISOString(),
         ...(guestName.trim() ? { guestName: guestName.trim() } : {}),
         ...(guestPhone.trim() ? { guestPhone: guestPhone.trim() } : {}),
-        ...(customer ? { guestId: customer.id } : {}),
+        ...(who ? { guestId: who.id } : {}),
         ...(notes.trim() ? { notes: notes.trim() } : {}),
       });
       onCreated(outcome.queued);
@@ -294,8 +329,9 @@ export function CreateReservationDialog({
         onRefused();
       }
       // Gender hours (0353): the record has no gender after all; the note under the time offers Set gender.
-      else if (e instanceof AppRpcError && e.code === 'GENDER_REQUIRED' && customer && kept.length > 0) {
-        setCustomer({ ...customer, gender: null });
+      else if (e instanceof AppRpcError && e.code === 'GENDER_REQUIRED' && kept.length > 0) {
+        // Read from state: a typed guest may have become a customer in this very press (0448).
+        setCustomer((c) => (c ? { ...c, gender: null } : c));
         onRefused();
       } else setError(e);
     } finally {
@@ -396,6 +432,8 @@ export function CreateReservationDialog({
           }}
           onChange={(next) => {
             setCustomer(next);
+            typedOnly.current = next === null;
+            setOtherName(false);
             if (next) {
               // What the account says outranks what was searched for.
               if (!nameTouched || guestName.trim() === '') setGuestName(sanitizeName(next.name));
@@ -404,6 +442,7 @@ export function CreateReservationDialog({
           }}
         />
         {customer === null && <PickerHint />}
+        {customer !== null && otherName && <DeskAccountCheckNote name={customer.name} />}
         </div>
         {customer === null && (
         <div className="tp-grid" data-cols="2" style={{ columnGap: 'var(--tp-sp-3)' }}>
@@ -438,7 +477,7 @@ export function CreateReservationDialog({
           </Field>
         </div>
         )}
-        {customer === null && <WizardNote>{tr('ws.courtDesk.create.wizard.typedGuestNote')}</WizardNote>}
+        {customer === null && <DeskAccountNote name={guestName} phone={guestPhone} />}
       </>
     ),
   });
@@ -535,7 +574,7 @@ export function CreateReservationDialog({
       busy={busy}
       onClose={onClose}
       submitLabel={tr('op.desk.create')}
-      onSubmit={() => void submit(() => setAt(whenIndex))}
+      onSubmit={() => void submit(() => setAt(whenIndex), () => setAt(steps.findIndex((s) => s.key === 'who')))}
       testId="booking"
       notice={
         conflict || error ? (

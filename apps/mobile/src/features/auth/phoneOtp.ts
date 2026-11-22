@@ -142,6 +142,9 @@ export function mapOtpError(err: unknown): MessageKey {
       return 'auth.phoneSignInUnavailable';
     case 'validation_failed':
       return 'auth.phoneOtpInvalid';
+    // 0449: the club banned this account (auth banned_until).
+    case 'user_banned':
+      return 'errors.accountBanned';
     default:
       break;
   }
@@ -178,12 +181,18 @@ export function isPhoneFieldError(key: MessageKey): boolean {
   return PHONE_FIELD_KEYS.includes(key);
 }
 
-/** app.phone_sign_up_status (0414): what Create account knows about a number before a code. */
-export type PhoneSignUpStatus = 'taken' | 'free' | 'unknown';
+/**
+ * app.phone_sign_up_status (0414): what the club knows about a number before a
+ * code. `desk` (0448): a desk wrote this person down with the number (a
+ * booking, a seat, an order) and nobody has signed in to that record yet;
+ * Create account treats it as free (the code claims the record), and Sign in,
+ * told "no account" by GoTrue, opens Create account with the number filled in.
+ */
+export type PhoneSignUpStatus = 'taken' | 'free' | 'desk' | 'unknown';
 
-/** Anything but a clear 'taken' or 'free' (an old server, a throttled caller, junk) is 'unknown'. */
+/** Anything but a clear answer (an old server, a throttled caller, junk) is 'unknown'. */
 export function parsePhoneSignUpStatus(value: unknown): PhoneSignUpStatus {
-  return value === 'taken' || value === 'free' ? value : 'unknown';
+  return value === 'taken' || value === 'free' || value === 'desk' ? value : 'unknown';
 }
 
 /** Sign-up refused because a CONFIRMED account already owns the number. */

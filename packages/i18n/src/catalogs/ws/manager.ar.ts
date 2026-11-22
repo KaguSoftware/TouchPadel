@@ -889,6 +889,7 @@ export const managerAr: DeepMessages<typeof managerEn> = {
       courtsReorder: 'أُعيد ترتيب الملاعب',
       courtsUpdate: 'عُدّل ملعب',
       customerCreate: 'أُضيف زبون',
+      customerDraft: 'حُفظ زبون بالاسم فقط',
       customerFlagsSet: 'عُدّلت علامات زبون',
       customerNoteAdd: 'أُضيفت ملاحظة عن زبون',
       customerNoteEdit: 'عُدّلت ملاحظة عن زبون',

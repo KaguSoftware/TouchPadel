@@ -36,6 +36,11 @@ export interface CustomerDiscount {
   note: string | null;
   set_by: { id: string | null; name: string | null } | null;
   set_at: string | null;
+  /**
+   * 0449: the tag it comes from, when the bill's discount is a customer tag's
+   * (the server's reason 'tag', its note the tag's name); else null.
+   */
+  tag?: string | null;
 }
 
 /** The café discount a tab carries (bill_customer_discount.cafe). */
@@ -109,6 +114,7 @@ export function readCustomerDiscount(raw: unknown): CustomerDiscount | null {
     court,
     reason: isDiscountReason(r.reason) ? r.reason : 'other',
     note: typeof r.note === 'string' && r.note.trim() ? r.note : null,
+    ...(r.reason === 'tag' && typeof r.note === 'string' && r.note.trim() ? { tag: r.note } : {}),
     set_by: setBy ? { id: typeof setBy.id === 'string' ? setBy.id : null, name: typeof setBy.name === 'string' ? setBy.name : null } : null,
     set_at: typeof r.set_at === 'string' ? r.set_at : null,
   };

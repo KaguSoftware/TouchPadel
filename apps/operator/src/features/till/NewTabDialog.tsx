@@ -8,7 +8,7 @@
  */
 import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { formatTime } from '@touch/i18n';
+import { formatTime, isolate } from '@touch/i18n';
 import { supabase } from '../../lib/supabase';
 import { mutate } from '../../lib/mutate';
 import { LOCAL_TAB_PREFIX, addOfflineTab } from '../../lib/offlineTabs';
@@ -27,6 +27,8 @@ import { bookingTakesNewTab } from './tillData';
 import { isMatchLiteral } from '../matches/matchLogic';
 import { isLessonLiteral } from '../coaching/lessonLogic';
 import { muted, touchTarget } from './tillStyles';
+import { sanitizePhone } from '../desk/deskLogic';
+import { deskAccountInput, useDeskAccount, useToastIfMounted } from '../desk/customers/deskAccount';
 
 export interface OpenReservationRow {
   id: string;
@@ -181,7 +183,13 @@ export async function openTabOn(
 
 /**
  * New order, one screen (Majed, 2026-11-20): a name, or the member's card scanned into the same
- * field, then Start order. Nothing else is asked. A scanned card (TP-…) is looked up first
+ * field, then Start order. A phone number may be added under the name (Majed, 2026-11-21, 0448:
+ * every customer a desk writes down is in the customer database): the order opens at once, and
+ * behind it the name and number become a customer account (the one the number already has, or a
+ * new one) that goes on the bill, as a scanned card does. A name with no number is saved too, as
+ * an incomplete customer on the bill; an order with no name stays the counter's number, nobody's. A number that belongs to somebody under
+ * ANOTHER name is not put on the bill by word of mouth: the till says whose it is and asks for
+ * their card. A scanned card (TP-…) is looked up first
  * (loyalty_identify), the order opens under the member's name, and the member goes on the bill
  * (set_tab_customer); a member who works here asks for another manager's PIN (StaffPinDialog), and
  * the order stays open either way. A booking's bill comes from the desk (`/till?reservation=`) or
@@ -204,6 +212,10 @@ export function NewTabDialog({
   const { staff } = useAuth();
   const qc = useQueryClient();
   const [text, setText] = useState('');
+  // 0448: an optional number beside a typed name makes the guest a customer.
+  const [phone, setPhone] = useState('');
+  const deskAccount = useDeskAccount();
+  const toast = useToastIfMounted();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const [refusal, setRefusal] = useState<string | null>(null);
@@ -218,6 +230,32 @@ export function NewTabDialog({
   // Whitespace is not a name: the server would number it like an empty one.
   const trimmed = text.trim();
   const memberCard = isMemberScan(trimmed);
+  // A booking's bill already has its guest, and a scanned card is the member: no number is asked for.
+  const asksPhone = !memberCard && !initialReservationId;
+
+  /**
+   * After the order is open, never in its way: the typed name and number
+   * become a customer, who goes on the bill unless the number is somebody's
+   * under another name. Every failure is silent; the order stands as typed.
+   */
+  async function saveTypedCustomer(tabId: string, name: string, number: string) {
+    const found = await deskAccount(name, number, { quiet: true });
+    if (!found) return;
+    const who = isolate(found.customer.name);
+    if (found.check) {
+      toast?.info(tr('ws.cashier.newTab.phoneOtherName', { name: who }));
+      return;
+    }
+    try {
+      await setTabCustomer(tabId, found.customer.id);
+      invalidateTabLoyalty(qc, tabId, found.customer.id);
+      // A name alone is saved on every named order: said by the hint under the box, not by a toast each time.
+      if (!found.incomplete) toast?.info(tr(found.existing ? 'ws.courtDesk.deskAccount.linked' : 'ws.courtDesk.deskAccount.created', { name: who }));
+    } catch {
+      // Saved as a customer; not on this bill (a colleague's number needs a manager's PIN, or the bill moved on).
+      if (!found.existing && !found.incomplete) toast?.info(tr('ws.courtDesk.deskAccount.created', { name: who }));
+    }
+  }
 
   async function submit() {
     if (busy) return;
@@ -259,6 +297,10 @@ export function NewTabDialog({
           onOpened(tabId);
           throw e;
         }
+      }
+      // 0448: a typed name (with its number, or alone: an incomplete customer), on a tab the server already has.
+      if (!member && asksPhone && deskAccountInput(trimmed, phone) && !tabId.startsWith(LOCAL_TAB_PREFIX)) {
+        void saveTypedCustomer(tabId, trimmed, phone);
       }
       onOpened(tabId);
     } catch (e) {
@@ -337,6 +379,28 @@ export function NewTabDialog({
           }}
         />
       </Field>
+      {asksPhone && (
+        <Field label={tr('ws.cashier.newTab.phone')} optional hint={tr('ws.cashier.newTab.phoneHint')} style={{ marginBlockStart: 'var(--tp-sp-3)', marginBlockEnd: 0 }}>
+          <input
+            style={inputStyle}
+            type="tel"
+            dir="ltr"
+            inputMode="tel"
+            autoComplete="off"
+            maxLength={30}
+            value={phone}
+            disabled={busy}
+            data-testid="new-order.phone"
+            onChange={(e) => setPhone(sanitizePhone(e.target.value))}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                void submit();
+              }
+            }}
+          />
+        </Field>
+      )}
       {error ? <ErrorText error={error} /> : null}
     </Modal>
   );

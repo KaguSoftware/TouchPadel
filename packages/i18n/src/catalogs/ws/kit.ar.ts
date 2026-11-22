@@ -64,6 +64,7 @@ export const kitAr: DeepMessages<typeof kitEn> = {
     deposit_exempt: 'بلا عربون',
     // Open matches (operator.md §5.15). DRAFT-AR: on the client's review list.
     match_ban: 'ممنوع من المباريات المفتوحة',
+    ban: 'محظور',
     matchBanReason: {
       conduct: 'سوء السلوك',
       no_shows: 'تكرار الغياب',

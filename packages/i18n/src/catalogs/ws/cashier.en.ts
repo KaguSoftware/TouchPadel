@@ -401,6 +401,11 @@ export const cashierEn = {
     nameOrMember: 'Name or member card',
     nameOrMemberHint: "Type a name, or scan the member's QR. Left empty, it takes the next counter number.",
     memberSeen: 'Member card: the member goes on this bill.',
+    // 0448: an optional number under a typed name makes the guest a customer.
+    phone: 'Phone number',
+    phoneHint: 'A name alone saves this guest as an incomplete customer. A number completes the account.',
+    // {name} is the account's name.
+    phoneOtherName: 'This number belongs to {name}. Not added to the bill: scan their card to add them.',
     memberNotAllowed: 'Your role cannot put a member on a bill. Type a name instead.',
     appCodeHere: 'That is a reward or deal code. Start the order, then scan it on the bill.',
     tableOrderBody: 'Just for {table}.',

@@ -265,6 +265,9 @@ describe('capability matrix', () => {
     writeOffSeat: ['court_desk', 'manager', 'owner'],
     cashOutTickets: ['manager', 'owner'],
     banFromMatches: ['manager', 'owner'],
+    // 0449: the customer ban and the club's customer tags.
+    banCustomers: ['court_desk', 'manager', 'owner'],
+    manageCustomerTags: ['manager', 'owner'],
     reviewMatchReports: ['manager', 'owner'],
     // 0252: lift or ban a guest on the hold ladder.
     decideHoldStanding: ['manager', 'owner'],
@@ -378,6 +381,9 @@ describe('capability matrix', () => {
         'writeOffSeat',
         'cashOutTickets',
         'banFromMatches',
+        // The customer ban and customer tags (0449).
+        'banCustomers',
+        'manageCustomerTags',
         'reviewMatchReports',
         // Coaching (docs/design/coaching/operator.md §5.3.1).
         'runLessons',

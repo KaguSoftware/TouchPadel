@@ -36,6 +36,8 @@ import { Button, Skeleton } from '../../../components/ui';
 import { AsyncStateWrapper, CustomerFlagBadge, EmptyState, FilterChips, MessagePresenter, PageHeader, ResultCount, SearchField, SegmentedControl, type AsyncStatus } from '../../../components/kit';
 import { Icon } from '../../../components/icons';
 import type { CustomerSearchRow } from '../deskTypes';
+import { isIncompleteCustomer, realEmail } from './deskAccount';
+import { IncompleteBadge } from './CompleteCustomerPhone';
 import { CUSTOMER_SEARCH_MIN, useCustomerSearch } from './CustomerPicker';
 import {
   CUSTOMER_DIRECTORY_KEY,
@@ -409,6 +411,7 @@ export function CustomerResultRow({
           ) : (
             <span style={{ fontSize: 'var(--tp-fs-lg)', color: 'var(--tp-muted-fg)', fontStyle: 'italic' }}>{tr('ws.courtDesk.customers.noName')}</span>
           )}
+          {isIncompleteCustomer(c) && <IncompleteBadge size="md" />}
           {(c.flags ?? []).map((f, i) => (
             <CustomerFlagBadge key={`${f.type}-${i}`} flag={f} size="md" />
           ))}
@@ -419,7 +422,8 @@ export function CustomerResultRow({
               {c.phone}
             </bdi>
           )}
-          {c.email && <bdi dir="ltr">{c.email}</bdi>}
+          {/* Never the placeholder address a desk-made record carries. */}
+          {realEmail(c.email) && <bdi dir="ltr">{realEmail(c.email)}</bdi>}
         </div>
       </div>
       <div style={{ display: 'flex', gap: '1.1rem', flexWrap: 'wrap', fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', flex: '0 1 auto' }}>

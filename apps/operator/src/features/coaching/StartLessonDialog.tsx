@@ -34,7 +34,7 @@
  * course's sessions are rows ("Session n" · its day and time), each opened to
  * move it on its own.
  */
-import { useMemo, useState, type CSSProperties } from 'react';
+import { useMemo, useRef, useState, type CSSProperties } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import {
@@ -56,6 +56,8 @@ import { ErrorText, Field, Select, Skeleton, inputStyle } from '../../components
 import { ReviewList, StepWizard, WizardChips, WizardChoice, WizardChoices, WizardNote, WizardPrice, type WizardAt, type WizardStep } from '../../components/StepWizard';
 import { BilingualFields, DateField } from '../../components/inputs';
 import { CustomerPicker, type PickedCustomer } from '../desk/customers/CustomerPicker';
+import { useDeskAccount } from '../desk/customers/deskAccount';
+import { DeskAccountCheckNote, DeskAccountNote } from '../desk/customers/DeskAccountNote';
 import { PickerHint } from '../desk/wizardParts';
 import { nameFromQuery, phoneFromQuery, sanitizeName, sanitizePhone } from '../desk/deskLogic';
 import {
@@ -160,6 +162,12 @@ export function StartLessonDialog({
   // Keys per create RPC and per draft (OP-11): switching kind never replays another RPC's key,
   // and an edited draft never replays the key of what was sent before.
   const bookKey = useDraftIdemKeys('book');
+  // 0448: a typed student's name and number become a customer account before the lesson is booked.
+  const deskAccount = useDeskAccount();
+  // Unlink is the desk's "book this under the typed name": no account is looked for after it.
+  const typedOnly = useRef(false);
+  // The last press found the number on a walk-in under another name: the Student step says so.
+  const [otherName, setOtherName] = useState(false);
   const groupKey = useDraftIdemKeys('group');
   const courseKey = useDraftIdemKeys('course');
   // OP-11: the last attempt got no answer, so it may have gone through.
@@ -333,20 +341,41 @@ export function StartLessonDialog({
     return true;
   }
 
-  /** `onRefusedRow`: a refusal naming a course session opens When, where that row is marked. */
-  async function submit(onRefusedRow: () => void) {
+  /**
+   * `onRefusedRow`: a refusal naming a course session opens When, where that row is marked.
+   * `onOtherName`: the typed number is a walk-in's under another name; the Student step shows it.
+   */
+  async function submit(onRefusedRow: () => void, onOtherName: () => void) {
     if (!kind || !type) return;
     setBusy(true);
     setError(null);
     setMaybeLanded(false);
-    const fingerprint = draftFingerprint(kind, draft, tz);
+    // 0448: a typed student with a number is saved as a customer first, and the
+    // lesson is booked for that customer. Only the desk's own record of a
+    // walk-in is used this way: a number somebody already uses in the app is
+    // left typed, and the server links it once its owner confirms (C-21, R44).
+    let booked = draft;
+    if (kind === 'private' && !customer && !typedOnly.current) {
+      const found = await deskAccount(guestName, guestPhone, { walkInsOnly: true });
+      if (found) {
+        setCustomer(found.customer);
+        if (found.check) {
+          setOtherName(true);
+          setBusy(false);
+          onOtherName();
+          return;
+        }
+        booked = { ...draft, customerId: found.customer.id };
+      }
+    }
+    const fingerprint = draftFingerprint(kind, booked, tz);
     try {
       // No type argument on the calls: the assistant map finds callers by `appRpc('<name>'` (§5.1).
       if (kind === 'private') {
         const r = readBookedLesson(
           await appRpc(
             'desk_book_lesson',
-            startArgs('private', draft, bookKey.keyFor(fingerprint), tz),
+            startArgs('private', booked, bookKey.keyFor(fingerprint), tz),
           ),
         );
         bookKey.reset();
@@ -697,6 +726,8 @@ export function StartLessonDialog({
             }}
             onChange={(next) => {
               setCustomer(next);
+              typedOnly.current = next === null;
+              setOtherName(false);
               if (next) {
                 if (!nameTouched || guestName.trim() === '') setGuestName(sanitizeName(next.name));
                 if (next.phone && (!phoneTouched || guestPhone.trim() === '')) setGuestPhone(sanitizePhone(next.phone));
@@ -704,6 +735,7 @@ export function StartLessonDialog({
             }}
           />
           {!customer && <PickerHint />}
+          {customer && otherName && <DeskAccountCheckNote name={customer.name} />}
           </div>
           {!customer && (
             <div className="tp-grid" data-cols="2" style={{ columnGap: 'var(--tp-sp-3)' }}>
@@ -738,6 +770,7 @@ export function StartLessonDialog({
               </Field>
             </div>
           )}
+          {!customer && <DeskAccountNote name={guestName} phone={guestPhone} />}
           {maxParty > 1 && (
             <Field label={tr('ws.coaching.start.wizard.comingWith')} group hint={tr('ws.coaching.start.wizard.takesUpTo', { n: formatNumber(maxParty, locale) })} style={{ marginBlockEnd: 0 }}>
               <WizardChips<string>
@@ -769,7 +802,7 @@ export function StartLessonDialog({
       submitBlocked={!reachable ? tr('ws.coaching.offline.needsConnection') : lessons === null ? tr('ws.coaching.offline.readFailed') : null}
       onClose={onClose}
       submitLabel={tr('ws.coaching.start.submit')}
-      onSubmit={() => void submit(() => setAt(whenIndex))}
+      onSubmit={() => void submit(() => setAt(whenIndex), () => setAt(steps.findIndex((s) => s.key === 'student')))}
       testId="lesson"
       notice={
         error || maybeLanded ? (

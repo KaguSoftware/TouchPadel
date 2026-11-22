@@ -218,9 +218,12 @@ export const en = {
     // The gate's project-wide DAILY_CAP: nothing the guest typed is wrong.
     otpBusy: "We can't send more codes right now. Try again later.",
     // 0414 phone_sign_up_status 'taken': Create account stops before a code is sent.
-    phoneTakenSignUp: 'This number already has an account. Sign in instead.',
+    phoneTakenSignUp: 'This number already has an account. Sign in with it here.',
     // Create account's code opened an account the number already had (the check above could not tell in time).
     signedInExisting: 'You already had an account with this number, so we signed you in.',
+    // 0448: Sign in with a number the club's desk wrote down (a booking, an order) and nobody
+    // has signed in with yet. Create account opens with the number filled in.
+    deskAccountFinish: 'The club already has this number. Add your details to finish your account.',
     resendCode: 'Resend code',
     resendCodeIn: 'Resend code in {seconds}s',
     codeSentAgain: 'We sent a new code to that number.',
@@ -1913,6 +1916,8 @@ export const en = {
     network: 'No connection. Check your internet and try again.',
     notFound: 'We could not find what you were looking for.',
     forbidden: 'You do not have permission to do that.',
+    // CUSTOMER_BANNED on the phone and the website (0449): the club banned this account.
+    accountBanned: 'This account is blocked. Please contact the club.',
     tooManyRequests: 'Too many attempts. Please wait a moment and try again.',
     // REQUEST_NOT_FOUND on the phone, for a staff request and a match request alike (R6).
     requestGone: 'That request no longer exists. Please refresh.',

@@ -146,7 +146,8 @@ export function isMatchBanned(flags: readonly Pick<CustomerFlag, 'type'>[]): boo
 
 /** The flags the desk's flag editor owns (it never lists or sends `match_ban`). */
 export function editableFlags<T extends Pick<CustomerFlag, 'type'>>(flags: readonly T[]): T[] {
-  return flags.filter((f) => f.type !== 'match_ban');
+  // 0449: nor the full ban (app.set_customer_ban).
+  return flags.filter((f) => f.type !== 'match_ban' && f.type !== 'ban');
 }
 
 const LIVE_MATCH = new Set(['filling', 'awaiting_court', 'booked']);

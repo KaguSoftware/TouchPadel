@@ -24,8 +24,11 @@ vi.mock('../../lib/appRpc', async (importOriginal) => ({
 }));
 vi.mock('../../lib/stationReach', () => ({ useStationReach: () => ({ reachable }) }));
 vi.mock('../../components/toast', () => ({ useToast: () => toast }));
+// 0448: the typed name + number account lookup (desk/customers/deskAccount.ts); no answer by default.
+vi.mock('../../lib/edge', () => ({ callEdge: vi.fn() }));
 
 import { AppRpcError, appRpc } from '../../lib/appRpc';
+import { callEdge } from '../../lib/edge';
 import { AddSeatDialog, categoryGender, deskOpenNumbers } from './AddSeatDialog';
 import type { MatchSeat } from './matchPayloads';
 
@@ -299,5 +302,67 @@ describe('AddSeatDialog', () => {
     const { dialog } = await mount();
     await user.click(within(dialog).getByRole('button', { name: 'Create customer' }));
     expect(navigate).toHaveBeenCalledWith({ to: '/desk/customers/new', search: { attach: 'match', match: 'm1' } });
+  });
+});
+
+describe('AddSeatDialog: a typed name and number become a customer (0448)', () => {
+  const edge = vi.mocked(callEdge);
+  beforeEach(() => {
+    edge.mockReset();
+  });
+
+  async function typePlayer(user: User, dialog: HTMLElement, name: string, phone: string) {
+    await user.type(within(dialog).getByLabelText('Guest name'), name);
+    await user.type(within(dialog).getByLabelText(/^Guest phone/), phone);
+  }
+
+  it('the new account is seated as a customer, not as a typed name', async () => {
+    edge.mockResolvedValue({ id: 'c-new', customer: { full_name: 'Bravo', phone: '07701234567', gender: null } });
+    const user = userEvent.setup();
+    raw = rawDetail({}, [rawSeat(1), rawSeat(2)]);
+    const { dialog, onClose } = await mount();
+    await typePlayer(user, dialog, 'Bravo', '07701234567');
+    await submit(user, dialog);
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+    const args = calls.find((c) => c.fn === 'desk_add_seat')!.args;
+    expect(args).toMatchObject({ p_customer_id: 'c-new', p_guest_name: null, p_guest_phone: null, p_gender: null });
+  });
+
+  it("in a women's match a new account is still vouched for at the desk", async () => {
+    edge.mockResolvedValue({ id: 'c-new', customer: { full_name: 'Sara', phone: '07701234567', gender: null } });
+    const user = userEvent.setup();
+    raw = rawDetail({ category: 'women' }, [rawSeat(1), rawSeat(2)]);
+    const { dialog, onClose } = await mount();
+    await typePlayer(user, dialog, 'Sara', '07701234567');
+    await submit(user, dialog);
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+    expect(calls.find((c) => c.fn === 'desk_add_seat')!.args).toMatchObject({ p_customer_id: 'c-new', p_gender: 'female' });
+  });
+
+  it("in a women's match a number whose account is a man's is not seated: the Who step says so", async () => {
+    edge.mockResolvedValue({ id: 'c-man', existing: true, claimed: true, customer: { full_name: 'Sara', phone: '07701234567', gender: 'male' } });
+    const user = userEvent.setup();
+    raw = rawDetail({ category: 'women' }, [rawSeat(1), rawSeat(2)]);
+    const { dialog, onClose } = await mount();
+    await typePlayer(user, dialog, 'Sara', '07701234567');
+    await submit(user, dialog);
+    await waitFor(() => expect(within(dialog).getAllByText('This customer plays as a man. This match is for women.').length).toBeGreaterThan(0));
+    expect(calls.some((c) => c.fn === 'desk_add_seat')).toBe(false);
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('a number under another name waits for a second press', async () => {
+    edge.mockResolvedValue({ id: 'c-old', existing: true, claimed: false, customer: { full_name: 'Omar Saleh', phone: '07701234567', gender: null } });
+    const user = userEvent.setup();
+    raw = rawDetail({}, [rawSeat(1), rawSeat(2)]);
+    const { dialog, onClose } = await mount();
+    await typePlayer(user, dialog, 'Bravo', '07701234567');
+    await submit(user, dialog);
+    expect(await within(dialog).findByTestId('desk-account-check')).toBeTruthy();
+    expect(calls.some((c) => c.fn === 'desk_add_seat')).toBe(false);
+    await submit(user, dialog);
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+    expect(calls.find((c) => c.fn === 'desk_add_seat')!.args).toMatchObject({ p_customer_id: 'c-old', p_guest_name: null });
+    expect(edge).toHaveBeenCalledTimes(1);
   });
 });

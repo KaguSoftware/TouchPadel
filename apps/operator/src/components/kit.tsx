@@ -601,7 +601,9 @@ export function TabStatusIndicator({ status, size }: { status: TabStatus | strin
 // deposit first, even when the branch asks for one (app.deposit_mode_for).
 // match_ban (0253, open matches R35): banned from open matches at every branch,
 // set only by app.set_match_ban. Its label is the ban CODE, never words.
-export type CustomerFlagType = 'vip' | 'birthday' | 'payment_note' | 'special_request' | 'deposit_exempt' | 'match_ban';
+// ban (0449): banned from everything, set only by app.set_customer_ban. Its
+// label is the desk's reason, in their words.
+export type CustomerFlagType = 'vip' | 'birthday' | 'payment_note' | 'special_request' | 'deposit_exempt' | 'match_ban' | 'ban';
 const FLAG_META: Record<CustomerFlagType, { tone: Tone; icon: IconName }> = {
   vip: { tone: 'accent', icon: 'star' },
   birthday: { tone: 'success', icon: 'cake' },
@@ -609,6 +611,7 @@ const FLAG_META: Record<CustomerFlagType, { tone: Tone; icon: IconName }> = {
   special_request: { tone: 'info', icon: 'note' },
   deposit_exempt: { tone: 'neutral', icon: 'card' },
   match_ban: { tone: 'danger', icon: 'ban' },
+  ban: { tone: 'danger', icon: 'ban' },
 };
 /** The ban codes a match_ban label can carry (R35), each worded in ws.kit.flags.matchBanReason. */
 const MATCH_BAN_REASONS = ['conduct', 'no_shows', 'reported', 'other'] as const;

@@ -100,6 +100,9 @@ import { activityAr } from './activity.ar';
 // Standing customer discounts (0342): the record's Discount card and the bill's Customer discount.
 import { discountsEn } from './discounts.en';
 import { discountsAr } from './discounts.ar';
+// Customer ban and customer tags with a rule (0449): the customer record.
+import { customerRulesEn } from './customerRules.en';
+import { customerRulesAr } from './customerRules.ar';
 // The free AI (owner call 2026-10-16): every staff role's assistant, and the owner's "The free AI".
 import { assistantFreeEn } from './assistantFree.en';
 import { assistantFreeAr } from './assistantFree.ar';
@@ -158,6 +161,7 @@ export const wsEn = {
   monitoring: monitoringEn,
   activity: activityEn,
   discounts: discountsEn,
+  customerRules: customerRulesEn,
   assistantFree: assistantFreeEn,
   genderHours: genderHoursEn,
   insights: insightsEn,
@@ -204,6 +208,7 @@ export const wsAr = {
   monitoring: monitoringAr,
   activity: activityAr,
   discounts: discountsAr,
+  customerRules: customerRulesAr,
   assistantFree: assistantFreeAr,
   genderHours: genderHoursAr,
   insights: insightsAr,

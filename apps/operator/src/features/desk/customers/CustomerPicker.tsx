@@ -1,7 +1,9 @@
 /**
  * Search-and-attach a customer (0065 `customer_search`) inside a form: the
  * booking dialog and the series builder both need it. Flags surface on every
- * result (spec 06.9: wherever the customer appears).
+ * result (spec 06.9: wherever the customer appears). A banned customer (0449)
+ * is listed but cannot be picked: the row says why, and the server would
+ * refuse the write anyway (CUSTOMER_BANNED).
  */
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
@@ -13,6 +15,9 @@ import { CustomerFlagBadge, SearchField } from '../../../components/kit';
 import { Icon } from '../../../components/icons';
 import { useDebounced } from '../useDebounced';
 import type { CustomerGender, CustomerSearchRow } from '../deskTypes';
+import { isIncompleteCustomer } from './deskAccount';
+import { CompleteCustomerPhone, IncompleteBadge } from './CompleteCustomerPhone';
+import { isBanned } from './customerRules';
 
 export interface PickedCustomer {
   id: string;
@@ -25,6 +30,11 @@ export interface PickedCustomer {
    * absent: not known (a server before 0262, or a caller that did not read it).
    */
   gender?: CustomerGender | null;
+  /**
+   * 0448: saved by name alone, no number yet. The picked card says so and
+   * takes the number that completes the account.
+   */
+  incomplete?: boolean;
 }
 
 /** A gender as the customer reads carry it, narrowed to what a match compares; anything else is "not declared". */
@@ -93,6 +103,7 @@ export function CustomerPicker({
               {value.phone}
             </span>
           )}
+          {value.incomplete && <IncompleteBadge />}
           {value.flags.map((f, i) => (
             <CustomerFlagBadge key={`${f.type}-${i}`} flag={f} />
           ))}
@@ -100,6 +111,15 @@ export function CustomerPicker({
             {tr('ws.courtDesk.create.unlink')}
           </Button>
         </div>
+        {value.incomplete && (
+          // 0448: the number that completes a customer saved by name alone, asked right where they are picked.
+          <CompleteCustomerPhone
+            customerId={value.id}
+            disabled={disabled}
+            onCompleted={(phone) => onChange({ ...value, phone, incomplete: false })}
+            onUseHolder={(holder) => onChange(holder)}
+          />
+        )}
       </Field>
     );
   }
@@ -130,14 +150,26 @@ export function CustomerPicker({
             </div>
           )}
           {search.isError && <ErrorText error={search.error} style={{ marginBlock: 0 }} />}
-          {(search.data ?? []).map((c) => (
+          {(search.data ?? []).map((c) => {
+            const banned = isBanned(c.flags);
+            return (
             <button
               key={c.id}
               type="button"
               className="tp-row"
-              data-clickable="true"
-              disabled={disabled}
-              onClick={() => onChange({ id: c.id, name: c.full_name, phone: c.phone, flags: c.flags ?? [], gender: customerGenderOf(c.gender) })}
+              data-clickable={banned ? undefined : 'true'}
+              disabled={disabled || banned}
+              aria-describedby={banned ? `banned-${c.id}` : undefined}
+              onClick={() =>
+                onChange({
+                  id: c.id,
+                  name: c.full_name,
+                  phone: c.phone,
+                  flags: c.flags ?? [],
+                  gender: customerGenderOf(c.gender),
+                  ...(isIncompleteCustomer(c) ? { incomplete: true } : {}),
+                })
+              }
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -152,7 +184,7 @@ export function CustomerPicker({
                 paddingBlock: '0.4rem',
                 paddingInline: '0.5rem',
                 borderRadius: 'var(--tp-radius-ctl)',
-                cursor: 'pointer',
+                cursor: banned ? 'not-allowed' : 'pointer',
               }}
             >
               <span style={{ fontWeight: 600 }}>{c.full_name}</span>
@@ -161,11 +193,18 @@ export function CustomerPicker({
                   {c.phone}
                 </span>
               )}
+              {isIncompleteCustomer(c) && <IncompleteBadge />}
               {(c.flags ?? []).map((f, i) => (
                 <CustomerFlagBadge key={`${f.type}-${i}`} flag={f} />
               ))}
+              {banned && (
+                <span id={`banned-${c.id}`} style={{ flexBasis: '100%', fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-danger-fg)' }}>
+                  {tr('ws.customerRules.ban.cannotPick')}
+                </span>
+              )}
             </button>
-          ))}
+            );
+          })}
           {search.isSuccess && (search.data ?? []).length === 0 && (
             <p style={{ margin: 0, paddingBlock: '0.4rem', paddingInline: '0.5rem', color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>
               {tr('ws.courtDesk.create.noMatches')}

@@ -141,6 +141,15 @@ privacy rows (Precise Location, Device ID) and the iOS manifest changed with it
 (`privacyManifest.test.ts`). The customer "nearby offer" is NOT built: it needs its own
 decision and store review.
 
+Desk-made accounts (Majed, 2026-11-21; migration 0448): a customer the club's desk wrote down
+(a booking, a seat, a lesson, an order taken with a name and a number) has a customer record and
+no login. Sign in with that number is told "no account" by GoTrue; the screen then asks
+`phone_sign_up_status`, and on `desk` it fills the sign-up draft's number and opens Create account
+(`app/sign-in.tsx`, toast `auth.deskAccountFinish`). The person adds their details, and the code
+that confirms the number claims the desk's record on the server (their bookings, bills and points
+come along; the name the desk typed does not). Create account itself treats `desk` as free. There
+is no password step: a phone account signs in by code (owner, 2026-10-11).
+
 ## Commits
 
 - No AI co-author trailer of any kind (`Co-Authored-By: Claude …`, Copilot, …). If a harness appends

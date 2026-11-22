@@ -1885,10 +1885,16 @@ export type Database = {
       }
       current_venue: { Args: { p_station_id?: string }; Returns: string }
       current_venue_or_default: { Args: never; Returns: string }
+      customer_ban_and_tags: { Args: { p_customer_id?: string }; Returns: Json }
+      customer_banned: { Args: { p_customer_id: string }; Returns: boolean }
       customer_counts: { Args: { p_customer_id: string }; Returns: Json }
       customer_directory: { Args: { p_limit?: number }; Returns: Json }
       customer_discount: { Args: { p_customer_id: string }; Returns: Json }
       customer_discount_json: { Args: { p_customer_id: string }; Returns: Json }
+      customer_effective_discount_json: {
+        Args: { p_customer_id: string }
+        Returns: Json
+      }
       customer_flags_json: { Args: { p_customer_id: string }; Returns: Json }
       customer_interest_tags: {
         Args: {
@@ -1918,6 +1924,16 @@ export type Database = {
         Args: { p_limit?: number; p_query: string }
         Returns: Json[]
       }
+      customer_standing_discount: {
+        Args: { p_customer_id: string; p_part: string }
+        Returns: Database["public"]["Tables"]["customer_discounts"]["Row"][]
+        SetofOptions: {
+          from: "*"
+          to: "customer_discounts"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       customer_tab_discount_plan: {
         Args: { p_customer_id: string; p_tab_id: string }
         Returns: {
@@ -1929,6 +1945,7 @@ export type Database = {
           value: number
         }[]
       }
+      customer_tags_json: { Args: { p_customer_id: string }; Returns: Json }
       day_close_online: { Args: { p_day_session_id?: string }; Returns: Json }
       day_close_shop: { Args: { p_day_session_id?: string }; Returns: Json }
       deal_look_json: { Args: { p_scope: Json }; Returns: Json }
@@ -2004,6 +2021,7 @@ export type Database = {
       }
       default_venue: { Args: never; Returns: string }
       delete_court: { Args: { p_id: string }; Returns: Json }
+      delete_customer_tag: { Args: { p_tag_id: string }; Returns: Json }
       delete_hiring_candidate: { Args: { p_id: string }; Returns: undefined }
       delete_loyalty_tier: { Args: { p_tier_id: string }; Returns: undefined }
       delete_loyalty_tier_perk: {
@@ -2182,6 +2200,10 @@ export type Database = {
       }
       desk_coach_schedule: {
         Args: { p_from: string; p_to: string; p_venue_id: string }
+        Returns: Json
+      }
+      desk_complete_customer: {
+        Args: { p_actor_id: string; p_customer_id: string; p_phone: string }
         Returns: Json
       }
       desk_create_course: {
@@ -5131,6 +5153,15 @@ export type Database = {
         }
         Returns: Json
       }
+      save_customer_tag: {
+        Args: {
+          p_cafe_bp?: number
+          p_court_bp?: number
+          p_name?: string
+          p_tag_id?: string
+        }
+        Returns: Json
+      }
       save_hiring_candidate: {
         Args: {
           p_candidate: Json
@@ -5342,6 +5373,10 @@ export type Database = {
         Args: { p_patch: Json; p_venue_id: string }
         Returns: Json
       }
+      set_customer_ban: {
+        Args: { p_banned: boolean; p_customer_id: string; p_reason?: string }
+        Returns: Json
+      }
       set_customer_discount: {
         Args: {
           p_cafe_kind?: string
@@ -5356,6 +5391,10 @@ export type Database = {
       }
       set_customer_flags: {
         Args: { p_customer_id: string; p_flags: Json }
+        Returns: Json
+      }
+      set_customer_tags: {
+        Args: { p_customer_id: string; p_tag_ids: string[] }
         Returns: Json
       }
       set_deposit_settings: {
@@ -9055,6 +9094,97 @@ export type Database = {
           {
             foreignKeyName: "customer_notes_edited_by_fkey"
             columns: ["edited_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      customer_tag_members: {
+        Row: {
+          customer_id: string
+          set_at: string
+          set_by: string
+          tag_id: string
+        }
+        Insert: {
+          customer_id: string
+          set_at?: string
+          set_by: string
+          tag_id: string
+        }
+        Update: {
+          customer_id?: string
+          set_at?: string
+          set_by?: string
+          tag_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_tag_members_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_tag_members_set_by_fkey"
+            columns: ["set_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_tag_members_tag_id_fkey"
+            columns: ["tag_id"]
+            isOneToOne: false
+            referencedRelation: "customer_tags"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      customer_tags: {
+        Row: {
+          cafe_bp: number | null
+          court_bp: number | null
+          created_at: string
+          created_by: string
+          id: string
+          name: string
+          updated_at: string
+          updated_by: string
+        }
+        Insert: {
+          cafe_bp?: number | null
+          court_bp?: number | null
+          created_at?: string
+          created_by: string
+          id?: string
+          name: string
+          updated_at?: string
+          updated_by: string
+        }
+        Update: {
+          cafe_bp?: number | null
+          court_bp?: number | null
+          created_at?: string
+          created_by?: string
+          id?: string
+          name?: string
+          updated_at?: string
+          updated_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_tags_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_tags_updated_by_fkey"
+            columns: ["updated_by"]
             isOneToOne: false
             referencedRelation: "staff"
             referencedColumns: ["id"]

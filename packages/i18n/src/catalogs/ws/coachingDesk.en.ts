@@ -195,7 +195,7 @@ export const coachingDeskEn = {
     needsStudent: 'Pick a customer or type a name.',
     nameTooLong: 'A name can be at most {max} characters.',
     phoneInvalid: 'A phone number has {min} to {max} digits.',
-    typedHint: 'A typed student stays as typed. A phone with an account is linked only after its owner confirms it in the app.',
+    typedHint: 'A number that already has an app account is linked only after its owner confirms it in the app.',
     createCustomer: 'Create customer',
     findInDirectory: 'Find in the directory',
     joinsFrom: 'Joins from session {n}: pays for {sessions}.',

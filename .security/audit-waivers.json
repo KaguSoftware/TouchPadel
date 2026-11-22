@@ -137,9 +137,9 @@
     {
       "id": "GHSA-587h-7wmj-h5pm",
       "module": "vite",
-      "reason": "launch-editor's fs.existsSync() check can be bypassed on Windows, reached through the Vite dev server's open-in-editor middleware. The flagged copy is vite 5.4.21, pulled in only by vitest 2.1 (the unit-test runner in apps/mobile, apps/operator and apps/operator-shell): it runs tests in-process and serves nothing, and no shipped bundle contains it. The operator's own vite (dev server + build) was bumped to ^6.4.4 the same day. Advisory published 2026-10-20 with no patched 5.x, so the real fix is the vitest 3 upgrade (vite >= 6.4.4). Waived 2026-10-21 on Majed's word for 30 days; remove with that upgrade.",
+      "reason": "launch-editor's fs.existsSync() check can be bypassed on Windows, reached through the Vite dev server's open-in-editor middleware. The flagged copy is vite 5.4.21, pulled in only by vitest 2.1 (the unit-test runner in apps/mobile, apps/operator and apps/operator-shell): it runs tests in-process and serves nothing, and no shipped bundle contains it. The operator's own vite (dev server + build) was bumped to ^6.4.4 the same day. Advisory published 2026-10-20 with no patched 5.x, so the real fix is the vitest 3 upgrade (vite >= 6.4.4). Waived 2026-10-21 on Majed's word for 30 days; remove with that upgrade. Extended 2026-11-22 to 2026-12-22 on Majed's word: the vitest 3 upgrade is still owed.",
       "owner": "DEV",
-      "expires": "2026-11-20"
+      "expires": "2026-12-22"
     },
     {
       "id": "GHSA-mrhx-c7xc-m3w5",

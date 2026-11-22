@@ -632,6 +632,10 @@ export const CAPABILITY_ROLES = {
   cashOutTickets: ['manager', 'owner'],
   /** Ban from open matches and lift a ban on the record (app.set_match_ban; chain-wide, R40). */
   banFromMatches: ['manager', 'owner'],
+  /** 0449: ban a customer from everything, or lift it (app.set_customer_ban). */
+  banCustomers: ['court_desk', 'manager', 'owner'],
+  /** 0449: set up the club's customer tags and their discount (app.save_customer_tag). */
+  manageCustomerTags: ['manager', 'owner'],
   /** The Ops player-reports queue (app.match_reports_open, app.resolve_match_report). */
   reviewMatchReports: ['manager', 'owner'],
   /**

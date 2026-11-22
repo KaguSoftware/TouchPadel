@@ -1,5 +1,5 @@
 {
-  "generated_from": "53a8f066d2e694244814f783968d764beffe7813",
+  "generated_from": "5b8fcbb5778e94c1289744ffeb4d7bc3de885d88",
   "chunks": [
     {
       "kind": "page",
@@ -30,7 +30,7 @@
       "ref": "page:/admin/audit",
       "lang": "en",
       "title": "/admin/audit — Change history",
-      "body": "The read-only \"Audit log\": who did what and why, with period, search, area and actor filters and a \"missing reason\" toggle; the buttons only refresh, clear filters, expand a row's before and after values, or export CSV.\nRoles: manager, owner.\nReached from: Management › Settings: \"Change history\".",
+      "body": "The read-only \"Audit log\" (the rail's \"Change history\"): every sensitive change, who made it, what changed and why, with period, search, area and actor filters and a \"missing reason\" toggle; the buttons only refresh, clear filters, expand a row's before and after values, or export CSV.\nRoles: manager, owner.\nReached from: Management › Settings: \"Change history\".",
       "route": "/admin/audit"
     },
     {
@@ -3062,7 +3062,7 @@
       "ref": "action:app.apply_customer_court_discount",
       "lang": "en",
       "title": "app.apply_customer_court_discount (part 1 of 4)",
-      "body": "0342, 0403, 0430 (the booking's live bill locked first, so a concurrent settle_tab and this never pass each other). court_desk, cashier, manager, owner at the booking's branch (RESERVATION_NOT_FOUND, VENUE_MISMATCH), no PIN. The court-fee discount of a confirmed, arrived or completed plain booking with a price (COURT_DISCOUNT_NOT_ALLOWED detail not_a_live_booking | match). p_kind NULL refreshes it (a one-off keeps its kind and value, else the booking customer's standing court discount unless this booking waived it, else it goes) and answers every refusal as data ({applied, unchanged: true, refused}); 'standing' lifts the waiver",
+      "body": "0449 (the standing court discount is the customer's own, else their best tag's: reason tag, authorised by whoever put the tag on). 0342, 0403, 0430 (the booking's live bill locked first, so a concurrent settle_tab and this never pass each other). court_desk, cashier, manager, owner at the booking's branch (RESERVATION_NOT_FOUND, VENUE_MISMATCH), no PIN. The court-fee discount of a confirmed, arrived or completed plain booking with a price (COURT_DISCOUNT_NOT_ALLOWED detail not_a_live_booking | match). p_kind NULL refreshes it (a one-off keeps its kind and value, else the booking customer's standing court discount unless this",
       "route": null
     },
     {
@@ -3070,7 +3070,7 @@
       "ref": "action:app.apply_customer_court_discount~2",
       "lang": "en",
       "title": "app.apply_customer_court_discount (part 2 of 4)",
-      "body": "0342, 0403, 0430 (the booking's live bill locked first, so a concurrent settle_tab and this never pass each other). court_desk, cashier, manager, owner at the b\nand puts the standing discount on in place of a one-off; 'none' takes it off and waives the standing discount for this booking (customer_discount_waivers); 'percent' | 'amount' with p_value and p_reason gives it on this booking only (NO_CUSTOMER, SELF_DISCOUNT). The customer is the booking's guest, else its live tab's customer. Fixed once a bill of the booking settled with it in place (COURT_BILL_CLOSED). COURT_FEE_PAID when the fee is already paid; DISCOUNT_REQUIRES_REFUND when the discount is more than is still owed (0403: a free court hour from loyalty, reservation_loyalty_rewards, counts as already covered). Locks the court",
+      "body": "0449 (the standing court discount is the customer's own, else their best tag's: reason tag, authorised by whoever put the tag on). 0342, 0403, 0430 (the booking\nbooking waived it, else it goes) and answers every refusal as data ({applied, unchanged: true, refused}); 'standing' lifts the waiver and puts the standing discount on in place of a one-off; 'none' takes it off and waives the standing discount for this booking (customer_discount_waivers); 'percent' | 'amount' with p_value and p_reason gives it on this booking only (NO_CUSTOMER, SELF_DISCOUNT). The customer is the booking's guest, else its live tab's customer. Fixed once a bill of the booking settled with it in place (COURT_BILL_CLOSED). COURT_FEE_PAID when the fee is already paid; DISCOUNT_REQUIRES_REFUND when the discount is more",
       "route": null
     },
     {
@@ -3078,7 +3078,7 @@
       "ref": "action:app.apply_customer_court_discount~3",
       "lang": "en",
       "title": "app.apply_customer_court_discount (part 3 of 4)",
-      "body": "0342, 0403, 0430 (the booking's live bill locked first, so a concurrent settle_tab and this never pass each other). court_desk, cashier, manager, owner at the b\n(lock_court) then the booking row. Audit court_discount.apply / court_discount.remove. Returns {applied, unchanged, kind, value, amount_iqd, standing, customer_id, remaining_iqd}.\nSignature: app.apply_customer_court_discount(p_reservation_id uuid, p_kind text default null, p_value int default null, p_reason text default null, p_device_id text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (court_desk, cashier, manager, owner).\nAudit actions written: court_discount.remove, court_discount.apply.",
+      "body": "0449 (the standing court discount is the customer's own, else their best tag's: reason tag, authorised by whoever put the tag on). 0342, 0403, 0430 (the booking\nthan is still owed (0403: a free court hour from loyalty, reservation_loyalty_rewards, counts as already covered). Locks the court (lock_court) then the booking row. Audit court_discount.apply / court_discount.remove. Returns {applied, unchanged, kind, value, amount_iqd, standing, customer_id, remaining_iqd}.\nSignature: app.apply_customer_court_discount(p_reservation_id uuid, p_kind text default null, p_value int default null, p_reason text default null, p_device_id text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (court_desk, cashier, manager, owner).",
       "route": null
     },
     {
@@ -3086,7 +3086,7 @@
       "ref": "action:app.apply_customer_court_discount~4",
       "lang": "en",
       "title": "app.apply_customer_court_discount (part 4 of 4)",
-      "body": "0342, 0403, 0430 (the booking's live bill locked first, so a concurrent settle_tab and this never pass each other). court_desk, cashier, manager, owner at the b\nGranted to: authenticated. Guard: staff role in (court_desk, cashier, manager, owner).\nAudit actions written: court_discount.remove, court_discount.apply.\nError codes: FORBIDDEN, INVALID_KIND, INVALID_VALUE, REASON_REQUIRED, INVALID_ARGUMENT, RESERVATION_NOT_FOUND, VENUE_MISMATCH, COURT_DISCOUNT_NOT_ALLOWED, NO_CUSTOMER, SELF_DISCOUNT, COURT_BILL_CLOSED, COURT_FEE_PAID, DISCOUNT_REQUIRES_REFUND.\nCalled from: apps/operator/src/features/discounts/useCustomerDiscount.ts.\nDefined in migration 0430 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "0449 (the standing court discount is the customer's own, else their best tag's: reason tag, authorised by whoever put the tag on). 0342, 0403, 0430 (the booking\nGranted to: authenticated. Guard: staff role in (court_desk, cashier, manager, owner).\nAudit actions written: court_discount.remove, court_discount.apply.\nError codes: FORBIDDEN, INVALID_KIND, INVALID_VALUE, REASON_REQUIRED, INVALID_ARGUMENT, RESERVATION_NOT_FOUND, VENUE_MISMATCH, COURT_DISCOUNT_NOT_ALLOWED, NO_CUSTOMER, SELF_DISCOUNT, COURT_BILL_CLOSED, COURT_FEE_PAID, DISCOUNT_REQUIRES_REFUND.\nCalled from: apps/operator/src/features/discounts/useCustomerDiscount.ts.\nDefined in migration 0449 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -3326,7 +3326,7 @@
       "ref": "action:app.bill_customer_discount",
       "lang": "en",
       "title": "app.bill_customer_discount (part 1 of 3)",
-      "body": "0342, 0403. court_desk, cashier, shop_staff, manager, owner at the bill's branch: the customer discount state of a bill (a tab, a booking, or a tab and its booking; INVALID_ARGUMENT with neither, TAB_NOT_FOUND, RESERVATION_NOT_FOUND, VENUE_MISMATCH). {customer: {id, name} | null (tab_customer, else the booking's), standing: customer_discount_json | null, cafe: {adjustment_id, kind, value, amount_iqd, standing} | null, court: {kind, value, amount_iqd, standing, reason, closed} | null, cafe_needs_refresh, court_needs_refresh (apply_customer_discount / apply_customer_court_discount with no kind would change something), cafe_waived,",
+      "body": "0449 (standing is app.customer_effective_discount_json: own discount and tags together, each part with its tag name; the court refresh judges the effective court part). 0342, 0403. court_desk, cashier, shop_staff, manager, owner at the bill's branch: the customer discount state of a bill (a tab, a booking, or a tab and its booking; INVALID_ARGUMENT with neither, TAB_NOT_FOUND, RESERVATION_NOT_FOUND, VENUE_MISMATCH). {customer: {id, name} | null (tab_customer, else the booking's), standing: customer_discount_json | null, cafe: {adjustment_id, kind, value, amount_iqd, standing} | null, court: {kind, value, amount_iqd, standing,",
       "route": null
     },
     {
@@ -3334,7 +3334,7 @@
       "ref": "action:app.bill_customer_discount~2",
       "lang": "en",
       "title": "app.bill_customer_discount (part 2 of 3)",
-      "body": "0342, 0403. court_desk, cashier, shop_staff, manager, owner at the bill's branch: the customer discount state of a bill (a tab, a booking, or a tab and its book\ncourt_waived (the standing discount was taken off this bill: customer_discount_waivers), court_allowed (a live plain booking with a price, no match)}.\nSignature: app.bill_customer_discount(p_tab_id uuid default null, p_reservation_id uuid default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (court_desk, cashier, shop_staff, manager, owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, INVALID_ARGUMENT, TAB_NOT_FOUND, RESERVATION_NOT_FOUND, VENUE_MISMATCH.\nCalled from: apps/operator/src/features/discounts/useCustomerDiscount.ts.",
+      "body": "0449 (standing is app.customer_effective_discount_json: own discount and tags together, each part with its tag name; the court refresh judges the effective cour\nreason, closed} | null, cafe_needs_refresh, court_needs_refresh (apply_customer_discount / apply_customer_court_discount with no kind would change something), cafe_waived, court_waived (the standing discount was taken off this bill: customer_discount_waivers), court_allowed (a live plain booking with a price, no match)}.\nSignature: app.bill_customer_discount(p_tab_id uuid default null, p_reservation_id uuid default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (court_desk, cashier, shop_staff, manager, owner).\nWrites no audit row of its own (or via a helper).",
       "route": null
     },
     {
@@ -3342,7 +3342,7 @@
       "ref": "action:app.bill_customer_discount~3",
       "lang": "en",
       "title": "app.bill_customer_discount (part 3 of 3)",
-      "body": "0342, 0403. court_desk, cashier, shop_staff, manager, owner at the bill's branch: the customer discount state of a bill (a tab, a booking, or a tab and its book\nError codes: FORBIDDEN, INVALID_ARGUMENT, TAB_NOT_FOUND, RESERVATION_NOT_FOUND, VENUE_MISMATCH.\nCalled from: apps/operator/src/features/discounts/useCustomerDiscount.ts.\nDefined in migration 0403 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "0449 (standing is app.customer_effective_discount_json: own discount and tags together, each part with its tag name; the court refresh judges the effective cour\nGranted to: authenticated. Guard: staff role in (court_desk, cashier, shop_staff, manager, owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, INVALID_ARGUMENT, TAB_NOT_FOUND, RESERVATION_NOT_FOUND, VENUE_MISMATCH.\nCalled from: apps/operator/src/features/discounts/useCustomerDiscount.ts.\nDefined in migration 0449 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -4443,10 +4443,34 @@
     },
     {
       "kind": "action",
+      "ref": "action:app.customer_ban_and_tags",
+      "lang": "en",
+      "title": "app.customer_ban_and_tags (part 1 of 2)",
+      "body": "0449. Court desk, cashier, shop assistant, manager, owner. With p_customer_id NULL: {catalog, can_manage}. Else {customer_id, ban: {reason, by: {id, name} | null, at} | null, tags: customer_tags_json, effective: customer_effective_discount_json | null, coming: {bookings (plain bookings still to come), seats (open-match seats still to come)}, is_staff, catalog: [{id, name, cafe_bp, court_bp, members}] by name, can_manage (manager or owner)}. CUSTOMER_NOT_FOUND for a missing or deleted profile.\nSignature: app.customer_ban_and_tags(p_customer_id uuid default null) returns jsonb.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.customer_ban_and_tags~2",
+      "lang": "en",
+      "title": "app.customer_ban_and_tags (part 2 of 2)",
+      "body": "0449. Court desk, cashier, shop assistant, manager, owner. With p_customer_id NULL: {catalog, can_manage}. Else {customer_id, ban: {reason, by: {id, name} | nul\nSignature: app.customer_ban_and_tags(p_customer_id uuid default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (court_desk, cashier, shop_staff, manager, owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, CUSTOMER_NOT_FOUND.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0449 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
       "ref": "action:app.customer_directory",
       "lang": "en",
-      "title": "app.customer_directory",
-      "body": "0262 = the 0148 directory (every live non-staff customer, name order, {rows, total, truncated}, p_limit clamped to 1..5000) with counts.noShows adding the customer's no_show seats in non-sandbox open matches, as customer_counts does (DF-12, DF-15). Court desk, cashier, manager, owner.\nSignature: app.customer_directory(p_limit int default 5000) returns jsonb.\nGranted to: authenticated. Guard: staff role in (court_desk,cashier,manager,owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0262 (last definition). The assistant cannot call this; it only explains it.",
+      "title": "app.customer_directory (part 1 of 2)",
+      "body": "0262 = the 0148 directory (every live non-staff customer, name order, {rows, total, truncated}, p_limit clamped to 1..5000) with counts.noShows adding the customer's no_show seats in non-sandbox open matches, as customer_counts does (DF-12, DF-15). 0448: within the cap, nameless accounts last and customers saved by name alone (no number) after the ones with a number, so the cap drops those first. Court desk, cashier, manager, owner.\nSignature: app.customer_directory(p_limit int default 5000) returns jsonb.\nGranted to: authenticated. Guard: staff role in (court_desk,cashier,manager,owner).",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.customer_directory~2",
+      "lang": "en",
+      "title": "app.customer_directory (part 2 of 2)",
+      "body": "0262 = the 0148 directory (every live non-staff customer, name order, {rows, total, truncated}, p_limit clamped to 1..5000) with counts.noShows adding the custo\nSignature: app.customer_directory(p_limit int default 5000) returns jsonb.\nGranted to: authenticated. Guard: staff role in (court_desk,cashier,manager,owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0448 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -4720,6 +4744,14 @@
       "title": "app.delete_court",
       "body": "0074, 0382: hard-delete a court that nothing references. Raises COURT_IN_USE (detail = {reservations, series, rate_rules}) when it has history — that court is deactivated via app.upsert_court instead, so the reports keep its name. Announces court_changed {court_id, active false, deleted true} on courts:<venue>.\nSignature: app.delete_court(p_id uuid) returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager,owner).\nAudit actions written: courts.delete.\nError codes: FORBIDDEN, COURT_NOT_FOUND, COURT_IN_USE.\nCalled from: apps/operator/src/features/admin/courts/CourtsAdmin.tsx (pages /admin).\nDefined in migration 0382 (last definition). The assistant cannot call this; it only explains it.",
       "route": "/admin"
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.delete_customer_tag",
+      "lang": "en",
+      "title": "app.delete_customer_tag",
+      "body": "0449. Manager, owner: deletes a tag and takes it off everyone who carried it. TAG_NOT_FOUND. Audit customer_tag.delete {name, cafe_bp, court_bp, members}. Returns {id, members}.\nSignature: app.delete_customer_tag(p_tag_id uuid) returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager, owner).\nAudit actions written: customer_tag.delete.\nError codes: FORBIDDEN, TAG_NOT_FOUND.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0449 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
     },
     {
       "kind": "action",
@@ -8485,8 +8517,16 @@
       "kind": "action",
       "ref": "action:app.register_station",
       "lang": "en",
-      "title": "app.register_station",
-      "body": "0222. Manager or owner at the branch: register (or re-register, or un-retire) a station there with its mode (till, desk, kds). A live station name at another branch is STATION_OTHER_BRANCH. Audited as station.register.\nSignature: app.register_station(p_id text, p_venue_id uuid, p_mode text) returns stations.\nGranted to: authenticated. Guard: staff role in (manager,owner).\nAudit actions written: station.register.\nError codes: FORBIDDEN, INVALID_STATION, INVALID_ARGUMENT, STATION_OTHER_BRANCH, STATION_HAS_HISTORY.\nCalled from: apps/operator/src/components/StationRetiredScreen.tsx, apps/operator/src/features/admin/settings/StationsPanel.tsx (pages /admin).\nDefined in migration 0244 (last definition). The assistant cannot call this; it only explains it.",
+      "title": "app.register_station (part 1 of 2)",
+      "body": "0222. Manager or owner at the branch: register (or re-register, or un-retire) a station there with its mode (till, desk, kds). A live station name at another branch is STATION_OTHER_BRANCH. Audited as station.register.\nSignature: app.register_station(p_id text, p_venue_id uuid, p_mode text) returns stations.\nGranted to: authenticated. Guard: staff role in (manager,owner).\nAudit actions written: station.register.\nError codes: FORBIDDEN, INVALID_STATION, INVALID_ARGUMENT, STATION_OTHER_BRANCH, STATION_HAS_HISTORY.",
+      "route": "/admin"
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.register_station~2",
+      "lang": "en",
+      "title": "app.register_station (part 2 of 2)",
+      "body": "0222. Manager or owner at the branch: register (or re-register, or un-retire) a station there with its mode (till, desk, kds). A live station name at another br\nAudit actions written: station.register.\nError codes: FORBIDDEN, INVALID_STATION, INVALID_ARGUMENT, STATION_OTHER_BRANCH, STATION_HAS_HISTORY.\nCalled from: apps/operator/src/components/StationRetiredScreen.tsx, apps/operator/src/features/admin/settings/StationsPanel.tsx, apps/operator/src/features/clock/useSetUpDesk.ts (pages /admin).\nDefined in migration 0244 (last definition). The assistant cannot call this; it only explains it.",
       "route": "/admin"
     },
     {
@@ -8835,6 +8875,22 @@
     },
     {
       "kind": "action",
+      "ref": "action:app.save_customer_tag",
+      "lang": "en",
+      "title": "app.save_customer_tag (part 1 of 2)",
+      "body": "0449. Manager, owner: creates a tag (p_tag_id NULL) or renames it and sets its rule. p_name 1..40 (NAME_LENGTH), unique ignoring case (TAG_NAME_TAKEN); p_cafe_bp / p_court_bp basis points 1..10000 or NULL for none (INVALID_VALUE). TAG_NOT_FOUND; SELF_DISCOUNT when a manager changes the rule of a tag they carry. Open bills of its members pick a new rule up on their next refresh; closed bills keep theirs. Audit customer_tag.create / customer_tag.update. Returns {id, name, cafe_bp, court_bp}.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.save_customer_tag~2",
+      "lang": "en",
+      "title": "app.save_customer_tag (part 2 of 2)",
+      "body": "0449. Manager, owner: creates a tag (p_tag_id NULL) or renames it and sets its rule. p_name 1..40 (NAME_LENGTH), unique ignoring case (TAG_NAME_TAKEN); p_cafe_b\nSignature: app.save_customer_tag(p_tag_id uuid default null, p_name text default null, p_cafe_bp int default null, p_court_bp int default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager, owner).\nAudit actions written: customer_tag.create, customer_tag.update.\nError codes: FORBIDDEN, NAME_LENGTH, INVALID_VALUE, TAG_NAME_TAKEN, TAG_NOT_FOUND, SELF_DISCOUNT.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0449 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
       "ref": "action:app.save_hiring_candidate",
       "lang": "en",
       "title": "app.save_hiring_candidate (part 1 of 2)",
@@ -9171,6 +9227,22 @@
     },
     {
       "kind": "action",
+      "ref": "action:app.set_customer_ban",
+      "lang": "en",
+      "title": "app.set_customer_ban (part 1 of 2)",
+      "body": "0449. Court desk, manager, owner: bans the customer from everything (p_banned true; p_reason required, at most 120, stored as the ban flag's label) or lifts the ban (p_reason optional, audit only). A ban also bans the auth account (banned_until infinity) and ends its sessions; lifting clears that. CUSTOMER_NOT_FOUND (missing or deleted), REASON_REQUIRED, LABEL_LENGTH, CUSTOMER_IS_STAFF (an active staff member), INVALID_ARGUMENT (p_banned NULL); the same state answers duplicate true and writes nothing. Audit customer.ban {banned, reason}. The only writer of a ban flag. Returns {customer_id, banned, duplicate}.",
+      "route": "/desk"
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.set_customer_ban~2",
+      "lang": "en",
+      "title": "app.set_customer_ban (part 2 of 2)",
+      "body": "0449. Court desk, manager, owner: bans the customer from everything (p_banned true; p_reason required, at most 120, stored as the ban flag's label) or lifts the\nSignature: app.set_customer_ban(p_customer_id uuid, p_banned boolean, p_reason text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (court_desk, manager, owner).\nAudit actions written: customer.ban.\nError codes: FORBIDDEN, INVALID_ARGUMENT, CUSTOMER_NOT_FOUND, REASON_REQUIRED, LABEL_LENGTH, CUSTOMER_IS_STAFF.\nCalled from: apps/operator/src/features/desk/customers/customerRules.ts (pages /desk).\nDefined in migration 0449 (last definition). The assistant cannot call this; it only explains it.",
+      "route": "/desk"
+    },
+    {
+      "kind": "action",
       "ref": "action:app.set_customer_discount",
       "lang": "en",
       "title": "app.set_customer_discount (part 1 of 3)",
@@ -9198,7 +9270,7 @@
       "ref": "action:app.set_customer_flags",
       "lang": "en",
       "title": "app.set_customer_flags (part 1 of 2)",
-      "body": "0262 = the 0242 body (0065 plus deposit_exempt) with the ban kept out: the desk replaces a customer's flags with p_flags ([{type, label}], types vip, birthday, payment_note, special_request, deposit_exempt; labels at most 120). A match_ban element is INVALID_FLAG detail match_ban (set_match_ban writes bans), and the delete spares a stored match_ban, so a flag edit or an older build never lifts one. Validates everything before writing; audit customer.flags_set when something changed. Returns customer_flags_json.\nSignature: app.set_customer_flags(p_customer_id uuid, p_flags jsonb) returns jsonb.",
+      "body": "0262, 0449 = the 0242 body (0065 plus deposit_exempt) with both bans kept out: the desk replaces a customer's flags with p_flags ([{type, label}], types vip, birthday, payment_note, special_request, deposit_exempt; labels at most 120). A match_ban or ban element is INVALID_FLAG (detail the type; set_match_ban and set_customer_ban write those), and the delete spares a stored match_ban and ban, so a flag edit or an older build never lifts one. Validates everything before writing; audit customer.flags_set when something changed. Returns customer_flags_json.",
       "route": "/desk"
     },
     {
@@ -9206,7 +9278,23 @@
       "ref": "action:app.set_customer_flags~2",
       "lang": "en",
       "title": "app.set_customer_flags (part 2 of 2)",
-      "body": "0262 = the 0242 body (0065 plus deposit_exempt) with the ban kept out: the desk replaces a customer's flags with p_flags ([{type, label}], types vip, birthday, \nSignature: app.set_customer_flags(p_customer_id uuid, p_flags jsonb) returns jsonb.\nGranted to: authenticated. Guard: staff role in (court_desk,manager,owner).\nAudit actions written: customer.flags_set.\nError codes: FORBIDDEN, INVALID_FLAGS, CUSTOMER_NOT_FOUND, INVALID_FLAG, LABEL_LENGTH, DUPLICATE_FLAG.\nCalled from: apps/operator/src/features/desk/customers/CustomerRecord.tsx (pages /desk).\nDefined in migration 0262 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "0262, 0449 = the 0242 body (0065 plus deposit_exempt) with both bans kept out: the desk replaces a customer's flags with p_flags ([{type, label}], types vip, bi\nSignature: app.set_customer_flags(p_customer_id uuid, p_flags jsonb) returns jsonb.\nGranted to: authenticated. Guard: staff role in (court_desk,manager,owner).\nAudit actions written: customer.flags_set.\nError codes: FORBIDDEN, INVALID_FLAGS, CUSTOMER_NOT_FOUND, INVALID_FLAG, LABEL_LENGTH, DUPLICATE_FLAG.\nCalled from: apps/operator/src/features/desk/customers/CustomerRecord.tsx (pages /desk).\nDefined in migration 0449 (last definition). The assistant cannot call this; it only explains it.",
+      "route": "/desk"
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.set_customer_tags",
+      "lang": "en",
+      "title": "app.set_customer_tags (part 1 of 2)",
+      "body": "0449. Court desk, cashier, shop assistant, manager, owner: the customer carries exactly p_tag_ids from now on (replace-all; a tag they already carry keeps who put it on and when). CUSTOMER_NOT_FOUND, TAG_NOT_FOUND, SELF_DISCOUNT (adding a tag with a rule to the caller's own profile). Audit customer.tags_set with the tag names before and after. Returns {customer_id, tags: customer_tags_json, effective: customer_effective_discount_json | null}.\nSignature: app.set_customer_tags(p_customer_id uuid, p_tag_ids uuid[]) returns jsonb.\nGranted to: authenticated. Guard: staff role in (court_desk, cashier, shop_staff, manager, owner).",
+      "route": "/desk"
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.set_customer_tags~2",
+      "lang": "en",
+      "title": "app.set_customer_tags (part 2 of 2)",
+      "body": "0449. Court desk, cashier, shop assistant, manager, owner: the customer carries exactly p_tag_ids from now on (replace-all; a tag they already carry keeps who p\nSignature: app.set_customer_tags(p_customer_id uuid, p_tag_ids uuid[]) returns jsonb.\nGranted to: authenticated. Guard: staff role in (court_desk, cashier, shop_staff, manager, owner).\nAudit actions written: customer.tags_set.\nError codes: FORBIDDEN, CUSTOMER_NOT_FOUND, TAG_NOT_FOUND, SELF_DISCOUNT.\nCalled from: apps/operator/src/features/desk/customers/customerRules.ts (pages /desk).\nDefined in migration 0449 (last definition). The assistant cannot call this; it only explains it.",
       "route": "/desk"
     },
     {
@@ -12535,6 +12623,22 @@
       "lang": "en",
       "title": "table customer_notes",
       "body": "Created in migration 0065.\nColumns:\n  id uuid primary key default gen_random_uuid()\n  customer_id uuid not null references profiles(id) on delete cascade\n  body text not null check (length(body) between 1 and 2000)\n  author_id uuid not null references staff(id)\n  created_at timestamptz not null default now()\n  edited_at timestamptz\n  edited_by uuid references staff(id)",
+      "route": null
+    },
+    {
+      "kind": "table",
+      "ref": "table:customer_tag_members",
+      "lang": "en",
+      "title": "table customer_tag_members",
+      "body": "0449. One row per tag a customer carries. set_by is who put it on them, and authorises the tag's discount on their bills (authorized_by). Written only by app.set_customer_tags; an account merge re-points it (a tag keep already carries stays on the drop and goes with its tombstone); a deleted account loses its rows. No client grant.\nCreated in migration 0449.\nColumns:\n  customer_id uuid not null references profiles(id) on delete cascade\n  tag_id uuid not null references customer_tags(id) on delete cascade\n  set_by uuid not null references staff(id)\n  set_at timestamptz not null default now()",
+      "route": null
+    },
+    {
+      "kind": "table",
+      "ref": "table:customer_tags",
+      "lang": "en",
+      "title": "table customer_tags",
+      "body": "0449. The club's customer tags, chain-wide: a name (1..40, unique ignoring case, kept by app.save_customer_tag) and an optional rule, cafe_bp (basis points off café and shop goods) and court_bp (off the court fee of plain bookings). Written only by app.save_customer_tag / app.delete_customer_tag (manager, owner); read through app.customer_ban_and_tags. No client grant.\nCreated in migration 0449.\nColumns:\n  id uuid primary key default gen_random_uuid()\n  name text not null\n  cafe_bp int\n  court_bp int\n  created_by uuid not null references staff(id)\n  created_at timestamptz not null default now()\n  updated_by uuid not null references staff(id)\n  updated_at timestamptz not null default now()",
       "route": null
     },
     {
@@ -28870,7 +28974,7 @@
       "ref": "label:ws.cashier.newTab",
       "lang": "ar",
       "title": "ws.cashier.newTab (packages/i18n/src/catalogs/ws/cashier.ar.ts) (part 1 of 2)",
-      "body": "title: فاتورة جديدة\nfromBooking: مرتبطة بحجز\nfromBookingHint: تُفتح هذه الفاتورة للحجز المختار من مكتب الملاعب، وتُضاف رسوم الملعب عند التسوية.\nbookingMissing: لا يمكن فتح فاتورة لهذا الحجز: له فاتورة بالفعل، أو ليس موعده اليوم.\norderTitle: طلب جديد\nstart: بدء الطلب\ncounterSale: بيع من كاونتر المتجر\ncounterSaleHint: لمن يشتري من المتجر: دون طاولة أو حجز، باسم أو رقم فقط.\ncounterNameHint: يظهر على الفاتورة وفي إغلاق اليوم.\nneedLabel: اكتب اسمًا أو رقمًا.\nnameOrMember: الاسم أو بطاقة العضوية\nnameOrMemberHint: اكتب اسمًا أو امسح رمز QR الخاص بالعضو. إن تُرك فارغًا يأخذ رقم الكاونتر التالي.\nmemberSeen: بطاقة عضوية: يُضاف العضو إلى هذه الفاتورة.\nmemberNotAllowed: لا يسمح دورك بإضافة عضو إلى الفاتورة. اكتب اسمًا بدلًا من ذلك.",
+      "body": "title: فاتورة جديدة\nfromBooking: مرتبطة بحجز\nfromBookingHint: تُفتح هذه الفاتورة للحجز المختار من مكتب الملاعب، وتُضاف رسوم الملعب عند التسوية.\nbookingMissing: لا يمكن فتح فاتورة لهذا الحجز: له فاتورة بالفعل، أو ليس موعده اليوم.\norderTitle: طلب جديد\nstart: بدء الطلب\ncounterSale: بيع من كاونتر المتجر\ncounterSaleHint: لمن يشتري من المتجر: دون طاولة أو حجز، باسم أو رقم فقط.\ncounterNameHint: يظهر على الفاتورة وفي إغلاق اليوم.\nneedLabel: اكتب اسمًا أو رقمًا.\nnameOrMember: الاسم أو بطاقة العضوية\nnameOrMemberHint: اكتب اسمًا أو امسح رمز QR الخاص بالعضو. إن تُرك فارغًا يأخذ رقم الكاونتر التالي.\nmemberSeen: بطاقة عضوية: يُضاف العضو إلى هذه الفاتورة.\nphone: رقم الهاتف\nphoneHint: الاسم وحده يحفظ هذا الضيف كزبون غير مكتمل. الرقم يُكمل الحساب.",
       "route": "/till"
     },
     {
@@ -28878,7 +28982,7 @@
       "ref": "label:ws.cashier.newTab",
       "lang": "en",
       "title": "ws.cashier.newTab (packages/i18n/src/catalogs/ws/cashier.en.ts) (part 1 of 2)",
-      "body": "title: New tab\nfromBooking: Bound to booking\nfromBookingHint: This tab is opened for the booking chosen on the desk; the court fee is added at settlement.\nbookingMissing: That booking is not available to open a tab on (already has a tab, or not today).\norderTitle: New order\nstart: Start order\ncounterSale: Shop counter sale\ncounterSaleHint: For someone buying from the shop: no table or booking, just a name or a number.\ncounterNameHint: Shown on the tab and on the day close.\nneedLabel: Type a name or a number.\nnameOrMember: Name or member card\nnameOrMemberHint: Type a name, or scan the member's QR. Left empty, it takes the next counter number.\nmemberSeen: Member card: the member goes on this bill.",
+      "body": "title: New tab\nfromBooking: Bound to booking\nfromBookingHint: This tab is opened for the booking chosen on the desk; the court fee is added at settlement.\nbookingMissing: That booking is not available to open a tab on (already has a tab, or not today).\norderTitle: New order\nstart: Start order\ncounterSale: Shop counter sale\ncounterSaleHint: For someone buying from the shop: no table or booking, just a name or a number.\ncounterNameHint: Shown on the tab and on the day close.\nneedLabel: Type a name or a number.\nnameOrMember: Name or member card\nnameOrMemberHint: Type a name, or scan the member's QR. Left empty, it takes the next counter number.\nmemberSeen: Member card: the member goes on this bill.\nphone: Phone number",
       "route": "/till"
     },
     {
@@ -28886,7 +28990,7 @@
       "ref": "label:ws.cashier.newTab~2",
       "lang": "ar",
       "title": "ws.cashier.newTab (packages/i18n/src/catalogs/ws/cashier.ar.ts) (part 2 of 2)",
-      "body": "title: فاتورة جديدة\nmemberSeen: بطاقة عضوية: يُضاف العضو إلى هذه الفاتورة.\nmemberNotAllowed: لا يسمح دورك بإضافة عضو إلى الفاتورة. اكتب اسمًا بدلًا من ذلك.\nappCodeHere: هذا رمز مكافأة أو عرض. ابدأ الطلب، ثم امسحه على الفاتورة.\ntableOrderBody: لـ{table} فقط.",
+      "body": "title: فاتورة جديدة\nmemberSeen: بطاقة عضوية: يُضاف العضو إلى هذه الفاتورة.\nphone: رقم الهاتف\nphoneHint: الاسم وحده يحفظ هذا الضيف كزبون غير مكتمل. الرقم يُكمل الحساب.\nphoneOtherName: هذا الرقم مسجّل باسم {name}. لم يُضف إلى الفاتورة: يمكن إضافته بمسح بطاقته.\nmemberNotAllowed: لا يسمح دورك بإضافة عضو إلى الفاتورة. اكتب اسمًا بدلًا من ذلك.\nappCodeHere: هذا رمز مكافأة أو عرض. ابدأ الطلب، ثم امسحه على الفاتورة.\ntableOrderBody: لـ{table} فقط.",
       "route": "/till"
     },
     {
@@ -28894,7 +28998,7 @@
       "ref": "label:ws.cashier.newTab~2",
       "lang": "en",
       "title": "ws.cashier.newTab (packages/i18n/src/catalogs/ws/cashier.en.ts) (part 2 of 2)",
-      "body": "title: New tab\nnameOrMember: Name or member card\nnameOrMemberHint: Type a name, or scan the member's QR. Left empty, it takes the next counter number.\nmemberSeen: Member card: the member goes on this bill.\nmemberNotAllowed: Your role cannot put a member on a bill. Type a name instead.\nappCodeHere: That is a reward or deal code. Start the order, then scan it on the bill.\ntableOrderBody: Just for {table}.",
+      "body": "title: New tab\nnameOrMemberHint: Type a name, or scan the member's QR. Left empty, it takes the next counter number.\nmemberSeen: Member card: the member goes on this bill.\nphone: Phone number\nphoneHint: A name alone saves this guest as an incomplete customer. A number completes the account.\nphoneOtherName: This number belongs to {name}. Not added to the bill: scan their card to add them.\nmemberNotAllowed: Your role cannot put a member on a bill. Type a name instead.\nappCodeHere: That is a reward or deal code. Start the order, then scan it on the bill.\ntableOrderBody: Just for {table}.",
       "route": "/till"
     },
     {
@@ -29326,15 +29430,23 @@
       "ref": "label:ws.clock.qr",
       "lang": "ar",
       "title": "ws.clock.qr (packages/i18n/src/catalogs/ws/clock.ar.ts)",
-      "body": "title: بدء العمل أو إنهاؤه\ncaption: للموظفين: امسحوا هذا الرمز بتطبيق تتش بادل لبدء العمل أو إنهائه.\naria: رمز QR لبدء الموظفين عملهم أو إنهائه\ndigitsAria: الرمز {code}\nnewCodeIn: رمز جديد بعد {seconds} ث\nrailButton: رمز الموظفين\nclose: إغلاق\nmissingTitle: لا رمز للموظفين على هذا المكتب بعد\nmissingBody: اطلب من المدير إعداده على هذا الجهاز.\nmissingBodyManager: أعدّه مرة واحدة على هذا الجهاز، فيظهر هنا وعلى شاشة الدخول، حتى من دون إنترنت.\nsetUp: إعداد هذا المكتب",
+      "body": "title: بدء العمل أو إنهاؤه\ncaption: للموظفين: امسحوا هذا الرمز بتطبيق تتش بادل لبدء العمل أو إنهائه.\naria: رمز QR لبدء الموظفين عملهم أو إنهائه\ndigitsAria: الرمز {code}\nnewCodeIn: رمز جديد بعد {seconds} ث\nrailButton: رمز الموظفين\nclose: إغلاق\nmissingTitle: لا رمز للموظفين على هذا المكتب بعد\nmissingBody: اطلب من المدير إعداده على هذا الجهاز.\nmissingBodyManager: بضغطة واحدة يحصل هذا الجهاز على رمزه الخاص، فيظهر هنا وعلى شاشة الدخول، حتى من دون إنترنت.\nsetUp: إعداد هذا المكتب\nunavailable: بدء الموظفين عملهم وإنهاؤه غير متاح على هذا الخادم بعد. يحتاج الخادم إلى تحديث أولًا.\nplaceMissing: لا يمكن للهواتف المسح بعد: حدّد موقع النادي، حتى يُرفض المسح من البيت.\nplaceMissingManager: لا يمكن للهواتف المسح بعد: ما زال على المالك تحديد موقع النادي.\nsetPlace: تحديد موقع النادي",
       "route": "/admin/qr"
     },
     {
       "kind": "label",
       "ref": "label:ws.clock.qr",
       "lang": "en",
-      "title": "ws.clock.qr (packages/i18n/src/catalogs/ws/clock.en.ts)",
-      "body": "title: Start or finish work\ncaption: Staff: scan this with the Touch Padel app to start or finish work.\naria: QR code for staff to start or finish work\ndigitsAria: Code {code}\nnewCodeIn: New code in {seconds} s\nrailButton: Staff QR\nclose: Close\nmissingTitle: This desk has no staff QR yet\nmissingBody: Ask a manager to set it up on this computer.\nmissingBodyManager: Set it up once on this computer and it shows here and on the sign-in screen, even offline.\nsetUp: Set up this desk",
+      "title": "ws.clock.qr (packages/i18n/src/catalogs/ws/clock.en.ts) (part 1 of 2)",
+      "body": "title: Start or finish work\ncaption: Staff: scan this with the Touch Padel app to start or finish work.\naria: QR code for staff to start or finish work\ndigitsAria: Code {code}\nnewCodeIn: New code in {seconds} s\nrailButton: Staff QR\nclose: Close\nmissingTitle: This desk has no staff QR yet\nmissingBody: Ask a manager to set it up on this computer.\nmissingBodyManager: One press makes this computer its own QR. It then shows here and on the sign-in screen, even offline.\nsetUp: Set up this desk\nunavailable: This server does not have staff start and finish yet. It needs a server update first.\nplaceMissing: Phones cannot scan yet: set where the club is, so a scan from home is refused.",
+      "route": "/admin/qr"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.clock.qr~2",
+      "lang": "en",
+      "title": "ws.clock.qr (packages/i18n/src/catalogs/ws/clock.en.ts) (part 2 of 2)",
+      "body": "title: Start or finish work\nunavailable: This server does not have staff start and finish yet. It needs a server update first.\nplaceMissing: Phones cannot scan yet: set where the club is, so a scan from home is refused.\nplaceMissingManager: Phones cannot scan yet: the owner still has to set where the club is.\nsetPlace: Set the club location",
       "route": "/admin/qr"
     },
     {
@@ -29358,7 +29470,7 @@
       "ref": "label:ws.clock.setup#2",
       "lang": "ar",
       "title": "ws.clock.setup (packages/i18n/src/catalogs/ws/clock.ar.ts) (part 1 of 3)",
-      "body": "desk.lead: يعرض كل جهاز في المكتب رمز QR خاصًا به يتغير كل 30 ثانية. أعدّه من الجهاز نفسه، فالرمز يُولَّد عليه ويعمل من دون إنترنت.\ndesk.thisComputer: هذا الجهاز\ndesk.notRegistered: هذا الجهاز ليس محطة في هذا الفرع. سجّله أعلاه، ثم أعدّ رمزه.\ndesk.noKey: لا رمز بعد.\ndesk.issuedBy: أعدّ {name} الرمز {when}.\ndesk.issuedAt: أُعدّ الرمز {when}.\ndesk.setUp: إعداد رمز هذا المكتب\ndesk.setUpAgain: إعداده من جديد\ndesk.show: عرض الرمز\ndesk.done: صار هذا المكتب يعرض رمز الموظفين.\ndesk.replaceTitle: استبدال رمز هذا المكتب؟\ndesk.replaceBody: يتوقف الرمز الذي يعرضه المكتب الآن عن العمل فورًا، هنا وفي أي صورة أو نسخة مطبوعة منه، ويمسح الموظفون الرمز الجديد.",
+      "body": "desk.lead: يعرض كل جهاز في المكتب رمز QR خاصًا به يتغير كل 30 ثانية. أعدّه من الجهاز نفسه، فالرمز يُولَّد عليه ويعمل من دون إنترنت.\ndesk.thisComputer: هذا الجهاز\ndesk.notRegistered: هذا الجهاز ليس محطة في هذا الفرع بعد. إعداد رمزه يضيفه.\ndesk.noKey: لا رمز بعد.\ndesk.issuedBy: أعدّ {name} الرمز {when}.\ndesk.issuedAt: أُعدّ الرمز {when}.\ndesk.setUp: إعداد رمز هذا المكتب\ndesk.setUpAgain: إعداده من جديد\ndesk.show: عرض الرمز\ndesk.done: صار هذا المكتب يعرض رمز الموظفين.\ndesk.replaceTitle: استبدال رمز هذا المكتب؟\ndesk.replaceBody: يتوقف الرمز الذي يعرضه المكتب الآن عن العمل فورًا، هنا وفي أي صورة أو نسخة مطبوعة منه، ويمسح الموظفون الرمز الجديد.",
       "route": "/setup"
     },
     {
@@ -29366,7 +29478,7 @@
       "ref": "label:ws.clock.setup#2",
       "lang": "en",
       "title": "ws.clock.setup (packages/i18n/src/catalogs/ws/clock.en.ts) (part 1 of 2)",
-      "body": "place.saved: Club location saved.\ndesk.title: Desk QR codes\ndesk.lead: Each desk computer shows its own QR, which changes every 30 seconds. Set it up at that computer: the code is made there and works offline.\ndesk.thisComputer: This computer\ndesk.notRegistered: This computer is not a station of this branch. Register it above, then set up its QR.\ndesk.noKey: No QR yet.\ndesk.issuedBy: QR set up {when} by {name}.\ndesk.issuedAt: QR set up {when}.\ndesk.setUp: Set up this desk's QR\ndesk.setUpAgain: Set it up again\ndesk.show: Show the QR\ndesk.done: This desk now shows the staff QR.\ndesk.replaceTitle: Replace this desk's QR?\ndesk.replaceBody: The QR this desk shows now stops working at once, here and on any photo or printout of it. Staff scan the new one.",
+      "body": "place.saved: Club location saved.\ndesk.title: Desk QR codes\ndesk.lead: Each desk computer shows its own QR, which changes every 30 seconds. Set it up at that computer: the code is made there and works offline.\ndesk.thisComputer: This computer\ndesk.notRegistered: This computer is not a station of this branch yet. Setting up its QR adds it.\ndesk.noKey: No QR yet.\ndesk.issuedBy: QR set up {when} by {name}.\ndesk.issuedAt: QR set up {when}.\ndesk.setUp: Set up this desk's QR\ndesk.setUpAgain: Set it up again\ndesk.show: Show the QR\ndesk.done: This desk now shows the staff QR.\ndesk.replaceTitle: Replace this desk's QR?\ndesk.replaceBody: The QR this desk shows now stops working at once, here and on any photo or printout of it. Staff scan the new one.",
       "route": "/setup"
     },
     {
@@ -29438,7 +29550,7 @@
       "ref": "label:ws.coaching.add",
       "lang": "ar",
       "title": "ws.coaching.add (packages/i18n/src/catalogs/ws/coachingDesk.ar.ts) (part 1 of 2)",
-      "body": "title: إضافة متدرّب\ntitleCourse: إضافة متدرّب إلى الدورة\nsubmit: إضافة المتدرّب\nname: اسم المتدرّب\nphone: رقم الهاتف\nneedsStudent: يُرجى اختيار زبون أو كتابة اسم.\nnameTooLong: لا يتجاوز الاسم {max} حرفًا.\nphoneInvalid: يتكوّن رقم الهاتف من {min} إلى {max} رقمًا.\ntypedHint: يبقى المتدرّب المكتوب كما كُتب، ولا يُربط رقم له حساب إلا بعد أن يؤكّده صاحبه في التطبيق.\ncreateCustomer: إنشاء ملف زبون\nfindInDirectory: البحث في الدليل\njoinsFrom: ينضمّ من الحصة {n} ويدفع عن {sessions}.\nadded: أُضيف {name}.\nalreadyAdded: أُضيف {name} سابقًا.\nmaybeLanded: ربما نجحت المحاولة الأخيرة. يُرجى التحقق من القائمة قبل إعادة المحاولة.\naddedFull: أُضيف {name}، واكتملت الحصة.\naddedFullCourse: أُضيف {name}، واكتملت الدورة.\nwizard.title: إضافة متدرّب\nwizard.stepWho: مَن",
+      "body": "title: إضافة متدرّب\ntitleCourse: إضافة متدرّب إلى الدورة\nsubmit: إضافة المتدرّب\nname: اسم المتدرّب\nphone: رقم الهاتف\nneedsStudent: يُرجى اختيار زبون أو كتابة اسم.\nnameTooLong: لا يتجاوز الاسم {max} حرفًا.\nphoneInvalid: يتكوّن رقم الهاتف من {min} إلى {max} رقمًا.\ntypedHint: الرقم الذي له حساب في التطبيق لا يُربط إلا بعد أن يؤكّده صاحبه هناك.\ncreateCustomer: إنشاء ملف زبون\nfindInDirectory: البحث في الدليل\njoinsFrom: ينضمّ من الحصة {n} ويدفع عن {sessions}.\nadded: أُضيف {name}.\nalreadyAdded: أُضيف {name} سابقًا.\nmaybeLanded: ربما نجحت المحاولة الأخيرة. يُرجى التحقق من القائمة قبل إعادة المحاولة.\naddedFull: أُضيف {name}، واكتملت الحصة.\naddedFullCourse: أُضيف {name}، واكتملت الدورة.\nwizard.title: إضافة متدرّب\nwizard.stepWho: مَن\nwizard.reviewStudent: الطالب",
       "route": null
     },
     {
@@ -29446,7 +29558,7 @@
       "ref": "label:ws.coaching.add",
       "lang": "en",
       "title": "ws.coaching.add (packages/i18n/src/catalogs/ws/coachingDesk.en.ts) (part 1 of 2)",
-      "body": "title: Add student\ntitleCourse: Add a student to the course\nsubmit: Add student\nname: Student name\nphone: Phone\nneedsStudent: Pick a customer or type a name.\nnameTooLong: A name can be at most {max} characters.\nphoneInvalid: A phone number has {min} to {max} digits.\ntypedHint: A typed student stays as typed. A phone with an account is linked only after its owner confirms it in the app.\ncreateCustomer: Create customer\nfindInDirectory: Find in the directory\njoinsFrom: Joins from session {n}: pays for {sessions}.\nadded: {name} is in.\nalreadyAdded: {name} was already added.\nmaybeLanded: The last attempt may have gone through. Check the list before trying again.\naddedFull: {name} is in. The session is full.\naddedFullCourse: {name} is in. The course is full.",
+      "body": "title: Add student\ntitleCourse: Add a student to the course\nsubmit: Add student\nname: Student name\nphone: Phone\nneedsStudent: Pick a customer or type a name.\nnameTooLong: A name can be at most {max} characters.\nphoneInvalid: A phone number has {min} to {max} digits.\ntypedHint: A number that already has an app account is linked only after its owner confirms it in the app.\ncreateCustomer: Create customer\nfindInDirectory: Find in the directory\njoinsFrom: Joins from session {n}: pays for {sessions}.\nadded: {name} is in.\nalreadyAdded: {name} was already added.\nmaybeLanded: The last attempt may have gone through. Check the list before trying again.\naddedFull: {name} is in. The session is full.\naddedFullCourse: {name} is in. The course is full.\nwizard.title: Add a student",
       "route": null
     },
     {
@@ -29462,7 +29574,7 @@
       "ref": "label:ws.coaching.add~2",
       "lang": "en",
       "title": "ws.coaching.add (packages/i18n/src/catalogs/ws/coachingDesk.en.ts) (part 2 of 2)",
-      "body": "title: Add student\nmaybeLanded: The last attempt may have gone through. Check the list before trying again.\naddedFull: {name} is in. The session is full.\naddedFullCourse: {name} is in. The course is full.\nwizard.title: Add a student\nwizard.stepWho: Who\nwizard.reviewStudent: Student\nwizard.reviewCourse: Course\nwizard.reviewSession: Session\nwizard.reviewPays: Pays\nwizard.paysPlace: {price} a place\nwizard.paysSessions: {price} for {sessions}",
+      "body": "title: Add student\naddedFull: {name} is in. The session is full.\naddedFullCourse: {name} is in. The course is full.\nwizard.title: Add a student\nwizard.stepWho: Who\nwizard.reviewStudent: Student\nwizard.reviewCourse: Course\nwizard.reviewSession: Session\nwizard.reviewPays: Pays\nwizard.paysPlace: {price} a place\nwizard.paysSessions: {price} for {sessions}",
       "route": null
     },
     {
@@ -31054,7 +31166,7 @@
       "ref": "label:ws.courtDesk.create~2",
       "lang": "ar",
       "title": "ws.courtDesk.create (packages/i18n/src/catalogs/ws/courtDesk.ar.ts) (part 2 of 3)",
-      "body": "customer: البحث عن زبون\nconflictBody: هذه الخانة محجوزة بالفعل. لم يُحفظ شيء. اختر وقتًا آخر.\npickAnother: اختيار وقت آخر\nprice: السعر\nwizard.stepKind: النوع\nwizard.stepWho: مَن\nwizard.stepWhen: الملعب والوقت\nwizard.kindBookingBody: الملعب كاملًا لمجموعة واحدة.\nwizard.kindMatchBody: ينضم اللاعبون مقعدًا تلو الآخر.\nwizard.kindLessonBody: مدرّب وطالب.\nwizard.kindNote: المباراة المفتوحة والدرس يفتح كلٌّ منهما معالجه الخاص، وينقل إليه الملعب والوقت والضيف.\nwizard.typedGuestNote: الضيف المكتوب يحتاج إلى اسم. رقم الهاتف اختياري.\nwizard.whenNote: {time} · {duration}\nwizard.priceLine: {court} · {duration}\nwizard.priceLineRate: {court} · {duration} بسعر {rate}\nwizard.pickerHint: اختر واحدًا لربطه، أو اكتب اسم الضيف في الأسفل.\nwizard.notesPlaceholder: سيحضرون كراتهم الخاصة\nwizard.reviewKind: النوع",
+      "body": "customer: البحث عن زبون\nconflictBody: هذه الخانة محجوزة بالفعل. لم يُحفظ شيء. اختر وقتًا آخر.\npickAnother: اختيار وقت آخر\nprice: السعر\nwizard.stepKind: النوع\nwizard.stepWho: مَن\nwizard.stepWhen: الملعب والوقت\nwizard.kindBookingBody: الملعب كاملًا لمجموعة واحدة.\nwizard.kindMatchBody: ينضم اللاعبون مقعدًا تلو الآخر.\nwizard.kindLessonBody: مدرّب وطالب.\nwizard.kindNote: المباراة المفتوحة والدرس يفتح كلٌّ منهما معالجه الخاص، وينقل إليه الملعب والوقت والضيف.\nwizard.whenNote: {time} · {duration}\nwizard.priceLine: {court} · {duration}\nwizard.priceLineRate: {court} · {duration} بسعر {rate}\nwizard.pickerHint: اختر واحدًا لربطه، أو اكتب اسم الضيف في الأسفل.\nwizard.notesPlaceholder: سيحضرون كراتهم الخاصة\nwizard.reviewKind: النوع\nwizard.reviewGuest: الضيف\nwizard.reviewCourt: الملعب",
       "route": "/desk"
     },
     {
@@ -31062,7 +31174,7 @@
       "ref": "label:ws.courtDesk.create~2",
       "lang": "en",
       "title": "ws.courtDesk.create (packages/i18n/src/catalogs/ws/courtDesk.en.ts) (part 2 of 3)",
-      "body": "customer: Find a customer\nnoMatches: No customer matches. You can still book by name.\nconflictBody: That slot is already taken. Nothing was saved. Pick another time.\npickAnother: Pick another time\nprice: Price\nwizard.stepKind: What kind\nwizard.stepWho: Who\nwizard.stepWhen: Court & time\nwizard.kindBookingBody: The whole court for one group.\nwizard.kindMatchBody: Players join one seat at a time.\nwizard.kindLessonBody: A coach and a student.\nwizard.kindNote: Open match and Lesson open their own wizard, carrying the court, time and guest over.\nwizard.typedGuestNote: A typed guest needs a name. The phone is optional.\nwizard.whenNote: {time} · {duration}\nwizard.priceLine: {court} · {duration}\nwizard.priceLineRate: {court} · {duration} at {rate}",
+      "body": "customer: Find a customer\nnoMatches: No customer matches. You can still book by name.\nconflictBody: That slot is already taken. Nothing was saved. Pick another time.\npickAnother: Pick another time\nprice: Price\nwizard.stepKind: What kind\nwizard.stepWho: Who\nwizard.stepWhen: Court & time\nwizard.kindBookingBody: The whole court for one group.\nwizard.kindMatchBody: Players join one seat at a time.\nwizard.kindLessonBody: A coach and a student.\nwizard.kindNote: Open match and Lesson open their own wizard, carrying the court, time and guest over.\nwizard.whenNote: {time} · {duration}\nwizard.priceLine: {court} · {duration}\nwizard.priceLineRate: {court} · {duration} at {rate}\nwizard.pickerHint: Pick one to link, or type a guest below.\nwizard.notesPlaceholder: Bringing their own balls",
       "route": "/desk"
     },
     {
@@ -31070,7 +31182,7 @@
       "ref": "label:ws.courtDesk.create~3",
       "lang": "ar",
       "title": "ws.courtDesk.create (packages/i18n/src/catalogs/ws/courtDesk.ar.ts) (part 3 of 3)",
-      "body": "customer: البحث عن زبون\nwizard.priceLineRate: {court} · {duration} بسعر {rate}\nwizard.pickerHint: اختر واحدًا لربطه، أو اكتب اسم الضيف في الأسفل.\nwizard.notesPlaceholder: سيحضرون كراتهم الخاصة\nwizard.reviewKind: النوع\nwizard.reviewGuest: الضيف\nwizard.reviewCourt: الملعب\nwizard.reviewTime: الوقت\nwizard.reviewPrice: السعر",
+      "body": "customer: البحث عن زبون\nwizard.pickerHint: اختر واحدًا لربطه، أو اكتب اسم الضيف في الأسفل.\nwizard.notesPlaceholder: سيحضرون كراتهم الخاصة\nwizard.reviewKind: النوع\nwizard.reviewGuest: الضيف\nwizard.reviewCourt: الملعب\nwizard.reviewTime: الوقت\nwizard.reviewPrice: السعر",
       "route": "/desk"
     },
     {
@@ -31078,7 +31190,7 @@
       "ref": "label:ws.courtDesk.create~3",
       "lang": "en",
       "title": "ws.courtDesk.create (packages/i18n/src/catalogs/ws/courtDesk.en.ts) (part 3 of 3)",
-      "body": "customer: Find a customer\nwizard.whenNote: {time} · {duration}\nwizard.priceLine: {court} · {duration}\nwizard.priceLineRate: {court} · {duration} at {rate}\nwizard.pickerHint: Pick one to link, or type a guest below.\nwizard.notesPlaceholder: Bringing their own balls\nwizard.reviewKind: Kind\nwizard.reviewGuest: Guest\nwizard.reviewCourt: Court\nwizard.reviewTime: Time\nwizard.reviewPrice: Price",
+      "body": "customer: Find a customer\nwizard.priceLineRate: {court} · {duration} at {rate}\nwizard.pickerHint: Pick one to link, or type a guest below.\nwizard.notesPlaceholder: Bringing their own balls\nwizard.reviewKind: Kind\nwizard.reviewGuest: Guest\nwizard.reviewCourt: Court\nwizard.reviewTime: Time\nwizard.reviewPrice: Price",
       "route": "/desk"
     },
     {
@@ -31128,6 +31240,46 @@
       "title": "ws.courtDesk.customers (packages/i18n/src/catalogs/ws/courtDesk.en.ts) (part 2 of 2)",
       "body": "title: Customers\nasOf: List as of {time}. New customers from other café cashiers appear after a refresh.\nrefresh: Refresh\nsearching: Searching…\nnoMatch: No customer matches “{query}”.\nnoMatchBody: Create a record now — it becomes a real account the guest can claim later.\ncreate: Create customer\nattachBooking: Attach to booking\nattachTab: Attach to tab\nattachingBooking: Choose the customer to attach to this booking.\nattachingTab: Choose the customer to attach to this tab.\nattached: Attached.\nqueryChip: Matching “{query}”\ncapped: Showing the first {count} matches — add more of the name or number to narrow it.\ncounts.bookingsLabel: Bookings\ncounts.cancellationsLabel: Cancelled\ncounts.noShowsLabel: No-shows\nbook: Book\nopen: Open\nlang.en: English\nlang.ar: Arabic",
       "route": "/desk/customers"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.courtDesk.deskAccount",
+      "lang": "ar",
+      "title": "ws.courtDesk.deskAccount (packages/i18n/src/catalogs/ws/courtDesk.ar.ts) (part 1 of 2)",
+      "body": "created: حُفظ {name} كزبون.\ncreatedIncomplete: حُفظ {name} كزبون بالاسم فقط. رقم الهاتف يُكمل الحساب.\nincomplete: غير مكتمل\nincompleteHint: محفوظ بالاسم فقط. رقم الهاتف يُكمل الحساب.\nlinked: تم الربط بحساب {name}.\ncheck: هذا الرقم مسجّل باسم {name}. يُرجى التأكد من الاسم ثم التأكيد.\ncheckNote: هذا الرقم مسجّل باسم {name}. لم يُحفظ شيء بعد. إن كان الشخص نفسه فيكفي التأكيد مرة أخرى، وإن كان شخصًا آخر ففكّ الربط يُبقي الاسم المكتوب.\nnote.nameOnly: بلا رقم يُحفظ هذا الضيف بالاسم فقط كزبون غير مكتمل. الرقم يُكمل الحساب.\nnote.ready: يُحفظ كزبون بهذا الرقم، ويكمل حسابه من التطبيق.\nnote.offline: هذه المحطة غير متصلة: يُحفظ بالاسم فقط، بلا سجل زبون.\ncomplete.label: رقم الهاتف\ncomplete.placeholder: إضافة رقم الهاتف\ncomplete.save: حفظ الرقم",
+      "route": "/desk"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.courtDesk.deskAccount",
+      "lang": "en",
+      "title": "ws.courtDesk.deskAccount (packages/i18n/src/catalogs/ws/courtDesk.en.ts) (part 1 of 3)",
+      "body": "created: {name} is saved as a customer.\ncreatedIncomplete: {name} is saved as a customer by name only. A phone number completes the account.\nincomplete: Incomplete\nincompleteHint: Saved by name only. A phone number completes the account.\nlinked: Linked to the account of {name}.\ncheck: This number already belongs to {name}. Check the name, then confirm.\ncheckNote: This number already belongs to {name}. Nothing is saved yet. Same person: confirm again. Someone else: Unlink keeps the typed name.\nnote.nameOnly: Without a number this guest is saved by name only, as an incomplete customer. A number completes the account.\nnote.ready: Saved as a customer under this number. They finish their account in the app.",
+      "route": "/desk"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.courtDesk.deskAccount~2",
+      "lang": "ar",
+      "title": "ws.courtDesk.deskAccount (packages/i18n/src/catalogs/ws/courtDesk.ar.ts) (part 2 of 2)",
+      "body": "created: حُفظ {name} كزبون.\nnote.offline: هذه المحطة غير متصلة: يُحفظ بالاسم فقط، بلا سجل زبون.\ncomplete.label: رقم الهاتف\ncomplete.placeholder: إضافة رقم الهاتف\ncomplete.save: حفظ الرقم\ncomplete.hint: الرقم يُكمل الحساب، فيتمكن صاحبه من إتمامه في التطبيق.\ncomplete.taken: هذا الرقم مسجّل باسم {name}.\ncomplete.takenUnknown: هذا الرقم مسجّل لزبون آخر.\ncomplete.useHolder: استخدام {name} بدلًا منه\ncomplete.INVALID_PHONE: رقم الهاتف يتكوّن من 7 إلى 15 رقمًا.\ncomplete.CUSTOMER_NOT_INCOMPLETE: لهذا الحساب رقم بالفعل، أو أن صاحبه يضيفه من التطبيق.\ncomplete.OFFLINE: هذه المحطة غير متصلة. يمكن إضافة الرقم عند عودة الاتصال.\ncomplete.FAILED: لم يُحفظ الرقم. يُرجى المحاولة مرة أخرى.",
+      "route": "/desk"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.courtDesk.deskAccount~2",
+      "lang": "en",
+      "title": "ws.courtDesk.deskAccount (packages/i18n/src/catalogs/ws/courtDesk.en.ts) (part 2 of 3)",
+      "body": "created: {name} is saved as a customer.\nnote.ready: Saved as a customer under this number. They finish their account in the app.\nnote.offline: This station is offline: saved under the name only, with no customer record.\ncomplete.label: Phone number\ncomplete.placeholder: Add their phone number\ncomplete.save: Save number\ncomplete.hint: The number completes the account, so they can finish it in the app.\ncomplete.taken: This number already belongs to {name}.\ncomplete.takenUnknown: This number already belongs to another customer.\ncomplete.useHolder: Use {name} instead\ncomplete.INVALID_PHONE: A phone number has 7 to 15 digits.\ncomplete.CUSTOMER_NOT_INCOMPLETE: This account already has a number, or its owner adds it in the app.",
+      "route": "/desk"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.courtDesk.deskAccount~3",
+      "lang": "en",
+      "title": "ws.courtDesk.deskAccount (packages/i18n/src/catalogs/ws/courtDesk.en.ts) (part 3 of 3)",
+      "body": "created: {name} is saved as a customer.\ncomplete.useHolder: Use {name} instead\ncomplete.INVALID_PHONE: A phone number has 7 to 15 digits.\ncomplete.CUSTOMER_NOT_INCOMPLETE: This account already has a number, or its owner adds it in the app.\ncomplete.OFFLINE: This station is offline. Add the number when the connection is back.\ncomplete.FAILED: The number was not saved. Try again.",
+      "route": "/desk"
     },
     {
       "kind": "label",
@@ -31435,6 +31587,110 @@
     },
     {
       "kind": "label",
+      "ref": "label:ws.customerRules",
+      "lang": "ar",
+      "title": "ws.customerRules (packages/i18n/src/catalogs/ws/customerRules.ar.ts)",
+      "body": "offline: يحتاج هذا إلى اتصال بالإنترنت.",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.customerRules",
+      "lang": "en",
+      "title": "ws.customerRules (packages/i18n/src/catalogs/ws/customerRules.en.ts)",
+      "body": "offline: This needs a connection.",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.customerRules.ban",
+      "lang": "ar",
+      "title": "ws.customerRules.ban (packages/i18n/src/catalogs/ws/customerRules.ar.ts) (part 1 of 3)",
+      "body": "action: حظر\ntitle: حظر {name}؟\nlead: من لحظة الضغط على «حظر»:\neffectApp: يتوقف تطبيقه عن العمل ولا يستطيع تسجيل الدخول.\neffectDesk: لا يستطيع أي مكتب أو صندوق أن يحجز له أو يضيفه إلى مباراة أو درس أو يفتح له فاتورة.\neffectKept: يبقى ما لديه كما هو: الحجوزات والفواتير المفتوحة والنقاط.\ncoming: ما زال لديه {bookings} قادمة. ألغِها من كل حجز إن كان لا يجب أن يلعب.\ncomingBookings.zero: لا حجوزات\ncomingBookings.one: حجز واحد\ncomingBookings.two: حجزان\ncomingBookings.few: {count} حجوزات\ncomingBookings.many: {count} حجزًا\ncomingBookings.other: {count} حجز\ncomingSeats.zero: لا مقاعد في مباريات\ncomingSeats.one: مقعد واحد في مباراة\ncomingSeats.two: مقعدان في مباريات\ncomingSeats.few: {count} مقاعد في مباريات\ncomingSeats.many: {count} مقعدًا في مباريات",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.customerRules.ban",
+      "lang": "en",
+      "title": "ws.customerRules.ban (packages/i18n/src/catalogs/ws/customerRules.en.ts) (part 1 of 2)",
+      "body": "action: Ban\ntitle: Ban {name}?\nlead: From the moment you press Ban:\neffectApp: Their app stops working and they cannot sign in.\neffectDesk: Nobody at any desk or till can book, seat, enrol or bill them.\neffectKept: What they already have stays: bookings, open bills, points.\ncoming: They still have {bookings} coming. Cancel them from each booking if they should not play.\ncomingBookings.zero: no bookings\ncomingBookings.one: 1 booking\ncomingBookings.two: 2 bookings\ncomingBookings.few: {count} bookings\ncomingBookings.many: {count} bookings\ncomingBookings.other: {count} bookings\ncomingSeats.zero: no match seats\ncomingSeats.one: 1 match seat\ncomingSeats.two: 2 match seats\ncomingSeats.few: {count} match seats\ncomingSeats.many: {count} match seats",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.customerRules.ban~2",
+      "lang": "ar",
+      "title": "ws.customerRules.ban (packages/i18n/src/catalogs/ws/customerRules.ar.ts) (part 2 of 3)",
+      "body": "action: حظر\ncomingSeats.zero: لا مقاعد في مباريات\ncomingSeats.one: مقعد واحد في مباراة\ncomingSeats.two: مقعدان في مباريات\ncomingSeats.few: {count} مقاعد في مباريات\ncomingSeats.many: {count} مقعدًا في مباريات\ncomingSeats.other: {count} مقعد في مباريات\ncomingBoth: {bookings} و{seats}\nreason: السبب\nreasonHint: يراه الموظفون في سجل الزبون، ولا يراه الزبون أبدًا.\nreasonPlaceholder: مثلًا: تشاجر مع لاعب آخر\nconfirm: حظر الزبون\ndone: تم حظر الزبون\nstaff: الموظف يُوقَف من صفحة الموظفين، ولا يُحظر من هنا.\nbanner: محظور من كل شيء\nbannerBy: بواسطة {name} في {date}\nbannerOn: في {date}\nlift: رفع الحظر\nliftTitle: رفع الحظر عن {name}؟\nliftBody: يستطيع استخدام التطبيق من جديد، وتستطيع كل المكاتب أن تحجز له وتفتح له فواتير.\nliftConfirm: رفع الحظر\nlifted: تم رفع الحظر",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.customerRules.ban~2",
+      "lang": "en",
+      "title": "ws.customerRules.ban (packages/i18n/src/catalogs/ws/customerRules.en.ts) (part 2 of 2)",
+      "body": "action: Ban\ncomingSeats.zero: no match seats\ncomingSeats.one: 1 match seat\ncomingSeats.two: 2 match seats\ncomingSeats.few: {count} match seats\ncomingSeats.many: {count} match seats\ncomingSeats.other: {count} match seats\ncomingBoth: {bookings} and {seats}\nreason: Why\nreasonHint: Staff see this on the record. The customer never does.\nreasonPlaceholder: e.g. Fought with another player\nconfirm: Ban customer\ndone: Customer banned\nstaff: A staff member is switched off in Staff, not banned here.\nbanner: Banned from everything\nbannerBy: By {name} on {date}\nbannerOn: On {date}\nlift: Lift ban\nliftTitle: Lift the ban on {name}?\nliftBody: They can use the app again, and every desk can book and bill them.\nliftConfirm: Lift ban\nlifted: Ban lifted\ncannotPick: Banned: lift the ban on their record first",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.customerRules.ban~3",
+      "lang": "ar",
+      "title": "ws.customerRules.ban (packages/i18n/src/catalogs/ws/customerRules.ar.ts) (part 3 of 3)",
+      "body": "action: حظر\nlift: رفع الحظر\nliftTitle: رفع الحظر عن {name}؟\nliftBody: يستطيع استخدام التطبيق من جديد، وتستطيع كل المكاتب أن تحجز له وتفتح له فواتير.\nliftConfirm: رفع الحظر\nlifted: تم رفع الحظر\ncannotPick: محظور: ارفع الحظر من سجله أولًا",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.customerRules.tags",
+      "lang": "ar",
+      "title": "ws.customerRules.tags (packages/i18n/src/catalogs/ws/customerRules.ar.ts) (part 1 of 3)",
+      "body": "action: الوسوم\ntitle: وسوم {name}\nlead: اختر الوسوم التي يحملها هذا الزبون. الوسم الذي عليه خصم يُطبَّق على كل فواتيره من الآن.\nnone: بلا خصم\ncafe: خصم {pct}% على المقهى والمتجر\ncourt: خصم {pct}% على أجرة الملعب\nboth: خصم {pct}% على كل شيء\nsave: حفظ الوسوم\nsaved: تم حفظ الوسوم\nempty: لا توجد وسوم في النادي بعد.\nemptyManager: أنشئ أول وسم في الأسفل، مثلًا «العائلة» بخصم 15% على كل شيء.\nemptyStaff: يُعدّها المدير من هذه النافذة.\nnowGets: تحصل فواتيره على: {parts}\nnowGetsNothing: لا تحصل فواتيره على أي خصم.\nownWins: خصمه الخاص هو المعتمد في الجزء الذي يحدده.\nselfDiscount: لا يمكنك وضع وسم عليه خصم على نفسك.\nmembers.zero: لا أحد\nmembers.one: زبون واحد\nmembers.two: زبونان\nmembers.few: {count} زبائن\nmembers.many: {count} زبونًا\nmembers.other: {count} زبون\nmanage.newTag: وسم جديد",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.customerRules.tags",
+      "lang": "en",
+      "title": "ws.customerRules.tags (packages/i18n/src/catalogs/ws/customerRules.en.ts) (part 1 of 3)",
+      "body": "action: Tags\ntitle: Tags for {name}\nlead: Tick the tags this customer carries. A tag with a discount applies to every bill of theirs from now on.\nnone: No discount\ncafe: {pct}% off café & shop\ncourt: {pct}% off court fee\nboth: {pct}% off everything\nsave: Save tags\nsaved: Tags saved\nempty: The club has no tags yet.\nemptyManager: Make the first one below, for example \"Family\" with 15% off everything.\nemptyStaff: A manager sets them up from this window.\nnowGets: Their bills get: {parts}\nnowGetsNothing: Their bills get no discount.\nownWins: Their own discount wins where it sets a part.\nselfDiscount: You cannot put a tag with a discount on yourself.\nmembers.zero: nobody\nmembers.one: 1 customer\nmembers.two: 2 customers\nmembers.few: {count} customers\nmembers.many: {count} customers",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.customerRules.tags~2",
+      "lang": "ar",
+      "title": "ws.customerRules.tags (packages/i18n/src/catalogs/ws/customerRules.ar.ts) (part 2 of 3)",
+      "body": "action: الوسوم\nmembers.zero: لا أحد\nmembers.one: زبون واحد\nmembers.two: زبونان\nmembers.few: {count} زبائن\nmembers.many: {count} زبونًا\nmembers.other: {count} زبون\nmanage.newTag: وسم جديد\nmanage.edit: تعديل {name}\nmanage.delete: حذف {name}\nmanage.name: الاسم\nmanage.namePlaceholder: مثلًا: العائلة\nmanage.cafe: خصم المقهى والمتجر (%)\nmanage.court: خصم أجرة الملعب (%)\nmanage.everything: الخصم على كل شيء (%)\nmanage.sameBoth: النسبة نفسها للاثنين\nmanage.percentHint: اتركه فارغًا إن لم يكن هناك خصم على هذا الجزء.\nmanage.create: إضافة الوسم\nmanage.update: حفظ الوسم\nmanage.cancel: إلغاء\nmanage.created: تمت إضافة الوسم\nmanage.updated: تم حفظ الوسم\nmanage.deleteTitle: حذف الوسم {name}؟\nmanage.deleteBody: سيُزال عن {members}، وتعود فواتيرهم القادمة إلى السعر الكامل ما لم يحملوا وسمًا آخر.",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.customerRules.tags~2",
+      "lang": "en",
+      "title": "ws.customerRules.tags (packages/i18n/src/catalogs/ws/customerRules.en.ts) (part 2 of 3)",
+      "body": "action: Tags\nselfDiscount: You cannot put a tag with a discount on yourself.\nmembers.zero: nobody\nmembers.one: 1 customer\nmembers.two: 2 customers\nmembers.few: {count} customers\nmembers.many: {count} customers\nmembers.other: {count} customers\nmanage.newTag: New tag\nmanage.edit: Edit {name}\nmanage.delete: Delete {name}\nmanage.name: Name\nmanage.namePlaceholder: e.g. Family\nmanage.cafe: Off café & shop (%)\nmanage.court: Off court fee (%)\nmanage.everything: Off everything (%)\nmanage.sameBoth: Same for both\nmanage.percentHint: Leave empty for no discount on that part.\nmanage.create: Add tag\nmanage.update: Save tag\nmanage.cancel: Cancel\nmanage.created: Tag added\nmanage.updated: Tag saved\nmanage.deleteTitle: Delete the tag {name}?",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.customerRules.tags~3",
+      "lang": "ar",
+      "title": "ws.customerRules.tags (packages/i18n/src/catalogs/ws/customerRules.ar.ts) (part 3 of 3)",
+      "body": "action: الوسوم\nmanage.updated: تم حفظ الوسم\nmanage.deleteTitle: حذف الوسم {name}؟\nmanage.deleteBody: سيُزال عن {members}، وتعود فواتيرهم القادمة إلى السعر الكامل ما لم يحملوا وسمًا آخر.\nmanage.deleteConfirm: حذف الوسم\nmanage.deleted: تم حذف الوسم\nmanage.invalidPercent: النسبة بين 0.01 و100.",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.customerRules.tags~3",
+      "lang": "en",
+      "title": "ws.customerRules.tags (packages/i18n/src/catalogs/ws/customerRules.en.ts) (part 3 of 3)",
+      "body": "action: Tags\nmanage.create: Add tag\nmanage.update: Save tag\nmanage.cancel: Cancel\nmanage.created: Tag added\nmanage.updated: Tag saved\nmanage.deleteTitle: Delete the tag {name}?\nmanage.deleteBody: It comes off {members}, and their next bills are at full price unless they carry another tag.\nmanage.deleteConfirm: Delete tag\nmanage.deleted: Tag deleted\nmanage.invalidPercent: A percent is between 0.01 and 100.",
+      "route": null
+    },
+    {
+      "kind": "label",
       "ref": "label:ws.deductions",
       "lang": "ar",
       "title": "ws.deductions (packages/i18n/src/catalogs/ws/deductions.ar.ts)",
@@ -31646,7 +31902,7 @@
       "ref": "label:ws.discounts.bill",
       "lang": "ar",
       "title": "ws.discounts.bill (packages/i18n/src/catalogs/ws/discounts.ar.ts) (part 1 of 2)",
-      "body": "keep: اعتمده لـ {name} على كل فاتورة\nkeepHint: يُحفظ في سجله، وتأخذه كل فواتيره من الآن.\nonceHint: لهذه الفاتورة فقط، ويبقى سجله كما هو.\nstanding: في سجله: {parts}\napply: تطبيق\nremove: إزالته من هذه الفاتورة\nnoCustomer: لا يوجد زبون على هذه الفاتورة بعد.\nnoCustomerLead: أضف العضو إلى الفاتورة أولًا (زر «عضو» على الفاتورة)، ثم أعطه الخصم.\nself: هذه فاتورتك أنت، فلا يعطيك الخصم إلا زميل.\ncourtClosed: لا يمكن تغيير خصم الملعب الآن: دُفعت فاتورة هذا الحجز بهذا الخصم.\nnothing: لا يوجد في هذه الفاتورة ما يُخصم منه.\nsavedKeep: حُفظ لـ {name}، وتأخذه كل فواتيره.\nsavedOnce: أُضيف الخصم إلى هذه الفاتورة.\nremoved: أُزيل الخصم من هذه الفاتورة.\nrow: خصم الزبون\nonce: هذه الفاتورة\ncourtNote: يشمل {label}: {amount} من رسوم الملعب",
+      "body": "fromTag: وسم {tag}\nkeep: اعتمده لـ {name} على كل فاتورة\nkeepHint: يُحفظ في سجله، وتأخذه كل فواتيره من الآن.\nonceHint: لهذه الفاتورة فقط، ويبقى سجله كما هو.\nstanding: في سجله: {parts}\napply: تطبيق\nremove: إزالته من هذه الفاتورة\nnoCustomer: لا يوجد زبون على هذه الفاتورة بعد.\nnoCustomerLead: أضف العضو إلى الفاتورة أولًا (زر «عضو» على الفاتورة)، ثم أعطه الخصم.\nself: هذه فاتورتك أنت، فلا يعطيك الخصم إلا زميل.\ncourtClosed: لا يمكن تغيير خصم الملعب الآن: دُفعت فاتورة هذا الحجز بهذا الخصم.\nnothing: لا يوجد في هذه الفاتورة ما يُخصم منه.\nsavedKeep: حُفظ لـ {name}، وتأخذه كل فواتيره.\nsavedOnce: أُضيف الخصم إلى هذه الفاتورة.\nremoved: أُزيل الخصم من هذه الفاتورة.\nrow: خصم الزبون\nonce: هذه الفاتورة\ncourtNote: يشمل {label}: {amount} من رسوم الملعب",
       "route": null
     },
     {
@@ -31654,7 +31910,7 @@
       "ref": "label:ws.discounts.bill",
       "lang": "en",
       "title": "ws.discounts.bill (packages/i18n/src/catalogs/ws/discounts.en.ts) (part 1 of 2)",
-      "body": "keep: Keep for {name} on every bill\nkeepHint: Saved on their record: every bill of theirs gets it from now on.\nonceHint: This bill only. Their record stays as it is.\nstanding: On their record: {parts}\napply: Apply\nremove: Remove from this bill\nnoCustomer: No customer on this bill yet.\nnoCustomerLead: Add the member to the bill first (Member, on the bill), then give the discount.\nself: This is your own bill. A colleague has to give you a discount.\ncourtClosed: The court discount can't change now: a bill of this booking was already paid with it.\nnothing: This bill has nothing a discount can go on.\nsavedKeep: Saved for {name}. Every bill of theirs gets it.\nsavedOnce: Discount added to this bill.\nremoved: Discount taken off this bill.",
+      "body": "fromTag: {tag} tag\nkeep: Keep for {name} on every bill\nkeepHint: Saved on their record: every bill of theirs gets it from now on.\nonceHint: This bill only. Their record stays as it is.\nstanding: On their record: {parts}\napply: Apply\nremove: Remove from this bill\nnoCustomer: No customer on this bill yet.\nnoCustomerLead: Add the member to the bill first (Member, on the bill), then give the discount.\nself: This is your own bill. A colleague has to give you a discount.\ncourtClosed: The court discount can't change now: a bill of this booking was already paid with it.\nnothing: This bill has nothing a discount can go on.\nsavedKeep: Saved for {name}. Every bill of theirs gets it.\nsavedOnce: Discount added to this bill.\nremoved: Discount taken off this bill.",
       "route": null
     },
     {
@@ -31662,7 +31918,7 @@
       "ref": "label:ws.discounts.bill~2",
       "lang": "ar",
       "title": "ws.discounts.bill (packages/i18n/src/catalogs/ws/discounts.ar.ts) (part 2 of 2)",
-      "body": "keep: اعتمده لـ {name} على كل فاتورة\nsavedOnce: أُضيف الخصم إلى هذه الفاتورة.\nremoved: أُزيل الخصم من هذه الفاتورة.\nrow: خصم الزبون\nonce: هذه الفاتورة\ncourtNote: يشمل {label}: {amount} من رسوم الملعب\ncafeWaived: الكافيه بالسعر الكامل على هذه الفاتورة\ncourtWaived: رسوم الملعب بالسعر الكامل لهذا الحجز",
+      "body": "fromTag: وسم {tag}\nsavedOnce: أُضيف الخصم إلى هذه الفاتورة.\nremoved: أُزيل الخصم من هذه الفاتورة.\nrow: خصم الزبون\nonce: هذه الفاتورة\ncourtNote: يشمل {label}: {amount} من رسوم الملعب\ncafeWaived: الكافيه بالسعر الكامل على هذه الفاتورة\ncourtWaived: رسوم الملعب بالسعر الكامل لهذا الحجز",
       "route": null
     },
     {
@@ -31670,7 +31926,7 @@
       "ref": "label:ws.discounts.bill~2",
       "lang": "en",
       "title": "ws.discounts.bill (packages/i18n/src/catalogs/ws/discounts.en.ts) (part 2 of 2)",
-      "body": "keep: Keep for {name} on every bill\nnothing: This bill has nothing a discount can go on.\nsavedKeep: Saved for {name}. Every bill of theirs gets it.\nsavedOnce: Discount added to this bill.\nremoved: Discount taken off this bill.\nrow: Customer discount\nonce: This bill\ncourtNote: Includes {label}: {amount} off the court fee\ncafeWaived: Café at full price on this bill\ncourtWaived: Court fee at full price on this booking",
+      "body": "fromTag: {tag} tag\nnothing: This bill has nothing a discount can go on.\nsavedKeep: Saved for {name}. Every bill of theirs gets it.\nsavedOnce: Discount added to this bill.\nremoved: Discount taken off this bill.\nrow: Customer discount\nonce: This bill\ncourtNote: Includes {label}: {amount} off the court fee\ncafeWaived: Café at full price on this bill\ncourtWaived: Court fee at full price on this booking",
       "route": null
     },
     {
@@ -33262,7 +33518,7 @@
       "ref": "label:ws.kit.flags",
       "lang": "ar",
       "title": "ws.kit.flags (packages/i18n/src/catalogs/ws/kit.ar.ts)",
-      "body": "vip: VIP\nbirthday: عيد ميلاد\npayment_note: ملاحظة دفع\nspecial_request: طلب خاص\ndeposit_exempt: بلا عربون\nmatch_ban: ممنوع من المباريات المفتوحة\nmatchBanReason.conduct: سوء السلوك\nmatchBanReason.no_shows: تكرار الغياب\nmatchBanReason.reported: بلاغات من لاعبين\nmatchBanReason.other: أخرى",
+      "body": "vip: VIP\nbirthday: عيد ميلاد\npayment_note: ملاحظة دفع\nspecial_request: طلب خاص\ndeposit_exempt: بلا عربون\nmatch_ban: ممنوع من المباريات المفتوحة\nban: محظور\nmatchBanReason.conduct: سوء السلوك\nmatchBanReason.no_shows: تكرار الغياب\nmatchBanReason.reported: بلاغات من لاعبين\nmatchBanReason.other: أخرى",
       "route": null
     },
     {
@@ -33270,7 +33526,7 @@
       "ref": "label:ws.kit.flags",
       "lang": "en",
       "title": "ws.kit.flags (packages/i18n/src/catalogs/ws/kit.en.ts)",
-      "body": "vip: VIP\nbirthday: Birthday\npayment_note: Payment note\nspecial_request: Special request\ndeposit_exempt: No deposit needed\nmatch_ban: Banned from open matches\nmatchBanReason.conduct: Conduct\nmatchBanReason.no_shows: Repeated no-shows\nmatchBanReason.reported: Reported by players\nmatchBanReason.other: Other",
+      "body": "vip: VIP\nbirthday: Birthday\npayment_note: Payment note\nspecial_request: Special request\ndeposit_exempt: No deposit needed\nmatch_ban: Banned from open matches\nban: Banned\nmatchBanReason.conduct: Conduct\nmatchBanReason.no_shows: Repeated no-shows\nmatchBanReason.reported: Reported by players\nmatchBanReason.other: Other",
       "route": null
     },
     {
@@ -34158,7 +34414,7 @@
       "ref": "label:ws.manager.audit#2",
       "lang": "ar",
       "title": "ws.manager.audit (packages/i18n/src/catalogs/ws/manager.ar.ts) (part 1 of 4)",
-      "body": "actions.analyticsInsightReject: استُبعد استنتاج تحليلي\nactions.analyticsInsightUnreject: استُعيد استنتاج تحليلي\nactions.analyticsInsightsSave: حُفظت الاستنتاجات التحليلية\nactions.analyticsPatternsSave: حُفظت الأنماط التحليلية\nactions.courtsCreate: أُضيف ملعب\nactions.courtsDelete: أُزيل ملعب\nactions.courtsReorder: أُعيد ترتيب الملاعب\nactions.courtsUpdate: عُدّل ملعب\nactions.customerCreate: أُضيف زبون\nactions.customerFlagsSet: عُدّلت علامات زبون\nactions.customerNoteAdd: أُضيفت ملاحظة عن زبون\nactions.customerNoteEdit: عُدّلت ملاحظة عن زبون\nactions.dayClose: أُغلق يوم العمل\nactions.dayOpen: فُتح يوم العمل\nactions.discountApply: مُنح خصم\nactions.drawerOpen: فُتح درج النقد\nactions.drawerShiftOpen: بدأت وردية الكاشير",
+      "body": "actions.analyticsInsightReject: استُبعد استنتاج تحليلي\nactions.analyticsInsightUnreject: استُعيد استنتاج تحليلي\nactions.analyticsInsightsSave: حُفظت الاستنتاجات التحليلية\nactions.analyticsPatternsSave: حُفظت الأنماط التحليلية\nactions.courtsCreate: أُضيف ملعب\nactions.courtsDelete: أُزيل ملعب\nactions.courtsReorder: أُعيد ترتيب الملاعب\nactions.courtsUpdate: عُدّل ملعب\nactions.customerCreate: أُضيف زبون\nactions.customerDraft: حُفظ زبون بالاسم فقط\nactions.customerFlagsSet: عُدّلت علامات زبون\nactions.customerNoteAdd: أُضيفت ملاحظة عن زبون\nactions.customerNoteEdit: عُدّلت ملاحظة عن زبون\nactions.dayClose: أُغلق يوم العمل\nactions.dayOpen: فُتح يوم العمل\nactions.discountApply: مُنح خصم\nactions.drawerOpen: فُتح درج النقد",
       "route": "/admin/audit"
     },
     {
@@ -34166,7 +34422,7 @@
       "ref": "label:ws.manager.audit#2",
       "lang": "en",
       "title": "ws.manager.audit (packages/i18n/src/catalogs/ws/manager.en.ts) (part 1 of 4)",
-      "body": "actions.accountDelete: Guest account deleted\nactions.analyticsInsightReject: Analytics insight dismissed\nactions.analyticsInsightUnreject: Analytics insight restored\nactions.analyticsInsightsSave: Analytics insights saved\nactions.analyticsPatternsSave: Analytics patterns saved\nactions.courtsCreate: Court added\nactions.courtsDelete: Court removed\nactions.courtsReorder: Courts reordered\nactions.courtsUpdate: Court changed\nactions.customerCreate: Customer added\nactions.customerFlagsSet: Customer flags changed\nactions.customerNoteAdd: Customer note added\nactions.customerNoteEdit: Customer note edited\nactions.dayClose: Business day closed\nactions.dayOpen: Business day opened\nactions.discountApply: Discount given",
+      "body": "actions.accountDelete: Guest account deleted\nactions.analyticsInsightReject: Analytics insight dismissed\nactions.analyticsInsightUnreject: Analytics insight restored\nactions.analyticsInsightsSave: Analytics insights saved\nactions.analyticsPatternsSave: Analytics patterns saved\nactions.courtsCreate: Court added\nactions.courtsDelete: Court removed\nactions.courtsReorder: Courts reordered\nactions.courtsUpdate: Court changed\nactions.customerCreate: Customer added\nactions.customerDraft: Customer saved by name only\nactions.customerFlagsSet: Customer flags changed\nactions.customerNoteAdd: Customer note added\nactions.customerNoteEdit: Customer note edited\nactions.dayClose: Business day closed\nactions.dayOpen: Business day opened",
       "route": "/admin/audit"
     },
     {
@@ -34174,7 +34430,7 @@
       "ref": "label:ws.manager.audit#2~2",
       "lang": "ar",
       "title": "ws.manager.audit (packages/i18n/src/catalogs/ws/manager.ar.ts) (part 2 of 4)",
-      "body": "actions.analyticsInsightReject: استُبعد استنتاج تحليلي\nactions.dayClose: أُغلق يوم العمل\nactions.dayOpen: فُتح يوم العمل\nactions.discountApply: مُنح خصم\nactions.drawerOpen: فُتح درج النقد\nactions.drawerShiftOpen: بدأت وردية الكاشير\nactions.drawerShiftClose: انتهت وردية الكاشير وعُدّ درج النقد\nactions.drawerShiftCloseByDay: انتهت وردية الكاشير بإغلاق اليوم دون عدّ النقد\nactions.marketingAudienceSave: حُفظ جمهور تسويقي\nactions.marketingCampaignSave: حُفظت حملة\nactions.marketingCampaignStatus: أُطلقت حملة أو أُوقفت\nactions.menuCategoryCreate: أُضيفت فئة إلى المنيو\nactions.menuCategoryPhoto: تغيّرت صورة فئة\nactions.menuCategoryReorder: أُعيد ترتيب فئات المنيو\nactions.menuCategoryUpdate: عُدّلت فئة في المنيو\nactions.menuItemAddons: عُدّلت إضافات صنف",
+      "body": "actions.analyticsInsightReject: استُبعد استنتاج تحليلي\nactions.customerNoteEdit: عُدّلت ملاحظة عن زبون\nactions.dayClose: أُغلق يوم العمل\nactions.dayOpen: فُتح يوم العمل\nactions.discountApply: مُنح خصم\nactions.drawerOpen: فُتح درج النقد\nactions.drawerShiftOpen: بدأت وردية الكاشير\nactions.drawerShiftClose: انتهت وردية الكاشير وعُدّ درج النقد\nactions.drawerShiftCloseByDay: انتهت وردية الكاشير بإغلاق اليوم دون عدّ النقد\nactions.marketingAudienceSave: حُفظ جمهور تسويقي\nactions.marketingCampaignSave: حُفظت حملة\nactions.marketingCampaignStatus: أُطلقت حملة أو أُوقفت\nactions.menuCategoryCreate: أُضيفت فئة إلى المنيو\nactions.menuCategoryPhoto: تغيّرت صورة فئة\nactions.menuCategoryReorder: أُعيد ترتيب فئات المنيو\nactions.menuCategoryUpdate: عُدّلت فئة في المنيو",
       "route": "/admin/audit"
     },
     {
@@ -34182,7 +34438,7 @@
       "ref": "label:ws.manager.audit#2~2",
       "lang": "en",
       "title": "ws.manager.audit (packages/i18n/src/catalogs/ws/manager.en.ts) (part 2 of 4)",
-      "body": "actions.accountDelete: Guest account deleted\nactions.customerNoteEdit: Customer note edited\nactions.dayClose: Business day closed\nactions.dayOpen: Business day opened\nactions.discountApply: Discount given\nactions.drawerOpen: Cash drawer opened\nactions.drawerShiftOpen: Cashier shift started\nactions.drawerShiftClose: Cashier shift ended and counted\nactions.drawerShiftCloseByDay: Cashier shift ended with the day, not counted\nactions.marketingAudienceSave: Marketing audience saved\nactions.marketingCampaignSave: Campaign saved\nactions.marketingCampaignStatus: Campaign started or stopped\nactions.menuCategoryCreate: Menu category added\nactions.menuCategoryPhoto: Category photo changed\nactions.menuCategoryReorder: Menu categories reordered\nactions.menuCategoryUpdate: Menu category changed",
+      "body": "actions.accountDelete: Guest account deleted\nactions.customerNoteAdd: Customer note added\nactions.customerNoteEdit: Customer note edited\nactions.dayClose: Business day closed\nactions.dayOpen: Business day opened\nactions.discountApply: Discount given\nactions.drawerOpen: Cash drawer opened\nactions.drawerShiftOpen: Cashier shift started\nactions.drawerShiftClose: Cashier shift ended and counted\nactions.drawerShiftCloseByDay: Cashier shift ended with the day, not counted\nactions.marketingAudienceSave: Marketing audience saved\nactions.marketingCampaignSave: Campaign saved\nactions.marketingCampaignStatus: Campaign started or stopped\nactions.menuCategoryCreate: Menu category added\nactions.menuCategoryPhoto: Category photo changed\nactions.menuCategoryReorder: Menu categories reordered",
       "route": "/admin/audit"
     },
     {
@@ -34190,7 +34446,7 @@
       "ref": "label:ws.manager.audit#2~3",
       "lang": "ar",
       "title": "ws.manager.audit (packages/i18n/src/catalogs/ws/manager.ar.ts) (part 3 of 4)",
-      "body": "actions.analyticsInsightReject: استُبعد استنتاج تحليلي\nactions.menuCategoryPhoto: تغيّرت صورة فئة\nactions.menuCategoryReorder: أُعيد ترتيب فئات المنيو\nactions.menuCategoryUpdate: عُدّلت فئة في المنيو\nactions.menuItemAddons: عُدّلت إضافات صنف\nactions.menuItemAvailability: أُوقف صنف لهذا اليوم أو أُعيد تفعيله\nactions.menuItemCost: تغيّرت كلفة صنف\nactions.menuItemCreate: أُضيف صنف إلى المنيو\nactions.menuItemLinkGroup: رُبطت مجموعة إضافات أو أُلغي ربطها\nactions.menuItemPhoto: تغيّرت صورة صنف\nactions.menuItemReorder: أُعيد ترتيب أصناف المنيو\nactions.menuItemSoldOut: نفد صنف أو عاد للبيع\nactions.menuItemUpdate: عُدّل صنف في المنيو\nactions.menuModifierCreate: أُضيف خيار إضافة\nactions.menuModifierReorder: أُعيد ترتيب خيارات الإضافة\nactions.menuModifierReveals: تغيّرت المجموعات الفرعية لخيار",
+      "body": "actions.analyticsInsightReject: استُبعد استنتاج تحليلي\nactions.menuCategoryCreate: أُضيفت فئة إلى المنيو\nactions.menuCategoryPhoto: تغيّرت صورة فئة\nactions.menuCategoryReorder: أُعيد ترتيب فئات المنيو\nactions.menuCategoryUpdate: عُدّلت فئة في المنيو\nactions.menuItemAddons: عُدّلت إضافات صنف\nactions.menuItemAvailability: أُوقف صنف لهذا اليوم أو أُعيد تفعيله\nactions.menuItemCost: تغيّرت كلفة صنف\nactions.menuItemCreate: أُضيف صنف إلى المنيو\nactions.menuItemLinkGroup: رُبطت مجموعة إضافات أو أُلغي ربطها\nactions.menuItemPhoto: تغيّرت صورة صنف\nactions.menuItemReorder: أُعيد ترتيب أصناف المنيو\nactions.menuItemSoldOut: نفد صنف أو عاد للبيع\nactions.menuItemUpdate: عُدّل صنف في المنيو\nactions.menuModifierCreate: أُضيف خيار إضافة\nactions.menuModifierReorder: أُعيد ترتيب خيارات الإضافة",
       "route": "/admin/audit"
     },
     {
@@ -34198,7 +34454,7 @@
       "ref": "label:ws.manager.audit#2~3",
       "lang": "en",
       "title": "ws.manager.audit (packages/i18n/src/catalogs/ws/manager.en.ts) (part 3 of 4)",
-      "body": "actions.accountDelete: Guest account deleted\nactions.menuCategoryPhoto: Category photo changed\nactions.menuCategoryReorder: Menu categories reordered\nactions.menuCategoryUpdate: Menu category changed\nactions.menuItemAddons: Item add-ons changed\nactions.menuItemAvailability: Item marked off today or back on\nactions.menuItemCost: Item cost changed\nactions.menuItemCreate: Menu item added\nactions.menuItemLinkGroup: Add-on group linked or unlinked\nactions.menuItemPhoto: Item photo changed\nactions.menuItemReorder: Menu items reordered\nactions.menuItemSoldOut: Item sold out or back on sale\nactions.menuItemUpdate: Menu item changed\nactions.menuModifierCreate: Add-on option added\nactions.menuModifierReorder: Add-on options reordered\nactions.menuModifierReveals: Option sub-groups changed",
+      "body": "actions.accountDelete: Guest account deleted\nactions.menuCategoryCreate: Menu category added\nactions.menuCategoryPhoto: Category photo changed\nactions.menuCategoryReorder: Menu categories reordered\nactions.menuCategoryUpdate: Menu category changed\nactions.menuItemAddons: Item add-ons changed\nactions.menuItemAvailability: Item marked off today or back on\nactions.menuItemCost: Item cost changed\nactions.menuItemCreate: Menu item added\nactions.menuItemLinkGroup: Add-on group linked or unlinked\nactions.menuItemPhoto: Item photo changed\nactions.menuItemReorder: Menu items reordered\nactions.menuItemSoldOut: Item sold out or back on sale\nactions.menuItemUpdate: Menu item changed\nactions.menuModifierCreate: Add-on option added\nactions.menuModifierReorder: Add-on options reordered",
       "route": "/admin/audit"
     },
     {
@@ -34206,7 +34462,7 @@
       "ref": "label:ws.manager.audit#2~4",
       "lang": "ar",
       "title": "ws.manager.audit (packages/i18n/src/catalogs/ws/manager.ar.ts) (part 4 of 4)",
-      "body": "actions.analyticsInsightReject: استُبعد استنتاج تحليلي\nactions.menuModifierCreate: أُضيف خيار إضافة\nactions.menuModifierReorder: أُعيد ترتيب خيارات الإضافة\nactions.menuModifierReveals: تغيّرت المجموعات الفرعية لخيار\nactions.menuModifierUpdate: عُدّل خيار إضافة\nactions.menuModifierGroupCreate: أُضيفت مجموعة إضافات\nactions.menuModifierGroupUpdate: عُدّلت مجموعة إضافات\nactions.menuVariantCreate: أُضيف حجم",
+      "body": "actions.analyticsInsightReject: استُبعد استنتاج تحليلي\nactions.menuItemSoldOut: نفد صنف أو عاد للبيع\nactions.menuItemUpdate: عُدّل صنف في المنيو\nactions.menuModifierCreate: أُضيف خيار إضافة\nactions.menuModifierReorder: أُعيد ترتيب خيارات الإضافة\nactions.menuModifierReveals: تغيّرت المجموعات الفرعية لخيار\nactions.menuModifierUpdate: عُدّل خيار إضافة\nactions.menuModifierGroupCreate: أُضيفت مجموعة إضافات\nactions.menuModifierGroupUpdate: عُدّلت مجموعة إضافات",
       "route": "/admin/audit"
     },
     {
@@ -34214,7 +34470,7 @@
       "ref": "label:ws.manager.audit#2~4",
       "lang": "en",
       "title": "ws.manager.audit (packages/i18n/src/catalogs/ws/manager.en.ts) (part 4 of 4)",
-      "body": "actions.accountDelete: Guest account deleted\nactions.menuItemUpdate: Menu item changed\nactions.menuModifierCreate: Add-on option added\nactions.menuModifierReorder: Add-on options reordered\nactions.menuModifierReveals: Option sub-groups changed\nactions.menuModifierUpdate: Add-on option changed\nactions.menuModifierGroupCreate: Add-on group added",
+      "body": "actions.accountDelete: Guest account deleted\nactions.menuItemSoldOut: Item sold out or back on sale\nactions.menuItemUpdate: Menu item changed\nactions.menuModifierCreate: Add-on option added\nactions.menuModifierReorder: Add-on options reordered\nactions.menuModifierReveals: Option sub-groups changed\nactions.menuModifierUpdate: Add-on option changed",
       "route": "/admin/audit"
     },
     {
@@ -34222,7 +34478,7 @@
       "ref": "label:ws.manager.audit#3",
       "lang": "ar",
       "title": "ws.manager.audit (packages/i18n/src/catalogs/ws/manager.ar.ts) (part 1 of 4)",
-      "body": "actions.menuVariantUpdate: عُدّل حجم أو سعر\nactions.orderItemVoid: أُلغي سطر من طلب\nactions.paymentRefund: رُدّ مبلغ\nactions.priceOverride: عُدّل سعر يدويًا\nactions.promotionApply: طُبّق عرض على فاتورة\nactions.promotionDropOnMerge: أُسقط عرض عند دمج الفواتير\nactions.promotionGenerateCode: أُنشئ رمز عرض\nactions.promotionReplace: استُبدل عرض بعرض أفضل\nactions.promotionSetEnabled: شُغّل عرض أو أُوقف\nactions.promotionUpsert: حُفظ عرض\nactions.ratesRuleCreate: أُضيف سعر ملعب\nactions.ratesRuleUpdate: عُدّل سعر ملعب\nactions.reservationCancel: أُلغي حجز\nactions.reservationConfirm: أُكّد حجز\nactions.reservationCreate: أُنشئ حجز\nactions.reservationExtend: مُدّد حجز\nactions.reservationHold: حُجز موعد مؤقتًا أثناء الحجز",
+      "body": "actions.menuVariantCreate: أُضيف حجم\nactions.menuVariantUpdate: عُدّل حجم أو سعر\nactions.orderItemVoid: أُلغي سطر من طلب\nactions.paymentRefund: رُدّ مبلغ\nactions.priceOverride: عُدّل سعر يدويًا\nactions.promotionApply: طُبّق عرض على فاتورة\nactions.promotionDropOnMerge: أُسقط عرض عند دمج الفواتير\nactions.promotionGenerateCode: أُنشئ رمز عرض\nactions.promotionReplace: استُبدل عرض بعرض أفضل\nactions.promotionSetEnabled: شُغّل عرض أو أُوقف\nactions.promotionUpsert: حُفظ عرض\nactions.ratesRuleCreate: أُضيف سعر ملعب\nactions.ratesRuleUpdate: عُدّل سعر ملعب\nactions.reservationCancel: أُلغي حجز\nactions.reservationConfirm: أُكّد حجز\nactions.reservationCreate: أُنشئ حجز\nactions.reservationExtend: مُدّد حجز\nactions.reservationHold: حُجز موعد مؤقتًا أثناء الحجز",
       "route": "/admin/audit"
     },
     {
@@ -34230,7 +34486,7 @@
       "ref": "label:ws.manager.audit#3",
       "lang": "en",
       "title": "ws.manager.audit (packages/i18n/src/catalogs/ws/manager.en.ts) (part 1 of 4)",
-      "body": "actions.menuModifierGroupUpdate: Add-on group changed\nactions.menuVariantCreate: Size added\nactions.menuVariantUpdate: Size or price changed\nactions.orderItemVoid: Order line voided\nactions.paymentRefund: Refund given\nactions.priceOverride: Price changed by hand\nactions.promotionApply: Promotion applied to a bill\nactions.promotionDropOnMerge: Promotion dropped when tabs merged\nactions.promotionGenerateCode: Promotion code created\nactions.promotionReplace: Promotion replaced by a better one\nactions.promotionSetEnabled: Promotion switched on or off\nactions.promotionUpsert: Promotion saved\nactions.ratesRuleCreate: Court rate added\nactions.ratesRuleUpdate: Court rate changed\nactions.reservationCancel: Booking cancelled",
+      "body": "actions.menuModifierGroupCreate: Add-on group added\nactions.menuModifierGroupUpdate: Add-on group changed\nactions.menuVariantCreate: Size added\nactions.menuVariantUpdate: Size or price changed\nactions.orderItemVoid: Order line voided\nactions.paymentRefund: Refund given\nactions.priceOverride: Price changed by hand\nactions.promotionApply: Promotion applied to a bill\nactions.promotionDropOnMerge: Promotion dropped when tabs merged\nactions.promotionGenerateCode: Promotion code created\nactions.promotionReplace: Promotion replaced by a better one\nactions.promotionSetEnabled: Promotion switched on or off\nactions.promotionUpsert: Promotion saved\nactions.ratesRuleCreate: Court rate added\nactions.ratesRuleUpdate: Court rate changed",
       "route": "/admin/audit"
     },
     {
@@ -34238,7 +34494,7 @@
       "ref": "label:ws.manager.audit#3~2",
       "lang": "ar",
       "title": "ws.manager.audit (packages/i18n/src/catalogs/ws/manager.ar.ts) (part 2 of 4)",
-      "body": "actions.menuVariantUpdate: عُدّل حجم أو سعر\nactions.reservationConfirm: أُكّد حجز\nactions.reservationCreate: أُنشئ حجز\nactions.reservationExtend: مُدّد حجز\nactions.reservationHold: حُجز موعد مؤقتًا أثناء الحجز\nactions.reservationMarkArrived: وصل الضيف\nactions.reservationMarkCompleted: اكتمل حجز\nactions.reservationMarkNoShow: سُجّل غياب\nactions.reservationMove: نُقل حجز\nactions.reservationPriceOverride: عُدّل سعر حجز يدويًا\nactions.reservationRelease: حُرّر موعد محجوز مؤقتًا\nactions.seriesCancel: أُلغي حجز متكرر\nactions.seriesCreate: أُنشئ حجز متكرر\nactions.settingsCafe: عُدّل إعداد الكافيه\nactions.settingsOpeningHours: عُدّلت ساعات العمل\nactions.settingsWaiterCooldown: عُدّلت مهلة نداء النادل\nactions.staffActiveSet: فُعّل حساب موظف أو أُوقف\nactions.staffCreate: أُنشئ حساب موظف",
+      "body": "actions.menuVariantCreate: أُضيف حجم\nactions.reservationConfirm: أُكّد حجز\nactions.reservationCreate: أُنشئ حجز\nactions.reservationExtend: مُدّد حجز\nactions.reservationHold: حُجز موعد مؤقتًا أثناء الحجز\nactions.reservationMarkArrived: وصل الضيف\nactions.reservationMarkCompleted: اكتمل حجز\nactions.reservationMarkNoShow: سُجّل غياب\nactions.reservationMove: نُقل حجز\nactions.reservationPriceOverride: عُدّل سعر حجز يدويًا\nactions.reservationRelease: حُرّر موعد محجوز مؤقتًا\nactions.seriesCancel: أُلغي حجز متكرر\nactions.seriesCreate: أُنشئ حجز متكرر\nactions.settingsCafe: عُدّل إعداد الكافيه\nactions.settingsOpeningHours: عُدّلت ساعات العمل\nactions.settingsWaiterCooldown: عُدّلت مهلة نداء النادل\nactions.staffActiveSet: فُعّل حساب موظف أو أُوقف\nactions.staffCreate: أُنشئ حساب موظف",
       "route": "/admin/audit"
     },
     {
@@ -34246,7 +34502,7 @@
       "ref": "label:ws.manager.audit#3~2",
       "lang": "en",
       "title": "ws.manager.audit (packages/i18n/src/catalogs/ws/manager.en.ts) (part 2 of 4)",
-      "body": "actions.menuModifierGroupUpdate: Add-on group changed\nactions.promotionUpsert: Promotion saved\nactions.ratesRuleCreate: Court rate added\nactions.ratesRuleUpdate: Court rate changed\nactions.reservationCancel: Booking cancelled\nactions.reservationConfirm: Booking confirmed\nactions.reservationCreate: Booking made\nactions.reservationExtend: Booking extended\nactions.reservationHold: Slot held during booking\nactions.reservationMarkArrived: Guest arrived\nactions.reservationMarkCompleted: Booking completed\nactions.reservationMarkNoShow: Marked as no-show\nactions.reservationMove: Booking moved\nactions.reservationPriceOverride: Booking price changed by hand\nactions.reservationRelease: Held slot released\nactions.seriesCancel: Repeat booking cancelled\nactions.seriesCreate: Repeat booking made",
+      "body": "actions.menuModifierGroupCreate: Add-on group added\nactions.promotionSetEnabled: Promotion switched on or off\nactions.promotionUpsert: Promotion saved\nactions.ratesRuleCreate: Court rate added\nactions.ratesRuleUpdate: Court rate changed\nactions.reservationCancel: Booking cancelled\nactions.reservationConfirm: Booking confirmed\nactions.reservationCreate: Booking made\nactions.reservationExtend: Booking extended\nactions.reservationHold: Slot held during booking\nactions.reservationMarkArrived: Guest arrived\nactions.reservationMarkCompleted: Booking completed\nactions.reservationMarkNoShow: Marked as no-show\nactions.reservationMove: Booking moved\nactions.reservationPriceOverride: Booking price changed by hand\nactions.reservationRelease: Held slot released",
       "route": "/admin/audit"
     },
     {
@@ -34254,7 +34510,7 @@
       "ref": "label:ws.manager.audit#3~3",
       "lang": "ar",
       "title": "ws.manager.audit (packages/i18n/src/catalogs/ws/manager.ar.ts) (part 3 of 4)",
-      "body": "actions.menuVariantUpdate: عُدّل حجم أو سعر\nactions.settingsOpeningHours: عُدّلت ساعات العمل\nactions.settingsWaiterCooldown: عُدّلت مهلة نداء النادل\nactions.staffActiveSet: فُعّل حساب موظف أو أُوقف\nactions.staffCreate: أُنشئ حساب موظف\nactions.staffPasswordReset: أُعيد تعيين كلمة مرور موظف\nactions.staffPinCleared: أُزيل الرقم السري لموظف\nactions.staffPinCollision: الرقم السري مستخدم بالفعل\nactions.staffPinLocked: قُفل الرقم السري بعد محاولات خاطئة\nactions.staffPinLockoutCleared: رُفع قفل الرقم السري\nactions.staffPinSet: عُيّن الرقم السري لموظف\nactions.staffRename: تغيّر اسم موظف\nactions.staffRoleSet: تغيّر دور موظف\nactions.staffRequestDecide: رُدّ على طلب موظف\nactions.staffRequestSubmit: أُرسل طلب موظف\nactions.staffRequestWithdraw: سُحب طلب موظف",
+      "body": "actions.menuVariantCreate: أُضيف حجم\nactions.settingsOpeningHours: عُدّلت ساعات العمل\nactions.settingsWaiterCooldown: عُدّلت مهلة نداء النادل\nactions.staffActiveSet: فُعّل حساب موظف أو أُوقف\nactions.staffCreate: أُنشئ حساب موظف\nactions.staffPasswordReset: أُعيد تعيين كلمة مرور موظف\nactions.staffPinCleared: أُزيل الرقم السري لموظف\nactions.staffPinCollision: الرقم السري مستخدم بالفعل\nactions.staffPinLocked: قُفل الرقم السري بعد محاولات خاطئة\nactions.staffPinLockoutCleared: رُفع قفل الرقم السري\nactions.staffPinSet: عُيّن الرقم السري لموظف\nactions.staffRename: تغيّر اسم موظف\nactions.staffRoleSet: تغيّر دور موظف\nactions.staffRequestDecide: رُدّ على طلب موظف\nactions.staffRequestSubmit: أُرسل طلب موظف\nactions.staffRequestWithdraw: سُحب طلب موظف\nactions.stockFinalizeCount: اكتمل جرد المخزون",
       "route": "/admin/audit"
     },
     {
@@ -34262,7 +34518,7 @@
       "ref": "label:ws.manager.audit#3~3",
       "lang": "en",
       "title": "ws.manager.audit (packages/i18n/src/catalogs/ws/manager.en.ts) (part 3 of 4)",
-      "body": "actions.menuModifierGroupUpdate: Add-on group changed\nactions.reservationPriceOverride: Booking price changed by hand\nactions.reservationRelease: Held slot released\nactions.seriesCancel: Repeat booking cancelled\nactions.seriesCreate: Repeat booking made\nactions.settingsCafe: Cafe setting changed\nactions.settingsOpeningHours: Opening hours changed\nactions.settingsWaiterCooldown: Waiter-call wait changed\nactions.staffActiveSet: Staff account switched on or off\nactions.staffCreate: Staff account created\nactions.staffPasswordReset: Staff password reset\nactions.staffPinCleared: Staff PIN removed\nactions.staffPinCollision: PIN already in use\nactions.staffPinLocked: PIN locked after wrong tries\nactions.staffPinLockoutCleared: PIN lock cleared\nactions.staffPinSet: Staff PIN set",
+      "body": "actions.menuModifierGroupCreate: Add-on group added\nactions.reservationMarkNoShow: Marked as no-show\nactions.reservationMove: Booking moved\nactions.reservationPriceOverride: Booking price changed by hand\nactions.reservationRelease: Held slot released\nactions.seriesCancel: Repeat booking cancelled\nactions.seriesCreate: Repeat booking made\nactions.settingsCafe: Cafe setting changed\nactions.settingsOpeningHours: Opening hours changed\nactions.settingsWaiterCooldown: Waiter-call wait changed\nactions.staffActiveSet: Staff account switched on or off\nactions.staffCreate: Staff account created\nactions.staffPasswordReset: Staff password reset\nactions.staffPinCleared: Staff PIN removed\nactions.staffPinCollision: PIN already in use\nactions.staffPinLocked: PIN locked after wrong tries",
       "route": "/admin/audit"
     },
     {
@@ -34270,7 +34526,7 @@
       "ref": "label:ws.manager.audit#3~4",
       "lang": "ar",
       "title": "ws.manager.audit (packages/i18n/src/catalogs/ws/manager.ar.ts) (part 4 of 4)",
-      "body": "actions.menuVariantUpdate: عُدّل حجم أو سعر\nactions.staffRoleSet: تغيّر دور موظف\nactions.staffRequestDecide: رُدّ على طلب موظف\nactions.staffRequestSubmit: أُرسل طلب موظف\nactions.staffRequestWithdraw: سُحب طلب موظف\nactions.stockFinalizeCount: اكتمل جرد المخزون\nactions.stockIngredientCreate: أُضيف مكوّن\nactions.stockIngredientUpdate: عُدّل مكوّن\nactions.stockReceiveDelivery: استُلمت بضائع",
+      "body": "actions.menuVariantCreate: أُضيف حجم\nactions.staffRequestDecide: رُدّ على طلب موظف\nactions.staffRequestSubmit: أُرسل طلب موظف\nactions.staffRequestWithdraw: سُحب طلب موظف\nactions.stockFinalizeCount: اكتمل جرد المخزون\nactions.stockIngredientCreate: أُضيف مكوّن\nactions.stockIngredientUpdate: عُدّل مكوّن",
       "route": "/admin/audit"
     },
     {
@@ -34278,7 +34534,7 @@
       "ref": "label:ws.manager.audit#3~4",
       "lang": "en",
       "title": "ws.manager.audit (packages/i18n/src/catalogs/ws/manager.en.ts) (part 4 of 4)",
-      "body": "actions.menuModifierGroupUpdate: Add-on group changed\nactions.staffPinCollision: PIN already in use\nactions.staffPinLocked: PIN locked after wrong tries\nactions.staffPinLockoutCleared: PIN lock cleared\nactions.staffPinSet: Staff PIN set\nactions.staffRename: Staff member renamed\nactions.staffRoleSet: Staff role changed\nactions.staffRequestDecide: Staff request answered\nactions.staffRequestSubmit: Staff request sent",
+      "body": "actions.menuModifierGroupCreate: Add-on group added\nactions.staffPasswordReset: Staff password reset\nactions.staffPinCleared: Staff PIN removed\nactions.staffPinCollision: PIN already in use\nactions.staffPinLocked: PIN locked after wrong tries\nactions.staffPinLockoutCleared: PIN lock cleared\nactions.staffPinSet: Staff PIN set\nactions.staffRename: Staff member renamed\nactions.staffRoleSet: Staff role changed",
       "route": "/admin/audit"
     },
     {
@@ -34286,7 +34542,7 @@
       "ref": "label:ws.manager.audit#4",
       "lang": "ar",
       "title": "ws.manager.audit (packages/i18n/src/catalogs/ws/manager.ar.ts) (part 1 of 4)",
-      "body": "actions.stockRecipeSet: عُدّلت وصفة\nactions.stockRecordProduction: حُضّرت دفعة\nactions.stockRecordWaste: سُجّل هدر\nactions.stockStartCount: بدأ جرد المخزون\nactions.stockWriteOffExpired: شُطب مخزون منتهي الصلاحية\nactions.stockTransfer: نُقل مخزون بين المخزنين\nactions.stockLog: أضاف موظف مخزونًا\nactions.stockPriceLog: حُدّدت كلفة مخزون أضافه موظف\nactions.stockSubmitCount: أُرسل جرد من الهاتف\nactions.stockDiscardCount: أُلغي جرد مخزون\nactions.tabCancel: أُلغيت فاتورة\nactions.tabMerge: دُمجت فواتير\nactions.tabSettle: دُفعت فاتورة وأُغلقت\nactions.tableBell: عُدّل جرس الطاولة\nactions.tableQrTokensRead: عُرضت رموز QR للطاولات\nactions.tableTokenRotate: استُبدلت رموز QR للطاولات\nactions.tableUpsert: حُفظت طاولة",
+      "body": "actions.stockReceiveDelivery: استُلمت بضائع\nactions.stockRecipeSet: عُدّلت وصفة\nactions.stockRecordProduction: حُضّرت دفعة\nactions.stockRecordWaste: سُجّل هدر\nactions.stockStartCount: بدأ جرد المخزون\nactions.stockWriteOffExpired: شُطب مخزون منتهي الصلاحية\nactions.stockTransfer: نُقل مخزون بين المخزنين\nactions.stockLog: أضاف موظف مخزونًا\nactions.stockPriceLog: حُدّدت كلفة مخزون أضافه موظف\nactions.stockSubmitCount: أُرسل جرد من الهاتف\nactions.stockDiscardCount: أُلغي جرد مخزون\nactions.tabCancel: أُلغيت فاتورة\nactions.tabMerge: دُمجت فواتير\nactions.tabSettle: دُفعت فاتورة وأُغلقت\nactions.tableBell: عُدّل جرس الطاولة\nactions.tableQrTokensRead: عُرضت رموز QR للطاولات\nactions.tableTokenRotate: استُبدلت رموز QR للطاولات",
       "route": "/admin/audit"
     },
     {
@@ -34294,7 +34550,7 @@
       "ref": "label:ws.manager.audit#4",
       "lang": "en",
       "title": "ws.manager.audit (packages/i18n/src/catalogs/ws/manager.en.ts) (part 1 of 4)",
-      "body": "actions.staffRequestWithdraw: Staff request withdrawn\nactions.stockFinalizeCount: Stock count finished\nactions.stockIngredientCreate: Ingredient added\nactions.stockIngredientUpdate: Ingredient changed\nactions.stockReceiveDelivery: Delivery received\nactions.stockRecipeSet: Recipe changed\nactions.stockRecordProduction: Batch prepared\nactions.stockRecordWaste: Waste recorded\nactions.stockStartCount: Stock count started\nactions.stockWriteOffExpired: Expired stock written off\nactions.stockTransfer: Stock moved between stores\nactions.stockLog: Stock added by staff\nactions.stockPriceLog: Cost set on staff-added stock\nactions.stockSubmitCount: Count sent from the phone\nactions.stockDiscardCount: Stock count discarded",
+      "body": "actions.staffRequestDecide: Staff request answered\nactions.staffRequestSubmit: Staff request sent\nactions.staffRequestWithdraw: Staff request withdrawn\nactions.stockFinalizeCount: Stock count finished\nactions.stockIngredientCreate: Ingredient added\nactions.stockIngredientUpdate: Ingredient changed\nactions.stockReceiveDelivery: Delivery received\nactions.stockRecipeSet: Recipe changed\nactions.stockRecordProduction: Batch prepared\nactions.stockRecordWaste: Waste recorded\nactions.stockStartCount: Stock count started\nactions.stockWriteOffExpired: Expired stock written off\nactions.stockTransfer: Stock moved between stores\nactions.stockLog: Stock added by staff\nactions.stockPriceLog: Cost set on staff-added stock",
       "route": "/admin/audit"
     },
     {
@@ -34302,7 +34558,7 @@
       "ref": "label:ws.manager.audit#4~2",
       "lang": "ar",
       "title": "ws.manager.audit (packages/i18n/src/catalogs/ws/manager.ar.ts) (part 2 of 4)",
-      "body": "actions.stockRecipeSet: عُدّلت وصفة\nactions.tableBell: عُدّل جرس الطاولة\nactions.tableQrTokensRead: عُرضت رموز QR للطاولات\nactions.tableTokenRotate: استُبدلت رموز QR للطاولات\nactions.tableUpsert: حُفظت طاولة\nactions.tableTokenAcceptedPrevSecret: قُبل رمز QR قديم لطاولة\nactions.tableTokenPrevSecretCleared: أُوقفت رموز QR القديمة للطاولات\nactions.tableTokenSecretRotated: استُبدل مفتاح أمان رموز QR للطاولات\nactions.telegramStaffSet: عُدّل موظفو تيليغرام\nactions.telegramOSeen: شوهد طلب عبر تيليغرام\nactions.telegramOServed: قُدّم طلب عبر تيليغرام\nactions.telegramOVoid: أُلغي طلب عبر تيليغرام\nactions.telegramWAck: رُدّ على نداء نادل عبر تيليغرام\nactions.telegramWDone: أُنجز نداء نادل عبر تيليغرام\nactions.protocolStart: بدأ بروتوكول\nactions.protocolSubmit: أُرسلت خطوة بروتوكول",
+      "body": "actions.stockReceiveDelivery: استُلمت بضائع\nactions.tabSettle: دُفعت فاتورة وأُغلقت\nactions.tableBell: عُدّل جرس الطاولة\nactions.tableQrTokensRead: عُرضت رموز QR للطاولات\nactions.tableTokenRotate: استُبدلت رموز QR للطاولات\nactions.tableUpsert: حُفظت طاولة\nactions.tableTokenAcceptedPrevSecret: قُبل رمز QR قديم لطاولة\nactions.tableTokenPrevSecretCleared: أُوقفت رموز QR القديمة للطاولات\nactions.tableTokenSecretRotated: استُبدل مفتاح أمان رموز QR للطاولات\nactions.telegramStaffSet: عُدّل موظفو تيليغرام\nactions.telegramOSeen: شوهد طلب عبر تيليغرام\nactions.telegramOServed: قُدّم طلب عبر تيليغرام\nactions.telegramOVoid: أُلغي طلب عبر تيليغرام\nactions.telegramWAck: رُدّ على نداء نادل عبر تيليغرام\nactions.telegramWDone: أُنجز نداء نادل عبر تيليغرام\nactions.protocolStart: بدأ بروتوكول",
       "route": "/admin/audit"
     },
     {
@@ -34310,7 +34566,7 @@
       "ref": "label:ws.manager.audit#4~2",
       "lang": "en",
       "title": "ws.manager.audit (packages/i18n/src/catalogs/ws/manager.en.ts) (part 2 of 4)",
-      "body": "actions.staffRequestWithdraw: Staff request withdrawn\nactions.stockLog: Stock added by staff\nactions.stockPriceLog: Cost set on staff-added stock\nactions.stockSubmitCount: Count sent from the phone\nactions.stockDiscardCount: Stock count discarded\nactions.tabCancel: Tab cancelled\nactions.tabMerge: Tabs merged\nactions.tabSettle: Tab paid and closed\nactions.tableBell: Table bell changed\nactions.tableQrTokensRead: Table QR codes viewed\nactions.tableTokenRotate: Table QR codes replaced\nactions.tableUpsert: Table saved\nactions.tableTokenAcceptedPrevSecret: Old table QR code still accepted\nactions.tableTokenPrevSecretCleared: Old table QR codes retired\nactions.tableTokenSecretRotated: Table QR security key replaced\nactions.telegramStaffSet: Telegram staff changed",
+      "body": "actions.staffRequestDecide: Staff request answered\nactions.stockWriteOffExpired: Expired stock written off\nactions.stockTransfer: Stock moved between stores\nactions.stockLog: Stock added by staff\nactions.stockPriceLog: Cost set on staff-added stock\nactions.stockSubmitCount: Count sent from the phone\nactions.stockDiscardCount: Stock count discarded\nactions.tabCancel: Tab cancelled\nactions.tabMerge: Tabs merged\nactions.tabSettle: Tab paid and closed\nactions.tableBell: Table bell changed\nactions.tableQrTokensRead: Table QR codes viewed\nactions.tableTokenRotate: Table QR codes replaced\nactions.tableUpsert: Table saved\nactions.tableTokenAcceptedPrevSecret: Old table QR code still accepted\nactions.tableTokenPrevSecretCleared: Old table QR codes retired",
       "route": "/admin/audit"
     },
     {
@@ -34318,7 +34574,7 @@
       "ref": "label:ws.manager.audit#4~3",
       "lang": "ar",
       "title": "ws.manager.audit (packages/i18n/src/catalogs/ws/manager.ar.ts) (part 3 of 4)",
-      "body": "actions.stockRecipeSet: عُدّلت وصفة\nactions.telegramWAck: رُدّ على نداء نادل عبر تيليغرام\nactions.telegramWDone: أُنجز نداء نادل عبر تيليغرام\nactions.protocolStart: بدأ بروتوكول\nactions.protocolSubmit: أُرسلت خطوة بروتوكول\nactions.protocolAuto: اجتازت خطوة بروتوكول بقرار مرسلها\nactions.protocolWithdraw: سُحبت خطوة بروتوكول\nactions.protocolWithdrawRun: سُحب بروتوكول بواسطة من بدأه\nactions.protocolDecide: اتُّخذ قرار بشأن خطوة بروتوكول\nactions.protocolSkip: سُجّل تخطّي خطوة بروتوكول\nactions.protocolStop: أُوقف بروتوكول\nactions.protocolUnschedule: أُلغي إطلاق أو تغيير مجدول\nactions.protocolRunEditItems: تغيّرت قائمة التحقق في تشغيل واحد\nactions.protocolRunAddStep: أُضيفت خطوة إلى تشغيل واحد\nactions.protocolTemplateSave: تغيّرت طريقة عمل بروتوكول",
+      "body": "actions.stockReceiveDelivery: استُلمت بضائع\nactions.telegramOVoid: أُلغي طلب عبر تيليغرام\nactions.telegramWAck: رُدّ على نداء نادل عبر تيليغرام\nactions.telegramWDone: أُنجز نداء نادل عبر تيليغرام\nactions.protocolStart: بدأ بروتوكول\nactions.protocolSubmit: أُرسلت خطوة بروتوكول\nactions.protocolAuto: اجتازت خطوة بروتوكول بقرار مرسلها\nactions.protocolWithdraw: سُحبت خطوة بروتوكول\nactions.protocolWithdrawRun: سُحب بروتوكول بواسطة من بدأه\nactions.protocolDecide: اتُّخذ قرار بشأن خطوة بروتوكول\nactions.protocolSkip: سُجّل تخطّي خطوة بروتوكول\nactions.protocolStop: أُوقف بروتوكول\nactions.protocolUnschedule: أُلغي إطلاق أو تغيير مجدول\nactions.protocolRunEditItems: تغيّرت قائمة التحقق في تشغيل واحد\nactions.protocolRunAddStep: أُضيفت خطوة إلى تشغيل واحد",
       "route": "/admin/audit"
     },
     {
@@ -34326,7 +34582,7 @@
       "ref": "label:ws.manager.audit#4~3",
       "lang": "en",
       "title": "ws.manager.audit (packages/i18n/src/catalogs/ws/manager.en.ts) (part 3 of 4)",
-      "body": "actions.staffRequestWithdraw: Staff request withdrawn\nactions.tableTokenPrevSecretCleared: Old table QR codes retired\nactions.tableTokenSecretRotated: Table QR security key replaced\nactions.telegramStaffSet: Telegram staff changed\nactions.telegramOSeen: Order seen on Telegram\nactions.telegramOServed: Order served, from Telegram\nactions.telegramOVoid: Order voided, from Telegram\nactions.telegramWAck: Waiter call answered, from Telegram\nactions.telegramWDone: Waiter call done, from Telegram\nactions.protocolStart: Protocol started\nactions.protocolSubmit: Protocol step sent\nactions.protocolAuto: Protocol step passed by its decider\nactions.protocolWithdraw: Protocol step withdrawn\nactions.protocolWithdrawRun: Protocol withdrawn by its starter\nactions.protocolDecide: Protocol step decided",
+      "body": "actions.staffRequestDecide: Staff request answered\nactions.tableUpsert: Table saved\nactions.tableTokenAcceptedPrevSecret: Old table QR code still accepted\nactions.tableTokenPrevSecretCleared: Old table QR codes retired\nactions.tableTokenSecretRotated: Table QR security key replaced\nactions.telegramStaffSet: Telegram staff changed\nactions.telegramOSeen: Order seen on Telegram\nactions.telegramOServed: Order served, from Telegram\nactions.telegramOVoid: Order voided, from Telegram\nactions.telegramWAck: Waiter call answered, from Telegram\nactions.telegramWDone: Waiter call done, from Telegram\nactions.protocolStart: Protocol started\nactions.protocolSubmit: Protocol step sent\nactions.protocolAuto: Protocol step passed by its decider\nactions.protocolWithdraw: Protocol step withdrawn",
       "route": "/admin/audit"
     },
     {
@@ -34334,7 +34590,7 @@
       "ref": "label:ws.manager.audit#4~4",
       "lang": "ar",
       "title": "ws.manager.audit (packages/i18n/src/catalogs/ws/manager.ar.ts) (part 4 of 4)",
-      "body": "actions.stockRecipeSet: عُدّلت وصفة\nactions.protocolRunEditItems: تغيّرت قائمة التحقق في تشغيل واحد\nactions.protocolRunAddStep: أُضيفت خطوة إلى تشغيل واحد\nactions.protocolTemplateSave: تغيّرت طريقة عمل بروتوكول\nactions.protocolReleaseAccept: قُبل اقتراح صنف جديد\nactions.protocolReleaseLaunch: أُطلق صنف جديد\nactions.protocolReleaseReview: كُتبت مراجعة اليوم الثلاثين",
+      "body": "actions.stockReceiveDelivery: استُلمت بضائع\nactions.protocolUnschedule: أُلغي إطلاق أو تغيير مجدول\nactions.protocolRunEditItems: تغيّرت قائمة التحقق في تشغيل واحد\nactions.protocolRunAddStep: أُضيفت خطوة إلى تشغيل واحد\nactions.protocolTemplateSave: تغيّرت طريقة عمل بروتوكول\nactions.protocolReleaseAccept: قُبل اقتراح صنف جديد\nactions.protocolReleaseLaunch: أُطلق صنف جديد",
       "route": "/admin/audit"
     },
     {
@@ -34342,7 +34598,7 @@
       "ref": "label:ws.manager.audit#4~4",
       "lang": "en",
       "title": "ws.manager.audit (packages/i18n/src/catalogs/ws/manager.en.ts) (part 4 of 4)",
-      "body": "actions.staffRequestWithdraw: Staff request withdrawn\nactions.protocolWithdraw: Protocol step withdrawn\nactions.protocolWithdrawRun: Protocol withdrawn by its starter\nactions.protocolDecide: Protocol step decided\nactions.protocolSkip: Protocol step skipped\nactions.protocolStop: Protocol stopped\nactions.protocolUnschedule: Scheduled launch or change cancelled",
+      "body": "actions.staffRequestDecide: Staff request answered\nactions.protocolStart: Protocol started\nactions.protocolSubmit: Protocol step sent\nactions.protocolAuto: Protocol step passed by its decider\nactions.protocolWithdraw: Protocol step withdrawn\nactions.protocolWithdrawRun: Protocol withdrawn by its starter\nactions.protocolDecide: Protocol step decided\nactions.protocolSkip: Protocol step skipped\nactions.protocolStop: Protocol stopped",
       "route": "/admin/audit"
     },
     {
@@ -34350,7 +34606,7 @@
       "ref": "label:ws.manager.audit#5",
       "lang": "ar",
       "title": "ws.manager.audit (packages/i18n/src/catalogs/ws/manager.ar.ts) (part 1 of 4)",
-      "body": "actions.protocolReleaseIdeaSubmit: أُرسلت فكرة صنف جديد\nactions.protocolReleaseIdeaWithdraw: سُحبت فكرة صنف جديد\nactions.protocolReleaseIdeaDecline: رُفضت فكرة صنف جديد\nactions.protocolReleaseIdeaStart: حُوّلت فكرة صنف جديد إلى اقتراح\nactions.protocolPriceApply: طُبّق تغيير سعر موافَق عليه\nactions.protocolPromoApply: طُبّق تغيير عرض موافَق عليه\nactions.protocolHiringCandidateSave: حُفظ مرشّح\nactions.protocolHiringCandidateDelete: أُزيل مرشّح\nactions.protocolHiringComplete: اكتمل التوظيف\nactions.protocolHiringPurge: حُذفت بيانات المرشّحين بعد 90 يومًا\nactions.stockProductTest: استُخدم مخزون في تجربة صنف\nactions.stockRecipeChangeSubmit: طُلب تغيير وصفة\nactions.stockRecipeChangeWithdraw: سُحب طلب تغيير وصفة",
+      "body": "actions.protocolReleaseReview: كُتبت مراجعة اليوم الثلاثين\nactions.protocolReleaseIdeaSubmit: أُرسلت فكرة صنف جديد\nactions.protocolReleaseIdeaWithdraw: سُحبت فكرة صنف جديد\nactions.protocolReleaseIdeaDecline: رُفضت فكرة صنف جديد\nactions.protocolReleaseIdeaStart: حُوّلت فكرة صنف جديد إلى اقتراح\nactions.protocolPriceApply: طُبّق تغيير سعر موافَق عليه\nactions.protocolPromoApply: طُبّق تغيير عرض موافَق عليه\nactions.protocolHiringCandidateSave: حُفظ مرشّح\nactions.protocolHiringCandidateDelete: أُزيل مرشّح\nactions.protocolHiringComplete: اكتمل التوظيف\nactions.protocolHiringPurge: حُذفت بيانات المرشّحين بعد 90 يومًا\nactions.stockProductTest: استُخدم مخزون في تجربة صنف\nactions.stockRecipeChangeSubmit: طُلب تغيير وصفة",
       "route": "/admin/audit"
     },
     {
@@ -34358,7 +34614,7 @@
       "ref": "label:ws.manager.audit#5",
       "lang": "en",
       "title": "ws.manager.audit (packages/i18n/src/catalogs/ws/manager.en.ts) (part 1 of 4)",
-      "body": "actions.protocolRunEditItems: One run’s checklist changed\nactions.protocolRunAddStep: Step added to one run\nactions.protocolTemplateSave: How a protocol works changed\nactions.protocolReleaseAccept: New item proposal accepted\nactions.protocolReleaseLaunch: New item launched\nactions.protocolReleaseReview: 30-day review written\nactions.protocolReleaseIdeaSubmit: New item idea sent\nactions.protocolReleaseIdeaWithdraw: New item idea withdrawn\nactions.protocolReleaseIdeaDecline: New item idea declined\nactions.protocolReleaseIdeaStart: New item idea started as a proposal\nactions.protocolPriceApply: Approved price change applied\nactions.protocolPromoApply: Approved promotion change applied",
+      "body": "actions.protocolUnschedule: Scheduled launch or change cancelled\nactions.protocolRunEditItems: One run’s checklist changed\nactions.protocolRunAddStep: Step added to one run\nactions.protocolTemplateSave: How a protocol works changed\nactions.protocolReleaseAccept: New item proposal accepted\nactions.protocolReleaseLaunch: New item launched\nactions.protocolReleaseReview: 30-day review written\nactions.protocolReleaseIdeaSubmit: New item idea sent\nactions.protocolReleaseIdeaWithdraw: New item idea withdrawn\nactions.protocolReleaseIdeaDecline: New item idea declined\nactions.protocolReleaseIdeaStart: New item idea started as a proposal\nactions.protocolPriceApply: Approved price change applied",
       "route": "/admin/audit"
     },
     {
@@ -34366,7 +34622,7 @@
       "ref": "label:ws.manager.audit#5~2",
       "lang": "ar",
       "title": "ws.manager.audit (packages/i18n/src/catalogs/ws/manager.ar.ts) (part 2 of 4)",
-      "body": "actions.protocolReleaseIdeaSubmit: أُرسلت فكرة صنف جديد\nactions.stockProductTest: استُخدم مخزون في تجربة صنف\nactions.stockRecipeChangeSubmit: طُلب تغيير وصفة\nactions.stockRecipeChangeWithdraw: سُحب طلب تغيير وصفة\nactions.stockRecipeChangeApprove: اعتُمد تغيير وصفة\nactions.stockRecipeChangeDecline: رُفض تغيير وصفة\nactions.checklistTemplateSave: تغيّرت قائمة تحقق يومية\nactions.shoppingAdd: أُضيف إلى قائمة التسوق\nactions.shoppingCancel: أُزيل من قائمة التسوق\nactions.shoppingApprove: اعتُمد سطر تسوق\nactions.shoppingDecline: رُفض سطر تسوق\nactions.purchaseRecord: سُجّلت مشتريات السائق\nactions.purchaseReceive: استُلمت مشتريات السائق\nactions.purchaseAcknowledge: دُقّق سطر مشتريات\nactions.purchaseDeliver: سُجّل تسليم المشتريات\nactions.marketingCampaignSuggest: اقتُرحت مسودة حملة",
+      "body": "actions.protocolReleaseReview: كُتبت مراجعة اليوم الثلاثين\nactions.protocolHiringPurge: حُذفت بيانات المرشّحين بعد 90 يومًا\nactions.stockProductTest: استُخدم مخزون في تجربة صنف\nactions.stockRecipeChangeSubmit: طُلب تغيير وصفة\nactions.stockRecipeChangeWithdraw: سُحب طلب تغيير وصفة\nactions.stockRecipeChangeApprove: اعتُمد تغيير وصفة\nactions.stockRecipeChangeDecline: رُفض تغيير وصفة\nactions.checklistTemplateSave: تغيّرت قائمة تحقق يومية\nactions.shoppingAdd: أُضيف إلى قائمة التسوق\nactions.shoppingCancel: أُزيل من قائمة التسوق\nactions.shoppingApprove: اعتُمد سطر تسوق\nactions.shoppingDecline: رُفض سطر تسوق\nactions.purchaseRecord: سُجّلت مشتريات السائق\nactions.purchaseReceive: استُلمت مشتريات السائق\nactions.purchaseAcknowledge: دُقّق سطر مشتريات\nactions.purchaseDeliver: سُجّل تسليم المشتريات",
       "route": "/admin/audit"
     },
     {
@@ -34374,7 +34630,7 @@
       "ref": "label:ws.manager.audit#5~2",
       "lang": "en",
       "title": "ws.manager.audit (packages/i18n/src/catalogs/ws/manager.en.ts) (part 2 of 4)",
-      "body": "actions.protocolRunEditItems: One run’s checklist changed\nactions.protocolReleaseIdeaStart: New item idea started as a proposal\nactions.protocolPriceApply: Approved price change applied\nactions.protocolPromoApply: Approved promotion change applied\nactions.protocolHiringCandidateSave: Candidate saved\nactions.protocolHiringCandidateDelete: Candidate removed\nactions.protocolHiringComplete: Hire completed\nactions.protocolHiringPurge: Candidate details deleted after 90 days\nactions.stockProductTest: Stock used in a product test\nactions.stockRecipeChangeSubmit: Recipe change asked for\nactions.stockRecipeChangeWithdraw: Recipe change request withdrawn\nactions.stockRecipeChangeApprove: Recipe change approved\nactions.stockRecipeChangeDecline: Recipe change declined",
+      "body": "actions.protocolUnschedule: Scheduled launch or change cancelled\nactions.protocolReleaseIdeaDecline: New item idea declined\nactions.protocolReleaseIdeaStart: New item idea started as a proposal\nactions.protocolPriceApply: Approved price change applied\nactions.protocolPromoApply: Approved promotion change applied\nactions.protocolHiringCandidateSave: Candidate saved\nactions.protocolHiringCandidateDelete: Candidate removed\nactions.protocolHiringComplete: Hire completed\nactions.protocolHiringPurge: Candidate details deleted after 90 days\nactions.stockProductTest: Stock used in a product test\nactions.stockRecipeChangeSubmit: Recipe change asked for\nactions.stockRecipeChangeWithdraw: Recipe change request withdrawn\nactions.stockRecipeChangeApprove: Recipe change approved",
       "route": "/admin/audit"
     },
     {
@@ -34382,7 +34638,7 @@
       "ref": "label:ws.manager.audit#5~3",
       "lang": "ar",
       "title": "ws.manager.audit (packages/i18n/src/catalogs/ws/manager.ar.ts) (part 3 of 4)",
-      "body": "actions.protocolReleaseIdeaSubmit: أُرسلت فكرة صنف جديد\nactions.purchaseReceive: استُلمت مشتريات السائق\nactions.purchaseAcknowledge: دُقّق سطر مشتريات\nactions.purchaseDeliver: سُجّل تسليم المشتريات\nactions.marketingCampaignSuggest: اقتُرحت مسودة حملة\nactions.marketingNoteAdd: أُضيفت ملاحظة تسويقية\nactions.marketingRequestAdd: أُرسل طلب إلى التسويق\nactions.marketingRequestWithdraw: سُحب طلب إلى التسويق\nactions.marketingRequestAnswer: رُدّ على طلب موجّه إلى التسويق\nactions.reservationEventBlock: حُجزت ملاعب لبطولة\nactions.teachingSave: حُفظت تعليمة\nactions.teachingArchive: أُرشفت تعليمة\nactions.staffDeductionPropose: اقتُرح خصم من الراتب\nactions.staffDeductionWithdraw: سُحب اقتراح خصم من الراتب\nactions.staffDeductionApprove: اعتُمد خصم من الراتب",
+      "body": "actions.protocolReleaseReview: كُتبت مراجعة اليوم الثلاثين\nactions.purchaseRecord: سُجّلت مشتريات السائق\nactions.purchaseReceive: استُلمت مشتريات السائق\nactions.purchaseAcknowledge: دُقّق سطر مشتريات\nactions.purchaseDeliver: سُجّل تسليم المشتريات\nactions.marketingCampaignSuggest: اقتُرحت مسودة حملة\nactions.marketingNoteAdd: أُضيفت ملاحظة تسويقية\nactions.marketingRequestAdd: أُرسل طلب إلى التسويق\nactions.marketingRequestWithdraw: سُحب طلب إلى التسويق\nactions.marketingRequestAnswer: رُدّ على طلب موجّه إلى التسويق\nactions.reservationEventBlock: حُجزت ملاعب لبطولة\nactions.teachingSave: حُفظت تعليمة\nactions.teachingArchive: أُرشفت تعليمة\nactions.staffDeductionPropose: اقتُرح خصم من الراتب\nactions.staffDeductionWithdraw: سُحب اقتراح خصم من الراتب",
       "route": "/admin/audit"
     },
     {
@@ -34390,7 +34646,7 @@
       "ref": "label:ws.manager.audit#5~3",
       "lang": "en",
       "title": "ws.manager.audit (packages/i18n/src/catalogs/ws/manager.en.ts) (part 3 of 4)",
-      "body": "actions.protocolRunEditItems: One run’s checklist changed\nactions.stockRecipeChangeWithdraw: Recipe change request withdrawn\nactions.stockRecipeChangeApprove: Recipe change approved\nactions.stockRecipeChangeDecline: Recipe change declined\nactions.checklistTemplateSave: Daily checklist changed\nactions.shoppingAdd: Added to the shopping list\nactions.shoppingCancel: Removed from the shopping list\nactions.shoppingApprove: Shopping line approved\nactions.shoppingDecline: Shopping line declined\nactions.purchaseRecord: Driver’s purchase recorded\nactions.purchaseReceive: Driver’s purchase received\nactions.purchaseAcknowledge: Purchase line checked\nactions.purchaseDeliver: Purchase marked delivered\nactions.marketingCampaignSuggest: Campaign draft suggested",
+      "body": "actions.protocolUnschedule: Scheduled launch or change cancelled\nactions.stockRecipeChangeSubmit: Recipe change asked for\nactions.stockRecipeChangeWithdraw: Recipe change request withdrawn\nactions.stockRecipeChangeApprove: Recipe change approved\nactions.stockRecipeChangeDecline: Recipe change declined\nactions.checklistTemplateSave: Daily checklist changed\nactions.shoppingAdd: Added to the shopping list\nactions.shoppingCancel: Removed from the shopping list\nactions.shoppingApprove: Shopping line approved\nactions.shoppingDecline: Shopping line declined\nactions.purchaseRecord: Driver’s purchase recorded\nactions.purchaseReceive: Driver’s purchase received\nactions.purchaseAcknowledge: Purchase line checked\nactions.purchaseDeliver: Purchase marked delivered",
       "route": "/admin/audit"
     },
     {
@@ -34398,7 +34654,7 @@
       "ref": "label:ws.manager.audit#5~4",
       "lang": "ar",
       "title": "ws.manager.audit (packages/i18n/src/catalogs/ws/manager.ar.ts) (part 4 of 4)",
-      "body": "actions.protocolReleaseIdeaSubmit: أُرسلت فكرة صنف جديد\nactions.staffDeductionPropose: اقتُرح خصم من الراتب\nactions.staffDeductionWithdraw: سُحب اقتراح خصم من الراتب\nactions.staffDeductionApprove: اعتُمد خصم من الراتب\nactions.staffDeductionDecline: رُفض خصم من الراتب\nactions.staffDeductionCancel: أُلغي خصم من الراتب\nactions.staffDeductionRecord: سجّل المالك خصمًا من الراتب\nactions.staffWageSet: حُدّد راتب",
+      "body": "actions.protocolReleaseReview: كُتبت مراجعة اليوم الثلاثين\nactions.teachingSave: حُفظت تعليمة\nactions.teachingArchive: أُرشفت تعليمة\nactions.staffDeductionPropose: اقتُرح خصم من الراتب\nactions.staffDeductionWithdraw: سُحب اقتراح خصم من الراتب\nactions.staffDeductionApprove: اعتُمد خصم من الراتب\nactions.staffDeductionDecline: رُفض خصم من الراتب\nactions.staffDeductionCancel: أُلغي خصم من الراتب",
       "route": "/admin/audit"
     },
     {
@@ -34406,7 +34662,7 @@
       "ref": "label:ws.manager.audit#5~4",
       "lang": "en",
       "title": "ws.manager.audit (packages/i18n/src/catalogs/ws/manager.en.ts) (part 4 of 4)",
-      "body": "actions.protocolRunEditItems: One run’s checklist changed\nactions.purchaseAcknowledge: Purchase line checked\nactions.purchaseDeliver: Purchase marked delivered\nactions.marketingCampaignSuggest: Campaign draft suggested\nactions.marketingNoteAdd: Marketing note added\nactions.marketingRequestAdd: Request to marketing sent\nactions.marketingRequestWithdraw: Request to marketing withdrawn\nactions.marketingRequestAnswer: Request to marketing answered",
+      "body": "actions.protocolUnschedule: Scheduled launch or change cancelled\nactions.purchaseReceive: Driver’s purchase received\nactions.purchaseAcknowledge: Purchase line checked\nactions.purchaseDeliver: Purchase marked delivered\nactions.marketingCampaignSuggest: Campaign draft suggested\nactions.marketingNoteAdd: Marketing note added\nactions.marketingRequestAdd: Request to marketing sent\nactions.marketingRequestWithdraw: Request to marketing withdrawn",
       "route": "/admin/audit"
     },
     {
@@ -34414,23 +34670,31 @@
       "ref": "label:ws.manager.audit#6",
       "lang": "ar",
       "title": "ws.manager.audit (packages/i18n/src/catalogs/ws/manager.ar.ts)",
-      "body": "actions.staffWagePaid: سُجّل دفع راتب\nactions.staffWageUndo: أُلغي تسجيل دفع راتب\nactions.staffAttendanceRecord: سُجّل يوم تأخير أو انصراف مبكر\nactions.staffAttendanceClear: حُذف يوم تأخير أو انصراف مبكر\nactions.incidentReport: بُلِّغ عن حادثة\nactions.incidentReview: رُوجع بلاغ حادثة\nactions.incidentRedact: طُمس نص بلاغ حادثة\nactions.incidentPurge: حُذف نص بلاغ بعد 365 يومًا\nactions.marketingContentSubmit: أُرسل محتوى للموافقة\nactions.marketingContentRevise: أُرسلت نسخة جديدة من المحتوى\nactions.marketingContentWithdraw: سُحب محتوى\nactions.marketingContentApprove: اعتُمد محتوى\nactions.marketingContentChanges: طُلبت تعديلات على محتوى\nactions.marketingContentDecline: رُفض محتوى",
+      "body": "actions.staffDeductionRecord: سجّل المالك خصمًا من الراتب\nactions.staffWageSet: حُدّد راتب\nactions.staffWagePaid: سُجّل دفع راتب\nactions.staffWageUndo: أُلغي تسجيل دفع راتب\nactions.staffAttendanceRecord: سُجّل يوم تأخير أو انصراف مبكر\nactions.staffAttendanceClear: حُذف يوم تأخير أو انصراف مبكر\nactions.incidentReport: بُلِّغ عن حادثة\nactions.incidentReview: رُوجع بلاغ حادثة\nactions.incidentRedact: طُمس نص بلاغ حادثة\nactions.incidentPurge: حُذف نص بلاغ بعد 365 يومًا\nactions.marketingContentSubmit: أُرسل محتوى للموافقة\nactions.marketingContentRevise: أُرسلت نسخة جديدة من المحتوى\nactions.marketingContentWithdraw: سُحب محتوى\nactions.marketingContentApprove: اعتُمد محتوى\nactions.marketingContentChanges: طُلبت تعديلات على محتوى\nactions.marketingContentDecline: رُفض محتوى",
       "route": "/admin/audit"
     },
     {
       "kind": "label",
       "ref": "label:ws.manager.audit#6",
       "lang": "en",
-      "title": "ws.manager.audit (packages/i18n/src/catalogs/ws/manager.en.ts) (part 1 of 2)",
-      "body": "actions.reservationEventBlock: Courts blocked for a tournament\nactions.teachingSave: Teaching saved\nactions.teachingArchive: Teaching archived\nactions.staffDeductionPropose: Pay deduction proposed\nactions.staffDeductionWithdraw: Pay deduction withdrawn\nactions.staffDeductionApprove: Pay deduction approved\nactions.staffDeductionDecline: Pay deduction declined\nactions.staffDeductionCancel: Pay deduction cancelled\nactions.staffDeductionRecord: Pay deduction recorded by the owner\nactions.staffWageSet: Wage set\nactions.staffWagePaid: Wage marked paid\nactions.staffWageUndo: Wage payment undone\nactions.staffAttendanceRecord: Late or early day recorded\nactions.staffAttendanceClear: Late or early day cleared",
+      "title": "ws.manager.audit (packages/i18n/src/catalogs/ws/manager.en.ts) (part 1 of 3)",
+      "body": "actions.marketingRequestAnswer: Request to marketing answered\nactions.reservationEventBlock: Courts blocked for a tournament\nactions.teachingSave: Teaching saved\nactions.teachingArchive: Teaching archived\nactions.staffDeductionPropose: Pay deduction proposed\nactions.staffDeductionWithdraw: Pay deduction withdrawn\nactions.staffDeductionApprove: Pay deduction approved\nactions.staffDeductionDecline: Pay deduction declined\nactions.staffDeductionCancel: Pay deduction cancelled\nactions.staffDeductionRecord: Pay deduction recorded by the owner\nactions.staffWageSet: Wage set\nactions.staffWagePaid: Wage marked paid\nactions.staffWageUndo: Wage payment undone\nactions.staffAttendanceRecord: Late or early day recorded",
       "route": "/admin/audit"
     },
     {
       "kind": "label",
       "ref": "label:ws.manager.audit#6~2",
       "lang": "en",
-      "title": "ws.manager.audit (packages/i18n/src/catalogs/ws/manager.en.ts) (part 2 of 2)",
-      "body": "actions.reservationEventBlock: Courts blocked for a tournament\nactions.staffWagePaid: Wage marked paid\nactions.staffWageUndo: Wage payment undone\nactions.staffAttendanceRecord: Late or early day recorded\nactions.staffAttendanceClear: Late or early day cleared\nactions.incidentReport: Incident reported\nactions.incidentReview: Incident report reviewed\nactions.incidentRedact: Incident report redacted\nactions.incidentPurge: Incident text deleted after 365 days\nactions.marketingContentSubmit: Content sent for approval\nactions.marketingContentRevise: New content version sent\nactions.marketingContentWithdraw: Content withdrawn\nactions.marketingContentApprove: Content approved\nactions.marketingContentChanges: Changes asked on content\nactions.marketingContentDecline: Content declined",
+      "title": "ws.manager.audit (packages/i18n/src/catalogs/ws/manager.en.ts) (part 2 of 3)",
+      "body": "actions.marketingRequestAnswer: Request to marketing answered\nactions.staffWageSet: Wage set\nactions.staffWagePaid: Wage marked paid\nactions.staffWageUndo: Wage payment undone\nactions.staffAttendanceRecord: Late or early day recorded\nactions.staffAttendanceClear: Late or early day cleared\nactions.incidentReport: Incident reported\nactions.incidentReview: Incident report reviewed\nactions.incidentRedact: Incident report redacted\nactions.incidentPurge: Incident text deleted after 365 days\nactions.marketingContentSubmit: Content sent for approval\nactions.marketingContentRevise: New content version sent\nactions.marketingContentWithdraw: Content withdrawn\nactions.marketingContentApprove: Content approved\nactions.marketingContentChanges: Changes asked on content",
+      "route": "/admin/audit"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.manager.audit#6~3",
+      "lang": "en",
+      "title": "ws.manager.audit (packages/i18n/src/catalogs/ws/manager.en.ts) (part 3 of 3)",
+      "body": "actions.marketingRequestAnswer: Request to marketing answered\nactions.marketingContentWithdraw: Content withdrawn\nactions.marketingContentApprove: Content approved\nactions.marketingContentChanges: Changes asked on content\nactions.marketingContentDecline: Content declined",
       "route": "/admin/audit"
     },
     {
@@ -45734,7 +45998,7 @@
       "ref": "system:edge:desk-customer-create",
       "lang": "en",
       "title": "edge function desk-customer-create (part 1 of 4)",
-      "body": "verify_jwt = true (supabase/config.toml).\ndesk-customer-create — a walk-in gets a real guest account from the desk\n(spec 06.10 CustomerCreateScreen; build plan §0 \"Customer creation at the\ndesk creates a real guest account (auth user + profile) through a\nstaff-gated edge function, so the guest can later claim it\").\n\n  POST { fullName, phone, email?, preferredLang: 'en' | 'ar', gender?: 'female' | 'male',\n         ageBand?, playLevel? }\n    ->  201 { id }\n\ngender (0353): the operator asks for it on every new customer, so women's\nand men's hours can hold. Optional here only so a station still on an older\nbuild can register a walk-in; when given it must be female or male.\n\nErrors (JSON `{ error, message }`):",
+      "body": "verify_jwt = true (supabase/config.toml).\ndesk-customer-create — a walk-in gets a real guest account from the desk\n(spec 06.10 CustomerCreateScreen; build plan §0 \"Customer creation at the\ndesk creates a real guest account (auth user + profile) through a\nstaff-gated edge function, so the guest can later claim it\").\n\n  POST { fullName, phone, email?, preferredLang: 'en' | 'ar', gender?: 'female' | 'male',\n         ageBand?, playLevel?, ifExists?: 'return' }\n    ->  201 { id, customer }                             a new account\n    ->  200 { id, existing: true, claimed, customer }    ifExists 'return' and the number is held\n\n`ifExists: 'return'` (0448, Majed 2026-11-21: every customer a desk writes",
       "route": null
     },
     {
@@ -45742,7 +46006,7 @@
       "ref": "system:edge:desk-customer-create~2",
       "lang": "en",
       "title": "edge function desk-customer-create (part 2 of 4)",
-      "body": "verify_jwt = true (supabase/config.toml).\nand men's hours can hold. Optional here only so a station still on an older\nbuild can register a walk-in; when given it must be female or male.\n\nErrors (JSON `{ error, message }`):\n  400 BAD_REQUEST      — body shape, name length, preferredLang, gender, ageBand, playLevel\n  400 INVALID_PHONE    — fewer than 7 or more than 15 digits once normalised\n  409 DUPLICATE_PHONE  — a live profile already holds the number's key (canonical\n                         form, 0065 app.phone_canon: 0770… ≡ +964770… ≡ ٠٧٧٠…;\n                         0307: a verified owner or a desk walk-in, never a\n                         guest who only typed the number)\n  409 DUPLICATE_EMAIL  — GoTrue already has that address",
+      "body": "verify_jwt = true (supabase/config.toml).\n    ->  200 { id, existing: true, claimed, customer }    ifExists 'return' and the number is held\n\n`ifExists: 'return'` (0448, Majed 2026-11-21: every customer a desk writes\ndown is in the customer database). A booking, an open-match seat, a lesson\nplace or a cafe order taken with a typed name and number calls this first:\nthe answer is the account that already holds the number (never a 409), or a\nnew one made from the name and the number alone. The row is then written\nagainst that account, and the person finishes it on their own phone: the\ncode that confirms the number there claims this record (0307). In this mode\nthe cashier and the shop assistant may ask too, and the work is the booking",
       "route": null
     },
     {
@@ -45750,7 +46014,7 @@
       "ref": "system:edge:desk-customer-create~3",
       "lang": "en",
       "title": "edge function desk-customer-create (part 3 of 4)",
-      "body": "verify_jwt = true (supabase/config.toml).\n                         0307: a verified owner or a desk walk-in, never a\n                         guest who only typed the number)\n  409 DUPLICATE_EMAIL  — GoTrue already has that address\n  401 AUTH_REQUIRED / 403 FORBIDDEN — from requireStaffRole\n\nWHY AN EDGE FUNCTION. An account is an auth.users row, and only the GoTrue\nadmin API creates one — the same reason staff-admin (0051) exists. Every\nrow-level rule lives in migration 0065 (`app.find_customer_by_phone`,\n`app.desk_register_customer`, both service-role only); this file only\nsequences the two calls around `auth.admin.createUser`.\n\nTHE PASSWORD. Random, 32 bytes of entropy, never returned and never shown:\nthe guest claims the account later through \"forgot password\" (real email)",
+      "body": "verify_jwt = true (supabase/config.toml).\ncode that confirms the number there claims this record (0307). In this mode\nthe cashier and the shop assistant may ask too, and the work is the booking\ndialogs' and the till's, not only the Customers page's. `customer` is\n{ id, full_name, phone, gender } either way. `claimed` says whether anybody\nhas ever signed in to the account: false is still the desk's own record of\na walk-in, true is a person using the app (the lesson screens link a typed\nnumber to those only after the person confirms it, coaching C-21 / R44, so\nthey leave such a student typed).\n\nA NAME WITH NO NUMBER (0448, Majed the same day: \"it saves that name with\ntheir purchase as a customer with an incomplete account\"). In the same mode",
       "route": null
     },
     {
@@ -45758,7 +46022,7 @@
       "ref": "system:edge:desk-customer-create~4",
       "lang": "en",
       "title": "edge function desk-customer-create (part 4 of 4)",
-      "body": "verify_jwt = true (supabase/config.toml).\n\nTHE PASSWORD. Random, 32 bytes of entropy, never returned and never shown:\nthe guest claims the account later through \"forgot password\" (real email)\nor through a future phone-based claim flow — spec 06.10 gives the desk no\npassword field, and a password the operator can read aloud is a password\nthe operator knows.\n\nTHE EMAIL. Optional at the desk (spec 06.10 lists it as a field, the SOW\nmakes the p",
+      "body": "verify_jwt = true (supabase/config.toml).\nthey leave such a student typed).\n\nA NAME WITH NO NUMBER (0448, Majed the same day: \"it saves that name with\ntheir purchase as a customer with an incomplete account\"). In the same mode\n`phone` may be left out: the name alone becomes a customer,\n    ->  201 { id, incomplete: true, customer }\nunder `name-<uuid>@guest.touch.local`, with no phone and no key. Nothing is\never matched by name, so two people with one first name are two records.\n",
       "route": null
     },
     {
@@ -53606,7 +53870,7 @@
       "ref": "doc:docs/design/assistant/pages.md#28~3",
       "lang": "en",
       "title": "docs/design/assistant/pages.md › The owner's boards (formerly the Observe section) (part 3 of 3)",
-      "body": "ampaign, per-row \"Schedule\", \"Set live\" and \"End\" confirm then call app.set_campaign_status, \"New audience\" writes app.save_marketing_audience, and \"Open promot\n- /admin/audit — The read-only \"Audit log\": who did what and why, with period, search, area and actor filters and a \"missing reason\" toggle; the buttons only refresh, clear filters, expand a row's before and after values, or export CSV.",
+      "body": "ampaign, per-row \"Schedule\", \"Set live\" and \"End\" confirm then call app.set_campaign_status, \"New audience\" writes app.save_marketing_audience, and \"Open promot\n- /admin/audit — The read-only \"Audit log\" (the rail's \"Change history\"): every sensitive change, who made it, what changed and why, with period, search, area and actor filters and a \"missing reason\" toggle; the buttons only refresh, clear filters, expand a row's before and after values, or export CSV.",
       "route": null
     },
     {

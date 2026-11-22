@@ -142,7 +142,6 @@ export const courtDeskEn = {
       kindMatchBody: 'Players join one seat at a time.',
       kindLessonBody: 'A coach and a student.',
       kindNote: 'Open match and Lesson open their own wizard, carrying the court, time and guest over.',
-      typedGuestNote: 'A typed guest needs a name. The phone is optional.',
       // "19:00 · 90 min".
       whenNote: '{time} · {duration}',
       // "Court 1 · 90 min".
@@ -369,6 +368,39 @@ export const courtDeskEn = {
   },
 
   // 06.8–06.10 Customers
+  // 0448: a typed name and phone number become a customer account, on every desk screen.
+  deskAccount: {
+    // {name} is the customer's name.
+    created: '{name} is saved as a customer.',
+    createdIncomplete: '{name} is saved as a customer by name only. A phone number completes the account.',
+    // The badge on a customer saved by name alone, and what it means.
+    incomplete: 'Incomplete',
+    incompleteHint: 'Saved by name only. A phone number completes the account.',
+    linked: 'Linked to the account of {name}.',
+    check: 'This number already belongs to {name}. Check the name, then confirm.',
+    checkNote: 'This number already belongs to {name}. Nothing is saved yet. Same person: confirm again. Someone else: Unlink keeps the typed name.',
+    note: {
+      nameOnly: 'Without a number this guest is saved by name only, as an incomplete customer. A number completes the account.',
+      ready: 'Saved as a customer under this number. They finish their account in the app.',
+      offline: 'This station is offline: saved under the name only, with no customer record.',
+    },
+    // The box that adds a number to a customer saved by name alone.
+    complete: {
+      label: 'Phone number',
+      placeholder: 'Add their phone number',
+      save: 'Save number',
+      hint: 'The number completes the account, so they can finish it in the app.',
+      // {name} is who already holds the number.
+      taken: 'This number already belongs to {name}.',
+      takenUnknown: 'This number already belongs to another customer.',
+      useHolder: 'Use {name} instead',
+      INVALID_PHONE: 'A phone number has 7 to 15 digits.',
+      CUSTOMER_NOT_INCOMPLETE: 'This account already has a number, or its owner adds it in the app.',
+      OFFLINE: 'This station is offline. Add the number when the connection is back.',
+      FAILED: 'The number was not saved. Try again.',
+    },
+  },
+
   customers: {
     title: 'Customers',
     lead: 'Everyone with an account here. Type a phone, name or email to narrow the list; partial entries match.',

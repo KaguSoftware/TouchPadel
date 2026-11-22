@@ -53,6 +53,7 @@ export async function appRpc<Fn extends keyof Database['app']['Functions'] & str
  */
 const WEB_OVERRIDES = {
   TOKEN_INVALID: 'cafe.invalidQr',
+  CUSTOMER_BANNED: 'errors.accountBanned', // 0449: the club banned this account
   AUTH_REQUIRED: 'cafe.invalidQr', // anonymous sign-in failed / raced — rescan restarts the boot
   DEGRADED_LOCKOUT: 'degraded.orderingRefused',
   CAFE_CLOSED: 'cafe.cafeClosed',

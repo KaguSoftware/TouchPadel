@@ -21,7 +21,7 @@
  * reason. The idempotency key is minted once per dialog and sent again on a
  * retry, so a double tap starts one match.
  */
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { bookableDurations, wallTimeToUtc } from '@touch/core';
@@ -36,6 +36,8 @@ import { SegmentedControl } from '../../components/kit';
 import { ReviewList, StepWizard, WizardChips, WizardChoice, WizardChoices, WizardNote, WizardPrice, type WizardAt, type WizardStep } from '../../components/StepWizard';
 import { CustomerPicker, type PickedCustomer } from '../desk/customers/CustomerPicker';
 import { PickerHint } from '../desk/wizardParts';
+import { useDeskAccount } from '../desk/customers/deskAccount';
+import { DeskAccountCheckNote, DeskAccountNote } from '../desk/customers/DeskAccountNote';
 import { durationsFitting, nameFromQuery, phoneFromQuery, sanitizeName, sanitizePhone } from '../desk/deskLogic';
 import type { CreateNight } from '../desk/CreateReservationDialog';
 import { SLOT_MIN } from '../desk/useTradingNight';
@@ -48,6 +50,7 @@ import {
   EXTRA_SEATS,
   GUEST_NAME_MAX,
   earliestStartAt,
+  genderMismatch,
   guestFieldOf,
   guestFieldText,
   previewShares,
@@ -109,6 +112,12 @@ export function StartMatchDialog({
   const toast = useToast();
   const { reachable } = useStationReach();
   const idem = useMatchIdemKey('start');
+  // 0448: a typed name and number become a customer account before the match is started.
+  const deskAccount = useDeskAccount();
+  // Unlink is the desk's "start this under the typed name": no account is looked for after it.
+  const typedOnly = useRef(false);
+  // The last press found the number on an account under another name: the Organiser step says so.
+  const [otherName, setOtherName] = useState(false);
 
   const [courtId, setCourtId] = useState(initialCourtId);
   const [startIso, setStartIso] = useState(() => initialStartAt.toISOString());
@@ -218,8 +227,26 @@ export function StartMatchDialog({
     setBusy(true);
     setError(null);
     try {
+      // 0448: a typed organiser with a number is saved as a customer first (the
+      // account the number already has, or a new one) and the match is theirs.
+      // No number or no answer: started under the typed name.
+      let who: Organiser | null = customer;
+      if (!who && !typedOnly.current) {
+        const found = await deskAccount(guestName, guestPhone);
+        if (found) {
+          who = found.customer;
+          setCustomer(who);
+          // The number is somebody's under another name (the Organiser step shows whose, the next
+          // press starts the match), or its account says another gender than this match takes.
+          if (found.check || genderMismatch(category, who)) {
+            setOtherName(found.check);
+            setAt(0);
+            return;
+          }
+        }
+      }
       // No type argument on the call: the assistant map finds callers by `appRpc('<name>'` (§5.1).
-      const out = (await appRpc('desk_start_match', startArgs(draft, idem.key()))) as { match_id: string; price_iqd?: number | null; shares_iqd?: number[] | null };
+      const out = (await appRpc('desk_start_match', startArgs({ ...draft, customer: who }, idem.key()))) as { match_id: string; price_iqd?: number | null; shares_iqd?: number[] | null };
       idem.renew();
       invalidateMatchSeats(queryClient);
       const stamped = typeof out.price_iqd === 'number' ? out.price_iqd : null;
@@ -291,6 +318,8 @@ export function StartMatchDialog({
             }}
             onChange={(next: Organiser | null) => {
               setCustomer(next);
+              typedOnly.current = next === null;
+              setOtherName(false);
               // "Ask to join" needs someone with the app to answer: a typed organiser cannot.
               if (!next && joinPolicy === 'approve') setJoinPolicy('open');
               if (next) {
@@ -300,6 +329,7 @@ export function StartMatchDialog({
             }}
           />
           {!customer && <PickerHint />}
+          {customer && otherName && <DeskAccountCheckNote name={customer.name} />}
           </div>
           {banned && <WizardNote tone="refused">{tr('ws.matches.start.banned')}</WizardNote>}
           {!customer && (
@@ -338,6 +368,7 @@ export function StartMatchDialog({
               </Field>
             </div>
           )}
+          {!customer && <DeskAccountNote name={guestName} phone={guestPhone} />}
           <Field label={tr('ws.matches.start.comingWith')} group hint={tr('ws.matches.start.seatsAtStart', { seats })} style={{ marginBlockEnd: 0 }}>
             <WizardChips<string>
               label={tr('ws.matches.start.comingWith')}
