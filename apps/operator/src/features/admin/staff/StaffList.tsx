@@ -42,7 +42,7 @@ import { canAccess, useAuth, usePermissions, requiredRoleFor, type StaffRole } f
 import { pickName, useLocale } from '../../../lib/i18n';
 import { useVenue } from '../../../lib/venue';
 import { useToast } from '../../../components/toast';
-import { Button, ErrorText, Field, Modal, inputStyle } from '../../../components/ui';
+import { Button, ErrorText, Field, inputStyle } from '../../../components/ui';
 import {
   AsyncStateWrapper,
   DataTable,
@@ -62,13 +62,10 @@ import { StaffErrorText } from './staffParts';
 import { createdStaffId, hirePrefill, readHireStep } from './hirePrefill';
 import {
   MIN_PASSWORD,
-  PIN_MAX,
-  PIN_MIN,
   STAFF_QUERY_KEY,
   approvesWithPin,
   isRetiredRole,
   looksLikeEmail,
-  pinFormatOk,
   roleChoices,
   type StaffRow,
 } from './staffModel';
@@ -86,8 +83,6 @@ export function StaffList() {
   // true: a plain Add staff member; a HireIntent: filled in from the run.
   const [adding, setAdding] = useState<boolean | HireIntent>(false);
   const [openId, setOpenId] = useState<string | null>(null);
-  const [passwordFor, setPasswordFor] = useState<StaffRow | null>(null);
-  const [pinFor, setPinFor] = useState<StaffRow | null>(null);
   const [showRemoved, setShowRemoved] = useState(false);
 
   const staffQ = useQuery({
@@ -123,12 +118,10 @@ export function StaffList() {
         <span style={{ display: 'grid', gap: 'var(--tp-sp-0)' }}>
           <span style={{ display: 'inline-flex', gap: 'var(--tp-sp-1-5)', alignItems: 'center', flexWrap: 'wrap' }}>
             <span style={{ fontWeight: 600 }}>{tr(`op.roles.${s.role}`)}</span>
-            {/* Prep since 0155: it still works but is no longer given. The badge
-                stays when the panel is open and the line beneath does not. */}
+            {/* Prep since 0155: it still works but is no longer given. */}
             {isRetiredRole(s.role) && <StatusBadge size="sm" tone="warn" dot={false} label={tr('ws.owner.staff.retired')} />}
           </span>
-          {/* With the panel open the panel says it, and the column is too narrow to. */}
-          {!open && <span style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>{tr(`ws.owner.staff.roleAccess.${s.role}`)}</span>}
+          <span style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>{tr(`ws.owner.staff.roleAccess.${s.role}`)}</span>
         </span>
       ),
     },
@@ -168,9 +161,6 @@ export function StaffList() {
       ),
     },
   ];
-  // With the panel open, a row click moves it to another person; the button
-  // column only cost the table the width its Access column needed at 1100px.
-  const tableColumns = open ? columns.filter((c) => c.key !== 'manage') : columns;
 
   return (
     <div>
@@ -186,7 +176,7 @@ export function StaffList() {
       {!can.manageStaff && <PermissionRefusedNotice action={tr('ws.owner.staff.refusedAction')} requiredRole={requiredRoleFor('manageStaff')} style={{ marginBlockEnd: 'var(--tp-sp-4)' }} />}
       {hire && can.manageStaff && <HireBanner stepId={hire} onAdd={(intent) => setAdding(intent)} />}
 
-      <div style={{ display: 'grid', gridTemplateColumns: open ? 'minmax(0, 1fr) minmax(19rem, 24rem)' : 'minmax(0, 1fr)', gap: 'var(--tp-sp-4)', alignItems: 'start' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)' }}>
         <div style={{ minInlineSize: 0, display: 'grid', gap: 'var(--tp-sp-3)' }}>
           {/* One owner is a real risk, not trivia: if that account is lost,
               nobody can manage staff. Said once, above the list it concerns. */}
@@ -210,7 +200,7 @@ export function StaffList() {
             }
           >
             <DataTable
-              columns={tableColumns}
+              columns={columns}
               rows={shown}
               rowKey={(s) => s.id}
               selectedKey={openId}
@@ -228,18 +218,17 @@ export function StaffList() {
             )}
           </AsyncStateWrapper>
         </div>
-        {open && (
-          <StaffAccountEditor
-            key={open.id}
-            staff={open}
-            isSelf={open.id === me?.id}
-            canManage={can.manageStaff}
-            onClose={() => setOpenId(null)}
-            onResetPassword={() => setPasswordFor(open)}
-            onSetPin={() => setPinFor(open)}
-          />
-        )}
       </div>
+
+      {open && (
+        <StaffAccountEditor
+          key={open.id}
+          staff={open}
+          isSelf={open.id === me?.id}
+          canManage={can.manageStaff}
+          onClose={() => setOpenId(null)}
+        />
+      )}
 
       {adding && (
         <AddStaffDialog
@@ -249,17 +238,6 @@ export function StaffList() {
             // A finished hire leaves the link: the step is no longer open.
             if (typeof adding === 'object') void navigate({ to: '/admin/staff', search: {} });
             setAdding(false);
-            void refresh();
-          }}
-        />
-      )}
-      {passwordFor && <PasswordDialog staff={passwordFor} onClose={() => setPasswordFor(null)} />}
-      {pinFor && (
-        <PinDialog
-          staff={pinFor}
-          onClose={() => setPinFor(null)}
-          onSaved={() => {
-            setPinFor(null);
             void refresh();
           }}
         />
@@ -541,114 +519,5 @@ function AddStaffDialog({ onClose, onCreated, hire }: { onClose(): void; onCreat
         />
       )}
     />
-  );
-}
-
-function PasswordDialog({ staff, onClose }: { staff: StaffRow; onClose(): void }) {
-  const { tr, locale } = useLocale();
-  const toast = useToast();
-  const [password, setPassword] = useState('');
-
-  const reset = useMutation({
-    mutationFn: () => callEdge<unknown, { result: string }>('staff-admin', { action: 'reset_password', staff_id: staff.id, password }, { ttlMs: 0 }),
-    onSuccess: () => {
-      toast.ok(tr('op.staff.passwordReset'));
-      onClose();
-    },
-  });
-
-  const short = password.length < MIN_PASSWORD;
-
-  return (
-    <Modal
-      title={tr('op.staff.resetPasswordFor', { name: staff.display_name })}
-      subtitle={tr('ws.owner.staff.password.lead')}
-      onClose={onClose}
-      footer={(close) => (
-        <>
-          <Button onClick={close} disabled={reset.isPending}>
-            {tr('common.cancel')}
-          </Button>
-          <Button
-            kind="primary"
-            icon="lock"
-            disabled={short}
-            busy={reset.isPending}
-            onClick={() => reset.mutate()}
-          >
-            {tr('ws.owner.staff.password.save')}
-          </Button>
-        </>
-      )}
-    >
-      <Field label={tr('ws.owner.staff.password.label')} hint={tr('op.staff.passwordHint', { min: formatNumber(MIN_PASSWORD, locale) })}>
-        <input style={inputStyle} dir="ltr" type="text" autoFocus autoComplete="off" value={password} onChange={(e) => setPassword(e.target.value)} />
-      </Field>
-      <StaffErrorText error={reset.error} />
-    </Modal>
-  );
-}
-
-function PinDialog({ staff, onClose, onSaved }: { staff: StaffRow; onClose(): void; onSaved(): void }) {
-  const { tr, locale } = useLocale();
-  const toast = useToast();
-  const [pin, setPin] = useState('');
-
-  const save = useMutation({
-    mutationFn: () => appRpc('set_staff_pin', { p_staff_id: staff.id, p_pin: pin }),
-    onSuccess: () => {
-      toast.ok(tr('ws.owner.staff.pin.saved'));
-      onSaved();
-    },
-  });
-
-  // 6-12 digits, matching app.set_staff_pin's own check since 0078 (SEC-13).
-  // The field used to stop at 6 digits while its hint said "4 to 6", so a
-  // four-digit PIN left Save dead with nothing saying why. The server
-  // additionally refuses a repeated digit or a sequential run (PIN_WEAK) —
-  // deliberately NOT mirrored here: duplicating the blocklist in the client is
-  // how the two drift apart. StaffErrorText says it in words when it comes back.
-  const valid = pinFormatOk(pin);
-  const n = (v: number) => formatNumber(v, locale);
-
-  return (
-    <Modal
-      title={staff.has_pin ? tr('ws.owner.staff.pin.changeFor', { name: staff.display_name }) : tr('ws.owner.staff.pin.setFor', { name: staff.display_name })}
-      subtitle={tr('ws.owner.staff.pin.lead')}
-      onClose={onClose}
-      size="sm"
-      footer={(close) => (
-        <>
-          <Button onClick={close} disabled={save.isPending}>
-            {tr('common.cancel')}
-          </Button>
-          <Button
-            kind="primary"
-            icon="lock"
-            disabled={!valid}
-            busy={save.isPending}
-            onClick={() => save.mutate()}
-          >
-            {tr('common.save')}
-          </Button>
-        </>
-      )}
-    >
-      <Field label={tr('ws.owner.staff.pin.label')} hint={tr('ws.owner.staff.pin.hint', { min: n(PIN_MIN), max: n(PIN_MAX) })}>
-        <input
-          style={{ ...inputStyle, fontSize: 'var(--tp-fs-2xl)', letterSpacing: '0.3em', textAlign: 'center' }}
-          dir="ltr"
-          inputMode="numeric"
-          autoFocus
-          autoComplete="off"
-          value={pin}
-          onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, PIN_MAX))}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && valid && !save.isPending) save.mutate();
-          }}
-        />
-      </Field>
-      <StaffErrorText error={save.error} />
-    </Modal>
   );
 }

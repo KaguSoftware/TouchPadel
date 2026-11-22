@@ -38,7 +38,6 @@ export function WagesDueCard() {
           {tr('ws.wages.card.open')}
         </Button>
       }
-      style={{ marginBlockEnd: 'var(--tp-sp-4)' }}
     >
       <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid' }}>
         {cap.shown.map((r) => (

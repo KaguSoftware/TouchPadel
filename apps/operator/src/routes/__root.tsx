@@ -27,6 +27,7 @@ import {
   type ReactNode,
 } from 'react';
 import { formatNumber } from '@touch/i18n';
+import { badgeLabel } from '../components/badgeCount';
 import { useAuth, can, canAccess, homeRouteFor, isBlockedRoute, type StaffRole } from '../lib/auth';
 import type { StaffAccess } from '@touch/core';
 import { useLocale } from '../lib/i18n';
@@ -549,23 +550,8 @@ function RailCount({ count }: { count: number }) {
   if (count <= 0) return null;
   return (
     <>
-      <span
-        aria-hidden="true"
-        style={{
-          flexShrink: 0,
-          minInlineSize: '1.4rem',
-          paddingInline: 'var(--tp-sp-1-5)',
-          borderRadius: 'var(--tp-radius-pill)',
-          background: 'var(--tp-rail-green)',
-          color: 'var(--tp-rail)',
-          fontSize: 'var(--tp-fs-xs)',
-          fontWeight: 700,
-          lineHeight: 1.6,
-          textAlign: 'center',
-          fontVariantNumeric: 'tabular-nums',
-        }}
-      >
-        {formatNumber(count, locale)}
+      <span aria-hidden="true" className="tp-rail-count">
+        {badgeLabel(count, locale)}
       </span>
       <span className="tp-sr-only">{tr('ws.shell.nav.badge', { count: formatNumber(count, locale) })}</span>
     </>

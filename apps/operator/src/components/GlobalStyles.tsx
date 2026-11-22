@@ -164,6 +164,8 @@ input:disabled, select:disabled, textarea:disabled {
    unreadable at the exact moment a finger was on it. Every other kind already
    restates its own ground here; danger was the one that only asked for a filter. */
 .tp-btn[data-kind='danger']:hover:not(:disabled) { background: var(--tp-danger); border-color: var(--tp-danger); color: var(--tp-danger-contrast); filter: brightness(0.92); }
+.tp-btn.tp-remove-btn { color: var(--tp-danger); border-color: var(--tp-danger); background: color-mix(in srgb, var(--tp-danger) 5%, transparent); }
+.tp-btn.tp-remove-btn:hover:not(:disabled) { background: var(--tp-danger); border-color: var(--tp-danger); color: var(--tp-danger-contrast); }
 .tp-btn[data-kind='ghost'] { background: transparent; border-color: transparent; }
 .tp-btn[data-kind='ghost']:hover:not(:disabled) { background: var(--tp-hover); color: var(--tp-hover-fg); }
 /* The border is what keeps a soft button visible inside a hovered row: its ground
@@ -253,6 +255,8 @@ details[open] > .tp-crash-details .tp-crash-chev { transform: rotate(90deg); }
 .tp-tile:hover:not(:disabled) { background: var(--tp-hover); color: var(--tp-hover-fg); }
 .tp-tile:active:not(:disabled) { transform: scale(0.99); }
 .tp-tile:disabled { cursor: not-allowed; }
+/* Today's court cards (features/desk/TodaysBoard): the border carries the state, so hover rings it instead. */
+.tp-court-card:hover { outline: 2px solid var(--tp-accent); outline-offset: -1px; }
 /* The on-screen keyboard (components/TouchKeyboard.tsx). --tp-osk-inset is its
    height while it is up: the body is padded by it so a screen taller than what
    is left can still scroll its field above the keys (the shell, the lock and
@@ -685,28 +689,19 @@ input, textarea, form { scroll-margin-block-end: var(--tp-sp-3); }
 .tp-family-tab:hover { color: var(--tp-fg); }
 .tp-family-tab[aria-current='page'] { color: var(--tp-fg); font-weight: 700; border-block-end-color: var(--tp-accent); }
 .tp-family-tab:focus-visible { outline-offset: -2px; }
-.tp-family-tab-count {
-  font-size: var(--tp-fs-xs); font-weight: 600; font-variant-numeric: tabular-nums;
-  padding-inline: 0.4rem; border-radius: var(--tp-radius-pill);
-  background: var(--tp-surface-3); color: var(--tp-fg);
+.tp-family-tab-count, .tp-rail-count {
+  display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+  box-sizing: border-box; min-inline-size: 1.3rem; block-size: 1.3rem; padding: 0 0.3rem;
+  border-radius: var(--tp-radius-pill);
+  font-size: 0.75rem; font-weight: 800; line-height: 1; text-align: center; font-variant-numeric: normal;
 }
+.tp-family-tab-count { background: var(--tp-surface-3); color: var(--tp-fg); }
+.tp-rail-count { background: var(--tp-rail-green); color: var(--tp-rail); }
 .tp-family-tab[aria-current='page'] .tp-family-tab-count { background: var(--tp-accent-soft); color: var(--tp-accent-soft-fg); }
 
 /* Go to (components/GoToPalette.tsx): one search over every page. The field is
    the dialog's first thing and its largest; the list scrolls inside the
    dialog, the highlighted option carries the selection ground. */
-.tp-goto-input {
-  inline-size: 100%; box-sizing: border-box; min-block-size: 3rem;
-  padding-block: 0.5rem; padding-inline: 2.5rem 0.75rem;
-  border: 1px solid var(--tp-border-input); border-radius: var(--tp-radius-ctl);
-  background: var(--tp-surface); color: var(--tp-fg);
-  font: inherit; font-size: var(--tp-fs-lg);
-}
-.tp-goto-list {
-  list-style: none; margin: 0; padding: 0;
-  max-block-size: min(26rem, 55vh); overflow-y: auto;
-  border: 1px solid var(--tp-border); border-radius: var(--tp-radius-panel);
-}
 .tp-goto-option {
   display: flex; align-items: baseline; justify-content: space-between; gap: var(--tp-sp-3);
   padding-block: var(--tp-sp-2); padding-inline: var(--tp-sp-3);
@@ -716,6 +711,60 @@ input, textarea, form { scroll-margin-block-end: var(--tp-sp-3); }
 .tp-goto-option:last-child { border-block-end: none; }
 .tp-goto-option[aria-selected='true'] { background: var(--tp-selected); color: var(--tp-selected-fg); }
 .tp-goto-option[aria-selected='true'] span { color: inherit !important; }
+/* Go to modal (components/GoToPalette.tsx): search row, area chips, grouped rows with the mobile profile's icon chip. */
+.tp-gt { display: flex; flex-direction: column; min-block-size: 0; }
+.tp-gt-search { display: flex; align-items: center; gap: var(--tp-sp-3); padding: var(--tp-sp-4); border-block-end: 1px solid var(--tp-border); }
+.tp-gt-input { flex: 1; min-inline-size: 0; border: 0; background: transparent; color: var(--tp-fg); font: inherit; font-size: var(--tp-fs-lg); outline: none; }
+.tp-gt-input::placeholder { color: var(--tp-muted-fg); }
+/* The row is the field: no focus box round the text (the global input ring would draw one). */
+.tp-gt-input:focus-visible { outline: none; box-shadow: none; }
+.tp-gt-chips {
+  display: flex; flex-wrap: nowrap; gap: var(--tp-sp-2); padding: var(--tp-sp-3) var(--tp-sp-4) var(--tp-sp-2);
+  overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none;
+}
+.tp-gt-chips::-webkit-scrollbar { display: none; }
+.tp-gt-chip {
+  font: inherit; font-size: var(--tp-fs-sm); font-weight: 600; cursor: pointer;
+  flex: none; white-space: nowrap;
+  padding-block: 0.25rem; padding-inline: 0.7rem; border-radius: 999px;
+  border: 1px solid var(--tp-border); background: transparent; color: var(--tp-muted-fg);
+}
+.tp-gt-chip[aria-pressed='true'] { background: var(--tp-accent); border-color: var(--tp-accent); color: var(--tp-accent-contrast); }
+.tp-gt-list {
+  /* A fixed height, not a max: the dialog must not resize as a chip or a search changes what is listed. */
+  block-size: min(32rem, 65vh); overflow-y: auto; overscroll-behavior: contain;
+  scrollbar-width: thin; scrollbar-color: var(--tp-border) transparent; scrollbar-gutter: stable;
+  padding: 0 var(--tp-sp-1) var(--tp-sp-2) 0;
+}
+.tp-gt-empty { block-size: min(32rem, 65vh); box-sizing: border-box; padding: var(--tp-sp-6) var(--tp-sp-4); text-align: center; color: var(--tp-muted-fg); }
+.tp-gt-group {
+  /* Sticky: a heading stays at the top of the list until the next category's heading pushes it off.
+     It paints the dialog's own surface so rows scroll cleanly under it, and carries the list's old
+     top spacing as padding, since a margin would let rows show above it. */
+  position: sticky; inset-block-start: 0; z-index: 1; background: var(--tp-surface);
+  padding-block: var(--tp-sp-3) var(--tp-sp-1); padding-inline: var(--tp-sp-4) var(--tp-sp-3);
+  font-size: var(--tp-fs-xs); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--tp-muted-fg);
+  display: flex; align-items: center; gap: var(--tp-sp-3);
+}
+/* A light line runs on from the heading to the edge, dividing one category from the next. */
+.tp-gt-group::after { content: ''; flex: 1; block-size: 1px; background: var(--tp-border); }
+.tp-gt-row {
+  display: flex; align-items: center; gap: var(--tp-sp-3); cursor: pointer;
+  padding-block: var(--tp-sp-2); padding-inline: var(--tp-sp-2); border-radius: 10px;
+  margin-inline: var(--tp-sp-2) var(--tp-sp-1);
+  min-block-size: var(--tp-touch); box-sizing: border-box;
+}
+.tp-gt-row[aria-selected='true'] { background: var(--tp-selected); color: var(--tp-selected-fg); }
+.tp-gt-chipicon {
+  flex: none; inline-size: 1.875rem; block-size: 1.875rem; border-radius: 0.5625rem;
+  display: grid; place-items: center;
+  background: var(--tp-success-soft); color: var(--tp-success-fg);
+  border: 1px solid color-mix(in srgb, var(--tp-success-mark) 45%, transparent);
+}
+.tp-gt-name { flex: 1; min-inline-size: 0; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tp-gt-where { flex: none; font-size: var(--tp-fs-sm); color: var(--tp-muted-fg); }
+.tp-gt-row[aria-selected='true'] .tp-gt-where { color: inherit; opacity: 0.8; }
+.tp-gt-mark { background: var(--tp-warn-soft); color: inherit; border-radius: 3px; padding-inline: 1px; }
 .tp-goto-kbd {
   flex-shrink: 0; font: inherit; font-size: var(--tp-fs-xs); font-variant-numeric: tabular-nums;
   padding-inline: 0.35rem; border: 1px solid var(--tp-rail-border); border-radius: var(--tp-radius-ctl);
@@ -1252,10 +1301,10 @@ button.tp-nav-item { background: transparent; }
 .tp-ruled-checks > * + *::before { inset-inline: 0; inset-block-start: calc(-0.5 * var(--tp-sp-4)); }
 /* The manager's floor cards: every band as tall as one holding a button (Kitchen has none), so the three line up. */
 .tp-floor-cards .tp-breakdown-head { box-sizing: border-box; min-block-size: calc(2.25rem + 2 * var(--tp-sp-3)); }
-/* Blue mode: a table inside a coloured card (the analytics cards) wears the
-   card's colours, its band for the column band, its wash for the body and its
-   edge for the frame, instead of the navy panel's (Sait, 2026-10-21). */
-:root[data-theme='operator'][data-mode='blue'] .tp-breakdown-card {
+/* A table inside a coloured card (the analytics cards) wears the card's
+   colours in both modes: its band for the column band, its wash for the body
+   and its edge for the frame (Sait, 2026-10-21; paper mode too, 2026-11-22). */
+.tp-breakdown-card {
   --tp-table-head: var(--tp-bd); --tp-table-head-fg: var(--tp-bd-fg);
   --tp-table-edge: var(--tp-bd-edge); --tp-table-body: transparent;
 }
@@ -1263,6 +1312,9 @@ button.tp-nav-item { background: transparent; }
 .tp-table-tone { --tp-table-head: var(--tp-bd); --tp-table-head-fg: var(--tp-bd-fg); --tp-table-edge: var(--tp-bd-edge); }
 /* A table in a main panel (the framed one with a title band) is green too, unless a coloured card or .tp-tone already hands it a colour (Sait, 2026-11-14). */
 .tp-panel-framed .tp-table-frame:not(.tp-breakdown-card .tp-table-frame, .tp-tone .tp-table-frame) { --tp-table-head: var(--tp-breakdown-green); --tp-table-head-fg: var(--tp-breakdown-green-fg); --tp-table-edge: var(--tp-breakdown-green-edge); }
+/* An item pill on a coloured card (the add-ons page's Items card): white on paper, the card's own band colour in blue mode (Sait, 2026-11-22). */
+.tp-item-pill { background: var(--tp-brand-white); color: var(--tp-brand-black); border: 1px solid var(--tp-border); }
+:root[data-theme='operator'][data-mode='blue'] .tp-item-pill { background: var(--tp-bd); color: var(--tp-bd-fg); border-color: transparent; }
 /* The "i" in any coloured band (a card's, a panel's) wears the band's own text colour, like its title, instead of the muted grey. */
 .tp-breakdown-head .tp-infotip-trigger, .tp-breakdown-head .tp-infotip-trigger:focus-visible,
 .tp-band-title .tp-infotip-trigger, .tp-band-title .tp-infotip-trigger:focus-visible { color: inherit; }

@@ -148,6 +148,68 @@ export function courtAvailability(
   });
 }
 
+/**
+ * What a court card on Today says (2026-11-22, option C of the Today rework):
+ * free; a group on court (arrived); a booking that started with nobody marked
+ * (late); a booking not yet started that already holds the court (pending);
+ * a lesson; a block; an app hold.
+ */
+export type CourtCardState = 'free' | 'here' | 'booked' | 'late' | 'lesson' | 'blocked' | 'held';
+
+export interface CourtCard {
+  courtId: string;
+  state: CourtCardState;
+  /** The row holding the court now; absent when free. */
+  current?: ReservationRow;
+  /** The next row on this court after `current` ends (or after now, when free). */
+  next?: ReservationRow;
+  /** Busy: minutes until `current` ends. Free: minutes until `next` starts; null when nothing else is booked. */
+  minutesLeft: number | null;
+  /** Share of `current` already played, 0 to 1; 0 when free. */
+  progress: number;
+}
+
+const minutesUntil = (fromIso: string, toIso: string) => Math.max(0, Math.round((Date.parse(toIso) - Date.parse(fromIso)) / 60_000));
+
+/**
+ * One card per court, in court order, from rows already on screen. The same
+ * reading as `courtAvailability` (a blocking row spanning now holds the court),
+ * plus who is next and how much time is left. `isLesson` lets the caller count
+ * a lesson's hold row as the lesson (coaching §5.8).
+ */
+export function courtCards(
+  courtIds: readonly string[],
+  reservations: readonly ReservationRow[],
+  nowIso: string,
+  isLesson: (r: ReservationRow) => boolean = (r) => r.kind === 'lesson',
+): CourtCard[] {
+  return courtIds.map((courtId) => {
+    const own = reservations
+      .filter((r) => r.court_id === courtId && BLOCKING_STATUSES.has(r.status))
+      .sort((a, b) => a.start_at.localeCompare(b.start_at));
+    const current = own.find((r) => r.start_at <= nowIso && r.end_at > nowIso);
+    if (!current) {
+      const next = own.find((r) => r.start_at > nowIso);
+      return { courtId, state: 'free', next, minutesLeft: next ? minutesUntil(nowIso, next.start_at) : null, progress: 0 };
+    }
+    const next = own.find((r) => r.id !== current.id && r.start_at >= current.end_at);
+    const state: CourtCardState = isLesson(current)
+      ? 'lesson'
+      : current.kind === 'maintenance'
+        ? 'blocked'
+        : current.kind === 'hold'
+          ? 'held'
+          : current.status === 'arrived'
+            ? 'here'
+            : current.status === 'confirmed'
+              ? 'late'
+              : 'booked';
+    const span = Date.parse(current.end_at) - Date.parse(current.start_at);
+    const progress = span > 0 ? Math.min(1, Math.max(0, (Date.parse(nowIso) - Date.parse(current.start_at)) / span)) : 0;
+    return { courtId, state, current, next, minutesLeft: minutesUntil(nowIso, current.end_at), progress };
+  });
+}
+
 export interface ArrivalsDue<T> {
   /** Already started and still not marked arrived — the guest is late, or never came. */
   late: T[];

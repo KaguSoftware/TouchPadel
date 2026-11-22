@@ -144,6 +144,8 @@ export function HeroBuilder() {
   const [draft, setDraft] = useState<Draft | null>(null);
   const [saving, setSaving] = useState(false);
   const [switchingOff, setSwitchingOff] = useState(false);
+  // The category chosen in the picker; until one is, the featured item's own.
+  const [pickedCat, setPickedCat] = useState<string | null>(null);
   // Read from what is saved: see heroLocks.
   const locks = heroLocks(settings, can(staff, 'editLaunchedPrices'));
 
@@ -184,6 +186,9 @@ export function HeroBuilder() {
 
   // What is shown and saved: a locked value follows what is stored.
   const shown = draft ? lockedHeroDraft(draft, settings, locks) : null;
+
+  const featuredCatId =
+    pickedCat ?? menuQ.data?.items.find((i) => i.id === shown?.featured_item_id)?.category_id ?? null;
 
   const featuredItem: HeroPreviewItem | null = useMemo(() => {
     const row = menuQ.data?.items.find((i) => i.id === shown?.featured_item_id);
@@ -355,22 +360,32 @@ export function HeroBuilder() {
 
           <div style={{ display: shown.hero_mode === 'featured' ? 'block' : 'none' }}>
             <Panel title={tr('op.hero.featuredTitle')}>
+              <Field label={tr('op.hero.featuredCategory')}>
+                <Select
+                  value={featuredCatId ?? ''}
+                  disabled={locks.item}
+                  onChange={(id) => {
+                    setPickedCat(id || null);
+                    // A different category invalidates the item picked under the old one.
+                    if (id !== featuredCatId) patch({ featured_item_id: null });
+                  }}
+                  options={[
+                    { value: '', label: tr('op.hero.pickCategory') },
+                    ...grouped.map((g) => ({ value: g.category.id, label: locale === 'ar' ? g.category.name_ar : g.category.name_en })),
+                  ]}
+                />
+              </Field>
               <Field label={tr('op.hero.featuredItem')} hint={tr(locks.item ? 'ws.pricing.hero.itemLocked' : 'op.hero.featuredItemHint')}>
                 <Select
                   value={shown.featured_item_id ?? ''}
-                  disabled={locks.item}
+                  disabled={locks.item || !featuredCatId}
                   onChange={(id) => patch({ featured_item_id: id || null })}
                   options={[
-                    { value: '', label: tr('op.hero.pickItem') },
-                    // The <optgroup> per category became a category-prefixed
-                    // flat list: SelectMenu draws its own panel and has no
-                    // group row, and two categories may hold the same dish.
-                    ...grouped.flatMap((g) =>
-                      g.items.map((i2) => ({
-                        value: i2.id,
-                        label: `${locale === 'ar' ? g.category.name_ar : g.category.name_en} · ${locale === 'ar' ? i2.name_ar : i2.name_en}`,
-                      })),
-                    ),
+                    { value: '', label: tr(featuredCatId ? 'op.hero.pickItem' : 'op.hero.pickItemFirstCategory') },
+                    ...(grouped.find((g) => g.category.id === featuredCatId)?.items ?? []).map((i2) => ({
+                      value: i2.id,
+                      label: locale === 'ar' ? i2.name_ar : i2.name_en,
+                    })),
                   ]}
                 />
               </Field>
@@ -427,37 +442,6 @@ export function HeroBuilder() {
             <Switch checked={draft.bell_tutorial_enabled} onChange={(next) => patch({ bell_tutorial_enabled: next })} label={tr('op.hero.bellTutorial')} />
             <p style={{ margin: 0, marginBlockStart: 'var(--tp-sp-1)', fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>{tr('op.hero.bellTutorialHint')}</p>
           </Panel>
-
-          {/* One Save, kept in reach at the foot of the column however far the
-              form has scrolled, and it says whether there is anything to keep. */}
-          <div
-            style={{
-              position: 'sticky',
-              insetBlockEnd: 0,
-              display: 'flex',
-              gap: 'var(--tp-sp-2)',
-              alignItems: 'center',
-              flexWrap: 'wrap',
-              paddingBlock: 'var(--tp-sp-2)',
-              paddingInline: 'var(--tp-sp-3)',
-              background: 'var(--tp-surface)',
-              border: '1px solid var(--tp-border)',
-              borderRadius: 'var(--tp-radius-panel)',
-              boxShadow: dirty ? 'var(--tp-shadow-raised)' : undefined,
-            }}
-          >
-            <span style={{ fontSize: 'var(--tp-fs-sm)', color: dirty ? 'var(--tp-fg)' : 'var(--tp-muted-fg)', fontWeight: dirty ? 600 : 400, marginInlineEnd: 'auto' }}>
-              {dirty ? tr('op.hero.unsaved') : tr('op.hero.upToDate')}
-            </span>
-            {dirty && (
-              <Button kind="ghost" disabled={saving} onClick={() => setDraft(fromSettings(settings))}>
-                {tr('op.hero.discard')}
-              </Button>
-            )}
-            <Button kind="primary" icon="check" busy={saving} disabled={!canSave} disabledReason={dirty && blocked ? blocked : undefined} onClick={() => void save()}>
-              {tr('common.save')}
-            </Button>
-          </div>
         </div>
 
         <aside data-no-print style={{ flex: '0 0 auto', position: 'sticky', insetBlockStart: 'var(--tp-sp-4)', display: 'grid', gap: 'var(--tp-sp-1-5)' }}>
@@ -477,6 +461,41 @@ export function HeroBuilder() {
             bellTutorial={shown.bell_tutorial_enabled}
           />
         </aside>
+      </div>
+
+      {/* One Save, kept in reach at the foot of the column however far the
+          form has scrolled, and it says whether there is anything to keep. */}
+      <div
+        style={{
+          position: 'sticky',
+          insetBlockEnd: 0,
+          marginBlockStart: 'var(--tp-sp-3)',
+          display: 'flex',
+          gap: 'var(--tp-sp-2)',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          paddingBlock: 'var(--tp-sp-2)',
+          paddingInline: 'var(--tp-sp-3)',
+          background: dirty ? 'var(--tp-surface)' : 'color-mix(in oklab, var(--tp-accent) 62%, black)',
+          border: dirty ? '1px solid var(--tp-border)' : 'none',
+          borderRadius: 'var(--tp-radius-panel)',
+          boxShadow: dirty ? 'var(--tp-shadow-raised)' : undefined,
+        }}
+      >
+        <span style={{ fontSize: 'var(--tp-fs-sm)', color: dirty ? 'var(--tp-fg)' : 'var(--tp-accent-contrast)', fontWeight: dirty ? 600 : 500, marginInlineEnd: 'auto' }}>
+          {dirty ? tr('op.hero.unsaved') : tr('op.hero.upToDate')}
+        </span>
+        {dirty && (
+          <Button kind="ghost" disabled={saving} onClick={() => setDraft(fromSettings(settings))}>
+            {tr('op.hero.discard')}
+          </Button>
+        )}
+        <Button kind="primary" icon="check" busy={saving} disabled={!canSave} disabledReason={dirty && blocked ? blocked : undefined}
+          // On the blue "saved" bar a faded button vanishes; keep it solid.
+          style={!dirty && !saving ? { opacity: 1, background: 'var(--tp-surface)', color: 'var(--tp-accent)', borderColor: 'var(--tp-surface)' } : undefined}
+          onClick={() => void save()}>
+          {tr('common.save')}
+        </Button>
       </div>
     </div>
   );

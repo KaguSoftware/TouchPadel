@@ -265,7 +265,7 @@ describe('sections (page map, 2026-10-17)', () => {
       expect(where(path), path).toBe('money');
     }
     // Courts: bookings, every court setting, coaches.
-    for (const path of ['/observation/courts', '/desk', '/admin/rates', '/admin/courts', '/admin/settings/booking', '/admin/hours', '/admin/settings/tournaments', '/admin/coaches']) {
+    for (const path of ['/observation/courts', '/desk', '/admin/courts', '/admin/settings/booking', '/admin/hours', '/admin/coaches']) {
       expect(where(path), path).toBe('courts');
     }
     // Café & shop.
@@ -441,7 +441,7 @@ describe('menu editor tabs', () => {
     for (const path of ['/admin/menu', '/admin/categories', '/admin/addons', '/admin/suggested']) {
       expect(isNavActive(menuRow, path), path).toBe(true);
     }
-    expect(isNavActive(menuRow, '/admin/rates')).toBe(false);
+    expect(isNavActive(menuRow, '/admin/courts')).toBe(false);
   });
 });
 
@@ -527,7 +527,7 @@ describe('families (management rebuild, 2026-10-17)', () => {
   it('puts what is paid out under Pay, and every court setting under Court settings', () => {
     const tabs = (sec: string, row: string) => rowNamed(sec, row).tabs?.map((t) => t.labelKey);
     expect(tabs('money', 'pay')).toEqual(['wages', 'billsSuppliers', 'deductions', 'rewards', 'coachPay']);
-    expect(tabs('courts', 'courtSettings')).toEqual(['rates', 'genderHours', 'courts', 'bookingRules', 'onlineDeposit', 'openMatches', 'openingHours', 'tournamentRules']);
+    expect(tabs('courts', 'courtSettings')).toEqual(['courts', 'genderHours', 'bookingRules', 'onlineDeposit', 'openMatches', 'tournaments', 'openingHours']);
     expect(tabs('team', 'fromTeam')).toEqual(['requests', 'incidents', 'suggestions']);
     expect(tabs('settings', 'computersScreens')).toContain('stations');
     // Every settings page that used to be a panel of Venue settings has a tab.

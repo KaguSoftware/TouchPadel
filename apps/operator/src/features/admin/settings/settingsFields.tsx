@@ -17,6 +17,7 @@ export function NumberField({
   error,
   optional,
   placeholder,
+  framed,
 }: {
   label: string;
   hint: string;
@@ -26,11 +27,26 @@ export function NumberField({
   error?: string;
   optional?: boolean;
   placeholder?: string;
+  /** Its own bordered card, so a grid of settings reads as separate rules. */
+  framed?: boolean;
 }) {
-  return (
-    <Field label={label} hint={hint} error={error} optional={optional} style={{ marginBlockEnd: 0 }}>
+  const field = (
+    <Field label={label} info={hint} error={error} optional={optional} style={{ marginBlockEnd: 0 }}>
       <UnitInput unit={unit} value={value} onChange={onChange} placeholder={placeholder} />
     </Field>
+  );
+  if (!framed) return field;
+  return (
+    <div
+      style={{
+        padding: 'var(--tp-sp-3)',
+        border: '1px solid var(--tp-border)',
+        borderRadius: 'var(--tp-radius-panel)',
+        background: 'var(--tp-surface)',
+      }}
+    >
+      {field}
+    </div>
   );
 }
 

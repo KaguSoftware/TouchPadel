@@ -4,7 +4,7 @@ import { makeT, type MessageKey } from '@touch/i18n';
 vi.mock('../lib/supabase', () => ({ supabase: {}, supabaseUrl: '', supabaseAnonKey: '' }));
 
 import { canAccess, type StaffRole } from '../lib/auth';
-import { buildGoToEntries, normalizeQuery, rankEntries } from './GoToPalette';
+import { buildGoToEntries, groupEntries, matchRange, normalizeQuery, pushRecent, rankEntries } from './GoToPalette';
 import { rowShown, type NavItem, type NavTab } from '../lib/workspaces';
 
 const en = makeT('en') as (k: MessageKey) => string;
@@ -88,5 +88,42 @@ describe('rankEntries', () => {
   it('shows everything for an empty query and nothing for nonsense', () => {
     expect(rankEntries(entries, '   ')).toHaveLength(entries.length);
     expect(rankEntries(entries, 'zzqx')).toEqual([]);
+  });
+});
+
+describe('the modal list', () => {
+  const entries = entriesFor('owner');
+
+  it('gives every entry an icon, a group and a short place', () => {
+    const safe = entries.find((e) => e.to === '/safe' && !e.search)!;
+    expect(safe.icon).toBeTruthy();
+    expect(safe.group).toBe('Financial');
+    expect(safe.where).toBe('Cash');
+    expect(entries.find((e) => e.to === '/panel')?.where).toBe('');
+    expect(entries.every((e) => e.icon && e.group)).toBe(true);
+  });
+
+  it('groups by area with Recent first when nothing is typed, one list when something is', () => {
+    const safe = entries.find((e) => e.to === '/safe' && !e.search)!;
+    const groups = groupEntries(entries, '', [safe.id, 'gone']);
+    expect(groups[0]).toMatchObject({ title: 'recent' });
+    expect(groups[0]!.items).toEqual([safe]);
+    expect(groups.flatMap((g) => g.items)).toHaveLength(entries.length);
+    expect(groups.slice(1).some((g) => g.items.includes(safe))).toBe(false);
+    const typed = groupEntries(rankEntries(entries, 'stock'), 'stock', [safe.id]);
+    expect(typed).toHaveLength(1);
+    expect(typed[0]!.title).toBeNull();
+    expect(groupEntries([], 'zzqx', [])).toEqual([]);
+  });
+
+  it('keeps the last five pages opened, newest first, each once', () => {
+    expect(pushRecent(['a', 'b', 'c'], 'b')).toEqual(['b', 'a', 'c']);
+    expect(pushRecent(['a', 'b', 'c', 'd', 'e'], 'f')).toEqual(['f', 'a', 'b', 'c', 'd']);
+  });
+
+  it('marks the typed letters of a name, and nothing for a folded match', () => {
+    expect(matchRange('Main cash', 'cas')).toEqual([5, 8]);
+    expect(matchRange('Wages', 'payroll')).toBeNull();
+    expect(matchRange('Wages', '  ')).toBeNull();
   });
 });

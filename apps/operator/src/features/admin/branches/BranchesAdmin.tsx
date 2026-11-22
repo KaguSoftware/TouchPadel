@@ -65,7 +65,7 @@ const STATUS_TONE: Record<VenueStatus, Tone> = { preparing: 'warn', open: 'succe
 
 /** Where each checklist row is fixed. */
 const FIX_ROUTE: Record<ReadinessKey, string> = {
-  courts_and_rates: '/admin/rates',
+  courts_and_rates: '/admin/courts',
   opening_hours: '/admin/hours',
   manager: '/admin/staff',
   till: '/admin/settings',
@@ -79,7 +79,7 @@ const MORE_LINKS = [
   { to: '/admin/settings/day', labelKey: 'businessDay' },
   { to: '/admin/settings/booking', labelKey: 'bookingRules' },
   { to: '/admin/hours', labelKey: 'openingHours' },
-  { to: '/admin/rates', labelKey: 'rates' },
+  { to: '/admin/courts', labelKey: 'courts' },
   { to: '/admin/settings/stations', labelKey: 'stations' },
   { to: '/admin/settings/analytics', labelKey: 'analyticsSettings' },
 ] as const;

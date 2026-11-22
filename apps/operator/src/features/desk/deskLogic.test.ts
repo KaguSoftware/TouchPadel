@@ -5,6 +5,7 @@ import {
   blockRangeInvalid,
   canMoveReservation,
   courtAvailability,
+  courtCards,
   durationsFitting,
   groupByStart,
   guestNameOf,
@@ -100,6 +101,38 @@ describe('sortByStartDesc', () => {
       row({ id: 'a', court_id: 'c1' }),
     ]);
     expect(sorted.map((r) => r.id)).toEqual(['late', 'a', 'b', 'early']);
+  });
+});
+
+describe('courtCards', () => {
+  const now = '2026-09-03T15:30:00.000Z';
+  it('free: the next start and the minutes until it; nothing booked reads null', () => {
+    const [c1, c2] = courtCards(['c1', 'c2'], [row({ id: 'next', start_at: '2026-09-03T16:15:00.000Z', end_at: '2026-09-03T17:15:00.000Z' })], now);
+    expect(c1).toMatchObject({ state: 'free', minutesLeft: 45, progress: 0 });
+    expect(c1!.next?.id).toBe('next');
+    expect(c2).toMatchObject({ state: 'free', minutesLeft: null });
+    expect(c2!.next).toBeUndefined();
+  });
+  it('busy: time left, share played, and the next row after this one ends', () => {
+    const rows = [
+      row({ id: 'now', status: 'arrived', start_at: '2026-09-03T15:00:00.000Z', end_at: '2026-09-03T16:00:00.000Z' }),
+      row({ id: 'after', start_at: '2026-09-03T16:00:00.000Z', end_at: '2026-09-03T17:00:00.000Z' }),
+      row({ id: 'gone', status: 'cancelled', start_at: '2026-09-03T16:00:00.000Z', end_at: '2026-09-03T17:00:00.000Z' }),
+    ];
+    const [c1] = courtCards(['c1'], rows, now);
+    expect(c1).toMatchObject({ state: 'here', minutesLeft: 30, progress: 0.5 });
+    expect(c1!.current?.id).toBe('now');
+    expect(c1!.next?.id).toBe('after');
+  });
+  it('names the state from the row: late, booked, lesson, blocked, held', () => {
+    const at = (over: Partial<ReservationRow>) => courtCards(['c1'], [row({ id: 'r', ...over })], now)[0]!.state;
+    expect(at({})).toBe('late');
+    expect(at({ status: 'pending' })).toBe('booked');
+    expect(at({ kind: 'lesson', status: 'arrived' })).toBe('lesson');
+    expect(at({ kind: 'maintenance' })).toBe('blocked');
+    expect(at({ kind: 'hold', status: 'pending' })).toBe('held');
+    // A lesson's hold row reads as the lesson when the caller says so.
+    expect(courtCards(['c1'], [row({ id: 'h', kind: 'hold', status: 'pending' })], now, (r) => r.id === 'h')[0]!.state).toBe('lesson');
   });
 });
 

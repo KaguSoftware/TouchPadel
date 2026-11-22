@@ -33,9 +33,17 @@ export interface RevealRow {
 }
 export interface ItemNameRow {
   id: string;
+  category_id: string;
   name_en: string;
   name_ar: string;
   is_active: boolean;
+}
+/** A menu category, for grouping the item picker. */
+export interface CategoryNameRow {
+  id: string;
+  name_en: string;
+  name_ar: string;
+  sort_order: number;
 }
 
 export interface AddonsData {
@@ -44,10 +52,11 @@ export interface AddonsData {
   links: LinkRow[];
   reveals: RevealRow[];
   items: ItemNameRow[];
+  categories: CategoryNameRow[];
 }
 
 export async function fetchAddons(): Promise<AddonsData> {
-  const [groups, mods, links, reveals, items] = await Promise.all([
+  const [groups, mods, links, reveals, items, categories] = await Promise.all([
     supabase.from('modifier_groups').select('id, name_en, name_ar, min_select, max_select'),
     supabase
       .from('modifiers')
@@ -55,15 +64,17 @@ export async function fetchAddons(): Promise<AddonsData> {
       .order('sort_order'),
     supabase.from('menu_item_modifier_groups').select('item_id, group_id'),
     supabase.from('modifier_reveals').select('modifier_id, group_id, sort_order'),
-    supabase.from('menu_items').select('id, name_en, name_ar, is_active').order('name_en'),
+    supabase.from('menu_items').select('id, category_id, name_en, name_ar, is_active').order('name_en'),
+    supabase.from('menu_categories').select('id, name_en, name_ar, sort_order').order('sort_order'),
   ]);
-  for (const r of [groups, mods, links, reveals, items]) if (r.error) throw r.error;
+  for (const r of [groups, mods, links, reveals, items, categories]) if (r.error) throw r.error;
   return {
     groups: (groups.data ?? []) as GroupRow[],
     modifiers: (mods.data ?? []) as ModifierRow[],
     links: (links.data ?? []) as LinkRow[],
     reveals: (reveals.data ?? []) as RevealRow[],
     items: (items.data ?? []) as ItemNameRow[],
+    categories: (categories.data ?? []) as CategoryNameRow[],
   };
 }
 

@@ -165,8 +165,9 @@ export const operatorVars = {
   '--tp-breakdown-wash': 'var(--tp-surface)',
   '--tp-breakdown-wash-mix': '28%',
   // The plain ground inside a coloured card: a strip tile's value under its
-  // band (Settings › Branches and Branch details, Sait 2026-10-22). White on
-  // paper; the panel body in blue mode.
+  // band (Settings › Branches and Branch details, Sait 2026-10-22; Today's
+  // court cards and rail rows, 2026-11-22). White on paper; the panel body in
+  // blue mode.
   '--tp-branch-tile': 'var(--tp-brand-white)',
   // A hovered row: a light touch of the band colour (Sait, 2026-10-21: the
   // hover "should also be lighter", then "barely coloured, but clearly"; it

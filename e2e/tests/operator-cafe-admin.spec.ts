@@ -329,17 +329,18 @@ test.describe('operator cafe admin', () => {
     await signIn(page, SEED_STAFF.manager);
     await page.goto(`${OPERATOR_URL}/admin/courts`);
     await page.getByRole('button', { name: 'Add court', exact: true }).click();
-    // The editor is a side panel; its own "Add court" submit shares the header
-    // button's name, so everything below is scoped to the panel.
-    const editor = page.getByTestId('court-editor');
-    await editor.getByLabel('Name (English)', { exact: true }).fill(name);
-    await editor.getByLabel('Name (Arabic)', { exact: true }).fill(`ملعب ${name}`);
+    // Adding a court is the stepped dialog: names, details (type, lengths, photo, opening), then Review.
+    const wizard = page.getByTestId('court-wizard');
+    await wizard.getByLabel('Name (English)', { exact: true }).fill(name);
+    await wizard.getByLabel('Name (Arabic)', { exact: true }).fill(`ملعب ${name}`);
+    await wizard.getByTestId('court-wizard.step.details').click();
     // Booking-length chips, whole hours only (courtsLogic DURATION_CHOICES,
     // 2026-10-19): a new court starts on 60/120; add 180, drop 120 → 60/180.
-    await editor.getByRole('button', { name: '180 min', exact: true }).click();
-    await editor.getByRole('button', { name: '120 min', exact: true }).click();
-    await editor.getByRole('button', { name: 'Add court', exact: true }).click();
-    await expect(editor).toHaveCount(0);
+    await wizard.getByRole('button', { name: '180 min', exact: true }).click();
+    await wizard.getByRole('button', { name: '120 min', exact: true }).click();
+    await wizard.getByTestId('court-wizard.step.review').click();
+    await wizard.getByTestId('court-wizard.submit').click();
+    await expect(wizard).toHaveCount(0);
     const row = page.locator('tr', { hasText: name });
     await expect(row).toBeVisible();
     await expect(row.getByText('60 min · 180 min', { exact: true })).toBeVisible();
@@ -351,9 +352,13 @@ test.describe('operator cafe admin', () => {
     // Deactivate (no bookings yet, so the 0062 guard allows it) and clean up.
     await page.goto(`${OPERATOR_URL}/admin/courts`);
     await row.getByRole('button', { name: 'Edit', exact: true }).click();
+    // Editing is the same stepped dialog, filled from the saved court: the opening switch is on Details.
+    const editor = page.getByTestId('court-wizard');
+    await editor.getByTestId('court-wizard.step.details').click();
     await editor.getByRole('switch', { name: 'Open for booking', exact: true }).click();
+    await editor.getByTestId('court-wizard.step.review').click();
     // Save waits for the upcoming-bookings count (none for a new court).
-    const save = editor.getByRole('button', { name: 'Save', exact: true });
+    const save = editor.getByTestId('court-wizard.submit');
     await expect(save).toBeEnabled({ timeout: 15_000 });
     await save.click();
     const confirmOff = page.getByRole('dialog', { name: `Switch off ${name}?` });
@@ -510,24 +515,26 @@ test.describe('operator cafe admin', () => {
       await row.getByRole('button', { name: 'Manage', exact: true }).click();
       const editor = page.getByTestId('staff-editor');
       await choose(editor.getByLabel('Role', { exact: true }), 'manager');
-      await editor.getByRole('button', { name: 'Change role', exact: true }).click();
-      const roleDialog = page.getByRole('dialog', { name: `Change ${name}’s role to Manager?` });
+      // Edits are held across the steps and written from Review, behind one confirm.
+      await editor.getByTestId('staff-editor.step.review').click();
+      await editor.getByTestId('staff-editor.submit').click();
+      const roleDialog = page.getByRole('dialog', { name: `Save changes for ${name}?` });
       await expect(roleDialog).toBeVisible();
       {
         const { data } = await svc.from('staff').select('role').eq('id', createdId!).single();
         expect((data as { role: string }).role).toBe('cashier');
       }
-      await roleDialog.getByRole('button', { name: 'Change to Manager', exact: true }).click();
+      await roleDialog.getByRole('button', { name: 'Save changes', exact: true }).click();
       await expect(async () => {
         const { data } = await svc.from('staff').select('role').eq('id', createdId!).single();
         expect((data as { role: string }).role).toBe('manager');
       }).toPass({ timeout: 20_000 });
 
-      // A manager can hold an authorisation PIN; a cashier has nothing to
-      // authorise, so the control only appears once the role allows it.
-      await expect(editor.getByRole('button', { name: 'Set PIN', exact: true })).toBeVisible({
-        timeout: 15_000,
-      });
+      // The wizard closes once saved; open it again for the PIN and access steps.
+      await row.getByRole('button', { name: 'Manage', exact: true }).click();
+      await editor.getByTestId('staff-editor.step.signin').click();
+      // A PIN is typed here and written when Save changes is pressed.
+      await expect(editor.getByLabel('New PIN')).toBeVisible({ timeout: 15_000 });
 
       // Remove access. The account is KEPT — past work stays attributable.
       await editor.getByRole('button', { name: 'Remove access', exact: true }).click();

@@ -23,7 +23,7 @@
  * on an open rule, "Change this rate": each a price or promo change on
  * /protocols, in place of a notice that names the owner.
  */
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { bookableDurations } from '@touch/core';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { formatIQD, formatNumber } from '@touch/i18n';
@@ -47,10 +47,12 @@ import {
   type Column,
 } from '../../components/kit';
 import { Icon } from '../../components/icons';
+import { InfoTip } from '../../components/InfoTip';
 import { MoneyInput, digitsOnly } from '../../components/inputs';
 import { Switch } from '../../components/Switch';
 import { useToast } from '../../components/toast';
 import { MARK_FG, MARK_SOFT } from '../ops/OpsVisuals';
+import { RuleWizard } from './RuleWizard';
 import { PriceChangeButton, PriceLockNote, usePriceChangeStart } from './promotions/PriceChangeStart';
 import { DAY_KEYS, coversEveryDay, dayRuns, findTies, tiesFor, type Overlap, type RateRuleLike } from './rateRuleLogic';
 
@@ -72,7 +74,8 @@ function breakAfterDot(line: string): string {
 const NO_RULES: RuleRow[] = [];
 const NO_COURTS: CourtRow[] = [];
 
-export function RateRuleEditor() {
+/** `embedded`: one card of the Courts page (the courts list is the other), so the rate card sits in a banded Panel instead of under a page header. */
+export function RateRuleEditor({ embedded }: { embedded?: boolean } = {}) {
   const { tr, locale } = useLocale();
   const queryClient = useQueryClient();
   const can = usePermissions();
@@ -188,18 +191,22 @@ export function RateRuleEditor() {
     </Button>
   );
 
+  const notice = proposes ? (
+    <PriceLockNote message={tr('ws.pricing.rates.note')} />
+  ) : (
+    !can.editRates && <PermissionRefusedNotice action={tr('ws.manager.rates.newRule')} requiredRole={requiredRoleFor('editRates')} />
+  );
+
   return (
     <div>
-      <PageHeader title={tr('ws.manager.rates.title')} subtitle={tr('ws.manager.rates.lead')} actions={newRuleButton}>
-        {proposes ? (
-          <PriceLockNote message={tr('ws.pricing.rates.note')} />
-        ) : (
-          !can.editRates && <PermissionRefusedNotice action={tr('ws.manager.rates.newRule')} requiredRole={requiredRoleFor('editRates')} />
-        )}
-      </PageHeader>
+      {!embedded && (
+        <PageHeader title={tr('ws.manager.rates.title')} subtitle={tr('ws.manager.rates.lead')} actions={newRuleButton}>
+          {notice}
+        </PageHeader>
+      )}
 
-      <div style={{ display: 'grid', gap: 'var(--tp-sp-4)', gridTemplateColumns: selected ? 'minmax(0, 1.4fr) minmax(22rem, 1fr)' : '1fr', alignItems: 'start' }}>
-        <div style={{ display: 'grid', gap: 'var(--tp-sp-3)', minInlineSize: 0 }}>
+      <div style={{ display: 'grid', gap: 'var(--tp-sp-4)', gridTemplateColumns: selected && selected !== 'new' && !(can.editRates && !proposes) ? 'minmax(0, 1.4fr) minmax(22rem, 1fr)' : '1fr', alignItems: 'start' }}>
+        <CardOrBare embedded={embedded} title={tr('ws.manager.rates.title')} info={tr('ws.manager.rates.lead')} actions={newRuleButton} notice={notice}>
           {ties.length > 0 && <TieList ties={ties} rules={rules} dayName={dayName} onOpen={(r) => setSelected(r)} />}
           <AsyncStateWrapper
             status={status}
@@ -235,15 +242,30 @@ export function RateRuleEditor() {
               )}
             </div>
           </AsyncStateWrapper>
-        </div>
+        </CardOrBare>
 
-        {selected && (
-          <RuleForm
+        {selected && (selected === 'new' || (can.editRates && !proposes)) && (
+          <RuleWizard
             key={selected === 'new' ? 'new' : selected.id}
             rule={selected === 'new' ? null : selected}
             courts={courts}
             durations={durations}
             ties={selected === 'new' ? [] : tiesFor(ties, rules, selected.id)}
+            dayName={dayName}
+            onSaved={() => {
+              setSelected(null);
+              void queryClient.invalidateQueries({ queryKey: RATE_RULES_KEY });
+            }}
+            onClose={() => setSelected(null)}
+          />
+        )}
+        {selected && selected !== 'new' && !(can.editRates && !proposes) && (
+          <RuleForm
+            key={selected.id}
+            rule={selected}
+            courts={courts}
+            durations={durations}
+            ties={tiesFor(ties, rules, selected.id)}
             dayName={dayName}
             readOnly={!can.editRates}
             proposes={proposes}
@@ -256,6 +278,19 @@ export function RateRuleEditor() {
         )}
       </div>
     </div>
+  );
+}
+
+/** The rate card's wrapper: a blue-band card on the merged Courts page, the bare column on its own. */
+function CardOrBare({ embedded, title, info, actions, notice, children }: { embedded?: boolean; title: string; info: string; actions: ReactNode; notice: ReactNode; children: ReactNode }) {
+  if (!embedded) return <div style={{ display: 'grid', gap: 'var(--tp-sp-3)', minInlineSize: 0 }}>{children}</div>;
+  return (
+    <Panel title={title} titleEnd={<InfoTip content={info} />} actions={actions} style={{ minInlineSize: 0 }}>
+      <div style={{ display: 'grid', gap: 'var(--tp-sp-3)' }}>
+        {notice}
+        {children}
+      </div>
+    </Panel>
   );
 }
 

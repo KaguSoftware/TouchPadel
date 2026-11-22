@@ -32,6 +32,7 @@
 import { useMemo, type KeyboardEvent } from 'react';
 import { Link, useRouterState } from '@tanstack/react-router';
 import { formatNumber } from '@touch/i18n';
+import { badgeLabel } from './badgeCount';
 import { useLocale } from '../lib/i18n';
 import { useTabOpen } from '../lib/navAccess';
 import { useBadgeSum } from '../lib/navBadges';
@@ -123,7 +124,7 @@ function FamilyTab({ tab, selected, segmented }: { tab: NavTab; selected: boolea
       {count > 0 && (
         <>
           <span className="tp-family-tab-count" aria-hidden="true">
-            {formatNumber(count, locale)}
+            {badgeLabel(count, locale)}
           </span>
           <span className="tp-sr-only">{tr('ws.shell.nav.badge', { count: formatNumber(count, locale) })}</span>
         </>

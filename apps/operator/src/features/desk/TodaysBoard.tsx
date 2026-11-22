@@ -3,34 +3,28 @@
  * same broadcast as the calendar (useTradingNight), so what the desk promises
  * here is what the calendar shows.
  *
- * WHY THIS LAYOUT
+ * WHY THIS LAYOUT (option C of the Today rework, 2026-11-22)
  *
  * A clerk looks at this screen between guests, often with one in front of
- * them. It answers three questions, top to bottom:
+ * them, on the desk tablet as often as the till. Court state comes first, and
+ * the to-do list stays in one column beside it:
  *
- *  1. **Who is at the door?** Arrivals: bookings that started and are not
- *     marked arrived (late — still coming, or a no-show?), then everyone due
- *     within the hour. One click marks a guest arrived. Guests already here are
- *     not on this list; the old panel mixed them in, so half of the one list the
- *     desk scans was things already done. And it sat under a list of every
- *     court, below the fold on a busy venue.
- *  2. **Can I put a walk-in on a court now?** Courts now, as tiles: free until
- *     when, or in use until when and by whom. A free tile books that court; a
- *     busy one opens its booking.
- *  3. **What does the whole day look like?** Every booking, latest start first,
- *     with its status and where its court fee stands. Rows that have ended
- *     recede. The whole row opens the booking.
+ *  - **The night in figures**: courts free, arrived, still to come, late, and
+ *    the court fee still to collect on games that are over.
+ *  - **Courts now**, one card per court in court order: a band that names its
+ *    state (free, on court, not arrived, lesson, blocked), the time left (or
+ *    how long it stays free), who is on, and who is next. A free card books
+ *    that court; a busy one opens its booking. Padel Green means a group that
+ *    has arrived and is on court (DESIGN.md).
+ *  - **The rail**: Arrivals (late, then the next hour; guests already here are
+ *    not on it) and To collect (games over with the fee still open). Each row
+ *    is one fact per line, with its actions on a line of their own. Marking a
+ *    guest arrived is one click, with no reason prompt: an arrival is the
+ *    normal course of a booking, not an override.
  *
- * Money the desk still has to collect (0106) sits with the arrivals, because
- * it is the same moment: the group coming off court passes the group walking
- * on. "Played, not paid" lists games that are over with the fee still open,
- * and an arriving group's row says when the group before them on that court
- * has not paid. Every figure and state comes from app.booking_bill_states.
- *
- * Marking a guest arrived no longer asks for a reason. An arrival is the
- * normal course of a booking, not an override, and the prompt offered only
- * "customer request / weather / staff error / duplicate / other" — none of
- * which is why a guest walks in.
+ * The full list of the night's bookings is gone from here; the calendar has it.
+ * An arriving group's row says when the group before them on that court has
+ * not paid (0106). Every figure and state comes from app.booking_bill_states.
  *
  * Open matches (docs/design/open-matches/operator.md §5.9) have a group of
  * their own after the courts: the night's matches still needing players,
@@ -40,10 +34,9 @@
  * a match is marked player by player, never as a whole.
  *
  * Lessons (docs/design/coaching/operator.md §5.11) have the "Lessons today"
- * group after the open matches. A lesson's court row reads `lessonLabel`, says
- * "Lesson until {time}" on its court tile, shows what is still to pay where a
- * booking shows its court fee, and offers **Open lesson** where a booking
- * offers Mark arrived: students are marked one by one on the lesson's screen.
+ * group after the open matches. A court a lesson holds shows a Lesson card
+ * that reads `lessonLabel` and opens the lesson; a lesson is never on the
+ * arrivals rail, since students are marked one by one on the lesson's screen.
  *
  * `TodaysBoardView` is pure presentation (spec §06.1 data-in / events-out)
  * so its four states are testable without a database.
@@ -52,20 +45,19 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { wallTimeToUtc } from '@touch/core';
-import { formatDate, formatNumber, formatTime, formatTimeRange, formatWeekdayShort, VENUE_TZ } from '@touch/i18n';
+import { formatDate, formatIQD, formatNumber, formatTime, formatTimeRange, formatWeekdayShort, VENUE_TZ } from '@touch/i18n';
 import { mutate } from '../../lib/mutate';
 import type { CourtRow } from '../../lib/queries';
 import { useToast } from '../../components/toast';
 import { useLocale, pickName } from '../../lib/i18n';
 import { Button, Skeleton } from '../../components/ui';
-import { AsyncStateWrapper, CustomerFlagBadge, EmptyState, PageHeader, Panel, LIST_CAP, StatusBadge, ViewMore, useListCap, type AsyncStatus } from '../../components/kit';
-import { ChevronForward, Icon, type IconName } from '../../components/icons';
-import { ChargeCell, ReservationBadge } from './deskStatus';
-import { arrivalsDue, courtAvailability, isVisible, nightSummary, slotTaken, sortByStart, sortByStartDesc, type CourtAvailability } from './deskLogic';
+import { AsyncStateWrapper, CustomerFlagBadge, EmptyState, PageHeader, Panel, ViewMore, useListCap, type AsyncStatus } from '../../components/kit';
+import { Icon, type IconName } from '../../components/icons';
+import { ChargeCell } from './deskStatus';
+import { arrivalsDue, courtCards, isVisible, nightSummary, slotTaken, sortByStart, type CourtCard, type CourtCardState } from './deskLogic';
 import type { CustomerFlag, ReservationRow } from './deskTypes';
 import { CreateReservationDialog, type StartLessonCarry, type StartMatchCarry } from './CreateReservationDialog';
 import { bookingLabel, isMatchLiteral, type MatchReadStatus } from '../matches/matchLogic';
-import { LessonPayCell } from '../coaching/LessonPayCell';
 import { LessonsTodayPanel } from '../coaching/LessonsTodayPanel';
 import { StartLessonDialog } from '../coaching/StartLessonDialog';
 import { isLessonRow, lessonLabel, lessonOfRow, lessonsByReservation, nowOf } from '../coaching/lessonLogic';
@@ -80,8 +72,10 @@ import { AddSeatDialog } from '../matches/AddSeatDialog';
 import { earliestStartAt } from '../matches/startMatchLogic';
 import { matchBookingIds, useMatchCaps, useMatchRead, useMatchStates, useOpenMatches } from '../matches/useMatches';
 import { useStationReach } from '../../lib/stationReach';
+import type { BroadcastStatus } from '../../lib/realtime';
+import { ConnectionPill } from '../../components/ConnectionPill';
 import { todayInTz, tonightInTz, useTradingNight } from './useTradingNight';
-import { hasEnded, statesById, toSettle, unsettledBefore, type BillStateRow } from './payment/deskPaymentLogic';
+import { statesById, toSettle, unsettledBefore, type BillStateRow } from './payment/deskPaymentLogic';
 import { useBookingBillStates } from './payment/useBookingBill';
 import { TillShiftPanel } from '../tillShift/TillShiftPanel';
 
@@ -102,7 +96,8 @@ export interface TodaysBoardViewProps {
   billStates?: ReadonlyMap<string, BillStateRow>;
   /** Flags by guest id, when the customer data is available. */
   flagsByGuest?: ReadonlyMap<string, readonly CustomerFlag[]>;
-  live: boolean;
+  /** The 'courts' broadcast's state, shown as the floor's connection pill. */
+  connection: BroadcastStatus;
   markingId?: string | null;
   onRetry: () => void;
   onSelectReservation: (id: string) => void;
@@ -142,7 +137,6 @@ export function TodaysBoardView(p: TodaysBoardViewProps) {
   const { tr, locale } = useLocale();
   const courtName = (id: string) => pickName(locale, p.courts.find((c) => c.id === id));
   const summary = useMemo(() => nightSummary(p.reservations, p.nowIso), [p.reservations, p.nowIso]);
-  const availability = useMemo(() => courtAvailability(p.courts.map((c) => c.id), p.reservations, p.nowIso), [p.courts, p.reservations, p.nowIso]);
   const due = useMemo(() => arrivalsDue(p.reservations, p.nowIso, p.horizonIso), [p.reservations, p.nowIso, p.horizonIso]);
   const unpaid = useMemo(() => toSettle(p.reservations, p.billStates, p.nowIso), [p.reservations, p.billStates, p.nowIso]);
   const dayNoon = new Date(`${p.date}T12:00:00Z`);
@@ -150,9 +144,10 @@ export function TodaysBoardView(p: TodaysBoardViewProps) {
   // The night's lessons by the court row they hold, and the lessons payload's clock (§5.1).
   const lessonData = p.lessons?.kind === 'ready' ? p.lessons.data : null;
   const lessonsBy = useMemo(() => lessonsByReservation(lessonData), [lessonData]);
-  // Owner's rule (2026-10-08): three bookings, then "View more"; newest first, as before.
-  const bookings = useMemo(() => sortByStartDesc(p.reservations), [p.reservations]);
-  const bookingsCap = useListCap(bookings);
+  const cards = useMemo(
+    () => courtCards(p.courts.map((c) => c.id), p.reservations, p.nowIso, (r) => isLessonRow(r, lessonsBy)),
+    [p.courts, p.reservations, p.nowIso, lessonsBy],
+  );
   const nowMs = Date.parse(p.nowIso);
   const lessonNow = p.lessons?.kind === 'ready' ? nowOf(lessonData?.server_now, Math.max(0, nowMs - p.lessons.updatedAt), nowMs) : nowMs;
 
@@ -197,9 +192,6 @@ export function TodaysBoardView(p: TodaysBoardViewProps) {
   );
 
   const states = p.matchStates ?? undefined;
-  const courtsPanel = (
-    <CourtsNow availability={availability} reservations={p.reservations} courtName={courtName} tz={p.tz} live={p.live} states={states} lessonsBy={lessonsBy} onBook={p.onBookCourt} onOpen={p.onSelectReservation} />
-  );
   const lessonsPanel = p.lessons ? (
     <LessonsTodayPanel
       status={p.lessons}
@@ -227,6 +219,33 @@ export function TodaysBoardView(p: TodaysBoardViewProps) {
     />
   ) : null;
 
+  // What the group before on this court still owes, said to the group walking on.
+  const beforeOwes = (r: ReservationRow) => {
+    const prev = unsettledBefore(r, p.reservations, p.billStates, p.nowIso);
+    return prev ? tr('ws.courtDesk.board.beforeOwes', { name: guestLabel(prev, tr, states) }) : undefined;
+  };
+  const rowProps = { tz: p.tz, nowIso: p.nowIso, courtName, states, flagsByGuest: p.flagsByGuest, billStates: p.billStates, markingId: p.markingId, onMarkArrived: p.onMarkArrived, onOpen: p.onSelectReservation };
+
+  // Option C (2026-11-22): the night's figures, court cards beside a rail of
+  // who is at the door and what is still to collect. The rail wraps under the
+  // cards when the window is too narrow for both, with no media query.
+  const board = (
+    <div style={{ display: 'grid', gap: 'var(--tp-sp-4)' }}>
+      <TonightFigures cards={cards} arrived={summary.arrived} toCome={summary.toCome} late={due.late.length} unpaid={unpaid} billStates={p.billStates} />
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--tp-sp-4)', alignItems: 'flex-start' }}>
+        <div style={{ flex: '999 1 34rem', minInlineSize: 0, display: 'grid', gap: 'var(--tp-sp-4)' }}>
+          <CourtCardsPanel cards={cards} courtName={courtName} tz={p.tz} connection={p.connection} states={states} lessonsBy={lessonsBy} onBook={p.onBookCourt} onOpen={p.onSelectReservation} />
+          {matchesPanel}
+          {lessonsPanel}
+        </div>
+        <div style={{ flex: '1 1 20rem', minInlineSize: 0, display: 'grid', gap: 'var(--tp-sp-4)' }}>
+          <ArrivalsRail due={due} reservations={p.reservations} beforeOwes={beforeOwes} row={rowProps} />
+          <CollectPanel unpaid={unpaid} row={rowProps} />
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <div>
       {header}
@@ -236,9 +255,8 @@ export function TodaysBoardView(p: TodaysBoardViewProps) {
         onRetry={p.onRetry}
         skeleton={
           <div style={{ display: 'grid', gap: 'var(--tp-sp-4)' }}>
-            <Skeleton lines={3} blockSize="3rem" />
-            <Skeleton lines={2} blockSize="3.5rem" />
-            <Skeleton lines={6} blockSize="2.2rem" />
+            <Skeleton lines={1} blockSize="3.5rem" />
+            <Skeleton lines={2} blockSize="9rem" />
           </div>
         }
         emptyContent={
@@ -253,74 +271,15 @@ export function TodaysBoardView(p: TodaysBoardViewProps) {
                 </Button>
               }
             />
-            {courtsPanel}
-            {matchesPanel}
-            {lessonsPanel}
+            {board}
           </div>
         }
       >
-        <div style={{ display: 'grid', gap: 'var(--tp-sp-4)' }}>
-          <ArrivalsPanel
-            due={due}
-            unpaid={unpaid}
-            billStates={p.billStates}
-            reservations={p.reservations}
-            nowIso={p.nowIso}
-            tz={p.tz}
-            courtName={courtName}
-            states={states}
-            flagsByGuest={p.flagsByGuest}
-            markingId={p.markingId}
-            onMarkArrived={p.onMarkArrived}
-            onOpen={p.onSelectReservation}
-          />
-          {courtsPanel}
-          {matchesPanel}
-          {lessonsPanel}
-          <Panel title={<PanelTitle icon="calendar">{tr('ws.courtDesk.board.bookings')}</PanelTitle>} padded={false}>
-            <div style={{ overflowX: 'auto' }}>
-              <table className="tp-table" data-dense="true" aria-label={tr('ws.courtDesk.board.bookings')}>
-                <thead>
-                  <tr>
-                    <th>{tr('ws.courtDesk.board.time')}</th>
-                    <th>{tr('ws.courtDesk.board.court')}</th>
-                    <th>{tr('ws.courtDesk.board.customer')}</th>
-                    <th>{tr('ws.courtDesk.board.status')}</th>
-                    <th>{tr('ws.courtDesk.board.payment')}</th>
-                    <th aria-label={tr('ws.courtDesk.common.actions')} />
-                  </tr>
-                </thead>
-                <tbody>
-                  {bookingsCap.shown.map((r) => (
-                    <BoardRow
-                      key={r.id}
-                      r={r}
-                      courtName={courtName(r.court_id)}
-                      tz={p.tz}
-                      nowIso={p.nowIso}
-                      billState={p.billStates?.get(r.id)}
-                      flags={r.guest_id ? p.flagsByGuest?.get(r.guest_id) : undefined}
-                      match={states?.[r.id]}
-                      lessonsBy={lessonsBy}
-                      lessonNow={lessonNow}
-                      marking={p.markingId === r.id}
-                      onSelect={() => p.onSelectReservation(r.id)}
-                      onMarkArrived={() => p.onMarkArrived(r.id)}
-                    />
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <ViewMore hidden={bookingsCap.hidden} open={bookingsCap.open} onToggle={bookingsCap.toggle} style={UNPADDED_MORE} />
-          </Panel>
-        </div>
+        {board}
       </AsyncStateWrapper>
     </div>
   );
 }
-
-/** ViewMore inside an unpadded (table) panel: the panel body's own padding. */
-const UNPADDED_MORE = { marginBlockStart: 0, paddingBlock: '0.6rem', paddingInline: '0.85rem' } as const;
 
 function SubtitleFigure({ label, value }: { label: string; value: number }) {
   const { locale } = useLocale();
@@ -334,10 +293,15 @@ function SubtitleFigure({ label, value }: { label: string; value: number }) {
 function PanelTitle({ icon, children }: { icon: IconName; children: ReactNode }) {
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-2)' }}>
-      <Icon name={icon} size={16} style={{ color: 'var(--tp-muted-fg)' }} />
+      <Icon name={icon} size={16} />
       {children}
     </span>
   );
+}
+
+/** A count in a panel band: the number, bold, in the band's own ink. */
+function BandCount({ children }: { children: ReactNode }) {
+  return <strong style={{ fontVariantNumeric: 'tabular-nums', fontSize: 'var(--tp-fs-sm)' }}>{children}</strong>;
 }
 
 /**
@@ -364,140 +328,297 @@ function isMatchRow(r: ReservationRow, match: MatchState | undefined): boolean {
 
 const minutesBetween = (a: string, b: string) => Math.max(0, Math.round((new Date(b).getTime() - new Date(a).getTime()) / 60_000));
 
+/** "45 min", "2 h", "1 h 30": time left on a card, short enough for its big figure. */
+function useDuration() {
+  const { tr, locale } = useLocale();
+  return (minutes: number) => {
+    const h = Math.floor(minutes / 60);
+    const m = minutes % 60;
+    if (h === 0) return tr('ws.courtDesk.board.minutes', { minutes: formatNumber(m, locale) });
+    if (m === 0) return tr('ws.courtDesk.board.hours', { hours: formatNumber(h, locale) });
+    return tr('ws.courtDesk.board.hoursMinutes', { hours: formatNumber(h, locale), minutes: formatNumber(m, locale) });
+  };
+}
+
 // ---------------------------------------------------------------------------
-// 1 — Arrivals
+// The night in figures
 // ---------------------------------------------------------------------------
 
-function ArrivalsPanel({
-  due,
+function TonightFigures({
+  cards,
+  arrived,
+  toCome,
+  late,
   unpaid,
   billStates,
-  reservations,
-  nowIso,
-  tz,
-  courtName,
-  states,
-  flagsByGuest,
-  markingId,
-  onMarkArrived,
-  onOpen,
 }: {
-  due: ReturnType<typeof arrivalsDue>;
+  cards: readonly CourtCard[];
+  arrived: number;
+  toCome: number;
+  late: number;
   unpaid: readonly ReservationRow[];
   billStates?: ReadonlyMap<string, BillStateRow>;
-  reservations: readonly ReservationRow[];
-  nowIso: string;
-  tz: string;
+}) {
+  const { tr, locale } = useLocale();
+  const free = cards.filter((c) => c.state === 'free').length;
+  // The court fee still open on games that are over (0106); "—" while the bill states are unknown.
+  const owed = unpaid.reduce((sum, r) => sum + (billStates?.get(r.id)?.court_remaining_iqd ?? 0), 0);
+  const figures: { label: string; value: string; warn?: boolean }[] = [
+    { label: tr('ws.courtDesk.board.figCourtsFree'), value: tr('ws.courtDesk.board.freeOf', { free: formatNumber(free, locale), total: formatNumber(cards.length, locale) }) },
+    { label: tr('ws.courtDesk.board.summaryArrived'), value: formatNumber(arrived, locale) },
+    { label: tr('ws.courtDesk.board.summaryToCome'), value: formatNumber(toCome, locale) },
+    { label: tr('ws.courtDesk.board.figLate'), value: formatNumber(late, locale), warn: late > 0 },
+    { label: tr('ws.courtDesk.board.figToCollect'), value: billStates ? formatIQD(owed, locale) : '—', warn: owed > 0 },
+  ];
+  return (
+    <dl
+      aria-label={tr('ws.courtDesk.board.figures')}
+      style={{
+        margin: 0,
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(8.5rem, 1fr))',
+        gap: '1px',
+        background: 'var(--tp-border)',
+        border: '1px solid var(--tp-border)',
+        borderRadius: 'var(--tp-radius-panel)',
+        overflow: 'hidden',
+      }}
+    >
+      {figures.map((f) => (
+        <div key={f.label} style={{ display: 'flex', flexDirection: 'column-reverse', gap: 'var(--tp-sp-0)', paddingBlock: 'var(--tp-sp-2)', paddingInline: 'var(--tp-sp-3)', background: 'var(--tp-surface)' }}>
+          <dt style={{ fontSize: 'var(--tp-fs-xs)', fontWeight: 600, color: 'var(--tp-muted-fg)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{f.label}</dt>
+          <dd style={{ margin: 0, fontSize: 'var(--tp-fs-2xl)', fontWeight: 700, lineHeight: 1.2, fontVariantNumeric: 'tabular-nums', color: f.warn ? 'var(--tp-warn-fg)' : 'var(--tp-fg)' }}>
+            <bdi>{f.value}</bdi>
+          </dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Courts now: one card per court
+// ---------------------------------------------------------------------------
+
+/** Each state's band, edge and progress colour. Padel Green means here and now (DESIGN.md). */
+const CARD_TONE: Record<CourtCardState, { band: string; bandFg: string; edge: string; bar: string; dashed?: boolean }> = {
+  free: { band: 'var(--tp-success-soft)', bandFg: 'var(--tp-success-fg)', edge: 'var(--tp-success-mark)', bar: 'var(--tp-success-mark)', dashed: true },
+  here: { band: 'var(--tp-success)', bandFg: 'var(--tp-accent-2-contrast)', edge: 'var(--tp-border)', bar: 'var(--tp-success-mark)' },
+  booked: { band: 'var(--tp-accent-soft)', bandFg: 'var(--tp-accent-soft-fg)', edge: 'var(--tp-border)', bar: 'var(--tp-accent)' },
+  late: { band: 'var(--tp-warn-soft)', bandFg: 'var(--tp-warn-fg)', edge: 'var(--tp-warn-mark)', bar: 'var(--tp-warn-mark)' },
+  lesson: { band: 'var(--tp-lesson-soft)', bandFg: 'var(--tp-lesson)', edge: 'var(--tp-border)', bar: 'var(--tp-lesson)' },
+  blocked: { band: 'var(--tp-surface-3)', bandFg: 'var(--tp-muted-fg)', edge: 'var(--tp-border)', bar: 'var(--tp-neutral-mark)' },
+  held: { band: 'var(--tp-surface-3)', bandFg: 'var(--tp-muted-fg)', edge: 'var(--tp-border)', bar: 'var(--tp-neutral-mark)' },
+};
+
+function CourtCardsPanel({
+  cards,
+  courtName,
+  tz,
+  connection,
+  states,
+  lessonsBy,
+  onBook,
+  onOpen,
+}: {
+  cards: readonly CourtCard[];
   courtName: (id: string) => string;
+  tz: string;
+  connection: BroadcastStatus;
   states?: Readonly<Record<string, MatchState>>;
-  flagsByGuest?: ReadonlyMap<string, readonly CustomerFlag[]>;
-  markingId?: string | null;
-  onMarkArrived: (id: string) => void;
+  lessonsBy?: ReadonlyMap<string, DeskLesson>;
+  onBook: (courtId: string) => void;
+  onOpen: (id: string) => void;
+}) {
+  const { tr } = useLocale();
+  return (
+    <Panel
+      title={<PanelTitle icon="court">{tr('ws.courtDesk.board.availability')}</PanelTitle>}
+      // The same pill as the live floor: Live, Connecting… or Disconnected.
+      actions={<ConnectionPill status={connection} />}
+    >
+      {/* Every court, in court order: the desk learns where a court sits in the grid. */}
+      <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--tp-sp-3)', gridTemplateColumns: 'repeat(auto-fill, minmax(13.5rem, 1fr))' }}>
+        {cards.map((c) => (
+          <li key={c.courtId} style={{ display: 'flex' }}>
+            <CourtCardButton card={c} name={courtName(c.courtId)} tz={tz} states={states} lessonsBy={lessonsBy} onBook={onBook} onOpen={onOpen} />
+          </li>
+        ))}
+      </ul>
+    </Panel>
+  );
+}
+
+function CourtCardButton({
+  card,
+  name,
+  tz,
+  states,
+  lessonsBy,
+  onBook,
+  onOpen,
+}: {
+  card: CourtCard;
+  name: string;
+  tz: string;
+  states?: Readonly<Record<string, MatchState>>;
+  lessonsBy?: ReadonlyMap<string, DeskLesson>;
+  onBook: (courtId: string) => void;
   onOpen: (id: string) => void;
 }) {
   const { tr, locale } = useLocale();
-  const nothing = due.late.length === 0 && due.soon.length === 0 && unpaid.length === 0;
-  // Each group folds on its own, so a long "to settle" never hides who is late.
-  const unpaidCap = useListCap(unpaid);
-  const lateCap = useListCap(due.late);
-  const soonCap = useListCap(due.soon);
-  const previousUnpaid = (r: ReservationRow) => {
-    const prev = unsettledBefore(r, reservations, billStates, nowIso);
-    return prev ? tr('ws.courtDesk.board.previousUnpaid', { name: guestLabel(prev, tr, states) }) : undefined;
-  };
-  // With nobody due, say when the next guest is — the question that follows.
-  const next = nothing ? sortByStart(reservations).find((r) => r.kind === 'booking' && r.status === 'confirmed' && r.start_at > nowIso) : undefined;
+  const duration = useDuration();
+  const tone = CARD_TONE[card.state];
+  const lessons = lessonsBy ? { by: lessonsBy, locale } : undefined;
+  const label = (r: ReservationRow) => guestLabel(r, tr, states, lessons);
+  const time = (iso: string) => formatTime(new Date(iso), locale, tz);
+  const { current, next } = card;
+
+  // The one-line reading, for the button's name: the same words the old tiles used.
+  const line = current
+    ? tr(card.state === 'lesson' ? 'ws.coaching.common.lessonUntil' : card.state === 'blocked' ? 'ws.courtDesk.board.busyBlocked' : 'ws.courtDesk.board.busyUntil', { time: time(current.end_at) })
+    : next
+      ? tr('ws.courtDesk.board.freeUntil', { time: time(next.start_at) })
+      : tr('ws.courtDesk.board.free');
+  const big = card.minutesLeft === null ? tr('ws.courtDesk.board.untilClose') : duration(card.minutesLeft);
+  const small = current ? tr('ws.courtDesk.board.leftEnds', { time: time(current.end_at) }) : next ? tr('ws.courtDesk.board.openUntil', { time: time(next.start_at) }) : tr('ws.courtDesk.board.nothingAfter');
+  const foot = current ? (next ? tr('ws.courtDesk.board.nextUp', { time: time(next.start_at), name: label(next) }) : tr('ws.courtDesk.board.nobodyAfter')) : tr('ws.courtDesk.board.bookCourt');
+  const ellipsis = { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } as const;
 
   return (
-    <Panel title={<PanelTitle icon="users">{tr('ws.courtDesk.board.arrivals')}</PanelTitle>}>
+    <button
+      type="button"
+      className="tp-court-card"
+      onClick={() => (current ? onOpen(current.id) : onBook(card.courtId))}
+      aria-label={`${name} · ${line} · ${current ? tr('ws.courtDesk.board.open') : tr('ws.courtDesk.board.bookCourt')}`}
+      style={{
+        inlineSize: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        padding: 0,
+        border: `${tone.dashed ? '1.5px dashed' : '1px solid'} ${tone.edge}`,
+        borderRadius: 'var(--tp-radius-panel)',
+        // White on paper, the panel body in blue mode (the strip-tile ground).
+        background: 'var(--tp-branch-tile)',
+        color: 'inherit',
+        font: 'inherit',
+        textAlign: 'start',
+        overflow: 'hidden',
+        cursor: 'pointer',
+      }}
+    >
+      <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--tp-sp-2)', paddingBlock: 'var(--tp-sp-2)', paddingInline: 'var(--tp-sp-3)', background: tone.band, color: tone.bandFg }}>
+        <strong style={{ fontSize: 'var(--tp-fs-md)', ...ellipsis }}>
+          <bdi>{name}</bdi>
+        </strong>
+        <span style={{ fontSize: 'var(--tp-fs-xs)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', whiteSpace: 'nowrap' }}>{tr(`ws.courtDesk.board.card.${card.state}`)}</span>
+      </span>
+      <span style={{ display: 'grid', gap: 'var(--tp-sp-2)', padding: 'var(--tp-sp-3)' }}>
+        <span style={{ display: 'grid', gap: 'var(--tp-sp-1)' }}>
+          <strong style={{ fontSize: 'var(--tp-fs-3xl)', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
+            <bdi>{big}</bdi>
+          </strong>
+          <span style={{ fontSize: 'var(--tp-fs-xs)', fontWeight: 600, color: 'var(--tp-muted-fg)' }}>
+            <bdi>{small}</bdi>
+          </span>
+        </span>
+        {current && (
+          <>
+            <strong style={{ fontSize: 'var(--tp-fs-md)', ...ellipsis }}>
+              <bdi>{label(current)}</bdi>
+            </strong>
+            <span aria-hidden="true" style={{ display: 'block', blockSize: '6px', borderRadius: 'var(--tp-radius-pill)', background: 'var(--tp-surface-3)', overflow: 'hidden' }}>
+              <span style={{ display: 'block', blockSize: '100%', inlineSize: `${Math.round(card.progress * 100)}%`, background: tone.bar }} />
+            </span>
+          </>
+        )}
+      </span>
+      <span
+        style={{
+          marginBlockStart: 'auto',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 'var(--tp-sp-1)',
+          paddingBlock: 'var(--tp-sp-2)',
+          paddingInline: 'var(--tp-sp-3)',
+          borderBlockStart: '1px solid var(--tp-border)',
+          fontSize: 'var(--tp-fs-xs)',
+          fontWeight: current ? 500 : 700,
+          color: current ? 'var(--tp-muted-fg)' : 'var(--tp-success-fg)',
+          minInlineSize: 0,
+        }}
+      >
+        <Icon name={current ? 'clock' : 'plus'} size={12} style={{ flex: '0 0 auto' }} />
+        <bdi style={ellipsis}>{foot}</bdi>
+      </span>
+    </button>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// The rail: arrivals, then what is still to collect
+// ---------------------------------------------------------------------------
+
+interface RailRowShared {
+  tz: string;
+  nowIso: string;
+  courtName: (id: string) => string;
+  states?: Readonly<Record<string, MatchState>>;
+  flagsByGuest?: ReadonlyMap<string, readonly CustomerFlag[]>;
+  billStates?: ReadonlyMap<string, BillStateRow>;
+  markingId?: string | null;
+  onMarkArrived: (id: string) => void;
+  onOpen: (id: string) => void;
+}
+
+function ArrivalsRail({
+  due,
+  reservations,
+  beforeOwes,
+  row,
+}: {
+  due: ReturnType<typeof arrivalsDue>;
+  reservations: readonly ReservationRow[];
+  beforeOwes: (r: ReservationRow) => string | undefined;
+  row: RailRowShared;
+}) {
+  const { tr, locale } = useLocale();
+  // Each group folds on its own (owner's rule, 2026-10-08), so a long late list never hides who is next.
+  const lateCap = useListCap(due.late);
+  const soonCap = useListCap(due.soon);
+  const nothing = due.late.length === 0 && due.soon.length === 0;
+  // With nobody due, say when the next guest is — the question that follows.
+  const next = nothing ? sortByStart(reservations).find((r) => r.kind === 'booking' && r.status === 'confirmed' && r.start_at > row.nowIso) : undefined;
+  const count = due.late.length + due.soon.length;
+  return (
+    <Panel title={<PanelTitle icon="users">{tr('ws.courtDesk.board.arrivals')}</PanelTitle>} actions={count > 0 ? <BandCount>{formatNumber(count, locale)}</BandCount> : undefined}>
       {nothing ? (
-        <p style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-2)', flexWrap: 'wrap', color: 'var(--tp-muted-fg)' }}>
-          <Icon name="checkCircle" size={18} style={{ color: 'var(--tp-success-mark)', flex: '0 0 auto' }} />
-          <span style={{ color: 'var(--tp-fg)', fontWeight: 600 }}>{tr('ws.courtDesk.board.arrivalsEmpty')}</span>
-          {next && (
-            <bdi>
-              {tr('ws.courtDesk.board.nextArrival', {
-                time: formatTime(new Date(next.start_at), locale, tz),
-                name: guestLabel(next, tr, states),
-                court: courtName(next.court_id),
-              })}
-            </bdi>
-          )}
-        </p>
+        <RailEmpty
+          title={tr('ws.courtDesk.board.arrivalsEmpty')}
+          body={
+            next &&
+            tr('ws.courtDesk.board.nextArrival', {
+              time: formatTime(new Date(next.start_at), locale, row.tz),
+              name: guestLabel(next, tr, row.states),
+              court: row.courtName(next.court_id),
+            })
+          }
+        />
       ) : (
         <div style={{ display: 'grid', gap: 'var(--tp-sp-3)' }}>
-          {unpaid.length > 0 && (
-            <ArrivalGroup
-              title={tr('ws.courtDesk.board.toSettleTitle')}
-              hint={tr('ws.courtDesk.board.toSettleHint')}
-              after={<ViewMore hidden={unpaidCap.hidden} open={unpaidCap.open} onToggle={unpaidCap.toggle} />}
-            >
-              {unpaidCap.shown.map((r) => (
-                <ArrivalRow
-                  key={r.id}
-                  r={r}
-                  tone="warn"
-                  when={formatTimeRange(new Date(r.start_at), new Date(r.end_at), locale, tz)}
-                  tz={tz}
-                  courtName={courtName(r.court_id)}
-                  match={states?.[r.id]}
-                  started={r.start_at <= nowIso}
-                  flags={r.guest_id ? flagsByGuest?.get(r.guest_id) : undefined}
-                  marking={false}
-                  billState={billStates?.get(r.id)}
-                  onOpen={() => onOpen(r.id)}
-                />
-              ))}
-            </ArrivalGroup>
-          )}
           {due.late.length > 0 && (
-            <ArrivalGroup
-              title={tr('ws.courtDesk.board.lateTitle')}
-              hint={tr('ws.courtDesk.board.lateHint')}
-              after={<ViewMore hidden={lateCap.hidden} open={lateCap.open} onToggle={lateCap.toggle} />}
-            >
+            <RailGroup title={tr('ws.courtDesk.board.groupCount', { title: tr('ws.courtDesk.board.lateGroup'), count: formatNumber(due.late.length, locale) })} cap={lateCap}>
               {lateCap.shown.map((r) => (
-                <ArrivalRow
-                  key={r.id}
-                  r={r}
-                  tone="warn"
-                  when={tr('ws.courtDesk.board.startedAgo', { minutes: formatNumber(minutesBetween(r.start_at, nowIso), locale) })}
-                  tz={tz}
-                  courtName={courtName(r.court_id)}
-                  match={states?.[r.id]}
-                  started={r.start_at <= nowIso}
-                  flags={r.guest_id ? flagsByGuest?.get(r.guest_id) : undefined}
-                  marking={markingId === r.id}
-                  notice={previousUnpaid(r)}
-                  onMarkArrived={() => onMarkArrived(r.id)}
-                  onOpen={() => onOpen(r.id)}
-                />
+                <RailRow key={r.id} r={r} type="late" warn={beforeOwes(r)} {...row} />
               ))}
-            </ArrivalGroup>
+            </RailGroup>
           )}
           {due.soon.length > 0 && (
-            <ArrivalGroup
-              title={tr('ws.courtDesk.board.soonTitle')}
-              after={<ViewMore hidden={soonCap.hidden} open={soonCap.open} onToggle={soonCap.toggle} />}
-            >
+            <RailGroup title={tr('ws.courtDesk.board.groupCount', { title: tr('ws.courtDesk.board.soonGroup'), count: formatNumber(due.soon.length, locale) })} cap={soonCap}>
               {soonCap.shown.map((r) => (
-                <ArrivalRow
-                  key={r.id}
-                  r={r}
-                  tone="neutral"
-                  when={tr('ws.courtDesk.board.startsIn', { minutes: formatNumber(minutesBetween(nowIso, r.start_at), locale) })}
-                  tz={tz}
-                  courtName={courtName(r.court_id)}
-                  match={states?.[r.id]}
-                  started={r.start_at <= nowIso}
-                  flags={r.guest_id ? flagsByGuest?.get(r.guest_id) : undefined}
-                  marking={markingId === r.id}
-                  notice={previousUnpaid(r)}
-                  onMarkArrived={() => onMarkArrived(r.id)}
-                  onOpen={() => onOpen(r.id)}
-                />
+                <RailRow key={r.id} r={r} type="soon" warn={beforeOwes(r)} {...row} />
               ))}
-            </ArrivalGroup>
+            </RailGroup>
           )}
         </div>
       )}
@@ -505,374 +626,164 @@ function ArrivalsPanel({
   );
 }
 
-function ArrivalGroup({ title, hint, after, children }: { title: string; hint?: string; after?: ReactNode; children: ReactNode }) {
-  return (
-    <section>
-      <h3 style={{ fontSize: 'var(--tp-fs-xs)', fontWeight: 600, color: 'var(--tp-muted-fg)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{title}</h3>
-      {hint && <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', marginBlockStart: 'var(--tp-sp-0)' }}>{hint}</p>}
-      <ul style={{ listStyle: 'none', margin: 0, marginBlockStart: 'var(--tp-sp-2)', padding: 0, display: 'grid', gap: 'var(--tp-sp-2)' }}>{children}</ul>
-      {after}
-    </section>
-  );
-}
-
-function ArrivalRow({
-  r,
-  tone,
-  when,
-  tz,
-  courtName,
-  match,
-  started,
-  flags,
-  marking,
-  notice,
-  billState,
-  onMarkArrived,
-  onOpen,
-}: {
-  r: ReservationRow;
-  tone: 'warn' | 'neutral';
-  when: string;
-  tz: string;
-  courtName: string;
-  /** app.desk_match_states for an open match's booking. */
-  match?: MatchState;
-  /** The booking has started by the board's clock (the seat chip's R39 reading). */
-  started: boolean;
-  flags?: readonly CustomerFlag[];
-  marking: boolean;
-  /** One line the desk should know as this group walks in. */
-  notice?: string;
-  /** Set on "Played, not paid" rows: the fee state replaces "Mark arrived". */
-  billState?: BillStateRow;
-  /** Absent on "Played, not paid" rows — they are settled from the booking. */
-  onMarkArrived?: () => void;
-  onOpen: () => void;
-}) {
+/** Games that are over with the court fee still open (0106), each settled from its booking. */
+function CollectPanel({ unpaid, row }: { unpaid: readonly ReservationRow[]; row: RailRowShared }) {
   const { tr, locale } = useLocale();
-  const name = guestLabel(r, tr, match ? { [r.id]: match } : undefined);
-  const isMatch = isMatchRow(r, match);
-  // A match's booking settles per player: say how many still owe (booking_bill_states, 0262).
-  const owing = isMatch && billState && (billState.seats_owing ?? 0) > 0 ? billState.seats_owing! : null;
+  const cap = useListCap(unpaid);
   return (
-    <li
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 'var(--tp-sp-3)',
-        flexWrap: 'wrap',
-        paddingBlock: 'var(--tp-sp-2)',
-        paddingInline: 'var(--tp-sp-3)',
-        borderRadius: 'var(--tp-radius-ctl)',
-        background: 'var(--tp-surface-2)',
-      }}
-    >
-      <span style={{ display: 'grid', minInlineSize: '6.5rem' }}>
-        <strong style={{ fontSize: 'var(--tp-fs-lg)', fontVariantNumeric: 'tabular-nums' }}>
-          <bdi>{formatTime(new Date(r.start_at), locale, tz)}</bdi>
-        </strong>
-        {/* The time on the clock face is the fact; how long ago / how soon is
-            what the desk acts on, and late is the only one that is tinted. */}
-        <span style={{ fontSize: 'var(--tp-fs-xs)', fontWeight: 600, color: tone === 'warn' ? 'var(--tp-warn-fg)' : 'var(--tp-muted-fg)' }}>{when}</span>
-      </span>
-      <span style={{ display: 'grid', gap: 'var(--tp-sp-0)', flex: '1 1 14rem', minInlineSize: 0 }}>
-        <span style={{ display: 'inline-flex', gap: 'var(--tp-sp-2)', alignItems: 'center', flexWrap: 'wrap' }}>
-          <strong style={{ fontSize: 'var(--tp-fs-md)' }}>
-            <bdi>{name}</bdi>
-          </strong>
-          {match && <SeatChip state={match} started={started} />}
-          {flags?.map((f, i) => (
-            <CustomerFlagBadge key={`${f.type}-${i}`} flag={f} />
+    <Panel title={<PanelTitle icon="banknote">{tr('ws.courtDesk.board.toCollect')}</PanelTitle>} actions={unpaid.length > 0 ? <BandCount>{formatNumber(unpaid.length, locale)}</BandCount> : undefined}>
+      {unpaid.length === 0 ? (
+        <RailEmpty title={tr('ws.courtDesk.board.toCollectEmpty')} />
+      ) : (
+        <RailGroup cap={cap} label={tr('ws.courtDesk.board.toCollect')}>
+          {cap.shown.map((r) => (
+            <RailRow key={r.id} r={r} type="pay" {...row} />
           ))}
-        </span>
-        <span style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', display: 'inline-flex', gap: 'var(--tp-sp-2)', flexWrap: 'wrap' }}>
-          <bdi>{courtName}</bdi>
-          {r.guest_phone && (
-            <bdi dir="ltr" style={{ fontVariantNumeric: 'tabular-nums' }}>
-              {r.guest_phone}
-            </bdi>
-          )}
-        </span>
-        {owing !== null && (
-          <span style={{ fontSize: 'var(--tp-fs-sm)', fontWeight: 600, color: 'var(--tp-warn-fg)' }}>{tr('ws.matches.today.playersOwing', { count: formatNumber(owing, locale) })}</span>
-        )}
-        {notice && (
-          <span style={{ display: 'inline-flex', gap: 'var(--tp-sp-1)', alignItems: 'center', fontSize: 'var(--tp-fs-sm)', fontWeight: 600, color: 'var(--tp-warn-fg)' }}>
-            <Icon name="alert" size={14} style={{ flex: '0 0 auto' }} />
-            <bdi>{notice}</bdi>
-          </span>
-        )}
-      </span>
-      <span style={{ display: 'inline-flex', gap: 'var(--tp-sp-2)', alignItems: 'center', marginInlineStart: 'auto' }}>
-        {billState && <ChargeCell state={billState} kind={r.kind} ended />}
-        {onMarkArrived ? (
-          <>
-            <Button kind="ghost" iconEnd="chevronEnd" onClick={onOpen} aria-label={`${tr('ws.courtDesk.board.open')} ${name}`}>
-              {tr('ws.courtDesk.board.open')}
-            </Button>
-            {isMatch ? (
-              // Players are marked one by one, on the booking's Players panel.
-              <Button kind="primary" icon="users" onClick={onOpen} aria-label={`${tr('ws.matches.booking.players')} ${name}`}>
-                {tr('ws.matches.booking.players')}
-              </Button>
-            ) : (
-              <Button kind="primary" icon="check" busy={marking} onClick={onMarkArrived}>
-                {tr('ws.courtDesk.board.markArrived')}
-              </Button>
-            )}
-          </>
-        ) : (
-          <Button kind="primary" icon="banknote" onClick={onOpen} aria-label={`${tr('ws.courtDesk.board.takePayment')} ${name}`}>
-            {tr('ws.courtDesk.board.takePayment')}
-          </Button>
-        )}
-      </span>
-    </li>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// 2 — Courts now
-// ---------------------------------------------------------------------------
-
-function CourtsNow({
-  availability,
-  reservations,
-  courtName,
-  tz,
-  live,
-  states,
-  lessonsBy,
-  onBook,
-  onOpen,
-}: {
-  availability: readonly CourtAvailability[];
-  reservations: readonly ReservationRow[];
-  courtName: (id: string) => string;
-  tz: string;
-  live: boolean;
-  states?: Readonly<Record<string, MatchState>>;
-  /** desk_lessons rows by the court row they hold (coaching §5.11). */
-  lessonsBy?: ReadonlyMap<string, DeskLesson>;
-  onBook: (courtId: string) => void;
-  onOpen: (id: string) => void;
-}) {
-  const { tr, locale } = useLocale();
-  const free = availability.filter((a) => a.state === 'free').length;
-  // Owner's rule (2026-10-08): three court tiles, then "View more". A court
-  // in play is never folded away, since it is what the desk is watching; free
-  // courts fill the rest of the three. Court order is kept: the desk learns
-  // where a court sits in the grid.
-  const [open, setOpen] = useState(false);
-  const folded = useMemo(() => {
-    let room = Math.max(0, LIST_CAP - (availability.length - free));
-    return availability.filter((a) => a.state === 'busy' || room-- > 0);
-  }, [availability, free]);
-  const cap = { shown: open ? availability : folded, hidden: availability.length - folded.length, open, toggle: () => setOpen((o) => !o) };
-  return (
-    <Panel
-      title={<PanelTitle icon="court">{tr('ws.courtDesk.board.availability')}</PanelTitle>}
-      actions={
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-3)', fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>
-          <span>
-            {tr('ws.courtDesk.board.freeNow')}{' '}
-            <strong style={{ color: 'var(--tp-fg)', fontVariantNumeric: 'tabular-nums' }}>
-              {tr('ws.courtDesk.board.freeOf', { free: formatNumber(free, locale), total: formatNumber(availability.length, locale) })}
-            </strong>
-          </span>
-          {/* Both states carry a glyph; neither pulses — live is steady, and its label says so. */}
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-1)', fontSize: 'var(--tp-fs-xs)', color: live ? 'var(--tp-success-fg)' : 'var(--tp-muted-fg)' }}>
-            <Icon name={live ? 'checkCircle' : 'clock'} size={12} />
-            {live ? tr('ws.courtDesk.board.live') : tr('ws.courtDesk.board.polling')}
-          </span>
-        </span>
-      }
-    >
-      <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--tp-sp-2)', gridTemplateColumns: 'repeat(auto-fill, minmax(12rem, 1fr))' }}>
-        {cap.shown.map((a) => {
-          const busy = a.state === 'busy' ? reservations.find((r) => r.id === a.reservationId) : undefined;
-          // A court a lesson holds says so (coaching §5.8): "Lesson until 19:00", the lesson's mark, its name.
-          const inLesson = busy !== undefined && isLessonRow(busy, lessonsBy);
-          const line =
-            a.state === 'busy'
-              ? tr(inLesson ? 'ws.coaching.common.lessonUntil' : a.kind === 'maintenance' ? 'ws.courtDesk.board.busyBlocked' : 'ws.courtDesk.board.busyUntil', {
-                  time: formatTime(new Date(a.untilAt), locale, tz),
-                })
-              : a.nextStartAt
-                ? tr('ws.courtDesk.board.freeUntil', { time: formatTime(new Date(a.nextStartAt), locale, tz) })
-                : tr('ws.courtDesk.board.free');
-          const name = courtName(a.courtId);
-          return (
-            <li key={a.courtId}>
-              <button
-                type="button"
-                className="tp-tile"
-                onClick={() => (a.state === 'busy' ? onOpen(a.reservationId) : onBook(a.courtId))}
-                aria-label={a.state === 'busy' ? `${name} · ${line} · ${tr('ws.courtDesk.board.open')}` : `${name} · ${line} · ${tr('ws.courtDesk.board.bookCourt')}`}
-                style={{
-                  inlineSize: '100%',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 'var(--tp-sp-2)',
-                  paddingBlock: 'var(--tp-sp-2)',
-                  paddingInline: 'var(--tp-sp-3)',
-                  border: '1px solid var(--tp-border)',
-                  borderRadius: 'var(--tp-radius-ctl)',
-                  background: 'var(--tp-surface)',
-                  color: 'inherit',
-                  font: 'inherit',
-                }}
-              >
-                <span
-                  aria-hidden="true"
-                  style={{
-                    flex: '0 0 auto',
-                    inlineSize: '0.6rem',
-                    blockSize: '0.6rem',
-                    borderRadius: '50%',
-                    background:
-                      a.state === 'free' ? 'var(--tp-success-mark)' : inLesson ? 'var(--tp-lesson)' : a.kind === 'maintenance' ? 'var(--tp-neutral-mark)' : 'var(--tp-accent)',
-                  }}
-                />
-                <span style={{ display: 'grid', minInlineSize: 0, flex: 1 }}>
-                  <strong style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    <bdi>{name}</bdi>
-                  </strong>
-                  <span style={{ fontSize: 'var(--tp-fs-xs)', color: a.state === 'free' ? 'var(--tp-success-fg)' : 'var(--tp-muted-fg)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {line}
-                    {busy && (busy.kind === 'booking' || inLesson) && (
-                      <>
-                        {' · '}
-                        <bdi>{guestLabel(busy, tr, states, lessonsBy ? { by: lessonsBy, locale } : undefined)}</bdi>
-                      </>
-                    )}
-                  </span>
-                </span>
-                {a.state === 'free' ? (
-                  <Icon name="plus" size={16} style={{ color: 'var(--tp-muted-fg)', flex: '0 0 auto' }} />
-                ) : (
-                  <ChevronForward size={14} style={{ color: 'var(--tp-muted-fg)', flex: '0 0 auto' }} />
-                )}
-              </button>
-            </li>
-          );
-        })}
-      </ul>
-      <ViewMore hidden={cap.hidden} open={cap.open} onToggle={cap.toggle} />
+        </RailGroup>
+      )}
     </Panel>
   );
 }
 
-// ---------------------------------------------------------------------------
-// 3 — Every booking today
-// ---------------------------------------------------------------------------
+function RailEmpty({ title, body }: { title: string; body?: string | false }) {
+  return (
+    <p style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--tp-sp-2)', color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)', margin: 0 }}>
+      <Icon name="checkCircle" size={18} style={{ color: 'var(--tp-success-mark)', flex: '0 0 auto' }} />
+      <span style={{ display: 'grid', gap: 'var(--tp-sp-0)' }}>
+        <span style={{ color: 'var(--tp-fg)', fontWeight: 600 }}>{title}</span>
+        {body && <bdi>{body}</bdi>}
+      </span>
+    </p>
+  );
+}
 
-function BoardRow({
+function RailGroup({ title, label, cap, children }: { title?: string; label?: string; cap: ReturnType<typeof useListCap>; children: ReactNode }) {
+  return (
+    <section aria-label={title ?? label}>
+      {title && (
+        <h3 style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-2)', margin: 0, marginBlockEnd: 'var(--tp-sp-2)', fontSize: 'var(--tp-fs-xs)', fontWeight: 700, color: 'var(--tp-muted-fg)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+          {title}
+          <span aria-hidden="true" style={{ flex: 1, borderBlockStart: '1px solid var(--tp-border)' }} />
+        </h3>
+      )}
+      <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--tp-sp-2)' }}>{children}</ul>
+      <ViewMore hidden={cap.hidden} open={cap.open} onToggle={cap.toggle} />
+    </section>
+  );
+}
+
+const RAIL_EDGE = { late: 'var(--tp-warn-mark)', soon: 'var(--tp-success-mark)', pay: 'var(--tp-accent)' } as const;
+
+/**
+ * One row of the rail, one fact per line: time and how late or soon; the name
+ * with its chips; court and end; the phone; and what the group before still
+ * owes. The actions sit on their own line, so nothing is squeezed.
+ */
+function RailRow({
   r,
-  courtName,
+  type,
+  warn,
   tz,
   nowIso,
-  billState,
-  flags,
-  match,
-  lessonsBy,
-  lessonNow,
-  marking,
-  onSelect,
+  courtName,
+  states,
+  flagsByGuest,
+  billStates,
+  markingId,
   onMarkArrived,
-}: {
-  r: ReservationRow;
-  courtName: string;
-  tz: string;
-  nowIso: string;
-  billState?: BillStateRow;
-  flags?: readonly CustomerFlag[];
-  /** app.desk_match_states for an open match's booking. */
-  match?: MatchState;
-  /** desk_lessons rows by the court row they hold (coaching §5.11). */
-  lessonsBy?: ReadonlyMap<string, DeskLesson>;
-  /** The lessons payload's clock. */
-  lessonNow: number;
-  marking: boolean;
-  onSelect: () => void;
-  onMarkArrived: () => void;
-}) {
+  onOpen,
+}: RailRowShared & { r: ReservationRow; type: 'late' | 'soon' | 'pay'; warn?: string }) {
   const { tr, locale } = useLocale();
-  const inProgress = r.start_at <= nowIso && r.end_at > nowIso;
-  const ended = hasEnded(r, nowIso);
-  const label = guestLabel(r, tr, match ? { [r.id]: match } : undefined, lessonsBy ? { by: lessonsBy, locale } : undefined);
+  const match = states?.[r.id];
+  const name = guestLabel(r, tr, match ? { [r.id]: match } : undefined);
   const isMatch = isMatchRow(r, match);
-  // A lesson's row (coaching §5.11): its pay cell where a booking shows its fee, Open lesson where it offers Mark arrived.
-  const isLesson = isLessonRow(r, lessonsBy);
-  const lesson = lessonOfRow(r, lessonsBy);
+  const billState = billStates?.get(r.id);
+  const flags = r.guest_id ? flagsByGuest?.get(r.guest_id) : undefined;
+  const pay = type === 'pay';
+  // A match's booking settles per player: say how many still owe (booking_bill_states, 0262).
+  const owing = pay && isMatch && billState && (billState.seats_owing ?? 0) > 0 ? billState.seats_owing! : null;
+  const time = (iso: string) => formatTime(new Date(iso), locale, tz);
+  const rel = pay
+    ? tr('ws.courtDesk.board.ended')
+    : type === 'late'
+      ? tr('ws.courtDesk.board.minutesLate', { minutes: formatNumber(minutesBetween(r.start_at, nowIso), locale) })
+      : tr('ws.courtDesk.board.startsIn', { minutes: formatNumber(minutesBetween(nowIso, r.start_at), locale) });
+  const where = pay
+    ? `${courtName(r.court_id)} · ${formatTimeRange(new Date(r.start_at), new Date(r.end_at), locale, tz)}`
+    : tr('ws.courtDesk.board.courtUntil', { court: courtName(r.court_id), time: time(r.end_at) });
+  const muted = { fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)', lineHeight: 1.35 } as const;
+
   return (
-    <tr
-      data-clickable="true"
-      tabIndex={0}
-      onClick={onSelect}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          onSelect();
-        }
+    <li
+      style={{
+        display: 'grid',
+        gridTemplateColumns: '4.2rem minmax(0, 1fr)',
+        gridTemplateAreas: "'t m' 'a a'",
+        gap: 'var(--tp-sp-2) var(--tp-sp-3)',
+        alignItems: 'start',
+        paddingBlock: 'var(--tp-sp-2)',
+        paddingInline: 'var(--tp-sp-3)',
+        border: '1px solid var(--tp-border)',
+        borderInlineStart: `4px solid ${RAIL_EDGE[type]}`,
+        borderRadius: 'var(--tp-radius-ctl)',
+        background: type === 'late' ? 'var(--tp-warn-soft)' : 'var(--tp-branch-tile)',
       }}
-      // What is over recedes; it stays listed because the desk still settles it.
-      style={{ color: ended ? 'var(--tp-muted-fg)' : undefined }}
     >
-      <td style={{ fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', fontWeight: 600 }}>
-        <bdi>{formatTimeRange(new Date(r.start_at), new Date(r.end_at), locale, tz)}</bdi>
-        {inProgress && <StatusBadge size="sm" tone="success" label={tr('ws.courtDesk.board.onCourtNow')} style={{ marginInlineStart: '0.4rem' }} />}
-      </td>
-      <td>
-        <bdi>{courtName}</bdi>
-      </td>
-      <td>
-        <span style={{ display: 'inline-flex', gap: '0.35rem', alignItems: 'center', flexWrap: 'wrap' }}>
-          <strong style={{ color: ended ? 'var(--tp-muted-fg)' : 'var(--tp-fg)' }}>
-            <bdi>{label}</bdi>
+      <span style={{ gridArea: 't', display: 'grid' }}>
+        <strong style={{ fontSize: 'var(--tp-fs-lg)', lineHeight: 1.2, fontVariantNumeric: 'tabular-nums' }}>
+          <bdi>{time(pay ? r.end_at : r.start_at)}</bdi>
+        </strong>
+        <span style={{ fontSize: 'var(--tp-fs-xs)', fontWeight: 700, whiteSpace: 'nowrap', color: type === 'late' ? 'var(--tp-warn-fg)' : 'var(--tp-muted-fg)' }}>{rel}</span>
+      </span>
+      <span style={{ gridArea: 'm', display: 'grid', gap: 'var(--tp-sp-0)', minInlineSize: 0 }}>
+        <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--tp-sp-2)', minInlineSize: 0 }}>
+          <strong style={{ fontSize: 'var(--tp-fs-md)', lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={name}>
+            <bdi>{name}</bdi>
           </strong>
-          {match && <SeatChip state={match} started={r.start_at <= nowIso} />}
-          {r.guest_phone && (
-            <bdi dir="ltr" style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-xs)', fontVariantNumeric: 'tabular-nums' }}>
-              {r.guest_phone}
-            </bdi>
-          )}
-          {flags?.map((f, i) => (
-            <CustomerFlagBadge key={`${f.type}-${i}`} flag={f} />
-          ))}
+          <span style={{ display: 'inline-flex', gap: 'var(--tp-sp-1)', alignItems: 'center', flex: '0 0 auto' }}>
+            {flags?.map((f, i) => (
+              <CustomerFlagBadge key={`${f.type}-${i}`} flag={f} />
+            ))}
+            {match && <SeatChip state={match} started={r.start_at <= nowIso} />}
+            {pay && billState && <ChargeCell state={billState} kind={r.kind} ended />}
+          </span>
         </span>
-      </td>
-      <td>
-        <ReservationBadge reservation={r} size="sm" lesson={lesson} />
-      </td>
-      <td>
-        {isLesson ? lesson && <LessonPayCell lesson={lesson} nowMs={lessonNow} /> : <ChargeCell state={billState} kind={r.kind} ended={ended} />}
-      </td>
-      <td style={{ textAlign: 'end', whiteSpace: 'nowrap' }}>
-        <span style={{ display: 'inline-flex', gap: '0.3rem', alignItems: 'center' }} onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
-          {isLesson && r.end_at > nowIso && (
-            // Students are marked one by one on the lesson's screen (§5.10.6).
-            <Button size="sm" icon="whistle" onClick={onSelect} aria-label={`${tr('ws.coaching.common.openLesson')} ${label}`}>
-              {tr('ws.coaching.common.openLesson')}
-            </Button>
-          )}
-          {r.kind === 'booking' && r.status === 'confirmed' && r.end_at > nowIso && (
-            isMatch ? (
-              // Players are marked one by one, on the booking's Players panel.
-              <Button size="sm" icon="users" onClick={onSelect} aria-label={`${tr('ws.matches.booking.players')} ${label}`}>
-                {tr('ws.matches.booking.players')}
-              </Button>
-            ) : (
-              <Button size="sm" icon="check" busy={marking} onClick={onMarkArrived}>
-                {tr('ws.courtDesk.board.markArrived')}
-              </Button>
-            )
-          )}
-          <Button size="sm" kind="ghost" icon="chevronEnd" onClick={onSelect} aria-label={`${tr('ws.courtDesk.board.open')} ${label}`} />
+        <span style={muted}>
+          <bdi>{where}</bdi>
         </span>
-      </td>
-    </tr>
+        {!pay && r.guest_phone && (
+          <bdi dir="ltr" style={{ ...muted, fontVariantNumeric: 'tabular-nums', textAlign: 'start' }}>
+            {r.guest_phone}
+          </bdi>
+        )}
+        {owing !== null && <span style={{ fontSize: 'var(--tp-fs-xs)', fontWeight: 700, color: 'var(--tp-warn-fg)' }}>{tr('ws.matches.today.playersOwing', { count: formatNumber(owing, locale) })}</span>}
+        {warn && (
+          <span style={{ display: 'inline-flex', gap: 'var(--tp-sp-1)', alignItems: 'flex-start', marginBlockStart: 'var(--tp-sp-0)', fontSize: 'var(--tp-fs-xs)', fontWeight: 700, lineHeight: 1.35, color: 'var(--tp-warn-fg)' }}>
+            <Icon name="alert" size={13} style={{ flex: '0 0 auto', marginBlockStart: '1px' }} />
+            <bdi>{warn}</bdi>
+          </span>
+        )}
+      </span>
+      <span style={{ gridArea: 'a', display: 'flex', justifyContent: 'flex-end', gap: 'var(--tp-sp-2)', paddingBlockStart: 'var(--tp-sp-2)', borderBlockStart: '1px solid var(--tp-border)' }}>
+        <Button size="sm" kind="ghost" onClick={() => onOpen(r.id)} aria-label={`${tr('ws.courtDesk.board.open')} ${name}`}>
+          {tr('ws.courtDesk.board.open')}
+        </Button>
+        {pay ? (
+          <Button size="sm" kind="primary" icon="banknote" onClick={() => onOpen(r.id)} aria-label={`${tr('ws.courtDesk.board.takePayment')} ${name}`}>
+            {tr('ws.courtDesk.board.takePayment')}
+          </Button>
+        ) : isMatch ? (
+          // Players are marked one by one, on the booking's Players panel.
+          <Button size="sm" kind="primary" icon="users" onClick={() => onOpen(r.id)} aria-label={`${tr('ws.matches.booking.players')} ${name}`}>
+            {tr('ws.matches.booking.players')}
+          </Button>
+        ) : (
+          <Button size="sm" kind="primary" icon="check" busy={markingId === r.id} onClick={() => onMarkArrived(r.id)}>
+            {tr('ws.courtDesk.board.markArrived')}
+          </Button>
+        )}
+      </span>
+    </li>
   );
 }
 
@@ -1046,7 +957,7 @@ export function TodaysBoardScreen() {
         courts={courts}
         reservations={visible}
         billStates={billStates}
-        live={!reservationsQ.isError}
+        connection={night.connection}
         markingId={markingId}
         onRetry={retry}
         onSelectReservation={selectReservation}

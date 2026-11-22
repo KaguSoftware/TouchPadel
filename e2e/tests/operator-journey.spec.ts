@@ -367,7 +367,7 @@ test.describe('operator journeys', () => {
       });
 
       await page.getByLabel('Add closed day').fill(target);
-      await page.getByRole('button', { name: 'Add closed day' }).click();
+      await page.getByRole('button', { name: /to closed days/ }).click();
       await page.getByRole('button', { name: /Save/ }).click();
 
       await expect(async () => {

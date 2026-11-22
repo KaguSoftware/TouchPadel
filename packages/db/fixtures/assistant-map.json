@@ -1,5 +1,5 @@
 {
-  "generated_from": "5b8fcbb5778e94c1289744ffeb4d7bc3de885d88",
+  "generated_from": "4b5494495ed8a4a352ff460b25ad5506a87036f4",
   "chunks": [
     {
       "kind": "page",
@@ -62,7 +62,7 @@
       "ref": "page:/admin/courts",
       "lang": "en",
       "title": "/admin/courts — Courts",
-      "body": "The \"Courts\" admin listing bookable courts in calendar order; \"Add court\" and \"Edit\" open a panel with names, photo, indoor or outdoor, booking lengths and an open switch saved by app.upsert_court, with \"Switch off\" (app.delete_court) and order arrows (app.reorder_courts).\nRoles: manager, owner.\nReached from: Management › Courts: \"Court settings › Courts\".",
+      "body": "The \"Courts\" admin listing bookable courts in calendar order; \"Add court\" and \"Edit\" open a panel with names, photo, indoor or outdoor, booking lengths and an open switch saved by app.upsert_court, with \"Switch off\" (app.delete_court) and order arrows (app.reorder_courts). Below the list, the same page holds the court prices (\"Court rates\"): under the courts list, the court prices: a list of rate rules by court, days, time window, prices and priority; \"New rule\" or a row opens the editor whose \"Save\" calls app.upsert_rate_rule and affects only new bookings, and a toggle shows or hides switched-off rules. Only the owner saves a rule; a manager reads them, with \"Propose a new rate\" and, on an open rule, \"Change this rate\", each a rate price or promo change on /protocols.\nRoles: manager, owner.\nReached from: Management › Courts: \"Court settings › Courts\".",
       "route": "/admin/courts"
     },
     {
@@ -139,14 +139,6 @@
     },
     {
       "kind": "page",
-      "ref": "page:/admin/rates",
-      "lang": "en",
-      "title": "/admin/rates — Court prices",
-      "body": "The \"Court rates\" screen listing rate rules by court, days, time window, prices and priority; \"New rule\" or a row opens the editor whose \"Save\" calls app.upsert_rate_rule and affects only new bookings, and a toggle shows or hides switched-off rules. Only the owner saves a rule; a manager reads them, with \"Propose a new rate\" and, on an open rule, \"Change this rate\", each a rate price or promo change on /protocols.\nRoles: manager, owner.\nReached from: Management › Courts: \"Court settings › Court prices\".",
-      "route": "/admin/rates"
-    },
-    {
-      "kind": "page",
       "ref": "page:/admin/settings",
       "lang": "en",
       "title": "/admin/settings",
@@ -165,8 +157,8 @@
       "kind": "page",
       "ref": "page:/admin/settings/booking",
       "lang": "en",
-      "title": "/admin/settings/booking — Booking rules",
-      "body": "Booking rules: cancellation, hold time, how far ahead and slots per guest (owner edits, manager reads).\nRoles: manager, owner.\nReached from: Management › Courts: \"Court settings › Booking rules\".",
+      "title": "/admin/settings/booking — Rules",
+      "body": "Rules: booking rules (cancellation, hold time, how far ahead and slots per guest; owner edits, manager reads) and the tournament rules (the branch's tournaments switch, owner, app.set_tournaments_enabled).\nRoles: manager, owner.\nReached from: Management › Courts: \"Court settings › Rules\".",
       "route": "/admin/settings/booking"
     },
     {
@@ -216,14 +208,6 @@
       "title": "/admin/settings/stations — Cashier computers",
       "body": "Till computers: register this machine at the branch or retire a station (manager or owner).\nRoles: manager, owner.\nReached from: Management › Settings: \"Computers & screens › Cashier computers\".",
       "route": "/admin/settings/stations"
-    },
-    {
-      "kind": "page",
-      "ref": "page:/admin/settings/tournaments",
-      "lang": "en",
-      "title": "/admin/settings/tournaments — Tournament rules",
-      "body": "Tournament rules: the branch's tournaments switch (owner, app.set_tournaments_enabled).\nRoles: manager, owner.\nReached from: Management › Courts: \"Court settings › Tournament rules\".",
-      "route": "/admin/settings/tournaments"
     },
     {
       "kind": "page",
@@ -1294,7 +1278,7 @@
       "ref": "nav:management:courts",
       "lang": "ar",
       "title": "الإدارة › الملاعب",
-      "body": "الحجوزات وإعدادات الملاعب والمدرّبون\nالصفحة الرئيسية: /observation/courts\nالصفوف: الحجوزات → /observation/courts; الحجوزات → /desk (بدل /observation/courts); البطولات → /desk/tournaments; المباريات المفتوحة → /desk/matches; المدرّبون → /admin/coaches (المدرّبون, الحصص والأسعار, أوقات المدرّبين, قواعد الحصص, الجداول); إعدادات الملاعب → /admin/rates (أسعار الملاعب, أوقات السيدات والرجال, الملاعب, قواعد الحجز, العربون الإلكتروني, المباريات المفتوحة, ساعات العمل, قواعد البطولات)",
+      "body": "الحجوزات وإعدادات الملاعب والمدرّبون\nالصفحة الرئيسية: /observation/courts\nالصفوف: الحجوزات → /observation/courts; الحجوزات → /desk (بدل /observation/courts); البطولات → /desk/tournaments; المباريات المفتوحة → /desk/matches; المدرّبون → /admin/coaches (المدرّبون, الحصص والأسعار, أوقات المدرّبين, قواعد الحصص, الجداول); إعدادات الملاعب → /admin/courts (الملاعب, أوقات السيدات والرجال, القواعد, العربون الإلكتروني, المباريات المفتوحة, ساعات العمل)",
       "route": "/observation/courts"
     },
     {
@@ -1302,7 +1286,7 @@
       "ref": "nav:management:courts",
       "lang": "en",
       "title": "Management › Courts",
-      "body": "Bookings, court settings and coaches\nHome: /observation/courts\nRows: Bookings → /observation/courts; Bookings → /desk (instead of /observation/courts); Tournaments → /desk/tournaments; Open matches → /desk/matches; Coaches → /admin/coaches (Coaches, Lessons & prices, Coach hours, Lesson rules, Schedules); Court settings → /admin/rates (Court prices, Gender hours, Courts, Booking rules, Online deposit, Open matches, Opening hours, Tournament rules)",
+      "body": "Bookings, court settings and coaches\nHome: /observation/courts\nRows: Bookings → /observation/courts; Bookings → /desk (instead of /observation/courts); Tournaments → /desk/tournaments; Open matches → /desk/matches; Coaches → /admin/coaches (Coaches, Lessons & prices, Coach hours, Lesson rules, Schedules); Court settings → /admin/courts (Courts, Gender hours, Rules, Online deposit, Open matches, Opening hours)",
       "route": "/observation/courts"
     },
     {
@@ -1323,19 +1307,19 @@
     },
     {
       "kind": "nav",
-      "ref": "nav:management:courts:/admin/rates",
+      "ref": "nav:management:courts:/admin/courts",
       "lang": "ar",
       "title": "الإدارة › الملاعب: إعدادات الملاعب",
-      "body": "صف \"إعدادات الملاعب\" في مساحة \"الإدارة\" › الملاعب يفتح /admin/rates. الاسم بالإنجليزية: \"Court settings\". الأدوار: manager, owner. صفحاته، كتبويبات تحت عنوان الصفحة: أسعار الملاعب ← /admin/rates؛ أوقات السيدات والرجال ← /admin/gender-hours؛ الملاعب ← /admin/courts؛ قواعد الحجز ← /admin/settings/booking؛ العربون الإلكتروني ← /admin/settings/deposit؛ المباريات المفتوحة ← /admin/settings/matches؛ ساعات العمل ← /admin/hours؛ قواعد البطولات ← /admin/settings/tournaments.",
-      "route": "/admin/rates"
+      "body": "صف \"إعدادات الملاعب\" في مساحة \"الإدارة\" › الملاعب يفتح /admin/courts. الاسم بالإنجليزية: \"Court settings\". الأدوار: manager, owner. صفحاته، كتبويبات تحت عنوان الصفحة: الملاعب ← /admin/courts؛ أوقات السيدات والرجال ← /admin/gender-hours؛ القواعد ← /admin/settings/booking؛ العربون الإلكتروني ← /admin/settings/deposit؛ المباريات المفتوحة ← /admin/settings/matches؛ ساعات العمل ← /admin/hours.",
+      "route": "/admin/courts"
     },
     {
       "kind": "nav",
-      "ref": "nav:management:courts:/admin/rates",
+      "ref": "nav:management:courts:/admin/courts",
       "lang": "en",
       "title": "Management › Courts: Court settings",
-      "body": "Rail row \"Court settings\" in the Management workspace › Courts opens /admin/rates. Arabic label: \"إعدادات الملاعب\". Roles: manager, owner. Its pages, as tabs under the page title: Court prices → /admin/rates; Gender hours → /admin/gender-hours; Courts → /admin/courts; Booking rules → /admin/settings/booking; Online deposit → /admin/settings/deposit; Open matches → /admin/settings/matches; Opening hours → /admin/hours; Tournament rules → /admin/settings/tournaments.",
-      "route": "/admin/rates"
+      "body": "Rail row \"Court settings\" in the Management workspace › Courts opens /admin/courts. Arabic label: \"إعدادات الملاعب\". Roles: manager, owner. Its pages, as tabs under the page title: Courts → /admin/courts; Gender hours → /admin/gender-hours; Rules → /admin/settings/booking; Online deposit → /admin/settings/deposit; Open matches → /admin/settings/matches; Opening hours → /admin/hours.",
+      "route": "/admin/courts"
     },
     {
       "kind": "nav",
@@ -6110,7 +6094,7 @@
       "ref": "action:app.link_item_modifier_group~2",
       "lang": "en",
       "title": "app.link_item_modifier_group (part 2 of 2)",
-      "body": "Manager or owner: links or unlinks one add-on group on one item (0013; price_promo adds the compulsory add-on lock). For a manager, PRICE_VIA_PROTOCOL (hint req\nGranted to: authenticated. Guard: staff role in (manager,owner).\nAudit actions written: menu.item.link_group.\nError codes: FORBIDDEN, ITEM_NOT_FOUND, GROUP_NOT_FOUND.\nCalled from: apps/operator/src/features/admin/addons/GroupEditor.tsx, apps/operator/src/features/admin/menu/ItemModifierGroups.tsx (pages /admin).\nDefined in migration 0177 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "Manager or owner: links or unlinks one add-on group on one item (0013; price_promo adds the compulsory add-on lock). For a manager, PRICE_VIA_PROTOCOL (hint req\nGranted to: authenticated. Guard: staff role in (manager,owner).\nAudit actions written: menu.item.link_group.\nError codes: FORBIDDEN, ITEM_NOT_FOUND, GROUP_NOT_FOUND.\nCalled from: apps/operator/src/features/admin/addons/GroupWizard.tsx, apps/operator/src/features/admin/menu/ItemModifierGroups.tsx (pages /admin).\nDefined in migration 0177 (last definition). The assistant cannot call this; it only explains it.",
       "route": "/admin"
     },
     {
@@ -8670,7 +8654,7 @@
       "ref": "action:app.reorder_modifiers",
       "lang": "en",
       "title": "app.reorder_modifiers",
-      "body": "Signature: app.reorder_modifiers(p_ids uuid[]) returns int.\nGranted to: authenticated. Guard: staff role in (manager,owner).\nAudit actions written: menu.modifier.reorder.\nError codes: FORBIDDEN, DUPLICATE_ID, MODIFIER_NOT_FOUND.\nCalled from: apps/operator/src/features/admin/addons/OptionsEditor.tsx (pages /admin).\nDefined in migration 0050 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "Signature: app.reorder_modifiers(p_ids uuid[]) returns int.\nGranted to: authenticated. Guard: staff role in (manager,owner).\nAudit actions written: menu.modifier.reorder.\nError codes: FORBIDDEN, DUPLICATE_ID, MODIFIER_NOT_FOUND.\nCalled from: apps/operator/src/features/admin/addons/OptionsList.tsx (pages /admin).\nDefined in migration 0050 (last definition). The assistant cannot call this; it only explains it.",
       "route": "/admin"
     },
     {
@@ -9398,7 +9382,7 @@
       "ref": "action:app.set_modifier_reveals~2",
       "lang": "en",
       "title": "app.set_modifier_reveals (part 2 of 2)",
-      "body": "Manager or owner: replaces one option's reveal list (0028; price_promo adds the compulsory add-on lock). For a manager, PRICE_VIA_PROTOCOL (hint required_addon)\nGranted to: authenticated. Guard: staff role in (manager,owner).\nAudit actions written: menu.modifier.reveals.\nError codes: FORBIDDEN, MODIFIER_NOT_FOUND, GROUP_NOT_FOUND, REVEAL_SELF, REVEAL_DEPTH.\nCalled from: apps/operator/src/features/admin/addons/RevealsEditor.tsx (pages /admin).\nDefined in migration 0177 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "Manager or owner: replaces one option's reveal list (0028; price_promo adds the compulsory add-on lock). For a manager, PRICE_VIA_PROTOCOL (hint required_addon)\nGranted to: authenticated. Guard: staff role in (manager,owner).\nAudit actions written: menu.modifier.reveals.\nError codes: FORBIDDEN, MODIFIER_NOT_FOUND, GROUP_NOT_FOUND, REVEAL_SELF, REVEAL_DEPTH.\nCalled from: apps/operator/src/features/admin/addons/GroupWizard.tsx (pages /admin).\nDefined in migration 0177 (last definition). The assistant cannot call this; it only explains it.",
       "route": "/admin"
     },
     {
@@ -9638,7 +9622,7 @@
       "ref": "action:app.set_staff_pin",
       "lang": "en",
       "title": "app.set_staff_pin",
-      "body": "Owner only. Sets an active staff member's PIN: 4 to 12 digits (0381, F-50; PIN_FORMAT), not one repeated digit or a straight run (app.pin_is_weak; PIN_WEAK). Stored as a bcrypt hash; audited as staff.pin_set without PIN material. STAFF_NOT_FOUND for an inactive or unknown id.\nSignature: app.set_staff_pin(p_staff_id uuid, p_pin text) returns void.\nGranted to: authenticated. Guard: staff role in (owner).\nAudit actions written: staff.pin_set.\nError codes: FORBIDDEN, PIN_FORMAT, PIN_WEAK, STAFF_NOT_FOUND.\nCalled from: apps/operator/src/features/admin/staff/StaffList.tsx (pages /admin).\nDefined in migration 0381 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "Owner only. Sets an active staff member's PIN: 4 to 12 digits (0381, F-50; PIN_FORMAT), not one repeated digit or a straight run (app.pin_is_weak; PIN_WEAK). Stored as a bcrypt hash; audited as staff.pin_set without PIN material. STAFF_NOT_FOUND for an inactive or unknown id.\nSignature: app.set_staff_pin(p_staff_id uuid, p_pin text) returns void.\nGranted to: authenticated. Guard: staff role in (owner).\nAudit actions written: staff.pin_set.\nError codes: FORBIDDEN, PIN_FORMAT, PIN_WEAK, STAFF_NOT_FOUND.\nCalled from: apps/operator/src/features/admin/staff/StaffAccountEditor.tsx (pages /admin).\nDefined in migration 0381 (last definition). The assistant cannot call this; it only explains it.",
       "route": "/admin"
     },
     {
@@ -10135,7 +10119,7 @@
       "lang": "en",
       "title": "app.start_protocol (part 1 of 3)",
       "body": "protocols_engine_rpcs (§2.7), re-issued by tournament_desk_start (§2.11). Starts a run of the venue's template for p_kind (tournament: p_variant) and submits step 1 from p_first_record in the same transaction. Starters by kind: product_release head_barista, head_chef, manager, owner; tournament court_desk, manager, owner (tournament_desk_start, #67); hiring manager, owner; price_promo manager, marketing, owner. The owner types both titles, anyone else at least one. Returns {run_id, status, first_step_id, submission_id, auto}. PROTOCOL_NOT_READY until the kind's start hook exists. Idempotent on p_idempotency_key. Audit",
-      "route": null
+      "route": "/admin"
     },
     {
       "kind": "action",
@@ -10143,15 +10127,15 @@
       "lang": "en",
       "title": "app.start_protocol (part 2 of 3)",
       "body": "protocols_engine_rpcs (§2.7), re-issued by tournament_desk_start (§2.11). Starts a run of the venue's template for p_kind (tournament: p_variant) and submits st\nprotocol.start, protocol.submit (+ protocol.auto).\nSignature: app.start_protocol(p_kind text, p_variant text default null, p_title_en text default null, p_title_ar text default null, p_data jsonb default '{}', p_first_record jsonb default null, p_photos text[] default '{}', p_venue_id uuid default null, p_idempotency_key text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (head_barista,head_chef,manager,owner,marketing,court_desk).\nAudit actions written: protocol.start.",
-      "route": null
+      "route": "/admin"
     },
     {
       "kind": "action",
       "ref": "action:app.start_protocol~3",
       "lang": "en",
       "title": "app.start_protocol (part 3 of 3)",
-      "body": "protocols_engine_rpcs (§2.7), re-issued by tournament_desk_start (§2.11). Starts a run of the venue's template for p_kind (tournament: p_variant) and submits st\nGranted to: authenticated. Guard: staff role in (head_barista,head_chef,manager,owner,marketing,court_desk).\nAudit actions written: protocol.start.\nError codes: FORBIDDEN, INVALID_ARGUMENT, TEXT_BOTH_LANGUAGES_REQUIRED, TEXT_REQUIRED, RECORD_INVALID, PROTOCOL_NOT_FOUND, PROTOCOL_NOT_READY, NOT_STEP_ACTOR.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0178 (last definition). The assistant cannot call this; it only explains it.",
-      "route": null
+      "body": "protocols_engine_rpcs (§2.7), re-issued by tournament_desk_start (§2.11). Starts a run of the venue's template for p_kind (tournament: p_variant) and submits st\nGranted to: authenticated. Guard: staff role in (head_barista,head_chef,manager,owner,marketing,court_desk).\nAudit actions written: protocol.start.\nError codes: FORBIDDEN, INVALID_ARGUMENT, TEXT_BOTH_LANGUAGES_REQUIRED, TEXT_REQUIRED, RECORD_INVALID, PROTOCOL_NOT_FOUND, PROTOCOL_NOT_READY, NOT_STEP_ACTOR.\nCalled from: apps/operator/src/features/admin/addons/GroupWizard.tsx (pages /admin).\nDefined in migration 0178 (last definition). The assistant cannot call this; it only explains it.",
+      "route": "/admin"
     },
     {
       "kind": "action",
@@ -11214,7 +11198,7 @@
       "ref": "action:app.upsert_modifier~3",
       "lang": "en",
       "title": "app.upsert_modifier (part 3 of 3)",
-      "body": "Manager or owner: creates or updates one add-on (0013; a wrapper over app.upsert_modifier_internal since price_promo). For a manager: PRICE_VIA_PROTOCOL on a ch\nGranted to: authenticated. Guard: staff role in (manager,owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, PRICE_VIA_PROTOCOL, LAUNCH_VIA_PROTOCOL.\nCalled from: apps/operator/src/features/admin/addons/OptionsEditor.tsx (pages /admin).\nDefined in migration 0195 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "Manager or owner: creates or updates one add-on (0013; a wrapper over app.upsert_modifier_internal since price_promo). For a manager: PRICE_VIA_PROTOCOL on a ch\nGranted to: authenticated. Guard: staff role in (manager,owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, PRICE_VIA_PROTOCOL, LAUNCH_VIA_PROTOCOL.\nCalled from: apps/operator/src/features/admin/addons/GroupWizard.tsx, apps/operator/src/features/admin/addons/OptionsList.tsx (pages /admin).\nDefined in migration 0195 (last definition). The assistant cannot call this; it only explains it.",
       "route": "/admin"
     },
     {
@@ -26037,48 +26021,96 @@
       "kind": "label",
       "ref": "label:op.addons",
       "lang": "ar",
-      "title": "op.addons (packages/i18n/src/catalogs/ar.ts) (part 1 of 3)",
-      "body": "groups: مجموعات مرتبطة بالأصناف\nsubGroups: المجموعات الفرعية\nsubGroupsHint: غير مرتبطة بأي صنف. يُظهرها خيار في مجموعة أخرى.\nnewGroup: مجموعة جديدة\nnewSubGroup: مجموعة فرعية جديدة\nlinkedItems: الأصناف المرتبطة\noptions: الخيارات\nnewOption: خيار جديد\nreveals: يُظهر\nrevealsHint: المجموعات الفرعية التي تظهر عند اختيار هذا الخيار.\nnoSubGroups: لا مجموعات فرعية بعد. أنشئ واحدة لإظهارها هنا.\nminMax: الحد الأدنى / الأقصى للاختيارات\nrequired: مطلوب\ndelta: السعر الإضافي (د.ع)\nactive: مفعّل\nlead: الخيارات التي يحددها الضيف لصنفه، مثل نوع الحليب أو جرعة إضافية. أما المجموعة الفرعية فلا تظهر للضيف إلا بعد أن يختار خيارًا معيّنًا، مثل اختيار المشروب بعد «اجعلها وجبة».\npick: اختر مجموعة لتعديلها أو أضف مجموعة جديدة.\nmeta: الخيارات {options} · الأصناف {items}",
+      "title": "op.addons (packages/i18n/src/catalogs/ar.ts) (part 1 of 4)",
+      "body": "groups: مجموعات مرتبطة بالأصناف\nsubGroups: المجموعات الفرعية\nsubGroupsHint: غير مرتبطة بأي صنف. يُظهرها خيار في مجموعة أخرى.\nnewGroup: مجموعة جديدة\nnewSubGroup: مجموعة فرعية جديدة\nlinkedItems: الأصناف المرتبطة\noptions: الخيارات\nnewOption: خيار جديد\nreveals: يُظهر\nrevealsHint: المجموعات الفرعية التي تظهر عند اختيار هذا الخيار.\nnoSubGroups: لا مجموعات فرعية بعد. أنشئ واحدة لإظهارها هنا.\nminMax: الحد الأدنى / الأقصى للاختيارات\nrequired: مطلوب\ndelta: السعر الإضافي (د.ع)\nwizardLead: سمِّها، وحدد كم خياراً يمكن للضيف اختياره، ثم أضف الخيارات واختر الأصناف.\nstepName: الاسم\nstepBasics: الاسم والاختيارات\nstepChoices: الاختيارات\nstepOptions: الخيارات\nstepItems: الأصناف\npresetOptional: اختياري\npresetOptionalBody: يمكن للضيف تخطيها\npresetRequired: إلزامي",
       "route": "/admin/addons"
     },
     {
       "kind": "label",
       "ref": "label:op.addons",
       "lang": "en",
-      "title": "op.addons (packages/i18n/src/catalogs/en.ts) (part 1 of 3)",
-      "body": "groups: Item groups\nsubGroups: Sub-groups\nsubGroupsHint: Not linked to any item. An option in another group reveals it.\nnewGroup: New group\nnewSubGroup: New sub-group\nlinkedItems: Linked items\noptions: Options\nnewOption: New option\nreveals: Reveals\nrevealsHint: Sub-groups shown when this option is picked.\nnoSubGroups: No sub-groups yet. Create one to reveal it here.\nminMax: Min / max choices\nrequired: Required\ndelta: Extra charge (IQD)\nactive: Active\nlead: The choices a guest makes on an item, such as milk type or an extra shot. A sub-group is asked only after a guest picks a certain option, such as choosing a drink after “Make it a meal”.\npick: Choose a group to edit it, or add a new one.\nmeta: Options {options} · Items {items}",
+      "title": "op.addons (packages/i18n/src/catalogs/en.ts) (part 1 of 4)",
+      "body": "groups: Item groups\nsubGroups: Sub-groups\nsubGroupsHint: Not linked to any item. An option in another group reveals it.\nnewGroup: New group\nnewSubGroup: New sub-group\nlinkedItems: Linked items\noptions: Options\nnewOption: New option\nreveals: Reveals\nrevealsHint: Sub-groups shown when this option is picked.\nnoSubGroups: No sub-groups yet. Create one to reveal it here.\nminMax: Min / max choices\nrequired: Required\ndelta: Extra charge (IQD)\nwizardLead: Name it, say how many a guest may pick, add the options, then choose the items.\nstepName: Name\nstepBasics: Name and choices\nstepChoices: Choices\nstepOptions: Options\nstepItems: Items\npresetOptional: Optional\npresetOptionalBody: A guest may skip it\npresetRequired: Required\npresetRequiredBody: A guest must pick one",
+      "route": "/admin/addons"
+    },
+    {
+      "kind": "label",
+      "ref": "label:op.addons#2",
+      "lang": "ar",
+      "title": "op.addons (packages/i18n/src/catalogs/ar.ts) (part 1 of 2)",
+      "body": "ruleRange: مطلوب · اختر من {min} إلى {max}\nruleUpTo: اختياري · اختر حتى {max}\nlimits: كم خيارًا يمكن للضيف اختياره؟\nlimitsHint: اختر الحالة المناسبة، أو اختر عدة خيارات لتحديد الحدود.\natLeast: على الأقل\natMost: على الأكثر\nerrMin: يجب أن يكون «على الأقل» صفرًا أو أكثر.\nerrMax: يجب أن يكون «على الأكثر» واحدًا أو أكثر.\nerrOrder: لا يمكن أن يكون «على الأقل» أكبر من «على الأكثر».\nitemsLabel: متاحة مع هذه الأصناف\nselectedCount: المحدد: {count}\nnoItemsMatch: لا أصناف تطابق بحثك.\noptionName: الاسم\nextraPrice: السعر الإضافي (د.ع)\nextraPriceHint: يُضاف إلى سعر الصنف. اتركه صفرًا إن كان بلا مقابل.\noffered: متاح\nrevealsToggle: المجموعات الفرعية: {count}\nrevealsTitle: بعد أن يختار الضيف «{option}»، اسأله أيضًا:\nclearReveals: مسح الكل\ndiscard: تجاهل التغييرات",
+      "route": "/admin/addons"
+    },
+    {
+      "kind": "label",
+      "ref": "label:op.addons#2",
+      "lang": "en",
+      "title": "op.addons (packages/i18n/src/catalogs/en.ts) (part 1 of 2)",
+      "body": "subMetaNone: Options {options} · No option asks for it yet\nruleExactly: Required · choose {count}\nruleRange: Required · choose {min} to {max}\nruleUpTo: Optional · choose up to {max}\nlimits: How many can a guest choose?\nlimitsHint: Pick the case that fits, or choose several to set limits.\natLeast: At least\natMost: At most\nerrMin: “At least” must be 0 or more.\nerrMax: “At most” must be 1 or more.\nerrOrder: “At least” cannot be more than “at most”.\nitemsLabel: Offered on these items\nselectedCount: Selected: {count}\nnoItemsMatch: No items match the search.\noptionName: Name\nextraPrice: Extra price (IQD)\nextraPriceHint: Added to the item price. Leave 0 for no charge.\noffered: Offered\nrevealsToggle: Sub-groups: {count}",
+      "route": "/admin/addons"
+    },
+    {
+      "kind": "label",
+      "ref": "label:op.addons#2~2",
+      "lang": "ar",
+      "title": "op.addons (packages/i18n/src/catalogs/ar.ts) (part 2 of 2)",
+      "body": "ruleRange: مطلوب · اختر من {min} إلى {max}\noffered: متاح\nrevealsToggle: المجموعات الفرعية: {count}\nrevealsTitle: بعد أن يختار الضيف «{option}»، اسأله أيضًا:\nclearReveals: مسح الكل\ndiscard: تجاهل التغييرات\nemptyOptions: لا خيارات بعد. أضف أول خيار يمكن للضيوف اختياره.\nnamesRequired: الاسم بالإنجليزية والعربية مطلوب.",
+      "route": "/admin/addons"
+    },
+    {
+      "kind": "label",
+      "ref": "label:op.addons#2~2",
+      "lang": "en",
+      "title": "op.addons (packages/i18n/src/catalogs/en.ts) (part 2 of 2)",
+      "body": "subMetaNone: Options {options} · No option asks for it yet\noptionName: Name\nextraPrice: Extra price (IQD)\nextraPriceHint: Added to the item price. Leave 0 for no charge.\noffered: Offered\nrevealsToggle: Sub-groups: {count}\nrevealsTitle: After a guest picks “{option}”, also ask:\nclearReveals: Clear all\ndiscard: Discard changes\nemptyOptions: No options yet. Add the first choice guests can pick.\nnamesRequired: Enter the name in English and Arabic.",
       "route": "/admin/addons"
     },
     {
       "kind": "label",
       "ref": "label:op.addons~2",
       "lang": "ar",
-      "title": "op.addons (packages/i18n/src/catalogs/ar.ts) (part 2 of 3)",
-      "body": "groups: مجموعات مرتبطة بالأصناف\npick: اختر مجموعة لتعديلها أو أضف مجموعة جديدة.\nmeta: الخيارات {options} · الأصناف {items}\nsubMeta: الخيارات {options} · تظهر بعد: {names}\nsubMetaNone: الخيارات {options} · لا يُظهرها أي خيار بعد\nruleExactly: مطلوب · اختر {count}\nruleRange: مطلوب · اختر من {min} إلى {max}\nruleUpTo: اختياري · اختر حتى {max}\nlimits: كم خيارًا يمكن للضيف اختياره؟\natLeast: على الأقل\natMost: على الأكثر\nerrMin: يجب أن يكون «على الأقل» صفرًا أو أكثر.\nerrMax: يجب أن يكون «على الأكثر» واحدًا أو أكثر.\nerrOrder: لا يمكن أن يكون «على الأقل» أكبر من «على الأكثر».\nitemsLabel: متاحة مع هذه الأصناف\nselectedCount: المحدد: {count}\nnoItemsMatch: لا أصناف تطابق بحثك.\noptionName: الاسم\nextraPrice: السعر الإضافي (د.ع)\nextraPriceHint: يُضاف إلى سعر الصنف. اتركه صفرًا إن كان بلا مقابل.",
+      "title": "op.addons (packages/i18n/src/catalogs/ar.ts) (part 2 of 4)",
+      "body": "groups: مجموعات مرتبطة بالأصناف\nstepName: الاسم\nstepBasics: الاسم والاختيارات\nstepChoices: الاختيارات\nstepOptions: الخيارات\nstepItems: الأصناف\npresetOptional: اختياري\npresetOptionalBody: يمكن للضيف تخطيها\npresetRequired: إلزامي\npresetRequiredBody: يجب على الضيف اختيار واحد\npresetMany: عدة خيارات\npresetManyBody: حتى حد معين\noptionCount: {count} خيارات\ndone: تم\napprovalNameAndPrice: معروض للبيع: تغيير اسمه أو سعره يُرسل إلى المالك للموافقة.\napprovalPrice: معروض للبيع: تغيير سعره يُرسل إلى المالك للموافقة.\napprovalTitle: يُرسل إلى المالك للموافقة\napprovalLead: هذه الخيارات معروضة للبيع. تبقى باسمها وسعرها حتى يوافق المالك.\napprovalReason: لماذا تغيّرها؟\napprovalEffect: ماذا تتوقع أن يحدث؟\napprovalNeedsReason: اذكر سبب التغيير وما تتوقعه.",
       "route": "/admin/addons"
     },
     {
       "kind": "label",
       "ref": "label:op.addons~2",
       "lang": "en",
-      "title": "op.addons (packages/i18n/src/catalogs/en.ts) (part 2 of 3)",
-      "body": "groups: Item groups\npick: Choose a group to edit it, or add a new one.\nmeta: Options {options} · Items {items}\nsubMeta: Options {options} · Asked after: {names}\nsubMetaNone: Options {options} · No option asks for it yet\nruleExactly: Required · choose {count}\nruleRange: Required · choose {min} to {max}\nruleUpTo: Optional · choose up to {max}\nlimits: How many can a guest choose?\natLeast: At least\natMost: At most\nerrMin: “At least” must be 0 or more.\nerrMax: “At most” must be 1 or more.\nerrOrder: “At least” cannot be more than “at most”.\nitemsLabel: Offered on these items\nselectedCount: Selected: {count}\nnoItemsMatch: No items match the search.\noptionName: Name\nextraPrice: Extra price (IQD)\nextraPriceHint: Added to the item price. Leave 0 for no charge.\noffered: Offered",
+      "title": "op.addons (packages/i18n/src/catalogs/en.ts) (part 2 of 4)",
+      "body": "groups: Item groups\nstepChoices: Choices\nstepOptions: Options\nstepItems: Items\npresetOptional: Optional\npresetOptionalBody: A guest may skip it\npresetRequired: Required\npresetRequiredBody: A guest must pick one\npresetMany: Pick several\npresetManyBody: Up to a limit\noptionCount: {count} options\ndone: Done\napprovalNameAndPrice: On sale: a change to its name or price is sent to the owner for approval.\napprovalPrice: On sale: a change to its price is sent to the owner for approval.\napprovalTitle: Sent to the owner for approval\napprovalLead: These options are on sale. They keep their name and price until the owner approves.\napprovalReason: Why are you changing them?\napprovalEffect: What do you expect to happen?\napprovalNeedsReason: Say why you are changing them and what you expect.",
       "route": "/admin/addons"
     },
     {
       "kind": "label",
       "ref": "label:op.addons~3",
       "lang": "ar",
-      "title": "op.addons (packages/i18n/src/catalogs/ar.ts) (part 3 of 3)",
-      "body": "groups: مجموعات مرتبطة بالأصناف\nselectedCount: المحدد: {count}\nnoItemsMatch: لا أصناف تطابق بحثك.\noptionName: الاسم\nextraPrice: السعر الإضافي (د.ع)\nextraPriceHint: يُضاف إلى سعر الصنف. اتركه صفرًا إن كان بلا مقابل.\noffered: متاح\nrevealsToggle: المجموعات الفرعية: {count}\nrevealsTitle: بعد أن يختار الضيف «{option}»، اسأله أيضًا:\nclearReveals: مسح الكل\ndiscard: تجاهل التغييرات\nemptyOptions: لا خيارات بعد. أضف أول خيار يمكن للضيوف اختياره.\nnamesRequired: الاسم بالإنجليزية والعربية مطلوب.",
+      "title": "op.addons (packages/i18n/src/catalogs/ar.ts) (part 3 of 4)",
+      "body": "groups: مجموعات مرتبطة بالأصناف\napprovalLead: هذه الخيارات معروضة للبيع. تبقى باسمها وسعرها حتى يوافق المالك.\napprovalReason: لماذا تغيّرها؟\napprovalEffect: ماذا تتوقع أن يحدث؟\napprovalNeedsReason: اذكر سبب التغيير وما تتوقعه.\nsentForApproval: تم الحفظ. أُرسلت تغييرات الخيارات المعروضة للبيع إلى المالك للموافقة.\nselectAllItems: تحديد الكل\nclearItems: مسح\ncategorySelected: {selected} من {total}\notherCategory: أخرى\nnothingChanged: لم يتغير شيء بعد.\nreadOnly: المدير فقط يستطيع تعديل الإضافات.\nfree: بدون سعر إضافي\nactive: مفعّل\nlead: الخيارات التي يحددها الضيف لصنفه، مثل نوع الحليب أو جرعة إضافية. أما المجموعة الفرعية فلا تظهر للضيف إلا بعد أن يختار خيارًا معيّنًا، مثل اختيار المشروب بعد «اجعلها وجبة».\npick: اختر مجموعة لتعديلها أو أضف مجموعة جديدة.\nmeta: الخيارات {options} · الأصناف {items}",
       "route": "/admin/addons"
     },
     {
       "kind": "label",
       "ref": "label:op.addons~3",
       "lang": "en",
-      "title": "op.addons (packages/i18n/src/catalogs/en.ts) (part 3 of 3)",
-      "body": "groups: Item groups\nnoItemsMatch: No items match the search.\noptionName: Name\nextraPrice: Extra price (IQD)\nextraPriceHint: Added to the item price. Leave 0 for no charge.\noffered: Offered\nrevealsToggle: Sub-groups: {count}\nrevealsTitle: After a guest picks “{option}”, also ask:\nclearReveals: Clear all\ndiscard: Discard changes\nemptyOptions: No options yet. Add the first choice guests can pick.\nnamesRequired: Enter the name in English and Arabic.",
+      "title": "op.addons (packages/i18n/src/catalogs/en.ts) (part 3 of 4)",
+      "body": "groups: Item groups\napprovalReason: Why are you changing them?\napprovalEffect: What do you expect to happen?\napprovalNeedsReason: Say why you are changing them and what you expect.\nsentForApproval: Saved. The changes to options on sale were sent to the owner for approval.\nselectAllItems: Select all\nclearItems: Clear\ncategorySelected: {selected} of {total}\notherCategory: Other\nnothingChanged: Nothing has changed yet.\nreadOnly: Only a manager can change extras.\nfree: No extra charge\nactive: Active\nlead: The choices a guest makes on an item, such as milk type or an extra shot. A sub-group is asked only after a guest picks a certain option, such as choosing a drink after “Make it a meal”.\npick: Choose a group to edit it, or add a new one.\nmeta: Options {options} · Items {items}",
+      "route": "/admin/addons"
+    },
+    {
+      "kind": "label",
+      "ref": "label:op.addons~4",
+      "lang": "ar",
+      "title": "op.addons (packages/i18n/src/catalogs/ar.ts) (part 4 of 4)",
+      "body": "groups: مجموعات مرتبطة بالأصناف\npick: اختر مجموعة لتعديلها أو أضف مجموعة جديدة.\nmeta: الخيارات {options} · الأصناف {items}\nsubMeta: الخيارات {options} · تظهر بعد: {names}\nsubMetaNone: الخيارات {options} · لا يُظهرها أي خيار بعد\nruleExactly: مطلوب · اختر {count}",
+      "route": "/admin/addons"
+    },
+    {
+      "kind": "label",
+      "ref": "label:op.addons~4",
+      "lang": "en",
+      "title": "op.addons (packages/i18n/src/catalogs/en.ts) (part 4 of 4)",
+      "body": "groups: Item groups\npick: Choose a group to edit it, or add a new one.\nmeta: Options {options} · Items {items}\nsubMeta: Options {options} · Asked after: {names}",
       "route": "/admin/addons"
     },
     {
@@ -26654,7 +26686,7 @@
       "ref": "label:op.hero",
       "lang": "ar",
       "title": "op.hero (packages/i18n/src/catalogs/ar.ts) (part 1 of 3)",
-      "body": "title: الشاشة الرئيسية لموقع الضيوف\nlead: ما يراه الضيوف أعلى المنيو بعد مسح بطاقة الطاولة.\nmode: أعلى المنيو\nmodeNone: المنيو فقط\nmodeNoneHint: ينتقل الضيوف مباشرة إلى المنيو.\nmodeMedia: صورة أو فيديو\nmodeMediaHint: صورة عريضة أو فيديو قصير صامت فوق المنيو.\nmodeFeatured: صنف مميز\nmodeFeaturedHint: صنف واحد من المنيو يُسلَّط عليه الضوء، مع شارة وخصم اختياري.\nmedia: صورة أو فيديو\nmediaHint: صورة بعرض حتى 1600 بكسل، أو فيديو MP4 أو WebM حتى {mb} ميغابايت.\nfeaturedTitle: الصنف المميز\nfeaturedItem: الصنف\nfeaturedItemHint: لا يمكن تمييز إلا الأصناف الموجودة حاليًا في المنيو.\npickItem: اختر صنفًا…\nnoItems: لا أصناف في المنيو بعد.\nlabel: عبارة فوق الاسم\nlabelHint: عبارة قصيرة تظهر فوق اسم الصنف، مثل «فطور بغدادي أصيل».\nbadge: الشارة",
+      "body": "title: الشاشة الرئيسية لموقع الضيوف\nlead: ما يراه الضيوف أعلى المنيو بعد مسح بطاقة الطاولة.\nmode: أعلى المنيو\nmodeNone: المنيو فقط\nmodeNoneHint: ينتقل الضيوف مباشرة إلى المنيو.\nmodeMedia: صورة أو فيديو\nmodeMediaHint: صورة عريضة أو فيديو قصير صامت فوق المنيو.\nmodeFeatured: صنف مميز\nmodeFeaturedHint: صنف واحد من المنيو يُسلَّط عليه الضوء، مع شارة وخصم اختياري.\nmedia: صورة أو فيديو\nmediaHint: صورة بعرض حتى 1600 بكسل، أو فيديو MP4 أو WebM حتى {mb} ميغابايت.\nfeaturedTitle: الصنف المميز\nfeaturedItem: الصنف\nfeaturedCategory: الفئة\npickCategory: اختر فئة…\npickItemFirstCategory: اختر الفئة أولًا\nfeaturedItemHint: لا يمكن تمييز إلا الأصناف الموجودة حاليًا في المنيو.\npickItem: اختر صنفًا…\nnoItems: لا أصناف في المنيو بعد.\nlabel: عبارة فوق الاسم",
       "route": "/admin/hero"
     },
     {
@@ -26662,7 +26694,7 @@
       "ref": "label:op.hero",
       "lang": "en",
       "title": "op.hero (packages/i18n/src/catalogs/en.ts) (part 1 of 3)",
-      "body": "title: Guest site home screen\nlead: What guests see at the top of the menu after they scan a table card.\nmode: At the top of the menu\nmodeNone: Menu only\nmodeNoneHint: Guests go straight to the menu.\nmodeMedia: Photo or video\nmodeMediaHint: A wide photo or a short silent video above the menu.\nmodeFeatured: Featured item\nmodeFeaturedHint: One menu item in the spotlight, with a tag and an optional discount.\nmedia: Photo or video\nmediaHint: A photo up to 1600 px wide, or an MP4 or WebM video up to {mb} MB.\nfeaturedTitle: The featured item\nfeaturedItem: Item\nfeaturedItemHint: Only items currently on the menu can be featured.\npickItem: Choose an item…\nnoItems: There are no items on the menu yet.\nlabel: Line above the name",
+      "body": "title: Guest site home screen\nlead: What guests see at the top of the menu after they scan a table card.\nmode: At the top of the menu\nmodeNone: Menu only\nmodeNoneHint: Guests go straight to the menu.\nmodeMedia: Photo or video\nmodeMediaHint: A wide photo or a short silent video above the menu.\nmodeFeatured: Featured item\nmodeFeaturedHint: One menu item in the spotlight, with a tag and an optional discount.\nmedia: Photo or video\nmediaHint: A photo up to 1600 px wide, or an MP4 or WebM video up to {mb} MB.\nfeaturedTitle: The featured item\nfeaturedItem: Item\nfeaturedCategory: Category\npickCategory: Choose a category…\npickItemFirstCategory: Choose a category first\nfeaturedItemHint: Only items currently on the menu can be featured.\npickItem: Choose an item…",
       "route": "/admin/hero"
     },
     {
@@ -26670,7 +26702,7 @@
       "ref": "label:op.hero~2",
       "lang": "ar",
       "title": "op.hero (packages/i18n/src/catalogs/ar.ts) (part 2 of 3)",
-      "body": "title: الشاشة الرئيسية لموقع الضيوف\npickItem: اختر صنفًا…\nnoItems: لا أصناف في المنيو بعد.\nlabel: عبارة فوق الاسم\nlabelHint: عبارة قصيرة تظهر فوق اسم الصنف، مثل «فطور بغدادي أصيل».\nbadge: الشارة\nbadgeHint: كلمة أو كلمتان على الصورة، مثل «جديد».\ndiscount: الخصم (%)\ndiscountHint: يدفع الضيوف فعلًا ثمنًا أقل للصنف بهذه النسبة ما دام مميزًا. القيمة 0 تعني بلا خصم.\nticker: العبارات المتحركة\ntickerHint: عبارات قصيرة تتحرك تحت الترويسة، باللغتين. الحد الأقصى: {max}.\naddPhrase: إضافة عبارة\nphraseEn: العبارة (بالإنجليزية)\nphraseAr: العبارة (بالعربية)\ntickerFull: بلغت العبارات الحد الأقصى: {max}.\nrowIncomplete: تحتاج كل عبارة إلى نص بالعربية والإنجليزية.\ntickerTooLong: إحدى العبارات طويلة جدًا، أو عدد العبارات أكبر من المسموح.\nmediaRequired: يلزم رفع صورة أو فيديو لهذا الخيار.",
+      "body": "title: الشاشة الرئيسية لموقع الضيوف\npickItemFirstCategory: اختر الفئة أولًا\nfeaturedItemHint: لا يمكن تمييز إلا الأصناف الموجودة حاليًا في المنيو.\npickItem: اختر صنفًا…\nnoItems: لا أصناف في المنيو بعد.\nlabel: عبارة فوق الاسم\nlabelHint: عبارة قصيرة تظهر فوق اسم الصنف، مثل «فطور بغدادي أصيل».\nbadge: الشارة\nbadgeHint: كلمة أو كلمتان على الصورة، مثل «جديد».\ndiscount: الخصم (%)\ndiscountHint: يدفع الضيوف فعلًا ثمنًا أقل للصنف بهذه النسبة ما دام مميزًا. القيمة 0 تعني بلا خصم.\nticker: العبارات المتحركة\ntickerHint: عبارات قصيرة تتحرك تحت الترويسة، باللغتين. الحد الأقصى: {max}.\naddPhrase: إضافة عبارة\nphraseEn: العبارة (بالإنجليزية)\nphraseAr: العبارة (بالعربية)\ntickerFull: بلغت العبارات الحد الأقصى: {max}.\nrowIncomplete: تحتاج كل عبارة إلى نص بالعربية والإنجليزية.",
       "route": "/admin/hero"
     },
     {
@@ -26678,7 +26710,7 @@
       "ref": "label:op.hero~2",
       "lang": "en",
       "title": "op.hero (packages/i18n/src/catalogs/en.ts) (part 2 of 3)",
-      "body": "title: Guest site home screen\nfeaturedItem: Item\nfeaturedItemHint: Only items currently on the menu can be featured.\npickItem: Choose an item…\nnoItems: There are no items on the menu yet.\nlabel: Line above the name\nlabelHint: A short line shown above the item name, like “A true Baghdadi breakfast”.\nbadge: Badge\nbadgeHint: A word or two on the photo, like “New”.\ndiscount: Discount (%)\nticker: Scrolling lines\ntickerHint: Short lines that scroll under the header, in both languages. Up to {max}.\naddPhrase: Add a line\nphraseEn: Line (English)\nphraseAr: Line (Arabic)\ntickerFull: That is the most lines there can be: {max}.\nrowIncomplete: Every line needs both English and Arabic text.\ntickerTooLong: A line is too long, or there are too many lines.",
+      "body": "title: Guest site home screen\npickCategory: Choose a category…\npickItemFirstCategory: Choose a category first\nfeaturedItemHint: Only items currently on the menu can be featured.\npickItem: Choose an item…\nnoItems: There are no items on the menu yet.\nlabel: Line above the name\nlabelHint: A short line shown above the item name, like “A true Baghdadi breakfast”.\nbadge: Badge\nbadgeHint: A word or two on the photo, like “New”.\ndiscount: Discount (%)\nticker: Scrolling lines\ntickerHint: Short lines that scroll under the header, in both languages. Up to {max}.\naddPhrase: Add a line\nphraseEn: Line (English)\nphraseAr: Line (Arabic)\ntickerFull: That is the most lines there can be: {max}.\nrowIncomplete: Every line needs both English and Arabic text.",
       "route": "/admin/hero"
     },
     {
@@ -26686,7 +26718,7 @@
       "ref": "label:op.hero~3",
       "lang": "ar",
       "title": "op.hero (packages/i18n/src/catalogs/ar.ts) (part 3 of 3)",
-      "body": "title: الشاشة الرئيسية لموقع الضيوف\nrowIncomplete: تحتاج كل عبارة إلى نص بالعربية والإنجليزية.\ntickerTooLong: إحدى العبارات طويلة جدًا، أو عدد العبارات أكبر من المسموح.\nmediaRequired: يلزم رفع صورة أو فيديو لهذا الخيار.\nitemRequired: يلزم اختيار الصنف المراد تمييزه.\nbellTitle: شرح جرس النادل\nbellTutorial: عرض طريقة عمل جرس النادل\nbellTutorialHint: يرى الضيوف في أول زيارة شرحًا قصيرًا لجرس النادل.\npreview: معاينة\npreviewHint: شكل أعلى المنيو على الهاتف. يراه كل ضيف بلغته.\npreviewTable: معاينة لطاولة {table}\nunsaved: لديك تغييرات غير محفوظة.\nupToDate: كل شيء محفوظ.\ndiscard: تجاهل التغييرات",
+      "body": "title: الشاشة الرئيسية لموقع الضيوف\naddPhrase: إضافة عبارة\nphraseEn: العبارة (بالإنجليزية)\nphraseAr: العبارة (بالعربية)\ntickerFull: بلغت العبارات الحد الأقصى: {max}.\nrowIncomplete: تحتاج كل عبارة إلى نص بالعربية والإنجليزية.\ntickerTooLong: إحدى العبارات طويلة جدًا، أو عدد العبارات أكبر من المسموح.\nmediaRequired: يلزم رفع صورة أو فيديو لهذا الخيار.\nitemRequired: يلزم اختيار الصنف المراد تمييزه.\nbellTitle: شرح جرس النادل\nbellTutorial: عرض طريقة عمل جرس النادل\nbellTutorialHint: يرى الضيوف في أول زيارة شرحًا قصيرًا لجرس النادل.\npreview: معاينة\npreviewHint: شكل أعلى المنيو على الهاتف. يراه كل ضيف بلغته.\npreviewTable: معاينة لطاولة {table}\nunsaved: لديك تغييرات غير محفوظة.\nupToDate: كل شيء محفوظ.\ndiscard: تجاهل التغييرات",
       "route": "/admin/hero"
     },
     {
@@ -26694,46 +26726,62 @@
       "ref": "label:op.hero~3",
       "lang": "en",
       "title": "op.hero (packages/i18n/src/catalogs/en.ts) (part 3 of 3)",
-      "body": "title: Guest site home screen\ntickerFull: That is the most lines there can be: {max}.\nrowIncomplete: Every line needs both English and Arabic text.\ntickerTooLong: A line is too long, or there are too many lines.\nmediaRequired: Upload a photo or video for this choice.\nitemRequired: Choose the item to feature.\nbellTitle: Waiter bell help\nbellTutorial: Show how the waiter bell works\nbellTutorialHint: First-time guests see a short explanation of the waiter bell.\npreview: Preview\npreviewHint: How the top of the menu looks on a phone. Guests see it in their own language.\npreviewTable: Preview as table {table}\nunsaved: You have unsaved changes.\nupToDate: Everything is saved.\ndiscard: Discard changes",
+      "body": "title: Guest site home screen\naddPhrase: Add a line\nphraseEn: Line (English)\nphraseAr: Line (Arabic)\ntickerFull: That is the most lines there can be: {max}.\nrowIncomplete: Every line needs both English and Arabic text.\ntickerTooLong: A line is too long, or there are too many lines.\nmediaRequired: Upload a photo or video for this choice.\nitemRequired: Choose the item to feature.\nbellTitle: Waiter bell help\nbellTutorial: Show how the waiter bell works\nbellTutorialHint: First-time guests see a short explanation of the waiter bell.\npreview: Preview\npreviewHint: How the top of the menu looks on a phone. Guests see it in their own language.\npreviewTable: Preview as table {table}\nunsaved: You have unsaved changes.\nupToDate: Everything is saved.\ndiscard: Discard changes",
       "route": "/admin/hero"
     },
     {
       "kind": "label",
       "ref": "label:op.hours",
       "lang": "ar",
-      "title": "op.hours (packages/i18n/src/catalogs/ar.ts) (part 1 of 3)",
-      "body": "title: ساعات العمل\nlead: متى يمكن حجز الملاعب ويستقبل الكافيه الطلبات، والأيام التي يبقى فيها المكان مغلقًا.\novernightHint: وقت إغلاق يسبق وقت الفتح يعني أن المكان يغلق بعد منتصف الليل، ويُعلَّم «اليوم التالي».\nopen: يفتح\nclose: يغلق\nclosedDay: مغلق\nsaved: حُفظت ساعات العمل.\nclosedDatesTitle: أيام الإغلاق\nclosedDatesHint: الأيام التي لا يفتح فيها المكان إطلاقًا. تُرفض الحجوزات في هذه التواريخ عبر التطبيق والموقع وفي مكتب الملاعب.\nclosedDateAdd: إضافة يوم إغلاق\nclosedDatesNone: لا توجد أيام إغلاق قادمة.\nclosedDatesPast: أيام إغلاق سابقة ({count})\nnextDay: اليوم التالي\nbookingsTitle: حجوزات في أيام الإغلاق الجديدة\nbookingsLead: يجب إلغاء كل حجز أو تسجيله كعدم حضور أو استلام دفعته قبل إغلاق هذه الأيام.\nbookingsChecking: جارٍ التحقق من الحجوزات في أيام الإغلاق الجديدة…",
+      "title": "op.hours (packages/i18n/src/catalogs/ar.ts) (part 1 of 4)",
+      "body": "title: ساعات العمل\nlead: متى يمكن حجز الملاعب ويستقبل الكافيه الطلبات، والأيام التي يبقى فيها المكان مغلقًا.\novernightHint: وقت إغلاق يسبق وقت الفتح يعني أن المكان يغلق بعد منتصف الليل، ويُعلَّم «اليوم التالي».\nopen: يفتح\nclose: يغلق\nclosedDay: مغلق\nsaved: حُفظت ساعات العمل.\nclosedDatesTitle: أيام الإغلاق\nclosedDatesHint: الأيام التي لا يفتح فيها المكان إطلاقًا. تُرفض الحجوزات في هذه التواريخ عبر التطبيق والموقع وفي مكتب الملاعب.\nclosedDateAdd: إضافة يوم إغلاق\nclosedDateAddPicked: إضافة {date} إلى أيام الإغلاق\nclosedDatePick: اختر تاريخًا ثم أضفه\nclosedDateAlready: {date} مغلق بالفعل\nclosedFrom: من\nclosedTo: إلى\nclosedRangeAdd: إضافة {from} – {to} ({count} أيام) إلى أيام الإغلاق",
       "route": "/admin/hours"
     },
     {
       "kind": "label",
       "ref": "label:op.hours",
       "lang": "en",
-      "title": "op.hours (packages/i18n/src/catalogs/en.ts) (part 1 of 2)",
-      "body": "title: Opening hours\nlead: When courts can be booked and the cafe takes orders, and the days the venue stays shut.\nopen: Opens\nclose: Closes\nclosedDay: Closed\nsaved: Opening hours saved.\nclosedDatesTitle: Closed days\nclosedDateAdd: Add closed day\nclosedDatesNone: No closed days coming up.\nclosedDatesPast: Past closed days ({count})\nnextDay: next day\nbookingsTitle: Bookings on the new closed days\nbookingsChecking: Checking the bookings on the new closed days…\nbookingsError: Could not check the bookings on the new closed days.\nbookingsRetry: Try again\nbookingsBlocked: Resolve the bookings on the new closed days first ({count} left).\nbookingsOwed: Owed {amount}\nwalkIn: Walk-in\ncancel: Cancel booking\nnoShow: No-show\npay: Take payment",
+      "title": "op.hours (packages/i18n/src/catalogs/en.ts) (part 1 of 3)",
+      "body": "title: Opening hours\nlead: When courts can be booked and the cafe takes orders, and the days the venue stays shut.\nopen: Opens\nclose: Closes\nclosedDay: Closed\nsaved: Opening hours saved.\nclosedDatesTitle: Closed days\nclosedDateAdd: Add closed day\nclosedDateAddPicked: Add {date} to closed days\nclosedDatePick: Pick a date, then add it\nclosedDateAlready: {date} is already closed\nclosedFrom: From\nclosedTo: To\nclosedRangeAdd: Add {from} – {to} ({count} days) to closed days\nclosedRangeInvalid: That range is not valid (the end must not be before the start, at most {max} days).\nclosedRangeEnd: Closed range end date\nclosedModeDay: One day\nclosedModeRange: Date to date\nclosedColDate: Date\nclosedColDay: Day\nclosedDatesNone: No closed days coming up.",
       "route": "/admin/hours"
     },
     {
       "kind": "label",
       "ref": "label:op.hours~2",
       "lang": "ar",
-      "title": "op.hours (packages/i18n/src/catalogs/ar.ts) (part 2 of 3)",
-      "body": "title: ساعات العمل\nbookingsLead: يجب إلغاء كل حجز أو تسجيله كعدم حضور أو استلام دفعته قبل إغلاق هذه الأيام.\nbookingsChecking: جارٍ التحقق من الحجوزات في أيام الإغلاق الجديدة…\nbookingsError: تعذّر التحقق من الحجوزات في أيام الإغلاق الجديدة.\nbookingsRetry: أعد المحاولة\nbookingsBlocked: عالج الحجوزات في أيام الإغلاق الجديدة أولًا (المتبقي {count}).\nbookingsOwed: المستحق {amount}\nwalkIn: زبون بلا حساب\ncancel: إلغاء الحجز\nnoShow: عدم حضور\npay: استلام الدفعة\nnoShowNotYet: لم يبدأ الحجز بعد، فلا يمكن تسجيله كعدم حضور.\ncancelTitle: هل تريد إلغاء هذا الحجز؟\ncancelBody: {who} · {court} · {when}. يُلغى الحجز لأن المكان مغلق في ذلك اليوم.\ncancelReason: المكان مغلق في ذلك اليوم\ncancelKeep: إبقاؤه\nnoShowTitle: هل تريد تسجيل هذا الحجز كعدم حضور؟\nnoShowBody: {who} · {court} · {when}.",
+      "title": "op.hours (packages/i18n/src/catalogs/ar.ts) (part 2 of 4)",
+      "body": "title: ساعات العمل\nclosedDatePick: اختر تاريخًا ثم أضفه\nclosedDateAlready: {date} مغلق بالفعل\nclosedFrom: من\nclosedTo: إلى\nclosedRangeAdd: إضافة {from} – {to} ({count} أيام) إلى أيام الإغلاق\nclosedRangeInvalid: هذا النطاق غير صالح (يجب ألا تسبق النهاية البداية، وبحد أقصى {max} يومًا).\nclosedRangeEnd: تاريخ نهاية فترة الإغلاق\nclosedModeDay: يوم واحد\nclosedModeRange: من تاريخ إلى تاريخ\nclosedColDate: التاريخ\nclosedColDay: اليوم\nclosedDatesNone: لا توجد أيام إغلاق قادمة.\nclosedDatesPast: أيام إغلاق سابقة ({count})\nnextDay: اليوم التالي\nbookingsTitle: حجوزات في أيام الإغلاق الجديدة\nbookingsLead: يجب إلغاء كل حجز أو تسجيله كعدم حضور أو استلام دفعته قبل إغلاق هذه الأيام.\nbookingsChecking: جارٍ التحقق من الحجوزات في أيام الإغلاق الجديدة…",
       "route": "/admin/hours"
     },
     {
       "kind": "label",
       "ref": "label:op.hours~2",
       "lang": "en",
-      "title": "op.hours (packages/i18n/src/catalogs/en.ts) (part 2 of 2)",
-      "body": "title: Opening hours\nbookingsBlocked: Resolve the bookings on the new closed days first ({count} left).\nbookingsOwed: Owed {amount}\nwalkIn: Walk-in\ncancel: Cancel booking\nnoShow: No-show\npay: Take payment\nnoShowNotYet: It has not started yet, so it cannot be a no-show.\ncancelTitle: Cancel this booking?\ncancelReason: Venue closed that day\ncancelKeep: Keep it\nnoShowTitle: Mark this booking no-show?\nnoShowBody: {who} · {court} · {when}.\npayTitle: Take payment\nqueued: Saved on this computer. It is sent when the connection is back.",
+      "title": "op.hours (packages/i18n/src/catalogs/en.ts) (part 2 of 3)",
+      "body": "title: Opening hours\nclosedRangeEnd: Closed range end date\nclosedModeDay: One day\nclosedModeRange: Date to date\nclosedColDate: Date\nclosedColDay: Day\nclosedDatesNone: No closed days coming up.\nclosedDatesPast: Past closed days ({count})\nnextDay: next day\nbookingsTitle: Bookings on the new closed days\nbookingsChecking: Checking the bookings on the new closed days…\nbookingsError: Could not check the bookings on the new closed days.\nbookingsRetry: Try again\nbookingsBlocked: Resolve the bookings on the new closed days first ({count} left).\nbookingsOwed: Owed {amount}\nwalkIn: Walk-in\ncancel: Cancel booking\nnoShow: No-show\npay: Take payment\nnoShowNotYet: It has not started yet, so it cannot be a no-show.\ncancelTitle: Cancel this booking?\ncancelReason: Venue closed that day\ncancelKeep: Keep it",
       "route": "/admin/hours"
     },
     {
       "kind": "label",
       "ref": "label:op.hours~3",
       "lang": "ar",
-      "title": "op.hours (packages/i18n/src/catalogs/ar.ts) (part 3 of 3)",
+      "title": "op.hours (packages/i18n/src/catalogs/ar.ts) (part 3 of 4)",
+      "body": "title: ساعات العمل\nbookingsLead: يجب إلغاء كل حجز أو تسجيله كعدم حضور أو استلام دفعته قبل إغلاق هذه الأيام.\nbookingsChecking: جارٍ التحقق من الحجوزات في أيام الإغلاق الجديدة…\nbookingsError: تعذّر التحقق من الحجوزات في أيام الإغلاق الجديدة.\nbookingsRetry: أعد المحاولة\nbookingsBlocked: عالج الحجوزات في أيام الإغلاق الجديدة أولًا (المتبقي {count}).\nbookingsOwed: المستحق {amount}\nwalkIn: زبون بلا حساب\ncancel: إلغاء الحجز\nnoShow: عدم حضور\npay: استلام الدفعة\nnoShowNotYet: لم يبدأ الحجز بعد، فلا يمكن تسجيله كعدم حضور.\ncancelTitle: هل تريد إلغاء هذا الحجز؟\ncancelBody: {who} · {court} · {when}. يُلغى الحجز لأن المكان مغلق في ذلك اليوم.\ncancelReason: المكان مغلق في ذلك اليوم\ncancelKeep: إبقاؤه\nnoShowTitle: هل تريد تسجيل هذا الحجز كعدم حضور؟\nnoShowBody: {who} · {court} · {when}.",
+      "route": "/admin/hours"
+    },
+    {
+      "kind": "label",
+      "ref": "label:op.hours~3",
+      "lang": "en",
+      "title": "op.hours (packages/i18n/src/catalogs/en.ts) (part 3 of 3)",
+      "body": "title: Opening hours\nnoShow: No-show\npay: Take payment\nnoShowNotYet: It has not started yet, so it cannot be a no-show.\ncancelTitle: Cancel this booking?\ncancelReason: Venue closed that day\ncancelKeep: Keep it\nnoShowTitle: Mark this booking no-show?\nnoShowBody: {who} · {court} · {when}.\npayTitle: Take payment\nqueued: Saved on this computer. It is sent when the connection is back.",
+      "route": "/admin/hours"
+    },
+    {
+      "kind": "label",
+      "ref": "label:op.hours~4",
+      "lang": "ar",
+      "title": "op.hours (packages/i18n/src/catalogs/ar.ts) (part 4 of 4)",
       "body": "title: ساعات العمل\ncancelReason: المكان مغلق في ذلك اليوم\ncancelKeep: إبقاؤه\nnoShowTitle: هل تريد تسجيل هذا الحجز كعدم حضور؟\nnoShowBody: {who} · {court} · {when}.\npayTitle: استلام الدفعة\nqueued: حُفظ على هذا الجهاز، ويُرسل عند عودة الاتصال.",
       "route": "/admin/hours"
     },
@@ -26839,7 +26887,7 @@
       "lang": "ar",
       "title": "op.rates (packages/i18n/src/catalogs/ar.ts)",
       "body": "rules: قواعد الأسعار\nnewRule: قاعدة جديدة\nruleName: اسم القاعدة\ncourt: الملعب\nallCourts: كل الملاعب\ndaysLabel: أيام الأسبوع\nstartTime: البداية\nendTime: النهاية\npriority: الأولوية\nvalidFrom: سارية من\nvalidTo: سارية حتى\nisActive: فعّالة\nprices: الأسعار حسب المدة\npriceFor: سعر {minutes} دقيقة (د.ع)\nsaved: حُفظت القاعدة.",
-      "route": "/admin/rates"
+      "route": "/admin/courts"
     },
     {
       "kind": "label",
@@ -26847,7 +26895,7 @@
       "lang": "en",
       "title": "op.rates (packages/i18n/src/catalogs/en.ts)",
       "body": "rules: Rate rules\nnewRule: New rule\nruleName: Rule name\ncourt: Court\nallCourts: All courts\ndaysLabel: Days of week\nstartTime: Start\nendTime: End\npriority: Priority\nvalidFrom: Valid from\nvalidTo: Valid to\nisActive: Active\nprices: Prices per duration\npriceFor: {minutes} min price (IQD)\nsaved: Rule saved.",
-      "route": "/admin/rates"
+      "route": "/admin/courts"
     },
     {
       "kind": "label",
@@ -35591,7 +35639,7 @@
       "lang": "ar",
       "title": "ws.manager.rates (packages/i18n/src/catalogs/ws/manager.ar.ts) (part 1 of 3)",
       "body": "title: أسعار الملاعب\nlead: سعر حجز الملعب حسب اليوم والوقت. يسري التغيير على الحجوزات الجديدة فقط، وتحتفظ الحجوزات السابقة بسعرها.\nhowChosen: إذا شملت أكثر من قاعدة الوقت نفسه، تتقدّم قاعدة ملعب بعينه على قاعدة كل الملاعب، ثم تفوز القاعدة ذات الأولوية الأعلى.\nnonDestructive: الحفظ يغيّر سعر الحجوزات الجديدة فقط. الحجوزات السابقة تحتفظ بسعرها.\nrule: القاعدة\ncourt: الملعب\nallCourts: كل الملاعب\ndays: الأيام\neveryDay: كل يوم\nwindow: الوقت\nprices: الأسعار\npriceLine: {minutes} د · {price}\npriority: الأولوية\npriorityHint: تفوز الأولوية الأعلى إذا غطّت هذه القاعدة وقاعدة أخرى الوقت نفسه على الملعب نفسه.\noff: متوقفة\nshowOff: عرض القواعد المتوقفة ({count})\nhideOff: إخفاء القواعد المتوقفة\nempty: لا قواعد أسعار بعد.",
-      "route": "/admin/rates"
+      "route": "/admin/courts"
     },
     {
       "kind": "label",
@@ -35599,7 +35647,7 @@
       "lang": "en",
       "title": "ws.manager.rates (packages/i18n/src/catalogs/ws/manager.en.ts) (part 1 of 3)",
       "body": "title: Court rates\nlead: What a court booking costs, by day and time. A change applies to new bookings only; past bookings keep the price they were made at.\nhowChosen: When rules cover the same time, a rule for one court beats an all-courts rule, then the higher priority wins.\nnonDestructive: Saving changes the price of new bookings only. Past bookings keep their price.\nrule: Rule\ncourt: Court\nallCourts: All courts\ndays: Days\neveryDay: Every day\nwindow: Time\nprices: Prices\npriceLine: {minutes} min · {price}\npriority: Priority\npriorityHint: Higher wins when this rule and another cover the same time on the same court.\noff: Off\nshowOff: Show switched-off rules ({count})\nhideOff: Hide switched-off rules\nempty: No rate rules yet.",
-      "route": "/admin/rates"
+      "route": "/admin/courts"
     },
     {
       "kind": "label",
@@ -35607,7 +35655,7 @@
       "lang": "ar",
       "title": "ws.manager.rates (packages/i18n/src/catalogs/ws/manager.ar.ts) (part 2 of 3)",
       "body": "title: أسعار الملاعب\noff: متوقفة\nshowOff: عرض القواعد المتوقفة ({count})\nhideOff: إخفاء القواعد المتوقفة\nempty: لا قواعد أسعار بعد.\nemptyBody: من دون قاعدة لا يمكن تسعير أي موعد. أضف أولًا قاعدة تغطي كل الملاعب وكل الأيام وكل ساعات العمل، ثم أضف فوقها قواعد الذروة.\ntieTitle: قواعد متعادلة\ntieLead: كل زوج يغطي الوقت نفسه على الملاعب نفسها وبالأولوية نفسها، فلا شيء يحسم السعر الذي يُطبَّق على الحجز. افتح إحدى القاعدتين وغيّر أولويتها لتتقدّم على الأخرى.\ntieFrom: أول تعادل يوم {day}\ntieBadge: متعادلة\ntiesAll: عرض كل الأزواج ({count})\ntiesFewer: عرض أقل\ntieInForm: متعادلة مع {name} ({day}). غيّر الأولوية كي تفوز إحداهما.\nnewRule: قاعدة جديدة\neditRule: تحرير القاعدة\nvalidity: تواريخ السريان\nvalidityHint: الحقل الفارغ يعني بلا نهاية.",
-      "route": "/admin/rates"
+      "route": "/admin/courts"
     },
     {
       "kind": "label",
@@ -35615,7 +35663,7 @@
       "lang": "en",
       "title": "ws.manager.rates (packages/i18n/src/catalogs/ws/manager.en.ts) (part 2 of 3)",
       "body": "title: Court rates\noff: Off\nshowOff: Show switched-off rules ({count})\nhideOff: Hide switched-off rules\nempty: No rate rules yet.\nemptyBody: Without a rule no slot can be priced. Add one covering every court, every day, all opening hours first, then add peak rules on top.\ntieTitle: Rules that tie\ntieLead: Each pair covers the same time on the same courts with the same priority, so nothing decides which price a booking gets. Open one of them and change its priority so it wins.\ntieFrom: first on {day}\ntieBadge: Ties\ntiesAll: Show all {count} pairs\ntiesFewer: Show fewer\ntieInForm: Ties with {name} ({day}). Change the priority so one of them wins.\nnewRule: New rule\neditRule: Edit rule\nvalidity: Valid dates\nvalidityHint: Blank means open-ended.",
-      "route": "/admin/rates"
+      "route": "/admin/courts"
     },
     {
       "kind": "label",
@@ -35623,7 +35671,7 @@
       "lang": "ar",
       "title": "ws.manager.rates (packages/i18n/src/catalogs/ws/manager.ar.ts) (part 3 of 3)",
       "body": "title: أسعار الملاعب\ntieInForm: متعادلة مع {name} ({day}). غيّر الأولوية كي تفوز إحداهما.\nnewRule: قاعدة جديدة\neditRule: تحرير القاعدة\nvalidity: تواريخ السريان\nvalidityHint: الحقل الفارغ يعني بلا نهاية.\npricesHint: مبلغ صحيح بالدينار لكل مدة. اترك حقل المدة فارغًا لعدم تسعيرها ضمن هذه القاعدة.\nsaved: حُفظت القاعدة.",
-      "route": "/admin/rates"
+      "route": "/admin/courts"
     },
     {
       "kind": "label",
@@ -35631,7 +35679,7 @@
       "lang": "en",
       "title": "ws.manager.rates (packages/i18n/src/catalogs/ws/manager.en.ts) (part 3 of 3)",
       "body": "title: Court rates\ntiesFewer: Show fewer\ntieInForm: Ties with {name} ({day}). Change the priority so one of them wins.\nnewRule: New rule\neditRule: Edit rule\nvalidity: Valid dates\nvalidityHint: Blank means open-ended.\npricesHint: Whole IQD per duration. Leave a duration blank to not price it under this rule.\nsaved: Rule saved.",
-      "route": "/admin/rates"
+      "route": "/admin/courts"
     },
     {
       "kind": "label",
@@ -39309,40 +39357,72 @@
       "kind": "label",
       "ref": "label:ws.owner.staff#4",
       "lang": "ar",
-      "title": "ws.owner.staff (packages/i18n/src/catalogs/ws/owner.ar.ts) (part 1 of 2)",
-      "body": "access.confirmUnblock: يفتح له من جديد: {list}.\naccess.confirmWhen: تتحدّث شاشاته خلال دقيقة.\neditor.close: إغلاق\neditor.selfNote: هذا حسابك. وحده مالك آخر يستطيع تغيير دورك أو إزالة صلاحيتك.\neditor.name: الاسم الظاهر في التطبيق\neditor.nameHint: لا يمكن تغيير البريد الإلكتروني المستخدم لتسجيل الدخول من هنا. لاستخدام بريد آخر، أضف حسابًا جديدًا وأزل الصلاحية عن هذا الحساب.\neditor.saveName: حفظ الاسم\neditor.saveRole: تغيير الدور\neditor.roleInactive: أعد الصلاحية لهذا الشخص قبل تغيير دوره.\neditor.roleConfirm: تغيير دور {name} إلى {role}؟\neditor.roleConfirmAction: تغيير الدور إلى {role}\neditor.roleWhen: يسري التغيير فورًا، وتتحدّث القوائم عند تسجيل الدخول التالي.\neditor.roleSaved: غُيّر الدور.\neditor.accessTitle: الصلاحية",
+      "title": "ws.owner.staff (packages/i18n/src/catalogs/ws/owner.ar.ts) (part 1 of 4)",
+      "body": "access.confirmUnblock: يفتح له من جديد: {list}.\naccess.confirmWhen: تتحدّث شاشاته خلال دقيقة.\neditor.close: إغلاق\neditor.steps.profile: الاسم والدور\neditor.steps.signIn: الرمز وكلمة المرور\neditor.saveConfirmTitle: حفظ التغييرات لـ {name}؟\neditor.saveAction: حفظ التغييرات\neditor.lineName: يغيّر اسمه إلى {name}.\neditor.lineRole: يغيّر دوره إلى {role}.\neditor.lineBranches: يعمل في: {list}.\neditor.pending: لم يُحفظ بعد\neditor.branchNeeded: اختر فرعًا واحدًا على الأقل.\neditor.allOpen: كلها مفتوحة\neditor.closedPages: مغلقة: {list}\neditor.lineHours: يحفظ ساعات عمله الأسبوعية.\neditor.linePin: يضبط رمزًا جديدًا.\neditor.linePassword: يضبط كلمة مرور جديدة. يسجّل الدخول بها من الآن.\neditor.pinWillRemove: يُزال الرمز عند الحفظ.",
       "route": "/admin/staff"
     },
     {
       "kind": "label",
       "ref": "label:ws.owner.staff#4",
       "lang": "en",
-      "title": "ws.owner.staff (packages/i18n/src/catalogs/ws/owner.en.ts) (part 1 of 3)",
-      "body": "access.confirmTitle: Change what {name} can open?\naccess.confirmAddJobs: Adds the second job: {list}.\naccess.confirmRemoveJobs: Takes away the second job: {list}.\naccess.confirmBlock: Keeps them out of: {list}.\naccess.confirmUnblock: Opens again: {list}.\naccess.confirmWhen: Their screens update within a minute.\neditor.close: Close\neditor.selfNote: This is your own account. Only another owner can change your role or remove your access.\neditor.name: Name shown in the app\neditor.nameHint: The sign-in email cannot be changed here. To use a different email, add a new account and remove access from this one.\neditor.saveName: Save name\neditor.saveRole: Change role\neditor.roleInactive: Give this person access again before changing their role.",
+      "title": "ws.owner.staff (packages/i18n/src/catalogs/ws/owner.en.ts) (part 1 of 4)",
+      "body": "access.confirmTitle: Change what {name} can open?\naccess.confirmAddJobs: Adds the second job: {list}.\naccess.confirmRemoveJobs: Takes away the second job: {list}.\naccess.confirmBlock: Keeps them out of: {list}.\naccess.confirmUnblock: Opens again: {list}.\naccess.confirmWhen: Their screens update within a minute.\neditor.close: Close\neditor.steps.profile: Name & role\neditor.steps.signIn: PIN & password\neditor.saveConfirmTitle: Save changes for {name}?\neditor.saveAction: Save changes\neditor.lineName: Renames them to {name}.\neditor.lineRole: Changes their role to {role}.\neditor.lineBranches: Works at: {list}.\neditor.pending: Not saved yet\neditor.branchNeeded: Pick at least one branch.\neditor.allOpen: All open\neditor.closedPages: Closed: {list}",
       "route": "/admin/staff"
     },
     {
       "kind": "label",
       "ref": "label:ws.owner.staff#4~2",
       "lang": "ar",
-      "title": "ws.owner.staff (packages/i18n/src/catalogs/ws/owner.ar.ts) (part 2 of 2)",
-      "body": "access.confirmUnblock: يفتح له من جديد: {list}.\neditor.roleConfirmAction: تغيير الدور إلى {role}\neditor.roleWhen: يسري التغيير فورًا، وتتحدّث القوائم عند تسجيل الدخول التالي.\neditor.roleSaved: غُيّر الدور.\neditor.accessTitle: الصلاحية\neditor.enabledNote: إزالة الصلاحية تُسجّل خروجه من التطبيق وتمنعه من الدخول مرة أخرى. تبقى سجلاته باسمه.\neditor.disabledNote: لا يستطيع هذا الشخص تسجيل الدخول. يبقى عمله السابق في السجلات باسمه.\neditor.removeConfirm: إزالة صلاحية {name}؟\neditor.restoreConfirm: إعادة الصلاحية إلى {name}؟\neditor.restoreBody: يستطيع تسجيل الدخول مرة أخرى بكلمة المرور القديمة وبالدور الظاهر. وسيحتاج إلى رقم سري جديد.\neditor.accessRemoved: أُزيلت الصلاحية.\neditor.accessRestored: أُعيدت الصلاحية.",
+      "title": "ws.owner.staff (packages/i18n/src/catalogs/ws/owner.ar.ts) (part 2 of 4)",
+      "body": "access.confirmUnblock: يفتح له من جديد: {list}.\neditor.lineHours: يحفظ ساعات عمله الأسبوعية.\neditor.linePin: يضبط رمزًا جديدًا.\neditor.linePassword: يضبط كلمة مرور جديدة. يسجّل الدخول بها من الآن.\neditor.pinWillRemove: يُزال الرمز عند الحفظ.\neditor.keepPin: إبقاء الرمز\neditor.unchanged: دون تغيير\neditor.updated: محدَّث\neditor.done: تم\neditor.reviewLead: يُحفظ كل تغيير فور إجرائه.\neditor.selfNote: هذا حسابك. وحده مالك آخر يستطيع تغيير دورك أو إزالة صلاحيتك.\neditor.name: الاسم الظاهر في التطبيق\neditor.nameHint: لا يمكن تغيير البريد الإلكتروني المستخدم لتسجيل الدخول من هنا. لاستخدام بريد آخر، أضف حسابًا جديدًا وأزل الصلاحية عن هذا الحساب.\neditor.saveName: حفظ الاسم\neditor.saveRole: تغيير الدور\neditor.roleInactive: أعد الصلاحية لهذا الشخص قبل تغيير دوره.",
       "route": "/admin/staff"
     },
     {
       "kind": "label",
       "ref": "label:ws.owner.staff#4~2",
       "lang": "en",
-      "title": "ws.owner.staff (packages/i18n/src/catalogs/ws/owner.en.ts) (part 2 of 3)",
-      "body": "access.confirmTitle: Change what {name} can open?\neditor.saveName: Save name\neditor.saveRole: Change role\neditor.roleInactive: Give this person access again before changing their role.\neditor.roleConfirm: Change {name}’s role to {role}?\neditor.roleConfirmAction: Change to {role}\neditor.roleWhen: The change applies straight away; their menus update the next time they sign in.\neditor.roleSaved: Role changed.\neditor.accessTitle: Access\neditor.enabledNote: Removing access signs them out and stops them signing in. Their records stay under their name.\neditor.disabledNote: This person cannot sign in. Their past work stays in the records under their name.\neditor.removeConfirm: Remove access for {name}?\neditor.restoreConfirm: Give {name} access again?",
+      "title": "ws.owner.staff (packages/i18n/src/catalogs/ws/owner.en.ts) (part 2 of 4)",
+      "body": "access.confirmTitle: Change what {name} can open?\neditor.lineBranches: Works at: {list}.\neditor.pending: Not saved yet\neditor.branchNeeded: Pick at least one branch.\neditor.allOpen: All open\neditor.closedPages: Closed: {list}\neditor.lineHours: Saves their weekly hours.\neditor.linePin: Sets a new PIN.\neditor.linePassword: Sets a new password. They sign in with it from now on.\neditor.pinWillRemove: The PIN is removed when you save.\neditor.keepPin: Keep the PIN\neditor.unchanged: Unchanged\neditor.updated: Updated\neditor.done: Done\neditor.reviewLead: Each change is saved as you make it.\neditor.selfNote: This is your own account. Only another owner can change your role or remove your access.\neditor.name: Name shown in the app",
+      "route": "/admin/staff"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.owner.staff#4~3",
+      "lang": "ar",
+      "title": "ws.owner.staff (packages/i18n/src/catalogs/ws/owner.ar.ts) (part 3 of 4)",
+      "body": "access.confirmUnblock: يفتح له من جديد: {list}.\neditor.saveName: حفظ الاسم\neditor.saveRole: تغيير الدور\neditor.roleInactive: أعد الصلاحية لهذا الشخص قبل تغيير دوره.\neditor.roleConfirm: تغيير دور {name} إلى {role}؟\neditor.roleConfirmAction: تغيير الدور إلى {role}\neditor.roleWhen: يسري التغيير فورًا، وتتحدّث القوائم عند تسجيل الدخول التالي.\neditor.roleSaved: غُيّر الدور.\neditor.accessTitle: الصلاحية\neditor.enabledNote: إزالة الصلاحية تُسجّل خروجه من التطبيق وتمنعه من الدخول مرة أخرى. تبقى سجلاته باسمه.\neditor.disabledNote: لا يستطيع هذا الشخص تسجيل الدخول. يبقى عمله السابق في السجلات باسمه.\neditor.removeConfirm: إزالة صلاحية {name}؟\neditor.restoreConfirm: إعادة الصلاحية إلى {name}؟",
       "route": "/admin/staff"
     },
     {
       "kind": "label",
       "ref": "label:ws.owner.staff#4~3",
       "lang": "en",
-      "title": "ws.owner.staff (packages/i18n/src/catalogs/ws/owner.en.ts) (part 3 of 3)",
-      "body": "access.confirmTitle: Change what {name} can open?\neditor.removeConfirm: Remove access for {name}?\neditor.restoreConfirm: Give {name} access again?\neditor.restoreBody: They can sign in again with their old password, in the role shown. They will need a new PIN.\neditor.accessRemoved: Access removed.\neditor.accessRestored: Access given back.",
+      "title": "ws.owner.staff (packages/i18n/src/catalogs/ws/owner.en.ts) (part 3 of 4)",
+      "body": "access.confirmTitle: Change what {name} can open?\neditor.reviewLead: Each change is saved as you make it.\neditor.selfNote: This is your own account. Only another owner can change your role or remove your access.\neditor.name: Name shown in the app\neditor.nameHint: The sign-in email cannot be changed here. To use a different email, add a new account and remove access from this one.\neditor.saveName: Save name\neditor.saveRole: Change role\neditor.roleInactive: Give this person access again before changing their role.\neditor.roleConfirm: Change {name}’s role to {role}?\neditor.roleConfirmAction: Change to {role}\neditor.roleWhen: The change applies straight away; their menus update the next time they sign in.\neditor.roleSaved: Role changed.\neditor.accessTitle: Access",
+      "route": "/admin/staff"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.owner.staff#4~4",
+      "lang": "ar",
+      "title": "ws.owner.staff (packages/i18n/src/catalogs/ws/owner.ar.ts) (part 4 of 4)",
+      "body": "access.confirmUnblock: يفتح له من جديد: {list}.\neditor.disabledNote: لا يستطيع هذا الشخص تسجيل الدخول. يبقى عمله السابق في السجلات باسمه.\neditor.removeConfirm: إزالة صلاحية {name}؟\neditor.restoreConfirm: إعادة الصلاحية إلى {name}؟\neditor.restoreBody: يستطيع تسجيل الدخول مرة أخرى بكلمة المرور القديمة وبالدور الظاهر. وسيحتاج إلى رقم سري جديد.\neditor.accessRemoved: أُزيلت الصلاحية.\neditor.accessRestored: أُعيدت الصلاحية.",
+      "route": "/admin/staff"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.owner.staff#4~4",
+      "lang": "en",
+      "title": "ws.owner.staff (packages/i18n/src/catalogs/ws/owner.en.ts) (part 4 of 4)",
+      "body": "access.confirmTitle: Change what {name} can open?\neditor.roleConfirmAction: Change to {role}\neditor.roleWhen: The change applies straight away; their menus update the next time they sign in.\neditor.roleSaved: Role changed.\neditor.accessTitle: Access\neditor.enabledNote: Removing access signs them out and stops them signing in. Their records stay under their name.\neditor.disabledNote: This person cannot sign in. Their past work stays in the records under their name.",
+      "route": "/admin/staff"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.owner.staff#5",
+      "lang": "en",
+      "title": "ws.owner.staff (packages/i18n/src/catalogs/ws/owner.en.ts)",
+      "body": "editor.removeConfirm: Remove access for {name}?\neditor.restoreConfirm: Give {name} access again?\neditor.restoreBody: They can sign in again with their old password, in the role shown. They will need a new PIN.\neditor.accessRemoved: Access removed.\neditor.accessRestored: Access given back.",
       "route": "/admin/staff"
     },
     {
@@ -39966,7 +40046,7 @@
       "ref": "label:ws.pricing.addons",
       "lang": "ar",
       "title": "ws.pricing.addons (packages/i18n/src/catalogs/ws/pricing.ar.ts)",
-      "body": "note: تتغيّر أسعار الخيارات المعروضة للبيع وأسماء المدفوعة منها عبر «تغيير السعر» بموافقة المالك. ويُحفظ الخيار المدفوع الجديد مخفيًا، ثم يُرسل سعره إلى المالك عبر «طرح للبيع». أما الخيار المجاني فيُفعَّل فورًا.\nnameLocked: هذا الخيار معروض للبيع، لذلك يتغيّر اسمه عبر «تغيير السعر» بموافقة المالك.",
+      "body": "note: تغييرات الخيار المعروض للبيع تُرسل إلى المالك للموافقة. ويبقى الخيار المدفوع الجديد مخفيًا حتى يُرسل سعره إلى المالك عبر «طرح للبيع». أما الخيار المجاني فيُفعَّل فورًا.\nnameLocked: هذا الخيار معروض للبيع، لذلك يتغيّر اسمه عبر «تغيير السعر» بموافقة المالك.",
       "route": "/admin/addons"
     },
     {
@@ -39974,7 +40054,7 @@
       "ref": "label:ws.pricing.addons",
       "lang": "en",
       "title": "ws.pricing.addons (packages/i18n/src/catalogs/ws/pricing.en.ts)",
-      "body": "note: Prices of options on sale, and the names of paid ones, change through “Change the price”, with the owner’s OK. A new paid option is saved hidden, and “Put on sale” sends its price to the owner. A free option goes on at once.\nnameLocked: This option is on sale, so its name changes through “Change the price”, with the owner’s OK.",
+      "body": "note: Changes to an option on sale go to the owner for approval. A new paid option stays hidden until “Put on sale” sends its price to the owner. A free option goes on at once.\nnameLocked: This option is on sale, so its name changes through “Change the price”, with the owner’s OK.",
       "route": "/admin/addons"
     },
     {
@@ -40031,7 +40111,7 @@
       "lang": "ar",
       "title": "ws.pricing.rates (packages/i18n/src/catalogs/ws/pricing.ar.ts)",
       "body": "note: يوافق المالك على أسعار الملاعب. اقترح هنا سعرًا جديدًا أو تغييرًا، وتابعه في البروتوكولات.\npropose: اقتراح سعر جديد\nchange: تغيير هذا السعر",
-      "route": "/admin/rates"
+      "route": "/admin/courts"
     },
     {
       "kind": "label",
@@ -40039,7 +40119,7 @@
       "lang": "en",
       "title": "ws.pricing.rates (packages/i18n/src/catalogs/ws/pricing.en.ts)",
       "body": "note: The owner approves court rates. Propose a new rate or a change here and follow it in Protocols.\npropose: Propose a new rate\nchange: Change this rate",
-      "route": "/admin/rates"
+      "route": "/admin/courts"
     },
     {
       "kind": "label",
@@ -42429,7 +42509,7 @@
       "kind": "label",
       "ref": "label:ws.shell.nav",
       "lang": "en",
-      "title": "ws.shell.nav (packages/i18n/src/catalogs/ws/shell.en.ts) (part 1 of 3)",
+      "title": "ws.shell.nav (packages/i18n/src/catalogs/ws/shell.en.ts) (part 1 of 4)",
       "body": "today: Today\ncalendar: Calendar\ncustomers: Customers\nnewSeries: New series\nblockCourt: Block court\ntill: Café cashier\nopenTabs: Open tabs\ncashDrawer: Cash drawer\noverview: Overview\nbookings: Bookings\ntills: Open tabs\ndayClose: End of day count\nmenu: Menu\nrates: Court prices\npromotions: Discounts & offers\nstock: Stock\nreports: Reports\naudit: Change history\npanel: Overview\nanalytics: Analytics\nstaff: Staff\nbranches: Branches\ncourts: Courts\ntables: Table QR codes\nsettings: Venue settings\nguestSite: Guest site\nmenuPrices: Menu prices\nonHand: What we have\ngoodsIn: Deliveries\nmoveStock: Move stock\nwasteProduction: Waste & prep\nexpiry: Expiring soon\nalerts: Running low\nstockCount: Count stock\ncountDifferences: Missing or extra\nmargins: Profit per item\ningredients: Ingredients",
       "route": null
     },
@@ -42446,7 +42526,7 @@
       "ref": "label:ws.shell.nav#2",
       "lang": "en",
       "title": "ws.shell.nav (packages/i18n/src/catalogs/ws/shell.en.ts) (part 1 of 3)",
-      "body": "openingHours: Opening hours\ngenderHours: Gender hours\nbusinessDay: Day start time\nguestApp: Guest app\ndevices: Computers & tablets\nstations: Cashier computers\nofflineMode: No-internet mode\nbadge: {count} waiting on you\ngroupOperations: Operations\ngroupRun: Run the day\nfromTeam: Staff inbox\nstockMovement: Deliveries & waste\nstockCounting: Stock counts\nstockCosts: Recipes & costs\ngroupRecords: Records\ngroupSetup: Setup\nbackTo: Back to {workspace}\nmore: Options\nmoreMenu: Station controls\nswitchWorkspace: Switch workspace\nlanguage: العربية\nlanguageAlt: English\nblueMode: Blue mode\nlightMode: Light mode\nsignOut: Sign out\nsignOutTitle: Sign out?\nsignOutBody: This ends your session on this station. Anything already sent is safe; the next person will need to sign in.",
+      "body": "genderHours: Gender hours\nbusinessDay: Day start time\nguestApp: Guest app\ndevices: Computers & tablets\nstations: Cashier computers\nofflineMode: No-internet mode\nbadge: {count} waiting on you\ngroupOperations: Operations\ngroupRun: Run the day\nfromTeam: Staff inbox\nstockMovement: Deliveries & waste\nstockCounting: Stock counts\nstockCosts: Recipes & costs\ngroupRecords: Records\ngroupSetup: Setup\nbackTo: Back to {workspace}\nmore: Options\nmoreMenu: Station controls\nswitchWorkspace: Switch workspace\nlanguage: العربية\nlanguageAlt: English\nblueMode: Blue mode\nlightMode: Light mode\nsignOut: Sign out\nsignOutTitle: Sign out?\nsignOutBody: This ends your session on this station. Anything already sent is safe; the next person will need to sign in.\nsignOutConfirm: Sign out",
       "route": null
     },
     {
@@ -42462,7 +42542,7 @@
       "ref": "label:ws.shell.nav#2~2",
       "lang": "en",
       "title": "ws.shell.nav (packages/i18n/src/catalogs/ws/shell.en.ts) (part 2 of 3)",
-      "body": "openingHours: Opening hours\nlightMode: Light mode\nsignOut: Sign out\nsignOutTitle: Sign out?\nsignOutBody: This ends your session on this station. Anything already sent is safe; the next person will need to sign in.\nsignOutConfirm: Sign out\nstation: Station {id}\nexitFullscreen: Exit forced full screen\nquit: Quit to desktop\nquitConfirm: This ends service on this station. Orders stop and the venue sees it go offline.\nquitInstallsUpdate: An update is ready. Quitting installs it, then the app opens again by itself.\nleavePin: Manager PIN\nleavePinHint: A manager other than you has to enter their PIN.\nleaveOwnerUnconfirmed: Couldn't confirm your account right now, so a manager's PIN is needed.\nversion: Version {version}\nupdateReady: Update ready\nrestartToUpdate: Restart to update to {version}",
+      "body": "genderHours: Gender hours\nsignOut: Sign out\nsignOutTitle: Sign out?\nsignOutBody: This ends your session on this station. Anything already sent is safe; the next person will need to sign in.\nsignOutConfirm: Sign out\nstation: Station {id}\nexitFullscreen: Exit forced full screen\nquit: Quit to desktop\nquitConfirm: This ends service on this station. Orders stop and the venue sees it go offline.\nquitInstallsUpdate: An update is ready. Quitting installs it, then the app opens again by itself.\nleavePin: Manager PIN\nleavePinHint: A manager other than you has to enter their PIN.\nleaveOwnerUnconfirmed: Couldn't confirm your account right now, so a manager's PIN is needed.\nversion: Version {version}\nupdateReady: Update ready\nrestartToUpdate: Restart to update to {version}",
       "route": null
     },
     {
@@ -42478,7 +42558,7 @@
       "ref": "label:ws.shell.nav#2~3",
       "lang": "en",
       "title": "ws.shell.nav (packages/i18n/src/catalogs/ws/shell.en.ts) (part 3 of 3)",
-      "body": "openingHours: Opening hours\nleaveOwnerUnconfirmed: Couldn't confirm your account right now, so a manager's PIN is needed.\nversion: Version {version}\nupdateReady: Update ready\nrestartToUpdate: Restart to update to {version}\ncourtSettings: Court settings\ncourtSales: Court sales\ncafeSales: Café sales\nbillsSuppliers: Bills & suppliers\ntournamentRules: Tournament rules\nanalyticsSettings: Analytics settings\ncomputersScreens: Computers & screens",
+      "body": "genderHours: Gender hours\nleaveOwnerUnconfirmed: Couldn't confirm your account right now, so a manager's PIN is needed.\nversion: Version {version}\nupdateReady: Update ready\nrestartToUpdate: Restart to update to {version}\ncourtSettings: Court settings\ncourtSales: Court sales\ncafeSales: Café sales\nbillsSuppliers: Bills & suppliers\ntournamentRules: Tournament rules\nanalyticsSettings: Analytics settings\ncomputersScreens: Computers & screens",
       "route": null
     },
     {
@@ -42493,7 +42573,7 @@
       "kind": "label",
       "ref": "label:ws.shell.nav~2",
       "lang": "en",
-      "title": "ws.shell.nav (packages/i18n/src/catalogs/ws/shell.en.ts) (part 2 of 3)",
+      "title": "ws.shell.nav (packages/i18n/src/catalogs/ws/shell.en.ts) (part 2 of 4)",
       "body": "today: Today\nwasteProduction: Waste & prep\nexpiry: Expiring soon\nalerts: Running low\nstockCount: Count stock\ncountDifferences: Missing or extra\nmargins: Profit per item\ningredients: Ingredients\nrecipes: Recipes\nstockValue: Stock value\nshop: Touch Shop\nshopTill: Sell\nshopStock: Shop stock\nshopReceive: Goods in\nshopCounts: Stock count\nshopProducts: Products\nshopSuppliers: Suppliers\nfloorNow: Floor now\nstaffActivity: Who’s working\nactivityMonitor: Activity monitor\nrequests: Staff requests\nmarketing: Marketing\ntelegram: Telegram\nassistant: Assistant\nfiles: Files\nmonitoring: Monitoring\nmyTasks: My tasks\ninsights: Insights\ncontentPlan: Content plan\nposts: Sent for approval\nprotocols: Protocols\nsuggestions: Staff ideas\ndeductions: Pay deductions\nincidents: Incident reports\nwages: Wages",
       "route": null
     },
@@ -42502,15 +42582,15 @@
       "ref": "label:ws.shell.nav~3",
       "lang": "ar",
       "title": "ws.shell.nav (packages/i18n/src/catalogs/ws/shell.ar.ts) (part 3 of 4)",
-      "body": "today: اليوم\nmonitoring: المراقبة\nmyTasks: مهامي\ninsights: المؤشرات\ncontentPlan: خطة المحتوى\nposts: بانتظار الموافقة\nprotocols: البروتوكولات\nsuggestions: أفكار الموظفين\ndeductions: الخصومات من الراتب\nincidents: بلاغات الحوادث\nwages: الرواتب\nattendance: التأخير والانصراف المبكر\nrewards: المكافآت\nsafe: القاصة\ncoaches: المدرّبون\ncoachPay: مستحقات المدرّبين\ntournaments: البطولات\nloyalty: نقاط الولاء\nranks: ترتيب اللاعبين\ncash: النقد\npay: الأجور\nrevenue: المال الوارد\ncafe: الكافيه\nmenuItems: أصناف المنيو\ncategories: مجموعات المنيو\naddons: الإضافات\nsuggested: الأصناف المقترحة\nwhoIsOn: يعمل الآن\nwhatTheyDid: ما قاموا به\ncampaigns: المنشورات والحملات\nlessonTypes: الحصص والأسعار\ncoachHours: أوقات المدرّبين\nlessonRules: قواعد الحصص\ncoachSchedules: الجداول\nbookingRules: قواعد الحجز",
+      "body": "today: اليوم\nmonitoring: المراقبة\nmyTasks: مهامي\ninsights: المؤشرات\ncontentPlan: خطة المحتوى\nposts: بانتظار الموافقة\nprotocols: البروتوكولات\nsuggestions: أفكار الموظفين\ndeductions: الخصومات من الراتب\nincidents: بلاغات الحوادث\nwages: الرواتب\nattendance: التأخير والانصراف المبكر\nrewards: المكافآت\nsafe: القاصة\ncoaches: المدرّبون\ncoachPay: مستحقات المدرّبين\ntournaments: البطولات\nloyalty: نقاط الولاء\nranks: ترتيب اللاعبين\ncash: النقد\npay: الأجور\nrevenue: المال الوارد\ncafe: الكافيه\nmenuItems: أصناف المنيو\ncategories: مجموعات المنيو\naddons: الإضافات\nsuggested: الأصناف المقترحة\nwhoIsOn: يعمل الآن\nwhatTheyDid: ما قاموا به\ncampaigns: المنشورات والحملات\nlessonTypes: الحصص والأسعار\ncoachHours: أوقات المدرّبين\nlessonRules: قواعد الحصص\ncoachSchedules: الجداول\nbookingRules: القواعد",
       "route": null
     },
     {
       "kind": "label",
       "ref": "label:ws.shell.nav~3",
       "lang": "en",
-      "title": "ws.shell.nav (packages/i18n/src/catalogs/ws/shell.en.ts) (part 3 of 3)",
-      "body": "today: Today\ninsights: Insights\ncontentPlan: Content plan\nposts: Sent for approval\nprotocols: Protocols\nsuggestions: Staff ideas\ndeductions: Pay deductions\nincidents: Incident reports\nwages: Wages\nattendance: Late and early\nrewards: Bonuses\nsafe: Main cash\ncoaches: Coaches\ncoachPay: Coach pay\ntournaments: Tournaments\nloyalty: Loyalty points\nranks: Player ranks\ncash: Cash\npay: Pay\nrevenue: Money in\ncafe: Cafe\nmenuItems: Menu items\ncategories: Menu groups\naddons: Extras\nsuggested: Suggested items\nwhoIsOn: Working now\nwhatTheyDid: What they did\ncampaigns: Posts & campaigns\nlessonTypes: Lessons & prices\ncoachHours: Coach hours\nlessonRules: Lesson rules\ncoachSchedules: Schedules\nbookingRules: Booking rules\nonlineDeposit: Online deposit\nopenMatches: Open matches\nvenueDetails: Branch details",
+      "title": "ws.shell.nav (packages/i18n/src/catalogs/ws/shell.en.ts) (part 3 of 4)",
+      "body": "today: Today\ninsights: Insights\ncontentPlan: Content plan\nposts: Sent for approval\nprotocols: Protocols\nsuggestions: Staff ideas\ndeductions: Pay deductions\nincidents: Incident reports\nwages: Wages\nattendance: Late and early\nrewards: Bonuses\nsafe: Main cash\ncoaches: Coaches\ncoachPay: Coach pay\ntournaments: Tournaments\nloyalty: Loyalty points\nranks: Player ranks\ncash: Cash\npay: Pay\nrevenue: Money in\ncafe: Cafe\nmenuItems: Menu items\ncategories: Menu groups\naddons: Extras\nsuggested: Suggested items\nwhoIsOn: Working now\nwhatTheyDid: What they did\ncampaigns: Posts & campaigns\nlessonTypes: Lessons & prices\ncoachHours: Coach hours\nlessonRules: Lesson rules\ncoachSchedules: Schedules\nbookingRules: Rules\nonlineDeposit: Online deposit\nopenMatches: Open matches\nvenueDetails: Branch details",
       "route": null
     },
     {
@@ -42518,7 +42598,15 @@
       "ref": "label:ws.shell.nav~4",
       "lang": "ar",
       "title": "ws.shell.nav (packages/i18n/src/catalogs/ws/shell.ar.ts) (part 4 of 4)",
-      "body": "today: اليوم\nwhatTheyDid: ما قاموا به\ncampaigns: المنشورات والحملات\nlessonTypes: الحصص والأسعار\ncoachHours: أوقات المدرّبين\nlessonRules: قواعد الحصص\ncoachSchedules: الجداول\nbookingRules: قواعد الحجز\nonlineDeposit: العربون الإلكتروني",
+      "body": "today: اليوم\nwhatTheyDid: ما قاموا به\ncampaigns: المنشورات والحملات\nlessonTypes: الحصص والأسعار\ncoachHours: أوقات المدرّبين\nlessonRules: قواعد الحصص\ncoachSchedules: الجداول\nbookingRules: القواعد\nonlineDeposit: العربون الإلكتروني",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.shell.nav~4",
+      "lang": "en",
+      "title": "ws.shell.nav (packages/i18n/src/catalogs/ws/shell.en.ts) (part 4 of 4)",
+      "body": "today: Today\ncoachHours: Coach hours\nlessonRules: Lesson rules\ncoachSchedules: Schedules\nbookingRules: Rules\nonlineDeposit: Online deposit\nopenMatches: Open matches\nvenueDetails: Branch details\nopeningHours: Opening hours",
       "route": null
     },
     {
@@ -54125,32 +54213,40 @@
       "kind": "doc",
       "ref": "doc:docs/design/assistant/pages.md#39",
       "lang": "en",
-      "title": "docs/design/assistant/pages.md › Setup section and admin (part 1 of 4)",
-      "body": "A6 QR cards, and \"Replace\" or \"Replace every QR code\" rotate tokens with app.rotate_table_token.\n- /admin/courts — The \"Courts\" admin listing bookable courts in calendar order; \"Add court\" and \"Edit\" open a panel with names, photo, indoor or outdoor, booking lengths and an open switch saved by app.upsert_court, with \"Switch off\" (app.delete_court) and order arrows (app.reorder_courts).",
+      "title": "docs/design/assistant/pages.md › Setup section and admin (part 1 of 5)",
+      "body": "A6 QR cards, and \"Replace\" or \"Replace every QR code\" rotate tokens with app.rotate_table_token.",
       "route": null
     },
     {
       "kind": "doc",
       "ref": "doc:docs/design/assistant/pages.md#39~2",
       "lang": "en",
-      "title": "docs/design/assistant/pages.md › Setup section and admin (part 2 of 4)",
-      "body": "A6 QR cards, and \"Replace\" or \"Replace every QR code\" rotate tokens with app.rotate_table_token.\n- /admin/coaches — The \"Coaches\" screen in four tabs (app.coaches_admin): Coaches (\"Make a coach\" through app.coach_promote; names, bio and photo through app.coach_update; branches through app.set_coach_branches, lesson types through app.set_coach_lesson_types, per-coach prices for the owner through app.set_coach_price, \"Pause\", \"Resume\" and \"Retire\" through app.set_coach_status; a coach not yet accepted reads \"Waiting for the coach to accept\"), Lesson types (drafts saved with app.upsert_lesson_type; for a manager a launched price shows \"Propose a price\", a launched length \"Make a new lesson type…\" and a draft \"Put on sale\", each price a price or promo change on /protocols) and Hours (weekly",
+      "title": "docs/design/assistant/pages.md › Setup section and admin (part 2 of 5)",
+      "body": "A6 QR cards, and \"Replace\" or \"Replace every QR code\" rotate tokens with app.rotate_table_token.\nA6 QR cards, and \"Replace\" or \"Replace every QR code\" rotate tokens with app.rotate_table_token.\n- /admin/courts — The \"Courts\" admin listing bookable courts in calendar order; \"Add court\" and \"Edit\" open a panel with names, photo, indoor or outdoor, booking lengths and an open switch saved by app.upsert_court, with \"Switch off\" (app.delete_court) and order arrows (app.reorder_courts). Below the list, the same page holds the court prices (\"Court rates\"): under the courts list, the court prices: a list of rate rules by court, days, time window, prices and priority; \"New rule\" or a row opens the editor whose \"Save\" calls app.upsert_rate_rule and affects only new bookings, and a toggle shows or hides switched-off rules. Only the owner saves a rule; a manager reads them, with \"Propose a new",
       "route": null
     },
     {
       "kind": "doc",
       "ref": "doc:docs/design/assistant/pages.md#39~3",
       "lang": "en",
-      "title": "docs/design/assistant/pages.md › Setup section and admin (part 3 of 4)",
-      "body": "A6 QR cards, and \"Replace\" or \"Replace every QR code\" rotate tokens with app.rotate_table_token.\nwindows through app.set_coach_hours, time off through app.add_coach_time_off and app.cancel_coach_time_off).\n- /admin/rates — The \"Court rates\" screen listing rate rules by court, days, time window, prices and priority; \"New rule\" or a row opens the editor whose \"Save\" calls app.upsert_rate_rule and affects only new bookings, and a toggle shows or hides switched-off rules. Only the owner saves a rule; a manager reads them, with \"Propose a new rate\" and, on an open rule, \"Change this rate\", each a rate price or promo change on /protocols.",
+      "title": "docs/design/assistant/pages.md › Setup section and admin (part 3 of 5)",
+      "body": "A6 QR cards, and \"Replace\" or \"Replace every QR code\" rotate tokens with app.rotate_table_token.\nrate\" and, on an open rule, \"Change this rate\", each a rate price or promo change on /protocols.",
       "route": null
     },
     {
       "kind": "doc",
       "ref": "doc:docs/design/assistant/pages.md#39~4",
       "lang": "en",
-      "title": "docs/design/assistant/pages.md › Setup section and admin (part 4 of 4)",
-      "body": "A6 QR cards, and \"Replace\" or \"Replace every QR code\" rotate tokens with app.rotate_table_token.\n- /admin/gender-hours — The \"Gender hours\" screen listing the times a court, or every court, is kept for women only or men only: who, court, days and time window (a window whose end is before its start runs past midnight), with a clash warning when a women's and a men's rule keep the same court at once; \"New rule\" or a row opens the editor whose \"Save\" calls app.u",
+      "title": "docs/design/assistant/pages.md › Setup section and admin (part 4 of 5)",
+      "body": "A6 QR cards, and \"Replace\" or \"Replace every QR code\" rotate tokens with app.rotate_table_token.\nrate\" and, on an open rule, \"Change this rate\", each a rate price or promo change on /protocols.\n- /admin/coaches — The \"Coaches\" screen in four tabs (app.coaches_admin): Coaches (\"Make a coach\" through app.coach_promote; names, bio and photo through app.coach_update; branches through app.set_coach_branches, lesson types through app.set_coach_lesson_types, per-coach prices for the owner through app.set_coach_price, \"Pause\", \"Resume\" and \"Retire\" through app.set_coach_status; a coach not yet accepted reads \"Waiting for the coach to accept\"), Lesson types (drafts saved with app.upsert_lesson_type; for a manager a launched price shows \"Propose a price\", a launched length \"Make a new lesson type…\" and a draft \"Put on sale\", each price a price or promo change on /protocols) and Hours (weekly",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/design/assistant/pages.md#39~5",
+      "lang": "en",
+      "title": "docs/design/assistant/pages.md › Setup section and admin (part 5 of 5)",
+      "body": "A6 QR cards, and \"Replace\" or \"Replace every QR code\" rotate tokens with app.rotate_table_token.\nwindows through app.set_coach_hours, time off through app.add_coach_time_off and app.cancel_coach_time_off).\n- /admin/gender-hours — The \"Gender hours\" screen listing the times a court, or every court, is kept for women only or men only: who, court, days and time window (a window whose end is before its start runs past midnight), with a clash warning when a women's and a men's rule keep the same court",
       "route": null
     },
     {
@@ -54190,7 +54286,7 @@
       "ref": "doc:docs/design/assistant/pages.md#40",
       "lang": "en",
       "title": "docs/design/assistant/pages.md › Setup section and admin (part 1 of 4)",
-      "body": "psert_court_gender_rule, and rules are switched off, never deleted. Manager and owner save. While a rule is on, a guest of the other gender cannot book or hold that court then, an account with no gender is asked for one first, and an open match at that time must be that gender's match; bookings made earlier stay.\n- /admin/hours — Opening hours: open and close times per day and closed dates (app.set_opening_hours).",
+      "body": "at once; \"New rule\" or a row opens the editor whose \"Save\" calls app.upsert_court_gender_rule, and rules are switched off, never deleted. Manager and owner save. While a rule is on, a guest of the other gender cannot book or hold that court then, an account with no gender is asked for one first, and an open match at that time must be that gender's match; bookings made earlier stay.\n- /admin/hours — Opening hours: open and close times per day and closed dates (app.set_opening_hours).",
       "route": null
     },
     {
@@ -54198,7 +54294,7 @@
       "ref": "doc:docs/design/assistant/pages.md#40~2",
       "lang": "en",
       "title": "docs/design/assistant/pages.md › Setup section and admin (part 2 of 4)",
-      "body": "psert_court_gender_rule, and rules are switched off, never deleted. Manager and owner save. While a rule is on, a guest of the other gender cannot book or hold \n- /admin/hours — Opening hours: open and close times per day and closed dates (app.set_opening_hours).\n- /admin/promotions — The \"Promotions\" list with a lifecycle filter, a search box and a per-row on/off switch (app.set_promotion_enabled); \"New promotion\" or a row opens the promotion editor whose \"Save\" calls app.upsert_promotion, and nothing is ever deleted. Only the owner saves a promotion or generates its code; a manager may switch a promotion off, and otherwise gets \"Propose a promotion\", \"Change this promotion\" in the read-only editor and \"Switch on\" beside a switched-off one, each a price or promo change on /protocols.",
+      "body": "at once; \"New rule\" or a row opens the editor whose \"Save\" calls app.upsert_court_gender_rule, and rules are switched off, never deleted. Manager and owner save\n- /admin/hours — Opening hours: open and close times per day and closed dates (app.set_opening_hours).\n- /admin/promotions — The \"Promotions\" list with a lifecycle filter, a search box and a per-row on/off switch (app.set_promotion_enabled); \"New promotion\" or a row opens the promotion editor whose \"Save\" calls app.upsert_promotion, and nothing is ever deleted. Only the owner saves a promotion or generates its code; a manager may switch a promotion off, and otherwise gets \"Propose a promotion\", \"Change this promotion\" in the read-only editor and \"Switch on\" beside a switched-off one, each a price or promo change on /protocols.",
       "route": null
     },
     {
@@ -54206,7 +54302,7 @@
       "ref": "doc:docs/design/assistant/pages.md#40~3",
       "lang": "en",
       "title": "docs/design/assistant/pages.md › Setup section and admin (part 3 of 4)",
-      "body": "psert_court_gender_rule, and rules are switched off, never deleted. Manager and owner save. While a rule is on, a guest of the other gender cannot book or hold \n- /admin/loyalty — The owner's \"Loyalty\" setup (app.loyalty_admin): \"Loyalty is on\", what earns a point and what one is worth, expiry and the member QR step (app.set_loyalty_settings); tiers (app.upsert_loyalty_tier, app.delete_loyalty_tier) and rewards (app.upsert_loyalty_reward).\n- /admin/telegram — The \"Telegram\" settings with \"Set up\" and \"Sent messages\" tabs: connection health from the telegram-diagnose function, \"Send test message\" (app.telegram_send_test), the group chat id and message language saved as cafe settings, and the people who may press the bot's buttons set with app.set_telegram_staff.",
+      "body": "at once; \"New rule\" or a row opens the editor whose \"Save\" calls app.upsert_court_gender_rule, and rules are switched off, never deleted. Manager and owner save\n- /admin/loyalty — The owner's \"Loyalty\" setup (app.loyalty_admin): \"Loyalty is on\", what earns a point and what one is worth, expiry and the member QR step (app.set_loyalty_settings); tiers (app.upsert_loyalty_tier, app.delete_loyalty_tier) and rewards (app.upsert_loyalty_reward).\n- /admin/telegram — The \"Telegram\" settings with \"Set up\" and \"Sent messages\" tabs: connection health from the telegram-diagnose function, \"Send test message\" (app.telegram_send_test), the group chat id and message language saved as cafe settings, and the people who may press the bot's buttons set with app.set_telegram_staff.",
       "route": null
     },
     {
@@ -54214,7 +54310,7 @@
       "ref": "doc:docs/design/assistant/pages.md#40~4",
       "lang": "en",
       "title": "docs/design/assistant/pages.md › Setup section and admin (part 4 of 4)",
-      "body": "psert_court_gender_rule, and rules are switched off, never deleted. Manager and owner save. While a rule is on, a guest of the other gender cannot book or hold \n- /admin/settings — Branch details: the branch's name, status and contact, for a preparing branch the checklist with \"Open to guests\", the venue's name and phone (owner, app.set_venue_details), the values fixed at setup, the tax per item group, links to the branch's other settings and \"Close branch\". The other panels of the old \"Venue settings\" are pages under /admin/settings/.\n- /admin/settings/day — Day start time: when a business da",
+      "body": "at once; \"New rule\" or a row opens the editor whose \"Save\" calls app.upsert_court_gender_rule, and rules are switched off, never deleted. Manager and owner save\n- /admin/settings — Branch details: the branch's name, status and contact, for a preparing branch the checklist with \"Open to guests\", the venue's name and phone (owner, app.set_venue_details), the values fixed at setup, the tax per item group, links to the branch's other settings and \"Close branch\". The other panels of the old \"Venue settings\" are pages under /admi",
       "route": null
     },
     {
@@ -54222,7 +54318,7 @@
       "ref": "doc:docs/design/assistant/pages.md#41",
       "lang": "en",
       "title": "docs/design/assistant/pages.md › Setup section and admin (part 1 of 4)",
-      "body": "y starts (owner) and the wait between waiter calls.\n- /admin/settings/analytics — Analytics settings (owner): items left out of analytics and the guest-app visits start date.\n- /admin/settings/booking — Booking rules: cancellation, hold time, how far ahead and slots per guest (owner edits, manager reads).\n- /admin/settings/deposit — Online deposit: the Qi Card deposit rules (owner, app.set_deposit_settings); only while online payments are live.\n- /admin/settings/matches — Open matches: the open-match rules (owner, app.set_match_settings); only while online payments are live.\n- /admin/settings/tournaments — Tournament rules: the branch's tournaments switch (owner, app.set_tournaments_enabled).",
+      "body": "n/settings/.\n- /admin/settings/day — Day start time: when a business day starts (owner) and the wait between waiter calls.\n- /admin/settings/analytics — Analytics settings (owner): items left out of analytics and the guest-app visits start date.\n- /admin/settings/booking — Rules: booking rules (cancellation, hold time, how far ahead and slots per guest; owner edits, manager reads) and the tournament rules (the branch's tournaments switch, owner, app.set_tournaments_enabled).\n- /admin/settings/deposit — Online deposit: the Qi Card deposit rules (owner, app.set_deposit_settings); only while online payments are live.\n- /admin/settings/matches — Open matches: the open-match rules (owner, app.set_match_settings); only while online payments are live.",
       "route": null
     },
     {
@@ -54230,7 +54326,7 @@
       "ref": "doc:docs/design/assistant/pages.md#41~2",
       "lang": "en",
       "title": "docs/design/assistant/pages.md › Setup section and admin (part 2 of 4)",
-      "body": "y starts (owner) and the wait between waiter calls.\n- /admin/settings/tournaments — Tournament rules: the branch's tournaments switch (owner, app.set_tournaments_enabled).\n- /admin/settings/devices — Computers & tablets: every till and desk that reported in; the owner retires one (app.retire_device).\n- /admin/settings/stations — Till computers: register this machine at the branch or retire a station (manager or owner).\n- /admin/settings/offline — No-internet mode: offline mode on or off and its two limits (owner edits, manager reads).",
+      "body": "n/settings/.\n- /admin/settings/matches — Open matches: the open-match rules (owner, app.set_match_settings); only while online payments are live.\n- /admin/settings/devices — Computers & tablets: every till and desk that reported in; the owner retires one (app.retire_device).\n- /admin/settings/stations — Till computers: register this machine at the branch or retire a station (manager or owner).\n- /admin/settings/offline — No-internet mode: offline mode on or off and its two limits (owner edits, manager reads).",
       "route": null
     },
     {
@@ -54238,7 +54334,7 @@
       "ref": "doc:docs/design/assistant/pages.md#41~3",
       "lang": "en",
       "title": "docs/design/assistant/pages.md › Setup section and admin (part 3 of 4)",
-      "body": "y starts (owner) and the wait between waiter calls.\n- /admin/settings/offline — No-internet mode: offline mode on or off and its two limits (owner edits, manager reads).\n- /admin/branches — The owner's \"Branches\" screen (multi-venue slice 4): every open or preparing Touch location as a coloured card with its status, its courts and café tables (app.branch_counts) and \"Branch details\", filtered by All, Open, Preparing or Closed, with closed branches listed under the cards; \"Open a new branch\" copies the setup of a chosen branch into a new one in Preparing (app.create_branch: courts, rates, hours, tables, menu, recipes, checklists and protocol templates, never promotions, stock or staff), its timezone picked by continent, country and city; a branch's Branch details shows the checklist before opening (app.branch_readiness: a court with a rate, opening hours, a manager, a registered till, and warnings for the",
+      "body": "n/settings/.\n- /admin/settings/offline — No-internet mode: offline mode on or off and its two limits (owner edits, manager reads).\n- /admin/branches — The owner's \"Branches\" screen (multi-venue slice 4): every open or preparing Touch location as a coloured card with its status, its courts and café tables (app.branch_counts) and \"Branch details\", filtered by All, Open, Preparing or Closed, with closed branches listed under the cards; \"Open a new branch\" copies the setup of a chosen branch into a new one in Preparing (app.create_branch: courts, rates, hours, tables, menu, recipes, checklists and protocol templates, never promotions, stock or staff), its timezone picked by continent, country and city; a branch's Branch details shows the checklist before opening (app.branch_readiness: a court with a rate, opening hours, a manager, a registered till, and warnings for the menu, Telegram and opening stock),",
       "route": null
     },
     {
@@ -54246,7 +54342,7 @@
       "ref": "doc:docs/design/assistant/pages.md#41~4",
       "lang": "en",
       "title": "docs/design/assistant/pages.md › Setup section and admin (part 4 of 4)",
-      "body": "y starts (owner) and the wait between waiter calls.\nmenu, Telegram and opening stock), \"Open to guests\" (app.open_branch) and \"Close branch\" (app.close_branch).\n- /admin/staff — The owner's \"Staff\" screen listing accounts with role,",
+      "body": "n/settings/.\n\"Open to guests\" (app.open_branch) and \"Close branch\" (app.close_branch).\n- /admin/staff — Th",
       "route": null
     },
     {
@@ -54254,7 +54350,7 @@
       "ref": "doc:docs/design/assistant/pages.md#42",
       "lang": "en",
       "title": "docs/design/assistant/pages.md › Setup section and admin (part 1 of 3)",
-      "body": "PIN and status; \"Add staff member\" creates an account through the staff-admin edge function; opened from a hiring run's add_staff step (?hire=) a banner names the picked candidate and the role (app.protocol_step_detail, app.protocol_run_detail, app.hiring_candidates), \"Add the new staff member\" opens the form filled in with the role fixed, and the new account is sent as the step through app.submit_step, which finishes the run; \"Manage\" opens an editor (app.rename_staff, set_staff_role, set_staff_active, set_staff_pin, clear_staff_pin, set_station_staff for cover, set_staff_access for Access: second jobs and blocked pages), and the",
+      "body": "e owner's \"Staff\" screen listing accounts with role, PIN and status; \"Add staff member\" creates an account through the staff-admin edge function; opened from a hiring run's add_staff step (?hire=) a banner names the picked candidate and the role (app.protocol_step_detail, app.protocol_run_detail, app.hiring_candidates), \"Add the new staff member\" opens the form filled in with the role fixed, and the new account is sent as the step through app.submit_step, which finishes the run; \"Manage\" opens an editor (app.rename_staff, set_staff_role, set_staff_active, set_staff_pin, clear_staff_pin, set_station_staff for cover,",
       "route": null
     },
     {
@@ -54262,7 +54358,7 @@
       "ref": "doc:docs/design/assistant/pages.md#42~2",
       "lang": "en",
       "title": "docs/design/assistant/pages.md › Setup section and admin (part 2 of 3)",
-      "body": "PIN and status; \"Add staff member\" creates an account through the staff-admin edge function; opened from a hiring run's add_staff step (?hire=) a banner names t\nbreaks panel's \"Save\" writes break_allowance_minutes. Kitchen (prep) is retired: it is not offered for a new account or a role change (kitchen staff are Head barista, Barista, Assistant barista, Head chef or Chef), and an account still on it shows a \"Retired\" badge and keeps working until it is moved.",
+      "body": "e owner's \"Staff\" screen listing accounts with role, PIN and status; \"Add staff member\" creates an account through the staff-admin edge function; opened from a \nset_staff_access for Access: second jobs and blocked pages), and the breaks panel's \"Save\" writes break_allowance_minutes. Kitchen (prep) is retired: it is not offered for a new account or a role change (kitchen staff are Head barista, Barista, Assistant barista, Head chef or Chef), and an account still on it shows a \"Retired\" badge and keeps working until it is moved.",
       "route": null
     },
     {
@@ -54270,7 +54366,7 @@
       "ref": "doc:docs/design/assistant/pages.md#42~3",
       "lang": "en",
       "title": "docs/design/assistant/pages.md › Setup section and admin (part 3 of 3)",
-      "body": "PIN and status; \"Add staff member\" creates an account through the staff-admin edge function; opened from a hiring run's add_staff step (?hire=) a banner names t\n- /assistant — The owner assistant: a full page with the list of chats, the thread, the context checkboxes with their pack sizes, and the usage meter; \"Ask\" sends a question (billed), \"Stop\" ends a streaming answer, \"Run this job\" accepts an estimate, and every answer lists the tools it read with a link to the page that shows the same numbers.\n- /assistant/usage — What the assistant has cost: tokens by kind (input, cache write, cache read, output) and cost per day for the month, month-to-date against the cap, and the price table each model is billed from.",
+      "body": "e owner's \"Staff\" screen listing accounts with role, PIN and status; \"Add staff member\" creates an account through the staff-admin edge function; opened from a \n- /assistant — The owner assistant: a full page with the list of chats, the thread, the context checkboxes with their pack sizes, and the usage meter; \"Ask\" sends a question (billed), \"Stop\" ends a streaming answer, \"Run this job\" accepts an estimate, and every answer lists the tools it read with a link to the page that shows the same numbers.\n- /assistant/usage — What the assistant has cost: tokens by kind (input, cache write, cache read, output) and cost per day for the month, month-to-date against the cap, and the price table each model is billed from.",
       "route": null
     },
     {

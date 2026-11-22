@@ -23,7 +23,7 @@ import { useLocale } from '../lib/i18n';
 import { useTabOpen } from '../lib/navAccess';
 import { WORKSPACES, rowShown, type NavItem, type NavLabelKey, type NavTab, type SectionKey, type WorkspaceKey } from '../lib/workspaces';
 import { Modal } from './ui';
-import { Icon } from './icons';
+import { Icon, type IconName } from './icons';
 import { navButtonStyle, railLabelStyle } from './railStyles';
 
 /**
@@ -76,7 +76,7 @@ const KEYWORDS: Partial<Record<NavLabelKey, readonly string[]>> = {
   lessonTypes: ['lesson types', 'lesson price', 'أنواع الحصص'],
   lessonRules: ['coach share', 'lesson payment', 'حصة المدرب', 'دفع الحصص'],
   coachHours: ['schedule', 'time off', 'جدول', 'إجازة'],
-  bookingRules: ['cancellation', 'cancel', 'hold', 'how far ahead', 'إلغاء', 'حجز مسبق'],
+  bookingRules: ['cancellation', 'cancel', 'hold', 'how far ahead', 'إلغاء', 'حجز مسبق', 'tournament', 'tournaments', 'entry fee', 'البطولات'],
   onlineDeposit: ['deposit', 'qi card', 'online payment', 'عربون', 'كي كارد', 'دفع إلكتروني'],
   openMatches: ['match', 'ticket', 'مباراة', 'تذكرة'],
   tournamentRules: ['tournament', 'tournaments', 'entry fee', 'البطولات'],
@@ -104,6 +104,12 @@ export interface GoToEntry {
   trail: string;
   to: string;
   search?: Readonly<Record<string, string>>;
+  /** The rail icon of the page (a tab wears its family's). */
+  icon: IconName;
+  /** The heading it sits under with nothing typed: its workspace or section ("Financial"). */
+  group: string;
+  /** The short second half of the trail ("Cash"); empty for a page that has none. */
+  where: string;
   /** Everything a person might type for it, normalised, both languages. */
   haystack: string;
 }
@@ -145,7 +151,7 @@ export function buildGoToEntries(
   const words = (keys: readonly MessageKey[], extra: readonly string[]) =>
     normalizeQuery([...translations.flatMap((t) => keys.map((k) => t(k))), ...extra].join(' '));
 
-  function add(to: string, search: Readonly<Record<string, string>> | undefined, labelKey: NavLabelKey, trailKeys: readonly MessageKey[]) {
+  function add(to: string, search: Readonly<Record<string, string>> | undefined, labelKey: NavLabelKey, icon: IconName, trailKeys: readonly MessageKey[]) {
     const id = `${to}?${new URLSearchParams(search ?? {}).toString()}`;
     const haystack = words([navKey(labelKey), ...trailKeys], KEYWORDS[labelKey] ?? []);
     const seen = byTarget.get(id);
@@ -157,6 +163,9 @@ export function buildGoToEntries(
       id,
       label: tr(navKey(labelKey)),
       trail: trailKeys.map((k) => tr(k)).join(' › '),
+      icon,
+      group: tr(trailKeys[0]!),
+      where: trailKeys.length > 1 ? tr(trailKeys[1]!) : '',
       to,
       ...(search ? { search } : {}),
       haystack,
@@ -168,9 +177,9 @@ export function buildGoToEntries(
   function addRow(row: NavItem, trail: readonly MessageKey[]) {
     if (row.hidden) return;
     if (row.tabs?.length) {
-      for (const tab of row.tabs) if (canOpenTab(tab)) add(tab.to, tab.search, tab.labelKey, [...trail, navKey(row.labelKey)]);
+      for (const tab of row.tabs) if (canOpenTab(tab)) add(tab.to, tab.search, tab.labelKey, row.icon, [...trail, navKey(row.labelKey)]);
     } else if (canOpenRow(row)) {
-      add(row.to, undefined, row.labelKey, trail);
+      add(row.to, undefined, row.labelKey, row.icon, trail);
     }
   }
 
@@ -224,6 +233,74 @@ export function useGoToShortcut(enabled: boolean, onOpen: () => void): void {
 export const T_EN = makeT('en') as (k: MessageKey) => string;
 export const T_AR = makeT('ar') as (k: MessageKey) => string;
 
+const RECENT_KEY = 'tp.goto.recent';
+const RECENT_MAX = 5;
+
+/** The ids of the last pages opened, newest first, each once. */
+export function pushRecent(list: readonly string[], id: string): string[] {
+  return [id, ...list.filter((x) => x !== id)].slice(0, RECENT_MAX);
+}
+
+function readRecent(): string[] {
+  try {
+    const raw: unknown = JSON.parse(window.localStorage.getItem(RECENT_KEY) ?? '[]');
+    return Array.isArray(raw) ? raw.filter((x): x is string => typeof x === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeRecent(list: readonly string[]) {
+  try {
+    window.localStorage.setItem(RECENT_KEY, JSON.stringify(list));
+  } catch {
+    /* a private window: Recent just stays empty */
+  }
+}
+
+export interface GoToGroup {
+  /** null: no heading (a search's results are one list). */
+  title: 'recent' | string | null;
+  items: GoToEntry[];
+}
+
+/**
+ * What the list shows. A typed query: one list, best first. Nothing typed: the
+ * pages opened lately, then the rest under their workspace or section, in rail order.
+ */
+export function groupEntries(results: readonly GoToEntry[], query: string, recentIds: readonly string[]): GoToGroup[] {
+  if (normalizeQuery(query)) return results.length ? [{ title: null, items: [...results] }] : [];
+  const recent = recentIds.map((id) => results.find((e) => e.id === id)).filter((e): e is GoToEntry => !!e);
+  const groups: GoToGroup[] = recent.length ? [{ title: 'recent', items: recent }] : [];
+  const byGroup = new Map<string, GoToEntry[]>();
+  for (const entry of results) {
+    if (recent.includes(entry)) continue;
+    byGroup.set(entry.group, [...(byGroup.get(entry.group) ?? []), entry]);
+  }
+  for (const [title, items] of byGroup) groups.push({ title, items });
+  return groups;
+}
+
+/** Where the typed text sits in a name, to mark it. Plain letters only: a folded match (Arabic marks) marks nothing. */
+export function matchRange(label: string, query: string): [number, number] | null {
+  const q = query.trim().toLowerCase();
+  if (!q) return null;
+  const at = label.toLowerCase().indexOf(q);
+  return at < 0 ? null : [at, at + q.length];
+}
+
+function Marked({ text, query }: { text: string; query: string }) {
+  const range = matchRange(text, query);
+  if (!range) return <>{text}</>;
+  return (
+    <>
+      {text.slice(0, range[0])}
+      <mark className="tp-gt-mark">{text.slice(range[0], range[1])}</mark>
+      {text.slice(range[1])}
+    </>
+  );
+}
+
 export function GoToPalette({ workspaceKey, onClose }: { workspaceKey: WorkspaceKey; onClose: () => void }) {
   const { tr } = useLocale();
   const { staff } = useAuth();
@@ -231,8 +308,10 @@ export function GoToPalette({ workspaceKey, onClose }: { workspaceKey: Workspace
   const canOpenTab = useTabOpen(true);
   const [query, setQuery] = useState('');
   const [active, setActive] = useState(0);
+  const [area, setArea] = useState<string | null>(null);
+  const [recentIds] = useState(readRecent);
   const listId = useId();
-  const listRef = useRef<HTMLUListElement | null>(null);
+  const listRef = useRef<HTMLDivElement | null>(null);
 
   const entries = useMemo(
     () =>
@@ -245,8 +324,11 @@ export function GoToPalette({ workspaceKey, onClose }: { workspaceKey: Workspace
       ),
     [workspaceKey, tr, staff, canOpenTab],
   );
-  const results = useMemo(() => rankEntries(entries, query), [entries, query]);
-  const current = results[Math.min(active, results.length - 1)];
+  const areas = useMemo(() => [...new Set(entries.map((e) => e.group))], [entries]);
+  const results = useMemo(() => rankEntries(area ? entries.filter((e) => e.group === area) : entries, query), [entries, area, query]);
+  const groups = useMemo(() => groupEntries(results, query, recentIds), [results, query, recentIds]);
+  const flat = useMemo(() => groups.flatMap((g) => g.items), [groups]);
+  const current = flat[Math.min(active, flat.length - 1)];
 
   // The highlighted row stays in view as the arrows move it.
   useEffect(() => {
@@ -256,6 +338,7 @@ export function GoToPalette({ workspaceKey, onClose }: { workspaceKey: Workspace
 
   function go(entry: GoToEntry | undefined) {
     if (!entry) return;
+    writeRecent(pushRecent(readRecent(), entry.id));
     onClose();
     void navigate({ to: entry.to as never, search: (entry.search ?? {}) as never });
   }
@@ -263,9 +346,9 @@ export function GoToPalette({ workspaceKey, onClose }: { workspaceKey: Workspace
   function onKeyDown(e: KeyboardEvent<HTMLInputElement>) {
     if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
       e.preventDefault();
-      if (results.length === 0) return;
+      if (flat.length === 0) return;
       const step = e.key === 'ArrowDown' ? 1 : -1;
-      setActive((i) => (Math.min(i, results.length - 1) + step + results.length) % results.length);
+      setActive((i) => (Math.min(i, flat.length - 1) + step + flat.length) % flat.length);
     } else if (e.key === 'Enter') {
       e.preventDefault();
       go(current);
@@ -278,54 +361,92 @@ export function GoToPalette({ workspaceKey, onClose }: { workspaceKey: Workspace
   }
 
   return (
-    <Modal title={tr('ws.shell.goTo.title')} onClose={onClose}>
-      <div style={{ display: 'grid', gap: 'var(--tp-sp-3)' }}>
-        <span style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-          <Icon name="search" size={18} style={{ position: 'absolute', insetInlineStart: '0.75rem', color: 'var(--tp-muted-fg)', pointerEvents: 'none' }} />
-          <input
-            autoFocus
-            role="combobox"
-            aria-expanded="true"
-            aria-controls={listId}
-            aria-autocomplete="list"
-            aria-activedescendant={current ? `${listId}-${results.indexOf(current)}` : undefined}
-            aria-label={tr('ws.shell.goTo.placeholder')}
-            placeholder={tr('ws.shell.goTo.placeholder')}
-            value={query}
-            onChange={(e) => {
-              setQuery(e.target.value);
-              setActive(0);
-            }}
-            onKeyDown={onKeyDown}
-            data-testid="goto.input"
-            className="tp-goto-input"
-          />
-        </span>
-        {results.length === 0 ? (
-          <p role="status" style={{ color: 'var(--tp-muted-fg)', paddingBlock: 'var(--tp-sp-3)' }}>
-            {tr('ws.shell.goTo.none', { query: query.trim() })}
-          </p>
-        ) : (
-          <ul id={listId} ref={listRef} role="listbox" aria-label={tr('ws.shell.goTo.results')} className="tp-goto-list">
-            {results.map((entry, i) => (
-              <li
-                key={entry.id}
-                id={`${listId}-${i}`}
-                role="option"
-                aria-selected={entry === current}
-                data-entry={entry.id}
-                className="tp-goto-option"
-                onMouseMove={() => setActive(i)}
-                onClick={() => go(entry)}
-              >
-                <span style={{ fontWeight: 600 }}>{entry.label}</span>
-                <span style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>{entry.trail}</span>
-              </li>
-            ))}
-          </ul>
-        )}
-        <p style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-xs)' }}>{tr('ws.shell.goTo.hint')}</p>
-      </div>
+    <Modal
+      title={tr('ws.shell.goTo.title')}
+      onClose={onClose}
+      radius="14px"
+      panelWidth="min(40rem, 94vw)"
+      bare={() => (
+        <div className="tp-gt">
+          <label className="tp-gt-search">
+            <Icon name="search" size={18} style={{ flex: 'none', color: 'var(--tp-muted-fg)' }} />
+            <input
+              autoFocus
+              role="combobox"
+              aria-expanded="true"
+              aria-controls={listId}
+              aria-autocomplete="list"
+              aria-activedescendant={current ? `${listId}-${flat.indexOf(current)}` : undefined}
+              aria-label={tr('ws.shell.goTo.placeholder')}
+              placeholder={tr('ws.shell.goTo.placeholder')}
+              value={query}
+              onChange={(e) => {
+                setQuery(e.target.value);
+                setActive(0);
+              }}
+              onKeyDown={onKeyDown}
+              data-testid="goto.input"
+              className="tp-gt-input"
+            />
+          </label>
+          {areas.length > 1 && (
+            <div role="group" aria-label={tr('ws.shell.goTo.title')} className="tp-gt-chips">
+              {[null, ...areas].map((a) => (
+                <button
+                  key={a ?? '*'}
+                  type="button"
+                  className="tp-gt-chip"
+                  aria-pressed={area === a}
+                  onClick={() => {
+                    setArea(a);
+                    setActive(0);
+                  }}
+                >
+                  {a ?? tr('ws.shell.goTo.all')}
+                </button>
+              ))}
+            </div>
+          )}
+          {flat.length === 0 ? (
+            <p role="status" className="tp-gt-empty">
+              {tr('ws.shell.goTo.empty')}
+            </p>
+          ) : (
+            <div id={listId} ref={listRef} role="listbox" aria-label={tr('ws.shell.goTo.results')} className="tp-gt-list">
+              {groups.map((group) => (
+                <div key={group.title ?? '*'} role="group" aria-label={group.title === 'recent' ? tr('ws.shell.goTo.recent') : (group.title ?? undefined)}>
+                  {group.title && <div className="tp-gt-group">{group.title === 'recent' ? tr('ws.shell.goTo.recent') : group.title}</div>}
+                  {group.items.map((entry) => {
+                    const i = flat.indexOf(entry);
+                    return (
+                      <div
+                        key={`${group.title}-${entry.id}`}
+                        id={`${listId}-${i}`}
+                        role="option"
+                        aria-selected={entry === current}
+                        data-entry={entry.id}
+                        className="tp-gt-row"
+                        onMouseMove={() => setActive(i)}
+                        onClick={() => go(entry)}
+                      >
+                        <span className="tp-gt-chipicon" aria-hidden="true">
+                          <Icon name={entry.icon} size={15} />
+                        </span>
+                        <span className="tp-gt-name">
+                          <Marked text={entry.label} query={query} />
+                        </span>
+                        {entry.where && <span className="tp-gt-where">{entry.where}</span>}
+                      </div>
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    >
+      {null}
     </Modal>
   );
 }

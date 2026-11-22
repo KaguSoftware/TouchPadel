@@ -174,9 +174,11 @@ export function ReportCrashButton({
       >
         {tr('crashReport.button')}
       </Button>
-      <p role="status" aria-live="polite" style={hint}>
-        {state === 'idle' ? tr('crashReport.hint') : tr(REPORT_LINE[state])}
-      </p>
+      {state !== 'idle' && (
+        <p role="status" aria-live="polite" style={hint}>
+          {tr(REPORT_LINE[state])}
+        </p>
+      )}
     </div>
   );
 }

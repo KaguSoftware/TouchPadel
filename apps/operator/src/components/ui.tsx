@@ -25,6 +25,7 @@ import { errorToMessageKey } from '../lib/errors';
 import { Icon, type IconName } from './icons';
 import { BrandBall } from './brand';
 import { SelectMenu } from './SelectMenu';
+import { InfoTip } from './InfoTip';
 import { PIN_MAX, PIN_MIN } from '../lib/pinRules';
 
 export const card: CSSProperties = {
@@ -252,6 +253,7 @@ export function Field({
   label,
   children,
   hint,
+  info,
   error,
   required,
   optional,
@@ -261,6 +263,12 @@ export function Field({
   label: string;
   children: ReactNode;
   hint?: ReactNode;
+  /**
+   * The explanation as the kit's InfoTip beside the label, for a field whose hint
+   * would only crowd a calm form. It sits OUTSIDE the <label>, so it never joins
+   * the control's accessible name.
+   */
+  info?: ReactNode;
   error?: ReactNode;
   required?: boolean;
   /**
@@ -311,7 +319,14 @@ export function Field({
   const Wrapper = group || isSelect ? 'div' : 'label';
 
   return (
-    <div style={{ marginBlockEnd: 'var(--tp-sp-4)', ...style }}>
+    <div style={{ marginBlockEnd: 'var(--tp-sp-4)', position: info ? 'relative' : undefined, ...style }}>
+      {info && (
+        // The trigger is a touch-sized icon button; sized to the label row, it cannot
+        // reach down over the control beneath.
+        <span style={{ position: 'absolute', insetBlockStart: '-0.25rem', insetInlineEnd: 0 }}>
+          <InfoTip content={info} style={{ inlineSize: '1.75rem', blockSize: '1.75rem', minInlineSize: 0, minBlockSize: 0, padding: 0 }} />
+        </span>
+      )}
       <Wrapper style={{ display: 'block' }}>
         <span
           id={group || isSelect ? labelId : undefined}
@@ -324,6 +339,8 @@ export function Field({
             fontWeight: 600,
             color: 'var(--tp-fg)',
             marginBlockEnd: 'var(--tp-sp-2)',
+            // Room for the info tip so a long label never runs under it.
+            paddingInlineEnd: info ? '2rem' : undefined,
           }}
         >
           {label}
@@ -434,6 +451,8 @@ export function Modal({
   titleAfter,
   footer,
   bare,
+  radius,
+  panelWidth,
   dismissible = true,
   canClose,
   requireChoice,
@@ -490,6 +509,10 @@ export function Modal({
    * "Start: Tournament", whose menu runs the panel's full height.
    */
   bare?: (close: () => void) => ReactNode;
+  /** The panel's corner radius where a design sets its own (Go to: 14px); default the dialog token. */
+  radius?: string;
+  /** The panel's width where a design sets its own (Go to), instead of one of the `size` steps. */
+  panelWidth?: string;
 }) {
   const { tr } = useLocale();
   const { mode: themeMode } = useTheme();
@@ -677,10 +700,10 @@ export function Modal({
         style={{
           background: 'var(--tp-surface)',
           color: 'var(--tp-fg)',
-          borderRadius: 'var(--tp-radius-dialog)',
+          borderRadius: radius ?? 'var(--tp-radius-dialog)',
           boxShadow: 'var(--tp-shadow-dialog)',
           border: '1px solid var(--tp-border)',
-          inlineSize: width,
+          inlineSize: panelWidth ?? width,
           maxBlockSize: '92vh',
           display: 'flex',
           flexDirection: 'column',

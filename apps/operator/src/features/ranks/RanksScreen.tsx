@@ -35,6 +35,7 @@ import {
   Panel,
   SegmentedControl,
   StatusBadge,
+  TableFrame,
   ViewMore,
   asyncStatus,
   useListCap,
@@ -846,6 +847,7 @@ function LevelsPanel({ saved, canEdit }: { saved: RanksLevel[]; canEdit: boolean
     >
       <div style={{ display: 'grid', gap: 'var(--tp-sp-3)' }}>
         <p style={muted}>{tr(`${L}.lead`)}</p>
+        <TableFrame>
         <table className="tp-table" style={{ tableLayout: 'fixed', inlineSize: '100%' }}>
           <colgroup>
             <col />
@@ -931,6 +933,7 @@ function LevelsPanel({ saved, canEdit }: { saved: RanksLevel[]; canEdit: boolean
             ))}
           </tbody>
         </table>
+        </TableFrame>
         {anyNames && <p style={{ ...hintStyle, color: 'var(--tp-danger-fg)' }}>{tr(`${L}.errorNames`)}</p>}
         {anyLevel && <p style={{ ...hintStyle, color: 'var(--tp-danger-fg)' }}>{tr(`${L}.errorLevel`)}</p>}
         <ErrorText error={error} style={{ marginBlock: 0 }} />

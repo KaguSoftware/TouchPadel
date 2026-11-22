@@ -77,7 +77,7 @@ function useSpan() {
  * The draft holds every field, seeded from what is stored; only this part's
  * fields can change, so the patch only ever carries them.
  */
-export function VenuePartForm({ saved, part, untitled }: { saved: VenueAdminRow; part: VenuePart; untitled?: boolean }) {
+export function VenuePartForm({ saved, part }: { saved: VenueAdminRow; part: VenuePart }) {
   const { tr, locale } = useLocale();
   const toast = useToast();
   const qc = useQueryClient();
@@ -137,7 +137,7 @@ export function VenuePartForm({ saved, part, untitled }: { saved: VenueAdminRow;
   return (
     <>
       {part === 'venue' && (
-        <Panel title={untitled ? undefined : tr('ws.owner.settings.details.venueTitle')}>
+        <Panel title={tr('ws.owner.settings.details.venueTitle')}>
           <div style={grid}>
             <Field label={tr('ws.owner.settings.contact.venueName')} hint={tr('ws.owner.settings.details.venueNameHint')} error={errorFor('venueName')} required style={{ marginBlockEnd: 0 }}>
               <input style={inputStyle} value={draft.venueName} maxLength={80} onChange={(e) => set('venueName')(e.target.value)} />
@@ -150,10 +150,11 @@ export function VenuePartForm({ saved, part, untitled }: { saved: VenueAdminRow;
       )}
 
       {part === 'booking' && (
-        <Panel title={untitled ? undefined : tr('ws.owner.settings.trading.policyTitle')}>
+        <Panel title={tr('ws.owner.settings.trading.policyTitle')}>
           <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', marginBlockEnd: 'var(--tp-sp-3)' }}>{tr('ws.owner.settings.details.rulesLead')}</p>
           <div style={grid}>
             <NumberField
+              framed
               label={tr('ws.owner.settings.trading.cancellationWindow')}
               hint={tr('ws.owner.settings.details.cancellationHint')}
               unit={tr('ws.owner.settings.details.units.hours')}
@@ -162,6 +163,7 @@ export function VenuePartForm({ saved, part, untitled }: { saved: VenueAdminRow;
               error={errorFor('cancellationHours')}
             />
             <NumberField
+              framed
               label={tr('ws.owner.settings.trading.holdTtl')}
               hint={tr('ws.owner.settings.trading.holdTtlHint')}
               unit={tr('ws.owner.settings.details.units.minutes')}
@@ -170,6 +172,7 @@ export function VenuePartForm({ saved, part, untitled }: { saved: VenueAdminRow;
               error={errorFor('holdMinutes')}
             />
             <NumberField
+              framed
               label={tr('ws.owner.settings.trading.bookingHorizon')}
               hint={tr('ws.owner.settings.details.horizonHint')}
               unit={tr('ws.owner.settings.details.units.days')}
@@ -178,6 +181,7 @@ export function VenuePartForm({ saved, part, untitled }: { saved: VenueAdminRow;
               error={errorFor('horizonDays')}
             />
             <NumberField
+              framed
               label={tr('ws.owner.settings.trading.maxHolds')}
               hint={tr('ws.owner.settings.trading.maxHoldsHint')}
               unit={tr('ws.owner.settings.details.units.slots')}
@@ -190,11 +194,12 @@ export function VenuePartForm({ saved, part, untitled }: { saved: VenueAdminRow;
       )}
 
       {part === 'offline' && (
-        <Panel title={untitled ? undefined : tr('ws.owner.settings.details.offlineTitle')}>
+        <Panel title={tr('ws.owner.settings.details.offlineTitle')}>
           <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', marginBlockEnd: 'var(--tp-sp-3)' }}>{tr('ws.owner.settings.details.offlineLead')}</p>
           <OfflineModeSwitch enabled={saved.offline_mode_enabled} />
           <div style={grid}>
             <NumberField
+              framed
               label={tr('ws.owner.settings.trading.heartbeatStale')}
               hint={tr('ws.owner.settings.details.staleHint')}
               unit={tr('ws.owner.settings.details.units.seconds')}
@@ -203,6 +208,7 @@ export function VenuePartForm({ saved, part, untitled }: { saved: VenueAdminRow;
               error={errorFor('staleSeconds')}
             />
             <NumberField
+              framed
               label={tr('ws.owner.settings.trading.protectedHorizon')}
               hint={tr('ws.owner.settings.details.protectedHint')}
               unit={tr('ws.owner.settings.details.units.hours')}
@@ -284,7 +290,7 @@ function OfflineModeSwitch({ enabled }: { enabled: boolean }) {
 }
 
 /** What a manager reads in place of a part's form: the same values, read-only. */
-export function VenuePartFacts({ venue, part, untitled }: { venue: VenueAdminRow; part: VenuePart; untitled?: boolean }) {
+export function VenuePartFacts({ venue, part }: { venue: VenueAdminRow; part: VenuePart }) {
   const { tr, locale } = useLocale();
   const span = useSpan();
   const n = (v: number) => formatNumber(v, locale);
@@ -307,7 +313,7 @@ export function VenuePartFacts({ venue, part, untitled }: { venue: VenueAdminRow
   }
   if (part === 'booking') {
     return (
-      <Panel title={untitled ? undefined : tr('ws.owner.settings.trading.policyTitle')}>
+      <Panel title={tr('ws.owner.settings.trading.policyTitle')}>
         <Facts
           rows={[
             {
@@ -328,7 +334,7 @@ export function VenuePartFacts({ venue, part, untitled }: { venue: VenueAdminRow
     );
   }
   return (
-    <Panel title={untitled ? undefined : tr('ws.owner.settings.details.offlineTitle')}>
+    <Panel title={tr('ws.owner.settings.details.offlineTitle')}>
       <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', marginBlockEnd: 'var(--tp-sp-2)' }}>{tr('ws.owner.settings.details.offlineLead')}</p>
       <Facts
         rows={[

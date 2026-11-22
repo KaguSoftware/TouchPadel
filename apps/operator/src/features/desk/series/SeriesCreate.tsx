@@ -33,7 +33,7 @@ import { clientRef, deviceId, station } from '../../../lib/idem';
 import { QK, fetchActiveCourts, fetchVenueSettings, type CourtRow } from '../../../lib/queries';
 import { useLocale, pickName } from '../../../lib/i18n';
 import { Button, ErrorText, Field, Select, inputStyle } from '../../../components/ui';
-import { AsyncStateWrapper, MessagePresenter, PageHeader, Panel, SegmentedControl, StatusBadge, asyncStatus } from '../../../components/kit';
+import { AsyncStateWrapper, MessagePresenter, PageHeader, Panel, SegmentedControl, StatusBadge, TableFrame, asyncStatus } from '../../../components/kit';
 import { Icon } from '../../../components/icons';
 import { CountInput, DateField } from '../../../components/inputs';
 import { nameFromQuery, phoneDigitCount, phoneFromQuery, sanitizeName, sanitizePhone } from '../deskLogic';
@@ -727,7 +727,7 @@ export function ClashPreviewList({
   const { tr, locale } = useLocale();
   const courtName = (id: string) => pickName(locale, courts.find((c) => c.id === id)) || id;
   return (
-    <div style={{ border: '1px solid var(--tp-border)', borderRadius: 'var(--tp-radius-panel)', overflow: 'auto', maxBlockSize: '60vh' }}>
+    <TableFrame style={{ overflow: 'auto', maxBlockSize: '60vh' }}>
       <table className="tp-table" data-dense="true" aria-label={tr('ws.courtDesk.series.previewTitle')}>
         <thead>
           <tr>
@@ -784,6 +784,6 @@ export function ClashPreviewList({
           })}
         </tbody>
       </table>
-    </div>
+    </TableFrame>
   );
 }

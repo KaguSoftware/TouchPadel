@@ -596,14 +596,14 @@
         "howto"
       ],
       "expect": {
-        "route": "/admin/rates",
+        "route": "/admin/courts",
         "tools_any_of": [
           "page_lookup",
           "search",
           "describe"
         ],
         "contains_any": [
-          "/admin/rates",
+          "/admin/courts",
           "Court rates",
           "rates",
           "الأسعار"

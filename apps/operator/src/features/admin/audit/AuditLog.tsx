@@ -47,6 +47,7 @@ import {
   SearchField,
   StatusBadge,
   TableSkeleton,
+  TableFrame,
   Toolbar,
   ViewMore,
   asyncStatus,
@@ -402,7 +403,7 @@ export function AuditLog() {
           // them, and the way out is the filters (rulebook 9.2).
           <EmptyState compact kind="filtered" onClearFilters={() => setFilter(EMPTY_FILTER)} />
         ) : (
-          <div style={{ border: '1px solid var(--tp-border)', borderRadius: 'var(--tp-radius-panel)', overflow: 'auto', background: 'var(--tp-surface)' }}>
+          <TableFrame style={{ overflow: 'auto' }}>
             <table className="tp-table" aria-label={tr('op.audit.title')}>
               <thead>
                 <tr>
@@ -429,7 +430,7 @@ export function AuditLog() {
                 })}
               </tbody>
             </table>
-          </div>
+          </TableFrame>
         )}
         <ViewMore hidden={listed.hidden} open={listed.open} onToggle={listed.toggle} />
       </AsyncStateWrapper>
@@ -563,6 +564,7 @@ function RowPair({
             {changes.length === 0 ? (
               <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>{tr('ws.manager.audit.noVisibleChanges')}</p>
             ) : (
+              <TableFrame>
               <table className="tp-table" data-dense="true">
                 <thead>
                   <tr>
@@ -587,6 +589,7 @@ function RowPair({
                   ))}
                 </tbody>
               </table>
+              </TableFrame>
             )}
             {hidden > 0 && changes.length > 0 && (
               <p style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)', marginBlockStart: 'var(--tp-sp-1-5)' }}>{tr('ws.manager.audit.hiddenFields')}</p>

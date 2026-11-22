@@ -36,6 +36,7 @@ export function RoleField({
   disabled,
   flush,
   note,
+  asInfo,
 }: {
   value: StaffRole;
   current?: StaffRole;
@@ -43,14 +44,17 @@ export function RoleField({
   disabled?: boolean;
   flush?: boolean;
   note?: ReactNode;
+  /** What the role opens as an info tip beside the label, not a line under the picker. */
+  asInfo?: boolean;
 }) {
   const { tr } = useLocale();
   const options = roleChoices(current ?? value).map((c) => ({ value: c.role, label: tr(`op.roles.${c.role}`), disabled: c.retired }));
   return (
     <Field
       label={tr('op.staff.role')}
+      info={asInfo ? tr(`ws.owner.staff.roleAccess.${value}`) : undefined}
       hint={
-        note ? (
+        asInfo ? undefined : note ? (
           <span style={{ display: 'grid', gap: 'var(--tp-sp-1)' }}>
             <span>{tr(`ws.owner.staff.roleAccess.${value}`)}</span>
             <span>{note}</span>

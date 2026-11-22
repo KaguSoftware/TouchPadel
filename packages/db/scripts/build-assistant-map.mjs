@@ -599,7 +599,7 @@ const LABEL_ROUTE_HINTS = {
   till: '/till', tabs: '/till/tabs', openTabs: '/till/tabs', drawer: '/till/drawer', payment: '/till',
   desk: '/desk', calendar: '/desk', today: '/desk/today', customers: '/desk/customers', series: '/desk/series/new', block: '/desk/block',
   ops: '/ops', overview: '/ops', panel: '/panel', analytics: '/analytics', reports: '/reports', revenue: '/reports/revenue',
-  stock: '/stock', dayClose: '/admin/day-close', audit: '/admin/audit', staff: '/admin/staff', menu: '/admin/menu', rates: '/admin/rates',
+  stock: '/stock', dayClose: '/admin/day-close', audit: '/admin/audit', staff: '/admin/staff', menu: '/admin/menu', rates: '/admin/courts',
   promotions: '/admin/promotions', settings: '/admin/settings', telegram: '/admin/telegram', qr: '/admin/qr', courts: '/admin/courts',
   hero: '/admin/hero', marketing: '/marketing', observation: '/observation', requests: '/observation/requests', financial: '/financial',
   setup: '/setup', hours: '/admin/hours', addons: '/admin/addons', suggested: '/admin/suggested', categories: '/admin/categories',

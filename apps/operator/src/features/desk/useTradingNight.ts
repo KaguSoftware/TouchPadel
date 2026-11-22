@@ -16,7 +16,7 @@ import { VENUE_TZ } from '@touch/i18n';
 import { supabase } from '../../lib/supabase';
 import { cachedQuery } from '../../lib/refCache';
 import { QK, fetchVenueSettings, fetchActiveCourts, type CourtRow, type VenueSettingsRow } from '../../lib/queries';
-import { useBroadcast } from '../../lib/realtime';
+import { useBroadcast, type BroadcastStatus } from '../../lib/realtime';
 import { RESERVATION_COLUMNS, type ReservationRow } from './deskTypes';
 import { tradingDateOf, type OpeningHours } from './calendar/monthLogic';
 
@@ -88,6 +88,8 @@ export interface TradingNight {
   dayEnd: Date;
   closed: boolean;
   closedDates: string[];
+  /** The 'courts' broadcast's state: Live, Connecting… or Disconnected (polling is the safety net). */
+  connection: BroadcastStatus;
 }
 
 export function useTradingNight(date: string): TradingNight {
@@ -146,7 +148,7 @@ export function useTradingNight(date: string): TradingNight {
     [reservationsQ.data, tz, hours, date],
   );
 
-  useBroadcast({
+  const { status: connection } = useBroadcast({
     topic: 'courts',
     isPrivate: true,
     events: ['slot_changed'],
@@ -173,5 +175,6 @@ export function useTradingNight(date: string): TradingNight {
     dayEnd,
     closed,
     closedDates,
+    connection,
   };
 }

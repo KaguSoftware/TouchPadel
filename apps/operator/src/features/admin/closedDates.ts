@@ -32,6 +32,26 @@ export function addClosedDate(dates: readonly string[], date: string): string[] 
   return normalizeClosedDates([...dates, date]);
 }
 
+/** Longest range one press may add: a year, so a mistyped year cannot add decades. */
+export const MAX_CLOSED_RANGE_DAYS = 366;
+
+/** Every day from `from` to `to`, both included. Empty when either is invalid, `to` < `from`, or it is too long. */
+export function closedDateRange(from: string, to: string): string[] {
+  if (!isIsoDate(from) || !isIsoDate(to) || to < from) return [];
+  const out: string[] = [];
+  const end = new Date(`${to}T00:00:00Z`).getTime();
+  for (let t = new Date(`${from}T00:00:00Z`).getTime(); t <= end; t += 86_400_000) {
+    out.push(new Date(t).toISOString().slice(0, 10));
+    if (out.length > MAX_CLOSED_RANGE_DAYS) return [];
+  }
+  return out;
+}
+
+/** `date` plus `days` calendar days. */
+export function shiftIsoDate(date: string, days: number): string {
+  return new Date(new Date(`${date}T00:00:00Z`).getTime() + days * 86_400_000).toISOString().slice(0, 10);
+}
+
 export function removeClosedDate(dates: readonly string[], date: string): string[] {
   return normalizeClosedDates(dates.filter((d) => d !== date));
 }

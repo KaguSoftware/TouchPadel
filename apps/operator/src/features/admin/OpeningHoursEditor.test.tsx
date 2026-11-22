@@ -77,7 +77,7 @@ function renderEditor() {
 async function addDay(user: ReturnType<typeof userEvent.setup>, date: string) {
   const input = await screen.findByLabelText('Add closed day');
   await user.type(input, date);
-  await user.click(screen.getByRole('button', { name: 'Add closed day' }));
+  await user.click(screen.getByRole('button', { name: /to closed days/ }));
 }
 
 beforeEach(() => {

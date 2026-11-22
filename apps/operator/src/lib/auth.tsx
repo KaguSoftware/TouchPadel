@@ -353,7 +353,6 @@ export const SUB_ROUTES = {
     '/admin/courts',
     // Coaching (docs/design/coaching/operator.md §5.3.2): coaches, lesson types, hours.
     '/admin/coaches',
-    '/admin/rates',
     // Gender hours (0353): courts kept for women or men at set times.
     '/admin/gender-hours',
     '/admin/hours',

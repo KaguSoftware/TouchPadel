@@ -294,19 +294,19 @@ const PAY_TABS: readonly NavTab[] = [
 
 /**
  * Everything about playing on a court, in one place (Sait, 2026-10-17): the
- * prices, the courts, the booking rules, the online deposit and open matches,
- * the opening hours and the tournament rules.
+ * prices, the courts, the rules (booking and tournament), the online deposit
+ * and open matches, and the opening hours.
  */
 const COURT_SETTINGS_TABS: readonly NavTab[] = [
-  { to: '/admin/rates', labelKey: 'rates' },
+  // Courts and their prices, one page.
+  { to: '/admin/courts', labelKey: 'courts' },
   // Courts kept for women or men at set times (0353), the rate card's sibling.
   { to: '/admin/gender-hours', labelKey: 'genderHours' },
-  { to: '/admin/courts', labelKey: 'courts' },
   { to: '/admin/settings/booking', labelKey: 'bookingRules' },
   { to: '/admin/settings/deposit', labelKey: 'onlineDeposit', when: 'onlinePaymentsLive' },
   { to: '/admin/settings/matches', labelKey: 'openMatches', when: 'openMatches' },
+  { to: '/admin/settings/tournaments', labelKey: 'tournaments' },
   { to: '/admin/hours', labelKey: 'openingHours' },
-  { to: '/admin/settings/tournaments', labelKey: 'tournamentRules' },
 ];
 
 /**
@@ -409,7 +409,7 @@ const DEVICES_TABS: readonly NavTab[] = [
 ];
 
 // Rows printed in more than one list.
-const COURT_SETTINGS: NavItem = { to: '/admin/rates', labelKey: 'courtSettings', icon: 'sliders', tabs: COURT_SETTINGS_TABS };
+const COURT_SETTINGS: NavItem = { to: '/admin/courts', labelKey: 'courtSettings', icon: 'sliders', tabs: COURT_SETTINGS_TABS };
 const COACHES: NavItem = { to: '/admin/coaches', labelKey: 'coaches', icon: 'whistle', tabs: COACHES_TABS };
 const MENU: NavItem = { to: '/admin/menu', labelKey: 'menu', icon: 'bookOpen', tabs: MENU_TABS };
 const TABLES: NavItem = { to: '/admin/qr', labelKey: 'tables', icon: 'qr' };

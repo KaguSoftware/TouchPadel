@@ -185,15 +185,19 @@ export function ManagementPanelScreen() {
           {tr('ws.owner.panel.csv.failed')}
         </p>
       )}
-      {/* The owner's pay-day reminder (0271): hidden when nothing is due. */}
-      <WagesDueCard />
       {/* Now, before the period: what waits on the owner, then the floor this
           minute, are the things on the screen the date range does not govern,
           so they sit above the range control rather than among the figures
           they would otherwise seem to belong to (owner requests, 2026-09-18;
           "Needs you" moved here from Floor now, 2026-10-17). */}
       <div style={{ display: 'grid', gap: 'var(--tp-sp-4)', marginBlockEnd: 'var(--tp-sp-4)' }}>
-        <PanelNeedsYou />
+        {/* Wages due (the owner's pay-day reminder, 0271) and Needs you sit side
+            by side; auto-fit lets either one fill the row when the other is
+            hidden, and stacks them on a narrow screen. */}
+        <div style={{ display: 'grid', gap: 'var(--tp-sp-4)', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 24rem), 1fr))', alignItems: 'stretch' }}>
+          <PanelNeedsYou />
+          <WagesDueCard />
+        </div>
         <LiveFloor blockSize="24rem" boardLinks />
       </div>
       <hr aria-hidden="true" style={{ border: 'none', borderBlockStart: '1px solid var(--tp-border)', marginBlock: '0 var(--tp-sp-4)' }} />

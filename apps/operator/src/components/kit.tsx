@@ -739,6 +739,28 @@ function buildRowBlocks<T>(rows: readonly T[], groupBy?: (row: T) => string | nu
   return blocks;
 }
 
+/**
+ * The standard "table inside a panel" frame, for a bare `<table className="tp-table">`
+ * that is not a DataTable: edge, rounded corners and panel-body ground from the
+ * same tokens DataTable uses, so paper, blue and coloured cards restyle it.
+ */
+export function TableFrame({ children, style }: { children: ReactNode; style?: CSSProperties }) {
+  return (
+    <div
+      className="tp-table-frame"
+      style={{
+        overflow: 'hidden',
+        border: '1px solid var(--tp-table-edge, var(--tp-panel-edge))',
+        borderRadius: 'var(--tp-radius-panel)',
+        background: 'var(--tp-table-body, var(--tp-panel-body))',
+        ...style,
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
 export function DataTable<T>({
   columns,
   rows,

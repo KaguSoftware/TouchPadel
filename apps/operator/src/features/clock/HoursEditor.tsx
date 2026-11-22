@@ -8,7 +8,7 @@
  * Used on the owner's Staff page (beside the person) and on Attendance › Set hours (managers,
  * whose Staff page is closed to them). `can_edit` false (a manager's own hours) is read-only.
  */
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { WeekShift } from '@touch/core/staff/clock';
 import { formatNumber, formatWeekdayLong, isolate, type MessageKey } from '@touch/i18n';
@@ -56,10 +56,38 @@ export function useDuration() {
   };
 }
 
-export function HoursEditor({ staffId, compact = false }: { staffId: string; compact?: boolean }) {
+/**
+ * The week as a draft held by a parent (the staff wizard): the saved week, the edits, and one
+ * `save` that writes the whole week. `edited` is null until the first touch, and drops back to
+ * null when a fresh answer arrives, so an untouched draft always follows the server.
+ */
+export function useHoursDraft(staffId: string, enabled: boolean) {
+  const { branchId } = useVenue();
+  const q = useQuery({ queryKey: CK.shifts(branchId, staffId), enabled: enabled && Boolean(branchId), queryFn: () => fetchShifts(staffId) });
+  const data = q.data ? readShifts(q.data) : null;
+  const [edited, setEdited] = useState<WeekShift[] | null>(null);
+  useEffect(() => setEdited(null), [q.dataUpdatedAt]);
+  const saved = data?.shifts ?? [];
+  const mainRole = data?.roles[0] ?? null;
+  const draft = edited ?? saved;
+  return {
+    q,
+    data,
+    draft,
+    setDraft: setEdited,
+    dirty: data !== null && data.canEdit && edited !== null && !sameWeek(edited, saved, mainRole),
+    issue: weekIssue(draft),
+    save: () => saveShifts(staffId, shiftsForSave(draft, mainRole)),
+  };
+}
+export type HoursModel = ReturnType<typeof useHoursDraft>;
+
+export function HoursEditor({ staffId, compact = false, model }: { staffId: string; compact?: boolean; model?: HoursModel }) {
   const { tr } = useLocale();
   const { branchId } = useVenue();
-  const q = useQuery({ queryKey: CK.shifts(branchId, staffId), enabled: Boolean(branchId), queryFn: () => fetchShifts(staffId) });
+  // With a `model` the parent owns the draft and the save (no buttons here); its query is this one.
+  const own = useQuery({ queryKey: CK.shifts(branchId, staffId), enabled: Boolean(branchId) && !model, queryFn: () => fetchShifts(staffId) });
+  const q = model ? model.q : own;
 
   if (q.error) {
     const code = refusalCode(q.error);
@@ -75,20 +103,21 @@ export function HoursEditor({ staffId, compact = false }: { staffId: string; com
   }
   if (!q.data) return <Skeleton lines={5} />;
   const data = readShifts(q.data);
-  return <WeekForm key={q.dataUpdatedAt} staffId={staffId} roles={data.roles} canEdit={data.canEdit} saved={data.shifts} compact={compact} />;
+  return <WeekForm key={model ? undefined : q.dataUpdatedAt} staffId={staffId} roles={data.roles} canEdit={data.canEdit} saved={data.shifts} compact={compact} model={model} />;
 }
 
-function WeekForm({ staffId, roles, canEdit, saved, compact }: { staffId: string; roles: string[]; canEdit: boolean; saved: WeekShift[]; compact: boolean }) {
+function WeekForm({ staffId, roles, canEdit, saved, compact, model }: { staffId: string; roles: string[]; canEdit: boolean; saved: WeekShift[]; compact: boolean; model?: HoursModel }) {
   const { tr } = useLocale();
   const toast = useToast();
   const qc = useQueryClient();
   const duration = useDuration();
   const mainRole = roles[0] ?? null;
-  const [draft, setDraft] = useState<WeekShift[]>(saved);
+  const [ownDraft, setDraft] = useState<WeekShift[]>(saved);
+  const draft = model ? model.draft : ownDraft;
   const [tried, setTried] = useState(false);
   const [copyFrom, setCopyFrom] = useState<number | null>(null);
 
-  const dirty = !sameWeek(draft, saved, mainRole);
+  const dirty = model ? model.dirty : !sameWeek(draft, saved, mainRole);
   const issue = weekIssue(draft);
   const save = useMutation({
     mutationFn: () => saveShifts(staffId, shiftsForSave(draft, mainRole)),
@@ -101,7 +130,8 @@ function WeekForm({ staffId, roles, canEdit, saved, compact }: { staffId: string
   const refusal = shiftsRefusal(refusalCode(save.error), refusalHint(save.error));
 
   const edit = (next: WeekShift[]) => {
-    setDraft(next);
+    if (model) model.setDraft(next);
+    else setDraft(next);
     if (save.isError) save.reset();
   };
   const patch = (index: number, p: Partial<WeekShift>) => edit(draft.map((s, i) => (i === index ? { ...s, ...p } : s)));
@@ -116,10 +146,13 @@ function WeekForm({ staffId, roles, canEdit, saved, compact }: { staffId: string
       })),
     [roles, tr],
   );
-  const shownIssue: WeekIssue | null = tried ? issue : null;
+  // Held by a parent: show a problem as soon as the week is touched; there is no Save press to wait for.
+  const shownIssue: WeekIssue | null = (model ? model.dirty : tried) ? issue : null;
 
+  // Inside the wizard's own form a second <form> would nest; held by a parent it is a plain block.
+  const Shell = (model ? 'div' : 'form') as 'form';
   return (
-    <form
+    <Shell
       noValidate
       onSubmit={(e) => {
         e.preventDefault();
@@ -163,7 +196,7 @@ function WeekForm({ staffId, roles, canEdit, saved, compact }: { staffId: string
         <p style={{ margin: 0, fontWeight: 600 }} data-testid="hours-total">
           {draft.length === 0 ? tr('ws.clock.hours.noHours') : tr('ws.clock.hours.weekTotal', { hours: duration(weekMinutes(draft)) })}
         </p>
-        {canEdit && (dirty || save.isPending) && (
+        {canEdit && !model && (dirty || save.isPending) && (
           <div style={{ display: 'flex', gap: 'var(--tp-sp-2)' }}>
             <Button kind="ghost" disabled={save.isPending} onClick={() => edit(saved)}>
               {tr('ws.kit.actions.discard')}
@@ -176,7 +209,7 @@ function WeekForm({ staffId, roles, canEdit, saved, compact }: { staffId: string
       </div>
       {shownIssue && <p role="alert" style={{ margin: 0, color: 'var(--tp-danger-fg)', fontSize: 'var(--tp-fs-sm)' }}>{tr('ws.clock.hours.fixFirst')}</p>}
       {refusal ? <MessagePresenter tone="refused" message={tr(`ws.clock.hours.refused.${refusal}`)} /> : save.isError && <ErrorText error={save.error} />}
-    </form>
+    </Shell>
   );
 }
 

@@ -28,13 +28,13 @@
 import { useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { readOpeningHours, writeOpeningHours, type DayKey } from '@touch/core';
-import { formatDate, formatWeekdayShort } from '@touch/i18n';
+import { formatDate, formatWeekdayLong, formatWeekdayShort } from '@touch/i18n';
 import { appRpc } from '../../lib/appRpc';
 import { QK, fetchVenueSettings } from '../../lib/queries';
 import { useLocale } from '../../lib/i18n';
 import { Button, ErrorText, Skeleton, inputStyle } from '../../components/ui';
-import { AsyncStateWrapper, MessagePresenter, Panel, StatusBadge, asyncStatus } from '../../components/kit';
-import { addClosedDate, addedClosedDates, closedDayBlock, isIsoDate, removeClosedDate, sameClosedDates, splitClosedDates } from './closedDates';
+import { AsyncStateWrapper, MessagePresenter, Panel, SegmentedControl, StatusBadge, asyncStatus } from '../../components/kit';
+import { MAX_CLOSED_RANGE_DAYS, closedDateRange, addedClosedDates, closedDayBlock, isIsoDate, normalizeClosedDates, removeClosedDate, sameClosedDates, splitClosedDates } from './closedDates';
 import { ClosedDayBookings, useClosedDayBookings } from './ClosedDayBookings';
 import { refusalCode } from '../protocols/errors';
 
@@ -76,6 +76,8 @@ export function OpeningHoursEditor() {
   const [closed, setClosed] = useState<string[] | null>(null);
   const [hoursDirty, setHoursDirty] = useState(false);
   const [newDate, setNewDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [mode, setMode] = useState<'day' | 'range'>('day');
   const [error, setError] = useState<unknown>(null);
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -159,13 +161,13 @@ export function OpeningHoursEditor() {
     return `${formatWeekdayShort(noon, locale, 'UTC')} ${formatDate(noon, locale, 'UTC')}`;
   };
 
+  const showDateOnly = (iso: string) => formatDate(new Date(`${iso}T12:00:00Z`), locale, 'UTC');
+  const showWeekday = (iso: string) => formatWeekdayLong(new Date(`${iso}T12:00:00Z`), locale, 'UTC');
+
   return (
-    <div style={{ display: 'grid', gap: 'var(--tp-sp-4)', maxInlineSize: '44rem' }}>
-      <Panel title={tr('op.hours.title')} padded={false}>
-        {/* The one thing on this screen that looks like a mistake and is not. */}
-        <p style={{ paddingBlock: 'var(--tp-sp-2)', paddingInline: 'var(--tp-sp-3)', fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', borderBlockEnd: '1px solid var(--tp-border)' }}>
-          {tr('op.hours.overnightHint')}
-        </p>
+    <div style={{ display: 'grid', gap: 'var(--tp-sp-4)', maxInlineSize: '88rem' }}>
+      <div style={{ display: 'grid', gap: 'var(--tp-sp-4)', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 30rem), 1fr))', alignItems: 'stretch' }}>
+      <Panel title={tr('op.hours.title')} padded={false} fill>
         <div role="group" aria-label={tr('op.hours.title')} style={{ display: 'grid' }}>
           {DAY_KEYS.map((key) => {
             const d = draft[key];
@@ -223,44 +225,117 @@ export function OpeningHoursEditor() {
         )}
       </Panel>
 
-      <Panel title={tr('op.hours.closedDatesTitle')}>
-        <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', marginBlockEnd: 'var(--tp-sp-2-5)' }}>{tr('op.hours.closedDatesHint')}</p>
-        <div style={{ display: 'flex', gap: 'var(--tp-sp-2)', alignItems: 'center', flexWrap: 'wrap' }}>
-          <input
-            style={{ ...inputStyle, inlineSize: 'auto' }}
-            dir="ltr"
-            type="date"
-            aria-label={tr('op.hours.closedDateAdd')}
-            value={newDate}
-            disabled={busy}
-            onChange={(e) => setNewDate(e.target.value)}
-          />
-          <Button
-            icon="plus"
-            disabled={busy || !isIsoDate(newDate) || closed.includes(newDate)}
-            onClick={() => {
-              setClosed(addClosedDate(closed, newDate));
-              setNewDate('');
-              setSaved(false);
-            }}
-          >
-            {tr('op.hours.closedDateAdd')}
-          </Button>
-        </div>
+      <Panel title={tr('op.hours.closedDatesTitle')} fill>
+        {(() => {
+          const hasEnd = mode === 'range' && endDate !== '';
+          const range = hasEnd ? closedDateRange(newDate, endDate) : isIsoDate(newDate) ? [newDate] : [];
+          const fresh = range.filter((d) => !closed.includes(d));
+          const badRange = hasEnd && isIsoDate(newDate) && range.length === 0;
+          const label = !isIsoDate(newDate)
+            ? tr('op.hours.closedDatePick')
+            : badRange
+              ? tr('op.hours.closedRangeInvalid', { max: MAX_CLOSED_RANGE_DAYS })
+              : fresh.length === 0
+                ? tr('op.hours.closedDateAlready', { date: showDate(newDate) })
+                : range.length === 1
+                  ? tr('op.hours.closedDateAddPicked', { date: showDate(newDate) })
+                  : tr('op.hours.closedRangeAdd', { from: showDate(range[0]!), to: showDate(range[range.length - 1]!), count: fresh.length });
+          return (
+            <div style={{ display: 'grid', gap: 'var(--tp-sp-2)', justifyItems: 'start' }}>
+              <SegmentedControl
+                aria-label={tr('op.hours.closedDatesTitle')}
+                value={mode}
+                onChange={(m) => {
+                  setMode(m);
+                  if (m === 'day') setEndDate('');
+                }}
+                options={[
+                  { value: 'day', label: tr('op.hours.closedModeDay') },
+                  { value: 'range', label: tr('op.hours.closedModeRange') },
+                ]}
+              />
+              <div style={{ display: 'grid', gap: 'var(--tp-sp-3)', justifyItems: 'stretch', inlineSize: '100%', border: '1px dashed var(--tp-border)', borderRadius: 'var(--tp-radius-panel)', padding: 'var(--tp-sp-3)' }}>
+                <div style={{ display: 'flex', gap: 'var(--tp-sp-3)', alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap' }}>
+                  {mode === 'range' && <span style={{ fontSize: 'var(--tp-fs-sm)', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--tp-muted-fg)' }}>{tr('op.hours.closedFrom')}</span>}
+                  <input
+                    style={{ ...inputStyle, inlineSize: 'auto' }}
+                    dir="ltr"
+                    type="date"
+                    aria-label={tr('op.hours.closedDateAdd')}
+                    value={newDate}
+                    disabled={busy}
+                    onChange={(e) => setNewDate(e.target.value)}
+                  />
+                  {mode === 'range' && (
+                    <>
+                      <span style={{ fontSize: 'var(--tp-fs-sm)', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--tp-muted-fg)' }}>{tr('op.hours.closedTo')}</span>
+                      <input
+                        style={{ ...inputStyle, inlineSize: 'auto' }}
+                        dir="ltr"
+                        type="date"
+                        aria-label={tr('op.hours.closedRangeEnd')}
+                        value={endDate}
+                        min={isIsoDate(newDate) ? newDate : undefined}
+                        disabled={busy}
+                        onChange={(e) => setEndDate(e.target.value)}
+                      />
+                    </>
+                  )}
+                </div>
+                <Button
+                  kind={fresh.length > 0 ? 'primary' : 'default'}
+                  style={{ inlineSize: '100%', justifyContent: 'center' }}
+                  disabled={busy || fresh.length === 0}
+                  onClick={() => {
+                    setClosed(normalizeClosedDates([...closed, ...fresh]));
+                    setNewDate('');
+                    setEndDate('');
+                    setSaved(false);
+                  }}
+                >
+                  {label}
+                </Button>
+              </div>
+            </div>
+          );
+        })()}
 
         {upcoming.length === 0 ? (
           <p style={{ color: 'var(--tp-muted-fg)', marginBlockStart: 'var(--tp-sp-2-5)' }}>{tr('op.hours.closedDatesNone')}</p>
         ) : (
-          <ul style={{ listStyle: 'none', paddingInline: 0, marginBlock: 'var(--tp-sp-2-5) 0', display: 'grid' }}>
-            {upcoming.map((d) => (
-              <li key={d} className="tp-row" style={{ display: 'flex', gap: 'var(--tp-sp-3)', alignItems: 'center', paddingBlock: 'var(--tp-sp-1)', borderBlockEnd: '1px solid var(--tp-border)' }}>
-                <bdi style={{ fontVariantNumeric: 'tabular-nums', marginInlineEnd: 'auto' }}>{showDate(d)}</bdi>
-                <Button kind="ghost" size="sm" icon="x" disabled={busy} onClick={() => { setClosed(removeClosedDate(closed, d)); setSaved(false); }}>
-                  {tr('op.common.remove')}
-                </Button>
-              </li>
-            ))}
-          </ul>
+          <div
+            className="tp-table-frame"
+            style={{ marginBlockStart: 'var(--tp-sp-3)', overflow: 'hidden', border: '1px solid var(--tp-table-edge, var(--tp-panel-edge))', borderRadius: 'var(--tp-radius-panel)', background: 'var(--tp-table-body, var(--tp-panel-body))' }}
+          >
+            <table className="tp-table">
+              <thead>
+                <tr>
+                  <th>{tr('op.hours.closedColDate')}</th>
+                  <th>{tr('op.hours.closedColDay')}</th>
+                  <th aria-label={tr('op.common.remove')} />
+                </tr>
+              </thead>
+              <tbody>
+                {upcoming.map((d) => (
+                  <tr key={d}>
+                    <td><bdi>{showDateOnly(d)}</bdi></td>
+                    <td>{showWeekday(d)}</td>
+                    <td data-align="end">
+                      <Button
+                        size="sm"
+                        icon="trash"
+                        disabled={busy}
+                        className="tp-remove-btn"
+                        onClick={() => { setClosed(removeClosedDate(closed, d)); setSaved(false); }}
+                      >
+                        {tr('op.common.remove')}
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
 
         {past.length > 0 && (
@@ -281,6 +356,7 @@ export function OpeningHoursEditor() {
           </details>
         )}
       </Panel>
+      </div>
 
       <ClosedDayBookings dates={added} tz={settingsQ.data?.timezone ?? undefined} />
 

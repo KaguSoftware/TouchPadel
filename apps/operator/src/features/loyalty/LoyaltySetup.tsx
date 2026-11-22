@@ -32,7 +32,7 @@ import { useStationReach } from '../../lib/stationReach';
 import { useToast } from '../../components/toast';
 import { Switch } from '../../components/Switch';
 import { Button, ErrorText, Field, Modal, Select, Skeleton, inputStyle } from '../../components/ui';
-import { AsyncStateWrapper, MessagePresenter, PageHeader, Panel } from '../../components/kit';
+import { AsyncStateWrapper, MessagePresenter, PageHeader, Panel, TableFrame } from '../../components/kit';
 import { BilingualFields, digitsOnly } from '../../components/inputs';
 import { ReviewList, StepWizard, WizardChoice, WizardChoices, WizardNote, WizardToggle, type WizardStep } from '../../components/StepWizard';
 import { NumberField } from '../admin/settings/settingsFields';
@@ -317,6 +317,7 @@ function TiersPanel({ canEdit, tiers }: { canEdit: boolean; tiers: LoyaltyAdminT
       {sorted.length === 0 ? (
         <p style={{ margin: 0, color: 'var(--tp-muted-fg)' }}>{tr(`${T}.empty`)}</p>
       ) : (
+        <TableFrame>
         <table className="tp-table" data-dense="true">
           <thead>
             <tr>
@@ -383,6 +384,7 @@ function TiersPanel({ canEdit, tiers }: { canEdit: boolean; tiers: LoyaltyAdminT
             ))}
           </tbody>
         </table>
+        </TableFrame>
       )}
       {editing &&
         (editing.id ? (
@@ -568,6 +570,7 @@ function RewardsPanel({ canEdit, rewards }: { canEdit: boolean; rewards: Loyalty
       {rewards.length === 0 ? (
         <p style={{ margin: 0, color: 'var(--tp-muted-fg)' }}>{tr(`${R}.empty`)}</p>
       ) : (
+        <TableFrame>
         <table className="tp-table" data-dense="true">
           <thead>
             <tr>
@@ -620,6 +623,7 @@ function RewardsPanel({ canEdit, rewards }: { canEdit: boolean; rewards: Loyalty
             ))}
           </tbody>
         </table>
+        </TableFrame>
       )}
       {editing &&
         (editing.id ? (

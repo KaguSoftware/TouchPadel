@@ -17,7 +17,7 @@ import { QK, fetchActiveCourts, fetchVenueSettings } from '../../../lib/queries'
 import { useToast } from '../../../components/toast';
 import { useLocale, pickName } from '../../../lib/i18n';
 import { Button, ErrorText, Modal, type ReasonCode } from '../../../components/ui';
-import { AsyncStateWrapper, BookingStatusIndicator, DescriptionList, EmptyState, MessagePresenter, PageHeader, Panel, ReasonCodePrompt, StatusBadge, ViewMore, useListCap } from '../../../components/kit';
+import { AsyncStateWrapper, BookingStatusIndicator, DescriptionList, EmptyState, MessagePresenter, PageHeader, Panel, ReasonCodePrompt, StatusBadge, TableFrame, ViewMore, useListCap } from '../../../components/kit';
 import type { CustomerRecord, SeriesDetail, SeriesOccurrence } from '../deskTypes';
 import { cancelScopeCount, occurrenceEditable, summarizeOccurrences } from './seriesLogic';
 
@@ -172,7 +172,6 @@ export function SeriesDetailScreen() {
 
             <Panel
               title={tr('ws.courtDesk.seriesDetail.occurrences')}
-              padded={false}
               actions={
                 <span style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>
                   {tr('ws.courtDesk.seriesDetail.occurrencesLead', {
@@ -183,7 +182,8 @@ export function SeriesDetailScreen() {
                 </span>
               }
             >
-              <ErrorText error={pending ? null : error} style={{ marginInline: '0.85rem' }} />
+              <ErrorText error={pending ? null : error} />
+              <TableFrame>
               <table className="tp-table" data-dense="true" aria-label={tr('ws.courtDesk.seriesDetail.occurrences')}>
                 <thead>
                   <tr>
@@ -237,7 +237,8 @@ export function SeriesDetailScreen() {
                   })}
                 </tbody>
               </table>
-              <ViewMore hidden={occurrenceCap.hidden} open={occurrenceCap.open} onToggle={occurrenceCap.toggle} style={UNPADDED_MORE} />
+              </TableFrame>
+              <ViewMore hidden={occurrenceCap.hidden} open={occurrenceCap.open} onToggle={occurrenceCap.toggle} />
             </Panel>
           </div>
         )}
@@ -306,4 +307,3 @@ export function SeriesDetailScreen() {
 }
 
 /** ViewMore inside an unpadded (table) panel: the panel body's own padding. */
-const UNPADDED_MORE = { marginBlockStart: 0, paddingBlock: '0.6rem', paddingInline: '0.85rem' } as const;

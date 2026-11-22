@@ -44,7 +44,7 @@ function renderView(over: Partial<TodaysBoardViewProps> = {}) {
     horizonIso: '2026-09-03T15:30:00.000Z',
     courts,
     reservations: [],
-    live: true,
+    connection: 'live',
     onRetry: vi.fn(),
     onSelectReservation: vi.fn(),
     onCreateBooking: vi.fn(),
@@ -61,11 +61,11 @@ function renderView(over: Partial<TodaysBoardViewProps> = {}) {
   return props;
 }
 
-describe("TodaysBoardView — Today's board (spec 06.1)", () => {
-  it('loading: renders the header actions and no bookings table', () => {
+describe("TodaysBoardView — Today's board (option C, 2026-11-22)", () => {
+  it('loading: renders the header actions and no court cards', () => {
     renderView({ status: 'loading' });
     expect(screen.getByRole('heading', { name: 'Today' })).toBeTruthy();
-    expect(screen.queryByRole('table')).toBeNull();
+    expect(screen.queryByRole('button', { name: /^Court \d · / })).toBeNull();
     expect(screen.getByRole('button', { name: 'Find customer' })).toBeTruthy();
   });
 
@@ -79,19 +79,83 @@ describe("TodaysBoardView — Today's board (spec 06.1)", () => {
     expect(props.onRetry).toHaveBeenCalledTimes(1);
   });
 
-  it('empty: teaches the next action and still offers every court as a free tile that books it', async () => {
+  it('empty: teaches the next action and still offers every court as a free card that books it', async () => {
     const user = userEvent.setup();
     const props = renderView({ status: 'empty' });
     expect(screen.getByText('No bookings today')).toBeTruthy();
     await user.click(screen.getByRole('button', { name: 'Create a booking' }));
     expect(props.onCreateBooking).toHaveBeenCalledTimes(1);
-    // Availability comes from the rows on screen: none, so both courts are free all night.
-    expect(screen.getAllByText('Free until close')).toHaveLength(2);
+    // Availability comes from the rows on screen: none, so both courts are free until close.
+    expect(screen.getAllByText('Until close')).toHaveLength(2);
+    expect(screen.getAllByText('Nothing else booked')).toHaveLength(2);
     await user.click(screen.getByRole('button', { name: /^Court 2 · Free until close · Book this court$/ }));
     expect(props.onBookCourt).toHaveBeenCalledWith('c2');
   });
 
-  it('arrivals: splits late guests from those due within the hour, and leaves out guests already here', async () => {
+  it('court cards: every court in order, with its state, the time left, who is on and who is next', async () => {
+    const user = userEvent.setup();
+    const props = renderView({
+      reservations: [
+        // Court 1 is free until 18:00 (Baghdad).
+        row({ id: 'r1', guest_name: 'Nadia' }),
+        // Court 2: Omar is on court until 18:00, then a block.
+        row({ id: 'r2', court_id: 'c2', status: 'arrived', start_at: '2026-09-03T14:00:00.000Z', end_at: '2026-09-03T15:00:00.000Z', guest_name: 'Omar' }),
+        row({ id: 'm1', kind: 'maintenance', court_id: 'c2', guest_name: null, notes: 'Net repair', price_iqd: null }),
+      ],
+    });
+    const cards = screen.getAllByRole('button', { name: /^Court \d · / });
+    expect(cards.map((b) => b.textContent?.match(/Court \d/)?.[0])).toEqual(['Court 1', 'Court 2']);
+    const free = within(cards[0]!);
+    expect(free.getByText('Free')).toBeTruthy();
+    expect(free.getByText('30 min')).toBeTruthy();
+    expect(free.getByText('Open until 6:00 PM')).toBeTruthy();
+    expect(free.getByText('Book this court')).toBeTruthy();
+    const busy = within(cards[1]!);
+    expect(busy.getByText('On court')).toBeTruthy();
+    expect(busy.getByText('30 min')).toBeTruthy();
+    expect(busy.getByText('Left · ends 6:00 PM')).toBeTruthy();
+    expect(busy.getByText('Omar')).toBeTruthy();
+    expect(busy.getByText('Next 6:00 PM · Net repair')).toBeTruthy();
+    expect(cards[1]!.getAttribute('aria-label')).toMatch(/^Court 2 · In use until 6:00 PM · Open$/);
+    await user.click(cards[1]!);
+    expect(props.onSelectReservation).toHaveBeenCalledWith('r2');
+    await user.click(cards[0]!);
+    expect(props.onBookCourt).toHaveBeenCalledWith('c1');
+  });
+
+  it('court cards: a booking that started with nobody marked reads Not arrived', () => {
+    renderView({ nowIso: '2026-09-03T15:10:00.000Z', horizonIso: '2026-09-03T16:10:00.000Z', reservations: [row({ id: 'late' })] });
+    const card = within(screen.getByRole('button', { name: /^Court 1 · / }));
+    expect(card.getByText('Not arrived')).toBeTruthy();
+    expect(card.getByText('50 min')).toBeTruthy();
+    expect(card.getByText('Nobody after')).toBeTruthy();
+  });
+
+  it('figures: courts free, arrived, still to come, late and the court fee still to collect', () => {
+    renderView({
+      nowIso: '2026-09-03T15:10:00.000Z',
+      horizonIso: '2026-09-03T16:10:00.000Z',
+      reservations: [
+        row({ id: 'late' }),
+        row({ id: 'done', court_id: 'c2', start_at: '2026-09-03T13:00:00.000Z', end_at: '2026-09-03T14:00:00.000Z', status: 'arrived' }),
+      ],
+      billStates: statesById([billState({ reservation_id: 'late' }), billState({ reservation_id: 'done', court_remaining_iqd: 25000 })]),
+    });
+    const figures = within(screen.getByText('Courts free').closest('dl')!);
+    const value = (label: string) => figures.getByText(label).parentElement!.querySelector('dd')!.textContent;
+    expect(plain(value('Courts free'))).toBe('1 of 2');
+    expect(plain(value('Arrived'))).toBe('1');
+    expect(plain(value('Late'))).toBe('1');
+    expect(plain(value('To collect'))).toMatch(/25,000/);
+  });
+
+  it('figures: the amount to collect prints "—" while the bill states are unknown, never a guess', () => {
+    renderView({ reservations: [row({ id: 'r1' })] });
+    const dl = screen.getByText('Courts free').closest('dl')!;
+    expect(plain(within(dl).getByText('To collect').parentElement!.querySelector('dd')!.textContent)).toBe('—');
+  });
+
+  it('arrivals: late, then the next hour, one fact per line; guests already here are not listed', async () => {
     const user = userEvent.setup();
     const props = renderView({
       nowIso: '2026-09-03T15:10:00.000Z',
@@ -102,18 +166,19 @@ describe("TodaysBoardView — Today's board (spec 06.1)", () => {
         row({ id: 'here', court_id: 'c2', guest_name: 'Here Already', status: 'arrived', start_at: '2026-09-03T14:00:00.000Z', end_at: '2026-09-03T15:30:00.000Z' }),
       ],
     });
-    const arrivals = screen.getByRole('heading', { name: 'Arrivals' }).closest('section')!;
-    const panel = within(arrivals);
-    expect(panel.getByText('Started, not marked arrived')).toBeTruthy();
-    expect(panel.getByText('Started 10 min ago')).toBeTruthy();
-    expect(panel.getByText('Due in the next hour')).toBeTruthy();
+    const panel = within(screen.getByRole('heading', { name: 'Arrivals' }).closest('section')!);
+    expect(panel.getByRole('heading', { name: 'Late · 1' })).toBeTruthy();
+    expect(panel.getByText('10 min late')).toBeTruthy();
+    expect(panel.getByText('Court 1 · until 7:00 PM')).toBeTruthy();
+    expect(panel.getAllByText('07701234567').length).toBe(2);
+    expect(panel.getByRole('heading', { name: 'Next hour · 1' })).toBeTruthy();
     expect(panel.getByText('In 30 min')).toBeTruthy();
     expect(panel.queryByText('Here Already')).toBeNull();
     // Marking arrived is one click — no reason prompt in between.
     await user.click(panel.getAllByRole('button', { name: 'Mark arrived' })[0]!);
     expect(props.onMarkArrived).toHaveBeenCalledWith('late');
-    // Header counts: three bookings, one here, one still to start.
-    expect(screen.getByText('Still to come').textContent).toContain('Still to come');
+    await user.click(panel.getByRole('button', { name: 'Open Soon Guest' }));
+    expect(props.onSelectReservation).toHaveBeenCalledWith('soon');
   });
 
   it('arrivals: each group shows three, then View more reveals the rest of that group only', async () => {
@@ -136,20 +201,6 @@ describe("TodaysBoardView — Today's board (spec 06.1)", () => {
     expect(panel.getAllByText(/^Late Guest \d$/)).toHaveLength(3);
   });
 
-  it('courts now: a court in play always shows, free courts fill the three, View more reveals the rest', async () => {
-    const user = userEvent.setup();
-    const five = [1, 2, 3, 4, 5].map((n) => ({ id: `c${n}`, name_en: `Court ${n}`, name_ar: `ملعب ${n}`, duration_options: [60, 90], sort_order: n }));
-    renderView({ courts: five, reservations: [row({ id: 'r5', court_id: 'c5', start_at: '2026-09-03T14:00:00.000Z', end_at: '2026-09-03T15:00:00.000Z' })] });
-    const tiles = () => screen.queryAllByRole('button', { name: /^Court \d · / }).map((b) => b.textContent?.match(/Court \d/)?.[0]);
-    // Court 5 is in play, so it is never folded; courts 1 and 2 fill the three, in court order.
-    expect(tiles()).toEqual(['Court 1', 'Court 2', 'Court 5']);
-    expect(screen.getByRole('button', { name: /^Court 5 · In use until .* · Open$/ })).toBeTruthy();
-    await user.click(screen.getByRole('button', { name: 'View more (2)' }));
-    expect(tiles()).toEqual(['Court 1', 'Court 2', 'Court 3', 'Court 4', 'Court 5']);
-    await user.click(screen.getByRole('button', { name: 'Show less' }));
-    expect(tiles()).toHaveLength(3);
-  });
-
   it('arrivals: with nobody due, says who is next', () => {
     renderView({
       reservations: [row({ id: 'r1', start_at: '2026-09-03T18:00:00.000Z', end_at: '2026-09-03T19:00:00.000Z' })],
@@ -158,46 +209,13 @@ describe("TodaysBoardView — Today's board (spec 06.1)", () => {
     expect(screen.getByText(/^Next: .* · Sara Ahmed · Court 1$/)).toBeTruthy();
   });
 
-  it('ready: lists every booking with court, status, court fee and flags; rows and tiles open bookings', async () => {
-    const user = userEvent.setup();
-    const props = renderView({
-      reservations: [
-        row({ id: 'r1', guest_id: 'g1' }),
-        row({ id: 'r2', court_id: 'c2', status: 'arrived', start_at: '2026-09-03T14:00:00.000Z', end_at: '2026-09-03T15:00:00.000Z', guest_name: 'Omar' }),
-        row({ id: 'r3', start_at: '2026-09-03T19:00:00.000Z', end_at: '2026-09-03T20:00:00.000Z', guest_name: 'Nadia' }),
-        row({ id: 'm1', kind: 'maintenance', court_id: 'c2', start_at: '2026-09-03T18:00:00.000Z', end_at: '2026-09-03T19:00:00.000Z', guest_name: null, notes: 'Net repair', price_iqd: null }),
-      ],
-      billStates: statesById([
-        billState({ reservation_id: 'r1', state: 'paid', due_iqd: 0, court_paid_iqd: 30000, court_remaining_iqd: 0 }),
-        billState({ reservation_id: 'r2' }),
-        billState({ reservation_id: 'r3' }),
-      ]),
-      flagsByGuest: new Map([['g1', [{ type: 'vip', label: null }]]]),
-    });
-    const table = screen.getByRole('table', { name: 'All bookings today' });
-    // Three bookings, then View more (owner's rule 2026-10-08).
-    expect(table.querySelectorAll('tbody tr')).toHaveLength(3);
-    await user.click(screen.getByRole('button', { name: 'View more (1)' }));
-    expect(table.querySelectorAll('tbody tr')).toHaveLength(4);
-    // Newest to oldest: Nadia (19:00) heads the list.
-    expect(within(table.querySelectorAll('tbody tr')[0] as HTMLElement).getByText('Nadia')).toBeTruthy();
-    const t = within(table);
-    expect(t.getByText('VIP')).toBeTruthy();
-    // Court fee, from the server: paid → Paid; not paid while the game is on or
-    // still to come → a quiet fact, not a warning.
-    expect(t.getByText('Paid')).toBeTruthy();
-    expect(t.getAllByText('Not paid yet').length).toBe(2);
-    expect(t.getByText('Net repair')).toBeTruthy();
-    // Court 2 is in use right now (Omar, 14:00–15:00): its tile says so, and opens his booking.
-    const omarTile = screen.getByRole('button', { name: /^Court 2 · In use until .* · Open$/ });
-    await user.click(omarTile);
-    expect(props.onSelectReservation).toHaveBeenCalledWith('r2');
-    expect(screen.getByRole('button', { name: /^Court 1 · Free until .* · Book this court$/ })).toBeTruthy();
-    await user.click(t.getByRole('button', { name: 'Open Nadia' }));
-    expect(props.onSelectReservation).toHaveBeenCalledWith('r3');
+  it('arrivals: a guest’s flags ride on their row', () => {
+    renderView({ reservations: [row({ id: 'r1', guest_id: 'g1' })], flagsByGuest: new Map([['g1', [{ type: 'vip', label: null }]]]) });
+    const panel = within(screen.getByRole('heading', { name: 'Arrivals' }).closest('section')!);
+    expect(panel.getByText('VIP')).toBeTruthy();
   });
 
-  it('played, not paid: games that are over with the fee open are listed to settle, and the next group hears about it', async () => {
+  it('to collect: games over with the fee open are listed, and the next group on that court hears about it', async () => {
     const user = userEvent.setup();
     const props = renderView({
       reservations: [
@@ -211,21 +229,21 @@ describe("TodaysBoardView — Today's board (spec 06.1)", () => {
         billState({ reservation_id: 'next' }),
       ]),
     });
-    const toSettle = within(screen.getByRole('heading', { name: 'Played, not paid' }).closest('section')!);
-    expect(toSettle.getByText('Early Group')).toBeTruthy();
-    expect(toSettle.queryByText('Paid Group')).toBeNull();
-    expect(toSettle.getByText(/^Not paid · /)).toBeTruthy();
-    await user.click(toSettle.getByRole('button', { name: 'Take payment Early Group' }));
+    const toCollect = within(screen.getByRole('heading', { name: 'To collect' }).closest('section')!);
+    expect(toCollect.getByText('Early Group')).toBeTruthy();
+    expect(toCollect.getByText('ended')).toBeTruthy();
+    expect(toCollect.queryByText('Paid Group')).toBeNull();
+    expect(toCollect.getByText(/^Not paid · /)).toBeTruthy();
+    await user.click(toCollect.getByRole('button', { name: 'Take payment Early Group' }));
     expect(props.onSelectReservation).toHaveBeenCalledWith('early');
     // The group due on the same court next is told, on its own arrival row.
-    const soon = within(screen.getByRole('heading', { name: 'Due in the next hour' }).closest('section')!);
-    expect(soon.getByText('The group before on this court has not paid: Early Group')).toBeTruthy();
+    const arrivals = within(screen.getByRole('heading', { name: 'Arrivals' }).closest('section')!);
+    expect(arrivals.getByText('Early Group before them has not paid')).toBeTruthy();
   });
 
-  it('court fee prints "—" while the tabs are unknown, never a guess', () => {
-    renderView({ reservations: [row({ id: 'r1' })] });
-    const table = screen.getByRole('table', { name: 'All bookings today' });
-    expect(within(table).getByText('—')).toBeTruthy();
+  it('to collect: says so when every finished game is paid', () => {
+    renderView({ reservations: [row({ id: 'r1' })], billStates: statesById([billState({ reservation_id: 'r1' })]) });
+    expect(screen.getByText('Every finished game is paid.')).toBeTruthy();
   });
 });
 
@@ -382,24 +400,22 @@ describe('TodaysBoardView — a match booking (§5.9)', () => {
       reservations: [matchRow, row({ id: 'walk', court_id: 'c2', guest_name: 'Nadia' })],
       matchStates: { mr: matchState({ reservation_id: 'mr', open_seats: 1 }) },
     });
-    const table = within(screen.getByRole('table', { name: 'All bookings today' }));
-    expect(table.getByText('Omar Saleh')).toBeTruthy();
-    expect(table.getByRole('img', { name: 'Open match · 3 of 4 players' })).toBeTruthy();
-    await user.click(table.getByRole('button', { name: 'Players Omar Saleh' }));
+    const arrivals = within(screen.getByRole('heading', { name: 'Arrivals' }).closest('section')!);
+    expect(arrivals.getByText('Omar Saleh')).toBeTruthy();
+    expect(arrivals.getByRole('img', { name: 'Open match · 3 of 4 players' })).toBeTruthy();
+    await user.click(arrivals.getByRole('button', { name: 'Players Omar Saleh' }));
     expect(props.onSelectReservation).toHaveBeenCalledWith('mr');
     // The walk-in keeps Mark arrived; the match has none.
-    expect(table.getAllByRole('button', { name: 'Mark arrived' })).toHaveLength(1);
-    const arrivals = within(screen.getByRole('heading', { name: 'Arrivals' }).closest('section')!);
-    expect(arrivals.getByRole('button', { name: 'Players Omar Saleh' })).toBeTruthy();
+    expect(arrivals.getAllByRole('button', { name: 'Mark arrived' })).toHaveLength(1);
     expect(props.onMarkArrived).not.toHaveBeenCalled();
   });
 
   it('without a state yet, reads "Open match" in the screen’s words and offers no Mark arrived', () => {
     renderView({ reservations: [matchRow] });
-    const table = within(screen.getByRole('table', { name: 'All bookings today' }));
-    expect(table.getByText('Open match')).toBeTruthy();
-    expect(table.queryByRole('button', { name: 'Mark arrived' })).toBeNull();
-    expect(table.getByRole('button', { name: 'Players Open match' })).toBeTruthy();
+    const arrivals = within(screen.getByRole('heading', { name: 'Arrivals' }).closest('section')!);
+    expect(arrivals.getByText('Open match')).toBeTruthy();
+    expect(arrivals.queryByRole('button', { name: 'Mark arrived' })).toBeNull();
+    expect(arrivals.getByRole('button', { name: 'Players Open match' })).toBeTruthy();
   });
 
   it('once marking starts the chip counts who came; a played match still owing says how many players owe', () => {
@@ -410,9 +426,9 @@ describe('TodaysBoardView — a match booking (§5.9)', () => {
       matchStates: { mr: matchState({ reservation_id: 'mr', seats_attended: 3, seats_no_show: 1, seats_unmarked: 0 }) },
       billStates: statesById([billState({ reservation_id: 'mr', match_id: 'm-booked', seats_owing: 2, seats_paid: 1 })]),
     });
-    const toSettle = within(screen.getByRole('heading', { name: 'Played, not paid' }).closest('section')!);
-    expect(toSettle.getByText('Omar Saleh')).toBeTruthy();
-    expect(toSettle.getByText('Players owing: 2')).toBeTruthy();
+    const toCollect = within(screen.getByRole('heading', { name: 'To collect' }).closest('section')!);
+    expect(toCollect.getByText('Omar Saleh')).toBeTruthy();
+    expect(toCollect.getByText('Players owing: 2')).toBeTruthy();
     expect(screen.getAllByText('Here 3 · Missing 1').length).toBeGreaterThan(0);
   });
 });
@@ -595,40 +611,34 @@ describe('TodaysBoardView — Lessons today (§5.11)', () => {
   });
 });
 
-describe('TodaysBoardView — a lesson’s court row (§5.8, §5.11)', () => {
-  it('reads the lesson’s name, its pay, and offers Open lesson where a booking offers Mark arrived', async () => {
+describe('TodaysBoardView — a lesson’s court (§5.8, §5.11)', () => {
+  it('a court a lesson holds shows a Lesson card with the lesson’s name that opens it; the lesson is never an arrival', async () => {
     const user = userEvent.setup();
+    const now = '2026-09-03T15:10:00.000Z';
     const props = renderView({
+      nowIso: now,
+      horizonIso: '2026-09-03T16:10:00.000Z',
       reservations: [privateRow, row({ id: 'walk', guest_name: 'Nadia' })],
-      lessons: lessonsRead([privateLesson]),
+      lessons: lessonsRead([privateLesson], {}, now),
       ...lessonCallbacks(),
     });
-    const table = within(screen.getByRole('table', { name: 'All bookings today' }));
-    const lessonTr = table.getAllByRole('row').find((r) => plain(r.textContent).includes('Coach Sara · Ali Hasan'))!;
-    const tr = within(lessonTr);
-    expect(tr.getByText('Private lesson')).toBeTruthy();
-    expect(tr.getByText('To pay 1')).toBeTruthy();
-    expect(tr.queryByRole('button', { name: 'Mark arrived' })).toBeNull();
-    await user.click(tr.getByRole('button', { name: /^Open lesson / }));
+    const tile = screen.getByRole('button', { name: /^Court 2 · Lesson until 7:00 PM · Open$/ });
+    expect(within(tile).getByText('Lesson')).toBeTruthy();
+    expect(plain(tile.textContent)).toContain('Coach Sara · Ali Hasan');
+    await user.click(tile);
     expect(props.onSelectReservation).toHaveBeenCalledWith('lr2');
-    // The walk-in keeps Mark arrived.
-    expect(table.getAllByRole('button', { name: 'Mark arrived' })).toHaveLength(1);
+    // Only the walk-in is on the rail.
+    const arrivals = within(screen.getByRole('heading', { name: 'Arrivals' }).closest('section')!);
+    expect(arrivals.getAllByRole('button', { name: 'Mark arrived' })).toHaveLength(1);
+    expect(arrivals.queryByText(/Coach Sara/)).toBeNull();
     // The subtitle counts the lesson apart from the bookings.
     expect(screen.getByText((_, el) => el?.tagName === 'SPAN' && plain(el.textContent) === 'Lessons 1')).toBeTruthy();
   });
 
-  it('without its desk_lessons row it still reads "Lesson" and never offers Mark arrived', () => {
-    renderView({ reservations: [privateRow] });
-    const table = within(screen.getByRole('table', { name: 'All bookings today' }));
-    expect(table.getAllByText('Lesson').length).toBeGreaterThan(0);
-    expect(table.queryByRole('button', { name: 'Mark arrived' })).toBeNull();
-    expect(table.getByRole('button', { name: 'Open lesson Lesson' })).toBeTruthy();
-  });
-
-  it('a court a lesson holds says "Lesson until" with the lesson’s name', () => {
-    const now = '2026-09-03T15:10:00.000Z';
-    renderView({ nowIso: now, horizonIso: '2026-09-03T16:10:00.000Z', reservations: [privateRow], lessons: lessonsRead([privateLesson], {}, now), ...lessonCallbacks() });
-    const tile = screen.getByRole('button', { name: /^Court 2 · Lesson until 7:00 PM · Open$/ });
-    expect(plain(tile.textContent)).toContain('Lesson until 7:00 PM · Coach Sara · Ali Hasan');
+  it('without its desk_lessons row its card still reads "Lesson"', () => {
+    renderView({ nowIso: '2026-09-03T15:10:00.000Z', horizonIso: '2026-09-03T16:10:00.000Z', reservations: [privateRow] });
+    const tile = screen.getByRole('button', { name: /^Court 2 · Lesson until/ });
+    expect(within(tile).getAllByText('Lesson').length).toBe(2);
+    expect(screen.queryByRole('button', { name: 'Mark arrived' })).toBeNull();
   });
 });

@@ -25,7 +25,7 @@ export const pricingEn = {
   },
   // Add-ons (#51, #53).
   addons: {
-    note: 'Prices of options on sale, and the names of paid ones, change through “Change the price”, with the owner’s OK. A new paid option is saved hidden, and “Put on sale” sends its price to the owner. A free option goes on at once.',
+    note: 'Changes to an option on sale go to the owner for approval. A new paid option stays hidden until “Put on sale” sends its price to the owner. A free option goes on at once.',
     // Wave 5 (N, §2.2, #9): on a paid option on sale, beside its read-only names.
     nameLocked: 'This option is on sale, so its name changes through “Change the price”, with the owner’s OK.',
     requiredAddon:

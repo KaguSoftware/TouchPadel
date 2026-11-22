@@ -7,7 +7,7 @@
  * (lib/workspaces.ts):
  *
  *   Venue    › Details · Opening hours (/admin/hours) · Business day · Analytics
- *   Courts   › Courts · Booking rules · Online deposit · Open matches · Tournaments
+ *   Courts   › Courts · Rules · Online deposit · Open matches · Tournaments
  *   Devices  › Devices · Stations · Offline mode
  *   Coaches  › … · Lesson rules (features/admin/coaches/CoachesAdmin.tsx)
  *
@@ -71,9 +71,9 @@ function VenuePart({ part, lockNote }: { part: VenuePart; lockNote: boolean }) {
       <WithVenue>
         {(venue) =>
           canEdit ? (
-            <VenuePartForm saved={venue} part={part} untitled={part !== 'venue'} />
+            <VenuePartForm saved={venue} part={part} />
           ) : (
-            <VenuePartFacts venue={venue} part={part} untitled={part !== 'venue'} />
+            <VenuePartFacts venue={venue} part={part} />
           )
         }
       </WithVenue>
@@ -127,11 +127,21 @@ export function AnalyticsSettingsScreen() {
 
 // --- Courts -----------------------------------------------------------------
 
-/** Courts › Booking rules (`/admin/settings/booking`). */
+/** Courts › Rules (`/admin/settings/booking`): the booking rules. */
 export function BookingRulesScreen() {
   return (
     <SettingsPage title="ws.shell.nav.bookingRules">
       <VenuePart part="booking" lockNote />
+    </SettingsPage>
+  );
+}
+
+/** Courts › Tournaments (`/admin/settings/tournaments`): the tournament rules, their own tab. */
+export function TournamentsSettingsScreen() {
+  const { staff } = useAuth();
+  return (
+    <SettingsPage title="ws.shell.nav.tournaments">
+      <TournamentsSettingsPanel canEdit={can(staff, 'editVenueDetails')} />
     </SettingsPage>
   );
 }
@@ -154,16 +164,6 @@ export function OpenMatchesSettingsScreen() {
   return (
     <SettingsPage title="ws.shell.nav.openMatches">
       <MatchSettingsPanel canEdit={can(staff, 'editVenueDetails')} />
-    </SettingsPage>
-  );
-}
-
-/** Courts › Tournaments (`/admin/settings/tournaments`). */
-export function TournamentsSettingsScreen() {
-  const { staff } = useAuth();
-  return (
-    <SettingsPage title="ws.shell.nav.tournamentRules">
-      <TournamentsSettingsPanel canEdit={can(staff, 'editVenueDetails')} />
     </SettingsPage>
   );
 }
