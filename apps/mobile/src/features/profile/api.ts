@@ -88,9 +88,25 @@ function isMissingPlayColumns(error: unknown): boolean {
   return code === '42703' || code === '42501';
 }
 
+/**
+ * The signed-in user's id, or null when there is no session.
+ *
+ * `auth.getUser()` asks the auth server and never throws: a request that failed
+ * comes back as `{ user: null, error }`. Reading that as "no user" turned a
+ * dropped connection into a profile read that SUCCEEDED with no row: the query
+ * cache kept it, nothing retried, the booking gate failed open and Edit profile
+ * said "Not set" on every row. Only a missing session means no user; any other
+ * error is thrown, so the query layer retries it (src/lib/queryClient.ts) and
+ * the screen can offer Retry.
+ */
+export async function ownUid(client: Pick<Client, 'auth'>): Promise<string | null> {
+  const { data, error } = await client.auth.getUser();
+  if (error && error.name !== 'AuthSessionMissingError') throw error;
+  return data.user?.id ?? null;
+}
+
 export async function fetchOwnProfile(client: Client): Promise<ProfileRow | null> {
-  const { data: userData } = await client.auth.getUser();
-  const uid = userData.user?.id;
+  const uid = await ownUid(client);
   if (!uid) return null;
   const select = (columns: string) =>
     client.from('profiles').select(columns).eq('id', uid).maybeSingle();

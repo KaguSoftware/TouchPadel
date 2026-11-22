@@ -36,7 +36,7 @@ import type * as ExpoNotifications from 'expo-notifications';
 import { supabase } from '../../lib/supabase';
 import { addBreadcrumb, captureException } from '../../lib/telemetry';
 import { lastKnownLocale } from '../../i18n/lastLocale';
-import { updatePreferredLang, updatePushToken } from './api';
+import { ownUid, updatePreferredLang, updatePushToken } from './api';
 import type { StaffHref } from '../staff/pushRoutes';
 import type { StaffStatusKind } from '../staff/status';
 import { isGuestPushKind } from '../matches/pushRoutes';
@@ -142,8 +142,9 @@ async function syncPreferredLang(): Promise<void> {
  */
 async function persistToken(token: string, force = false): Promise<boolean> {
   if (!shouldPersistToken({ token, lastWritten: lastWrittenToken, force })) return true;
-  const { data } = await supabase.auth.getUser();
-  const uid = data.user?.id;
+  // Throws on a failed request (registerPushToken reports it as 'failed'):
+  // only a real missing session is "nobody to attach the token to".
+  const uid = await ownUid(supabase);
   if (!uid) return false;
   await updatePushToken(supabase, uid, token);
   lastWrittenToken = token;

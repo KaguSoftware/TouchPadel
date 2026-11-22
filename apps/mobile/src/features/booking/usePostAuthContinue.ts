@@ -63,7 +63,10 @@ import { bookingGateHref, bookingGateState, type BookingGate } from '../auth/soc
 /** Read fresh, not from a cache: this runs straight after a sign-in or a profile save. */
 async function readBookingGate(): Promise<{ gate: BookingGate; phone: string }> {
   try {
-    const [{ data }, profile] = await Promise.all([supabase.auth.getUser(), fetchOwnProfile(supabase)]);
+    const [{ data, error }, profile] = await Promise.all([supabase.auth.getUser(), fetchOwnProfile(supabase)]);
+    // getUser() returns a failed request instead of throwing; a null user here
+    // would read as an unverified phone.
+    if (error) throw error;
     return {
       gate: bookingGateState({ status: 'success', data: profile }, data.user),
       phone: profile?.phone ?? '',

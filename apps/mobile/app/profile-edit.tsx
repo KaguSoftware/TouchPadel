@@ -104,7 +104,7 @@ import {
 } from '../src/components/ui';
 import { useIconChip } from '../src/components/iconChip';
 import { useBack, useBackGuard } from '../src/navigation/back';
-import { clearBarOptions } from '../src/navigation/clearBar';
+import { clearBarOptions, useClearBarPad } from '../src/navigation/clearBar';
 import { PhoneField } from '../src/components/phone';
 import {
   composePhone,
@@ -132,7 +132,7 @@ import {
   TabProfileIcon,
   TrashIcon,
 } from '../src/components/icons';
-import { SkeletonList } from '../src/components/states';
+import { ErrorState, SkeletonList } from '../src/components/states';
 import { NAME_PART_MAX, nameFieldsOf, namePatch } from '../src/features/profile/names';
 import { usePlayProfile } from '../src/features/playProfile/hooks';
 import {
@@ -490,6 +490,45 @@ function HeroBar({
   );
 }
 
+/**
+ * What a page shows before the profile row has been read. Without it the hub said
+ * "Not set" on every row and a form opened empty (a save from it writes the blanks)
+ * whenever the read was still running or had failed, and nothing offered to read it
+ * again. The skeleton while it runs; Retry once the query layer's own retries
+ * (src/lib/queryClient.ts) have given up.
+ */
+function ProfileUnread({
+  profile,
+  rows,
+  height,
+  underClearBar = false,
+}: {
+  profile: ReturnType<typeof useOwnProfile>;
+  rows: number;
+  height: number;
+  /** The hub draws under a clear bar on iOS; push the placeholder below it. */
+  underClearBar?: boolean;
+}) {
+  const { t } = useLocale();
+  const barPad = useClearBarPad();
+  return (
+    <View style={[{ flex: 1 }, underClearBar ? barPad : undefined]}>
+      {profile.isError ? (
+        <ErrorState
+          testID="profile-edit.error"
+          title={t('errors.loadFailedTitle')}
+          message={t(mapErrorToKey(profile.error))}
+          retryLabel={t('common.retry')}
+          onRetry={() => void profile.refetch()}
+          busy={profile.isRefetching}
+        />
+      ) : (
+        <SkeletonList rows={rows} height={height} />
+      )}
+    </View>
+  );
+}
+
 function Hub() {
   const { t, locale } = useLocale();
   const { colors } = useTheme();
@@ -607,6 +646,9 @@ function Hub() {
   // Read-only rows say why when tapped; nothing opens.
   const explain = (title: string, body: string) =>
     Alert.alert(title, body, [{ text: t('common.ok') }]);
+
+  // `undefined` is "not read yet"; `null` is a read that found no row.
+  if (profile.data === undefined) return <ProfileUnread profile={profile} rows={4} height={56} underClearBar />;
 
   return (
     <>
@@ -878,7 +920,7 @@ function NameForm() {
     });
   };
 
-  if (profile.isLoading && !ready) return <SkeletonList rows={2} height={64} />;
+  if (profile.data === undefined && !ready) return <ProfileUnread profile={profile} rows={2} height={64} />;
   return (
     <FormScreen contentStyle={{ paddingTop: 4 }}>
       <Field
@@ -998,7 +1040,9 @@ function PhoneForm() {
     })();
   };
 
-  if (profile.isLoading && initialPhone === null) return <SkeletonList rows={1} height={64} />;
+  if (profile.data === undefined && initialPhone === null) {
+    return <ProfileUnread profile={profile} rows={1} height={64} />;
+  }
   return (
     <FormScreen contentStyle={{ paddingTop: 4 }}>
       <PhoneField
@@ -1100,7 +1144,7 @@ function UsernameForm() {
     });
   };
 
-  if (profile.isLoading) return <SkeletonList rows={1} height={64} />;
+  if (profile.data === undefined) return <ProfileUnread profile={profile} rows={1} height={64} />;
   const tone =
     state.kind === 'available' || state.kind === 'yours'
       ? colors.gstrong
@@ -1242,7 +1286,8 @@ function FrameForm() {
       },
     );
 
-  if (profile.isLoading || frames.isLoading) return <SkeletonList rows={2} height={96} />;
+  if (profile.data === undefined) return <ProfileUnread profile={profile} rows={2} height={96} />;
+  if (frames.isLoading) return <SkeletonList rows={2} height={96} />;
 
   const tile = (id: FrameId) => {
     const locked = !FREE_FRAMES.includes(id) && !unlocked.has(id);

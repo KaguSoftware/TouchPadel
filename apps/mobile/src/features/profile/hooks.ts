@@ -7,6 +7,7 @@ import {
   fetchMyBirthDate,
   fetchMyFrames,
   fetchOwnProfile,
+  ownUid,
   setMyAgeBand,
   setMyBirthDate,
   setMyFrame,
@@ -47,8 +48,7 @@ export function useUpdateProfile() {
   return useMutation({
     mutationKey: ['update-profile'],
     mutationFn: async (fields: Parameters<typeof updateOwnProfile>[2]) => {
-      const { data } = await supabase.auth.getUser();
-      const uid = data.user?.id;
+      const uid = await ownUid(supabase);
       if (!uid) throw new Error('NO_SESSION');
       await updateOwnProfile(supabase, uid, fields);
     },
@@ -141,8 +141,7 @@ export function useSetAvatar() {
     mutationKey: ['set-avatar'],
     mutationFn: async (photoUri: string | null) => {
       if (photoUri === null) return removeAvatar();
-      const { data } = await supabase.auth.getUser();
-      const uid = data.user?.id;
+      const uid = await ownUid(supabase);
       if (!uid) throw new Error('NO_SESSION');
       await replaceAvatar(uid, photoUri);
     },
