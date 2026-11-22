@@ -546,7 +546,7 @@ export function readCoverageFixture(file = PATHS.coverage) {
 // Where an RPC is called from in the operator app
 // ─────────────────────────────────────────────────────────────────────────────
 const FEATURE_ROUTE = {
-  till: '/till', desk: '/desk', kds: '/kds', stock: '/stock', admin: '/admin', analytics: '/analytics', ops: '/ops',
+  till: '/till', desk: '/desk', stock: '/stock', admin: '/admin', analytics: '/analytics', ops: '/ops',
   panel: '/panel', reports: '/reports', setup: '/setup', financial: '/financial', observation: '/observation',
   marketing: '/marketing', floor: '/ops', breaks: null, tasks: '/tasks',
   // Open matches live inside the desk (/desk/matches/$id inherits /desk); the panels on
@@ -598,7 +598,7 @@ function routeOfFile(file) {
 const LABEL_ROUTE_HINTS = {
   till: '/till', tabs: '/till/tabs', openTabs: '/till/tabs', drawer: '/till/drawer', payment: '/till',
   desk: '/desk', calendar: '/desk', today: '/desk/today', customers: '/desk/customers', series: '/desk/series/new', block: '/desk/block',
-  kds: '/kds', ops: '/ops', overview: '/ops', panel: '/panel', analytics: '/analytics', reports: '/reports', revenue: '/reports/revenue',
+  ops: '/ops', overview: '/ops', panel: '/panel', analytics: '/analytics', reports: '/reports', revenue: '/reports/revenue',
   stock: '/stock', dayClose: '/admin/day-close', audit: '/admin/audit', staff: '/admin/staff', menu: '/admin/menu', rates: '/admin/rates',
   promotions: '/admin/promotions', settings: '/admin/settings', telegram: '/admin/telegram', qr: '/admin/qr', courts: '/admin/courts',
   hero: '/admin/hero', marketing: '/marketing', observation: '/observation', requests: '/observation/requests', financial: '/financial',
@@ -610,7 +610,7 @@ const LABEL_ROUTE_HINTS = {
   // The court desk's Coaches tab (0356): each coach's day and their free times.
   deskCoaches: '/desk/coaches',
 };
-const CATALOG_FILE_ROUTE = { cashier: '/till', courtDesk: '/desk', prep: '/kds', manager: '/ops', owner: '/panel', reports: '/reports', analytics: '/analytics', team: '/tasks', matches: '/desk', shell: null, kit: null };
+const CATALOG_FILE_ROUTE = { cashier: '/till', courtDesk: '/desk', manager: '/ops', owner: '/panel', reports: '/reports', analytics: '/analytics', team: '/tasks', matches: '/desk', shell: null, kit: null };
 // Lane fragments spread into another ws catalog (ws/index.ts mounts only the assembly): file → mount.
 const CATALOG_FILE_MOUNT = {
   matchesPlayers: 'matches', matchesDesk: 'matches', matchesAdmin: 'matches',

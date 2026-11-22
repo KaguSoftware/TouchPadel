@@ -7,7 +7,6 @@ import { mutate } from '../../../lib/mutate';
 import { appRpc } from '../../../lib/appRpc';
 import { CourtBillView } from './CourtBillPanel';
 import type { BookingBill, BookingBillMatch, LiveTab } from './deskPaymentLogic';
-import { setCloudFetcherForTests } from '../../till/kitchenReachStore';
 
 // The bill panel over a real query client. Writes are mocked at mutate() and
 // appRpc(); the signed-in role at useAuth, so permissionsFor and canAccess run
@@ -105,15 +104,6 @@ beforeEach(() => {
 });
 
 describe('CourtBillView', () => {
-  it("F-11: a café order on the booking's bill that no kitchen screen drew is flagged at the desk", async () => {
-    setCloudFetcherForTests(async () => [
-      { id: 'k1', status: 'queued', createdAtMs: Date.now() - 60_000, seenAtMs: null, tabId: 't1', key: null },
-    ]);
-    view(bill({ live_tab: tab() }));
-    expect((await screen.findByTestId('kitchen-not-received')).textContent).toContain('Not received by the kitchen yet');
-    setCloudFetcherForTests(async () => []);
-  });
-
   it('not charged: says what is owed and opens the booking bill when the clerk takes cash', async () => {
     const user = userEvent.setup();
     const { onRefetch } = view(bill());

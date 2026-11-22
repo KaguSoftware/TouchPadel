@@ -8,9 +8,12 @@
  *
  * The student is a customer found in the search (the booking dialog's
  * CustomerPicker, with its typed-query mirror into the name and phone boxes,
- * the AddSeatDialog pattern), or a typed name and phone. A typed student stays
- * as typed on every staff surface, and a typed phone that matches an account
- * is linked only once its owner confirms it (C-21, R44, R68). **Create
+ * the AddSeatDialog pattern), or a typed name and phone. A typed student with
+ * a number is saved as a customer first (0448, desk/customers/deskAccount.ts)
+ * and the place is theirs, when that number is new or still the desk's own
+ * record of a walk-in. A typed phone that matches an account somebody uses in
+ * the app stays typed on every staff surface and is linked only once its owner
+ * confirms it (C-21, R44, R68). **Create
  * customer** and **Find in the directory** leave for the customer screens in
  * attach mode, which hand the customer back through
  * `/desk/lessons/$id?customer=<id>`.
@@ -28,7 +31,7 @@
  * {coach}", notes as WizardNote, Create customer · Find in the directory as
  * links.
  */
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { courseLateJoinPrice } from '@touch/core';
@@ -43,6 +46,8 @@ import { ReviewList, StepWizard, WizardNote, type WizardAt, type WizardStep } fr
 import { PickerHint, WizardLinks } from '../desk/wizardParts';
 import { tradingDateOf } from '../desk/calendar/monthLogic';
 import { CustomerPicker, type PickedCustomer } from '../desk/customers/CustomerPicker';
+import { useDeskAccount } from '../desk/customers/deskAccount';
+import { DeskAccountCheckNote, DeskAccountNote } from '../desk/customers/DeskAccountNote';
 import { nameFromQuery, phoneFromQuery, sanitizeName, sanitizePhone } from '../desk/deskLogic';
 import type { CustomerRecord } from '../desk/deskTypes';
 import { nightWindow } from '../desk/useTradingNight';
@@ -77,6 +82,12 @@ export function AddStudentDialog({ lesson, customerId, onClose, onAdded }: AddSt
   const navigate = useNavigate();
   const { reachable } = useStationReach();
   const idem = useDraftIdemKeys('add');
+  // 0448: a typed student's name and number become a customer account before the place is written.
+  const deskAccount = useDeskAccount();
+  // Unlink is the desk's "add this student under the typed name": no account is looked for after it.
+  const typedOnly = useRef(false);
+  // The last press found the number on a walk-in under another name: the Who step says so.
+  const [otherName, setOtherName] = useState(false);
   // OP-11: the last attempt got no answer, so it may have gone through.
   const [maybeLanded, setMaybeLanded] = useState(false);
 
@@ -154,10 +165,29 @@ export function AddStudentDialog({ lesson, customerId, onClose, onAdded }: AddSt
     setBusy(true);
     setError(null);
     setMaybeLanded(false);
+    // 0448: a typed student with a number is saved as a customer first, and the
+    // place is theirs. Only the desk's own record of a walk-in is used this
+    // way: a number somebody already uses in the app is left typed, and the
+    // server links it once its owner confirms (C-21, R44).
+    let picked = customer;
+    if (!picked && !typedOnly.current) {
+      const found = await deskAccount(name, phone, { walkInsOnly: true });
+      if (found) {
+        picked = found.customer;
+        setCustomer(picked);
+        // A walk-in under another name: the Who step shows whose number it is; the next press adds them.
+        if (found.check) {
+          setOtherName(true);
+          setBusy(false);
+          setAt(0);
+          return;
+        }
+      }
+    }
     const student = {
-      p_customer_id: customer?.id ?? null,
-      p_name: customer ? null : name.trim(),
-      p_phone: customer ? null : phone.trim() || null,
+      p_customer_id: picked?.id ?? null,
+      p_name: picked ? null : name.trim(),
+      p_phone: picked ? null : phone.trim() || null,
     };
     try {
       // No type argument on the call: the assistant map finds callers by `appRpc('<name>'` (§5.1).
@@ -170,7 +200,7 @@ export function AddStudentDialog({ lesson, customerId, onClose, onAdded }: AddSt
       );
       idem.reset();
       invalidateLessonBooking(qc);
-      const who = isolate(customer?.name ?? name.trim());
+      const who = isolate(picked?.name ?? name.trim());
       if (out.duplicate) toast.info(tr('ws.coaching.add.alreadyAdded', { name: who }));
       else
         toast.ok(
@@ -247,10 +277,13 @@ export function AddStudentDialog({ lesson, customerId, onClose, onAdded }: AddSt
               }}
               onChange={(next) => {
                 setCustomer(next);
+                typedOnly.current = next === null;
+                setOtherName(false);
                 setError(null);
               }}
             />
             {customer === null && <PickerHint />}
+            {customer !== null && otherName && <DeskAccountCheckNote name={customer.name} />}
           </div>
           {customer === null && (
             <>
@@ -288,6 +321,7 @@ export function AddStudentDialog({ lesson, customerId, onClose, onAdded }: AddSt
                   />
                 </Field>
               </div>
+              <DeskAccountNote name={name} phone={phone} />
               <WizardNote>{tr('ws.coaching.add.typedHint')}</WizardNote>
               <WizardLinks
                 disabled={busy}

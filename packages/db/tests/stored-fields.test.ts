@@ -346,6 +346,13 @@ const GUEST_DATA: Record<string, Record<string, Field>> = {
     note: { category: 'User content', why: 'free-text note on the discount', onDelete: 'row' },
     set_by: n, set_at: n,
   },
+  // 0449: the tags a customer carries (Family, Sponsored…); the tag itself
+  // (customer_tags) holds no guest data.
+  customer_tag_members: {
+    customer_id: n,
+    tag_id: { category: 'App activity', why: 'which of the club’s tags (and so which discount rule) this person carries', onDelete: 'row' },
+    set_by: n, set_at: n,
+  },
   // 0342: a booking's court discount, part of the money trail.
   reservation_court_discounts: {
     reservation_id: n, customer_id: n, kind: n, value: n, standing: n,

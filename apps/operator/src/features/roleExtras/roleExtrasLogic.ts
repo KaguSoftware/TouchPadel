@@ -260,7 +260,7 @@ export function readIdeasToReview(payload: unknown): IdeasToReview {
   return { ideas, count: num(p.count) ?? ideas.length };
 }
 
-/** How many ideas wait; the kitchen board's My tasks count adds these for a head. */
+/** How many ideas wait; the My tasks count adds these for a head. */
 export function ideasWaiting(payload: unknown): number {
   return readIdeasToReview(payload).count;
 }

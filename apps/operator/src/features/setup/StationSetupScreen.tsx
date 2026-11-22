@@ -4,17 +4,10 @@
  * and every intent is a dispatched action, so the container is the only
  * thing that talks to the bridge.
  *
- * Steps: choose a role (Till / Desk / Kitchen screen) → details → for a
- * kitchen screen, the LAN search for the till → saving (the shell relaunches).
- *
- * Every button names its step's real next move. A kitchen screen's form
- * submits "Find the till", because that is what happens next — it used to say
- * "Finish setup" and then start a network search. When the search finds
- * nothing, the choices are the ones its message offers (search again, enter
- * the address), not a "Try again" that quietly went back to the form.
+ * Steps: choose a role (Till / Desk / Shop) → details → saving (the shell
+ * relaunches).
  */
 import type { FormEvent, ReactNode } from 'react';
-import { formatPairingCode } from '@touch/core';
 import { useLocale } from '../../lib/i18n';
 import { Button, Field, Spinner, inputStyle } from '../../components/ui';
 import { Icon, type IconName } from '../../components/icons';
@@ -22,23 +15,13 @@ import { BrandLockup, BrandSwoosh } from '../../components/brand';
 import type { StationMode } from '../../ipc/bridge';
 import {
   STATION_MODES,
-  canSaveAnyway,
   detailsValidity,
   type DetailsState,
   type SetupAction,
   type SetupState,
 } from './stationSetup';
 
-const MODE_ICON: Record<StationMode, IconName> = { till: 'receipt', desk: 'calendar', kds: 'flame', shop: 'tag' };
-
-/** The PIN-field treatment (kit.tsx PinPromptOverlay), minus the masking. */
-const codeInputStyle = {
-  ...inputStyle,
-  fontSize: 'var(--tp-fs-2xl)',
-  letterSpacing: '0.25em',
-  textAlign: 'center' as const,
-  fontVariantNumeric: 'tabular-nums' as const,
-};
+const MODE_ICON: Record<StationMode, IconName> = { till: 'receipt', desk: 'calendar', shop: 'tag' };
 
 export interface StationSetupScreenProps {
   state: SetupState;
@@ -109,58 +92,6 @@ function Step({ state, dispatch }: { state: SetupState; dispatch: (a: SetupActio
       return <ModeStep dispatch={dispatch} />;
     case 'details':
       return <DetailsStep d={state} dispatch={dispatch} />;
-    case 'scanning':
-      return (
-        <StepFrame title={tr('ws.shell.setup.mode.kds')}>
-          <p style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-2)' }}>
-            <Spinner size="sm" />
-            {tr('ws.shell.setup.scanning')}
-          </p>
-          <Actions>
-            <Button onClick={() => dispatch({ type: 'back' })}>{tr('ws.shell.setup.back')}</Button>
-          </Actions>
-        </StepFrame>
-      );
-    case 'choose':
-      return (
-        <StepFrame title={tr('ws.shell.setup.mode.kds')}>
-          <p>{tr('ws.shell.setup.choose')}</p>
-          <div style={{ display: 'grid', gap: 'var(--tp-sp-1)' }}>
-            {state.tills.map((host) => (
-              <Button key={host} size="lg" onClick={() => dispatch({ type: 'pickTill', host })}>
-                <span dir="ltr">{host}</span>
-              </Button>
-            ))}
-          </div>
-          <Actions>
-            <Button onClick={() => dispatch({ type: 'back' })}>{tr('ws.shell.setup.back')}</Button>
-          </Actions>
-        </StepFrame>
-      );
-    case 'notFound': {
-      const key = { none: 'none', 'bad-code': 'badCode', 'no-lan': 'noLan', unreachable: 'unreachable' } as const;
-      const badCode = state.reason === 'bad-code';
-      return (
-        <StepFrame title={tr('ws.shell.setup.mode.kds')}>
-          <p role="alert" style={alertStyle}>
-            <Icon name={state.reason === 'no-lan' ? 'wifiOff' : 'alert'} size={16} style={{ flex: '0 0 auto', marginBlockStart: '0.1rem' }} />
-            <span>{tr(`ws.shell.setup.notFound.${key[state.reason]}`, { host: state.details.host })}</span>
-          </p>
-          <Actions>
-            <Button onClick={() => dispatch({ type: 'back' })}>{tr('ws.shell.setup.back')}</Button>
-            {state.reason === 'none' && (
-              <Button onClick={() => dispatch({ type: 'enterAddress' })}>{tr('ws.shell.setup.enterAddress')}</Button>
-            )}
-            {canSaveAnyway(state) && (
-              <Button onClick={() => dispatch({ type: 'saveAnyway' })}>{tr('ws.shell.setup.saveAnyway')}</Button>
-            )}
-            <Button kind="primary" icon={badCode ? undefined : 'refresh'} onClick={() => dispatch({ type: 'retry' })}>
-              {badCode ? tr('ws.shell.setup.retypeCode') : tr('ws.shell.setup.searchAgain')}
-            </Button>
-          </Actions>
-        </StepFrame>
-      );
-    }
     case 'saving':
       return (
         <StepFrame title={tr(`ws.shell.setup.mode.${state.details.mode}`)}>
@@ -280,7 +211,6 @@ function ModeStep({ dispatch }: { dispatch: (a: SetupAction) => void }) {
 function DetailsStep({ d, dispatch }: { d: DetailsState; dispatch: (a: SetupAction) => void }) {
   const { tr } = useLocale();
   const valid = detailsValidity(d);
-  const codeComplete = d.code.length === 10;
   function submit(e: FormEvent) {
     e.preventDefault();
     dispatch({ type: 'confirm' });
@@ -300,72 +230,15 @@ function DetailsStep({ d, dispatch }: { d: DetailsState; dispatch: (a: SetupActi
             autoCapitalize="characters"
             autoComplete="off"
             spellCheck={false}
-            autoFocus={d.mode !== 'kds'}
+            autoFocus
             value={d.stationId}
             onChange={(e) => dispatch({ type: 'stationId', value: e.target.value })}
           />
         </Field>
-        {d.mode === 'kds' && (
-          <>
-            <Field
-              label={tr('ws.shell.setup.code')}
-              hint={tr('ws.shell.setup.codeHint')}
-              error={codeComplete && !valid.code ? tr('ws.shell.setup.codeInvalid') : undefined}
-            >
-              <input
-                style={codeInputStyle}
-                dir="ltr"
-                inputMode="text"
-                autoCapitalize="characters"
-                autoComplete="off"
-                spellCheck={false}
-                autoFocus
-                maxLength={12}
-                value={codeComplete ? formatPairingCode(d.code) : d.code}
-                onChange={(e) => dispatch({ type: 'code', value: e.target.value })}
-              />
-            </Field>
-            <div>
-              <Button
-                kind="ghost"
-                size="sm"
-                iconEnd="chevronDown"
-                aria-expanded={d.showAdvanced}
-                onClick={() => dispatch({ type: 'toggleAdvanced' })}
-              >
-                {tr('ws.shell.setup.advanced')}
-              </Button>
-            </div>
-            {d.showAdvanced && (
-              <Field
-                label={tr('ws.shell.setup.hostLabel')}
-                hint={tr('ws.shell.setup.advancedHint')}
-                error={valid.host ? undefined : tr('ws.shell.setup.hostInvalid')}
-              >
-                <input
-                  style={inputStyle}
-                  dir="ltr"
-                  inputMode="decimal"
-                  autoComplete="off"
-                  spellCheck={false}
-                  autoFocus
-                  value={d.host}
-                  onChange={(e) => dispatch({ type: 'host', value: e.target.value })}
-                />
-              </Field>
-            )}
-          </>
-        )}
         <Actions>
           <Button onClick={() => dispatch({ type: 'back' })}>{tr('ws.shell.setup.back')}</Button>
-          <Button
-            kind="primary"
-            type="submit"
-            icon={d.mode === 'kds' ? 'search' : undefined}
-            disabled={!valid.all}
-            disabledReason={!valid.all && d.mode === 'kds' && !valid.code ? tr('ws.shell.setup.codeInvalid') : undefined}
-          >
-            {d.mode === 'kds' ? tr('ws.shell.setup.find') : tr('ws.shell.setup.confirm')}
+          <Button kind="primary" type="submit" disabled={!valid.all}>
+            {tr('ws.shell.setup.confirm')}
           </Button>
         </Actions>
       </StepFrame>

@@ -620,10 +620,18 @@ describe.skipIf(!up)('wave 5 lane T: till shifts', () => {
       ['till_shift_status', { p_device_id: A }],
       ['till_shift_list', {}],
     ];
-    for (const who of [...DENIED_ROLES.map((r) => [r, denied[r]] as const), ['prep', prep] as const, ['guest', guest] as const]) {
+    // 0446: every barista is also a cashier, so the bar team passes the till's
+    // door like a cashier (the list stays MGMT only, below).
+    const BAR: readonly DeniedRole[] = ['head_barista', 'barista', 'assistant_barista'];
+    const shutOut = DENIED_ROLES.filter((r) => !BAR.includes(r));
+    for (const who of [...shutOut.map((r) => [r, denied[r]] as const), ['prep', prep] as const, ['guest', guest] as const]) {
       for (const [fn, args] of probes) {
         expect(code(await call(who[1], fn, args)), `${who[0]} ${fn}`).toBe('FORBIDDEN');
       }
+    }
+    for (const role of BAR) {
+      expect(code(await call(denied[role], 'open_till_shift', probes[0]![1])), `${role} open_till_shift`).not.toBe('FORBIDDEN');
+      expect(code(await call(denied[role], 'till_shift_list', {})), `${role} till_shift_list`).toBe('FORBIDDEN');
     }
     for (const [who, c] of [['cashier', cashier], ['court_desk', desk]] as const) {
       expect(code(await call(c, 'till_shift_list', {})), `${who} till_shift_list`).toBe('FORBIDDEN');

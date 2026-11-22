@@ -29,7 +29,8 @@ describe('keys mirror the server search', () => {
 
 describe('filterCustomers', () => {
   it('no query: everyone, by name or by most bookings', () => {
-    expect(filterCustomers(BOOK, '', 'name').map((r) => r.id)).toEqual(['b', 'd', 'a', 'c']);
+    // 0448: a customer with no number (d) comes after the ones the desk can call, as the server orders them.
+    expect(filterCustomers(BOOK, '', 'name').map((r) => r.id)).toEqual(['b', 'a', 'c', 'd']);
     expect(filterCustomers(BOOK, ' ', 'bookings').map((r) => r.id)).toEqual(['b', 'c', 'a', 'd']);
   });
 

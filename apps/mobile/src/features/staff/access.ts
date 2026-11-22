@@ -46,9 +46,9 @@ export const AREA_ROLES = {
   desk: ['court_desk', 'manager'],
   customers: ['court_desk', 'cashier', 'manager'],
   tournaments: ['court_desk', 'manager'],
-  kds: ['prep', 'head_barista', 'barista', 'assistant_barista', 'head_chef', 'chef', 'manager'],
   shop: ['shop_staff', 'manager'],
   tasks: [
+    'prep',
     'cashier',
     'waiter',
     'court_desk',
@@ -75,7 +75,7 @@ export const AREA_ROLES = {
 
 const PROTOCOL_WORK = ['tasks', 'protocols'] as const;
 const CHECKLISTS = ['tasks', 'ops'] as const;
-const KITCHEN_BOOK = ['kds', 'admin'] as const;
+const KITCHEN_BOOK = ['tasks', 'admin'] as const;
 const STOCK = ['stock', 'shop'] as const;
 const FLOOR = ['till'] as const;
 
@@ -114,7 +114,7 @@ export const STAFF_PAGE_AREAS = {
   'staff-checklist': CHECKLISTS,
   'staff-checklist-history': CHECKLISTS,
   // The kitchen's own work and its book.
-  'staff-production': ['kds', 'stock'],
+  'staff-production': ['tasks', 'stock'],
   'staff-recipes': KITCHEN_BOOK,
   'staff-recipe-change': KITCHEN_BOOK,
   'staff-teachings': KITCHEN_BOOK,

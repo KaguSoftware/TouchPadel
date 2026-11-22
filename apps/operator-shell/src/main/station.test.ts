@@ -105,15 +105,22 @@ describe('loadStation', () => {
     expect(s.mode).toBe('till');
   });
 
-  it('reads a kitchen screen file back in camelCase', () => {
-    writeStation({ station_id: 'KDS-01', mode: 'kds', till_host: '192.168.4.10', lan_psk: 'ABCDEFGHJK' });
-    expect(loadStation()).toMatchObject({
-      stationId: 'KDS-01',
-      mode: 'kds',
-      tillHost: '192.168.4.10',
-      lanPsk: 'ABCDEFGHJK',
-      configured: true,
-    });
+  it('a leftover kitchen-screen file (mode kds) is a broken install, never a till and never first run', () => {
+    // The KDS mode was removed from the product. A station.json that still says
+    // so must not crash the app and must not trade or be overwritten: it loads
+    // as configured + configError, like any other unknown mode.
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const file = stationFilePath();
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(
+      file,
+      JSON.stringify({ station_id: 'KDS-01', mode: 'kds', till_host: '192.168.4.10', lan_psk: 'ABCDEFGHJK' }),
+    );
+    const s = loadStation();
+    expect(s.configured).toBe(true);
+    expect(s.configError).toMatch(/unknown mode.*kds/);
+    expect(canTrade(s)).toBe(false);
+    expect(() => writeStation({ station_id: 'DESK-01', mode: 'desk' })).toThrow(StationExistsError);
   });
 
   it('caches until reset', () => {
@@ -128,7 +135,7 @@ describe('loadStation', () => {
 
 describe('writeStation', () => {
   it('refuses to overwrite and leaves no temp file behind', () => {
-    writeStation({ station_id: 'TILL-01', mode: 'till', lan_psk: 'ABCDEFGHJK' });
+    writeStation({ station_id: 'TILL-01', mode: 'till' });
     expect(() => writeStation({ station_id: 'TILL-02', mode: 'till' })).toThrow(StationExistsError);
     const dir = path.dirname(stationFilePath());
     expect(fs.readdirSync(dir).filter((f) => f.endsWith('.tmp'))).toEqual([]);
@@ -143,34 +150,19 @@ describe('completeFirstRun', () => {
   });
   afterEach(() => vi.useRealTimers());
 
-  it('a till mints its pairing code and relaunches', () => {
-    const result = completeFirstRun({ stationId: 'TILL-01', mode: 'till' }, { mint: () => 'ABCDEFGHJK' });
+  it('a till writes id + mode and relaunches', () => {
+    const result = completeFirstRun({ stationId: 'TILL-01', mode: 'till' });
     expect(result).toEqual({ ok: true });
     expect(JSON.parse(fs.readFileSync(stationFilePath(), 'utf8'))).toEqual({
       station_id: 'TILL-01',
       mode: 'till',
-      lan_psk: 'ABCDEFGHJK',
     });
     expect(__calls).toEqual([]);
     vi.advanceTimersByTime(RELAUNCH_DELAY_MS);
     expect(__calls).toEqual(['relaunch', 'exit:0']);
   });
 
-  it('a kitchen screen keeps the till it found and the code that opened it', () => {
-    const result = completeFirstRun(
-      { stationId: 'KDS-01', mode: 'kds', tillHost: '192.168.4.10', pairingCode: 'ABCDEFGHJK' },
-      { relaunch: () => {} },
-    );
-    expect(result).toEqual({ ok: true });
-    expect(JSON.parse(fs.readFileSync(stationFilePath(), 'utf8'))).toEqual({
-      station_id: 'KDS-01',
-      mode: 'kds',
-      till_host: '192.168.4.10',
-      lan_psk: 'ABCDEFGHJK',
-    });
-  });
-
-  it('a desk carries neither host nor key', () => {
+  it('a desk and a shop carry only id + mode', () => {
     completeFirstRun({ stationId: 'DESK-01', mode: 'desk' }, { relaunch: () => {} });
     expect(JSON.parse(fs.readFileSync(stationFilePath(), 'utf8'))).toEqual({ station_id: 'DESK-01', mode: 'desk' });
   });

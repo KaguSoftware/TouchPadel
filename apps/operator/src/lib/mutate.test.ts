@@ -78,13 +78,6 @@ describe('DIRECT_RPC', () => {
     });
   });
 
-  it('ticket.status declares NO idempotency key — the RPC is transition-idempotent', () => {
-    const call = DIRECT_RPC['ticket.status']({ ticketId: UUID_A, status: 'ready' }, KEY, DEV);
-    expect(call.fn).toBe('set_ticket_status');
-    expect(call.args).toEqual({ p_ticket_id: UUID_A, p_status: 'ready', p_device_id: DEV });
-    expect('p_idempotency_key' in call.args).toBe(false);
-  });
-
   it('tab.settle maps method and cash fields, nulling absent tenders', () => {
     const call = DIRECT_RPC['tab.settle'](
       { tabId: UUID_A, method: 'cash', amountIqd: 26000, tenderedIqd: 30000 },

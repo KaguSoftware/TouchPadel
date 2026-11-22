@@ -4,15 +4,13 @@ import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { LocaleProvider } from '../../lib/i18n';
 import type { StaffRole } from '../../lib/auth';
-import type { WorkspaceKey } from '../../lib/workspaces';
 
 // My tasks (build-contracts-2026-09-23 §5.1, §5.4): each role's starts, its
 // protocol steps from app.my_protocol_work, a head's team ideas, the way back
-// to the kitchen board, and the read-only copy of the phone's pages.
+// and the read-only copy of the phone's pages.
 
 let role: StaffRole = 'driver';
 let search: Record<string, unknown> = {};
-let workspace: { active: WorkspaceKey; available: readonly WorkspaceKey[]; setActive: () => void } | null = null;
 const navigate = vi.fn();
 
 vi.mock('../../lib/supabase', () => ({ supabase: {}, supabaseUrl: '', supabaseAnonKey: '' }));
@@ -22,7 +20,6 @@ vi.mock('../../lib/auth', async (importOriginal) => ({
   useAuth: () => ({ staff: { id: 's1', displayName: 'Staff', role } }),
 }));
 vi.mock('@tanstack/react-router', () => ({ useNavigate: () => navigate, useSearch: () => search }));
-vi.mock('../../routes/__root', () => ({ useWorkspaceOrNull: () => workspace }));
 
 const work = {
   todo: [
@@ -94,7 +91,6 @@ function renderIn(as: StaffRole, locale: 'en' | 'ar' = 'en') {
 
 beforeEach(() => {
   search = {};
-  workspace = null;
   calls = [];
   navigate.mockClear();
   try {
@@ -158,19 +154,6 @@ describe('MyTasksScreen', () => {
     await screen.findByTestId('tasks.work');
     expect(screen.queryByTestId('tasks.ideas')).toBeNull();
     expect(calls.some((c) => c.fn === 'release_ideas_to_review')).toBe(false);
-  });
-
-  it('leads back to the kitchen board from the navless kitchen workspace', async () => {
-    workspace = { active: 'prep', available: ['prep'], setActive: () => undefined };
-    renderIn('chef');
-    await userEvent.click(screen.getByTestId('tasks.back-to-board'));
-    expect(navigate).toHaveBeenCalledWith({ to: '/kds' });
-  });
-
-  it('shows no way back to the board anywhere else', () => {
-    workspace = { active: 'team', available: ['team'], setActive: () => undefined };
-    renderIn('driver');
-    expect(screen.queryByTestId('tasks.back-to-board')).toBeNull();
   });
 
   it('copies the phone pages read-only, checklists first', async () => {

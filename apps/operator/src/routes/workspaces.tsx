@@ -23,7 +23,7 @@ import { pickerIndexForKey, pickerLayout, PICKER_TRACKS } from '../lib/workspace
 import { PageHeader } from '../components/kit';
 import { ChevronForward, Icon } from '../components/icons';
 import { WorkspaceArt } from '../components/WorkspaceArt';
-import { isTypingTarget } from '../features/kds/kdsKeyboard';
+import { isTypingTarget } from '../lib/typingTarget';
 import { touch } from '../ipc/bridge';
 
 export const workspacesRoute = createRoute({

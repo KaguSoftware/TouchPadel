@@ -1,7 +1,7 @@
 /**
  * Whether a modal dialog is open on top of the screen.
  *
- * Window-level key listeners (the kitchen board's 1–9 / S / R / C / Space,
+ * Window-level key listeners (the till's keys,
  * the desk calendar's arrows, the shop's barcode wedge) fire no matter where
  * focus is, so without this check a key pressed inside a dialog also acted on
  * the screen behind it. Every dialog in the app is a `Modal` (components/ui)

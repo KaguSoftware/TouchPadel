@@ -12,8 +12,6 @@ import { courtDeskEn } from './courtDesk.en';
 import { courtDeskAr } from './courtDesk.ar';
 import { cashierEn } from './cashier.en';
 import { cashierAr } from './cashier.ar';
-import { prepEn } from './prep.en';
-import { prepAr } from './prep.ar';
 import { managerEn } from './manager.en';
 import { managerAr } from './manager.ar';
 import { ownerEn } from './owner.en';
@@ -66,7 +64,7 @@ import { shopAr } from './shop.ar';
 // matchesAdmin.*.
 import { matchesEn } from './matches.en';
 import { matchesAr } from './matches.ar';
-// The workspace guides (court desk, till, kitchen, Touch Shop).
+// The workspace guides (court desk, till, Touch Shop).
 import { guideEn } from './guide.en';
 import { guideAr } from './guide.ar';
 // Wages and attendance (0270–0272): the owner's Wages page, the manager's Late and early page.
@@ -102,6 +100,9 @@ import { activityAr } from './activity.ar';
 // Standing customer discounts (0342): the record's Discount card and the bill's Customer discount.
 import { discountsEn } from './discounts.en';
 import { discountsAr } from './discounts.ar';
+// Customer ban and customer tags with a rule (0449): the customer record.
+import { customerRulesEn } from './customerRules.en';
+import { customerRulesAr } from './customerRules.ar';
 // The free AI (owner call 2026-10-16): every staff role's assistant, and the owner's "The free AI".
 import { assistantFreeEn } from './assistantFree.en';
 import { assistantFreeAr } from './assistantFree.ar';
@@ -128,7 +129,6 @@ export const wsEn = {
   kit: kitEn,
   courtDesk: courtDeskEn,
   cashier: cashierEn,
-  prep: prepEn,
   manager: managerEn,
   owner: ownerEn,
   reports: reportsEn,
@@ -161,6 +161,7 @@ export const wsEn = {
   monitoring: monitoringEn,
   activity: activityEn,
   discounts: discountsEn,
+  customerRules: customerRulesEn,
   assistantFree: assistantFreeEn,
   genderHours: genderHoursEn,
   insights: insightsEn,
@@ -175,7 +176,6 @@ export const wsAr = {
   kit: kitAr,
   courtDesk: courtDeskAr,
   cashier: cashierAr,
-  prep: prepAr,
   manager: managerAr,
   owner: ownerAr,
   reports: reportsAr,
@@ -208,6 +208,7 @@ export const wsAr = {
   monitoring: monitoringAr,
   activity: activityAr,
   discounts: discountsAr,
+  customerRules: customerRulesAr,
   assistantFree: assistantFreeAr,
   genderHours: genderHoursAr,
   insights: insightsAr,

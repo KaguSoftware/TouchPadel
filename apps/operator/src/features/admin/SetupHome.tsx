@@ -32,7 +32,7 @@
  *     screen shows, tables in use.
  *
  * The grid of one card per screen is gone (it repeated the rail), and pairing
- * a kitchen screen moved to Devices › Kitchen screens.
+ * the kitchen screen is gone.
  */
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';

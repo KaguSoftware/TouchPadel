@@ -169,7 +169,6 @@ const MUTATION_RPCS: Record<string, (p: any, c: Ctx) => Route> = {
   // each function declares — verified against the migration SQL:
   //   open_tab(p_table_id, p_label, p_reservation_id, p_idempotency_key, p_device_id)
   //   till_add_items(p_tab_id, p_items, p_idempotency_key, p_device_id, p_service) — p_service since 0351
-  //   set_ticket_status(p_ticket_id, p_status, p_device_id)              — no idem key
   //   settle_tab(p_tab_id, p_method, p_tendered_iqd, p_amount_iqd,
   //              p_idempotency_key, p_device_id)
   //   apply_discount(p_tab_id, p_kind, p_value, p_pin, p_reason_code,
@@ -212,13 +211,6 @@ const MUTATION_RPCS: Record<string, (p: any, c: Ctx) => Route> = {
       ...(p?.service ? { p_service: p.service } : {}),
       ...common(c),
     }),
-  }),
-  'ticket.status': (p, c) => ({
-    rpc: 'set_ticket_status',
-    entity: 'ticket_status',
-    // set_ticket_status is transition-idempotent (same-status replay echoes
-    // {duplicate:true}); it declares NO p_idempotency_key.
-    args: () => ({ p_ticket_id: p?.ticketId, p_status: p?.status, p_device_id: c.stationId }),
   }),
   // A queued payment settles the tab — settle_tab IS the payment-recording RPC
   // (there is no record_payment function; payments rows are inserted by it).
@@ -321,7 +313,7 @@ const MUTATION_RPCS: Record<string, (p: any, c: Ctx) => Route> = {
     rpc: 'void_after_send',
     entity: 'order_item',
     // State-idempotent (void_order_item_internal returns {duplicate:true} on a
-    // voided line, 0039), so no p_idempotency_key -- like set_ticket_status.
+    // voided line, 0039), so no p_idempotency_key.
     args: () => ({
       p_order_item_id: p?.orderItemId,
       p_pin: p?.pin,
@@ -492,27 +484,6 @@ Deno.serve(handle('replay', async (req) => {
     }
     effectivePayload = { ...(payload as Record<string, unknown>), tabId: tab.data.id };
   }
-  // Same idea for a KDS bump of an offline ticket: the order envelope's key →
-  // orders.idempotency_key → tickets.order_id. Ordered strictly after the
-  // order's own replay in the same queue.
-  const pt = payload as { ticketId?: unknown; ticketIdemKey?: unknown } | null;
-  if (pt && typeof pt === 'object' && typeof pt.ticketIdemKey === 'string' && pt.ticketId == null) {
-    const order = await service
-      .from('orders')
-      .select('id, tickets(id)')
-      .eq('idempotency_key', pt.ticketIdemKey)
-      .maybeSingle();
-    if (order.error) return readFailed('orders', order.error);
-    const ticketId = (order.data?.tickets as { id: string }[] | null)?.[0]?.id;
-    if (!ticketId) {
-      return json(
-        { error: `no ticket for ticketIdemKey '${pt.ticketIdemKey}' — its order never applied` },
-        400,
-      );
-    }
-    effectivePayload = { ...(effectivePayload as Record<string, unknown>), ticketId };
-  }
-
   const ctx: Ctx = { idempotencyKey: idempotency_key, stationId: station_id, staffId: staff_id };
   let route: Route;
   try {

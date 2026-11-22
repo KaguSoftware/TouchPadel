@@ -59,7 +59,8 @@ const ours = (p: Pick) => Object.fromEntries(p.items.filter((i) => i.name_en.sta
 
 describe.skipIf(!docker)('stores: reads (rolled-back transactions)', () => {
   it('the pick list gives each purpose what its role may name (I12)', () => {
-    const denied = { drv: 'driver', mkt: 'marketing', ab: 'assistant_barista', bar: 'barista' };
+    // The barista and the assistant barista are cashiers too since 0446.
+    const denied = { drv: 'driver', mkt: 'marketing' };
     const r = run([
       MK('hb', 'head_barista'), MK('hc', 'head_chef'), MK('chef', 'chef'), MK('wtr', 'waiter'), MK('shop', 'shop_staff'),
       ...Object.entries(denied).map(([k, role]) => MK(k, role)),
@@ -169,7 +170,8 @@ describe.skipIf(!docker)('stores: reads (rolled-back transactions)', () => {
   });
 
   it('stock_today gives each role only its sections, with no money (I12)', () => {
-    const denied = { drv: 'driver', mkt: 'marketing', ab: 'assistant_barista', bar: 'barista' };
+    // The barista and the assistant barista are cashiers too since 0446.
+    const denied = { drv: 'driver', mkt: 'marketing' };
     const r = run([
       MK('hb', 'head_barista'), MK('hc', 'head_chef'), MK('chef', 'chef'), MK('wtr', 'waiter'), MK('shop', 'shop_staff'),
       ...Object.entries(denied).map(([k, role]) => MK(k, role)),

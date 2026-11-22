@@ -91,15 +91,6 @@ export const adminSettingsStationsRoute = createRoute({
   wrapInSuspense: true,
 });
 
-/** Devices › Kitchen screens (owner only). */
-export const adminSettingsKitchenRoute = createRoute({
-  getParentRoute: () => adminRoute,
-  path: 'settings/kitchen',
-  component: guarded('/admin/settings/kitchen', lazyRouteComponent(load, 'KitchenScreensScreen')),
-  pendingComponent: RoutePending,
-  wrapInSuspense: true,
-});
-
 /** Devices › Offline mode. */
 export const adminSettingsOfflineRoute = createRoute({
   getParentRoute: () => adminRoute,

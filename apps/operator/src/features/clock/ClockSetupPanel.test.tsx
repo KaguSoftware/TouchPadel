@@ -15,21 +15,31 @@ const server = vi.hoisted(() => ({
   canEditPlace: true,
   place: null as null | Record<string, unknown>,
   key: null as null | { issued_at: string },
+  registered: true,
+  missing: false,
 }));
 vi.mock('../../lib/appRpc', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
   appRpc: vi.fn(async (fn: string) => {
+    const { AppRpcError } = await import('../../lib/appRpc');
+    if (server.missing) throw new AppRpcError('RPC_MISSING', 'missing');
     switch (fn) {
       case 'clock_setup':
         return {
           place: server.place,
           stations: [
-            { station_id: 'DEV1', is_till: true, has_key: server.key !== null, issued_at: server.key?.issued_at ?? null, issued_by_name: server.key ? 'Omar' : null },
+            ...(server.registered
+              ? [{ station_id: 'DEV1', is_till: true, has_key: server.key !== null, issued_at: server.key?.issued_at ?? null, issued_by_name: server.key ? 'Omar' : null }]
+              : []),
             { station_id: 'DESK2', is_till: false, has_key: false, issued_at: null, issued_by_name: null },
           ],
           can_edit_place: server.canEditPlace,
         };
+      case 'register_station':
+        server.registered = true;
+        return { id: 'DEV1' };
       case 'issue_station_clock_key':
+        if (!server.registered) throw new AppRpcError('REF_NOT_FOUND', 'REF_NOT_FOUND', 'station_id');
         server.key = { issued_at: '2026-11-15T09:00:00.123+00:00' };
         return { station_id: 'DEV1', secret: SECRET, step_seconds: 30, digits: 6, replaced: false };
       case 'set_clock_place':
@@ -63,6 +73,8 @@ beforeEach(() => {
   server.canEditPlace = true;
   server.place = null;
   server.key = null;
+  server.registered = true;
+  server.missing = false;
 });
 
 describe('ClockSetupPanel', () => {
@@ -118,5 +130,22 @@ describe('ClockSetupPanel', () => {
     expect(await screen.findByText('Only the owner changes where the club is.')).toBeTruthy();
     expect(screen.getByText('Phones within 150 m, located to within 50 m.')).toBeTruthy();
     expect(screen.queryByTestId('clock-place-form')).toBeNull();
+  });
+
+  it('says the server lacks the feature instead of showing nothing', async () => {
+    server.missing = true;
+    renderPanel();
+    expect(await screen.findByText('This server does not have staff start and finish yet. It needs a server update first.')).toBeTruthy();
+  });
+
+  it('a computer that is not a station yet is registered by the same press', async () => {
+    server.registered = false;
+    const user = userEvent.setup();
+    renderPanel();
+    expect(await screen.findByText('This computer is not a station of this branch yet. Setting up its QR adds it.')).toBeTruthy();
+    await user.click(screen.getByTestId('clock-desk-setup'));
+    await waitFor(() => expect(localStorage.getItem('tp.clock-key:DEV1')).not.toBeNull());
+    expect(rpc).toHaveBeenCalledWith('register_station', { p_id: 'DEV1', p_venue_id: 'v1', p_mode: 'till' });
+    expect(await screen.findByText('Working')).toBeTruthy();
   });
 });

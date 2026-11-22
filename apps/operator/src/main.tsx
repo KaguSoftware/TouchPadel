@@ -14,7 +14,6 @@ import { tillRoute } from './routes/till';
 import { tillChildren } from './routes/till/_children';
 import { deskRoute } from './routes/desk';
 import { deskChildren } from './routes/desk/_children';
-import { kdsRoute } from './routes/kds';
 import { stockRoute } from './routes/stock';
 import { stockChildren } from './routes/stock/_children';
 import { shopRoute } from './routes/shop';
@@ -71,7 +70,6 @@ const routeTree = rootRoute.addChildren([
   workspacesRoute,
   tillRoute.addChildren([...tillChildren]),
   deskRoute.addChildren([...deskChildren]),
-  kdsRoute,
   opsRoute,
   panelRoute,
   setupRoute,
@@ -109,7 +107,7 @@ function useGoHome(): () => void {
   }, [navigate, staff]);
 }
 
-// A thrown screen used to blank the whole station: till and KDS run in kiosk
+// A thrown screen used to blank the whole station: the till runs in kiosk
 // mode with no menu bar, and the shell only reloads on `render-process-gone`,
 // which a React exception is not.
 function RouteErrorScreen({ error, reset }: { error: unknown; reset: () => void }) {

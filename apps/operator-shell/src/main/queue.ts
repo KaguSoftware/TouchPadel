@@ -32,7 +32,7 @@ const BASE_DDL = `
     seq             INTEGER PRIMARY KEY AUTOINCREMENT, -- replay order
     local_id        TEXT NOT NULL UNIQUE,              -- '{station}-{ulid}' (plan override #2)
     idempotency_key TEXT NOT NULL UNIQUE,              -- '{station}:{mutation_type}:{ulid}'
-    mutation_type   TEXT NOT NULL,                     -- 'order.create' | 'ticket.status' | ...
+    mutation_type   TEXT NOT NULL,                     -- 'order.create' | 'order.add_items' | ...
     payload         TEXT NOT NULL,                     -- JSON, zod-validated before insert
     payload_enc     INTEGER NOT NULL DEFAULT 0,        -- v4/SEC-32: 1 = safeStorage ciphertext
     created_at      TEXT NOT NULL,                     -- station clock, informational
@@ -448,33 +448,6 @@ export function listBlockingRows(): QueueRow[] {
       };
     }
   });
-}
-
-/**
- * What the kitchen still has to see from this till: the orders not yet on the
- * server (pending, inflight) and the kitchen screens' bumps still queued
- * behind them, in queue order. The LAN server rebuilds its ticket list from
- * this at start, so a till restarted mid-outage does not wipe the board.
- * A row that cannot be decrypted is skipped (it still blocks day close).
- */
-export function kitchenBacklog(): QueueRow[] {
-  const rows = openQueue()
-    .prepare(
-      `SELECT * FROM mutation_queue
-       WHERE state IN ('pending','inflight')
-         AND mutation_type IN ('order.create','order.add_items','ticket.status')
-       ORDER BY seq`,
-    )
-    .all() as Record<string, unknown>[];
-  const out: QueueRow[] = [];
-  for (const r of rows) {
-    try {
-      out.push(toRow(r));
-    } catch (err) {
-      if (!(err instanceof QueuePayloadUnreadableError)) throw err;
-    }
-  }
-  return out;
 }
 
 /**

@@ -57,7 +57,6 @@ export const ACCESS_AREAS = {
   desk: ['/desk', '/desk/matches'],
   customers: ['/desk/customers', '/desk/customers/new'],
   tournaments: ['/desk/tournaments'],
-  kds: ['/kds'],
   shop: ['/shop'],
   tasks: ['/tasks'],
   // The marketing role's Insights page (0360).

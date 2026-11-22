@@ -26,8 +26,8 @@ function text(locale: Locale, key: MessageKey): string {
 const holes = (s: string) => [...new Set((s.match(/\{(\w+)\}/g) ?? []).map((h) => h.slice(1, -1)))].sort();
 
 describe('which workspaces have a guide', () => {
-  it('exactly the court desk, the till, the kitchen and Touch Shop', () => {
-    expect(Object.keys(GUIDES).sort()).toEqual(['cashier', 'courtDesk', 'prep', 'shop']);
+  it('exactly the court desk, the till and Touch Shop', () => {
+    expect(Object.keys(GUIDES).sort()).toEqual(['cashier', 'courtDesk', 'shop']);
     for (const ws of ['management', 'team'] as WorkspaceKey[]) expect(guideFor(ws)).toBeNull();
     for (const ws of GUIDE_WORKSPACES) expect(guideFor(ws)).toBe(GUIDES[ws]);
   });
@@ -134,11 +134,6 @@ describe('visibleGuide', () => {
   });
 
   it('drops a section left empty', () => {
-    // The kitchen's My tasks section holds one /tasks step: prep and the
-    // manager cannot open /tasks, so the whole tab goes.
-    expect(visibleGuide('prep', 'chef').some((s) => s.id === 'tasks')).toBe(true);
-    expect(visibleGuide('prep', 'prep').some((s) => s.id === 'tasks')).toBe(false);
-    expect(visibleGuide('prep', 'manager').some((s) => s.id === 'tasks')).toBe(false);
     for (const role of STAFF_ROLES) {
       for (const ws of GUIDE_WORKSPACES) {
         for (const s of visibleGuide(ws, role)) expect(s.steps.length).toBeGreaterThan(0);
@@ -160,7 +155,7 @@ describe('progressOf', () => {
     const sections = visibleGuide('cashier', 'cashier');
     const total = sections.reduce((n, s) => n + s.steps.length, 0);
     const first = sections[0]!;
-    const learned = new Set([first.steps[0]!.id, 'cashier.gone.step', 'prep.work.start', 'nonsense']);
+    const learned = new Set([first.steps[0]!.id, 'cashier.gone.step', 'shop.gone.step', 'nonsense']);
     const p = progressOf(sections, learned);
     expect(p.total).toBe(total);
     expect(p.done).toBe(1);

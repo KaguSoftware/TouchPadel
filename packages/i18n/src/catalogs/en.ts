@@ -218,9 +218,12 @@ export const en = {
     // The gate's project-wide DAILY_CAP: nothing the guest typed is wrong.
     otpBusy: "We can't send more codes right now. Try again later.",
     // 0414 phone_sign_up_status 'taken': Create account stops before a code is sent.
-    phoneTakenSignUp: 'This number already has an account. Sign in instead.',
+    phoneTakenSignUp: 'This number already has an account. Sign in with it here.',
     // Create account's code opened an account the number already had (the check above could not tell in time).
     signedInExisting: 'You already had an account with this number, so we signed you in.',
+    // 0448: Sign in with a number the club's desk wrote down (a booking, an order) and nobody
+    // has signed in with yet. Create account opens with the number filled in.
+    deskAccountFinish: 'The club already has this number. Add your details to finish your account.',
     resendCode: 'Resend code',
     resendCodeIn: 'Resend code in {seconds}s',
     codeSentAgain: 'We sent a new code to that number.',
@@ -256,7 +259,6 @@ export const en = {
   },
   till: { title: 'Café cashier' },
   desk: { title: 'Desk calendar' },
-  kds: { title: 'Kitchen display' },
   stock: { title: 'Stock' },
   admin: { title: 'Admin' },
   analytics: {
@@ -1914,6 +1916,8 @@ export const en = {
     network: 'No connection. Check your internet and try again.',
     notFound: 'We could not find what you were looking for.',
     forbidden: 'You do not have permission to do that.',
+    // CUSTOMER_BANNED on the phone and the website (0449): the club banned this account.
+    accountBanned: 'This account is blocked. Please contact the club.',
     tooManyRequests: 'Too many attempts. Please wait a moment and try again.',
     // REQUEST_NOT_FOUND on the phone, for a staff request and a match request alike (R6).
     requestGone: 'That request no longer exists. Please refresh.',
@@ -2024,6 +2028,9 @@ export const en = {
       refusedGeneric: '{write} did not sync. See the Day close screen.',
     },
     common: {
+      connection: 'Connection',
+      soundOn: 'Turn on sound',
+      soundOnHint: 'Sound is off on this screen. Turn it on so new orders and late tickets chime.',
       forbidden: 'Your role does not have access to this screen.',
       language: 'العربية / English',
       refresh: 'Refresh',
@@ -2167,39 +2174,8 @@ export const en = {
       statusNoShow: 'No-show',
       statusExpired: 'Expired',
     },
-    kds: {
-      empty: 'No open tickets — all caught up.',
-      table: 'Table {table}',
-      court: 'Court',
-      // 0351: the guest collects it at the counter; a runner brings every other order.
-      pickup: 'Pick up',
-      // 0352: a counter order to be brought over, before the cashier attached its table.
-      noSpot: 'No table yet',
-      sourceGuest: 'QR',
-      sourceTill: 'Café cashier',
-      start: 'Start',
-      ready: 'Ready',
-      complete: 'Complete',
-      voided: 'Voided',
-      lanMode: 'Offline — tickets arriving from the café cashier over the local network.',
-      lanEmpty: 'Offline — waiting for tickets from the café cashier over the local network.',
-      statusQueued: 'Queued',
-      statusPreparing: 'Preparing',
-      statusReady: 'Ready',
-      statusCompleted: 'Completed',
-      ageTarget: 'Target {minutes} min',
-      // The strip only unlocks audio; "Start shift" read as clocking in.
-      startShift: 'Turn on sound',
-      startShiftHint:
-        'Sound is off on this screen. Turn it on so new orders and late tickets chime.',
-      // The count is printed beside this, as its own figure (no plurals).
-      staleBanner: 'tickets need attention — not started in time',
-      stale: 'Waiting too long',
-      newTicket: 'New ticket',
-      unseen: '{count} new',
-      connection: 'Connection',
-    },
     till: {
+      court: 'Court',
       openTabs: 'Open tabs',
       noTabs: 'No open tabs.',
       newTab: 'New tab',
@@ -2213,7 +2189,7 @@ export const en = {
       filterPlaceholder: 'Type to filter items… (1-9 selects a category)',
       basket: 'Basket',
       emptyBasket: 'Basket is empty — pick items from the grid.',
-      sendOrder: 'Send to kitchen',
+      sendOrder: 'Place order',
       orderSent: 'Order sent.',
       size: 'Size',
       modifiers: 'Modifiers',

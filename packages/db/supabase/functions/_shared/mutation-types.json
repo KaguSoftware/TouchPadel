@@ -3,7 +3,6 @@
   "types": [
     "order.create",
     "order.add_items",
-    "ticket.status",
     "payment.record",
     "reservation.create",
     "reservation.update",
@@ -86,7 +85,6 @@
     "upsert_ingredient",
     "set_recipe",
     "set_tab_customer",
-    "recall_ticket",
     "deposit_refund_retry",
     "deposit_refund_request",
     "deposit_refund_manual"

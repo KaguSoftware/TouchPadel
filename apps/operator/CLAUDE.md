@@ -80,6 +80,27 @@ item 12) from `PHASE-2-PLAN.md` Part A5 plus the 09-20 code verification. Databa
   `record_waste` (`stock.waste`) since Milestone 0 item 9 (migration 0120). A PIN-gated one carries
   `pin` in its payload; the replay function proves it first (0115).
 
+## A typed customer becomes an account (0448, Majed 2026-11-21)
+
+- Every screen where staff type a customer's name and phone number (New booking, Repeat booking,
+  Start match, Add player, New lesson, Add student, the till's New order) calls `useDeskAccount()`
+  (`src/features/desk/customers/deskAccount.ts`) just before its write, when no customer is picked:
+  the account that number already has, or a new one, comes back as a `PickedCustomer` and the row
+  is written against it. A new screen that takes a typed name and number does the same and shows
+  `DeskAccountNote` under the two boxes.
+- It never blocks the write: no number, offline, a slow or failed call all answer null and the row
+  is written under the typed name as before. `found.check` (the number is somebody's under ANOTHER
+  name) means show the linked customer and wait for a second press; Unlink after that sets the
+  screen's `typedOnly` ref, so the typed name is kept and no account is looked for again.
+- A name with no number is saved too, as an INCOMPLETE customer (no phone). It shows the
+  `IncompleteBadge` wherever it appears (picker, Customers list, record), and `CompleteCustomerPhone`
+  adds the number from the picked card or the record (`completeDeskAccount`); a number that
+  already has its customer is refused with "Use {name} instead". An order with no name at the
+  till stays the counter's number and saves nobody.
+- The lesson screens pass `{ walkInsOnly: true }`: a number a person already uses in the app stays
+  typed (the server links it after its owner confirms, coaching C-21, R44). The till never waits:
+  the order opens first, and a number under another name is not put on the bill.
+
 ## Queries and realtime
 
 - Shared query keys live in `QK` (`src/lib/queryKeys.ts`, re-exported by `src/lib/queries.ts`); a

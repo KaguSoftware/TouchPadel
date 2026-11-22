@@ -1,7 +1,7 @@
 /**
  * The role-spec reads that more than one screen shares, each under its QK key
  * and held as returned (build-contracts-2026-09-23 §5.2). Kept apart from the
- * screens so the shell (the rail badge) and the kitchen board (My tasks) can
+ * screens so the shell (the rail badge) and My tasks can
  * read them without loading the pages.
  */
 import { appRpc } from '../../lib/appRpc';

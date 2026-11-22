@@ -6,7 +6,7 @@ import { LocaleProvider } from '../lib/i18n';
 // landed in the café till's open shift.
 
 let electron = true;
-let mode: 'till' | 'desk' | 'kds' | 'shop' = 'till';
+let mode: 'till' | 'desk' | 'shop' = 'till';
 
 vi.mock('../lib/mutate', () => ({ isElectron: () => electron }));
 vi.mock('../ipc/bridge', () => ({ touch: { getStation: () => ({ stationId: 'TILL-01', mode, configured: true, appVersion: 't' }) } }));
@@ -17,7 +17,7 @@ vi.mock('../lib/auth', async (importOriginal) => {
 
 import { StationKindGate } from './StationKindGate';
 
-function mount(screenName: 'shopTill' | 'kds') {
+function mount(screenName: 'shopTill') {
   return render(
     <LocaleProvider>
       <StationKindGate screen={screenName}>
@@ -44,16 +44,6 @@ describe('StationKindGate', () => {
   it('opens the shop till on the shop station', () => {
     mode = 'shop';
     mount('shopTill');
-    expect(screen.getByTestId('inside')).toBeTruthy();
-  });
-
-  it('refuses the kitchen board on the court desk, opens it on the café till and a kitchen screen', () => {
-    mode = 'desk';
-    const { unmount } = mount('kds');
-    expect(screen.getByText('The kitchen board is not on this station')).toBeTruthy();
-    unmount();
-    mode = 'till';
-    mount('kds');
     expect(screen.getByTestId('inside')).toBeTruthy();
   });
 

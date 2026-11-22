@@ -1,5 +1,5 @@
 /**
- * New order dialog — a counter tab, or a booking's bill (app.open_tab; order
+ * New order dialog (one screen since 2026-11-20) — a counter tab, or a booking's bill (app.open_tab; order
  * first since 0352, the table attached to each order after). Also the
  * home of the reservation picker that 06.17 (charge to booking) reuses.
  *
@@ -8,21 +8,27 @@
  */
 import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { formatTime } from '@touch/i18n';
+import { formatTime, isolate } from '@touch/i18n';
 import { supabase } from '../../lib/supabase';
 import { mutate } from '../../lib/mutate';
 import { LOCAL_TAB_PREFIX, addOfflineTab } from '../../lib/offlineTabs';
 import { QK, fetchVenueSettings } from '../../lib/queries';
 import { tonightScope } from '../desk/useTradingNight';
 import { useLocale, pickName } from '../../lib/i18n';
-import { useAuth } from '../../lib/auth';
-import { ErrorText, Field, inputStyle } from '../../components/ui';
-import { ReviewList, StepWizard, WizardChoice, WizardChoices, WizardNote, type WizardStep } from '../../components/StepWizard';
+import { can, useAuth } from '../../lib/auth';
+import { Button, ErrorText, Field, Modal, inputStyle } from '../../components/ui';
+import { WizardNote } from '../../components/StepWizard';
 import { SearchField } from '../../components/kit';
-import { bookingTakesNewTab, canReadBookings } from './tillData';
+import type { IdentifiedMember } from '@touch/core/loyalty';
+import { isMemberScan, parseAppCode } from '../loyalty/loyaltyLogic';
+import { identifyMember, invalidateTabLoyalty, needsAttachPin, setTabCustomer } from '../loyalty/useLoyalty';
+import { StaffPinDialog } from '../loyalty/MemberAttach';
+import { bookingTakesNewTab } from './tillData';
 import { isMatchLiteral } from '../matches/matchLogic';
 import { isLessonLiteral } from '../coaching/lessonLogic';
 import { muted, touchTarget } from './tillStyles';
+import { sanitizePhone } from '../desk/deskLogic';
+import { deskAccountInput, useDeskAccount, useToastIfMounted } from '../desk/customers/deskAccount';
 
 export interface OpenReservationRow {
   id: string;
@@ -175,6 +181,20 @@ export async function openTabOn(
   return `${LOCAL_TAB_PREFIX}${outcome.idempotencyKey}`;
 }
 
+/**
+ * New order, one screen (Majed, 2026-11-20): a name, or the member's card scanned into the same
+ * field, then Start order. A phone number may be added under the name (Majed, 2026-11-21, 0448:
+ * every customer a desk writes down is in the customer database): the order opens at once, and
+ * behind it the name and number become a customer account (the one the number already has, or a
+ * new one) that goes on the bill, as a scanned card does. A name with no number is saved too, as
+ * an incomplete customer on the bill; an order with no name stays the counter's number, nobody's. A number that belongs to somebody under
+ * ANOTHER name is not put on the bill by word of mouth: the till says whose it is and asks for
+ * their card. A scanned card (TP-…) is looked up first
+ * (loyalty_identify), the order opens under the member's name, and the member goes on the bill
+ * (set_tab_customer); a member who works here asks for another manager's PIN (StaffPinDialog), and
+ * the order stays open either way. A booking's bill comes from the desk (`/till?reservation=`) or
+ * from "Charge to booking"; a table tapped on the floor still opens its order here.
+ */
 export function NewTabDialog({
   onClose,
   onOpened,
@@ -190,41 +210,99 @@ export function NewTabDialog({
 }) {
   const { tr, locale } = useLocale();
   const { staff } = useAuth();
-  // A role that cannot read bookings (see canReadBookings) would get a select
-  // that only ever held "No booking". Shown when it can hold something, or
-  // when the desk already chose the booking.
-  const showBookings = canReadBookings(staff) || Boolean(initialReservationId);
-  const [label, setLabel] = useState('');
-  const [reservationId, setReservationId] = useState(initialReservationId ?? '');
+  const qc = useQueryClient();
+  const [text, setText] = useState('');
+  // 0448: an optional number beside a typed name makes the guest a customer.
+  const [phone, setPhone] = useState('');
+  const deskAccount = useDeskAccount();
+  const toast = useToastIfMounted();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
+  const [refusal, setRefusal] = useState<string | null>(null);
+  /** A member who works here: the tab is open, the attach waits on another manager's PIN. */
+  const [staffPin, setStaffPin] = useState<{ tabId: string; member: IdentifiedMember } | null>(null);
 
-  const reservationsQ = useTodaysOpenReservations(canReadBookings(staff) || Boolean(initialReservationId));
+  const reservationsQ = useTodaysOpenReservations(Boolean(initialReservationId));
   const reservations = reservationsQ.data ?? [];
-  const preboundMissing =
-    Boolean(initialReservationId) && reservationsQ.isSuccess && !reservations.some((r) => r.id === initialReservationId);
+  const bound = reservations.find((r) => r.id === initialReservationId);
+  const preboundMissing = Boolean(initialReservationId) && reservationsQ.isSuccess && !bound;
 
   // Whitespace is not a name: the server would number it like an empty one.
-  const trimmedLabel = label.trim();
+  const trimmed = text.trim();
+  const memberCard = isMemberScan(trimmed);
+  // A booking's bill already has its guest, and a scanned card is the member: no number is asked for.
+  const asksPhone = !memberCard && !initialReservationId;
+
+  /**
+   * After the order is open, never in its way: the typed name and number
+   * become a customer, who goes on the bill unless the number is somebody's
+   * under another name. Every failure is silent; the order stands as typed.
+   */
+  async function saveTypedCustomer(tabId: string, name: string, number: string) {
+    const found = await deskAccount(name, number, { quiet: true });
+    if (!found) return;
+    const who = isolate(found.customer.name);
+    if (found.check) {
+      toast?.info(tr('ws.cashier.newTab.phoneOtherName', { name: who }));
+      return;
+    }
+    try {
+      await setTabCustomer(tabId, found.customer.id);
+      invalidateTabLoyalty(qc, tabId, found.customer.id);
+      // A name alone is saved on every named order: said by the hint under the box, not by a toast each time.
+      if (!found.incomplete) toast?.info(tr(found.existing ? 'ws.courtDesk.deskAccount.linked' : 'ws.courtDesk.deskAccount.created', { name: who }));
+    } catch {
+      // Saved as a customer; not on this bill (a colleague's number needs a manager's PIN, or the bill moved on).
+      if (!found.existing && !found.incomplete) toast?.info(tr('ws.courtDesk.deskAccount.created', { name: who }));
+    }
+  }
 
   async function submit() {
-    setBusy(true);
+    if (busy) return;
     setError(null);
+    setRefusal(null);
+    // A reward's or a deal's code belongs on a bill that exists (the member block reads it there).
+    if (parseAppCode(trimmed)) {
+      setRefusal(tr('ws.cashier.newTab.appCodeHere'));
+      return;
+    }
+    if (memberCard && !can(staff, 'attachMember')) {
+      setRefusal(tr('ws.cashier.newTab.memberNotAllowed'));
+      return;
+    }
+    setBusy(true);
     try {
+      // The card first: a refused or unknown card opens nothing.
+      const member = memberCard ? await identifyMember(trimmed.toUpperCase()) : null;
+      const name = member ? member.display_name?.trim().slice(0, 60) || undefined : trimmed || undefined;
       /* Order first (0352): a café order starts at the counter with no table.
          Where each order goes is attached to that order afterwards, from the
          tab ("Bring to…"), whenever the guest sits; a booking is still a bill
          of its own (the court fee joins it at settlement). */
-      onOpened(
-        await openTabOn(
-          {
-            label: trimmedLabel || undefined,
-            reservationId: reservationId || undefined,
-            tableId: table?.id,
-          },
-          table?.tableNumber ?? null,
-        ),
+      const tabId = await openTabOn(
+        { label: name, reservationId: initialReservationId || undefined, tableId: table?.id },
+        table?.tableNumber ?? null,
       );
+      if (member && !tabId.startsWith(LOCAL_TAB_PREFIX)) {
+        try {
+          await setTabCustomer(tabId, member.customer_id);
+          invalidateTabLoyalty(qc, tabId, member.customer_id);
+        } catch (e) {
+          // 0308 (c2): a member who works here is added only behind another manager's PIN.
+          if (needsAttachPin(e)) {
+            setStaffPin({ tabId, member });
+            return;
+          }
+          // The order is open; the member can still be added from the bill.
+          onOpened(tabId);
+          throw e;
+        }
+      }
+      // 0448: a typed name (with its number, or alone: an incomplete customer), on a tab the server already has.
+      if (!member && asksPhone && deskAccountInput(trimmed, phone) && !tabId.startsWith(LOCAL_TAB_PREFIX)) {
+        void saveTypedCustomer(tabId, trimmed, phone);
+      }
+      onOpened(tabId);
     } catch (e) {
       setError(e);
     } finally {
@@ -232,88 +310,98 @@ export function NewTabDialog({
     }
   }
 
-  const bound = reservations.find((r) => r.id === reservationId);
-  // "19:00 · Court 1": a booking card's name, the step's note and the Review value.
-  const bookingShort = (r: OpenReservationRow) => `${formatTime(new Date(r.start_at), locale)} · ${pickName(locale, r.court)}`;
-  const tableWordName = table ? `${tr('op.till.table')} ${table.tableNumber}` : '';
-  const noBookingTitle = table ? tr('ws.cashier.newTab.tableOrderTitle') : tr('op.till.noReservation');
-  const bookingName = bound ? bookingShort(bound) : noBookingTitle;
-
-  // The stepped dialog (Sait, 2026-10-22): the name, then the court booking.
-  // A role that cannot read bookings has the name step only.
-  const steps: WizardStep[] = [
-    {
-      key: 'name',
-      label: tr('ws.cashier.newTab.stepName'),
-      note: trimmedLabel || tr('ws.cashier.newTab.nextNumber'),
-      content: (
-        <Field label={tr('ws.cashier.newTab.nameLabel')} optional hint={tr('ws.cashier.newTab.counterHint')}>
-          <input style={inputStyle} value={label} maxLength={60} autoFocus onChange={(e) => setLabel(e.target.value)} />
-        </Field>
-      ),
-    },
-    ...(showBookings
-      ? [
-          {
-            key: 'booking',
-            label: table ? tr('ws.cashier.newTab.tableStepLabel') : tr('op.till.reservationLabel'),
-            note: bookingName,
-            content: (
-              <>
-                {initialReservationId && bound && (
-                  <WizardNote>
-                    <strong>{tr('ws.cashier.newTab.fromBooking')}</strong> — <bdi>{reservationOptionLabel(tr, locale, bound)}</bdi>
-                    <br />
-                    {tr('ws.cashier.newTab.fromBookingHint')}
-                  </WizardNote>
-                )}
-                {preboundMissing && <WizardNote tone="refused">{tr('ws.cashier.newTab.bookingMissing')}</WizardNote>}
-                <WizardChoices label={tr('op.till.reservationLabel')}>
-                  <WizardChoice
-                    on={reservationId === ''}
-                    title={noBookingTitle}
-                    body={table ? tr('ws.cashier.newTab.tableOrderBody', { table: tableWordName }) : tr('ws.cashier.newTab.noBookingBody')}
-                    onPick={() => setReservationId('')}
-                  />
-                  {reservations.map((r) => (
-                    <WizardChoice
-                      key={r.id}
-                      on={reservationId === r.id}
-                      title={<bdi>{bookingShort(r)}</bdi>}
-                      body={<bdi>{r.guest_name ?? '—'}</bdi>}
-                      onPick={() => setReservationId(r.id)}
-                    />
-                  ))}
-                </WizardChoices>
-                <WizardNote>{tr('ws.cashier.newTab.bookingNote')}</WizardNote>
-              </>
-            ),
-          },
-        ]
-      : []),
-  ];
+  if (staffPin) {
+    return (
+      <StaffPinDialog
+        tabId={staffPin.tabId}
+        member={staffPin.member}
+        onClose={() => onOpened(staffPin.tabId)}
+        onDone={() => {
+          invalidateTabLoyalty(qc, staffPin.tabId, staffPin.member.customer_id);
+          onOpened(staffPin.tabId);
+        }}
+      />
+    );
+  }
 
   return (
-    <StepWizard
+    <Modal
       title={tr('ws.cashier.newTab.orderTitle')}
-      lead={tr('ws.cashier.newTab.lead')}
-      steps={steps}
-      review={(goTo) => (
-        <ReviewList
-          goTo={goTo}
-          busy={busy}
-          rows={[
-            { label: tr('ws.cashier.newTab.stepName'), value: trimmedLabel ? <bdi>{trimmedLabel}</bdi> : tr('ws.cashier.newTab.nextCounterNumber'), step: 'name' },
-            ...(showBookings ? [{ label: tr('ws.cashier.newTab.reviewBooking'), value: <bdi>{bookingName}</bdi>, step: 'booking' }] : []),
-          ]}
-        />
-      )}
-      submitLabel={tr('ws.cashier.newTab.start')}
-      onSubmit={() => void submit()}
-      busy={busy}
-      notice={error ? <ErrorText error={error} /> : undefined}
+      size="sm"
+      dismissible={!busy}
       onClose={onClose}
-      testId="new-order"
-    />
+      footer={(close) => (
+        <>
+          <Button onClick={close} disabled={busy}>
+            {tr('common.cancel')}
+          </Button>
+          <Button kind="primary" icon={memberCard ? 'userPlus' : undefined} busy={busy} onClick={() => void submit()} data-testid="new-order.submit">
+            {tr('ws.cashier.newTab.start')}
+          </Button>
+        </>
+      )}
+    >
+      {table && <WizardNote>{tr('ws.cashier.newTab.tableOrderBody', { table: `${tr('op.till.table')} ${table.tableNumber}` })}</WizardNote>}
+      {initialReservationId && bound && (
+        <WizardNote>
+          <strong>{tr('ws.cashier.newTab.fromBooking')}</strong> — <bdi>{reservationOptionLabel(tr, locale, bound)}</bdi>
+          <br />
+          {tr('ws.cashier.newTab.fromBookingHint')}
+        </WizardNote>
+      )}
+      {preboundMissing && <WizardNote tone="refused">{tr('ws.cashier.newTab.bookingMissing')}</WizardNote>}
+      <Field
+        label={tr('ws.cashier.newTab.nameOrMember')}
+        optional
+        hint={memberCard ? tr('ws.cashier.newTab.memberSeen') : tr('ws.cashier.newTab.nameOrMemberHint')}
+        error={refusal ?? undefined}
+        style={{ marginBlockEnd: 0 }}
+      >
+        <input
+          style={inputStyle}
+          value={text}
+          maxLength={60}
+          autoFocus
+          autoComplete="off"
+          spellCheck={false}
+          disabled={busy}
+          data-testid="new-order.name"
+          onChange={(e) => {
+            setText(e.target.value);
+            setRefusal(null);
+          }}
+          onKeyDown={(e) => {
+            // The scanner ends its burst with Enter, as a person does: either one starts the order.
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              void submit();
+            }
+          }}
+        />
+      </Field>
+      {asksPhone && (
+        <Field label={tr('ws.cashier.newTab.phone')} optional hint={tr('ws.cashier.newTab.phoneHint')} style={{ marginBlockStart: 'var(--tp-sp-3)', marginBlockEnd: 0 }}>
+          <input
+            style={inputStyle}
+            type="tel"
+            dir="ltr"
+            inputMode="tel"
+            autoComplete="off"
+            maxLength={30}
+            value={phone}
+            disabled={busy}
+            data-testid="new-order.phone"
+            onChange={(e) => setPhone(sanitizePhone(e.target.value))}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                void submit();
+              }
+            }}
+          />
+        </Field>
+      )}
+      {error ? <ErrorText error={error} /> : null}
+    </Modal>
   );
 }

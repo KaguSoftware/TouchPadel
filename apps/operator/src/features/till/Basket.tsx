@@ -1,6 +1,6 @@
 /**
  * The unsent basket (spec TabLineList, `editable` = true). Lines are freely
- * editable until F2 / "Send to kitchen" — after that they live on the tab and
+ * editable until F2 / "Place order" — after that they live on the tab and
  * TabDetailPanel owns them (void = waste, never delete).
  *
  * PHYSICALLY FIXED. The basket fills a height its caller reserved

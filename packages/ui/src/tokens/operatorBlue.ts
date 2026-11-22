@@ -255,14 +255,6 @@ export const operatorBlueVars = {
   '--tp-rail-active-fg': 'var(--tp-accent-2-contrast)',
   '--tp-rail-border': BLUE_L33,
 
-  // ── the kitchen board: dark on the brand ramp ────────────────────────────
-  '--tp-kds-bg': BLUE_L29,
-  '--tp-kds-card': BLUE_L33,
-  '--tp-kds-card-2': BLUE_L38,
-  '--tp-kds-fg': 'var(--tp-brand-white)',
-  '--tp-kds-muted': GRAY_LIGHT,
-  '--tp-kds-border': BLUE_L50,
-
   // ── the till's floor board: a deep blue board on the blue page ───────────
   // Chairs step up a shade so they show on it, and the table under the
   // pointer turns white with blue ink, since white is this mode's accent.

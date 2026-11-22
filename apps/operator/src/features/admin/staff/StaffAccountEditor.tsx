@@ -35,6 +35,7 @@ import {
   ACCESS_AREA_KEYS,
   SECOND_JOB_ROLES,
   parseStaffAccess,
+  teamOf,
   type AccessArea,
   type SecondJobRole,
 } from '@touch/core';
@@ -428,11 +429,16 @@ function AccessField({ staff, locked, onError }: { staff: StaffRow; locked: bool
   // A manager's role already holds every job a tick could add.
   const offerJobs = staff.role !== 'manager';
   const jobs = SECOND_JOB_ROLES.filter((r) => r !== staff.role);
+  // 0446: every barista is also a cashier. The server keeps the job on the
+  // bar team and on a barista second job, so the box is shown ticked and locked.
+  const cashierWithBar = staff.role !== 'cashier' && (teamOf(staff.role) === 'bar' || current.extraRoles.includes('barista'));
+  const extraRoles: SecondJobRole[] =
+    cashierWithBar && !current.extraRoles.includes('cashier') ? [...current.extraRoles, 'cashier'] : current.extraRoles;
   // The pages the main role and the ticked jobs open, before any block.
-  const reach = { role: staff.role, extraRoles: current.extraRoles };
+  const reach = { role: staff.role, extraRoles };
   const pages = ACCESS_AREA_KEYS.filter((area) => canAccess(reach, ACCESS_AREAS[area][0]));
   const blocked = current.blockedAreas.filter((a) => pages.includes(a));
-  const next: AccessDraft = { extraRoles: current.extraRoles, blockedAreas: blocked };
+  const next: AccessDraft = { extraRoles, blockedAreas: blocked };
   const dirty = !sameSet(next.extraRoles, saved.extraRoles) || !sameSet(next.blockedAreas, saved.blockedAreas);
   const disabled = locked || save.isPending;
 
@@ -488,12 +494,13 @@ function AccessField({ staff, locked, onError }: { staff: StaffRow; locked: bool
                     key={r}
                     testId={`access-job-${r}`}
                     label={jobName(r)}
-                    checked={current.extraRoles.includes(r)}
-                    disabled={disabled}
+                    checked={extraRoles.includes(r)}
+                    disabled={disabled || (r === 'cashier' && cashierWithBar)}
                     onChange={(on) => edit({ extraRoles: toggle(current.extraRoles, r, on) })}
                   />
                 ))}
               </CheckGrid>
+              {cashierWithBar && <Note>{tr('ws.owner.staff.access.cashierWithBar')}</Note>}
             </>
           ) : (
             <Note>{tr('ws.owner.staff.access.management')}</Note>

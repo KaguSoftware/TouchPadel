@@ -135,11 +135,65 @@ describe.skipIf(!docker)('0383 stock', () => {
   });
 });
 
+// 0446: every barista is also a cashier (Majed 2026-11-20). The trigger keeps
+// cashier in extra_roles for the bar team and a barista second job, and the
+// till's tab-kind rule reads every job, so a barista opens a café tab and rings
+// an item on it like a cashier; the shop stays the shop assistant's.
+const JOBS = (who: string) => `select to_jsonb(extra_roles) from staff where id = {{${who}}}::uuid`;
+describe.skipIf(!docker)('0446 every barista works the till', () => {
+  it('a barista and a head barista work café tabs, not shop tabs', () => {
+    const r = scenario([
+      MK('b1', 'barista'),
+      MK('h1', 'head_barista'),
+      FX(`insert into day_sessions (business_date, opened_by, opening_float_iqd, venue_id)
+          select date '3000-01-01' + (random() * 300000)::int, {{owner}}::uuid, 0, {{venue}}::uuid
+           where not exists (select 1 from day_sessions where venue_id = {{venue}}::uuid and status in ('open', 'closing'))`),
+      Q('b1.jobs', JOBS('b1')),
+      T('cafe', 'b1', `select app.open_tab(p_label => 'LDB counter')`),
+      LET('tab', `select coalesce((select id from tabs where label = 'LDB counter'), gen_random_uuid())`),
+      LET('variant', `select v.id from menu_item_variants v join menu_items i on i.id = v.item_id
+                        join menu_categories c on c.id = i.category_id
+                       where i.venue_id = {{venue}}::uuid and c.kind = 'cafe' and i.is_active
+                       limit 1`),
+      T('add', 'b1', `select to_jsonb(app.till_add_items({{tab}}::uuid,
+                        jsonb_build_array(jsonb_build_object('variant_id', {{variant}}, 'qty', 1)),
+                        gen_random_uuid()::text) is not null)`),
+      T('shop', 'b1', `select app.open_tab(p_kind => 'shop', p_label => 'LDB shop')`),
+      T('head', 'h1', `select app.open_tab(p_label => 'LDB head')`),
+    ]);
+    expect(r['b1.jobs']).toEqual({ ok: true, data: ['cashier'] });
+    expect(r.cafe, JSON.stringify(r.cafe)).toMatchObject({ ok: true, data: { label: 'LDB counter' } });
+    expect(r.add, JSON.stringify(r.add)).toEqual({ ok: true, data: true });
+    expect(r.shop).toMatchObject({ ok: false, code: 'TAB_KIND_FORBIDDEN', detail: 'shop' });
+    expect(r.head, JSON.stringify(r.head)).toMatchObject({ ok: true, data: { label: 'LDB head' } });
+  });
+
+  it('the cashier job stays with the bar: unticking keeps it, leaving the bar drops it', () => {
+    const r = scenario([
+      MK('b1', 'barista'),
+      MK('w1', 'waiter'),
+      MK('c1', 'cashier'),
+      T('untick', 'owner', `select app.set_staff_access({{b1}}::uuid, '{}', '{}')->'extra_roles'`),
+      FX(`update staff set extra_roles = '{barista}' where id = {{w1}}::uuid`),
+      Q('w1.jobs', JOBS('w1')),
+      FX(`update staff set extra_roles = '{barista}' where id = {{c1}}::uuid`),
+      Q('c1.jobs', JOBS('c1')),
+      FX(`update staff set role = 'waiter' where id = {{b1}}::uuid`),
+      Q('b1.moved', JOBS('b1')),
+    ]);
+    expect(r.untick).toEqual({ ok: true, data: ['cashier'] });
+    expect(r['w1.jobs']?.data).toEqual(['cashier', 'barista']); // the role enum's order
+    expect(r['c1.jobs']?.data).toEqual(['barista']);
+    expect(r['b1.moved']?.data).toEqual([]);
+  });
+});
+
 // 0404: the shop assistant's limits hold for anyone the guard admits through
 // shop_staff alone, a second job included. s1 holds shop_staff as the main
-// job, c1 (cashier) and b1 (barista) as a second job; each must be held to
+// job, c1 (cashier), b1 (barista) and d1 (driver) as a second job; each must be held to
 // shop products and the shop store exactly alike. record_waste also admits the
-// cashier, so c1 writes off anywhere and b1 is held (0383's union rule).
+// cashier, so c1 and b1 (every barista is a cashier, 0446) write off anywhere
+// and d1 is held (0383's union rule).
 const SHOP_ONLY_FIXTURES = [
   FX(`update stock_counts set finalized_at = now() where venue_id = {{venue}}::uuid and finalized_at is null`),
   LET('cafecat', `insert into menu_categories (venue_id, name_en, name_ar, tax_group_id, kind)
@@ -212,10 +266,16 @@ describe.skipIf(!docker)('0404 shop-only limits for a shop second job', () => {
     expect(r['c1.wasteDefault']).toMatchObject({ ok: false, code: 'INVALID_ARGUMENT', hint: 'kind' });
   });
 
-  it('a barista with shop_staff as a second job is held exactly alike, write-offs included', () => {
+  it('a barista with shop_staff as a second job is held exactly alike, but writes off anywhere (a cashier too, 0446)', () => {
     const r = run('b1', 'barista', 'shop_staff');
     expectHeldToTheShop(r, 'b1');
-    expect(r['b1.wasteCafe']).toEqual({ ...HELD, hint: 'location', detail: null });
-    expect(r['b1.wasteDefault']).toEqual({ ok: true, data: true });
+    expect(r['b1.wasteCafe']).toEqual({ ok: true, data: true });
+  });
+
+  it('a driver with shop_staff as a second job is held exactly alike, write-offs included', () => {
+    const r = run('d1', 'driver', 'shop_staff');
+    expectHeldToTheShop(r, 'd1');
+    expect(r['d1.wasteCafe']).toEqual({ ...HELD, hint: 'location', detail: null });
+    expect(r['d1.wasteDefault']).toEqual({ ok: true, data: true });
   });
 });

@@ -24,7 +24,7 @@ describe('readMyWork', () => {
     expect(readMyWork(null)).toEqual({ todo: [], waiting: [], decided: [] });
   });
 
-  it('counts the kitchen board’s My tasks as To do plus the ideas to review', () => {
+  it('counts My tasks as To do plus the ideas to review', () => {
     expect(kitchenTaskCount({ counts: { todo: 2 } }, 3)).toBe(5);
     expect(kitchenTaskCount({ todo: [{}, {}] }, 0)).toBe(2);
     expect(kitchenTaskCount(undefined, 0)).toBe(0);

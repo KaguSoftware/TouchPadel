@@ -20,7 +20,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { can, useAuth, usePermissions } from '../../lib/auth';
 import { QK } from '../../lib/queryKeys';
 import { fetchShiftStatus, shiftDeviceId, stationMode } from './api';
-import { gateBlocks, railShift, shiftGate, stationHasDrawer, type Holder } from './tillShiftLogic';
+import { gateBlocks, railShift, shiftGate, type Holder } from './tillShiftLogic';
 import { TillShiftContext, type TillShiftContextValue } from './shiftContext';
 import { ShiftDialog, type ShiftDialogEntry } from './ShiftDialog';
 import { LeaveShiftDialog } from './LeaveShiftDialog';
@@ -35,7 +35,7 @@ export function ShiftProvider({ offline, children }: { offline: boolean; childre
     () => ({ holdsShift: perms.takeCourtPayment, payOnOthersShift: can(staff, 'payOnOthersShift') }),
     [perms.takeCourtPayment, staff],
   );
-  const enabled = !!staff && holder.holdsShift && stationHasDrawer(mode);
+  const enabled = !!staff && holder.holdsShift;
 
   const q = useQuery({
     queryKey: QK.tillShift.station(device),

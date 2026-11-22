@@ -192,16 +192,10 @@ export const ownerEn = {
     // Management rebuild (2026-10-17): the overview's search and its one-line summary.
     find: {
       title: 'Find a setting',
-      placeholder: 'Deposit, opening hours, kitchen screen…',
+      placeholder: 'Deposit, opening hours, offline mode…',
     },
     glance: 'At a glance',
     screens: 'Settings screens',
-    // The kitchen-screen pairing card (features/admin/KitchenPairing).
-    kitchen: {
-      title: 'Kitchen screens',
-      lead: 'A new kitchen screen connects to this café cashier with a code. Show the code here, then type it on the kitchen screen.',
-      notTill: 'The pairing code is kept on the café cashier itself. On the café cashier computer, open Settings › Computers & screens › Kitchen screens to pair a kitchen screen.',
-    },
     cards: {
       staff: 'Who can sign in, what each person can open, and the manager PINs that approve discounts and voids.',
       branches: 'Every Touch location. Open a new branch as a copy of an existing one, set it up, then open it to guests.',
@@ -308,7 +302,7 @@ export const ownerEn = {
       staleHint: 'How long every café cashier may be silent before the venue counts as offline. The café cashiers report every 10 seconds.',
       protectedHint: 'While offline, bookings that start within this many hours cannot be made or changed online, so nothing is double-booked when the café cashiers reconnect.',
       devicesTitle: 'Devices',
-      devicesLead: 'Every café cashier, desk and kitchen screen that has reported in. A café cashier that was renamed, replaced or set up by mistake keeps counting until it is retired here.',
+      devicesLead: 'Every café cashier and desk that has reported in. A café cashier that was renamed, replaced or set up by mistake keeps counting until it is retired here.',
       devicesNone: 'No device has reported in yet.',
       deviceId: 'Device',
       deviceKind: 'Kind',
@@ -446,22 +440,22 @@ export const ownerEn = {
       // build-contracts-2026-09-23 §5.1).
       cashier: 'The café cashier, open tabs, the cash drawer and customer lookup, plus My tasks: their protocol steps and a copy of their phone pages.',
       // Retired by 0155: still works, no longer given (staffModel RETIRED_ROLES).
-      prep: 'The kitchen screen only. Retired: move this person to Barista or Chef assistant.',
+      prep: 'My tasks only. Retired: move this person to Barista or Chef assistant.',
       court_desk: 'The court calendar, bookings and customers, plus My tasks, where they start a tournament and block its courts.',
-      manager: 'Runs the day: the café cashier, desk and kitchen, plus menu, prices, stock, day close, reports and the audit log. Approves discounts and voids with a PIN.',
+      manager: 'Runs the day: the café cashier and desk, plus menu, prices, stock, day close, reports and the audit log. Approves discounts and voids with a PIN.',
       owner: 'Everything, including staff accounts, Telegram, marketing and the business figures.',
       // 0155. The head roles open what their team opens; on My tasks they also
       // propose new items and review their team's ideas (#65).
-      head_barista: 'The kitchen screen, and My tasks from its header: proposing a new item, the bar team’s ideas, and their phone pages.',
-      barista: 'The kitchen screen, and My tasks from its header: their protocol steps and their phone pages.',
-      head_chef: 'The kitchen screen, and My tasks from its header: proposing a new item, the kitchen team’s ideas, and their phone pages.',
-      chef: 'The kitchen screen, and My tasks from its header: their protocol steps and their phone pages.',
+      head_barista: 'My tasks: proposing a new item, the bar team’s ideas, and their phone pages.',
+      barista: 'My tasks: their protocol steps and their phone pages.',
+      head_chef: 'My tasks: proposing a new item, the kitchen team’s ideas, and their phone pages.',
+      chef: 'My tasks: their protocol steps and their phone pages.',
       // The owner is reading, so the page is named as a page, not as "My tasks" of their own.
       driver: 'A task list (My tasks) showing the shopping list and their purchases; the run itself is on the staff phone. No café cashier, desk or kitchen.',
       marketing: 'A task list (My tasks): their steps in new items, tournaments and price changes, and proposing a price or promo change. No café cashier, desk or kitchen.',
       // Wave 5 (wave5-addendum-2026-09-25 §4.2). The waiter's stock clause
       // joined with Move stock (lane S, V8): the moves are made on the phone.
-      assistant_barista: 'The kitchen screen, and My tasks from its header: their checklists, the bar team’s teachings, recipe ingredients and their phone pages.',
+      assistant_barista: 'My tasks: their checklists, the bar team’s teachings, recipe ingredients and their phone pages.',
       waiter: 'A task list (My tasks): their checklists, cleaning photos included, and their phone pages, where they move stock between the cafe and the bakery. No café cashier, desk or kitchen.',
       shop_staff: 'The Touch Shop desk on its own PC: the shop cashier, its own drawer, the shop store (goods in, counts), shop products, prices and suppliers. Nothing of the café, the courts or the reports.',
       // 0392: the developer who looks after the system.
@@ -523,7 +517,8 @@ export const ownerEn = {
       owner: 'An owner opens everything, so there is nothing to tick.',
       jobsTitle: 'Second jobs',
       jobsHint: 'Each one adds that job’s screens and buttons beside their role.',
-      management: 'A manager already opens the café cashier, the desk, the kitchen screen and the shop.',
+      management: 'A manager already opens the café cashier, the desk and the shop.',
+      cashierWithBar: 'Every barista also works as a cashier, so Cashier stays ticked.',
       pagesTitle: 'Pages they can open',
       pagesHint: 'Untick a page to take it off their menu and keep them out of it.',
       areas: {
@@ -531,7 +526,6 @@ export const ownerEn = {
         desk: 'Court desk',
         customers: 'Customers',
         tournaments: 'Tournaments',
-        kds: 'Kitchen',
         shop: 'Touch Shop',
         tasks: 'My tasks',
         insights: 'Insights',

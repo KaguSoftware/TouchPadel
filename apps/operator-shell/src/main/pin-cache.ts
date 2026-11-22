@@ -106,7 +106,7 @@ function deleteMeta(key: string): void {
  * cashier), cached ONLY so that person can unlock their own idle lock while
  * the station is offline. A 'self' observation never downgrades a manager
  * entry for the same hash, and a 'self' row is never accepted as a manager
- * PIN (unlockPinOffline, mayLeave, the pairing card, the queue-row resolve).
+ * PIN (unlockPinOffline, mayLeave, the queue-row resolve).
  */
 export function observePin(pin: string, role: Role | 'self' = 'manager', staffId?: string): void {
   const hash = hashPin(pin);

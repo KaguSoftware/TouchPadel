@@ -45,8 +45,6 @@ export const QK = {
     all: ['tab'] as const satisfies QueryKey,
     one: (tabId: string) => ['tab', tabId] as const satisfies QueryKey,
   },
-  /** Live kitchen tickets (kds/KdsBoard.tsx). */
-  tickets: ['tickets'] as const satisfies QueryKey,
   /** Waiter calls awaiting the floor (till/WaiterCallsPanel.tsx). */
   waiterCalls: ['waiterCalls'] as const satisfies QueryKey,
   /** Reservations on one business date, the desk grid (desk/useTradingNight.ts). */
@@ -101,7 +99,7 @@ export const QK = {
   suggestionsNew: ['suggestions', 'new'] as const satisfies QueryKey,
   /** app.recipe_changes_page, filter 'waiting': the Recipe changes card on /protocols. */
   recipeChangesWaiting: ['recipeChanges', 'waiting'] as const satisfies QueryKey,
-  /** app.release_ideas_to_review: the New item card, /tasks and the kitchen board's My tasks count. */
+  /** app.release_ideas_to_review: the New item card, /tasks and the My tasks count. */
   ideasToReview: ['ideas', 'toReview'] as const satisfies QueryKey,
 
   // Wave 5, people records (wave5-addendum-2026-09-25 §5.2). Each holds the

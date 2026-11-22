@@ -17,6 +17,73 @@ is a line in that file.
 
 ## Migrations
 
+- **0449 (2026-11-22, customer_ban_and_tags; Majed: "easy to block somebody from doing anything
+  on the system ... a tag ... this guy gets 15% across everything"):** the full ban is a
+  `customer_flags` row of type `ban` written only by `app.set_customer_ban` (court desk, manager,
+  owner), enforced by `app.pre_request` (every request of the banned account: `CUSTOMER_BANNED`),
+  the auth ban, and the `customer_ban_guard` trigger on reservations, match_seats, match_requests,
+  lesson_enrolments, tournament_entries and tabs (new rows only; a booking's bill and a merge
+  re-point pass). A new table where a customer's NEW activity lands gets the same trigger. Tags:
+  `customer_tags` + `customer_tag_members`; a tag's % reaches a bill only through
+  `app.customer_standing_discount(customer, part)`, so a new reader of the standing discount calls
+  it, never `customer_discounts` directly. **0449 holds** `set_customer_flags`,
+  `customer_tab_discount_plan`, `apply_customer_court_discount`, `bill_customer_discount`,
+  `pre_request` and `profile_merge_columns`: re-issue from 0449.
+- **0448 (2026-11-21, desk_made_accounts; Majed: "any customer that does anything, even if they
+  don't have the mobile app, they are added to our customer database"):** every desk screen that
+  takes a typed name and number (a booking, a repeat booking, an open-match seat, a lesson place,
+  a café or shop order) first asks the edge function `desk-customer-create` with
+  `ifExists: 'return'`: the account holding that number (200 `{id, existing: true, claimed,
+  customer}`, never a 409) or a new one made from the name and number alone (201), and writes its
+  row against that account. In that mode the cashier and the shop assistant may ask too
+  (`DESK_ROLES`, areas desk | till | shop | customers); the Customers form keeps court desk,
+  manager, owner. No new function, table or signature: **0448 holds `desk_register_customer`**
+  (0368 no longer: the actor guard is court_desk, manager, owner, cashier or shop_staff as the
+  main role OR a second job; it read `staff.role` alone) **and `phone_sign_up_status`** (0414 no
+  longer: one more answer, `desk`, when `app.profile_is_desk_walkin` holds for a live keyed profile
+  that is neither staff nor a coach, the very record `phone_claim_internal` merges in; `taken` is
+  tested first; an older phone build reads `desk` as `unknown`). The phone's Sign in, told "no
+  account" by GoTrue, asks it and on `desk` opens Create account with the number filled in; the
+  confirming code claims the record (0307: bookings, bills, points and places move, never the
+  desk's typed name or gender, c21). The lesson screens use only an account nobody has signed in
+  to (`claimed: false`): a number a person already uses in the app stays typed and is linked by
+  the server after its owner confirms (coaching C-21, R44). A booking queued offline keeps the
+  typed name (replay is unchanged). **A name with no number is a customer too** (Majed, same day):
+  `desk_register_customer` with a NULL/blank `p_phone` registers the name alone (no phone, no
+  key, audited `customer.draft`, returns `incomplete: true`; the edge function gives it
+  `name-<uuid>@guest.touch.local`). Nothing is matched by name: two Alis are two records. The new
+  service-role **`app.desk_complete_customer(p_customer_id, p_phone, p_actor_id)`** adds the
+  number later (same roles; only the desk's own draft: a `customer.draft` row, still no phone,
+  never signed in, not staff or a coach, else `CUSTOMER_NOT_INCOMPLETE`; `DUPLICATE_PHONE` detail
+  the holder), audited `customer.create` (`completed`), which makes it an ordinary keyed walk-in.
+  **0448 also holds `customer_search` and `customer_directory`** (0262 no longer: only their ORDER
+  BY, a customer with a number before one saved by name alone). The operator tells a draft by
+  its placeholder address (`isIncompleteCustomer`). `tests/desk-made-accounts.test.ts` (the edge
+  cases need the edge runtime).
+- **0447 (2026-11-20, kitchen_screen_removed; Majed: "fully get rid of the kitchen screen ... delete
+  it remove it erase it"; orders are no longer sent to a kitchen, they are an orders tab the baristas
+  watch):** drops `app.kitchen_board`, `app.kds_ack_tickets`, `app.recall_ticket`,
+  `app.kitchen_reach`, `app.set_order_item_ready` and `app.set_ticket_status`, and the
+  `order_items_ready_rt` trigger (`item_ready` event); the access area
+  `kds` leaves `app.access_area_rpcs`, the CHECK on `staff.blocked_areas` (scrubbed from every row
+  first) and `app.set_staff_access` (re-issued from 0362); `recall_ticket` leaves
+  `app.queueable_rpcs`; `app.ops_overview` (from 0292) no longer returns `ticketsQueued`,
+  `ticketsPreparing` or `ticketsLate`. **Kept on purpose:** `tickets.kds_seen_at` as an unused column (the migration gate refuses a DROP COLUMN on a direct push), the `tickets` table and one ticket per
+  sent order (till_add_items, counter orders, Telegram's `app.ticket_transition`, reports), the
+  `kds` realtime topic (waiter calls and delivery announcements ride it) and the `prep` role. A
+  ticket stays `queued` unless a Telegram button moves it; no figure waits on one (reports count an
+  order as served once its tab settles). `tests/kitchen-screen-removed.test.ts`; the four kitchen
+  board test files and their rls-matrix rows are gone.
+- **0446 (2026-11-20, baristas_work_the_till; Majed: "All baristas will take on cashier. Whether
+  it's head or not head"):** trigger `staff_barista_cashier` (`app.trg_staff_barista_cashier`,
+  BEFORE INSERT OR UPDATE OF role, extra_roles) keeps `cashier` in `staff.extra_roles` for the bar
+  team (head_barista, barista, assistant_barista) and for a barista second job; a main role moved
+  off the bar drops it; existing baristas backfilled. Every reader already counts a second job, so
+  no client changed except the operator Access list, which shows the box locked. A test that makes
+  a barista now gets a cashier too. **0446 holds `app.assert_tab_kind_role`** (0244 no longer): it
+  read `app.staff_role()`, the main job alone, so a second-job cashier passed every till RPC's
+  `is_staff` door and was then refused `TAB_KIND_FORBIDDEN`; it now reads `app.my_staff_roles()`.
+  `tests/second-jobs.test.ts` "0446".
 - **0445 (2026-11-14, loyalty_card_gifts; Majed: Green = a birthday drink + a premium profile
   ring, Blue = free add-ons, the drink card full at 6 not 8, a tea or water free with any dessert,
   a drink and a dessert on the birthday; every privilege set up in the operator):**
@@ -452,8 +519,8 @@ is a line in that file.
   `tests/sweeps-report.test.ts` counts handlers against `app.monitor` calls in each latest body.
   `app.monitor_scrub_text` masks any run of eight digits, dashes included, so a digit-heavy uuid
   in a message or detail is stored as `[number]`.
-- Ordinal strictly greater than the current max, never a reused one. Latest is `0445`
-  (0380–0391, 0402–0416, 0420–0424, 0430, 0431, 0442 and 0445 are at the top of this list; 0392–0401 are in their own headers, and
+- Ordinal strictly greater than the current max, never a reused one. Latest is `0448`
+  (0380–0391, 0402–0416, 0420–0424, 0430, 0431, 0442, 0445–0448 are at the top of this list; 0392–0401 are in their own headers, and
   0377–0379 have no file). Before them: (0376 loyalty_tier_colors, 2026-10-31 (Ameen: a tier made "from 100 points" never reached a
   gifted account, and the owner picks each tier's card colour): `loyalty_tiers.color` (classic |
   bronze | silver | gold | platinum | black, default classic, `loyalty_tiers_color`; the same keys
@@ -763,7 +830,7 @@ is a line in that file.
   0149 assistant-cap, 0150 move-not-into-past, 0151 out-of-stock-alert, 0152 my-reservations,
   0153 terms-consent, 0154 analytics-returning-guest, 0155–0157 six new staff roles, 0158–0206
   protocols and the staff phone (change-order line 10), 0207–0227 multi-venue slices 2–4); the next is
-  `0446`. **Check the directory, not this line** — it said 0146 while 0147–0149 were already on
+  `0449`. **Check the directory, not this line** — it said 0146 while 0147–0149 were already on
   disk, and later 0150 while 0154 was, and a reused ordinal fails `check-migrations.mjs` after the
   file is written.
 - `0069` and `0071` are already doubled; `0023`, `0040` and `0101` have no file, so leave the gaps.

@@ -2,21 +2,13 @@
  * My tasks (/tasks) strings — owned by the team lane, lane D on protocols
  * (docs/design/protocols/build-contracts-2026-09-23.md §4). Mirror every key
  * in team.ar.ts. /tasks holds the protocol steps of every hireable role but
- * management, its starts and step forms, and the kitchen board's My tasks
- * button. The read-only copies of the phone's pages are `ws.rolePages.phone`.
+ * management, its starts and step forms, and the bar and kitchen's landing page. The read-only copies of the phone's pages are `ws.rolePages.phone`.
  */
 export const teamEn = {
   tasks: {
     title: 'My tasks',
     lead: 'Your steps in new items, tournaments and price changes, and what you do on the staff phone.',
-    backToBoard: 'Back to the kitchen board',
     cancel: 'Cancel',
-    // The kitchen board's header button (KitchenDisplayScreen): To do, plus a
-    // head's ideas to review.
-    kds: {
-      button: 'My tasks',
-      buttonCount: 'My tasks ({count})',
-    },
     work: {
       title: 'Protocol steps',
       none: 'Nothing is waiting on you in new items, tournaments or price changes.',

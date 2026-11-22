@@ -53,9 +53,9 @@ describe('queueRpc (0395)', () => {
 
   it('an answered call leaves nothing pending', async () => {
     mutate.mockResolvedValue({ queued: false, localId: 'L1', idempotencyKey: 'k', result: { ok: true } });
-    const out = await queueRpc('recall_ticket', { p_ticket_id: 't' });
+    const out = await queueRpc('set_venue_details', { p_ticket_id: 't' });
     expect(out.result).toEqual({ ok: true });
-    expect(isQueuedAlready('recall_ticket', { p_ticket_id: 't' })).toBe(false);
+    expect(isQueuedAlready('set_venue_details', { p_ticket_id: 't' })).toBe(false);
   });
 
   it('signatures ignore key order and undefined values', () => {

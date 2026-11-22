@@ -295,7 +295,6 @@ export function knownReason(code: string | null | undefined): KnownReason | null
 export const QUEUE_WRITE_KEY = {
   'order.create': 'order',
   'order.add_items': 'order',
-  'ticket.status': 'ticket',
   'payment.record': 'payment',
   'reservation.create': 'booking',
   'reservation.update': 'booking',

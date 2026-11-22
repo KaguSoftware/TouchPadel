@@ -7,12 +7,11 @@
  *   management the whole venue from above: three courts, the shop, the cafe
  *   courtDesk  the booking board, one booking ticked as arrived
  *   cashier    a receipt, a card, a coin and a coffee on its saucer
- *   prep       order tickets hanging on the kitchen rail
  *   shop       the court's padel racket and a tube of balls
  *   team       the checklist handed to you, two done and two to go
  *
- * The drawing belongs to the workspace, not to its place in the grid, so the
- * kitchen looks like the kitchen for every role. It is drawn in a 300x160 box
+ * The drawing belongs to the workspace, not to its place in the grid, so it
+ * looks the same for every role. It is drawn in a 300x160 box
  * and kept to the right of x=110, anchored to the inline end, so it never runs
  * under the workspace icon at the head's inline start. In Arabic the stylesheet
  * mirrors it (`.tp-ws-art`), which keeps it at the inline end there too.
@@ -68,16 +67,6 @@ function till(): string {
   return d + circ(287, 136, 9);
 }
 
-function ticketRail(): string {
-  let d = 'M118 20H300M118 26H300';
-  for (const [x, h] of [[130, 82], [186, 106], [242, 64]] as const) {
-    d += `M${x} 26v${h}h46v-${h}M${x + 8} 42h30M${x + 8} 56h20M${x + 8} 70h26`;
-    if (h > 80) d += `M${x + 8} 84h18`;
-    if (h > 100) d += `M${x + 8} 98h28M${x + 8} 112h14`;
-  }
-  return d;
-}
-
 /**
  * The racket is the court's 3D one (features/floor/rally/racket.ts) seen face
  * on, traced from its model metres: the teardrop frame, the face opening, the
@@ -128,7 +117,6 @@ const ART: Record<WorkspaceKey, string> = {
   management: venue(),
   courtDesk: bookingBoard(),
   cashier: till(),
-  prep: ticketRail(),
   shop: shopWall(),
   team: checklist(),
 };

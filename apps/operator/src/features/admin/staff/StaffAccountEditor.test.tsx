@@ -169,6 +169,36 @@ describe('StaffAccountEditor', () => {
     );
   });
 
+  it('Access: every barista is also a cashier (0446), so the box is ticked, locked and says why', async () => {
+    access.row = { extra_roles: ['cashier'], blocked_areas: [] };
+    renderPanel({ ...cashier, role: 'head_barista' });
+    const section = await screen.findByTestId('staff-access');
+    const box = within(section).getByTestId('access-job-cashier') as HTMLInputElement;
+    expect(box.checked).toBe(true);
+    expect(box.disabled).toBe(true);
+    expect(within(section).getByText('Every barista also works as a cashier, so Cashier stays ticked.')).toBeTruthy();
+    expect((within(section).getByTestId('access-page-till') as HTMLInputElement).checked).toBe(true);
+  });
+
+  it('Access: ticking Barista as a second job brings Cashier with it', async () => {
+    access.row = { extra_roles: [], blocked_areas: [] };
+    renderPanel({ ...cashier, role: 'waiter' });
+    const section = await screen.findByTestId('staff-access');
+    expect((within(section).getByTestId('access-job-cashier') as HTMLInputElement).disabled).toBe(false);
+    await userEvent.click(within(section).getByTestId('access-job-barista'));
+    const box = within(section).getByTestId('access-job-cashier') as HTMLInputElement;
+    expect(box.checked && box.disabled).toBe(true);
+    await userEvent.click(screen.getByRole('button', { name: 'Save access' }));
+    await userEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Save access' }));
+    await waitFor(() =>
+      expect(rpc).toHaveBeenCalledWith('set_staff_access', {
+        p_staff_id: 'c1',
+        p_extra_roles: ['barista', 'cashier'],
+        p_blocked_areas: [],
+      }),
+    );
+  });
+
   it('Access: an owner has nothing to tick', async () => {
     renderPanel({ ...cashier, role: 'owner' });
     expect(await screen.findByText('An owner opens everything, so there is nothing to tick.')).toBeTruthy();

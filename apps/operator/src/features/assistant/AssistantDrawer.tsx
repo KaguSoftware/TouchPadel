@@ -214,7 +214,9 @@ function DrawerSheet({ open, onClose, onExited }: { open: boolean; onClose: () =
         data-assistant-drawer=""
         style={{
           position: 'fixed',
-          insetBlock: 0,
+          insetBlockStart: 0,
+          // The composer stays above the on-screen keyboard (TouchKeyboard).
+          insetBlockEnd: 'var(--tp-osk-inset, 0px)',
           insetInlineEnd: 0,
           inlineSize: 'min(30rem, 100vw)',
           background: 'var(--tp-surface)',

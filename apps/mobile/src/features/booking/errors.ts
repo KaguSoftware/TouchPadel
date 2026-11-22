@@ -25,6 +25,8 @@ import { isTransportError } from '../../lib/network';
 const MOBILE_OVERRIDES = {
   // The guest's booking lines (booking.*, degraded.*).
   SLOT_TAKEN: 'booking.slotTaken',
+  // 0449: the club banned this account; the staff wording names their record.
+  CUSTOMER_BANNED: 'errors.accountBanned',
   // 0026 wired app.assert_bookable into hold_slot ahead of every other gate:
   // what SOW L319 (opening hours / closed days) asks the guest to be told.
   CLOSED_DATE: 'booking.closedDate',

@@ -89,7 +89,6 @@ const KEYWORDS: Partial<Record<NavLabelKey, readonly string[]>> = {
   tables: ['qr', 'table card', 'tables', 'رمز', 'طاولة'],
   devices: ['devices', 'version', 'heartbeat', 'reporting', 'الأجهزة', 'إصدار'],
   stations: ['stations', 'register', 'till', 'المحطات', 'تسجيل', 'صندوق'],
-  kitchenScreens: ['kds', 'pair', 'pairing', 'kitchen', 'ربط', 'المطبخ'],
   offlineMode: ['offline', 'internet', 'connection', 'وضع عدم الاتصال', 'انترنت', 'اتصال'],
   loyalty: ['loyalty', 'points', 'tiers', 'الولاء', 'نقاط', 'مستويات'],
   ranks: ['ranks', 'leaderboard', 'board', 'levels', 'results', 'score', 'الترتيب', 'لوحة الصدارة', 'المستويات', 'النتائج'],

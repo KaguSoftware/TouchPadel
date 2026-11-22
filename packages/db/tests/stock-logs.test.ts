@@ -178,7 +178,8 @@ describe.skipIf(!docker)('stores: logs (rolled-back transactions)', () => {
   });
 
   it('bad lines stop before the internal: never EMPTY_DELIVERY or INVALID_LINE (M6); other roles are refused', () => {
-    const others = { bar: 'barista', chef: 'chef', wtr: 'waiter', ab: 'assistant_barista', drv: 'driver', mkt: 'marketing' };
+    // The barista and the assistant barista log as cashiers since 0446.
+    const others = { chef: 'chef', wtr: 'waiter', drv: 'driver', mkt: 'marketing' };
     const r = run([
       MK('hb', 'head_barista'),
       ...Object.entries(others).map(([k, role]) => MK(k, role)),

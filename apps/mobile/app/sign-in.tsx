@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { useRouter } from '../src/navigation/useRouter';
 import { supabase } from '../src/lib/supabase';
-import { sendSignInCode, signIn } from '../src/features/auth/api';
+import { phoneSignUpStatus, sendSignInCode, signIn } from '../src/features/auth/api';
+import { patchSignUpDraft, resetSignUpDraft } from '../src/features/auth/signUpDraft';
 import { linkErrorParam } from '../src/features/auth/deepLink';
 import { RequireNoSession } from '../src/features/auth/RequireNoSession';
 import { usePostAuthContinue } from '../src/features/booking/usePostAuthContinue';
@@ -39,7 +40,10 @@ import { useToast } from '../src/components/overlays';
  *          app/verify-otp.tsx (mode signin) signs the guest in with it. Only an
  *          existing account gets one; a number nobody uses is told so on the
  *          field. A number whose sign-up code was never entered is confirmed
- *          by this code too.
+ *          by this code too. A number the club's desk already wrote down (a
+ *          booking, a seat, an order: 0448, Majed 2026-11-21) has a customer
+ *          record and no login yet: Create account opens with the number
+ *          filled in, and its code claims that record.
  *   email  email + password (the password field stays mounted until a phone
  *          number is typed, for autofill). Wrong credentials render on the password field; an address
  *          whose link was never opened goes to verify-email and its resend
@@ -107,8 +111,19 @@ function SignInScreen() {
       // incomplete profile, the pending slot, or the tabs.
       router.push({ pathname: '/verify-otp', params: { phone: e164, mode: 'signin' } });
     } catch (err) {
-      if (isNoAccountForPhone(err)) setIdentifierError(t('auth.resetNoAccount'));
-      else setError(t(mapOtpError(err)));
+      if (isNoAccountForPhone(err)) {
+        // 0448: the desk already made this person a customer. They finish the
+        // account themselves: Create account with the number in place, and the
+        // code that confirms it brings their bookings, bills and points along.
+        if ((await phoneSignUpStatus(supabase, e164)) === 'desk') {
+          resetSignUpDraft();
+          patchSignUpDraft({ iso, national });
+          toast(t('auth.deskAccountFinish'), 'info');
+          router.replace('/sign-up');
+          return;
+        }
+        setIdentifierError(t('auth.resetNoAccount'));
+      } else setError(t(mapOtpError(err)));
     } finally {
       setBusy(false);
     }

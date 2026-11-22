@@ -2,20 +2,27 @@
  * "Staff QR" (0442): the rail footer row any signed-in person presses to show the desk's clock QR
  * full screen, for a colleague who arrives after the station is signed in. The same QR logs
  * arriving and leaving. Without a key on this machine the view says the desk is not set up, and
- * offers setup to whoever may do it (Settings › Stations).
+ * whoever may set it up does it right here with one press (useSetUpDesk: it registers the computer
+ * at the branch when it is not yet a station); the QR then takes the screen. Settings › Stations
+ * keeps the club's location and the other desks.
  *
  * It also exports the sign-in screen's panel (`SignInClockPanel`): before anyone signs in, the
  * QR is the first thing on the station.
  */
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { useNavigate } from '@tanstack/react-router';
+import { useQuery } from '@tanstack/react-query';
 import { canAccess, useAuth } from '../../lib/auth';
 import { useLocale } from '../../lib/i18n';
 import { ScreenOwnerClaim } from '../../lib/screenOwner';
-import { Button, trapTab } from '../../components/ui';
+import { useVenue } from '../../lib/venue';
+import { isRpcMissing } from '../../lib/appRpc';
+import { Button, ErrorText, trapTab } from '../../components/ui';
 import { Icon } from '../../components/icons';
 import { railLabelStyle } from '../../components/railStyles';
 import { ClockQrCode, useStationKey } from './ClockQr';
+import { CK, fetchClockSetup } from './api';
+import { isKeyNotKept, useSetUpDesk } from './useSetUpDesk';
 
 export const CLOCK_SETUP_ROUTE = '/admin/settings/stations';
 
@@ -100,28 +107,78 @@ export function StaffQrView({ onClose }: { onClose: () => void }) {
           <div style={{ display: 'grid', justifyItems: 'center', gap: 'var(--tp-sp-4)' }}>
             <ClockQrCode secret={key.secret} size="min(62vh, 30rem)" digitsSize="calc(var(--tp-fs-3xl) * 1.5)" />
             <p style={{ margin: 0, fontSize: 'var(--tp-fs-lg)', textAlign: 'center', maxInlineSize: '34ch' }}>{tr('ws.clock.qr.caption')}</p>
+            {canSetUp && (
+              <PlaceMissingNote
+                onOpen={() => {
+                  onClose();
+                  void navigate({ to: CLOCK_SETUP_ROUTE });
+                }}
+              />
+            )}
           </div>
         ) : (
           <div style={{ display: 'grid', justifyItems: 'center', gap: 'var(--tp-sp-3)', textAlign: 'center', maxInlineSize: '28rem' }} data-testid="staff-qr-missing">
             <Icon name="qr" size={40} />
             <h2 style={{ fontSize: 'var(--tp-fs-xl)', color: 'inherit' }}>{tr('ws.clock.qr.missingTitle')}</h2>
-            <p style={{ margin: 0, opacity: 0.9 }}>{tr(canSetUp ? 'ws.clock.qr.missingBodyManager' : 'ws.clock.qr.missingBody')}</p>
-            {canSetUp && (
-              <Button
-                kind="primary"
-                icon="settings"
-                onClick={() => {
-                  onClose();
-                  void navigate({ to: CLOCK_SETUP_ROUTE });
-                }}
-                data-testid="staff-qr-setup"
-              >
-                {tr('ws.clock.qr.setUp')}
-              </Button>
-            )}
+            {canSetUp ? <SetUpHere /> : <p style={{ margin: 0, opacity: 0.9 }}>{tr('ws.clock.qr.missingBody')}</p>}
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+/** The one-press setup on the Staff QR screen; on success the key event swaps in the QR. */
+function SetUpHere() {
+  const { tr } = useLocale();
+  const setUp = useSetUpDesk();
+  const err = setUp.error;
+  return (
+    <>
+      <p style={{ margin: 0, opacity: 0.9 }}>{tr('ws.clock.qr.missingBodyManager')}</p>
+      {/* The rail's "here and now" green: the primary blue would vanish into this blue screen. */}
+      <Button
+        kind="primary"
+        size="lg"
+        icon="qr"
+        busy={setUp.isPending}
+        onClick={() => setUp.mutate()}
+        style={{ background: 'var(--tp-rail-active)', borderColor: 'var(--tp-rail-active)', color: 'var(--tp-rail-active-fg)' }}
+        data-testid="staff-qr-setup"
+      >
+        {tr('ws.clock.qr.setUp')}
+      </Button>
+      {err &&
+        (isRpcMissing(err) ? (
+          <p role="alert" style={{ margin: 0 }} data-testid="staff-qr-setup-error">{tr('ws.clock.qr.unavailable')}</p>
+        ) : isKeyNotKept(err) ? (
+          <p role="alert" style={{ margin: 0 }} data-testid="staff-qr-setup-error">{tr('ws.clock.setup.desk.notKept')}</p>
+        ) : (
+          <div data-testid="staff-qr-setup-error">
+            <ErrorText error={err} />
+          </div>
+        ))}
+    </>
+  );
+}
+
+/**
+ * Under a working QR, for whoever may set things up: phones are refused until the club's location
+ * is set, so say so here rather than let the first scan fail.
+ */
+function PlaceMissingNote({ onOpen }: { onOpen: () => void }) {
+  const { tr } = useLocale();
+  const { branchId } = useVenue();
+  const q = useQuery({ queryKey: CK.setup(branchId), enabled: Boolean(branchId), queryFn: fetchClockSetup, retry: false });
+  if (!q.data || q.data.place) return null;
+  return (
+    <div style={{ display: 'grid', justifyItems: 'center', gap: 'var(--tp-sp-2)', textAlign: 'center', maxInlineSize: '34ch' }} data-testid="staff-qr-place-missing">
+      <p style={{ margin: 0, opacity: 0.9 }}>{tr(q.data.canEditPlace ? 'ws.clock.qr.placeMissing' : 'ws.clock.qr.placeMissingManager')}</p>
+      {q.data.canEditPlace && (
+        <Button className="tp-rail-btn" icon="pin" onClick={onOpen} data-testid="staff-qr-set-place">
+          {tr('ws.clock.qr.setPlace')}
+        </Button>
+      )}
     </div>
   );
 }

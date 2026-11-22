@@ -114,15 +114,6 @@ export function FloorPanel({ data, go }: { data: OpsOverview; go: Go }) {
             <FigureRow label={tr('ws.manager.ops.floor.orders')} value={c.ordersToday} />
           </RowList>
         </Group>
-        {/* Late orders are a row of "Needs you" when there are any. These two
-            overlap with them (a late order is also waiting or being made), so
-            the kitchen is never added up. */}
-        <Group tone="gold" title={tr('ws.manager.ops.floor.kitchen')}>
-          <RowList chevrons={false}>
-            <FigureRow label={tr('ws.manager.ops.floor.waiting')} value={c.ticketsQueued} />
-            <FigureRow label={tr('ws.manager.ops.floor.preparing')} value={c.ticketsPreparing} />
-          </RowList>
-        </Group>
       </div>
     </Panel>
   );

@@ -206,8 +206,8 @@ details[open] > .tp-crash-details .tp-crash-chev { transform: rotate(90deg); }
 @media (prefers-reduced-motion: reduce) { .tp-incident-card, .tp-incident-card:hover { transition: none; transform: none; } }
 .tp-iconbtn { padding-inline: 0.45rem; inline-size: 2.25rem; }
 .tp-iconbtn[data-size='sm'] { inline-size: 1.85rem; }
-/* Fingers, not mice: the till and the kitchen board get the real target. */
-[data-workspace='cashier'] .tp-iconbtn, [data-workspace='prep'] .tp-iconbtn {
+/* Fingers, not mice: the till gets the real target. */
+[data-workspace='cashier'] .tp-iconbtn {
   inline-size: var(--tp-touch); min-block-size: var(--tp-touch);
 }
 /* The till's service rail scrolls; its panels never shrink. A framed panel
@@ -253,6 +253,32 @@ details[open] > .tp-crash-details .tp-crash-chev { transform: rotate(90deg); }
 .tp-tile:hover:not(:disabled) { background: var(--tp-hover); color: var(--tp-hover-fg); }
 .tp-tile:active:not(:disabled) { transform: scale(0.99); }
 .tp-tile:disabled { cursor: not-allowed; }
+/* The on-screen keyboard (components/TouchKeyboard.tsx). --tp-osk-inset is its
+   height while it is up: the body is padded by it so a screen taller than what
+   is left can still scroll its field above the keys (the shell, the lock and
+   dialogs shrink by it instead). The pressed look is set from data-down, not
+   :active, because the keys keep focus off themselves and a touch never
+   reaches :active on them. */
+body { padding-block-end: var(--tp-osk-inset, 0px); }
+/* The keys cover the bottom of the window: scrollIntoView must stop above them. */
+html { scroll-padding-block-end: var(--tp-osk-inset, 0px); }
+/* A field scrolled clear of the keys stops a little above them, not with its focus ring on their edge. */
+input, textarea, form { scroll-margin-block-end: var(--tp-sp-3); }
+.tp-osk-key { background: var(--tp-surface); color: var(--tp-fg); font-family: inherit; font-size: var(--tp-fs-xl); }
+.tp-osk-key[data-big] { font-size: var(--tp-fs-2xl); }
+.tp-osk-key .tp-osk-sub { font-size: var(--tp-fs-sm); white-space: nowrap; }
+/* A narrow or short screen: smaller faces, and a special key keeps only what
+   names it (Enter its tick, the language key its word). */
+@media (max-width: 760px), (max-height: 540px) {
+  .tp-osk-key { font-size: var(--tp-fs-lg); }
+  .tp-osk-key[data-big] { font-size: var(--tp-fs-xl); }
+  .tp-osk-key [data-osk-optional] { display: none !important; }
+}
+.tp-osk-key[data-tone='special'] { background: var(--tp-surface-3); }
+.tp-osk-key[data-tone='accent'] { background: var(--tp-accent); border-color: var(--tp-accent) !important; color: var(--tp-accent-contrast); }
+.tp-osk-key[data-active] { background: var(--tp-accent); border-color: var(--tp-accent) !important; color: var(--tp-accent-contrast); }
+.tp-osk-key[data-down] { background: var(--tp-hover); color: var(--tp-hover-fg); transform: translateY(1px); }
+.tp-osk-key[data-tone='accent'][data-down] { filter: brightness(0.92); background: var(--tp-accent); color: var(--tp-accent-contrast); }
 /* The workspace picker's tiles (routes/workspaces.tsx, Majed 2026-10-19). A
    head in the rail's colour carries a line drawing of what the workspace runs
    (components/WorkspaceArt) in the court-line stroke; the body holds the name
@@ -935,42 +961,6 @@ button.tp-nav-item { background: transparent; }
 }
 @media (prefers-reduced-motion: reduce) { .tp-seg-thumb { transition: none !important; } }
 .tp-seg-n { font-size: var(--tp-fs-xs); font-weight: 600; padding-inline: 0.4rem; min-inline-size: 1.25rem; line-height: 1.15rem; border-radius: var(--tp-radius-pill); text-align: center; font-variant-numeric: tabular-nums; background: color-mix(in oklab, currentColor 16%, transparent); }
-
-/* ---- kitchen board ---- */
-[data-workspace='prep'] { background: var(--tp-kds-bg); color: var(--tp-kds-fg); }
-[data-workspace='prep'] .tp-btn { background: var(--tp-kds-card-2); border-color: var(--tp-kds-border); color: var(--tp-kds-fg); }
-[data-workspace='prep'] .tp-btn[data-kind='primary'] { background: var(--tp-kds-fresh); border-color: var(--tp-kds-fresh); color: var(--tp-brand-black); }
-[data-workspace='prep'] .tp-btn:hover:not(:disabled) { background: var(--tp-hover); color: var(--tp-hover-fg); }
-[data-workspace='prep'] .tp-btn[data-kind='primary']:hover:not(:disabled) { background: var(--tp-kds-fresh); border-color: var(--tp-kds-fresh); color: var(--tp-brand-black); filter: brightness(1.1); }
-[data-workspace='prep'] :focus-visible { outline-color: var(--tp-kds-fg); }
-[data-workspace='prep'] input[type='checkbox'] { accent-color: var(--tp-kds-fresh); }
-[data-workspace='prep'] kbd { background: var(--tp-kds-card-2); border-color: var(--tp-kds-border); color: var(--tp-kds-muted); }
-/* The light-theme scrollbar painted a near-white bar down a 16%-lightness board. */
-[data-workspace='prep'] * { scrollbar-color: var(--tp-kds-border) transparent; }
-[data-workspace='prep'] ::selection { background: var(--tp-kds-card-2); color: var(--tp-kds-fg); }
-[data-workspace='prep'] .tp-skel { background: var(--tp-kds-card-2); }
-[data-workspace='prep'] .tp-skel::after { background: linear-gradient(90deg, transparent, var(--tp-kds-border), transparent); }
-/* A dialog over the board (Modal tone="board"): the desk tokens re-pointed at
-   the board's own, so the panel is dark like the wall it opens on. Only
-   existing tokens: --tp-kds-* already carry their blue-mode values. */
-[data-tone='board'] {
-  --tp-surface: var(--tp-kds-card);
-  --tp-surface-2: var(--tp-kds-card-2);
-  --tp-surface-3: var(--tp-kds-card-2);
-  --tp-fg: var(--tp-kds-fg);
-  --tp-muted-fg: var(--tp-kds-muted);
-  --tp-border: var(--tp-kds-border);
-  --tp-border-strong: var(--tp-kds-border);
-  --tp-accent: var(--tp-kds-fresh);
-  --tp-accent-soft: var(--tp-kds-card-2);
-  --tp-accent-soft-fg: var(--tp-kds-fg);
-  --tp-hover: var(--tp-kds-card-2);
-  --tp-hover-fg: var(--tp-kds-fg);
-  color: var(--tp-kds-fg);
-}
-[data-tone='board'] :focus-visible { outline-color: var(--tp-kds-fg); }
-[data-tone='board'] input[type='checkbox'] { accent-color: var(--tp-kds-fresh); }
-[data-tone='board'] * { scrollbar-color: var(--tp-kds-border) transparent; }
 
 /* ---- live floor: the zoom track beside the two step buttons ----
    A native range input keeps the keyboard, touch and slider semantics; only

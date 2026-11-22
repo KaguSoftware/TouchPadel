@@ -103,10 +103,16 @@ function SignUpScreen({ step }: { step: number }) {
     setBusy(true);
     try {
       // 0414: a number a whole account already owns stops here, before a code
-      // is paid for. 'unknown' (old server, throttled, offline) goes on as
-      // before, and verify-otp says so if the code opens an existing account.
+      // is paid for, and goes straight to sign-in with the number filled in.
+      // Both steps come off the stack (step 0 leaving ends the draft), so back
+      // from sign-in goes where Create account began. 'unknown' (old server,
+      // throttled, offline) goes on as before, and verify-otp says so if the
+      // code opens an existing account.
       if ((await phoneSignUpStatus(supabase, e164)) === 'taken') {
-        return setFieldErrors({ phone: t('auth.phoneTakenSignUp') });
+        toast(t('auth.phoneTakenSignUp'), 'info');
+        router.dismiss();
+        router.replace({ pathname: '/sign-in', params: { method: 'phone', phone: e164 } });
+        return;
       }
       await sendSignUpCode(supabase, e164);
       setRegistering(true);

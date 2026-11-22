@@ -36,6 +36,7 @@ export function MoneyInput({
   style,
   inputStyle: inputOverride,
   bare,
+  besidePad,
   'aria-label': ariaLabel,
 }: {
   value: number | null;
@@ -51,6 +52,12 @@ export function MoneyInput({
   inputStyle?: CSSProperties;
   /** No formatted readout beside the input: the caller draws its own frame and unit. */
   bare?: boolean;
+  /**
+   * The caller draws an AmountPad beside this box: a touch on it does not
+   * also raise the on-screen keyboard (components/TouchKeyboard.tsx), whose
+   * number pad would be a second copy of the one already on the screen.
+   */
+  besidePad?: boolean;
   /** For a box with no Field around it, such as a row under a column header. */
   'aria-label'?: string;
 }) {
@@ -87,6 +94,7 @@ export function MoneyInput({
         dir="ltr"
         inputMode="numeric"
         autoComplete="off"
+        data-osk={besidePad ? 'off' : undefined}
         disabled={disabled}
         placeholder={placeholder}
         value={text}

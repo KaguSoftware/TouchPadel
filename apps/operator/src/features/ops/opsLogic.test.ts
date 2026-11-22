@@ -19,7 +19,7 @@ import { protocolsWaitingTotal, readProtocolsWaiting } from './protocolsWaiting'
 
 const contractPayload = {
   bookings: { today: 12, arrived: 4, upcoming: 7, noShows: 1 },
-  cafe: { openTabs: 3, ticketsQueued: 2, ticketsLate: 1, waiterCallsOpen: 0 },
+  cafe: { openTabs: 3, waiterCallsOpen: 0 },
   stock: { low: 2, belowPar: 5, expiringSoon: 1, expired: 0, lastCountAt: '2026-09-02T20:00:00Z' },
   staffActivity: [{ staffId: 's1', name: 'Noor', ordersTaken: 9, bookingsCreated: 2 }],
   exceptions: {
@@ -34,8 +34,7 @@ describe('normalizeOverview', () => {
   it('parses the contract shape', () => {
     const o = normalizeOverview(contractPayload);
     expect(o.bookings).toMatchObject({ today: 12, arrived: 4, upcoming: 7, noShows: 1 });
-    expect(o.cafe).toMatchObject({ openTabs: 3, ticketsQueued: 2, ticketsLate: 1, waiterCallsOpen: 0 });
-    expect(o.cafe.ticketsPreparing).toBeNull();
+    expect(o.cafe).toMatchObject({ openTabs: 3, waiterCallsOpen: 0 });
     expect(o.stock.lastCountAt).toBe('2026-09-02T20:00:00Z');
     expect(o.staffActivity).toEqual([
       { staffId: 's1', name: 'Noor', role: null, ordersTaken: 9, bookingsCreated: 2, paymentsTaken: null },
@@ -52,14 +51,12 @@ describe('normalizeOverview', () => {
     const o = normalizeOverview({
       ...contractPayload,
       bookings: { ...contractPayload.bookings, nextArrival: { startAt: '2026-09-03T15:00:00Z', guestName: 'Ali' } },
-      cafe: { ...contractPayload.cafe, ticketsPreparing: 4 },
       staffActivity: [{ staffId: 's1', name: 'Noor', role: 'cashier', ordersTaken: 9, bookingsCreated: 2, paymentsTaken: 5 }],
       exceptions: { ...contractPayload.exceptions, waste: { count: 3, amountIqd: 2500 } },
       dayClose: { ...contractPayload.dayClose, blockingTabs: [{ id: 't1', label: 'T4' }, 't2'] },
     });
     expect(o.bookings.nextArrivalAt).toBe('2026-09-03T15:00:00Z');
     expect(o.bookings.nextArrivalLabel).toBe('Ali');
-    expect(o.cafe.ticketsPreparing).toBe(4);
     expect(o.staffActivity[0]).toMatchObject({ role: 'cashier', paymentsTaken: 5 });
     expect(o.exceptions.waste).toEqual({ count: 3, amountIqd: 2500 });
     expect(o.dayClose.blockingCount).toBe(2);
@@ -148,7 +145,7 @@ describe('needsFor', () => {
   it('drops every zero, so a clear floor on an open day needs nothing at all', () => {
     const o = normalizeOverview({
       bookings: { today: 12, arrived: 12, upcoming: 0, noShows: 3 },
-      cafe: { openTabs: 3, ticketsQueued: 2, ticketsLate: 0, waiterCallsOpen: 0 },
+      cafe: { openTabs: 3, waiterCallsOpen: 0 },
       stock: { low: 0, belowPar: 5, expiringSoon: 1, expired: 0 },
       dayClose: openDay,
     });
@@ -176,13 +173,11 @@ describe('needsFor', () => {
       matchReports: 1,
       lessonRefunds: 1,
       deposits: 1,
-      ticketsLate: 597,
       waiterCalls: 2,
     });
     expect(rows.map((r) => r.key)).toEqual([
       // A guest in the building, then a guest owed money, then a complaint.
       'waiterCalls',
-      'ticketsLate',
       'deposits',
       'lessonRefunds',
       'matchReports',
@@ -197,15 +192,13 @@ describe('needsFor', () => {
       'incidents',
       'content',
     ]);
-    expect(rows.map((r) => r.count).slice(0, 2)).toEqual([2, 597]);
+    expect(rows.map((r) => r.count).slice(0, 2)).toEqual([2, 1]);
   });
 
-  it('gives each row one way to act: a screen, the queue in place, or nothing here', () => {
-    const rows = needsFor({ waiterCalls: 1, ticketsLate: 1, deposits: 1, lessonRefunds: 1, matchReports: 1, expired: 1, low: 1, purchases: 1, tillShifts: 1, protocols: 1, deductions: 1, incidents: 1, content: 1 });
+  it('gives each row one way to act: a screen or the queue in place', () => {
+    const rows = needsFor({ waiterCalls: 1, deposits: 1, lessonRefunds: 1, matchReports: 1, expired: 1, low: 1, purchases: 1, tillShifts: 1, protocols: 1, deductions: 1, incidents: 1, content: 1 });
     expect(Object.fromEntries(rows.map((r) => [r.key, r.action]))).toEqual({
       waiterCalls: { kind: 'open', href: '/till/tabs' },
-      // The kitchen cooks them; no screen in this workspace does.
-      ticketsLate: { kind: 'none' },
       deposits: { kind: 'review' },
       lessonRefunds: { kind: 'review' },
       matchReports: { kind: 'review' },
@@ -228,12 +221,12 @@ describe('needsFor', () => {
   it('lets a read lower a row from danger to warn', () => {
     expect(needsFor({ deposits: 2 })[0]!.severity).toBe('danger');
     expect(needsFor({ deposits: 2 }, { deposits: 'warn' })[0]!.severity).toBe('warn');
-    expect(needsFor({ ticketsLate: 1, expired: 1, low: 1 }).map((r) => r.severity)).toEqual(['danger', 'danger', 'warn']);
+    expect(needsFor({ waiterCalls: 1, expired: 1, low: 1 }).map((r) => r.severity)).toEqual(['warn', 'danger', 'warn']);
   });
 
-  it('reads its four counts from ops_overview', () => {
-    const o = normalizeOverview({ cafe: { ticketsLate: 3, waiterCallsOpen: 1 }, stock: { low: 4, expired: 7 } });
-    expect(overviewNeedCounts(o)).toEqual({ waiterCalls: 1, ticketsLate: 3, expired: 7, low: 4 });
+  it('reads its three counts from ops_overview', () => {
+    const o = normalizeOverview({ cafe: { waiterCallsOpen: 1 }, stock: { low: 4, expired: 7 } });
+    expect(overviewNeedCounts(o)).toEqual({ waiterCalls: 1, expired: 7, low: 4 });
   });
 
   it('counts the protocol steps to decide and to do as one "waiting on you"', () => {

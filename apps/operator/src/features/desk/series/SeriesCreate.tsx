@@ -23,7 +23,7 @@
  * Unchanged contract: create_series in one transaction, every clash resolved
  * first (spec 06.5), the phone required so a moved date has someone to tell.
  */
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { BOOKING_STEP_MIN, bookableDurations } from '@touch/core';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
@@ -40,6 +40,8 @@ import { nameFromQuery, phoneDigitCount, phoneFromQuery, sanitizeName, sanitizeP
 import { todayInTz } from '../useTradingNight';
 import { useDebounced } from '../useDebounced';
 import { CustomerPicker, type PickedCustomer } from '../customers/CustomerPicker';
+import { useDeskAccount } from '../customers/deskAccount';
+import { DeskAccountCheckNote, DeskAccountNote } from '../customers/DeskAccountNote';
 import type { SeriesCreateResult, SeriesOccurrencePreview, SeriesPattern, SeriesPreview } from '../deskTypes';
 import {
   bookableCount,
@@ -89,6 +91,12 @@ export function RecurringSeriesCreateScreen() {
   const { tr, locale } = useLocale();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  // 0448: a typed name and number become a customer account before the series is booked.
+  const deskAccount = useDeskAccount();
+  // Unlink is the desk's "book this under the typed name": no account is looked for after it.
+  const typedOnly = useRef(false);
+  // The last press found the number on an account under another name: the form says so.
+  const [otherName, setOtherName] = useState(false);
   const settingsQ = useQuery({ queryKey: QK.venueSettings, queryFn: fetchVenueSettings });
   const courtsQ = useQuery({ queryKey: QK.courts, queryFn: fetchActiveCourts });
   const tz = settingsQ.data?.timezone ?? VENUE_TZ;
@@ -216,11 +224,28 @@ export function RecurringSeriesCreateScreen() {
     setBusy(true);
     setError(null);
     try {
+      // 0448: a typed guest with a number is saved as a customer first (the
+      // account the number already has, or a new one) and the series is
+      // theirs. No answer: booked under the typed name.
+      let who = customer;
+      if (!who && !typedOnly.current) {
+        const found = await deskAccount(walkInName, walkInPhone);
+        if (found) {
+          who = found.customer;
+          setCustomer(who);
+          // The number is somebody's under another name: the form now shows
+          // whose, and the next press books (or Unlink keeps the typed name).
+          if (found.check) {
+            setOtherName(true);
+            return;
+          }
+        }
+      }
       const data = await appRpc<SeriesCreateResult>('create_series', {
         ...seriesRpcArgs(effective),
-        p_guest_id: customer?.id ?? null,
-        p_guest_name: (walkInName.trim() || customer?.name) ?? null,
-        p_guest_phone: (walkInPhone.trim() || customer?.phone) ?? null,
+        p_guest_id: who?.id ?? null,
+        p_guest_name: (walkInName.trim() || who?.name) ?? null,
+        p_guest_phone: (walkInPhone.trim() || who?.phone) ?? null,
         p_notes: notes.trim() || null,
         p_resolutions: resolutionsForRpc(occurrences, liveResolutions),
         p_idempotency_key: seriesIdempotencyKey(),
@@ -243,6 +268,8 @@ export function RecurringSeriesCreateScreen() {
   }
 
   function startAnother() {
+    typedOnly.current = false;
+    setOtherName(false);
     setResult(null);
     setCustomer(null);
     setWalkInName('');
@@ -297,6 +324,8 @@ export function RecurringSeriesCreateScreen() {
                   }}
                   onChange={(next) => {
                     setCustomer(next);
+                    typedOnly.current = next === null;
+                    setOtherName(false);
                     if (next) {
                       // What the account says outranks what was searched for.
                       if (!nameTouched || walkInName.trim() === '') setWalkInName(sanitizeName(next.name));
@@ -304,6 +333,11 @@ export function RecurringSeriesCreateScreen() {
                     }
                   }}
                 />
+                {customer !== null && otherName && (
+                  <div style={{ marginBlockEnd: '0.85rem' }}>
+                    <DeskAccountCheckNote name={customer.name} />
+                  </div>
+                )}
                 <div className="tp-grid" data-cols="2" style={{ gap: '0.75rem' }}>
                   <Field label={tr('ws.courtDesk.series.walkInName')} required={customer === null} error={nameError}>
                     <input
@@ -333,6 +367,11 @@ export function RecurringSeriesCreateScreen() {
                     />
                   </Field>
                 </div>
+                {customer === null && (
+                  <div style={{ marginBlockEnd: '0.85rem' }}>
+                    <DeskAccountNote name={walkInName} phone={walkInPhone} />
+                  </div>
+                )}
                 <Field label={tr('ws.courtDesk.series.notes')} optional style={{ marginBlockEnd: 0 }}>
                   <input style={inputStyle} value={notes} disabled={busy} maxLength={1000} onChange={(e) => setNotes(e.target.value)} />
                 </Field>

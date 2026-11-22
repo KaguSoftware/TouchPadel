@@ -56,13 +56,6 @@ export const kitEn = {
     refunded: 'Refunded',
     unknown: 'Payment unknown',
   },
-  ticketState: {
-    queued: 'New',
-    preparing: 'Preparing',
-    ready: 'Ready',
-    completed: 'Complete',
-    voided: 'Voided',
-  },
   tabStatus: {
     open: 'Open',
     awaiting_payment: 'Awaiting payment',
@@ -76,12 +69,6 @@ export const kitEn = {
     // A lesson's court row (coaching operator.md §5.20).
     lesson: 'Lesson',
   },
-  source: {
-    web: 'Website',
-    till: 'Café cashier',
-    mobile: 'App',
-    desk: 'Desk',
-  },
   flags: {
     vip: 'VIP',
     birthday: 'Birthday',
@@ -91,6 +78,8 @@ export const kitEn = {
     // Open matches (operator.md §5.15): set by app.set_match_ban, never by the
     // flags editor. Its label is a ban code, read through matchBanReason.
     match_ban: 'Banned from open matches',
+    // 0449: the full ban, set by app.set_customer_ban; its label is the desk's reason.
+    ban: 'Banned',
     matchBanReason: {
       conduct: 'Conduct',
       no_shows: 'Repeated no-shows',
@@ -190,6 +179,20 @@ export const kitEn = {
     title: 'Transactions behind this figure',
     empty: 'No transactions in this range.',
     close: 'Close',
+  },
+  /** The on-screen keyboard of the touch stations (components/TouchKeyboard.tsx). */
+  osk: {
+    shift: 'Shift',
+    backspace: 'Delete',
+    enter: 'Enter',
+    space: 'space',
+    switchLang: 'Switch language',
+    symbols: 'Numbers and symbols',
+    letters: 'Letters',
+    hide: 'Hide keyboard',
+    keyboard: 'Keyboard',
+    show: 'Show keyboard',
+    noField: 'There is nothing to type into on this screen.',
   },
   keypad: {
     clear: 'Clear',

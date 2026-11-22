@@ -168,7 +168,7 @@ test.describe('operator stock (module 5)', () => {
     await page.getByRole('button', { name: /^Karak Tea/ }).click();
     const karak = page.getByRole('dialog', { name: 'Karak Tea' });
     await karak.getByRole('button', { name: 'Add', exact: true }).click();
-    await page.getByRole('button', { name: 'Send to kitchen' }).click();
+    await page.getByRole('button', { name: 'Place order' }).click();
     await expect(page.getByText('1× Karak Tea (Regular)').first()).toBeVisible();
 
     // The 0018 trigger consumed 50 g — no stock screen was touched.

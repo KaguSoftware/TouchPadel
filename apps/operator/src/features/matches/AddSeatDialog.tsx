@@ -23,7 +23,7 @@
  * is the approved preview's (operator-wizards.html, `seat`): "Add a player",
  * notes as WizardNote, Create customer as a link.
  */
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { formatIQD, formatNumber, formatTime, isolate, VENUE_TZ } from '@touch/i18n';
@@ -36,6 +36,8 @@ import { useToast } from '../../components/toast';
 import { ErrorText, Field, inputStyle } from '../../components/ui';
 import { ReviewList, StepWizard, WizardNote, type WizardAt, type WizardStep } from '../../components/StepWizard';
 import { CustomerPicker, type PickedCustomer } from '../desk/customers/CustomerPicker';
+import { useDeskAccount } from '../desk/customers/deskAccount';
+import { DeskAccountCheckNote, DeskAccountNote } from '../desk/customers/DeskAccountNote';
 import { PickerHint, WizardLinks } from '../desk/wizardParts';
 import { nameFromQuery, phoneFromQuery, sanitizeName, sanitizePhone } from '../desk/deskLogic';
 import type { CustomerRecord } from '../desk/deskTypes';
@@ -87,6 +89,12 @@ export function AddSeatDialog({ matchId, customerId, onClose, onAdded }: AddSeat
   const detailQ = useMatchDetail(matchId);
   const detail = detailQ.data ?? null;
   const idem = useMatchIdemKey('add');
+  // 0448: a typed name and number become a customer account before the seat is written.
+  const deskAccount = useDeskAccount();
+  // Unlink is the desk's "seat this player under the typed name": no account is looked for after it.
+  const typedOnly = useRef(false);
+  // The last press found the number on an account under another name: the Who step says so.
+  const [otherName, setOtherName] = useState(false);
 
   const [customer, setCustomer] = useState<PickedCustomer | null>(null);
   const [guestName, setGuestName] = useState('');
@@ -162,18 +170,39 @@ export function AddSeatDialog({ matchId, customerId, onClose, onAdded }: AddSeat
     setError(null);
     const statusBefore = match.status;
     try {
+      // 0448: a typed player with a number is saved as a customer first (the
+      // account the number already has, or a new one) and seated as that
+      // customer. No number or no answer: seated under the typed name.
+      let who = customer;
+      if (!who && !typedOnly.current) {
+        const found = await deskAccount(guestName, guestPhone);
+        if (found) {
+          who = found.customer;
+          setCustomer(who);
+          // The number is somebody's under another name (the Who step shows whose, the next
+          // press seats them), or its account says another gender than this match takes.
+          const known = declaredGender(who);
+          if (found.check || (wanted !== null && known !== null && known !== wanted)) {
+            setOtherName(found.check);
+            setAt(0);
+            return;
+          }
+        }
+      }
+      // A typed walk-in or an undeclared customer is seated as the category's gender, vouched here.
+      const vouchedNow = wanted !== null && (who === null || declaredGender(who) === null);
       // No type argument on the call: the assistant map finds callers by `appRpc('<name>'` (§5.1).
       const out = (await appRpc('desk_add_seat', {
         p_match_id: match.id,
-        p_customer_id: customer?.id ?? null,
-        p_guest_name: customer ? null : guestName.trim(),
-        p_guest_phone: customer ? null : guestPhone.trim() || null,
-        p_gender: vouched ? wanted : null,
+        p_customer_id: who?.id ?? null,
+        p_guest_name: who ? null : guestName.trim(),
+        p_guest_phone: who ? null : guestPhone.trim() || null,
+        p_gender: vouchedNow ? wanted : null,
         p_idempotency_key: idem.key(),
       })) as { seat_no?: number; match_status?: string; reservation_id?: string | null } | null;
       idem.renew();
       invalidateMatchSeats(qc);
-      const name = isolate(customer?.name ?? guestName.trim());
+      const name = isolate(who?.name ?? guestName.trim());
       toast.ok(await addedToast(out?.match_status ?? statusBefore, statusBefore, name));
       onAdded?.();
       onClose();
@@ -241,10 +270,13 @@ export function AddSeatDialog({ matchId, customerId, onClose, onAdded }: AddSeat
               }}
               onChange={(next) => {
                 setCustomer(next);
+                typedOnly.current = next === null;
+                setOtherName(false);
                 setError(null);
               }}
             />
             {customer === null && <PickerHint />}
+            {customer !== null && otherName && <DeskAccountCheckNote name={customer.name} />}
           </div>
           {customer === null && (
             <>
@@ -282,6 +314,7 @@ export function AddSeatDialog({ matchId, customerId, onClose, onAdded }: AddSeat
                   />
                 </Field>
               </div>
+              <DeskAccountNote name={guestName} phone={guestPhone} />
               <WizardLinks
                 disabled={busy}
                 links={[

@@ -27,12 +27,11 @@ import { ROUTE_ROLES, SUB_ROUTES, canAccess, type StaffRole } from './auth';
 describe('workspacesForRole', () => {
   it('gives single-role staff exactly their own workspace', () => {
     expect(workspacesForRole('cashier')).toEqual(['cashier']);
-    expect(workspacesForRole('prep')).toEqual(['prep']);
     expect(workspacesForRole('court_desk')).toEqual(['courtDesk']);
   });
-  it('gives the bar and kitchen family the kitchen and nothing else, as prep had', () => {
+  it('gives the bar and kitchen family the team workspace alone (their screen is gone)', () => {
     for (const role of ['head_barista', 'barista', 'assistant_barista', 'head_chef', 'chef'] as const) {
-      expect(workspacesForRole(role), role).toEqual(['prep']);
+      expect(workspacesForRole(role), role).toEqual(['team']);
     }
   });
   it('gives driver, marketing and the waiter the team workspace alone', () => {
@@ -53,15 +52,12 @@ describe('workspacesForRole', () => {
     // to both jokers (ROUTE_ROLES), so neither may switch into it. The Touch
     // Shop desk (0243) is one they open.
     for (const role of ['manager', 'owner'] as const) {
-      expect(workspacesForRole(role), role).toEqual(['management', 'courtDesk', 'cashier', 'prep', 'shop']);
+      expect(workspacesForRole(role), role).toEqual(['management', 'courtDesk', 'cashier', 'shop']);
     }
   });
 });
 
 describe('navigation sets', () => {
-  it('the prep workspace has no navigation at all (spec §04)', () => {
-    expect(WORKSPACES.prep.groups).toHaveLength(0);
-  });
   it('the team workspace is one untitled group: marketing’s plan and posts (0362), My tasks and Insights', () => {
     expect(WORKSPACES.team.groups.map((g) => [g.labelKey, g.items.map((i) => [i.to, i.labelKey])])).toEqual([
       [null, [['/plan', 'contentPlan'], ['/posts', 'posts'], ['/tasks', 'myTasks'], ['/insights', 'insights'], ['/monitoring', 'monitoring']]],
@@ -79,7 +75,6 @@ describe('navigation sets', () => {
     const roleFor: Record<keyof typeof WORKSPACES, StaffRole> = {
       courtDesk: 'court_desk',
       cashier: 'cashier',
-      prep: 'prep',
       // The owner and the manager share it, each seeing the rows they may
       // open: held to the owner here, and to "something to open in every
       // section" under 'the manager in Management'.
@@ -124,7 +119,7 @@ describe('navigation sets', () => {
   it('every route prefix in ROUTE_ROLES is reachable from at least one rail or is a shell route', () => {
     const targets = new Set(Object.values(WORKSPACES).flatMap((ws) => workspaceItems(ws).map((i) => i.to)));
     // Telegram lives in the admin sub-nav (System group), not on a rail.
-    const shell = new Set(['/workspaces', '/kds', '/reports', '/reports/revenue', '/desk/customers/new', '/admin/telegram']);
+    const shell = new Set(['/workspaces', '/reports', '/reports/revenue', '/desk/customers/new', '/admin/telegram']);
     for (const prefix of Object.keys(ROUTE_ROLES)) {
       const railed = [...targets].some((t) => t === prefix || t.startsWith(`${prefix}/`) || prefix.startsWith(`${t}/`));
       expect(shell.has(prefix) || railed, prefix).toBe(true);
@@ -137,8 +132,6 @@ describe('navigation sets', () => {
       expect(items.at(-1)?.to, key).toBe('/tasks');
       expect(items.at(-1)?.labelKey, key).toBe('myTasks');
     }
-    // The kitchen board stays navless: its My tasks is a header button.
-    expect(WORKSPACES.prep.groups).toHaveLength(0);
   });
 
   it('badges the Protocols and Suggestions rows, the wave-5 Deductions, Incidents and Marketing rows, Stock count, Wages, and no other', () => {
@@ -223,7 +216,6 @@ describe('workspace memory', () => {
 
 describe('workspaceForRoute', () => {
   it('pins single-workspace routes and leaves shared ones alone', () => {
-    expect(workspaceForRoute('/kds')).toBe('prep');
     for (const path of ['/panel', '/ops', '/setup', '/analytics', '/analytics/courts', '/wages', '/rewards']) {
       expect(workspaceForRoute(path), path).toBe('management');
     }
@@ -291,7 +283,7 @@ describe('sections (page map, 2026-10-17)', () => {
     for (const path of ['/desk/customers', '/admin/loyalty', '/marketing', '/admin/promotions', '/admin/telegram', '/admin/hero']) {
       expect(where(path), path).toBe('customers');
     }
-    for (const path of ['/admin/settings', '/admin/settings/day', '/admin/branches', '/admin/settings/kitchen', '/admin/audit']) {
+    for (const path of ['/admin/settings', '/admin/settings/day', '/admin/branches', '/admin/settings/stations', '/admin/audit']) {
       expect(where(path), path).toBe('settings');
     }
     // The workspace's own rows are in no section.
@@ -368,9 +360,6 @@ describe('workspaceOwnsPath', () => {
     for (const path of ['/ops', '/panel', '/admin/staff', '/stock/counts', '/analytics/cafe', '/protocols', '/desk', '/till/tabs']) {
       expect(workspaceOwnsPath('management', path), path).toBe(true);
     }
-    // /kds is nowhere on Management's rail: following that link does hand the
-    // shell over to the prep workspace.
-    expect(workspaceOwnsPath('management', '/kds')).toBe(false);
     expect(workspaceOwnsPath('management', '/tasks')).toBe(false);
     expect(workspaceOwnsPath('team', '/tasks')).toBe(true);
     expect(workspaceOwnsPath('courtDesk', '/tasks')).toBe(true);
@@ -540,7 +529,7 @@ describe('families (management rebuild, 2026-10-17)', () => {
     expect(tabs('money', 'pay')).toEqual(['wages', 'billsSuppliers', 'deductions', 'rewards', 'coachPay']);
     expect(tabs('courts', 'courtSettings')).toEqual(['rates', 'genderHours', 'courts', 'bookingRules', 'onlineDeposit', 'openMatches', 'openingHours', 'tournamentRules']);
     expect(tabs('team', 'fromTeam')).toEqual(['requests', 'incidents', 'suggestions']);
-    expect(tabs('settings', 'computersScreens')).toContain('kitchenScreens');
+    expect(tabs('settings', 'computersScreens')).toContain('stations');
     // Every settings page that used to be a panel of Venue settings has a tab.
     const allTabs = new Set((owner.sections ?? []).flatMap((s) => s.items.flatMap((r) => (r.tabs ?? []).map((t) => t.to))));
     // Club details is the exception: a branch card opens it (Sait, 2026-10-18).
@@ -599,7 +588,5 @@ describe('families (management rebuild, 2026-10-17)', () => {
   it('keeps the owner-only settings pages the owner’s', () => {
     expect(canAccess('manager', '/admin/settings/booking')).toBe(true);
     expect(canAccess('manager', '/admin/settings/analytics')).toBe(false);
-    expect(canAccess('manager', '/admin/settings/kitchen')).toBe(false);
-    expect(canAccess('owner', '/admin/settings/kitchen')).toBe(true);
   });
 });

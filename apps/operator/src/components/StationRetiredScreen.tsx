@@ -36,7 +36,7 @@ export function StationRetiredScreen({ stationId, onRegistered }: { stationId: s
       await appRpc('register_station', {
         p_id: stationId,
         p_venue_id: branchId,
-        p_mode: mode === 'desk' || mode === 'kds' || mode === 'shop' ? mode : 'till',
+        p_mode: mode === 'desk' || mode === 'shop' ? mode : 'till',
       });
       onRegistered();
     } catch (e) {

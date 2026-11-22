@@ -4,8 +4,8 @@
  * discount) -> order -> live status over broadcast -> waiter call acknowledged
  * and resolved over broadcast. Then the Arabic (RTL) twin.
  *
- * Staff-side transitions run through the real app.* RPCs with seeded staff
- * accounts, exactly as the KDS and till would.
+ * Staff-side actions run through the real app.* RPCs with seeded staff
+ * accounts, exactly as the till would.
  */
 import { test, expect } from '@playwright/test';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -149,15 +149,6 @@ test.describe('guest cafe journey (EN)', () => {
       discount_pct: 15,
     });
 
-    const prep = await signedInClient(SEED_STAFF.prep);
-    try {
-      await appRpc(prep, 'set_ticket_status', { p_ticket_id: ticketId, p_status: 'preparing' });
-      await expect(status).toHaveText('Preparing', { timeout: 20_000 });
-      await appRpc(prep, 'set_ticket_status', { p_ticket_id: ticketId, p_status: 'ready' });
-      await expect(status).toHaveText('Ready', { timeout: 20_000 });
-    } finally {
-      await prep.auth.signOut();
-    }
     await orders.getByRole('button', { name: 'Close' }).click();
 
     // ---- waiter call: raised -> acknowledged -> done, all over broadcast ---
@@ -243,19 +234,5 @@ test.describe('guest cafe journey (AR) @ar', () => {
     await expect(basket).toContainText('الطلب من هنا لا يعني الدفع');
     await basket.getByRole('button', { name: 'إرسال إلى النادل' }).click();
     await expect(page.getByText('أُرسل طلبك، وهو الآن لدى النادل.')).toBeVisible({ timeout: 30_000 });
-
-    // Arabic live status over the same broadcast channel.
-    const { ticketId } = await latestOrderForTable(svc, AR_TABLE);
-    const prep = await signedInClient(SEED_STAFF.prep);
-    try {
-      await appRpc(prep, 'set_ticket_status', { p_ticket_id: ticketId, p_status: 'preparing' });
-      await page.locator('.tp-orders-strip').click();
-      const orders = page.getByRole('dialog', { name: 'طلباتك' });
-      await expect(orders.locator('.tp-order__status').first()).toHaveText('قيد التحضير', {
-        timeout: 20_000,
-      });
-    } finally {
-      await prep.auth.signOut();
-    }
   });
 });

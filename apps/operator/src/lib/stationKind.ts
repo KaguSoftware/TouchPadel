@@ -2,12 +2,11 @@
  * Which screens a station's kind may open (F-29).
  *
  * A station is set up as one kind (station.json `mode`, the same kind
- * app.register_station files it as): the café till, the court desk, a kitchen
- * screen or the shop station. Until 2026-11-01 neither /shop nor /kds asked,
- * so a manager could ring up shop sales on the café till and the cash landed
- * in the café till's open shift. The money screens of the shop (its till and
- * its drawer) now open on the shop station only, and the kitchen board on a
- * kitchen screen or the café till (which it is paired with).
+ * app.register_station files it as): the café till, the court desk or the shop
+ * station. Until 2026-11-01 /shop did not ask, so a manager could ring up shop
+ * sales on the café till and the cash landed in the café till's open shift.
+ * The money screens of the shop (its till and its drawer) now open on the shop
+ * station only.
  *
  * Browser mode (vite dev, Playwright, a manager's browser tab) is not a
  * station: there is no drawer and no till shift on this machine, so nothing
@@ -19,11 +18,10 @@
  */
 import type { StationMode } from '../ipc/bridge';
 
-export type StationScreen = 'shopTill' | 'kds';
+export type StationScreen = 'shopTill';
 
 const ALLOWED: Record<StationScreen, readonly StationMode[]> = {
   shopTill: ['shop'],
-  kds: ['kds', 'till'],
 };
 
 /** Null when this station may open the screen; else its own kind, for the refusal. */

@@ -3,14 +3,12 @@ import { join, relative, sep } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 /**
- * NO STATION, TILL, DESK OR KITCHEN RPC ON THE STAFF PHONE
+ * NO STATION, TILL OR DESK RPC ON THE STAFF PHONE
  * (build-contracts-2026-09-23 §6.7).
  *
  * The database cannot tell a phone session from a station session: breaks,
- * cover and the heartbeat guard with "any staff" (0156), and the kitchen list
- * admits a bar or kitchen phone, so `set_ticket_status` and `kitchen_board`
- * would answer one. Nothing on the server stops a staff page calling them;
- * this does. It reads every file of the staff area (src/features/staff/**,
+ * cover and the heartbeat guard with "any staff" (0156), so they would answer
+ * a phone. Nothing on the server stops a staff page calling them; this does. It reads every file of the staff area (src/features/staff/**,
  * app/staff*.tsx; tests excluded) and fails on a string literal naming any of
  * the RPCs below, bare or schema-qualified.
  *
@@ -35,7 +33,6 @@ const FORBIDDEN = {
     'verify_manager_pin',
     'consume_pin_grant',
   ],
-  kitchen: ['set_ticket_status', 'set_order_item_ready', 'kitchen_board'],
   till: [
     'open_tab',
     'till_add_items',
@@ -192,7 +189,7 @@ const files = [
   ...walk(join(APP, '(staff)')),
 ];
 
-describe('the staff area names no station, till, desk or kitchen RPC', () => {
+describe('the staff area names no station, till or desk RPC', () => {
   it('reads the files it means to check', () => {
     // A moved directory would otherwise make the next test pass on nothing.
     const rel = files.map((f) => relative(join(SRC, '..', '..', '..'), f).split(sep).join('/'));
@@ -214,15 +211,15 @@ describe('the staff area names no station, till, desk or kitchen RPC', () => {
 
   it('catches a literal however it is written, and nothing in a comment', () => {
     const source = [
-      "await rpc('set_ticket_status', {});",
-      'call("app.kitchen_board")',
+      "await rpc('settle_tab', {});",
+      'call("app.open_tab")',
       'const fn = `upsert_variant`;',
       "// 'heartbeat' in a comment is not a call",
       "/* the phone's 'start_break' is prose */",
       "rpc('record_batch'); rpc('submit_step');",
     ].join('\n');
     const names = stringLiterals(source).map(forbiddenName).filter(Boolean);
-    expect(names).toEqual(['set_ticket_status', 'kitchen_board', 'upsert_variant']);
+    expect(names).toEqual(['settle_tab', 'open_tab', 'upsert_variant']);
   });
 
   it('reads a template literal around its substitutions', () => {

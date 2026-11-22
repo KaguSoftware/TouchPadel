@@ -308,22 +308,6 @@ export const operatorVars = {
   // per surface and it hardcoded a brand colour outside this file.
   '--tp-court-line': 'var(--tp-accent-2)',
 
-  // the kitchen board — read across a room
-  '--tp-kds-bg': `oklch(16% 0.02 ${HUE})`,
-  '--tp-kds-card': `oklch(23% 0.02 ${HUE})`,
-  '--tp-kds-card-2': `oklch(28% 0.025 ${HUE})`,
-  '--tp-kds-fg': `oklch(96% 0.005 ${HUE})`,
-  '--tp-kds-muted': `oklch(72% 0.02 ${HUE})`,
-  '--tp-kds-border': `oklch(34% 0.03 ${HUE})`,
-  '--tp-kds-fresh': 'var(--tp-accent-2)',
-  '--tp-kds-warm': 'oklch(82% 0.16 80)',
-  // Read at three metres through steam, and the most operationally important
-  // colour in the product. At 62% it was 4.17:1 on the card — under the body
-  // floor, and the only age state that failed it. 5.36:1.
-  '--tp-kds-late': 'oklch(68% 0.20 27)',
-  /** Ink on an age-state or alarm fill; was reaching for --tp-brand-black direct. */
-  '--tp-kds-on-fill': 'var(--tp-brand-black)',
-
   // ── the till's floor board (features/till/FloorView) ─────────────────────
   // The café plan in CSS 3D (owner's design, 2026-10-13). Every piece on the
   // board has a top and a side; the side is the darker rung of the same
@@ -421,11 +405,6 @@ export const operatorVars = {
   '--tp-fs-xl': '1.125rem',
   '--tp-fs-2xl': '1.375rem',
   '--tp-fs-3xl': '1.75rem',
-  /** The prep board's FLOOR. It borrowed the desk scale, so the age label,
-   *  the key legend and the Kbd chips landed at 11-13px on a wall screen. */
-  '--tp-fs-kds-sm': '1rem',
-  '--tp-fs-kds': '1.25rem',
-  '--tp-fs-kds-lg': '1.75rem',
 
   // spacing — a true 4px scale now that the root is 16px
   '--tp-sp-0': '0.125rem',
@@ -449,6 +428,8 @@ export const operatorVars = {
   // The column header band, one height in every table (Sait, 2026-10-19).
   '--tp-row-h-head': '44px',
   '--tp-touch': '44px',
+  /** A key of the on-screen keyboard (components/TouchKeyboard.tsx): a finger's width, px so it never drifts. */
+  '--tp-osk-key-h': '56px',
   '--tp-tile-min-block': '72px',
   /** Prose measure. Seven hand-picked maxInlineSize values existed. */
   '--tp-measure-form': '44rem',
@@ -536,6 +517,11 @@ export const operatorVars = {
    */
   '--tp-z-tooltip': '130',
   '--tp-z-lock': '150',
+  /**
+   * The on-screen keyboard: above the idle lock, whose PIN and password are
+   * typed on it, and below a toast.
+   */
+  '--tp-z-keyboard': '160',
   '--tp-z-toast': '200',
 
   // fonts — mono only, and the four text tokens are absent on purpose.

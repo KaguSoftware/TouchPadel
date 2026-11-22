@@ -10,10 +10,6 @@ import type { StationInfo, StationMode } from '../ipc-channels';
 // CLI flags (bootstrapStationFromArgv), or a hand copy of the template.
 
 export interface StationConfig extends StationInfo {
-  /** Pre-shared key for the LAN KDS websocket (design-arch.md §2.4). */
-  lanPsk?: string;
-  /** Override for the LAN server bind address (default: first RFC1918 IPv4). */
-  lanBind?: string;
   /** Thermal receipt printer (network/JetDirect). Absent = on-screen bill only. */
   printer?: { host: string; port?: number };
 }
@@ -22,14 +18,11 @@ export interface StationConfig extends StationInfo {
 export interface StationFile {
   station_id?: string;
   mode?: string;
-  till_host?: string;
-  lan_psk?: string;
-  lan_bind?: string;
   printer?: { host?: string; port?: number };
 }
 
 /** Thrown by writeStation when station.json already exists — never overwrite
- *  a file that may hold the venue's PSK or printer address. */
+ *  a file that may hold the venue's printer address. */
 export class StationExistsError extends Error {
   constructor(file: string) {
     super(`station.json already exists at ${file}`);
@@ -57,7 +50,7 @@ export const UNCONFIGURED_STATION_ID = 'UNCONFIGURED';
 const DEV_DEFAULTS = { stationId: UNCONFIGURED_STATION_ID, mode: 'till' as StationMode };
 
 /** Modes a station.json may declare. Anything else is a broken install. */
-const MODES: readonly StationMode[] = ['till', 'desk', 'kds', 'shop'];
+const MODES: readonly StationMode[] = ['till', 'desk', 'shop'];
 
 let cached: StationConfig | null = null;
 
@@ -95,7 +88,10 @@ export function loadStation(): StationConfig {
     // `station_id` came back `configured: true` as TILL1 with no error at all,
     // so a mistyped file traded happily under another till's identity; and a
     // mode of "KDS" (wrong case) turned a kitchen screen into a kiosked till.
-    // Neither is visible to anyone until the day's takings do not reconcile.
+    // The kitchen-screen mode is gone from the product, so a leftover
+    // `"mode": "kds"` lands here too: it is rejected as an unknown mode, the
+    // renderer shows the broken-install screen, and nothing trades or gets
+    // overwritten. Neither is visible to anyone until the day's takings do not reconcile.
     const stationId = typeof raw.station_id === 'string' ? raw.station_id.trim() : '';
     if (!stationId) throw new Error('station.json has no station_id');
     if (typeof raw.mode !== 'string' || !MODES.includes(raw.mode as StationMode)) {
@@ -104,9 +100,6 @@ export function loadStation(): StationConfig {
     cached = {
       stationId,
       mode: raw.mode as StationMode,
-      tillHost: raw.till_host,
-      lanPsk: raw.lan_psk,
-      lanBind: raw.lan_bind,
       printer:
         raw.printer && typeof raw.printer.host === 'string'
           ? { host: raw.printer.host, port: raw.printer.port }
@@ -143,13 +136,13 @@ export function resetStationCache(): void {
 }
 
 /**
- * May this machine act as a station — take a sale, print, serve the LAN?
+ * May this machine act as a station — take a sale or print?
  *
  * SEC-32, "a station with no station.json should refuse to trade, not guess".
  * The renderer already refuses: `__root.tsx` shows the setup screen when
  * `!configured` and the broken-install screen when `configError` is set. This
  * is the same rule for the MAIN process, which had no equivalent check — it
- * would have served the LAN and printed under whatever identity `loadStation`
+ * would have printed under whatever identity `loadStation`
  * returned.
  *
  * Deliberately NOT a hard refusal to boot. The process must still come up: the

@@ -170,6 +170,9 @@ describe('parsePhoneSignUpStatus (0414)', () => {
     expect(parsePhoneSignUpStatus('taken')).toBe('taken');
     expect(parsePhoneSignUpStatus('free')).toBe('free');
   });
+  it('reads desk (0448): a desk wrote the customer down, nobody has signed in yet', () => {
+    expect(parsePhoneSignUpStatus('desk')).toBe('desk');
+  });
   it('reads anything else as unknown, so the old flow runs', () => {
     expect(parsePhoneSignUpStatus('unknown')).toBe('unknown');
     expect(parsePhoneSignUpStatus(null)).toBe('unknown');

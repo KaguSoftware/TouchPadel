@@ -147,7 +147,7 @@ function TodayScreen() {
   );
 }
 
-/** Live reads of the floor: the overview, refreshed when the floor, the courts or the kitchen move. */
+/** Live reads of the floor: the overview, refreshed when the floor, the courts or the waiter calls move. */
 function useLiveOpsOverview() {
   const overviewQ = useOpsOverview();
   // Cache-bust hints; the poll above is the safety net while disconnected.

@@ -365,6 +365,7 @@ export const ACTION_KEYS = [
   'courts.reorder',
   'courts.update',
   'customer.create',
+  'customer.draft',
   'customer.flags_set',
   'customer.note_add',
   'customer.note_edit',

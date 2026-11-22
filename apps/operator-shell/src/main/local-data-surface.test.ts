@@ -8,7 +8,7 @@ import { openQueue } from './queue';
  *
  * Two properties that are TRUE today and have nothing holding them true. Both
  * are the kind of thing a single well-meaning commit undoes: "cache the customer
- * list so search works offline", "let the KDS trigger a reprint". Each would be
+ * list so search works offline", "let a screen trigger a reprint". Each would be
  * reasonable in isolation and neither would be reviewed as a security change.
  *
  * The venue PC is an unmanaged Windows box in a room the public walks through.
@@ -58,28 +58,22 @@ describe('the local queue stores no guest identity (SEC-32)', () => {
   });
 });
 
-describe('the LAN KDS protocol cannot reach the printer (SEC-31)', () => {
+describe('the shell opens no listening socket and the printer transport is outbound-only (SEC-31)', () => {
   const read = (p: string) => fs.readFileSync(path.join(__dirname, p), 'utf8');
 
   /**
-   * The KDS tablets sit on the venue's LAN, authenticated by a pre-shared key in
-   * station.json. That is a reasonable boundary for "show me tickets and let me
-   * bump one". It is not a boundary anyone should be able to print through: a
-   * print frame would let anything that reached the LAN socket drive a physical
-   * device — and the receipt path opens the cash drawer on some hardware.
+   * The LAN kitchen-screen link is gone, so nothing in the shell listens on the
+   * venue network. A later change that adds a server here would put a socket in
+   * front of a machine that can print and queue sales: it has to be a reviewed
+   * decision, not a side effect.
    */
-  it('declares only ticket, status and refusal frames, none of them print', () => {
-    const frames = read('lan-frames.ts');
-    const types = [...frames.matchAll(/type:\s*'([a-z.]+)'/g)].map((m) => m[1]);
-    // F-11 / F-57 (2026-11-01) added ticket.synced, ticket.dropped and error
-    // (till → KDS) and ticket.ack (KDS → till, parsed in parseKdsFrame).
-    expect(types.sort()).toEqual(['error', 'status.update', 'ticket.dropped', 'ticket.new', 'ticket.snapshot', 'ticket.synced']);
-    expect(frames).not.toMatch(/print/i);
-  });
-
-  it('the KDS server never imports the print module', () => {
-    for (const f of ['lan-kds-server.ts', 'lan-kds-client.ts', 'lan-frames.ts']) {
-      expect(read(f), `${f} must not reach the printer`).not.toMatch(/from '\.\/print/);
+  it('no main-process source creates a server or imports a websocket server', () => {
+    const files = fs
+      .readdirSync(__dirname, { recursive: true })
+      .map(String)
+      .filter((f) => f.endsWith('.ts') && !f.endsWith('.test.ts'));
+    for (const f of files) {
+      expect(read(f), `${f} must not listen`).not.toMatch(/createServer\(|WebSocketServer|from 'ws'|\.listen\(/);
     }
   });
 

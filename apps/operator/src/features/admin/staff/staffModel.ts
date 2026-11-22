@@ -32,7 +32,7 @@ export const ASSIGNABLE_ROLES: readonly StaffRole[] = [
 
 /**
  * Roles that still work but are no longer handed out. Prep split into the bar
- * and kitchen roles (0155): an account already on it keeps the kitchen screen
+ * and kitchen roles (0155): an account already on it keeps My tasks
  * until the owner moves it to barista or chef, and a later migration drops it
  * from the guards once nobody holds it. The staff-admin edge function refuses
  * to create one; a role change to it is simply never offered.

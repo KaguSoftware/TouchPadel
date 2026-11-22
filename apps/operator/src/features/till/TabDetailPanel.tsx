@@ -76,7 +76,6 @@ import { UnsentLinesGuard } from './UnsentLinesGuard';
 import { chargeToBookingShown, payPressTarget } from './payGuards';
 import { canReadBookings, orderDelivery, tabDetailQuery, tabAnchorLabel, tabHasWebOrder, type OrderDelivery, type TabLineRow } from './tillData';
 import { DeliveryDialog } from './DeliveryDialog';
-import { KitchenReachFlag } from './KitchenReachFlag';
 import { actionButton, kvRow, muted, numeric, sectionTitle } from './tillStyles';
 import { DRAWER_REASONS } from './drawerReasons';
 import { useTillShiftOptional } from '../tillShift/shiftContext';
@@ -566,8 +565,6 @@ export function TabDetailPanel({
 
       {/* ---- zone 2: everything that grows ---- */}
       <div style={{ flex: 1, minBlockSize: 0, overflowY: 'auto', display: 'grid', gap: 'var(--tp-sp-3)', alignContent: 'start', paddingBlock: 'var(--tp-sp-3)' }}>
-        {/* F-11: an order on this tab that no kitchen screen has shown yet. */}
-        <KitchenReachFlag tabId={tabId} />
         {/* ---- lines (sent = not editable, void = waste) ---- */}
         <div style={{ display: 'grid', gap: 'var(--tp-sp-1)' }}>
           <h3 style={sectionTitle}>{tr('ws.cashier.detail.linesTitle')}</h3>
@@ -579,7 +576,7 @@ export function TabDetailPanel({
             <div key={o.id} style={{ display: 'grid', gap: 'var(--tp-sp-1)' }}>
             {/* 0352: how this order reaches the guest, changeable while it is live. */}
             <OrderDeliveryRow
-              delivery={orderDelivery(o, tab, tr('op.till.table'), (c) => pickName(locale, c), tr('op.kds.court'))}
+              delivery={orderDelivery(o, tab, tr('op.till.table'), (c) => pickName(locale, c), tr('op.till.court'))}
               editable={!settled && ['sent', 'preparing', 'ready'].includes(o.status)}
               onEdit={() => setDeliveryOrderId(o.id)}
             />
@@ -1110,7 +1107,7 @@ export function TabDetailPanel({
         <DeliveryDialog
           order={deliveryOrder}
           tabId={tabId}
-          seatLabel={tab.table ? `${tr('op.till.table')} ${tab.table.table_number}` : tab.reservation ? (courtName ?? tr('op.kds.court')) : null}
+          seatLabel={tab.table ? `${tr('op.till.table')} ${tab.table.table_number}` : tab.reservation ? (courtName ?? tr('op.till.court')) : null}
           onClose={() => setDeliveryOrderId(null)}
         />
       )}

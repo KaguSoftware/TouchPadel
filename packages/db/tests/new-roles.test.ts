@@ -2,16 +2,14 @@
  * 0155 + 0156 — six staff roles, and exactly the guards each one passes.
  *
  *   * head_barista, barista, head_chef and chef hold what prep holds: the
- *     any-staff baseline plus the kitchen board (tickets read,
- *     set_ticket_status, set_order_item_ready) and nothing past it;
- *   * driver and marketing hold the baseline only — no board, no stock, no
+ *     any-staff baseline plus the tickets read and nothing past it;
+ *   * driver and marketing hold the baseline only — no tickets, no stock, no
  *     money;
- *   * prep is soft-retired, not removed: it still passes the kitchen guard;
+ *   * prep is soft-retired, not removed: it still reads tickets;
  *   * 0157: set_staff_role moves nobody onto prep. Tabs, orders and order
  *     lines are read by the till, the desk and MGMT only: 0157 took them from
  *     driver and marketing, kitchen_money_reads (build-contracts §2.23) from
- *     the bar and kitchen family and prep, whose board reads them through
- *     app.kitchen_board (tests/kitchen-board.test.ts).
+ *     the bar and kitchen family and prep.
  *
  * The baseline is what 0156 made role-agnostic (`app.staff_role() is null`):
  * breaks, the own-PIN check, the heartbeat, staff requests and the any-staff
@@ -22,7 +20,7 @@
  * Self-contained: one auth user + staff row per new role through the service
  * role (the 0123 trigger files each at venue A), deleted in afterAll with the
  * probe station, its heartbeat row, the requests and the attempt rows the PIN
- * checks wrote. The probe tab and ticket stay behind, as kds-item-ready's do.
+ * checks wrote. The probe tab and ticket stay behind.
  * tests/rls-matrix.ts keeps its eight principals; these roles are not in it.
  */
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
@@ -234,7 +232,7 @@ describe.skipIf(!up)('0155/0156/0157 new staff roles', () => {
     expect(beat.error?.message).toBe('FORBIDDEN');
   });
 
-  it('the bar and kitchen roles work the board, as prep still does', async () => {
+  it('the bar and kitchen roles read tickets, as prep still does', async () => {
     const kitchen: [string, SupabaseClient][] = [
       ...KITCHEN.map((role) => [role, as[role]] as [string, SupabaseClient]),
       ['prep', prep],
@@ -243,30 +241,16 @@ describe.skipIf(!up)('0155/0156/0157 new staff roles', () => {
       const seen = await c.from('tickets').select('id').eq('id', ticketId);
       expect(seen.error).toBeNull();
       expect(seen.data, `${role} reads the ticket`).toHaveLength(1);
-
-      // queued -> preparing for the first caller; an idempotent duplicate for
-      // every one after it. Either way the guard let them through.
-      const bump = await appRpc(c, 'set_ticket_status', { p_ticket_id: ticketId, p_status: 'preparing' });
-      expect(bump.error, `${role} set_ticket_status`).toBeNull();
-      expect((bump.data as { status: string }).status).toBe('preparing');
-
-      const mark = await appRpc(c, 'set_order_item_ready', { p_order_item_id: orderItemId, p_ready: true });
-      expect(mark.error, `${role} set_order_item_ready`).toBeNull();
     }
   });
 
-  it('driver and marketing hold no station: no board, no stock', async () => {
+  it('driver and marketing hold no station: no tickets, no stock', async () => {
     for (const role of NO_STATION) {
       const c = as[role];
 
       const seen = await c.from('tickets').select('id').eq('id', ticketId);
       expect(seen.error).toBeNull();
       expect(seen.data, `${role} reads no ticket`).toHaveLength(0);
-
-      const bump = await appRpc(c, 'set_ticket_status', { p_ticket_id: ticketId, p_status: 'ready' });
-      expect(bump.error?.message, `${role} set_ticket_status`).toBe('FORBIDDEN');
-      const mark = await appRpc(c, 'set_order_item_ready', { p_order_item_id: orderItemId, p_ready: false });
-      expect(mark.error?.message, `${role} set_order_item_ready`).toBe('FORBIDDEN');
 
       for (const [table, id] of [
         ['ingredients', ingredientId],
@@ -285,7 +269,7 @@ describe.skipIf(!up)('0155/0156/0157 new staff roles', () => {
     expect(ownerSees.data).toHaveLength(1);
   });
 
-  it('no new role takes money', async () => {
+  it('no new role takes money (the bar team only as a cashier, 0446)', async () => {
     for (const role of NEW_ROLES) {
       const c = as[role];
       const settle = await appRpc(c, 'settle_tab', {
@@ -293,7 +277,10 @@ describe.skipIf(!up)('0155/0156/0157 new staff roles', () => {
         p_method: 'cash',
         p_idempotency_key: testIdemKey('tab.settle'),
       });
-      expect(settle.error?.message, `${role} settle_tab`).toBe('FORBIDDEN');
+      // 0446: every barista is also a cashier, so the bar passes the door and
+      // stops at the money check instead (nothing is paid either way).
+      if (role === 'head_barista' || role === 'barista') expect(settle.error?.message, `${role} settle_tab`).not.toBe('FORBIDDEN');
+      else expect(settle.error?.message, `${role} settle_tab`).toBe('FORBIDDEN');
       const paid = await c.from('payments').select('id').eq('tab_id', tabId);
       expect(paid.error).toBeNull();
       expect(paid.data, `${role} reads no payments`).toHaveLength(0);
@@ -302,7 +289,7 @@ describe.skipIf(!up)('0155/0156/0157 new staff roles', () => {
 
   it('0157: tabs, orders and order lines stay with the till, the desk and MGMT', async () => {
     // Driver and marketing since 0157; the bar and kitchen family and prep
-    // since kitchen_money_reads, their board reading app.kitchen_board.
+    // since kitchen_money_reads.
     const none: [string, SupabaseClient][] = [
       ...NEW_ROLES.map((role) => [role, as[role]] as [string, SupabaseClient]),
       ['prep', prep],
@@ -316,7 +303,11 @@ describe.skipIf(!up)('0155/0156/0157 new staff roles', () => {
       ] as const) {
         const rows = await c.from(table).select(column).eq(column, id);
         expect(rows.error).toBeNull();
-        expect(rows.data, `${role} reads no ${table}`).toHaveLength(0);
+        // 0446: the bar team holds the cashier job, so it reads what the till reads.
+        const till = role === 'head_barista' || role === 'barista'
+          ? (await cashier.from(table).select(column).eq(column, id)).data ?? []
+          : [];
+        expect(rows.data, `${role} reads ${table}`).toHaveLength(till.length);
       }
     }
     // The till still reads them.

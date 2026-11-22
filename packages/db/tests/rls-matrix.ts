@@ -135,10 +135,6 @@ const MANAGER_UP = ex<RpcExpectation>('guarded', {
 const CASHIER_UP = ex<RpcExpectation>('guarded', {
   anon: 'denied', cashier: 'execute', manager: 'execute', owner: 'execute', branch_b_manager: 'execute',
 });
-const PREP_UP = ex<RpcExpectation>('guarded', {
-  anon: 'denied', prep: 'execute', cashier: 'execute', manager: 'execute', owner: 'execute',
-  branch_b_manager: 'execute',
-});
 /** The till surface plus the court desk (0106: the desk takes court payment). */
 const CASHIER_DESK_UP = ex<RpcExpectation>('guarded', {
   anon: 'denied', cashier: 'execute', court_desk: 'execute', manager: 'execute', owner: 'execute',
@@ -633,8 +629,7 @@ export const matrix: MatrixRule[] = [
   },
 
   // ── tabs / orders / order_items (guest sees only own session's) ───────────
-  // kitchen_money_reads (build-contracts §2.23): prep reads none of the three;
-  // its board reads app.kitchen_board, below.
+  // kitchen_money_reads (build-contracts §2.23): prep reads none of the three.
   {
     kind: 'select',
     name: 'tabs',
@@ -699,7 +694,7 @@ export const matrix: MatrixRule[] = [
     op: 'update',
     payload: { status: 'ready' },
     expect: ex<WriteExpectation>('denied'),
-    note: 'CRITICAL: prep updates tickets via app.set_ticket_status ONLY',
+    note: 'CRITICAL: no client updates tickets directly (set_ticket_status is gone with the kitchen screen, 0447)',
     drop: 2,
   },
 
@@ -1166,23 +1161,6 @@ export const matrix: MatrixRule[] = [
     }),
     note: 'the ONE cashier stock path; prep/desk stay guarded',
     drop: 3,
-  },
-  {
-    kind: 'rpc',
-    schema: 'app',
-    name: 'set_ticket_status',
-    args: { p_ticket_id: NIL_UUID, p_status: 'ready' },
-    expect: ex<RpcExpectation>('guarded', {
-      anon: 'denied',
-      prep: 'execute',
-      cashier: 'execute',
-      manager: 'execute',
-      owner: 'execute',
-      // F-67 (real guard / policy outcome):
-      head_barista: 'execute', barista: 'execute', assistant_barista: 'execute', head_chef: 'execute', chef: 'execute', branch_b_manager: 'execute',
-    }),
-    note: 'prep updates tickets via THIS RPC only (direct update denied above)',
-    drop: 2,
   },
   {
     kind: 'rpc',
@@ -1836,6 +1814,15 @@ export const matrix: MatrixRule[] = [
     },
     expect: ex<RpcExpectation>('denied'),
     note: 'CRITICAL: profile registration is service-role only (the edge function names the actor)',
+    drop: 5,
+  },
+  {
+    kind: 'rpc',
+    schema: 'app',
+    name: 'desk_complete_customer',
+    args: { p_customer_id: NIL_UUID, p_phone: '0000000', p_actor_id: NIL_UUID },
+    expect: ex<RpcExpectation>('denied'),
+    note: 'CRITICAL (0448): adding the number to a name-only customer is service-role only, like the registration',
     drop: 5,
   },
 
@@ -2560,9 +2547,6 @@ export const matrix: MatrixRule[] = [
     expect: CASHIER_UP, drop: 7,
   },
 
-  // ── prep + cashier + manager + owner: the kitchen surface ─────────────────
-  { kind: 'rpc', schema: 'app', name: 'set_order_item_ready', args: { p_order_item_id: NIL_UUID, p_ready: true }, expect: { ...PREP_UP, head_barista: 'execute', barista: 'execute', assistant_barista: 'execute', head_chef: 'execute', chef: 'execute' }, drop: 7 },
-
   // ── ownership-guarded, not role-guarded ───────────────────────────────────
   {
     kind: 'rpc', schema: 'app', name: 'release_hold',
@@ -2914,17 +2898,6 @@ export const matrix: MatrixRule[] = [
       '0153: any account may accept for itself; an anonymous café session has no profile and is ' +
       'refused with ACCOUNT_REQUIRED. anon holds no grant.',
     drop: 16,
-  },
-
-  // ── kitchen board read (kitchen_board_read, build-contracts §2.23) ────────
-  {
-    kind: 'rpc', schema: 'app', name: 'kitchen_board',
-    args: {}, expect: { ...PREP_UP, head_barista: 'execute', barista: 'execute', assistant_barista: 'execute', head_chef: 'execute', chef: 'execute' },
-    note:
-      'the kitchen list of set_ticket_status at the venue (the bar and kitchen roles too, not in ' +
-      'this matrix); court_desk and guests are refused FORBIDDEN, anon holds no grant. No window ' +
-      'argument: the two-minute completed window is fixed in the body.',
-    drop: 17,
   },
 
   // ── work photos (staff_media_bucket, build-contracts §2.3) ──────────────────
@@ -7559,19 +7532,6 @@ export const matrix: MatrixRule[] = [
     note: "0395: any active staff; only the caller's own unanswered queued claim, so the probe changes nothing",
     drop: 38,
   },
-  // ── 0396 kds_recall_and_seen (kds-recall.test.ts) ──
-  {
-    kind: 'rpc', schema: 'app', name: 'recall_ticket',
-    args: { p_ticket_id: NIL_UUID }, expect: { ...PREP_UP, head_barista: 'execute', barista: 'execute', assistant_barista: 'execute', head_chef: 'execute', chef: 'execute' },
-    note: '0396 (F-57): the kitchen list of set_ticket_status; the nil ticket is TICKET_NOT_FOUND past the guard, so the probe changes nothing',
-    drop: 38,
-  },
-  {
-    kind: 'rpc', schema: 'app', name: 'kds_ack_tickets',
-    args: { p_ticket_ids: [NIL_UUID] }, expect: { ...PREP_UP, head_barista: 'execute', barista: 'execute', assistant_barista: 'execute', head_chef: 'execute', chef: 'execute' },
-    note: '0396 (F-11): the kitchen list; stamps tickets.kds_seen_at once for tickets in scope, skips the rest (the nil id stamps nothing)',
-    drop: 38,
-  },
   // ── 0382 branch_isolation / 0383 second_jobs / 0384 blocked_areas_enforced (LANE DB) ──
   {
     kind: 'rpc', schema: 'app', name: 'shares_branch_with',
@@ -7618,13 +7578,6 @@ export const matrix: MatrixRule[] = [
     kind: 'rpc', schema: 'app', name: 'monitoring_summary',
     args: { p_bucket: 'hour' }, expect: { ...OWNER_ONLY, dev: 'execute' },
     note: '0393: the dev role and the owner: the Monitoring page\'s counts; read-only',
-    drop: 38,
-  },
-  // ── 0399 kitchen_reach (kitchen-reach.test.ts) ──
-  {
-    kind: 'rpc', schema: 'app', name: 'kitchen_reach',
-    args: { p_since: null }, expect: { ...STAFF_ANY, dev: 'guarded', marketing: 'guarded' },
-    note: "0399 (F-11), 0400 (F-27): the till, kitchen and bar, desk, waiter, shop and management roles (not dev, driver, marketing), the caller's own branches' recent tickets (a manager of another branch gets none); read-only",
     drop: 38,
   },
   // ── 0389–0391 OP-BACK (F-36, F-40, F-51, F-61) ──
@@ -8198,4 +8151,103 @@ export const matrix: MatrixRule[] = [
     note: '0445: internal; loyalty_perks_plan and loyalty_perks_refresh call it',
     drop: 41,
   },
+  // ── 0449 customer ban + customer tags (customer-ban-tags.test.ts) ──
+  // No client grant on either tag table; the record reads and writes them
+  // through the RPCs below. A nil id fails past the role guard, nothing is
+  // written.
+  {
+    kind: 'select',
+    name: 'customer_tags',
+    expect: ex<SelectExpectation>('denied'),
+    note: '0449: no client grant; app.customer_ban_and_tags reads it',
+    drop: 43,
+  },
+  {
+    kind: 'write',
+    name: 'customer_tags',
+    op: 'insert',
+    payload: { name: 'x', created_by: NIL_UUID, updated_by: NIL_UUID },
+    expect: ex<WriteExpectation>('denied'),
+    note: '0449: app.save_customer_tag only',
+    drop: 43,
+  },
+  {
+    kind: 'select',
+    name: 'customer_tag_members',
+    expect: ex<SelectExpectation>('denied'),
+    note: '0449: no client grant; app.customer_ban_and_tags reads it',
+    drop: 43,
+  },
+  {
+    kind: 'write',
+    name: 'customer_tag_members',
+    op: 'insert',
+    payload: { customer_id: NIL_UUID, tag_id: NIL_UUID, set_by: NIL_UUID },
+    expect: ex<WriteExpectation>('denied'),
+    note: '0449: app.set_customer_tags only',
+    drop: 43,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'set_customer_ban',
+    args: { p_customer_id: NIL_UUID, p_banned: true, p_reason: 'probe' },
+    expect: ex<RpcExpectation>('guarded', {
+      anon: 'denied', court_desk: 'execute', manager: 'execute', owner: 'execute', branch_b_manager: 'execute',
+    }),
+    note: '0449: the court desk, a manager, the owner ban or lift; a nil customer is CUSTOMER_NOT_FOUND past the guard',
+    drop: 43,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'customer_ban_and_tags',
+    args: { p_customer_id: NIL_UUID },
+    expect: ex<RpcExpectation>('guarded', {
+      anon: 'denied', cashier: 'execute', court_desk: 'execute', shop_staff: 'execute',
+      manager: 'execute', owner: 'execute', branch_b_manager: 'execute',
+    }),
+    note: '0449: the 0342 discount roles read the ban, tags and catalogue; a nil customer is CUSTOMER_NOT_FOUND',
+    drop: 43,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'set_customer_tags',
+    args: { p_customer_id: NIL_UUID, p_tag_ids: [] },
+    expect: ex<RpcExpectation>('guarded', {
+      anon: 'denied', cashier: 'execute', court_desk: 'execute', shop_staff: 'execute',
+      manager: 'execute', owner: 'execute', branch_b_manager: 'execute',
+    }),
+    note: '0449: the 0342 discount roles put tags on a customer; a nil customer is CUSTOMER_NOT_FOUND',
+    drop: 43,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'save_customer_tag',
+    args: { p_tag_id: null, p_name: '', p_cafe_bp: null, p_court_bp: null },
+    expect: ex<RpcExpectation>('guarded', {
+      anon: 'denied', manager: 'execute', owner: 'execute', branch_b_manager: 'execute',
+    }),
+    note: '0449: a manager or the owner sets up tags; an empty name is NAME_LENGTH past the guard',
+    drop: 43,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'delete_customer_tag',
+    args: { p_tag_id: NIL_UUID },
+    expect: ex<RpcExpectation>('guarded', {
+      anon: 'denied', manager: 'execute', owner: 'execute', branch_b_manager: 'execute',
+    }),
+    note: '0449: a manager or the owner; a nil tag is TAG_NOT_FOUND',
+    drop: 43,
+  },
 ];
+
+// ── 0446 (2026-11-20, Majed): every barista is also a cashier ──────────────
+// The trigger staff_barista_cashier keeps cashier as a second job on the bar
+// team (head_barista, barista, assistant_barista), and every guard counts a
+// second job. So wherever the cashier gets further than a bar-team principal,
+// the bar-team principal gets the cashier's result. A guard that reads the
+// main role alone would show here as a mismatch.
+{
+  const OPENNESS: Record<string, number> = { denied: 0, guarded: 1, silence: 1, execute: 2, rows: 2, allowed: 2 };
+  const BAR_TEAM = ['head_barista', 'barista', 'assistant_barista'] as const;
+  for (const rule of matrix) {
+    const e = { ...rule.expect } as Record<Principal, string>;
+    for (const p of BAR_TEAM) if (OPENNESS[e.cashier]! > OPENNESS[e[p]]!) e[p] = e.cashier;
+    (rule as { expect: Record<Principal, string> }).expect = e;
+  }
+}

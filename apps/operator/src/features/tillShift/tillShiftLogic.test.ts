@@ -206,15 +206,13 @@ describe('shiftGate (§8 Q30)', () => {
     expect(gateBlocks(g)).toBe(true);
   });
 
-  it('never gates a role that holds no shift, or a station with no drawer', () => {
+  it('never gates a role that holds no shift', () => {
     expect(shiftGate(gate({ ...BARISTA }))).toEqual({ kind: 'ok', banner: null });
-    expect(shiftGate(gate({ mode: 'kds' }))).toEqual({ kind: 'ok', banner: null });
   });
 });
 
 describe('railShift', () => {
-  it('draws nothing it cannot know: no drawer, no shift role, no status yet', () => {
-    expect(railShift(gate({ mode: 'kds' }))).toBeNull();
+  it('draws nothing it cannot know: no shift role, no status yet', () => {
     expect(railShift(gate({ ...BARISTA }))).toBeNull();
     expect(railShift(gate({ status: null }))).toBeNull();
   });

@@ -17,7 +17,6 @@ import { ulid } from 'ulid';
 export const MUTATION_TYPES = [
   'order.create',
   'order.add_items',
-  'ticket.status',
   'payment.record',
   'reservation.create',
   'reservation.update',
@@ -149,8 +148,6 @@ export const QUEUEABLE_RPCS = [
   'set_recipe',
   // F-56: the member on a shop sale, queued before its settle.
   'set_tab_customer',
-  // F-57: a completed kitchen ticket brought back (0396).
-  'recall_ticket',
   // F-58: the online deposit's attention actions.
   'deposit_refund_retry',
   'deposit_refund_request',
@@ -397,24 +394,6 @@ export const orderAddItemsPayloadSchema = z
   .refine((p) => (p.tabId !== undefined) !== (p.tabIdemKey !== undefined), {
     message: 'exactly one of tabId or tabIdemKey is required',
     path: ['tabId'],
-  });
-
-/**
- * ticket.status — app.set_ticket_status; transition-idempotent server-side.
- * ticketIdemKey references a ticket whose order was itself queued offline (the
- * order envelope's key) — replay resolves it via orders.idempotency_key →
- * tickets.order_id, strictly after the order row lands.
- */
-export const ticketStatusPayloadSchema = z
-  .object({
-    ticketId: uuid.optional(),
-    ticketIdemKey: idempotencyKeySchema.optional(),
-    status: z.enum(['queued', 'preparing', 'ready', 'completed', 'voided']),
-  })
-  .strict()
-  .refine((p) => (p.ticketId !== undefined) !== (p.ticketIdemKey !== undefined), {
-    message: 'exactly one of ticketId or ticketIdemKey is required',
-    path: ['ticketId'],
   });
 
 /**
@@ -736,13 +715,6 @@ const envelopeVariants = z.discriminatedUnion('mutationType', [
       ...baseFields,
       mutationType: z.literal('order.add_items'),
       payload: orderAddItemsPayloadSchema,
-    })
-    .strict(),
-  z
-    .object({
-      ...baseFields,
-      mutationType: z.literal('ticket.status'),
-      payload: ticketStatusPayloadSchema,
     })
     .strict(),
   z

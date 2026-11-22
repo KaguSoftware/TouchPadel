@@ -31,6 +31,14 @@
  * and a court part, on a section card that opens the editor, and a badge
  * beside the name while they have one. No PIN; a server without 0342 shows
  * none of it.
+ *
+ * Ban and tags (0449, customerRules.ts): Ban (court desk, manager, owner)
+ * stops the customer doing anything at the club; a banned record opens on a
+ * banner with Lift ban, and its booking, match, lesson and attach actions are
+ * gone. Tags are the club's own (Family, Sponsored…), each with an optional %
+ * off café and shop and/or the court fee; the chips sit beside the name and
+ * Tags opens the window that puts them on (and, for a manager or the owner,
+ * sets them up). A server without 0449 shows neither button.
  */
 import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -70,6 +78,8 @@ import { invalidateMatchCustomer, useGuestTickets, useMatchCaps, useMatchRead } 
 import type { CustomerFlag, CustomerMatchRow, CustomerNote, CustomerRecord, CustomerReservationRow } from '../deskTypes';
 import type { CustomerSearchParams } from './CustomerSearch';
 import { GenderDialog } from './GenderDialog';
+import { isIncompleteCustomer, realEmail } from './deskAccount';
+import { CompleteCustomerPhone, IncompleteBadge } from './CompleteCustomerPhone';
 import { TicketsPanel } from './TicketsPanel';
 import { CustomerLoyaltyPanel, CustomerLoyaltyTop } from '../../loyalty/CustomerLoyaltyPanel';
 import { useLoyaltyCustomer } from '../../loyalty/useLoyalty';
@@ -87,6 +97,9 @@ import { parsePlayerFacts } from '../../players/playerLogic';
 import { canJudgeLevel } from '../../players/usePlayers';
 import { canDiscount, rpcMissing, useCustomerDiscount } from '../../discounts/useCustomerDiscount';
 import { useDiscountWords } from '../../discounts/useDiscountWords';
+import { BanBanner, BanDialog, LiftBanDialog } from './BanDialog';
+import { TagChips, TagsDialog } from './TagsDialog';
+import { isBanned, useCustomerRules, type CustomerBan } from './customerRules';
 
 const FLAG_TYPES: readonly CustomerFlagType[] = ['vip', 'birthday', 'payment_note', 'special_request', 'deposit_exempt'];
 
@@ -171,6 +184,14 @@ export function CustomerRecordScreen() {
   const showDiscount = discountAllowed && discountQ.data !== undefined && !rpcMissing(discountQ.error);
   const discount = discountQ.data ?? null;
   const [discountOpen, setDiscountOpen] = useState(false);
+  // Ban and tags (0449): read by the same five roles as the discount.
+  const rulesQ = useCustomerRules(id, discountAllowed);
+  const rules = rulesQ.data && !rpcMissing(rulesQ.error) ? rulesQ.data : null;
+  const banned = rec ? isBanned(rec.flags) : false;
+  const canBan = can(staff, 'banCustomers') && rules !== null;
+  const banShown: CustomerBan | null = banned ? (rules?.ban ?? { reason: rec?.flags.find((f) => f.type === 'ban')?.label ?? null, by: null, at: '' }) : null;
+  const [banOpen, setBanOpen] = useState<'ban' | 'lift' | null>(null);
+  const [tagsOpen, setTagsOpen] = useState(false);
   // 0368: the facts ride inside the record itself; a server without them
   // answers null and nothing is shown.
   const [playerOpen, setPlayerOpen] = useState(false);
@@ -214,22 +235,22 @@ export function CustomerRecordScreen() {
           {tr('ws.courtDesk.record.backToSearch')}
         </Button>
         <div className="tp-page-actions" style={{ display: 'flex', gap: 'var(--tp-sp-2)', alignItems: 'center', flexWrap: 'wrap' }}>
-          {params.attach && (
+          {params.attach && !banned && (
             <Button kind="primary" icon="userPlus" onClick={attach}>
               {attachLabel}
             </Button>
           )}
-          {canBook && matchesKnown && caps.runMatches && !params.attach && (
+          {canBook && !banned && matchesKnown && caps.runMatches && !params.attach && (
             <Button icon="users" onClick={() => void navigate({ to: '/desk', search: { customer: id, kind: 'match' } as never })}>
               {tr('ws.matches.customers.startMatch')}
             </Button>
           )}
-          {lessons && canBook && coachCaps.runLessons && !params.attach && (
+          {lessons && canBook && !banned && coachCaps.runLessons && !params.attach && (
             <Button icon="whistle" onClick={() => void navigate({ to: '/desk', search: { customer: id, kind: 'lesson' } as never })}>
               {tr('ws.coaching.customers.bookLesson')}
             </Button>
           )}
-          {canBook && (
+          {canBook && !banned && (
             <Button kind={params.attach ? 'default' : 'primary'} icon="calendar" onClick={() => void navigate({ to: '/desk', search: { customer: id } as never })}>
               {tr('ws.courtDesk.record.newBooking')}
             </Button>
@@ -240,6 +261,7 @@ export function CustomerRecordScreen() {
       <AsyncStateWrapper status={status} error={recordQ.error} onRetry={() => void recordQ.refetch()} emptyContent={<EmptyState icon="users" title={tr('ws.courtDesk.record.notFound')} />}>
         {rec && (
           <div style={{ display: 'grid', gap: 'var(--tp-sp-4)' }}>
+            {banShown && <BanBanner ban={banShown} tz={tz} canLift={canBan} onLift={() => setBanOpen('lift')} />}
             {/* Who this is. */}
             <header style={{ display: 'flex', gap: 'var(--tp-sp-4)', alignItems: 'center' }}>
               <span
@@ -264,7 +286,10 @@ export function CustomerRecordScreen() {
                 <div style={{ display: 'flex', gap: 'var(--tp-sp-2)', alignItems: 'center', flexWrap: 'wrap' }}>
                   <h1 style={{ fontSize: 'var(--tp-fs-3xl)', fontWeight: 700, lineHeight: 1.1, margin: 0 }}>{rec.customer.full_name}</h1>
                   {lessons?.coach && <CoachBadge status={lessons.coach.status} />}
-                  {rec.flags.map((f, i) => (
+                  {/* The ban has its own banner above. */}
+                  {rec.flags
+                    .filter((f) => f.type !== 'ban')
+                    .map((f, i) => (
                     <CustomerFlagBadge key={`${f.type}-${i}`} flag={f} size="md" />
                   ))}
                   {showDiscount && discount && (
@@ -277,9 +302,20 @@ export function CustomerRecordScreen() {
                       title={discountWords.parts(discount)}
                     />
                   )}
+                  {rules && <TagChips tags={rules.tags} />}
                   <Button size="sm" kind="ghost" icon="tag" onClick={() => setFlagsOpen(true)}>
                     {flagCount === 0 ? tr('ws.courtDesk.record.addFlags') : tr('ws.courtDesk.record.editFlags')}
                   </Button>
+                  {rules && (
+                    <Button size="sm" kind="ghost" icon="layers" onClick={() => setTagsOpen(true)} data-testid="record-tags">
+                      {tr('ws.customerRules.tags.action')}
+                    </Button>
+                  )}
+                  {canBan && !banned && !rules?.isStaff && (
+                    <Button size="sm" kind="ghost" icon="ban" onClick={() => setBanOpen('ban')} data-testid="record-ban">
+                      {tr('ws.customerRules.ban.action')}
+                    </Button>
+                  )}
                   {lessons && coachCaps.manageCoaches && !params.attach && (
                     <Button
                       size="sm"
@@ -300,11 +336,24 @@ export function CustomerRecordScreen() {
                   style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}
                   parts={[
                     ...(rec.customer.phone ? [<bdi key="p" dir="ltr" style={{ fontFamily: 'var(--tp-font-numeric)' }}>{rec.customer.phone}</bdi>] : []),
-                    ...(rec.customer.email ? [<bdi key="e" dir="ltr">{rec.customer.email}</bdi>] : []),
+                    ...(realEmail(rec.customer.email) ? [<bdi key="e" dir="ltr">{realEmail(rec.customer.email)}</bdi>] : []),
                     ...(rec.customer.preferred_lang === 'ar' ? [tr('ws.courtDesk.customers.lang.ar')] : rec.customer.preferred_lang === 'en' ? [tr('ws.courtDesk.customers.lang.en')] : []),
                     ...(rec.customer.created_at ? [`${tr('ws.courtDesk.record.since')} ${formatDate(new Date(rec.customer.created_at), locale, tz)}`] : []),
                   ]}
                 />
+                {isIncompleteCustomer(rec.customer) && (
+                  // 0448: saved by name alone. The number completes the account, here or where they are next picked.
+                  <div style={{ marginBlockStart: 'var(--tp-sp-2)', maxInlineSize: '28rem' }}>
+                    <IncompleteBadge size="md" />
+                    <CompleteCustomerPhone
+                      customerId={rec.customer.id}
+                      onCompleted={() => {
+                        void queryClient.invalidateQueries({ queryKey: ['customer', id] });
+                        void queryClient.invalidateQueries({ queryKey: ['customerDirectory'] });
+                      }}
+                    />
+                  </div>
+                )}
               </div>
             </header>
 
@@ -585,6 +634,18 @@ export function CustomerRecordScreen() {
         <CustomerDiscountDialog customerId={id} customerName={rec.customer.full_name} discount={discount} self={staff?.id === id} onClose={() => setDiscountOpen(false)} />
       )}
 
+      {banOpen === 'ban' && rec && rules && <BanDialog customerId={id} name={rec.customer.full_name} coming={rules.coming} onClose={() => setBanOpen(null)} />}
+      {banOpen === 'lift' && rec && <LiftBanDialog customerId={id} name={rec.customer.full_name} onClose={() => setBanOpen(null)} />}
+      {tagsOpen && rec && rules && (
+        <TagsDialog
+          customerId={id}
+          name={rec.customer.full_name}
+          rules={rules}
+          self={staff?.id === id}
+          canManage={can(staff, 'manageCustomerTags')}
+          onClose={() => setTagsOpen(false)}
+        />
+      )}
       {flagsOpen && rec && (
         <FlagsEditor
           customerId={id}

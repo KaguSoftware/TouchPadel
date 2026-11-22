@@ -51,8 +51,6 @@ import { LineNoteDialog } from './LineNoteDialog';
 import { NewTabDialog } from './NewTabDialog';
 import { TabDetailPanel } from './TabDetailPanel';
 import { OfflineTabPanel } from './OfflineTabPanel';
-import { KitchenSendStatus } from './KitchenReachFlag';
-import { noteKitchenSend } from './kitchenReachStore';
 import { KeymapHelp } from './KeymapHelp';
 import { mergeQuickLine, quickVariant } from './quickAdd';
 import { resolveTillKey, type TillAction } from './keymap';
@@ -345,9 +343,7 @@ export function TillScreen() {
       // Single write path: queued durably in Electron, direct RPC in browser mode.
       if (selectedTabId.startsWith(LOCAL_TAB_PREFIX)) {
         const idemKey = selectedTabId.slice(LOCAL_TAB_PREFIX.length);
-        const outcome = await mutate('order.add_items', { tabIdemKey: idemKey, items, service });
-        // F-11: watched until a kitchen screen draws it (KitchenSendStatus, KitchenReachFlag).
-        noteKitchenSend({ key: outcome.idempotencyKey, tabId: selectedTabId, queued: outcome.queued });
+        await mutate('order.add_items', { tabIdemKey: idemKey, items, service });
         // The category rides along so the offline bill taxes it the way the server will (F-06).
         const categoryOf = new Map((menuQ.data?.items ?? []).flatMap((i) => i.menu_item_variants.map((v) => [v.id, i.category_id] as const)));
         appendOfflineLines(
@@ -355,10 +351,8 @@ export function TillScreen() {
           part.map((l) => ({ name: `${l.itemName} (${l.variantName})`, qty: l.qty, priceIqd: basketLineEstimate(l) / l.qty, categoryId: categoryOf.get(l.variantId) ?? null })),
         );
       } else {
-        const outcome = await mutate('order.add_items', { tabId: selectedTabId, items, service });
-        noteKitchenSend({ key: outcome.idempotencyKey, tabId: selectedTabId, queued: outcome.queued });
+        await mutate('order.add_items', { tabId: selectedTabId, items, service });
       }
-      // Once on the queue, the queued state is KitchenSendStatus's to show (F-11).
       setSendNotice(null);
       const sent = new Set(part.map((l) => l.key));
       setBasket((b) => b.filter((l) => !sent.has(l.key)));
@@ -859,8 +853,6 @@ export function TillScreen() {
               onClear={() => setBasket([])}
               onSend={() => void sendBasket()}
             />
-            {/* F-11: the last order sent here, until a kitchen screen shows it. */}
-            <KitchenSendStatus tabId={selectedTabId} />
           </div>
         </section>
 

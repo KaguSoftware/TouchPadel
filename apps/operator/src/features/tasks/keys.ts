@@ -2,13 +2,13 @@
  * My tasks' own query keys (build-contracts-2026-09-23 §5.2). The protocol
  * reads sit under the ['protocols'] root, so any protocol write that
  * invalidates it (a submit here, a decision on /protocols) refreshes this page
- * and the kitchen board's My tasks count with it. Each holds its RPC's payload
+ * and the My tasks count with it. Each holds its RPC's payload
  * as returned.
  */
 import type { QueryKey } from '@tanstack/react-query';
 
 export const TK = {
-  /** app.my_protocol_work: To do, Waiting, Decided; the kitchen board counts To do. */
+  /** app.my_protocol_work: To do, Waiting, Decided. */
   work: ['protocols', 'myWork'] as const satisfies QueryKey,
   /** app.protocol_step_detail for one of my steps. */
   step: (runStepId: string) => ['protocols', 'taskStep', runStepId] as const satisfies QueryKey,

@@ -132,14 +132,14 @@ export const branchesEn = {
   },
   stations: {
     title: 'Stations',
-    intro: 'Every café cashier, desk and kitchen screen belongs to one branch.',
+    intro: 'Every café cashier and desk belongs to one branch.',
     register: 'Register this station',
     // F-65: the toast says what happened, not the button.
     registered: 'This station is registered.',
     name: 'Station name',
     nameHint: 'Capital letters, digits and dashes, for example TILL-2.',
     mode: 'What it is',
-    modes: { till: 'Café cashier', desk: 'Court desk', kds: 'Kitchen screen', shop: 'Touch Shop desk' },
+    modes: { till: 'Café cashier', desk: 'Court desk', shop: 'Touch Shop desk' },
     branch: 'Branch',
     retire: 'Retire',
     retireConfirm: 'Retire {name}? It stops counting for offline mode and the day close. The name can be registered again later.',

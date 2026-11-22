@@ -133,26 +133,15 @@ describe('validateMutationEnvelope', () => {
     );
   });
 
-  it('accepts a localId from a different station than the key — the till enqueues on the KDS behalf', () => {
-    // Single writer (design-arch §2.4): a KDS status frame is wrapped by the TILL,
-    // key minted with the till's deviceId, localId keeping the KDS provenance.
-    const e = envelope({
-      localId: `KDS-01-${ULID2}`,
-      idempotencyKey: `TILL-01:ticket.status:${ULID2}`,
-      mutationType: 'ticket.status',
-    });
-    expect(validateMutationEnvelope(e).localId).toBe(`KDS-01-${ULID2}`);
-  });
-
   it('accepts a station id containing hyphens', () => {
     // The station pattern allows them, and a naive split on '-' would break here.
     const e = envelope({
-      localId: `KDS-BACK-01-${ULID2}`,
-      idempotencyKey: `KDS-BACK-01:ticket.status:${ULID2}`,
-      mutationType: 'ticket.status',
-      deviceId: 'KDS-BACK-01',
+      localId: `SHOP-BACK-01-${ULID2}`,
+      idempotencyKey: `SHOP-BACK-01:order.create:${ULID2}`,
+      mutationType: 'order.create',
+      deviceId: 'SHOP-BACK-01',
     });
-    expect(validateMutationEnvelope(e).localId).toBe(`KDS-BACK-01-${ULID2}`);
+    expect(validateMutationEnvelope(e).localId).toBe(`SHOP-BACK-01-${ULID2}`);
   });
 
   it('refuses a missing or malformed staffId — replay 400s without one', () => {
@@ -332,78 +321,29 @@ describe('validateResolveQueueRow', () => {
 });
 
 import {
-  pairingCodeRegex as shellPairingCodeRegex,
-  validateDiscoverRequest,
-  validatePairingCode,
   validateResolveQueueRow,
   validateStationSetup,
   validateSupplierPageRequest,
 } from './ipc-validate';
-import { pairingCodeRegex } from '@touch/core/pairing/pairingCode';
-
-describe('validatePairingCode', () => {
-  it('mirrors the canonical pattern exactly', () => {
-    expect(shellPairingCodeRegex.source).toBe(pairingCodeRegex.source);
-  });
-
-  it('accepts a canonical code and refuses everything else', () => {
-    expect(validatePairingCode('ABCDEFGHJK')).toBe('ABCDEFGHJK');
-    for (const bad of ['abcdefghjk', 'ABCDE-FGHJK', 'ABCDEFGHJ', 'ABCDEFGHJU', 42, null, '']) {
-      expect(() => validatePairingCode(bad)).toThrow(IpcValidationError);
-    }
-  });
-
-  it('never echoes the code in the error message', () => {
-    // The code is the LAN secret; a kiosk log is readable by anyone at the till.
-    try {
-      validatePairingCode('SECRETCOD3-nope');
-    } catch (e) {
-      expect((e as Error).message).not.toContain('SECRETCOD3');
-    }
-  });
-});
 
 describe('validateStationSetup', () => {
-  it('till and desk keep only id + mode', () => {
-    expect(validateStationSetup({ stationId: 'TILL-01', mode: 'till', pairingCode: 'ABCDEFGHJK', x: 1 })).toEqual({
+  it('till, desk and shop keep only id + mode', () => {
+    expect(validateStationSetup({ stationId: 'TILL-01', mode: 'till', x: 1 })).toEqual({
       stationId: 'TILL-01',
       mode: 'till',
     });
     expect(validateStationSetup({ stationId: 'DESK-01', mode: 'desk' })).toEqual({ stationId: 'DESK-01', mode: 'desk' });
+    expect(validateStationSetup({ stationId: 'SHOP-01', mode: 'shop' })).toEqual({ stationId: 'SHOP-01', mode: 'shop' });
   });
 
-  it('a kitchen screen must bring a private till host and a code', () => {
-    expect(
-      validateStationSetup({ stationId: 'KDS-01', mode: 'kds', tillHost: '192.168.4.10', pairingCode: 'ABCDEFGHJK' }),
-    ).toEqual({ stationId: 'KDS-01', mode: 'kds', tillHost: '192.168.4.10', pairingCode: 'ABCDEFGHJK' });
-    expect(() => validateStationSetup({ stationId: 'KDS-01', mode: 'kds', pairingCode: 'ABCDEFGHJK' })).toThrow(
-      IpcValidationError,
-    );
-    expect(() =>
-      validateStationSetup({ stationId: 'KDS-01', mode: 'kds', tillHost: '8.8.8.8', pairingCode: 'ABCDEFGHJK' }),
-    ).toThrow(/private/);
-    expect(() =>
-      validateStationSetup({ stationId: 'KDS-01', mode: 'kds', tillHost: '192.168.4.10', pairingCode: 'nope' }),
-    ).toThrow(IpcValidationError);
+  it('no longer accepts the kitchen-screen mode', () => {
+    expect(() => validateStationSetup({ stationId: 'KDS-01', mode: 'kds' })).toThrow(/mode/);
   });
 
   it('refuses a bad station id or mode', () => {
     expect(() => validateStationSetup({ stationId: 'till 1', mode: 'till' })).toThrow(/TILL-01/);
     expect(() => validateStationSetup({ stationId: 'TILL-01', mode: 'oven' })).toThrow(/mode/);
     expect(() => validateStationSetup('TILL-01')).toThrow(IpcValidationError);
-  });
-});
-
-describe('validateDiscoverRequest', () => {
-  it('takes a code alone, or a code with one private host', () => {
-    expect(validateDiscoverRequest({ code: 'ABCDEFGHJK' })).toEqual({ code: 'ABCDEFGHJK' });
-    expect(validateDiscoverRequest({ code: 'ABCDEFGHJK', host: '' })).toEqual({ code: 'ABCDEFGHJK' });
-    expect(validateDiscoverRequest({ code: 'ABCDEFGHJK', host: '10.0.0.9' })).toEqual({
-      code: 'ABCDEFGHJK',
-      host: '10.0.0.9',
-    });
-    expect(() => validateDiscoverRequest({ code: 'ABCDEFGHJK', host: '1.1.1.1' })).toThrow(/private/);
-    expect(() => validateDiscoverRequest({ code: 'bad' })).toThrow(IpcValidationError);
   });
 });
 

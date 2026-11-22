@@ -33,7 +33,6 @@ export const RESULT_INVALIDATIONS: Record<string, readonly QueryKey[]> = {
   'tab.open': [QK.tabs, QK.bookingBill.all, QK.bookingBillStates.all, QK.deskMatches.all],
   'tab.settle': [QK.tab.all, QK.tabs, QK.day, QK.bookingBill.all, QK.bookingBillStates.all, QK.deskMatches.all],
   'payment.record': [QK.tab.all, QK.tabs, QK.day, QK.bookingBill.all, QK.bookingBillStates.all, QK.deskMatches.all],
-  'ticket.status': [QK.tickets],
   'adjustment.apply': [QK.tab.all, QK.tabs],
   'reservation.create': [...RESERVATION_LIST_KEYS, QK.deskMatches.all],
   // A move or extend re-prices the booking, so its bill moves with it (0106).
@@ -48,7 +47,7 @@ export const RESULT_INVALIDATIONS: Record<string, readonly QueryKey[]> = {
   // A refund of desk lesson money is this queued refund too (coaching operator.md §5.4, R36):
   // the lesson screen, the refunds-due lists and the record re-read through the coaching root.
   'payment.refund': [QK.tab.all, QK.tabs, QK.day, QK.bookingBill.all, QK.bookingBillStates.all, QK.deskMatches.all, QK.coaching.all],
-  'order_item.void': [QK.tab.all, QK.tabs, QK.day, QK.bookingBill.all, QK.bookingBillStates.all, QK.tickets],
+  'order_item.void': [QK.tab.all, QK.tabs, QK.day, QK.bookingBill.all, QK.bookingBillStates.all],
   // 0395: an allowlisted RPC queued offline can be any settings page, a tab's
   // member, a kitchen recall or a deposit; its result refreshes every mounted
   // query (dispatchResult, INVALIDATE_ALL), so nothing is named here.

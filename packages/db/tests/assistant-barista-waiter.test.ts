@@ -7,14 +7,12 @@
  *   * both hold the any-staff baseline 0156 made role-agnostic: breaks, the
  *     own PIN, the heartbeat, leave requests, suggestions, their checklists,
  *     asking marketing, notes on new items and their protocol work;
- *   * the assistant barista works the bar's tickets (BOARD, PROPOSAL §8 Q1):
- *     kitchen_board with no money key, set_ticket_status,
- *     set_order_item_ready and the tickets read; he is in the bar team, so he
+ *   * the assistant barista reads the bar's tickets (PROPOSAL §8 Q1); he is in the bar team, so he
  *     reads the bar's teachings (not the kitchen's), gets their push and
  *     their photos, and reads recipe names with no quantity; he writes no
  *     teaching and gets no shopping, stock, ideas, production, protocol
  *     start, till, desk or waiter call;
- *   * the waiter joins no team and no board (§8 Q2, Q3); his cleaning list
+ *   * the waiter joins no team and reads no ticket (§8 Q2, Q3); his cleaning list
  *     needs its photo, which a second waiter and MGMT read and a driver,
  *     marketing or a barista do not;
  *   * the waiter answers guests' calls (§2.1.8, §8 Q3 answered): he gets the
@@ -25,13 +23,13 @@
  *   * neither reads tabs, orders or order lines;
  *   * both are hireable (a position, an owner-added step) and set_staff_role
  *     moves an account onto each and back;
- *   * driver and marketing are unchanged: no board, no teachings, no recipes.
+ *   * driver and marketing are unchanged: no tickets, no teachings, no recipes.
  *
  * HOW. Two halves. Through PostgREST, the new-roles.test.ts way: one auth
  * user + staff row per new role through the service role (the 0123 trigger
  * files each at venue A), deleted in afterAll with the probe station, its
  * heartbeat row, the requests and the attempt rows the PIN check wrote; the
- * probe tab and ticket stay behind, as kds-item-ready's do. Everything that
+ * probe tab and ticket stay behind. Everything that
  * writes a record is ONE psql transaction that is rolled back (the
  * teachings.test.ts harness), so nothing it creates outlives the scenario.
  * tests/rls-matrix.ts keeps its eight principals; these roles are not in it.
@@ -235,44 +233,23 @@ describe.skipIf(!up)('wave 5 roles through PostgREST', () => {
     }
   });
 
-  it('the assistant barista works the bar’s tickets, with no money anywhere', async () => {
+  it('the assistant barista reads the bar’s tickets', async () => {
     const c = as.assistant_barista;
-
-    const board = await appRpc(c, 'kitchen_board', {});
-    expect(board.error).toBeNull();
-    const tickets = (board.data as { tickets: { id: string }[] }).tickets;
-    expect(tickets.map((t) => t.id)).toContain(ticketId);
-    const money = keysDeep(board.data).filter((k) => k.endsWith('_iqd') || k.startsWith('cost'));
-    expect(money).toEqual([]);
 
     const seen = await c.from('tickets').select('id').eq('id', ticketId);
     expect(seen.error).toBeNull();
     expect(seen.data).toHaveLength(1);
-
-    const bump = await appRpc(c, 'set_ticket_status', { p_ticket_id: ticketId, p_status: 'preparing' });
-    expect(bump.error).toBeNull();
-    expect((bump.data as { status: string }).status).toBe('preparing');
-
-    const mark = await appRpc(c, 'set_order_item_ready', { p_order_item_id: orderItemId, p_ready: true });
-    expect(mark.error).toBeNull();
   });
 
-  it('the waiter holds no board', async () => {
+  it('the waiter reads no ticket', async () => {
     const c = as.waiter;
 
     const seen = await c.from('tickets').select('id').eq('id', ticketId);
     expect(seen.error).toBeNull();
     expect(seen.data).toHaveLength(0);
-
-    const board = await appRpc(c, 'kitchen_board', {});
-    expect(board.error?.message).toBe('FORBIDDEN');
-    const bump = await appRpc(c, 'set_ticket_status', { p_ticket_id: ticketId, p_status: 'ready' });
-    expect(bump.error?.message).toBe('FORBIDDEN');
-    const mark = await appRpc(c, 'set_order_item_ready', { p_order_item_id: orderItemId, p_ready: false });
-    expect(mark.error?.message).toBe('FORBIDDEN');
   });
 
-  it('neither reads tabs, orders or order lines', async () => {
+  it('the waiter reads no tabs, orders or order lines; the assistant barista does, as a cashier (0446)', async () => {
     for (const role of NEW_ROLES) {
       for (const [table, column, id] of [
         ['tabs', 'id', tabId],
@@ -282,7 +259,10 @@ describe.skipIf(!up)('wave 5 roles through PostgREST', () => {
       ] as const) {
         const rows = await as[role].from(table).select(column).eq(column, id);
         expect(rows.error).toBeNull();
-        expect(rows.data, `${role} reads no ${table}`).toHaveLength(0);
+        // 0446: every barista is also a cashier, so the assistant barista reads
+        // what the till reads; the waiter still reads none.
+        const till = role === 'assistant_barista' ? (await cashier.from(table).select(column).eq(column, id)).data ?? [] : [];
+        expect(rows.data, `${role} reads ${table}`).toHaveLength(till.length);
       }
     }
     // The till still reads them.
@@ -414,7 +394,14 @@ function refused(r: Results, label: string): string {
 }
 
 const WHO = ['abar', 'wtr'] as const;
-const NEW = [MK('abar', 'assistant_barista'), MK('wtr', 'waiter')];
+// 0446 makes every barista a cashier too (a second job kept by the trigger
+// staff_barista_cashier). These scenarios pin the assistant barista's OWN
+// role wall, so the trigger is off inside their rolled-back transaction;
+// second-jobs.test.ts "0446" covers the cashier half.
+const NEW = [
+  `alter table staff disable trigger staff_barista_cashier;`,
+  MK('abar', 'assistant_barista'), MK('wtr', 'waiter'),
+];
 const NIL = `'00000000-0000-4000-8000-000000000000'::uuid`;
 /** Inserted inactive inside a scenario, so it never joins the owner's venues. */
 const OTHER_VENUE = '00000000-0000-4000-8000-00000000abce';
@@ -513,9 +500,6 @@ describe.skipIf(!docker)('wave 5 roles (rolled-back transactions)', () => {
       ack_waiter_call: `select app.ack_waiter_call(${NIL})`,
     };
     const waiterCalls: Record<string, string> = {
-      kitchen_board: `select app.kitchen_board()`,
-      set_ticket_status: `select app.set_ticket_status(${NIL}, 'preparing')`,
-      set_order_item_ready: `select app.set_order_item_ready(${NIL}, true)`,
       teachings_for_me: `select app.teachings_for_me({{venue}})`,
       recipe_view: `select app.recipe_view({{venue}})`,
       shopping_list: calls.shopping_list!,
@@ -527,7 +511,6 @@ describe.skipIf(!docker)('wave 5 roles (rolled-back transactions)', () => {
       start_release: calls.start_release!,
     };
     const unchanged: Record<string, string> = {
-      kitchen_board: waiterCalls.kitchen_board!,
       teachings_for_me: waiterCalls.teachings_for_me!,
       recipe_view: waiterCalls.recipe_view!,
     };

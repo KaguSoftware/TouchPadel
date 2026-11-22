@@ -44,7 +44,7 @@ import type { IconName } from '../components/icons';
 import { rolesOf, type StaffAccess } from '@touch/core';
 import type { StaffRole } from './auth';
 
-export type WorkspaceKey = 'courtDesk' | 'cashier' | 'prep' | 'management' | 'team' | 'shop';
+export type WorkspaceKey = 'courtDesk' | 'cashier' | 'management' | 'team' | 'shop';
 
 /** i18n key under ws.shell.nav: a rail row's name, or a family tab's. */
 export type NavLabelKey =
@@ -89,7 +89,7 @@ export type NavLabelKey =
   | 'courtSettings' | 'courtSales' | 'cafeSales' | 'billsSuppliers' | 'tournamentRules'
   | 'analyticsSettings' | 'computersScreens'
   | 'venueDetails' | 'openingHours' | 'businessDay' | 'genderHours'
-  | 'guestApp' | 'devices' | 'stations' | 'kitchenScreens' | 'offlineMode'
+  | 'guestApp' | 'devices' | 'stations' | 'offlineMode'
   // Dev monitoring (0393): the dev role's page, the owner's under Settings.
   | 'monitoring';
 
@@ -400,13 +400,11 @@ const BRANCH_TABS: readonly NavTab[] = [
 
 /**
  * The machines: which ones report in, which stations are registered at the
- * branch, the kitchen screens paired to the till, and when the venue counts
- * as offline.
+ * branch, and when the venue counts as offline.
  */
 const DEVICES_TABS: readonly NavTab[] = [
   { to: '/admin/settings/devices', labelKey: 'devices' },
   { to: '/admin/settings/stations', labelKey: 'stations' },
-  { to: '/admin/settings/kitchen', labelKey: 'kitchenScreens' },
   { to: '/admin/settings/offline', labelKey: 'offlineMode' },
 ];
 
@@ -605,7 +603,6 @@ const MANAGEMENT_SECTIONS: readonly NavSection[] = [
 export const WORKSPACES: Record<WorkspaceKey, Workspace> = {
   courtDesk: { key: 'courtDesk', home: '/desk/today', icon: 'calendar', groups: [{ labelKey: null, items: COURT_DESK }] },
   cashier: { key: 'cashier', home: '/till', icon: 'grid', groups: [{ labelKey: null, items: CASHIER }] },
-  prep: { key: 'prep', home: '/kds', icon: 'flame', groups: [] },
   management: { key: 'management', home: '/panel', icon: 'shield', groups: [{ labelKey: null, items: MANAGEMENT_PRIMARY }], sections: MANAGEMENT_SECTIONS, altHomes: ['/ops'] },
   // Marketing opens on its plan; the driver and the waiter, who cannot, on My tasks.
   // The dev role (0392) holds this workspace for its one page, Monitoring.
@@ -618,17 +615,16 @@ export function workspacesForRole(role: StaffRole): readonly WorkspaceKey[] {
   switch (role) {
     case 'cashier':
       return ['cashier'];
-    // The bar and kitchen family has exactly prep's workspace (0155); the
-    // assistant barista joins it for the bar's tickets (wave 5 §2.1).
+    case 'court_desk':
+      return ['courtDesk'];
+    // The bar and kitchen family has no screen of its own since the kitchen
+    // screen was removed: it works My tasks on the team rail, like the waiter.
     case 'prep':
     case 'head_barista':
     case 'barista':
     case 'assistant_barista':
     case 'head_chef':
     case 'chef':
-      return ['prep'];
-    case 'court_desk':
-      return ['courtDesk'];
     case 'driver':
     case 'marketing':
     case 'waiter':
@@ -639,7 +635,7 @@ export function workspacesForRole(role: StaffRole): readonly WorkspaceKey[] {
       return ['shop'];
     case 'manager':
     case 'owner':
-      return ['management', 'courtDesk', 'cashier', 'prep', 'shop'];
+      return ['management', 'courtDesk', 'cashier', 'shop'];
   }
 }
 
@@ -705,7 +701,6 @@ export function saveWorkspace(key: WorkspaceKey): void {
  * when the route is shared.
  */
 export function workspaceForRoute(path: string): WorkspaceKey | null {
-  if (path === '/kds') return 'prep';
   if (path === '/panel' || path === '/ops' || path.startsWith('/reports/revenue')) return 'management';
   if (path === '/analytics' || path.startsWith('/analytics/')) return 'management';
   if (path === '/assistant' || path.startsWith('/assistant/')) return 'management';
@@ -719,7 +714,7 @@ export function workspaceForRoute(path: string): WorkspaceKey | null {
   if (path === '/files') return 'management';
   if (path === '/shop' || path.startsWith('/shop/')) return 'shop';
   // /tasks is not pinned: eight roles open it in their own workspace (the
-  // desk's and the till's rail row, the kitchen board's My tasks), and only
+  // desk's and the till's rail row, and My tasks), and only
   // driver and marketing hold the team workspace.
   return null;
 }

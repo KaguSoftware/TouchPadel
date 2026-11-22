@@ -67,6 +67,7 @@ export const discountsEn = {
   },
   /** At the close of a bill (till, shop, desk). */
   bill: {
+    fromTag: '{tag} tag',
     keep: 'Keep for {name} on every bill',
     keepHint: 'Saved on their record: every bill of theirs gets it from now on.',
     onceHint: 'This bill only. Their record stays as it is.',

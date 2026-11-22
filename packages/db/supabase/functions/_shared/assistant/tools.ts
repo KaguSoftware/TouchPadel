@@ -643,7 +643,7 @@ export const ASSISTANT_TOOLS: readonly ToolSpec[] = [
     name: 'ops_overview',
     scope: 'system',
     kind: 'aggregate',
-    description: 'What is happening on the floor right now: open tabs, courts in play, kitchen queue, waiter calls, alerts, day session status.',
+    description: 'What is happening on the floor right now: open tabs, courts in play, waiter calls, alerts, day session status.',
     route: '/ops',
     rpc: 'ops_overview',
     args: {},

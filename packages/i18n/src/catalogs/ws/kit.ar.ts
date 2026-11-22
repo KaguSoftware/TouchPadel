@@ -44,13 +44,6 @@ export const kitAr: DeepMessages<typeof kitEn> = {
     refunded: 'مسترد',
     unknown: 'حالة الدفع غير معروفة',
   },
-  ticketState: {
-    queued: 'جديد',
-    preparing: 'قيد التحضير',
-    ready: 'جاهز',
-    completed: 'مكتمل',
-    voided: 'ملغى',
-  },
   tabStatus: {
     open: 'مفتوحة',
     awaiting_payment: 'بانتظار الدفع',
@@ -63,12 +56,6 @@ export const kitAr: DeepMessages<typeof kitEn> = {
     maintenance: 'موقوف',
     lesson: 'حصة',
   },
-  source: {
-    web: 'الموقع',
-    till: 'كاشير الكافيه',
-    mobile: 'التطبيق',
-    desk: 'المكتب',
-  },
   flags: {
     vip: 'VIP',
     birthday: 'عيد ميلاد',
@@ -77,6 +64,7 @@ export const kitAr: DeepMessages<typeof kitEn> = {
     deposit_exempt: 'بلا عربون',
     // Open matches (operator.md §5.15). DRAFT-AR: on the client's review list.
     match_ban: 'ممنوع من المباريات المفتوحة',
+    ban: 'محظور',
     matchBanReason: {
       conduct: 'سوء السلوك',
       no_shows: 'تكرار الغياب',
@@ -168,6 +156,19 @@ export const kitAr: DeepMessages<typeof kitEn> = {
     title: 'المعاملات المكوّنة لهذا الرقم',
     empty: 'لا معاملات في هذه الفترة.',
     close: 'إغلاق',
+  },
+  osk: {
+    shift: 'الأحرف البديلة',
+    backspace: 'حذف',
+    enter: 'إدخال',
+    space: 'مسافة',
+    switchLang: 'تغيير اللغة',
+    symbols: 'الأرقام والرموز',
+    letters: 'الأحرف',
+    hide: 'إخفاء لوحة المفاتيح',
+    keyboard: 'لوحة المفاتيح',
+    show: 'إظهار لوحة المفاتيح',
+    noField: 'لا يوجد حقل للكتابة في هذه الشاشة.',
   },
   keypad: {
     clear: 'مسح',

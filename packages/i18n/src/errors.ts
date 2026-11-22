@@ -688,6 +688,8 @@ export const ERROR_CODE_KEYS = {
   // Customers: desk-customer-create (which also sends DUPLICATE_EMAIL) on the
   // new-customer form's field lines; INVALID_PHONE is also app.sms_send_gate's.
   DUPLICATE_PHONE: 'ws.courtDesk.createCustomer.errors.DUPLICATE_PHONE',
+  // 0448: app.desk_complete_customer, the number added to a customer saved by name alone.
+  CUSTOMER_NOT_INCOMPLETE: 'ws.courtDesk.deskAccount.complete.CUSTOMER_NOT_INCOMPLETE',
   DUPLICATE_EMAIL: 'ws.courtDesk.createCustomer.errors.DUPLICATE_EMAIL',
   INVALID_PHONE: 'ws.courtDesk.createCustomer.errors.INVALID_PHONE',
   AUTH_USER_NOT_FOUND: 'op.errors.AUTH_USER_NOT_FOUND',
@@ -782,6 +784,11 @@ export const ERROR_CODE_KEYS = {
   COURT_DISCOUNT_NOT_ALLOWED: 'op.errors.COURT_DISCOUNT_NOT_ALLOWED',
   COURT_BILL_CLOSED: 'op.errors.COURT_BILL_CLOSED',
   COURT_FEE_PAID: 'op.errors.COURT_FEE_PAID',
+  // Customer ban and tags (0449).
+  CUSTOMER_BANNED: 'op.errors.CUSTOMER_BANNED',
+  CUSTOMER_IS_STAFF: 'op.errors.CUSTOMER_IS_STAFF',
+  TAG_NAME_TAKEN: 'op.errors.TAG_NAME_TAKEN',
+  TAG_NOT_FOUND: 'op.errors.TAG_NOT_FOUND',
   // Main cash (0343) and wage advances (0344): the safe and the Wages page.
   MAIN_CASH_CHANGED: 'op.errors.MAIN_CASH_CHANGED',
   MAIN_CASH_HANDED_IN: 'op.errors.MAIN_CASH_HANDED_IN',

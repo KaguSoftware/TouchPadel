@@ -131,7 +131,9 @@ export function BillDiscountDialog({
         <div style={{ display: 'grid', gap: 'var(--tp-sp-4)' }}>
           {state.standing && (
             <p style={{ margin: 0, fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }} data-testid="discount-standing">
-              {tr('ws.discounts.bill.standing', { parts: `${words.reason(state.standing.reason)} · ${words.parts(state.standing)}` })}
+              {tr('ws.discounts.bill.standing', {
+                parts: `${state.standing.tag ? tr('ws.discounts.bill.fromTag', { tag: isolate(state.standing.tag) }) : words.reason(state.standing.reason)} · ${words.parts(state.standing)}`,
+              })}
             </p>
           )}
           {courtClosed && <MessagePresenter tone="info" icon="lock" message={tr('ws.discounts.bill.courtClosed')} />}

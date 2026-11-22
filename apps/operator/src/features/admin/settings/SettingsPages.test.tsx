@@ -30,7 +30,6 @@ vi.mock('./DevicesPanel', () => ({ DevicesPanel: ({ staleSeconds }: { staleSecon
 vi.mock('./StationsPanel', () => ({ StationsPanel: () => <div data-testid="stations-panel" /> }));
 vi.mock('./DayServiceTab', () => ({ DayServiceTab: () => <div data-testid="day-panel" /> }));
 vi.mock('./AnalyticsTab', () => ({ AnalyticsTab: () => <div data-testid="analytics-panel" /> }));
-vi.mock('../KitchenPairing', () => ({ KitchenPairingPanel: () => <div data-testid="kitchen-panel" /> }));
 vi.mock('./venueQueries', async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();
   return {

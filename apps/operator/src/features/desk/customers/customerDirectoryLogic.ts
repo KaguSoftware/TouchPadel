@@ -58,8 +58,12 @@ export function filterCustomers(rows: readonly CustomerSearchRow[], query: strin
   const q = query.trim();
   // An account with no name (a guest who never gave one) goes to the foot:
   // a blank row at the top of the book reads as a broken list.
+  // 0448: then the customers saved by name alone, after the ones the desk can
+  // call, as app.customer_search and app.customer_directory order them.
   const byName = (a: CustomerSearchRow, b: CustomerSearchRow) =>
-    Number(!a.full_name.trim()) - Number(!b.full_name.trim()) || a.full_name.localeCompare(b.full_name);
+    Number(!a.full_name.trim()) - Number(!b.full_name.trim()) ||
+    Number(!(a.phone ?? '').trim()) - Number(!(b.phone ?? '').trim()) ||
+    a.full_name.localeCompare(b.full_name);
   const bySort =
     sort === 'bookings'
       ? (a: CustomerSearchRow, b: CustomerSearchRow) => (b.counts?.bookings ?? 0) - (a.counts?.bookings ?? 0) || byName(a, b)

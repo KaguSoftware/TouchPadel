@@ -15,11 +15,6 @@ import {
 } from './queue';
 import { canTrade, loadStation, writeStation } from './station';
 import { completeFirstRun } from './first-run';
-import { isPairingCode } from './pairing-code';
-import { LAN_KDS_PORT, pickLanBind, startLanKdsServer, type LanKdsServer } from './lan-kds-server';
-import { startLanKdsClient, type LanKdsClient } from './lan-kds-client';
-import { validateLanAck, validateLanCloudStatus } from './lan-frames';
-import { confirmTill, discoverTill, SCAN_HANDSHAKE_TIMEOUT_MS } from './lan-discover';
 import { startUpdater, updaterPendingFile, type UpdaterHandle } from './updater';
 import { startHeartbeat } from './heartbeat';
 import { getAuthState, setAuthState } from './auth-state';
@@ -46,10 +41,7 @@ import {
   IpcValidationError,
   validateAuthState,
   validateCachePut,
-  validateChromeless,
   validateConnState,
-  validateDiscoverRequest,
-  validateLanStatus,
   validateMutationEnvelope,
   validatePin,
   validatePinOwner,
@@ -74,6 +66,13 @@ const navPolicy: NavigationPolicy = { devServerUrl, isDev };
 const TRAFFIC_LIGHT_INSET = 52;
 
 
+// The tills are touch screens (owner call 2026-11-20): a row that is
+// reordered by dragging (the menu editors, the add-on lists) must drag under
+// a finger too. Chromium starts an HTML5 drag from touch (a long press) only
+// with this feature on; it is already the default on some Windows 11 builds,
+// where asking again changes nothing. Must be set before the app is ready.
+app.commandLine.appendSwitch('enable-features', 'TouchDragAndDrop');
+
 // Single-instance lock (design-arch.md §2.5 kiosk behavior).
 //
 // This used to call `app.quit()` and fall through: module evaluation continued,
@@ -86,8 +85,6 @@ if (!gotTheLock) {
 }
 
 let worker: SyncWorker | null = null;
-let lanServer: LanKdsServer | null = null;
-let lanClient: LanKdsClient | null = null;
 let updater: UpdaterHandle | null = null;
 /**
  * Set by the updater's allowClose once an install's quit is under way: every
@@ -97,12 +94,10 @@ let updater: UpdaterHandle | null = null;
  * they are all gone), and window-all-closed must not quit on top of it.
  */
 let closingForUpdate = false;
-/** The kitchen screen's in-flight LAN sweep; a new request cancels the last. */
-let discoverAbort: AbortController | null = null;
 
 /**
- * Scripted station bootstrap: `--station-id=TILL-01 --station-mode=till
- * [--till-host=… --lan-psk=… --lan-bind=…]` writes station.json into userData
+ * Scripted station bootstrap: `--station-id=TILL-01 --station-mode=till`
+ * writes station.json into userData
  * when none exists — the install runbook's shortcut-per-station alternative to
  * the first-run setup screen (which is the primary path: completeFirstRun).
  */
@@ -117,9 +112,6 @@ function bootstrapStationFromArgv(): void {
   writeStation({
     station_id: stationId ?? 'TILL1',
     mode: mode ?? 'till',
-    ...(flag('till-host') ? { till_host: flag('till-host') } : {}),
-    ...(flag('lan-psk') ? { lan_psk: flag('lan-psk') } : {}),
-    ...(flag('lan-bind') ? { lan_bind: flag('lan-bind') } : {}),
   });
   console.log('[station] wrote', file, 'from CLI flags');
 }
@@ -175,19 +167,6 @@ function guardIpc<T>(name: string, fn: () => T): T | { error: string } {
  */
 const windowsWithTrafficLights = new WeakSet<BrowserWindow>();
 
-/**
- * Windows whose renderer asked for a bare window (the kitchen board). Kept so
- * a full-screen transition recomputes button visibility without handing the
- * board its traffic lights back.
- */
-const chromeless = new WeakSet<BrowserWindow>();
-/**
- * Windows the kitchen board itself put into full screen. Leaving the board
- * undoes only that: a full screen the operator chose (green button, or already
- * full screen before signing in) is theirs, and a non-board screen mounting
- * (every sign-in does) must not throw them out of it.
- */
-const boardFullscreen = new WeakSet<BrowserWindow>();
 /**
  * Windows a manager let out of the lock (touch:exit-fullscreen with a PIN that
  * was not the signed-in person's own). Held only until the signed-in person
@@ -374,7 +353,7 @@ function createWindow(): BrowserWindow {
       // The preload is a single esbuild bundle (esbuild.config.mjs), so the
       // sandbox can finally be on — it no longer require()s sibling modules.
       sandbox: true,
-      // KDS / floor chimes (WebAudio) must play without a click on a station;
+      // Floor chimes (WebAudio) must play without a click on a station;
       // browser dev keeps the "Start shift" arming gesture (operator-slice.md §4.5).
       autoplayPolicy: 'no-user-gesture-required',
       // Chromium throttles timers in a hidden or OCCLUDED window to roughly one
@@ -473,22 +452,17 @@ function createWindow(): BrowserWindow {
   // second control for what the green one already does.
   //
   // Published for EVERY window, not just the ones with buttons: on Windows a
-  // till or a KDS is still born `kiosk: true` with no traffic lights at all,
+  // till is still born `kiosk: true` with no traffic lights at all,
   // and that row is its only way out — so it has to hear about the transition
   // too.
   const publishFullscreen = () => {
     if (win.isDestroyed()) return;
     const fullscreen = win.isFullScreen() || win.isKiosk() || win.isSimpleFullScreen();
-    if (trafficLights) win.setWindowButtonVisibility(!fullscreen && !chromeless.has(win));
+    if (trafficLights) win.setWindowButtonVisibility(!fullscreen);
     win.webContents.send(IPC.fullscreenState, fullscreen);
   };
   win.on('enter-full-screen', publishFullscreen);
-  win.on('leave-full-screen', () => {
-    // However it left (Esc, green button, Exit full screen), the board's full
-    // screen is over; a later one is the operator's and survives the board.
-    boardFullscreen.delete(win);
-    publishFullscreen();
-  });
+  win.on('leave-full-screen', publishFullscreen);
   win.webContents.on('did-finish-load', publishFullscreen);
 
   if (trafficLights) {
@@ -539,7 +513,7 @@ if (gotTheLock) {
     // Auto-update (updater.ts): silent download; installed at the next start,
     // from the rail's control, or by Quit to desktop. Started before anything
     // else so that a start can install what an earlier session downloaded
-    // BEFORE the queue opens, the LAN port binds or a window exists, and come
+    // BEFORE the queue opens or a window exists, and come
     // back on the new version. installAtStart resolves at once when no newer
     // download is waiting or none may install here (a start already tried
     // that version, a rollback, an install for all users); otherwise within
@@ -603,47 +577,9 @@ if (gotTheLock) {
         // The insert is fsynced; replay immediately — online, the round trip
         // lands sub-second and the "one write path" costs nothing perceptible.
         worker?.kick();
-        // Kitchen-bound rows also go out over the LAN so a KDS keeps receiving
-        // tickets while the cloud path is down (design-arch §2.4).
-        lanServer?.onEnqueued(envelope);
         return result;
       }),
     );
-
-    ipcMain.on(IPC.lanStatus, (e, v: unknown) => {
-      guardIpc('lanStatus', () => {
-        // Same rule (SEC-32): an unidentified machine does not announce itself
-        // on the venue LAN. kdsStation is how a till labels which kitchen
-        // screen acknowledged a ticket.
-        if (!canTrade(station)) return null;
-        const update = validateLanStatus(v);
-        const sent = lanClient?.sendStatus({ ...update, kdsStation: station.stationId }) ?? false;
-        // F-57: a bump with the link down used to vanish. The board puts the
-        // ticket back and says why.
-        if (!sent && !e.sender.isDestroyed()) {
-          e.sender.send(IPC.lanTicket, { type: 'error', data: { reason: 'link-down', ref: update.ref } });
-        }
-        return null;
-      });
-    });
-
-    // F-11: the kitchen screen says which LAN tickets it has drawn.
-    ipcMain.on(IPC.lanAck, (_e, v: unknown) => {
-      guardIpc('lanAck', () => {
-        if (!canTrade(station)) return null;
-        lanClient?.sendAck(validateLanAck(v));
-        return null;
-      });
-    });
-    // F-11: the till's renderer passes on the cloud's ticket statuses.
-    ipcMain.on(IPC.lanCloudStatus, (_e, v: unknown) => {
-      guardIpc('lanCloudStatus', () => {
-        lanServer?.applyCloud(validateLanCloudStatus(v));
-        return null;
-      });
-    });
-    ipcMain.handle(IPC.lanReach, () => lanServer?.reach() ?? null);
-    ipcMain.handle(IPC.lanLink, () => (lanClient ? lanClient.linkUp() : null));
 
     ipcMain.on(IPC.authState, (e, s: unknown) => {
       guardIpc('authState', () => {
@@ -668,48 +604,6 @@ if (gotTheLock) {
           if (getAuthState()?.staffId !== next?.staffId || !runsUnlocked(next)) return;
           releaseWindow(win);
         });
-        return null;
-      });
-    });
-
-    // The kitchen board asks for a bare window: no traffic lights over its
-    // header. Only where they exist in the first place — Windows draws none.
-    // The window keeps its 'hiddenInset' inset either way, so the renderer's
-    // spacer stays correct whichever screen is up.
-    //
-    // This is now what makes a macOS KDS station edge-to-edge at all. It is no
-    // longer born `kiosk: true` there (see createWindow: kiosk would hide the
-    // traffic lights it was just given), so the full-screen Space comes from
-    // the board asking for it — and goes away again when the operator browses
-    // off the board, which is the behaviour a till/desk machine covering the
-    // pass always had. Without it the board rendered inset in the middle of a
-    // windowed macOS app, instead of the wall-mounted board design-arch §2.5
-    // wants. Windows' taskbar-covering kiosk already reads as full screen.
-    //
-    // setFullScreen, not setSimpleFullScreen: the ask is the real macOS
-    // full-screen Space (the same transition as the green button, its own
-    // Mission Control tile, the menu bar auto-hidden), not the borderless-
-    // window imitation, even though that means eating the Space-switch
-    // animation on every workspace toggle.
-    ipcMain.on(IPC.chromeless, (e, v: unknown) => {
-      guardIpc('chromeless', () => {
-        if (process.platform !== 'darwin') return null;
-        const win = BrowserWindow.fromWebContents(e.sender);
-        if (!win || win.isDestroyed() || !windowsWithTrafficLights.has(win)) return null;
-        const bare = validateChromeless(v);
-        if (bare) chromeless.add(win);
-        else chromeless.delete(win);
-        const fullscreen = win.isFullScreen() || win.isKiosk() || win.isSimpleFullScreen();
-        win.setWindowButtonVisibility(!bare && !fullscreen);
-        if (!win.isKiosk()) {
-          if (bare && !win.isFullScreen()) {
-            boardFullscreen.add(win);
-            win.setFullScreen(true);
-          } else if (!bare && boardFullscreen.has(win)) {
-            boardFullscreen.delete(win);
-            win.setFullScreen(false);
-          }
-        }
         return null;
       });
     });
@@ -906,7 +800,6 @@ if (gotTheLock) {
       e.returnValue = {
         stationId: station.stationId,
         mode: station.mode,
-        tillHost: station.tillHost,
         configured: station.configured,
         ...(station.configError ? { configError: station.configError } : {}),
         appVersion: app.getVersion(),
@@ -930,52 +823,6 @@ if (gotTheLock) {
     ipcMain.handle(IPC.saveStation, (_e, v: unknown) =>
       guardIpc('saveStation', () => completeFirstRun(validateStationSetup(v))),
     );
-
-    // The till's pairing card: behind the offline PIN gate (the renderer
-    // verifies server-side first when online). The code is the LAN secret, so
-    // it only ever crosses the bridge after a manager PIN — unlike quitApp,
-    // which no longer asks for one.
-    ipcMain.handle(IPC.getPairingInfo, (_e, pin: unknown) =>
-      guardIpc('getPairingInfo', () => {
-        if (!unlockPinOffline(validatePin(pin))) return { ok: false as const, error: 'pin not recognised' as const };
-        if (station.mode !== 'till') return { ok: false as const, error: 'not-a-till' as const };
-        if (!station.lanPsk) return { ok: false as const, error: 'no-psk' as const };
-        // A hex PSK from the CLI flags is not typeable on the kitchen screen's form.
-        if (!isPairingCode(station.lanPsk)) return { ok: false as const, error: 'custom-psk' as const };
-        const bind = pickLanBind(station.lanBind);
-        return {
-          ok: true as const,
-          stationId: station.stationId,
-          host: bind === '127.0.0.1' ? null : bind,
-          port: LAN_KDS_PORT,
-          code: station.lanPsk,
-        };
-      }),
-    );
-
-    // An unconfigured kitchen screen looking for its till. First-run only.
-    ipcMain.handle(IPC.discoverTill, async (_e, v: unknown) => {
-      let req;
-      try {
-        req = validateDiscoverRequest(v);
-      } catch (error) {
-        if (error instanceof IpcValidationError) {
-          console.error('[ipc:discoverTill]', error.message);
-          return { error: error.message };
-        }
-        throw error;
-      }
-      if (station.configured) return { status: 'none' as const };
-      discoverAbort?.abort();
-      discoverAbort = new AbortController();
-      if (req.host) {
-        const outcome = await confirmTill(req.host, LAN_KDS_PORT, req.code, SCAN_HANDSHAKE_TIMEOUT_MS);
-        if (outcome === 'ok') return { status: 'found' as const, tills: [req.host] };
-        if (outcome === 'bad-code') return { status: 'bad-code' as const, candidates: [req.host] };
-        return { status: 'none' as const };
-      }
-      return discoverTill(req.code, { signal: discoverAbort.signal });
-    });
 
     ipcMain.handle(IPC.updateState, () => updater?.ready() ?? null);
     ipcMain.handle(IPC.installUpdate, () => ({ ok: updater?.installNow() ?? false }));
@@ -1018,8 +865,6 @@ if (gotTheLock) {
     worker = startSyncWorker({
       onResult: (result) => {
         if (!win.isDestroyed()) win.webContents.send(IPC.mutationResult, result);
-        // F-11: an order on the server shows from the cloud; a refused one leaves the LAN screens.
-        lanServer?.onResult(result);
       },
       onActivity: pushStatus,
     });
@@ -1032,24 +877,8 @@ if (gotTheLock) {
       worker?.stop();
     });
 
-    lanServer = startLanKdsServer(station, {
-      onQueueChanged: () => {
-        pushStatus();
-        worker?.kick(); // a KDS bump entered the till's queue — replay it
-      },
-      // F-11: the till flags orders no kitchen screen has drawn.
-      onReach: (reach) => {
-        if (!win.isDestroyed()) win.webContents.send(IPC.lanReach, reach);
-      },
-    });
-    lanClient = startLanKdsClient(station, (frame) => {
-      if (!win.isDestroyed()) win.webContents.send(IPC.lanTicket, frame);
-    });
     win.on('closed', () => {
-      lanServer?.close();
-      lanClient?.close();
       updater?.stop();
-      discoverAbort?.abort();
     });
     startHeartbeat(station);
   }).catch(reportFatalStartup);

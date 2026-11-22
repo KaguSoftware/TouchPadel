@@ -31,7 +31,7 @@ describe('order status machine', () => {
 });
 
 describe('ticket status machine', () => {
-  it('mirrors the KDS flow', () => {
+  it('is the order ticket flow', () => {
     expect(ticketStatusMachine.canTransition('queued', 'preparing')).toBe(true);
     expect(ticketStatusMachine.canTransition('queued', 'ready')).toBe(true); // one-tap bump
     expect(ticketStatusMachine.canTransition('preparing', 'ready')).toBe(true);
