@@ -13,6 +13,7 @@ import {
   NOTE_MAX,
   parseLevelReviews,
   parsePlayerFacts,
+  parsePlayerInsights,
   reviewChoices,
   saveSteps,
 } from './playerLogic';
@@ -28,13 +29,17 @@ const player = {
   level_confirmed_by_name: 'Dana',
   level_note: 'Strong serve',
   effective_level: 'intermediate',
+};
+
+/** app.customer_player_insights (0451). */
+const insights = {
   suggested: { level: 'beginner', games: 7, wins: 1, losses: 6, score: 1.2 },
   // Out of order, with one tag this build has never heard of.
   interests: ['cafe', 'courts', 'nonsense', 'ranked'],
 };
 
 describe('parsePlayerFacts', () => {
-  it('reads the claim, the judgment, the suggestion and the tags', () => {
+  it('reads the claim and the judgment', () => {
     const f = parsePlayerFacts({ player })!;
     expect(f.ageBand).toBe('25_34');
     expect(f.claimedLevel).toBe('advanced');
@@ -43,9 +48,6 @@ describe('parsePlayerFacts', () => {
     expect(f.confirmedByName).toBe('Dana');
     expect(f.note).toBe('Strong serve');
     expect(f.effectiveLevel).toBe('intermediate');
-    expect(f.suggested).toEqual({ level: 'beginner', games: 7, wins: 1, losses: 6, score: 1.2 });
-    // The server's order, nothing unknown.
-    expect(f.interests).toEqual(['courts', 'cafe', 'ranked']);
   });
 
   it('answers null for a server without 0368, so no card is drawn', () => {
@@ -59,26 +61,37 @@ describe('parsePlayerFacts', () => {
     expect(f.claimedLevel).toBeNull();
     expect(f.confirmedLevel).toBeNull();
     expect(f.effectiveLevel).toBeNull();
-    expect(f.suggested).toBeNull();
-    expect(f.interests).toEqual([]);
   });
 
   it('drops a level, band or role it does not know', () => {
     const f = parsePlayerFacts({
-      player: { age_band: '30s', claimed_level: 'pro', level_confirmed_role: 'barista', suggested: { level: 'pro', games: 9 } },
+      player: { age_band: '30s', claimed_level: 'pro', level_confirmed_role: 'barista' },
     })!;
     expect(f.ageBand).toBeNull();
     expect(f.claimedLevel).toBeNull();
     expect(f.confirmedRole).toBeNull();
-    expect(f.suggested).toBeNull();
   });
 
   it('says whether the record already agrees with the games', () => {
-    expect(agreesWithGames(parsePlayerFacts({ player })!)).toBe(false);
+    const facts = parsePlayerFacts({ player })!;
+    expect(agreesWithGames(facts, parsePlayerInsights(insights))).toBe(false);
     expect(
-      agreesWithGames(parsePlayerFacts({ player: { ...player, effective_level: 'beginner' } })!),
+      agreesWithGames(parsePlayerFacts({ player: { ...player, effective_level: 'beginner' } })!, parsePlayerInsights(insights)),
     ).toBe(true);
-    expect(agreesWithGames(parsePlayerFacts({ player: { ...player, suggested: null } })!)).toBe(false);
+    expect(agreesWithGames(facts, parsePlayerInsights({ ...insights, suggested: null }))).toBe(false);
+  });
+});
+
+describe('parsePlayerInsights (0451)', () => {
+  it('reads the suggestion and the tags, in the server order, nothing unknown', () => {
+    const i = parsePlayerInsights(insights);
+    expect(i.suggested).toEqual({ level: 'beginner', games: 7, wins: 1, losses: 6, score: 1.2 });
+    expect(i.interests).toEqual(['courts', 'cafe', 'ranked']);
+  });
+
+  it('reads nothing as no suggestion and no tags', () => {
+    expect(parsePlayerInsights(null)).toEqual({ suggested: null, interests: [] });
+    expect(parsePlayerInsights({ suggested: { level: 'pro', games: 9 } }).suggested).toBeNull();
   });
 });
 

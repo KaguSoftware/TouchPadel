@@ -60,6 +60,31 @@ export class AppRpcError extends Error {
  */
 const LONG_RPC = /^(report_|reports_|analytics_|panel_|audit_log_page)/;
 
+/**
+ * At most this many report/analytics/panel calls in flight from one station;
+ * the rest wait their turn, and a call's deadline starts when its turn comes.
+ * 2026-11-22: one Analytics tab started 13-18 of them at once, each 0.5-0.9 s
+ * on the hosted box, and the burst froze the database for every till.
+ */
+export const HEAVY_RPC_LIMIT = 3;
+let heavyInFlight = 0;
+const heavyWaiting: Array<() => void> = [];
+
+/** Waits for a heavy-call slot; resolves with the function that frees it. */
+function heavySlot(): Promise<() => void> {
+  const release = () => {
+    const next = heavyWaiting.shift();
+    if (next) next();
+    else heavyInFlight -= 1;
+  };
+  if (heavyInFlight < HEAVY_RPC_LIMIT) {
+    heavyInFlight += 1;
+    return Promise.resolve(release);
+  }
+  // A freed slot passes straight to the next waiter, so the count stays put.
+  return new Promise((resolve) => heavyWaiting.push(() => resolve(release)));
+}
+
 /** The deadline an RPC gets when its call site names none. */
 export function rpcTimeoutMs(fn: string): number {
   return LONG_RPC.test(fn) ? LONG_REQUEST_TIMEOUT_MS : DEFAULT_REQUEST_TIMEOUT_MS;
@@ -202,6 +227,7 @@ export async function appRpc<T = unknown>(
   // than failing with "No connection" and taking the change with it.
   const queueable = inElectron() && offlineQueue !== null && QUEUEABLE_RPC_SET.has(fn);
   if (queueable && isStationOffline()) return queueOffline<T>(fn as QueueableRpc, args);
+  const release = LONG_RPC.test(fn) ? await heavySlot() : null;
   try {
     return await callWithPin<T>(fn, args, timeoutMs);
   } catch (error) {
@@ -214,6 +240,8 @@ export async function appRpc<T = unknown>(
       setStationReachable(false);
     }
     throw error;
+  } finally {
+    release?.();
   }
 }
 

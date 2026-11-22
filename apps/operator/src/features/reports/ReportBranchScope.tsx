@@ -63,15 +63,19 @@ export function ReportBranchScope({ inBar, children }: { inBar?: boolean; childr
   const closed = closedQ.data ?? [];
   const show = isOwner && current !== null && (venues.length > 1 || closed.length > 0);
 
-  // Every figure on these pages reloads under a NEW scope. The first run is not
-  // a change: the pages' own queries are already in flight for the rail branch.
-  const first = useRef(true);
+  // Every figure on these pages reloads under a NEW scope, and only then. The
+  // first run is not a change: the pages' own queries are already in flight
+  // for the rail branch. Neither is `show` turning on once the closed branches
+  // load while the scope is still the rail branch (2026-11-22: that refetched
+  // every analytics query the page had just started, on a box that froze
+  // under the burst).
+  const lastScope = useRef<string | null | undefined>(undefined);
   useEffect(() => {
-    setReportScope(show && scope !== 'one' ? scope : null);
-    if (first.current) {
-      first.current = false;
-      return;
-    }
+    const effective = show && scope !== 'one' ? scope : null;
+    setReportScope(effective);
+    const previous = lastScope.current;
+    lastScope.current = effective;
+    if (previous === undefined || previous === effective) return;
     void queryClient.invalidateQueries({
       predicate: (q) => typeof q.queryKey[0] === 'string' && REPORT_QUERY.test(q.queryKey[0] as string),
     });

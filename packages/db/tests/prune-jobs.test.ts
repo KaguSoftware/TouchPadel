@@ -32,7 +32,8 @@ describe.skipIf(!docker)('0386 prune jobs', () => {
     expect(r.rpc?.data).toEqual(['ldb-new']);
     expect(r.sync?.data).toEqual(['ldb-sync-new']);
     expect(r.cron?.data).toEqual([-424243]);
-    expect(r.scheduled?.data).toBe('45 4 * * *');
+    // 0450: eight runs a night, so the backlog catches up.
+    expect(r.scheduled?.data).toBe('15,45 0-3 * * *');
     expect(r.appendOnly).toMatchObject({ ok: false, code: 'sync_replays is append-only' });
     expect(r.tooShort).toMatchObject({ ok: true, data: { error: 'P0001' } });
   });

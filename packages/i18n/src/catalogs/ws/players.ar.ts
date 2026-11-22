@@ -19,6 +19,11 @@ export const playersAr: DeepMessages<typeof playersEn> = {
     noInterests: 'لا شيء نبني عليه بعد: بزيارات قليلة أخرى يكتمل هذا.',
     moreTags: '+{n} أخرى',
   },
+  insights: {
+    load: 'عرض المباريات والاهتمامات',
+    loading: 'جارٍ الحساب…',
+    failed: 'تعذّر التحميل. حاول مرة أخرى.',
+  },
   dialog: {
     title: 'اللاعب',
     band: 'العمر',

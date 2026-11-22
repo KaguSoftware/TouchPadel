@@ -8234,6 +8234,16 @@ export const matrix: MatrixRule[] = [
     note: '0449: a manager or the owner; a nil tag is TAG_NOT_FOUND',
     drop: 43,
   },
+  {
+    kind: 'rpc', schema: 'app', name: 'customer_player_insights',
+    args: { p_customer_id: NIL_UUID },
+    expect: ex<RpcExpectation>('guarded', {
+      anon: 'denied', cashier: 'execute', court_desk: 'execute',
+      manager: 'execute', owner: 'execute', branch_b_manager: 'execute',
+    }),
+    note: '0451: the customer_record roles ask for the Player card facts on demand; a nil customer is CUSTOMER_NOT_FOUND past the guard',
+    drop: 44,
+  },
 ];
 
 // ── 0446 (2026-11-20, Majed): every barista is also a cashier ──────────────

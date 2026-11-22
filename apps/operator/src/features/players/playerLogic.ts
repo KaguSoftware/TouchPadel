@@ -12,7 +12,9 @@
  * `effectiveLevel` — the judgment when there is one, else the claim.
  *
  * The interest tags are derived from behaviour and never asked (0368); this
- * module only orders and names them.
+ * module only orders and names them. Since 0451 the suggestion and the tags
+ * are not in customer_record: app.customer_player_insights answers them when
+ * the desk presses the Player card's button (`PlayerInsights`).
  *
  * PURE (no React, no network): vitest runs it under node.
  */
@@ -64,6 +66,10 @@ export interface PlayerFacts {
   confirmedByName: string | null;
   note: string | null;
   effectiveLevel: PlayLevel | null;
+}
+
+/** The two derived facts, asked for on demand (app.customer_player_insights, 0451). */
+export interface PlayerInsights {
   suggested: LevelSuggestion | null;
   interests: InterestTag[];
 }
@@ -131,9 +137,16 @@ export function parsePlayerFacts(record: unknown): PlayerFacts | null {
     confirmedByName: str(p.level_confirmed_by_name),
     note: str(p.level_note),
     effectiveLevel: parseLevel(p.effective_level),
-    suggested: parseSuggestion(p.suggested),
+  };
+}
+
+/** app.customer_player_insights' answer, read defensively. */
+export function parsePlayerInsights(json: unknown): PlayerInsights {
+  const o = obj(json);
+  return {
+    suggested: parseSuggestion(o.suggested),
     // In the server's order, each tag once, and nothing this build cannot name.
-    interests: INTEREST_TAGS.filter((tag) => arr(p.interests).includes(tag)),
+    interests: INTEREST_TAGS.filter((tag) => arr(o.interests).includes(tag)),
   };
 }
 
@@ -164,8 +177,8 @@ export function parseLevelReviews(json: unknown): LevelReview[] {
 }
 
 /** Does the club's record already agree with what the games suggest? The same player type agrees. */
-export function agreesWithGames(facts: PlayerFacts): boolean {
-  return facts.suggested !== null && sameType(facts.effectiveLevel, facts.suggested.level);
+export function agreesWithGames(facts: PlayerFacts, insights: PlayerInsights): boolean {
+  return insights.suggested !== null && sameType(facts.effectiveLevel, insights.suggested.level);
 }
 
 /**

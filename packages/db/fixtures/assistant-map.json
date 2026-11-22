@@ -1,5 +1,5 @@
 {
-  "generated_from": "ed0051d03b24e45a11abeb79b2d508339c097676",
+  "generated_from": "f93222ded56e0981f52c54109449a94ce6349eb7",
   "chunks": [
     {
       "kind": "page",
@@ -4511,6 +4511,22 @@
       "lang": "en",
       "title": "app.customer_level_reviews (part 2 of 2)",
       "body": "0368 (customers contracts §1.2). Coach, court_desk, manager or owner: the players whose measured suggestion disagrees with what the club has on record (no confi\nSignature: app.customer_level_reviews(p_limit int default 30) returns jsonb.\nGranted to: authenticated. Guard: staff role in (court_desk, manager, owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0368 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.customer_player_insights",
+      "lang": "en",
+      "title": "app.customer_player_insights (part 1 of 2)",
+      "body": "0451. Court desk, cashier, manager, owner: the two derived player facts 0368 put in customer_record, asked for on demand by the Player card's button. {suggested: app.level_suggested ({level, games, wins, losses, score}, or null until five scored games), interests: app.customer_interest_tags over the last 180 days at the branches in scope (text[], derived, never asked)}. FORBIDDEN, CUSTOMER_NOT_FOUND.\nSignature: app.customer_player_insights(p_customer_id uuid) returns jsonb.\nGranted to: authenticated. Guard: staff role in (court_desk,cashier,manager,owner).\nWrites no audit row of its own (or via a helper).",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.customer_player_insights~2",
+      "lang": "en",
+      "title": "app.customer_player_insights (part 2 of 2)",
+      "body": "0451. Court desk, cashier, manager, owner: the two derived player facts 0368 put in customer_record, asked for on demand by the Player card's button. {suggested\nGranted to: authenticated. Guard: staff role in (court_desk,cashier,manager,owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, CUSTOMER_NOT_FOUND.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0451 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -39995,6 +40011,22 @@
     },
     {
       "kind": "label",
+      "ref": "label:ws.players.insights",
+      "lang": "ar",
+      "title": "ws.players.insights (packages/i18n/src/catalogs/ws/players.ar.ts)",
+      "body": "load: عرض المباريات والاهتمامات\nloading: جارٍ الحساب…\nfailed: تعذّر التحميل. حاول مرة أخرى.",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.players.insights",
+      "lang": "en",
+      "title": "ws.players.insights (packages/i18n/src/catalogs/ws/players.en.ts)",
+      "body": "load: Show games and interests\nloading: Working it out…\nfailed: Could not load this. Try again.",
+      "route": null
+    },
+    {
+      "kind": "label",
       "ref": "label:ws.players.interest",
       "lang": "ar",
       "title": "ws.players.interest (packages/i18n/src/catalogs/ws/players.ar.ts)",
@@ -45534,7 +45566,7 @@
       "ref": "system:cron:tp_assistant_index_sweep",
       "lang": "en",
       "title": "cron job tp_assistant_index_sweep",
-      "body": "Runs select app.assistant_index_nudge();. Schedules seen in migrations, latest last: '* * * * *' (0110). cron.schedule upserts by job name, so the latest definition that pg_cron accepts is live.",
+      "body": "Runs select app.assistant_index_nudge();. Schedules seen in migrations, latest last: '* * * * *' (0110), '1-59/5 * * * *' (0450). cron.schedule upserts by job name, so the latest definition that pg_cron accepts is live.",
       "route": null
     },
     {
@@ -45542,7 +45574,7 @@
       "ref": "system:cron:tp_assistant_job_tick",
       "lang": "en",
       "title": "cron job tp_assistant_job_tick",
-      "body": "Runs select app.assistant_job_tick_nudge();. Schedules seen in migrations, latest last: '* * * * *' (0113). cron.schedule upserts by job name, so the latest definition that pg_cron accepts is live.",
+      "body": "Runs select app.assistant_job_tick_nudge();. Schedules seen in migrations, latest last: '* * * * *' (0113), '2-59/5 * * * *' (0450). cron.schedule upserts by job name, so the latest definition that pg_cron accepts is live.",
       "route": null
     },
     {
@@ -45566,7 +45598,7 @@
       "ref": "system:cron:tp_checklist_sweep",
       "lang": "en",
       "title": "cron job tp_checklist_sweep",
-      "body": "Runs select app.checklist_sweep();. Schedules seen in migrations, latest last: '*/5 * * * *' (0323). cron.schedule upserts by job name, so the latest definition that pg_cron accepts is live.",
+      "body": "Runs select app.checklist_sweep();. Schedules seen in migrations, latest last: '*/5 * * * *' (0323), '1-59/5 * * * *' (0450). cron.schedule upserts by job name, so the latest definition that pg_cron accepts is live.",
       "route": null
     },
     {
@@ -45582,7 +45614,7 @@
       "ref": "system:cron:tp_degraded_sweep",
       "lang": "en",
       "title": "cron job tp_degraded_sweep",
-      "body": "Runs select app.sweep_degraded_periods();. Schedules seen in migrations, latest last: '* * * * *' (0021). cron.schedule upserts by job name, so the latest definition that pg_cron accepts is live.",
+      "body": "Runs select app.sweep_degraded_periods();. Schedules seen in migrations, latest last: '* * * * *' (0021), '*/2 * * * *' (0450). cron.schedule upserts by job name, so the latest definition that pg_cron accepts is live.",
       "route": null
     },
     {
@@ -45614,7 +45646,7 @@
       "ref": "system:cron:tp_hold_strikes",
       "lang": "en",
       "title": "cron job tp_hold_strikes",
-      "body": "Runs select app.hold_strikes_settle(null);. Schedules seen in migrations, latest last: '* * * * *' (0268). cron.schedule upserts by job name, so the latest definition that pg_cron accepts is live.",
+      "body": "Runs select app.hold_strikes_settle(null);. Schedules seen in migrations, latest last: '* * * * *' (0268), '4-59/5 * * * *' (0450). cron.schedule upserts by job name, so the latest definition that pg_cron accepts is live.",
       "route": null
     },
     {
@@ -45622,7 +45654,7 @@
       "ref": "system:cron:tp_hold_sweep",
       "lang": "en",
       "title": "cron job tp_hold_sweep",
-      "body": "Runs select app.expire_stale_holds();. Schedules seen in migrations, latest last: '* * * * *' (0021). cron.schedule upserts by job name, so the latest definition that pg_cron accepts is live.",
+      "body": "Runs select app.expire_stale_holds();. Schedules seen in migrations, latest last: '* * * * *' (0021), '1-59/2 * * * *' (0450). cron.schedule upserts by job name, so the latest definition that pg_cron accepts is live.",
       "route": null
     },
     {
@@ -45630,7 +45662,7 @@
       "ref": "system:cron:tp_housekeeping_prune",
       "lang": "en",
       "title": "cron job tp_housekeeping_prune",
-      "body": "Runs select app.prune_housekeeping();. Schedules seen in migrations, latest last: '45 4 * * *' (0386). cron.schedule upserts by job name, so the latest definition that pg_cron accepts is live.",
+      "body": "Runs select app.prune_housekeeping();. Schedules seen in migrations, latest last: '45 4 * * *' (0386), '15,45 0-3 * * *' (0450). cron.schedule upserts by job name, so the latest definition that pg_cron accepts is live.",
       "route": null
     },
     {
@@ -45646,7 +45678,7 @@
       "ref": "system:cron:tp_lesson_sweep",
       "lang": "en",
       "title": "cron job tp_lesson_sweep",
-      "body": "Runs select app.lesson_sweep();. Schedules seen in migrations, latest last: '* * * * *' (0286). cron.schedule upserts by job name, so the latest definition that pg_cron accepts is live.",
+      "body": "Runs select app.lesson_sweep();. Schedules seen in migrations, latest last: '* * * * *' (0286), '*/2 * * * *' (0450). cron.schedule upserts by job name, so the latest definition that pg_cron accepts is live.",
       "route": null
     },
     {
@@ -45670,7 +45702,7 @@
       "ref": "system:cron:tp_monitor_cron",
       "lang": "en",
       "title": "cron job tp_monitor_cron",
-      "body": "Runs select app.monitor_cron_failures();. Schedules seen in migrations, latest last: '*/5 * * * *' (0393). cron.schedule upserts by job name, so the latest definition that pg_cron accepts is live.",
+      "body": "Runs select app.monitor_cron_failures();. Schedules seen in migrations, latest last: '*/5 * * * *' (0393), '2-59/5 * * * *' (0450). cron.schedule upserts by job name, so the latest definition that pg_cron accepts is live.",
       "route": null
     },
     {
@@ -45686,7 +45718,7 @@
       "ref": "system:cron:tp_price_promo_apply",
       "lang": "en",
       "title": "cron job tp_price_promo_apply",
-      "body": "Runs select app.price_promo_apply_due();. Schedules seen in migrations, latest last: '*/5 * * * *' (0177). cron.schedule upserts by job name, so the latest definition that pg_cron accepts is live.",
+      "body": "Runs select app.price_promo_apply_due();. Schedules seen in migrations, latest last: '*/5 * * * *' (0177), '3-59/5 * * * *' (0450). cron.schedule upserts by job name, so the latest definition that pg_cron accepts is live.",
       "route": null
     },
     {
@@ -45726,7 +45758,7 @@
       "ref": "system:cron:tp_reward_sweep",
       "lang": "en",
       "title": "cron job tp_reward_sweep",
-      "body": "Runs select app.reward_sweep();. Schedules seen in migrations, latest last: '*/5 * * * *' (0333). cron.schedule upserts by job name, so the latest definition that pg_cron accepts is live.",
+      "body": "Runs select app.reward_sweep();. Schedules seen in migrations, latest last: '*/5 * * * *' (0333), '4-59/5 * * * *' (0450). cron.schedule upserts by job name, so the latest definition that pg_cron accepts is live.",
       "route": null
     },
     {
@@ -45734,7 +45766,7 @@
       "ref": "system:cron:tp_reward_voucher_sweep",
       "lang": "en",
       "title": "cron job tp_reward_voucher_sweep",
-      "body": "Runs select app.loyalty_voucher_sweep();. Schedules seen in migrations, latest last: '* * * * *' (0415), '* * * * *' (0419). cron.schedule upserts by job name, so the latest definition that pg_cron accepts is live.",
+      "body": "Runs select app.loyalty_voucher_sweep();. Schedules seen in migrations, latest last: '* * * * *' (0415), '* * * * *' (0419), '1-59/2 * * * *' (0450). cron.schedule upserts by job name, so the latest definition that pg_cron accepts is live.",
       "route": null
     },
     {
@@ -45742,7 +45774,7 @@
       "ref": "system:cron:tp_scan_sweep",
       "lang": "en",
       "title": "cron job tp_scan_sweep",
-      "body": "Runs select app.scan_sweep_stale();. Schedules seen in migrations, latest last: '* * * * *' (0240). cron.schedule upserts by job name, so the latest definition that pg_cron accepts is live.",
+      "body": "Runs select app.scan_sweep_stale();. Schedules seen in migrations, latest last: '* * * * *' (0240), '3-59/5 * * * *' (0450). cron.schedule upserts by job name, so the latest definition that pg_cron accepts is live.",
       "route": null
     },
     {
@@ -45782,7 +45814,7 @@
       "ref": "system:cron:tp_tournament_sweep",
       "lang": "en",
       "title": "cron job tp_tournament_sweep",
-      "body": "Runs select app.tournament_sweep();. Schedules seen in migrations, latest last: '* * * * *' (0300). cron.schedule upserts by job name, so the latest definition that pg_cron accepts is live.",
+      "body": "Runs select app.tournament_sweep();. Schedules seen in migrations, latest last: '* * * * *' (0300), '1-59/2 * * * *' (0450). cron.schedule upserts by job name, so the latest definition that pg_cron accepts is live.",
       "route": null
     },
     {

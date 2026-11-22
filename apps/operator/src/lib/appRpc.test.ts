@@ -17,7 +17,7 @@ vi.mock('./supabase', () => ({
   supabase: { schema: () => ({ rpc }) },
 }));
 
-const { appRpc, AppRpcError, rpcTimeoutMs } = await import('./appRpc');
+const { appRpc, AppRpcError, rpcTimeoutMs, HEAVY_RPC_LIMIT } = await import('./appRpc');
 
 beforeEach(() => {
   rpc.mockReset();
@@ -88,18 +88,18 @@ describe('appRpc: every call has a deadline', () => {
   /** The real builder's shape: awaitable, and `.abortSignal()` returns the awaitable. */
   function hangingBuilder() {
     let signal: AbortSignal | undefined;
+    let settle: (v: { data: null; error: { message: string; code: string }; status: number }) => void = () => {};
     const answer = new Promise<{ data: null; error: { message: string; code: string }; status: number }>((resolve) => {
-      queueMicrotask(() =>
-        signal?.addEventListener('abort', () =>
-          // What postgrest-js answers for an aborted fetch: an error object, not a throw.
-          resolve({ data: null, error: { message: 'AbortError: signal is aborted without reason', code: '' }, status: 0 }),
-        ),
-      );
+      settle = resolve;
     });
     return {
       then: answer.then.bind(answer),
       abortSignal(s: AbortSignal) {
         signal = s;
+        s.addEventListener('abort', () =>
+          // What postgrest-js answers for an aborted fetch: an error object, not a throw.
+          settle({ data: null, error: { message: 'AbortError: signal is aborted without reason', code: '' }, status: 0 }),
+        );
         return answer;
       },
       signal: () => signal,
@@ -174,5 +174,52 @@ describe('toAppRpcError: a function the server does not have (operator.md §5.5)
   it('surfaces RPC_MISSING from a call the way every other refusal is thrown', async () => {
     rpc.mockResolvedValueOnce({ data: null, error: { code: 'PGRST202', message: 'Could not find the function' } });
     await expect(appRpc('match_settings', {})).rejects.toMatchObject({ code: 'RPC_MISSING' });
+  });
+});
+
+describe('appRpc: heavy report calls take turns (2026-11-22)', () => {
+  it(`keeps at most 3 analytics calls in flight and runs the rest as slots free up`, async () => {
+    const pending: Array<{ fn: string; answer: () => void }> = [];
+    rpc.mockImplementation(
+      (fn: string) =>
+        new Promise((resolve) => {
+          pending.push({ fn, answer: () => resolve({ data: fn, error: null }) });
+        }),
+    );
+    const answerNextHeavy = () => {
+      const i = pending.findIndex((p) => p.fn === 'analytics_shop');
+      pending.splice(i, 1)[0]!.answer();
+    };
+    const calls = Array.from({ length: 7 }, (_, i) => appRpc('analytics_shop', { p_from: `d${i}` }));
+    // Plus one ordinary call, which never waits for a slot.
+    const plain = appRpc('customer_record', { p_customer_id: 'c1' });
+    expect(HEAVY_RPC_LIMIT).toBe(3);
+    await vi.waitFor(() => expect(rpc.mock.calls.some((c) => c[0] === 'customer_record')).toBe(true));
+    await vi.waitFor(() => expect(rpc.mock.calls.filter((c) => c[0] === 'analytics_shop')).toHaveLength(3));
+    // Nothing more starts while the three are out.
+    await new Promise((r) => setTimeout(r, 20));
+    expect(rpc.mock.calls.filter((c) => c[0] === 'analytics_shop')).toHaveLength(3);
+
+    // Free them one at a time: each answer lets exactly one more start.
+    let started = 3;
+    while (started < 7) {
+      answerNextHeavy();
+      await vi.waitFor(() =>
+        expect(rpc.mock.calls.filter((c) => c[0] === 'analytics_shop')).toHaveLength(started + 1),
+      );
+      started += 1;
+    }
+    while (pending.length) pending.shift()!.answer();
+    await expect(Promise.all(calls)).resolves.toHaveLength(7);
+    await expect(plain).resolves.toBe('customer_record');
+  });
+
+  it('frees the slot when a heavy call fails', async () => {
+    rpc.mockResolvedValue({ data: null, error: { message: 'FORBIDDEN', code: 'P0001' } });
+    for (let i = 0; i < HEAVY_RPC_LIMIT + 2; i++) {
+      await expect(appRpc('report_revenue', {})).rejects.toMatchObject({ code: 'FORBIDDEN' });
+    }
+    rpc.mockResolvedValue({ data: 1, error: null });
+    await expect(appRpc('report_revenue', {})).resolves.toBe(1);
   });
 });

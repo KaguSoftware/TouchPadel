@@ -1912,6 +1912,10 @@ export type Database = {
       }
       customer_lessons: { Args: { p_customer_id: string }; Returns: Json }
       customer_level_reviews: { Args: { p_limit?: number }; Returns: Json }
+      customer_player_insights: {
+        Args: { p_customer_id: string }
+        Returns: Json
+      }
       customer_record: { Args: { p_customer_id: string }; Returns: Json }
       customer_reservation_json: {
         Args: {

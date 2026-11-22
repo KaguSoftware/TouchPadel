@@ -674,6 +674,7 @@
     "delete_customer_tag",
     "save_customer_tag",
     "set_customer_ban",
-    "set_customer_tags"
+    "set_customer_tags",
+    "customer_player_insights"
   ]
 }
