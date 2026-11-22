@@ -1718,6 +1718,7 @@
     "save_customer_tag": "map:action",
     "set_customer_ban": "map:action",
     "set_customer_tags": "map:action",
+    "customer_player_insights": "map:action",
     "customer_banned": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client",
     "customer_effective_discount_json": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client",
     "customer_standing_discount": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client",

@@ -153,6 +153,11 @@ const queryClient = new QueryClient({
     mutations: { retry: MUTATION_RETRY },
   },
 });
+// Analytics reads past days, which do not move: coming back to the window or
+// the network is no reason to run a tab's 13-18 heavy queries again
+// (2026-11-22: such a burst froze the hosted box). A range change, a branch
+// change or a reload still fetches.
+queryClient.setQueryDefaults(['analytics'], { refetchOnWindowFocus: false, refetchOnReconnect: false });
 initQueueResults(queryClient);
 initOfflineTabRetirement();
 const persister = makePersister();

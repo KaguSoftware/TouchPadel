@@ -21,6 +21,7 @@ vi.mock('../../lib/auth', async (importOriginal) => {
 
 import { appRpc } from '../../lib/appRpc';
 import { PlayerFactsDialog } from './PlayerFactsDialog';
+import type { InsightsAsk } from './PlayerCard';
 import { parsePlayerFacts } from './playerLogic';
 
 const rpc = vi.mocked(appRpc);
@@ -34,11 +35,13 @@ const base = {
   level_confirmed_by_name: null,
   level_note: null,
   effective_level: 'beginner',
-  suggested: null,
-  interests: [],
 };
 
-function mount(player: Record<string, unknown>, onClose = vi.fn()) {
+function mount(
+  player: Record<string, unknown>,
+  onClose = vi.fn(),
+  ask: InsightsAsk = { insights: null, loading: false, failed: false, onLoad: vi.fn() },
+) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
     <QueryClientProvider client={client}>
@@ -48,6 +51,7 @@ function mount(player: Record<string, unknown>, onClose = vi.fn()) {
             customerId="c1"
             customerName="Ali Hassan"
             facts={parsePlayerFacts({ player })!}
+            ask={ask}
             canJudge
             tz="Asia/Baghdad"
             onClose={onClose}

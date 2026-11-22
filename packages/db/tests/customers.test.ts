@@ -127,8 +127,6 @@ type CustomerRecord = {
     level_confirmed_by_name: string | null;
     level_note: string | null;
     effective_level: string | null;
-    suggested: unknown;
-    interests: string[];
   };
 };
 
@@ -283,7 +281,10 @@ describe.skipIf(!up)('0065 customers', () => {
       expect(s.errorMessage).toContain('FORBIDDEN');
       const r = outcome(await appRpc(c, 'customer_record', { p_customer_id: latinId }));
       expect(r.errorMessage).toContain('FORBIDDEN');
+      const i = outcome(await appRpc(c, 'customer_player_insights', { p_customer_id: latinId }));
+      expect(i.errorMessage).toContain('FORBIDDEN');
     }
+    expect((await appRpc(cashier, 'customer_player_insights', { p_customer_id: latinId })).error).toBeNull();
   });
 
   // ── record ────────────────────────────────────────────────────────────────
@@ -322,8 +323,9 @@ describe.skipIf(!up)('0065 customers', () => {
 
     expect(Object.keys(rec).sort()).toEqual(
       // 0262: matches[] (the customer's last open matches).
-      // 0368: player (the age band, the claimed and confirmed level, the
-      // measured suggestion and the derived interest tags).
+      // 0368: player (the age band, the claimed and confirmed level). 0451:
+      // the measured suggestion and the interest tags left it for
+      // customer_player_insights.
       ['cafeOrders', 'counts', 'customer', 'flags', 'history', 'matches', 'notes', 'player', 'series', 'upcoming'].sort(),
     );
     // 0368: a customer nobody has judged and who answered nothing — every key
@@ -339,9 +341,11 @@ describe.skipIf(!up)('0065 customers', () => {
       level_confirmed_by_name: null,
       level_note: null,
       effective_level: null,
-      suggested: null,
-      interests: [],
     });
+    // 0451: the derived facts are asked for on demand (the Player card's button).
+    const insights = await appRpc(desk, 'customer_player_insights', { p_customer_id: arabId });
+    expect(insights.error).toBeNull();
+    expect(insights.data).toEqual({ suggested: null, interests: [] });
     expect(rec.customer).toMatchObject({
       id: arabId,
       full_name: 'أحمد الكرخي',
@@ -380,6 +384,10 @@ describe.skipIf(!up)('0065 customers', () => {
       await appRpc(desk, 'customer_record', { p_customer_id: '00000000-0000-4000-8000-000000000000' }),
     );
     expect(res.errorMessage).toContain('CUSTOMER_NOT_FOUND');
+    const insights = outcome(
+      await appRpc(desk, 'customer_player_insights', { p_customer_id: '00000000-0000-4000-8000-000000000000' }),
+    );
+    expect(insights.errorMessage).toContain('CUSTOMER_NOT_FOUND');
   });
 
   // ── notes ─────────────────────────────────────────────────────────────────

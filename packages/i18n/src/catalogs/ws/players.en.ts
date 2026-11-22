@@ -22,6 +22,12 @@ export const playersEn = {
     noInterests: 'Nothing to go on yet: a few more visits and this fills in.',
     moreTags: '+{n} more',
   },
+  /** 0451: the games' suggestion and the interest tags, worked out on demand. */
+  insights: {
+    load: 'Show games and interests',
+    loading: 'Working it out…',
+    failed: 'Could not load this. Try again.',
+  },
   dialog: {
     title: 'Player',
     band: 'Age',

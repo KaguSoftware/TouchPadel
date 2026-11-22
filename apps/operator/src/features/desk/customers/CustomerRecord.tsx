@@ -93,7 +93,8 @@ import { useCoachingCaps, useCustomerLessons } from '../../coaching/useCoaching'
 import { CustomerDiscountCard, CustomerDiscountDialog } from '../../discounts/CustomerDiscountCard';
 import { PlayerCard } from '../../players/PlayerCard';
 import { PlayerFactsDialog } from '../../players/PlayerFactsDialog';
-import { parsePlayerFacts } from '../../players/playerLogic';
+import { parsePlayerFacts, parsePlayerInsights } from '../../players/playerLogic';
+import type { InsightsAsk } from '../../players/PlayerCard';
 import { canJudgeLevel } from '../../players/usePlayers';
 import { canDiscount, rpcMissing, useCustomerDiscount } from '../../discounts/useCustomerDiscount';
 import { useDiscountWords } from '../../discounts/useDiscountWords';
@@ -123,6 +124,25 @@ export function CustomerRecordScreen() {
   // 0368 (customers contracts §5): who this player is. null on a server
   // without the block, and then no Player card is drawn.
   const playerFacts = parsePlayerFacts(rec);
+  // 0451: what the games suggest and the interest tags are worked out only
+  // when the desk presses the Player card's button, so opening a customer
+  // never waits on them. Asked once per customer; a later open reads the cache.
+  const [insightsFor, setInsightsFor] = useState<string | null>(null);
+  const insightsQ = useQuery({
+    queryKey: ['customer', id, 'player-insights'],
+    queryFn: () => appRpc<unknown>('customer_player_insights', { p_customer_id: id }),
+    enabled: insightsFor === id,
+    staleTime: 5 * 60_000,
+  });
+  const insightsAsk: InsightsAsk = {
+    insights: insightsQ.data !== undefined ? parsePlayerInsights(insightsQ.data) : null,
+    loading: insightsQ.isFetching && insightsQ.data === undefined,
+    failed: insightsQ.isError,
+    onLoad: () => {
+      if (insightsFor === id) void insightsQ.refetch();
+      else setInsightsFor(id);
+    },
+  };
   const [flagsOpen, setFlagsOpen] = useState(false);
 
   const status = recordQ.isError && !recordQ.data ? 'error' : recordQ.data === undefined ? 'loading' : recordQ.data === null ? 'empty' : 'ready';
@@ -467,7 +487,7 @@ export function CustomerRecordScreen() {
                 {/* Who they are, before anything they owe: the desk reads this
                     while the guest is still standing there (0368). */}
                 {playerFacts && (
-                  <PlayerCard facts={playerFacts} tz={tz} canJudge={canJudge} onOpen={() => setPlayerOpen(true)} />
+                  <PlayerCard facts={playerFacts} ask={insightsAsk} tz={tz} canJudge={canJudge} onOpen={() => setPlayerOpen(true)} />
                 )}
                 {/* Then what the desk needs before taking their money. */}
                 {showDiscount && <CustomerDiscountCard discount={discount} tz={tz} onOpen={() => setDiscountOpen(true)} />}
@@ -625,6 +645,7 @@ export function CustomerRecordScreen() {
           customerId={id}
           customerName={rec.customer.full_name}
           facts={playerFacts}
+          ask={insightsAsk}
           canJudge={canJudge}
           tz={tz}
           onClose={() => setPlayerOpen(false)}

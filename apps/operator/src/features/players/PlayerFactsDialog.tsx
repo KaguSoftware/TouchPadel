@@ -33,6 +33,7 @@ import { useToast } from '../../components/toast';
 import { Button, ErrorText, Field, Modal, inputStyle } from '../../components/ui';
 import { MessagePresenter, SegmentedControl } from '../../components/kit';
 import { useSavePlayerFacts } from './usePlayers';
+import { InsightsButton, type InsightsAsk } from './PlayerCard';
 import {
   AGE_BANDS,
   INTEREST_TAGS,
@@ -54,6 +55,7 @@ export function PlayerFactsDialog({
   customerId,
   customerName,
   facts,
+  ask,
   canJudge,
   tz,
   onClose,
@@ -61,6 +63,8 @@ export function PlayerFactsDialog({
   customerId: string;
   customerName: string;
   facts: PlayerFacts;
+  /** What the games suggest and the interest tags, asked for on demand (0451). */
+  ask: InsightsAsk;
   canJudge: boolean;
   tz: string;
   onClose: () => void;
@@ -211,13 +215,13 @@ export function PlayerFactsDialog({
               ? tr(`${K}.dialog.checkStarts`, { a: levelText(rules.start_a), b: levelText(rules.start_b), c: levelText(rules.start_c) })
               : tr(`${K}.dialog.checkStartsPlain`)}
           </p>
-          {facts.suggested && (
+          {ask.insights?.suggested && (
             <p style={{ margin: 0, fontSize: 'var(--tp-fs-sm)' }}>
               {tr(`${K}.dialog.suggested`, {
-                level: tr(`${K}.level.${facts.suggested.level}`),
-                games: formatNumber(facts.suggested.games, locale),
-                wins: formatNumber(facts.suggested.wins, locale),
-                losses: formatNumber(facts.suggested.losses, locale),
+                level: tr(`${K}.level.${ask.insights.suggested.level}`),
+                games: formatNumber(ask.insights.suggested.games, locale),
+                wins: formatNumber(ask.insights.suggested.wins, locale),
+                losses: formatNumber(ask.insights.suggested.losses, locale),
               })}
             </p>
           )}
@@ -244,11 +248,13 @@ export function PlayerFactsDialog({
         <section style={{ display: 'grid', gap: 'var(--tp-sp-2)' }}>
           <h3 style={{ margin: 0, fontSize: 'var(--tp-fs-sm)', fontWeight: 700 }}>{tr(`${K}.dialog.interests`)}</h3>
           <p style={{ margin: 0, fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>{tr(`${K}.dialog.interestsHint`)}</p>
-          {facts.interests.length === 0 ? (
+          {!ask.insights ? (
+            <InsightsButton ask={ask} />
+          ) : ask.insights.interests.length === 0 ? (
             <p style={{ margin: 0, color: 'var(--tp-muted-fg)' }}>{tr(`${K}.card.noInterests`)}</p>
           ) : (
             <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexWrap: 'wrap', gap: 'var(--tp-sp-1-5)' }}>
-              {INTEREST_TAGS.filter((t) => facts.interests.includes(t)).map((tag) => (
+              {INTEREST_TAGS.filter((t) => (ask.insights?.interests ?? []).includes(t)).map((tag) => (
                 <li
                   key={tag}
                   style={{

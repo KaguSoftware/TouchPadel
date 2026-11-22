@@ -17,6 +17,26 @@ is a line in that file.
 
 ## Migrations
 
+- **0451 (2026-11-22, customer_player_insights; Majed: "a button inside that customers account
+  page"):** the two derived player facts left `app.customer_record` (opening a customer waits on
+  that one call, and on hosted's small box it ran past the 8 s timeout when the box was busy).
+  New **`app.customer_player_insights(p_customer_id)`** (court desk, cashier, manager, owner;
+  FORBIDDEN, CUSTOMER_NOT_FOUND) returns `{suggested, interests}` exactly as 0368's player block
+  carried them; the operator's Player card asks for it only when the desk presses "Show games and
+  interests". **0451 holds `customer_record`** (0368 no longer: re-issued verbatim without
+  `player.suggested` and `player.interests`). `tests/customers.test.ts`.
+- **0450 (2026-11-22, cron_load; hosted measured: Nano compute, 15 jobs at second :00, every job
+  "job startup timeout" in the 13:31 UTC freeze):** reschedules only, through `app.ensure_cron`,
+  bodies unchanged. `tp_housekeeping_prune` runs `15,45 0-3 * * *` (eight runs a night: 0386's
+  50,000-row batch never caught up with ~32,000 runs a day, 1.14 M rows / 279 MB). Every 5 minutes
+  at their own minute: `tp_assistant_index_sweep` (1), `tp_assistant_job_tick` (2),
+  `tp_scan_sweep` (3), `tp_hold_strikes` (4), and the five-minute `tp_checklist_sweep` (1),
+  `tp_monitor_cron` (2), `tp_price_promo_apply` (3), `tp_reward_sweep` (4); every 2 minutes:
+  `tp_hold_sweep`, `tp_reward_voucher_sweep`, `tp_tournament_sweep` (odd), `tp_degraded_sweep`,
+  `tp_lesson_sweep` (`*/2`, which keeps minute 0 for its hourly purge). Each reason is in the
+  migration header; "within a minute" in older notes means within 2 (lesson refunds, voucher
+  points) or 5 (hold strikes) now. A new minute job picks a minute that keeps the per-minute count
+  at five or under (`tests/cron-load.test.ts`).
 - **0449 (2026-11-22, customer_ban_and_tags; Majed: "easy to block somebody from doing anything
   on the system ... a tag ... this guy gets 15% across everything"):** the full ban is a
   `customer_flags` row of type `ban` written only by `app.set_customer_ban` (court desk, manager,

@@ -272,7 +272,8 @@ describe.skipIf(!docker)('tournaments schema (§1.2)', () => {
     expect(answer<string>(r, 'trigger')).toMatch(
       /BEFORE UPDATE OF status, court_id, start_at, end_at, kind ON public\.reservations FOR EACH ROW WHEN \(\(\(old\.block_purpose = 'event'::text\) AND \(old\.protocol_run_id IS NOT NULL\)\)\) EXECUTE FUNCTION app\.trg_tournament_block_guard\(\)/,
     );
-    expect(['* * * * *', 'no pg_cron']).toContain(answer(r, 'cron'));
+    // 0450: every 2 minutes (registration closes by the clock).
+    expect(['1-59/2 * * * *', 'no pg_cron']).toContain(answer(r, 'cron'));
   });
 
   it('names and prizes are sanitised; the score audit is append-only', () => {
