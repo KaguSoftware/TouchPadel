@@ -1,5 +1,5 @@
 {
-  "generated_from": "4b5494495ed8a4a352ff460b25ad5506a87036f4",
+  "generated_from": "ed0051d03b24e45a11abeb79b2d508339c097676",
   "chunks": [
     {
       "kind": "page",
@@ -158,7 +158,7 @@
       "ref": "page:/admin/settings/booking",
       "lang": "en",
       "title": "/admin/settings/booking — Rules",
-      "body": "Rules: booking rules (cancellation, hold time, how far ahead and slots per guest; owner edits, manager reads) and the tournament rules (the branch's tournaments switch, owner, app.set_tournaments_enabled).\nRoles: manager, owner.\nReached from: Management › Courts: \"Court settings › Rules\".",
+      "body": "Booking rules: cancellation, hold time, how far ahead and slots per guest (owner edits, manager reads).\nRoles: manager, owner.\nReached from: Management › Courts: \"Court settings › Rules\".",
       "route": "/admin/settings/booking"
     },
     {
@@ -208,6 +208,14 @@
       "title": "/admin/settings/stations — Cashier computers",
       "body": "Till computers: register this machine at the branch or retire a station (manager or owner).\nRoles: manager, owner.\nReached from: Management › Settings: \"Computers & screens › Cashier computers\".",
       "route": "/admin/settings/stations"
+    },
+    {
+      "kind": "page",
+      "ref": "page:/admin/settings/tournaments",
+      "lang": "en",
+      "title": "/admin/settings/tournaments — Tournaments",
+      "body": "Tournament rules: the branch's tournaments switch (owner, app.set_tournaments_enabled).\nRoles: manager, owner.\nReached from: Management › Courts: \"Court settings › Tournaments\".",
+      "route": "/admin/settings/tournaments"
     },
     {
       "kind": "page",
@@ -1278,7 +1286,7 @@
       "ref": "nav:management:courts",
       "lang": "ar",
       "title": "الإدارة › الملاعب",
-      "body": "الحجوزات وإعدادات الملاعب والمدرّبون\nالصفحة الرئيسية: /observation/courts\nالصفوف: الحجوزات → /observation/courts; الحجوزات → /desk (بدل /observation/courts); البطولات → /desk/tournaments; المباريات المفتوحة → /desk/matches; المدرّبون → /admin/coaches (المدرّبون, الحصص والأسعار, أوقات المدرّبين, قواعد الحصص, الجداول); إعدادات الملاعب → /admin/courts (الملاعب, أوقات السيدات والرجال, القواعد, العربون الإلكتروني, المباريات المفتوحة, ساعات العمل)",
+      "body": "الحجوزات وإعدادات الملاعب والمدرّبون\nالصفحة الرئيسية: /observation/courts\nالصفوف: الحجوزات → /observation/courts; الحجوزات → /desk (بدل /observation/courts); البطولات → /desk/tournaments; المباريات المفتوحة → /desk/matches; المدرّبون → /admin/coaches (المدرّبون, الحصص والأسعار, أوقات المدرّبين, قواعد الحصص, الجداول); إعدادات الملاعب → /admin/courts (الملاعب, أوقات السيدات والرجال, القواعد, العربون الإلكتروني, المباريات المفتوحة, البطولات, ساعات العمل)",
       "route": "/observation/courts"
     },
     {
@@ -1286,7 +1294,7 @@
       "ref": "nav:management:courts",
       "lang": "en",
       "title": "Management › Courts",
-      "body": "Bookings, court settings and coaches\nHome: /observation/courts\nRows: Bookings → /observation/courts; Bookings → /desk (instead of /observation/courts); Tournaments → /desk/tournaments; Open matches → /desk/matches; Coaches → /admin/coaches (Coaches, Lessons & prices, Coach hours, Lesson rules, Schedules); Court settings → /admin/courts (Courts, Gender hours, Rules, Online deposit, Open matches, Opening hours)",
+      "body": "Bookings, court settings and coaches\nHome: /observation/courts\nRows: Bookings → /observation/courts; Bookings → /desk (instead of /observation/courts); Tournaments → /desk/tournaments; Open matches → /desk/matches; Coaches → /admin/coaches (Coaches, Lessons & prices, Coach hours, Lesson rules, Schedules); Court settings → /admin/courts (Courts, Gender hours, Rules, Online deposit, Open matches, Tournaments, Opening hours)",
       "route": "/observation/courts"
     },
     {
@@ -1310,7 +1318,7 @@
       "ref": "nav:management:courts:/admin/courts",
       "lang": "ar",
       "title": "الإدارة › الملاعب: إعدادات الملاعب",
-      "body": "صف \"إعدادات الملاعب\" في مساحة \"الإدارة\" › الملاعب يفتح /admin/courts. الاسم بالإنجليزية: \"Court settings\". الأدوار: manager, owner. صفحاته، كتبويبات تحت عنوان الصفحة: الملاعب ← /admin/courts؛ أوقات السيدات والرجال ← /admin/gender-hours؛ القواعد ← /admin/settings/booking؛ العربون الإلكتروني ← /admin/settings/deposit؛ المباريات المفتوحة ← /admin/settings/matches؛ ساعات العمل ← /admin/hours.",
+      "body": "صف \"إعدادات الملاعب\" في مساحة \"الإدارة\" › الملاعب يفتح /admin/courts. الاسم بالإنجليزية: \"Court settings\". الأدوار: manager, owner. صفحاته، كتبويبات تحت عنوان الصفحة: الملاعب ← /admin/courts؛ أوقات السيدات والرجال ← /admin/gender-hours؛ القواعد ← /admin/settings/booking؛ العربون الإلكتروني ← /admin/settings/deposit؛ المباريات المفتوحة ← /admin/settings/matches؛ البطولات ← /admin/settings/tournaments؛ ساعات العمل ← /admin/hours.",
       "route": "/admin/courts"
     },
     {
@@ -1318,7 +1326,7 @@
       "ref": "nav:management:courts:/admin/courts",
       "lang": "en",
       "title": "Management › Courts: Court settings",
-      "body": "Rail row \"Court settings\" in the Management workspace › Courts opens /admin/courts. Arabic label: \"إعدادات الملاعب\". Roles: manager, owner. Its pages, as tabs under the page title: Courts → /admin/courts; Gender hours → /admin/gender-hours; Rules → /admin/settings/booking; Online deposit → /admin/settings/deposit; Open matches → /admin/settings/matches; Opening hours → /admin/hours.",
+      "body": "Rail row \"Court settings\" in the Management workspace › Courts opens /admin/courts. Arabic label: \"إعدادات الملاعب\". Roles: manager, owner. Its pages, as tabs under the page title: Courts → /admin/courts; Gender hours → /admin/gender-hours; Rules → /admin/settings/booking; Online deposit → /admin/settings/deposit; Open matches → /admin/settings/matches; Tournaments → /admin/settings/tournaments; Opening hours → /admin/hours.",
       "route": "/admin/courts"
     },
     {
@@ -4726,7 +4734,7 @@
       "ref": "action:app.delete_court",
       "lang": "en",
       "title": "app.delete_court",
-      "body": "0074, 0382: hard-delete a court that nothing references. Raises COURT_IN_USE (detail = {reservations, series, rate_rules}) when it has history — that court is deactivated via app.upsert_court instead, so the reports keep its name. Announces court_changed {court_id, active false, deleted true} on courts:<venue>.\nSignature: app.delete_court(p_id uuid) returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager,owner).\nAudit actions written: courts.delete.\nError codes: FORBIDDEN, COURT_NOT_FOUND, COURT_IN_USE.\nCalled from: apps/operator/src/features/admin/courts/CourtsAdmin.tsx (pages /admin).\nDefined in migration 0382 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "0074, 0382: hard-delete a court that nothing references. Raises COURT_IN_USE (detail = {reservations, series, rate_rules}) when it has history — that court is deactivated via app.upsert_court instead, so the reports keep its name. Announces court_changed {court_id, active false, deleted true} on courts:<venue>.\nSignature: app.delete_court(p_id uuid) returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager,owner).\nAudit actions written: courts.delete.\nError codes: FORBIDDEN, COURT_NOT_FOUND, COURT_IN_USE.\nCalled from: apps/operator/src/features/admin/courts/CourtWizard.tsx (pages /admin).\nDefined in migration 0382 (last definition). The assistant cannot call this; it only explains it.",
       "route": "/admin"
     },
     {
@@ -11038,7 +11046,7 @@
       "ref": "action:app.upsert_court~2",
       "lang": "en",
       "title": "app.upsert_court (part 2 of 2)",
-      "body": "Signature: app.upsert_court(p_name_en text, p_name_ar text, p_indoor boolean, p_description_en text default null, p_description_ar text default null, p_photo_pa\nGranted to: authenticated. Guard: staff role in (manager,owner).\nAudit actions written: courts.create, courts.update.\nError codes: FORBIDDEN, NAME_REQUIRED, INVALID_DURATIONS, INVALID_PHOTO_PATH, INVALID_ACTIVE_WINDOW, COURT_NOT_FOUND, COURT_HAS_FUTURE_RESERVATIONS.\nCalled from: apps/operator/src/features/admin/courts/CourtsAdmin.tsx (pages /admin).\nDefined in migration 0097 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "Signature: app.upsert_court(p_name_en text, p_name_ar text, p_indoor boolean, p_description_en text default null, p_description_ar text default null, p_photo_pa\nGranted to: authenticated. Guard: staff role in (manager,owner).\nAudit actions written: courts.create, courts.update.\nError codes: FORBIDDEN, NAME_REQUIRED, INVALID_DURATIONS, INVALID_PHOTO_PATH, INVALID_ACTIVE_WINDOW, COURT_NOT_FOUND, COURT_HAS_FUTURE_RESERVATIONS.\nCalled from: apps/operator/src/features/admin/courts/CourtWizard.tsx (pages /admin).\nDefined in migration 0097 (last definition). The assistant cannot call this; it only explains it.",
       "route": "/admin"
     },
     {
@@ -11238,7 +11246,7 @@
       "ref": "action:app.upsert_rate_rule~2",
       "lang": "en",
       "title": "app.upsert_rate_rule (part 2 of 3)",
-      "body": "Owner (the guard admits manager and owner; a manager is refused PRICE_VIA_PROTOCOL on every save since price_promo, #57: a court rate changes through a rate cha\nSignature: app.upsert_rate_rule(p_name text, p_days_of_week int[], p_start_time time, p_end_time time, p_prices jsonb, p_id uuid default null, p_court_id uuid default null, p_priority int default 0, p_valid_from date default null, p_valid_to date default null, p_is_active boolean default true) returns uuid.\nGranted to: authenticated. Guard: staff role in (manager,owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, PRICE_VIA_PROTOCOL.\nCalled from: apps/operator/src/features/admin/RateRuleEditor.tsx (pages /admin).",
+      "body": "Owner (the guard admits manager and owner; a manager is refused PRICE_VIA_PROTOCOL on every save since price_promo, #57: a court rate changes through a rate cha\nSignature: app.upsert_rate_rule(p_name text, p_days_of_week int[], p_start_time time, p_end_time time, p_prices jsonb, p_id uuid default null, p_court_id uuid default null, p_priority int default 0, p_valid_from date default null, p_valid_to date default null, p_is_active boolean default true) returns uuid.\nGranted to: authenticated. Guard: staff role in (manager,owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, PRICE_VIA_PROTOCOL.\nCalled from: apps/operator/src/features/admin/RateRuleEditor.tsx, apps/operator/src/features/admin/RuleWizard.tsx (pages /admin).",
       "route": "/admin"
     },
     {
@@ -11246,7 +11254,7 @@
       "ref": "action:app.upsert_rate_rule~3",
       "lang": "en",
       "title": "app.upsert_rate_rule (part 3 of 3)",
-      "body": "Owner (the guard admits manager and owner; a manager is refused PRICE_VIA_PROTOCOL on every save since price_promo, #57: a court rate changes through a rate cha\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, PRICE_VIA_PROTOCOL.\nCalled from: apps/operator/src/features/admin/RateRuleEditor.tsx (pages /admin).\nDefined in migration 0177 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "Owner (the guard admits manager and owner; a manager is refused PRICE_VIA_PROTOCOL on every save since price_promo, #57: a court rate changes through a rate cha\nError codes: FORBIDDEN, PRICE_VIA_PROTOCOL.\nCalled from: apps/operator/src/features/admin/RateRuleEditor.tsx, apps/operator/src/features/admin/RuleWizard.tsx (pages /admin).\nDefined in migration 0177 (last definition). The assistant cannot call this; it only explains it.",
       "route": "/admin"
     },
     {
@@ -31061,8 +31069,24 @@
       "kind": "label",
       "ref": "label:ws.courtDesk.board",
       "lang": "en",
-      "title": "ws.courtDesk.board (packages/i18n/src/catalogs/ws/courtDesk.en.ts) (part 1 of 3)",
+      "title": "ws.courtDesk.board (packages/i18n/src/catalogs/ws/courtDesk.en.ts) (part 1 of 4)",
       "body": "title: Today\nsubtitle: {date} · {count} bookings\nnewBooking: New booking\nsearchCustomer: Find customer\nsummaryBookings: Bookings\nsummaryArrived: Arrived\nsummaryToCome: Still to come\nbookings: All bookings today\narrivals: Arrivals\narrivalsEmpty: Nobody is due in the next hour.\nnextArrival: Next: {time} · {name} · {court}\nlateTitle: Started, not marked arrived\nlateHint: Mark them arrived when they walk in. If they do not come, open the booking to mark a no-show.\nsoonTitle: Due in the next hour\nstartedAgo: Started {minutes} min ago\narrivedToast: {name} marked arrived.\navailability: Courts now\nfreeNow: Free now\nfreeOf: {free} of {total}\nfree: Free until close\nfreeUntil: Free until {time}\nbusyUntil: In use until {time}\nbusyBlocked: Blocked until {time}\nbookCourt: Book this court",
+      "route": "/desk"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.courtDesk.board#2",
+      "lang": "ar",
+      "title": "ws.courtDesk.board (packages/i18n/src/catalogs/ws/courtDesk.ar.ts)",
+      "body": "card.late: لم يصلوا\ncard.lesson: درس\ncard.blocked: موقوف\ncard.held: محجوز مؤقتًا\nminutes: {minutes} د\nhours: {hours} س\nhoursMinutes: {hours} س {minutes} د\nuntilClose: حتى الإغلاق\nleftEnds: متبقٍّ · ينتهي {time}\nopenUntil: فارغ حتى {time}\nnothingAfter: لا حجوزات بعده\nnextUp: التالي {time} · {name}\nnobodyAfter: لا أحد بعدهم\nlateGroup: متأخرون\nsoonGroup: الساعة القادمة\ngroupCount: {title} · {count}\nminutesLate: متأخر {minutes} د\ncourtUntil: {court} · حتى {time}\nended: انتهى\nbeforeOwes: {name} قبلهم لم يدفع\ntoCollect: للتحصيل\ntoCollectEmpty: كل المباريات المنتهية مدفوعة.",
+      "route": "/desk"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.courtDesk.board#2",
+      "lang": "en",
+      "title": "ws.courtDesk.board (packages/i18n/src/catalogs/ws/courtDesk.en.ts)",
+      "body": "figLate: Late\nfigToCollect: To collect\ncard.free: Free\ncard.here: On court\ncard.booked: Booked\ncard.late: Not arrived\ncard.lesson: Lesson\ncard.blocked: Blocked\ncard.held: Held\nminutes: {minutes} min\nhours: {hours} h\nhoursMinutes: {hours} h {minutes}\nuntilClose: Until close\nleftEnds: Left · ends {time}\nopenUntil: Open until {time}\nnothingAfter: Nothing else booked\nnextUp: Next {time} · {name}\nnobodyAfter: Nobody after\nlateGroup: Late\nsoonGroup: Next hour\ngroupCount: {title} · {count}\nminutesLate: {minutes} min late\ncourtUntil: {court} · until {time}\nended: ended\nbeforeOwes: {name} before them has not paid\ntoCollect: To collect\ntoCollectEmpty: Every finished game is paid.",
       "route": "/desk"
     },
     {
@@ -31077,7 +31101,7 @@
       "kind": "label",
       "ref": "label:ws.courtDesk.board~2",
       "lang": "en",
-      "title": "ws.courtDesk.board (packages/i18n/src/catalogs/ws/courtDesk.en.ts) (part 2 of 3)",
+      "title": "ws.courtDesk.board (packages/i18n/src/catalogs/ws/courtDesk.en.ts) (part 2 of 4)",
       "body": "title: Today\nfreeNow: Free now\nfreeOf: {free} of {total}\nfree: Free until close\nfreeUntil: Free until {time}\nbusyUntil: In use until {time}\nbusyBlocked: Blocked until {time}\nbookCourt: Book this court\nmarkArrived: Mark arrived\nemptyTitle: No bookings today\nemptyBody: Book a guest with New booking or a free court below. Bookings made in the app appear here as soon as they are confirmed.\nemptyAction: Create a booking\nopen: Open\nwalkIn: Walk-in\ncourt: Court\ntime: Time\ncustomer: Guest\nstatus: Status\npayment: Court fee\ncharge.paid: Paid\ncharge.notPaid: Not paid · {amount}\ncharge.notPaidYet: Not paid yet\ncharge.billOpen: Bill open · {amount} due\ncharge.partlyPaid: Part paid · {amount} due\ncharge.closeBill: Nothing owed · close the bill\ncharge.owed: {amount} still owed",
       "route": "/desk"
     },
@@ -31086,15 +31110,23 @@
       "ref": "label:ws.courtDesk.board~3",
       "lang": "ar",
       "title": "ws.courtDesk.board (packages/i18n/src/catalogs/ws/courtDesk.ar.ts) (part 3 of 3)",
-      "body": "title: اليوم\ncharge.closeBill: لا شيء مستحق · أغلق الفاتورة\ncharge.owed: لا يزال مستحقًا {amount}\ncharge.refundDue: استرداد مستحق · {amount}\ncharge.noFee: بلا رسوم ملعب\ntoSettleTitle: لُعبت ولم تُدفع\ntoSettleHint: انتهت هذه المباريات ولم تُسدَّد رسوم الملعب بعد. افتح الحجز لاستلام الدفعة.\npreviousUnpaid: المجموعة السابقة في هذا الملعب لم تدفع: {name}\ntakePayment: استلام الدفعة\nonCourtNow: في الملعب الآن\nblocked: موقوف\nhold: حجز مؤقت من التطبيق\nstartsIn: بعد {minutes} د\nlive: مباشر\npolling: يُحدَّث كل دقيقة\nnewBookingBlockedLoading: بانتظار تحميل حجوزات اليوم والملاعب.\nnewBookingBlockedError: تعذّر تحميل حجوزات اليوم. حاول مرة أخرى قبل الحجز.",
+      "body": "title: اليوم\ncharge.closeBill: لا شيء مستحق · أغلق الفاتورة\ncharge.owed: لا يزال مستحقًا {amount}\ncharge.refundDue: استرداد مستحق · {amount}\ncharge.noFee: بلا رسوم ملعب\ntoSettleTitle: لُعبت ولم تُدفع\ntoSettleHint: انتهت هذه المباريات ولم تُسدَّد رسوم الملعب بعد. افتح الحجز لاستلام الدفعة.\npreviousUnpaid: المجموعة السابقة في هذا الملعب لم تدفع: {name}\ntakePayment: استلام الدفعة\nonCourtNow: في الملعب الآن\nblocked: موقوف\nhold: حجز مؤقت من التطبيق\nstartsIn: بعد {minutes} د\nlive: مباشر\npolling: يُحدَّث كل دقيقة\nnewBookingBlockedLoading: بانتظار تحميل حجوزات اليوم والملاعب.\nnewBookingBlockedError: تعذّر تحميل حجوزات اليوم. حاول مرة أخرى قبل الحجز.\nfigures: أرقام الليلة\nfigCourtsFree: ملاعب فارغة\nfigLate: متأخرون\nfigToCollect: للتحصيل\ncard.free: فارغ\ncard.here: في الملعب\ncard.booked: محجوز",
       "route": "/desk"
     },
     {
       "kind": "label",
       "ref": "label:ws.courtDesk.board~3",
       "lang": "en",
-      "title": "ws.courtDesk.board (packages/i18n/src/catalogs/ws/courtDesk.en.ts) (part 3 of 3)",
+      "title": "ws.courtDesk.board (packages/i18n/src/catalogs/ws/courtDesk.en.ts) (part 3 of 4)",
       "body": "title: Today\ncharge.notPaidYet: Not paid yet\ncharge.billOpen: Bill open · {amount} due\ncharge.partlyPaid: Part paid · {amount} due\ncharge.closeBill: Nothing owed · close the bill\ncharge.owed: {amount} still owed\ncharge.refundDue: Refund due · {amount}\ncharge.noFee: No court fee\ntoSettleTitle: Played, not paid\ntoSettleHint: These games are over and the court fee is still open. Open the booking to take payment.\npreviousUnpaid: The group before on this court has not paid: {name}\ntakePayment: Take payment\nonCourtNow: On court now\nblocked: Blocked\nhold: App hold\nstartsIn: In {minutes} min\nlive: Live\npolling: Updating every minute\nnewBookingBlockedLoading: Waiting for today’s bookings and courts to load.\nnewBookingBlockedError: Today’s bookings could not be loaded — try again first.",
+      "route": "/desk"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.courtDesk.board~4",
+      "lang": "en",
+      "title": "ws.courtDesk.board (packages/i18n/src/catalogs/ws/courtDesk.en.ts) (part 4 of 4)",
+      "body": "title: Today\nlive: Live\npolling: Updating every minute\nnewBookingBlockedLoading: Waiting for today’s bookings and courts to load.\nnewBookingBlockedError: Today’s bookings could not be loaded — try again first.\nfigures: Tonight in figures\nfigCourtsFree: Courts free",
       "route": "/desk"
     },
     {
@@ -35638,7 +35670,7 @@
       "ref": "label:ws.manager.rates",
       "lang": "ar",
       "title": "ws.manager.rates (packages/i18n/src/catalogs/ws/manager.ar.ts) (part 1 of 3)",
-      "body": "title: أسعار الملاعب\nlead: سعر حجز الملعب حسب اليوم والوقت. يسري التغيير على الحجوزات الجديدة فقط، وتحتفظ الحجوزات السابقة بسعرها.\nhowChosen: إذا شملت أكثر من قاعدة الوقت نفسه، تتقدّم قاعدة ملعب بعينه على قاعدة كل الملاعب، ثم تفوز القاعدة ذات الأولوية الأعلى.\nnonDestructive: الحفظ يغيّر سعر الحجوزات الجديدة فقط. الحجوزات السابقة تحتفظ بسعرها.\nrule: القاعدة\ncourt: الملعب\nallCourts: كل الملاعب\ndays: الأيام\neveryDay: كل يوم\nwindow: الوقت\nprices: الأسعار\npriceLine: {minutes} د · {price}\npriority: الأولوية\npriorityHint: تفوز الأولوية الأعلى إذا غطّت هذه القاعدة وقاعدة أخرى الوقت نفسه على الملعب نفسه.\noff: متوقفة\nshowOff: عرض القواعد المتوقفة ({count})\nhideOff: إخفاء القواعد المتوقفة\nempty: لا قواعد أسعار بعد.",
+      "body": "title: أسعار الملاعب\nlead: سعر حجز الملعب حسب اليوم والوقت. يسري التغيير على الحجوزات الجديدة فقط، وتحتفظ الحجوزات السابقة بسعرها.\nhowChosen: إذا شملت أكثر من قاعدة الوقت نفسه، تتقدّم قاعدة ملعب بعينه على قاعدة كل الملاعب، ثم تفوز القاعدة ذات الأولوية الأعلى.\nnonDestructive: الحفظ يغيّر سعر الحجوزات الجديدة فقط. الحجوزات السابقة تحتفظ بسعرها.\nwizardLead: سمِّ القاعدة، وحدّد متى تُطبَّق، ثم ضع الأسعار.\nstepRule: القاعدة\nstepWhen: متى تُطبَّق\nstepPrices: الأسعار\nrule: القاعدة\ncourt: الملعب\nallCourts: كل الملاعب\ndays: الأيام\neveryDay: كل يوم\nwindow: الوقت\nprices: الأسعار\npriceLine: {minutes} د · {price}\npriority: الأولوية\npriorityHint: تفوز الأولوية الأعلى إذا غطّت هذه القاعدة وقاعدة أخرى الوقت نفسه على الملعب نفسه.\noff: متوقفة\nshowOff: عرض القواعد المتوقفة ({count})",
       "route": "/admin/courts"
     },
     {
@@ -35646,7 +35678,7 @@
       "ref": "label:ws.manager.rates",
       "lang": "en",
       "title": "ws.manager.rates (packages/i18n/src/catalogs/ws/manager.en.ts) (part 1 of 3)",
-      "body": "title: Court rates\nlead: What a court booking costs, by day and time. A change applies to new bookings only; past bookings keep the price they were made at.\nhowChosen: When rules cover the same time, a rule for one court beats an all-courts rule, then the higher priority wins.\nnonDestructive: Saving changes the price of new bookings only. Past bookings keep their price.\nrule: Rule\ncourt: Court\nallCourts: All courts\ndays: Days\neveryDay: Every day\nwindow: Time\nprices: Prices\npriceLine: {minutes} min · {price}\npriority: Priority\npriorityHint: Higher wins when this rule and another cover the same time on the same court.\noff: Off\nshowOff: Show switched-off rules ({count})\nhideOff: Hide switched-off rules\nempty: No rate rules yet.",
+      "body": "title: Court rates\nlead: What a court booking costs, by day and time. A change applies to new bookings only; past bookings keep the price they were made at.\nhowChosen: When rules cover the same time, a rule for one court beats an all-courts rule, then the higher priority wins.\nnonDestructive: Saving changes the price of new bookings only. Past bookings keep their price.\nwizardLead: Name the rule, say when it applies, then set the prices.\nstepRule: Rule\nstepWhen: When it applies\nstepPrices: Prices\nrule: Rule\ncourt: Court\nallCourts: All courts\ndays: Days\neveryDay: Every day\nwindow: Time\nprices: Prices\npriceLine: {minutes} min · {price}\npriority: Priority\npriorityHint: Higher wins when this rule and another cover the same time on the same court.\noff: Off",
       "route": "/admin/courts"
     },
     {
@@ -35654,7 +35686,7 @@
       "ref": "label:ws.manager.rates~2",
       "lang": "ar",
       "title": "ws.manager.rates (packages/i18n/src/catalogs/ws/manager.ar.ts) (part 2 of 3)",
-      "body": "title: أسعار الملاعب\noff: متوقفة\nshowOff: عرض القواعد المتوقفة ({count})\nhideOff: إخفاء القواعد المتوقفة\nempty: لا قواعد أسعار بعد.\nemptyBody: من دون قاعدة لا يمكن تسعير أي موعد. أضف أولًا قاعدة تغطي كل الملاعب وكل الأيام وكل ساعات العمل، ثم أضف فوقها قواعد الذروة.\ntieTitle: قواعد متعادلة\ntieLead: كل زوج يغطي الوقت نفسه على الملاعب نفسها وبالأولوية نفسها، فلا شيء يحسم السعر الذي يُطبَّق على الحجز. افتح إحدى القاعدتين وغيّر أولويتها لتتقدّم على الأخرى.\ntieFrom: أول تعادل يوم {day}\ntieBadge: متعادلة\ntiesAll: عرض كل الأزواج ({count})\ntiesFewer: عرض أقل\ntieInForm: متعادلة مع {name} ({day}). غيّر الأولوية كي تفوز إحداهما.\nnewRule: قاعدة جديدة\neditRule: تحرير القاعدة\nvalidity: تواريخ السريان\nvalidityHint: الحقل الفارغ يعني بلا نهاية.",
+      "body": "title: أسعار الملاعب\npriceLine: {minutes} د · {price}\npriority: الأولوية\npriorityHint: تفوز الأولوية الأعلى إذا غطّت هذه القاعدة وقاعدة أخرى الوقت نفسه على الملعب نفسه.\noff: متوقفة\nshowOff: عرض القواعد المتوقفة ({count})\nhideOff: إخفاء القواعد المتوقفة\nempty: لا قواعد أسعار بعد.\nemptyBody: من دون قاعدة لا يمكن تسعير أي موعد. أضف أولًا قاعدة تغطي كل الملاعب وكل الأيام وكل ساعات العمل، ثم أضف فوقها قواعد الذروة.\ntieTitle: قواعد متعادلة\ntieLead: كل زوج يغطي الوقت نفسه على الملاعب نفسها وبالأولوية نفسها، فلا شيء يحسم السعر الذي يُطبَّق على الحجز. افتح إحدى القاعدتين وغيّر أولويتها لتتقدّم على الأخرى.\ntieFrom: أول تعادل يوم {day}\ntieBadge: متعادلة\ntiesAll: عرض كل الأزواج ({count})\ntiesFewer: عرض أقل\ntieInForm: متعادلة مع {name} ({day}). غيّر الأولوية كي تفوز إحداهما.\nnewRule: قاعدة جديدة",
       "route": "/admin/courts"
     },
     {
@@ -35662,7 +35694,7 @@
       "ref": "label:ws.manager.rates~2",
       "lang": "en",
       "title": "ws.manager.rates (packages/i18n/src/catalogs/ws/manager.en.ts) (part 2 of 3)",
-      "body": "title: Court rates\noff: Off\nshowOff: Show switched-off rules ({count})\nhideOff: Hide switched-off rules\nempty: No rate rules yet.\nemptyBody: Without a rule no slot can be priced. Add one covering every court, every day, all opening hours first, then add peak rules on top.\ntieTitle: Rules that tie\ntieLead: Each pair covers the same time on the same courts with the same priority, so nothing decides which price a booking gets. Open one of them and change its priority so it wins.\ntieFrom: first on {day}\ntieBadge: Ties\ntiesAll: Show all {count} pairs\ntiesFewer: Show fewer\ntieInForm: Ties with {name} ({day}). Change the priority so one of them wins.\nnewRule: New rule\neditRule: Edit rule\nvalidity: Valid dates\nvalidityHint: Blank means open-ended.",
+      "body": "title: Court rates\nwindow: Time\nprices: Prices\npriceLine: {minutes} min · {price}\npriority: Priority\npriorityHint: Higher wins when this rule and another cover the same time on the same court.\noff: Off\nshowOff: Show switched-off rules ({count})\nhideOff: Hide switched-off rules\nempty: No rate rules yet.\nemptyBody: Without a rule no slot can be priced. Add one covering every court, every day, all opening hours first, then add peak rules on top.\ntieTitle: Rules that tie\ntieLead: Each pair covers the same time on the same courts with the same priority, so nothing decides which price a booking gets. Open one of them and change its priority so it wins.\ntieFrom: first on {day}\ntieBadge: Ties\ntiesAll: Show all {count} pairs\ntiesFewer: Show fewer",
       "route": "/admin/courts"
     },
     {
@@ -35670,7 +35702,7 @@
       "ref": "label:ws.manager.rates~3",
       "lang": "ar",
       "title": "ws.manager.rates (packages/i18n/src/catalogs/ws/manager.ar.ts) (part 3 of 3)",
-      "body": "title: أسعار الملاعب\ntieInForm: متعادلة مع {name} ({day}). غيّر الأولوية كي تفوز إحداهما.\nnewRule: قاعدة جديدة\neditRule: تحرير القاعدة\nvalidity: تواريخ السريان\nvalidityHint: الحقل الفارغ يعني بلا نهاية.\npricesHint: مبلغ صحيح بالدينار لكل مدة. اترك حقل المدة فارغًا لعدم تسعيرها ضمن هذه القاعدة.\nsaved: حُفظت القاعدة.",
+      "body": "title: أسعار الملاعب\ntieFrom: أول تعادل يوم {day}\ntieBadge: متعادلة\ntiesAll: عرض كل الأزواج ({count})\ntiesFewer: عرض أقل\ntieInForm: متعادلة مع {name} ({day}). غيّر الأولوية كي تفوز إحداهما.\nnewRule: قاعدة جديدة\neditRule: تحرير القاعدة\nvalidity: تواريخ السريان\nvalidityHint: الحقل الفارغ يعني بلا نهاية.\npricesHint: مبلغ صحيح بالدينار لكل مدة. اترك حقل المدة فارغًا لعدم تسعيرها ضمن هذه القاعدة.\nsaved: حُفظت القاعدة.",
       "route": "/admin/courts"
     },
     {
@@ -35678,7 +35710,7 @@
       "ref": "label:ws.manager.rates~3",
       "lang": "en",
       "title": "ws.manager.rates (packages/i18n/src/catalogs/ws/manager.en.ts) (part 3 of 3)",
-      "body": "title: Court rates\ntiesFewer: Show fewer\ntieInForm: Ties with {name} ({day}). Change the priority so one of them wins.\nnewRule: New rule\neditRule: Edit rule\nvalidity: Valid dates\nvalidityHint: Blank means open-ended.\npricesHint: Whole IQD per duration. Leave a duration blank to not price it under this rule.\nsaved: Rule saved.",
+      "body": "title: Court rates\ntieFrom: first on {day}\ntieBadge: Ties\ntiesAll: Show all {count} pairs\ntiesFewer: Show fewer\ntieInForm: Ties with {name} ({day}). Change the priority so one of them wins.\nnewRule: New rule\neditRule: Edit rule\nvalidity: Valid dates\nvalidityHint: Blank means open-ended.\npricesHint: Whole IQD per duration. Leave a duration blank to not price it under this rule.\nsaved: Rule saved.",
       "route": "/admin/courts"
     },
     {
@@ -38190,7 +38222,7 @@
       "ref": "label:ws.owner.courts",
       "lang": "ar",
       "title": "ws.owner.courts (packages/i18n/src/catalogs/ws/owner.ar.ts) (part 1 of 4)",
-      "body": "lead: الملاعب التي يحجزها الضيوف والمكتب، بالترتيب الذي تظهر به في تقويم المكتب.\nadd: إضافة ملعب\ncreate: إضافة ملعب\nclose: إغلاق\nemptyTitle: لا توجد ملاعب بعد\nemptyBody: أضف أول ملعب. لا يمكن إجراء أي حجز قبل وجود ملعب.\ncolumns.order: الترتيب\ncolumns.name: الملعب\ncolumns.type: النوع\ncolumns.durations: مدد الحجز\ncolumns.status: الحالة\ncolumns.actions: تعديل\nbookable: متاح للحجز\nswitchedOff: موقوف\nshowOff: إظهار الملاعب الموقوفة ({count})\nhideOff: إخفاء الملاعب الموقوفة\norderNote: الأسهم تحدّد ترتيب ظهور الملاعب في تقويم المكتب.\ndescriptionHint: اختياري. ملاحظة قصيرة عن الملعب، مثل «مكيّف بجدران زجاجية».\ntypeLabel: داخلي أو خارجي\nlengthsLabel: مدد الحجز",
+      "body": "lead: الملاعب التي يحجزها الضيوف والمكتب، بالترتيب الذي تظهر به في تقويم المكتب.\nadd: إضافة ملعب\ncreate: إضافة ملعب\nclose: إغلاق\nemptyTitle: لا توجد ملاعب بعد\nemptyBody: أضف أول ملعب. لا يمكن إجراء أي حجز قبل وجود ملعب.\ncolumns.order: الترتيب\ncolumns.name: الملعب\ncolumns.type: النوع\ncolumns.durations: مدد الحجز\ncolumns.status: الحالة\ncolumns.actions: تعديل\nbookable: متاح للحجز\nswitchedOff: موقوف\nshowOff: إظهار الملاعب الموقوفة ({count})\nhideOff: إخفاء الملاعب الموقوفة\norderNote: الأسهم تحدّد ترتيب ظهور الملاعب في تقويم المكتب.\nwizardLead: سمِّ الملعب، وحدّد نوعه ومدّة الحجز، ثم أضف صورة.\nstepNames: الاسم\nstepDetails: التفاصيل\ndescriptionHint: اختياري. ملاحظة قصيرة عن الملعب، مثل «مكيّف بجدران زجاجية».",
       "route": "/admin/courts"
     },
     {
@@ -38198,7 +38230,7 @@
       "ref": "label:ws.owner.courts",
       "lang": "en",
       "title": "ws.owner.courts (packages/i18n/src/catalogs/ws/owner.en.ts) (part 1 of 4)",
-      "body": "lead: The courts guests and the desk can book, in the order the desk calendar shows them.\nadd: Add court\ncreate: Add court\nclose: Close\nemptyTitle: No courts yet\nemptyBody: Add the first court. Nothing can be booked until one exists.\ncolumns.order: Order\ncolumns.name: Court\ncolumns.type: Type\ncolumns.durations: Booking lengths\ncolumns.status: Status\ncolumns.actions: Edit\nbookable: Open for booking\nswitchedOff: Switched off\nshowOff: Show switched-off courts ({count})\nhideOff: Hide switched-off courts\norderNote: The arrows set the order courts appear in on the desk calendar.\ndescriptionHint: Optional. A short note about the court, like “Air-conditioned, glass walls”.\ntypeLabel: Indoor or outdoor",
+      "body": "lead: The courts guests and the desk can book, in the order the desk calendar shows them.\nadd: Add court\ncreate: Add court\nclose: Close\nemptyTitle: No courts yet\nemptyBody: Add the first court. Nothing can be booked until one exists.\ncolumns.order: Order\ncolumns.name: Court\ncolumns.type: Type\ncolumns.durations: Booking lengths\ncolumns.status: Status\ncolumns.actions: Edit\nbookable: Open for booking\nswitchedOff: Switched off\nshowOff: Show switched-off courts ({count})\nhideOff: Hide switched-off courts\norderNote: The arrows set the order courts appear in on the desk calendar.\nwizardLead: Name the court, say what kind it is and how long a booking can be, then add a photo.\nstepNames: Name",
       "route": "/admin/courts"
     },
     {
@@ -38206,7 +38238,7 @@
       "ref": "label:ws.owner.courts#2",
       "lang": "en",
       "title": "ws.owner.courts (packages/i18n/src/catalogs/ws/owner.en.ts)",
-      "body": "deactivate: Switch off instead\ndeleted: Court deleted.",
+      "body": "deleteInUse: {court} cannot be deleted because the records still use it. Bookings: {bookings}. Repeat bookings: {series}. Price rules: {rules}.\ndeleteInUseFix: Switch it off instead: it leaves the calendar and the guest app, and the reports keep its name.\ndeactivate: Switch off instead\ndeleted: Court deleted.",
       "route": "/admin/courts"
     },
     {
@@ -38214,7 +38246,7 @@
       "ref": "label:ws.owner.courts~2",
       "lang": "ar",
       "title": "ws.owner.courts (packages/i18n/src/catalogs/ws/owner.ar.ts) (part 2 of 4)",
-      "body": "lead: الملاعب التي يحجزها الضيوف والمكتب، بالترتيب الذي تظهر به في تقويم المكتب.\norderNote: الأسهم تحدّد ترتيب ظهور الملاعب في تقويم المكتب.\ndescriptionHint: اختياري. ملاحظة قصيرة عن الملعب، مثل «مكيّف بجدران زجاجية».\ntypeLabel: داخلي أو خارجي\nlengthsLabel: مدد الحجز\nlengthsHint: المدد التي يمكن للضيف أو المكتب حجز هذا الملعب لها. تحتاج كل مدة إلى سعر في صفحة «الأسعار».\nlengthsRequired: اختر مدة واحدة على الأقل.\nopenLabel: متاح للحجز\nopenOnHint: يستطيع الضيوف والمكتب حجز هذا الملعب.\nopenOffHint: يختفي الملعب من تقويم المكتب وتطبيق الضيوف. تحتفظ الحجوزات السابقة والتقارير باسمه.\nhasBookings: حجوزات قادمة على هذا الملعب: {count}. انقلها أو ألغِها من المكتب قبل إيقافه.\nopenDesk: فتح تقويم المكتب\nsaveBlockedBookings: انقل حجوزاته القادمة أولًا.\noffConfirm: إيقاف {court}؟",
+      "body": "lead: الملاعب التي يحجزها الضيوف والمكتب، بالترتيب الذي تظهر به في تقويم المكتب.\nwizardLead: سمِّ الملعب، وحدّد نوعه ومدّة الحجز، ثم أضف صورة.\nstepNames: الاسم\nstepDetails: التفاصيل\ndescriptionHint: اختياري. ملاحظة قصيرة عن الملعب، مثل «مكيّف بجدران زجاجية».\ntypeLabel: داخلي أو خارجي\nlengthsLabel: مدد الحجز\nlengthsHint: المدد التي يمكن للضيف أو المكتب حجز هذا الملعب لها. تحتاج كل مدة إلى سعر في صفحة «الأسعار».\nlengthsRequired: اختر مدة واحدة على الأقل.\nopenLabel: متاح للحجز\nopenOnHint: يستطيع الضيوف والمكتب حجز هذا الملعب.\nopenOffHint: يختفي الملعب من تقويم المكتب وتطبيق الضيوف. تحتفظ الحجوزات السابقة والتقارير باسمه.\nhasBookings: حجوزات قادمة على هذا الملعب: {count}. انقلها أو ألغِها من المكتب قبل إيقافه.\nopenDesk: فتح تقويم المكتب\nsaveBlockedBookings: انقل حجوزاته القادمة أولًا.",
       "route": "/admin/courts"
     },
     {
@@ -38222,7 +38254,7 @@
       "ref": "label:ws.owner.courts~2",
       "lang": "en",
       "title": "ws.owner.courts (packages/i18n/src/catalogs/ws/owner.en.ts) (part 2 of 4)",
-      "body": "lead: The courts guests and the desk can book, in the order the desk calendar shows them.\norderNote: The arrows set the order courts appear in on the desk calendar.\ndescriptionHint: Optional. A short note about the court, like “Air-conditioned, glass walls”.\ntypeLabel: Indoor or outdoor\nlengthsLabel: Booking lengths\nlengthsHint: How long a guest or the desk can book this court for. Each length needs a price under Rates.\nlengthsRequired: Choose at least one length.\nopenLabel: Open for booking\nopenOnHint: Guests and the desk can book this court.\nopenOffHint: The court leaves the desk calendar and the guest app. Past bookings and reports keep its name.\nhasBookings: Upcoming bookings on this court: {count}. Move or cancel them at the desk before switching it off.",
+      "body": "lead: The courts guests and the desk can book, in the order the desk calendar shows them.\norderNote: The arrows set the order courts appear in on the desk calendar.\nwizardLead: Name the court, say what kind it is and how long a booking can be, then add a photo.\nstepNames: Name\nstepDetails: Details\ndescriptionHint: Optional. A short note about the court, like “Air-conditioned, glass walls”.\ntypeLabel: Indoor or outdoor\nlengthsLabel: Booking lengths\nlengthsHint: How long a guest or the desk can book this court for. Each length needs a price under Rates.\nlengthsRequired: Choose at least one length.\nopenLabel: Open for booking\nopenOnHint: Guests and the desk can book this court.\nopenOffHint: The court leaves the desk calendar and the guest app. Past bookings and reports keep its name.",
       "route": "/admin/courts"
     },
     {
@@ -38238,7 +38270,7 @@
       "ref": "label:ws.owner.courts~3",
       "lang": "en",
       "title": "ws.owner.courts (packages/i18n/src/catalogs/ws/owner.en.ts) (part 3 of 4)",
-      "body": "lead: The courts guests and the desk can book, in the order the desk calendar shows them.\nhasBookings: Upcoming bookings on this court: {count}. Move or cancel them at the desk before switching it off.\nopenDesk: Open the desk calendar\nsaveBlockedBookings: Move its upcoming bookings first.\noffConfirm: Switch off {court}?\noffConfirmBody: It leaves the desk calendar and the guest app as soon as you save, and nobody can book it. Past bookings and reports keep its name. You can switch it back on at any time.\noffConfirmAction: Switch off\nunsaved: Unsaved changes\ndiscard: Discard changes\ndelete: Delete court\ndeleteConfirm: Delete {court}?\ndeleteConfirmBody: It is removed from the calendar, the guest app and the price rules for good. This cannot be undone.",
+      "body": "lead: The courts guests and the desk can book, in the order the desk calendar shows them.\nopenLabel: Open for booking\nopenOnHint: Guests and the desk can book this court.\nopenOffHint: The court leaves the desk calendar and the guest app. Past bookings and reports keep its name.\nhasBookings: Upcoming bookings on this court: {count}. Move or cancel them at the desk before switching it off.\nopenDesk: Open the desk calendar\nsaveBlockedBookings: Move its upcoming bookings first.\noffConfirm: Switch off {court}?\noffConfirmBody: It leaves the desk calendar and the guest app as soon as you save, and nobody can book it. Past bookings and reports keep its name. You can switch it back on at any time.\noffConfirmAction: Switch off\nunsaved: Unsaved changes\ndiscard: Discard changes\ndelete: Delete court",
       "route": "/admin/courts"
     },
     {
@@ -38254,7 +38286,7 @@
       "ref": "label:ws.owner.courts~4",
       "lang": "en",
       "title": "ws.owner.courts (packages/i18n/src/catalogs/ws/owner.en.ts) (part 4 of 4)",
-      "body": "lead: The courts guests and the desk can book, in the order the desk calendar shows them.\ndiscard: Discard changes\ndelete: Delete court\ndeleteConfirm: Delete {court}?\ndeleteConfirmBody: It is removed from the calendar, the guest app and the price rules for good. This cannot be undone.\ndeleteInUse: {court} cannot be deleted because the records still use it. Bookings: {bookings}. Repeat bookings: {series}. Price rules: {rules}.\ndeleteInUseFix: Switch it off instead: it leaves the calendar and the guest app, and the reports keep its name.",
+      "body": "lead: The courts guests and the desk can book, in the order the desk calendar shows them.\noffConfirmAction: Switch off\nunsaved: Unsaved changes\ndiscard: Discard changes\ndelete: Delete court\ndeleteConfirm: Delete {court}?\ndeleteConfirmBody: It is removed from the calendar, the guest app and the price rules for good. This cannot be undone.",
       "route": "/admin/courts"
     },
     {
@@ -42454,7 +42486,7 @@
       "ref": "label:ws.shell.goTo",
       "lang": "ar",
       "title": "ws.shell.goTo (packages/i18n/src/catalogs/ws/shell.ar.ts)",
-      "body": "open: الانتقال إلى…\ntitle: الانتقال إلى\nplaceholder: ابحث عن صفحة أو إعداد\nresults: الصفحات والإعدادات\nnone: لا شيء يطابق «{query}».\nhint: Enter للفتح، وEsc للإغلاق.\nshortcut: Ctrl+G",
+      "body": "open: الانتقال إلى…\ntitle: الانتقال إلى\nplaceholder: ابحث عن صفحة أو إعداد\nresults: الصفحات والإعدادات\nnone: لا شيء يطابق «{query}».\nall: الكل\nrecent: الأخيرة\nempty: لا نتائج\nshortcut: Ctrl+G",
       "route": null
     },
     {
@@ -42462,7 +42494,7 @@
       "ref": "label:ws.shell.goTo",
       "lang": "en",
       "title": "ws.shell.goTo (packages/i18n/src/catalogs/ws/shell.en.ts)",
-      "body": "open: Go to…\ntitle: Go to\nplaceholder: Find a page or a setting\nresults: Pages and settings\nnone: Nothing matches “{query}”.\nhint: Enter opens it. Esc closes.\nshortcut: Ctrl+G",
+      "body": "open: Go to…\ntitle: Go to\nplaceholder: Find a page or a setting\nresults: Pages and settings\nnone: Nothing matches “{query}”.\nall: All\nrecent: Recent\nempty: No match\nshortcut: Ctrl+G",
       "route": null
     },
     {
@@ -54318,7 +54350,7 @@
       "ref": "doc:docs/design/assistant/pages.md#41",
       "lang": "en",
       "title": "docs/design/assistant/pages.md › Setup section and admin (part 1 of 4)",
-      "body": "n/settings/.\n- /admin/settings/day — Day start time: when a business day starts (owner) and the wait between waiter calls.\n- /admin/settings/analytics — Analytics settings (owner): items left out of analytics and the guest-app visits start date.\n- /admin/settings/booking — Rules: booking rules (cancellation, hold time, how far ahead and slots per guest; owner edits, manager reads) and the tournament rules (the branch's tournaments switch, owner, app.set_tournaments_enabled).\n- /admin/settings/deposit — Online deposit: the Qi Card deposit rules (owner, app.set_deposit_settings); only while online payments are live.\n- /admin/settings/matches — Open matches: the open-match rules (owner, app.set_match_settings); only while online payments are live.",
+      "body": "n/settings/.\n- /admin/settings/day — Day start time: when a business day starts (owner) and the wait between waiter calls.\n- /admin/settings/analytics — Analytics settings (owner): items left out of analytics and the guest-app visits start date.\n- /admin/settings/booking — Booking rules: cancellation, hold time, how far ahead and slots per guest (owner edits, manager reads).\n- /admin/settings/deposit — Online deposit: the Qi Card deposit rules (owner, app.set_deposit_settings); only while online payments are live.\n- /admin/settings/matches — Open matches: the open-match rules (owner, app.set_match_settings); only while online payments are live.\n- /admin/settings/devices — Computers & tablets: every till and desk that reported in; the owner retires one (app.retire_device).",
       "route": null
     },
     {
@@ -54326,7 +54358,7 @@
       "ref": "doc:docs/design/assistant/pages.md#41~2",
       "lang": "en",
       "title": "docs/design/assistant/pages.md › Setup section and admin (part 2 of 4)",
-      "body": "n/settings/.\n- /admin/settings/matches — Open matches: the open-match rules (owner, app.set_match_settings); only while online payments are live.\n- /admin/settings/devices — Computers & tablets: every till and desk that reported in; the owner retires one (app.retire_device).\n- /admin/settings/stations — Till computers: register this machine at the branch or retire a station (manager or owner).\n- /admin/settings/offline — No-internet mode: offline mode on or off and its two limits (owner edits, manager reads).",
+      "body": "n/settings/.\n- /admin/settings/devices — Computers & tablets: every till and desk that reported in; the owner retires one (app.retire_device).\n- /admin/settings/stations — Till computers: register this machine at the branch or retire a station (manager or owner).\n- /admin/settings/tournaments — Tournament rules: the branch's tournaments switch (owner, app.set_tournaments_enabled).\n- /admin/settings/offline — No-internet mode: offline mode on or off and its two limits (owner edits, manager reads).",
       "route": null
     },
     {
@@ -54342,7 +54374,7 @@
       "ref": "doc:docs/design/assistant/pages.md#41~4",
       "lang": "en",
       "title": "docs/design/assistant/pages.md › Setup section and admin (part 4 of 4)",
-      "body": "n/settings/.\n\"Open to guests\" (app.open_branch) and \"Close branch\" (app.close_branch).\n- /admin/staff — Th",
+      "body": "n/settings/.\n\"Open to guests\" (app.open_branch) and \"Close branch\" (app.close_branch).\n-",
       "route": null
     },
     {
@@ -54350,7 +54382,7 @@
       "ref": "doc:docs/design/assistant/pages.md#42",
       "lang": "en",
       "title": "docs/design/assistant/pages.md › Setup section and admin (part 1 of 3)",
-      "body": "e owner's \"Staff\" screen listing accounts with role, PIN and status; \"Add staff member\" creates an account through the staff-admin edge function; opened from a hiring run's add_staff step (?hire=) a banner names the picked candidate and the role (app.protocol_step_detail, app.protocol_run_detail, app.hiring_candidates), \"Add the new staff member\" opens the form filled in with the role fixed, and the new account is sent as the step through app.submit_step, which finishes the run; \"Manage\" opens an editor (app.rename_staff, set_staff_role, set_staff_active, set_staff_pin, clear_staff_pin, set_station_staff for cover,",
+      "body": "/admin/staff — The owner's \"Staff\" screen listing accounts with role, PIN and status; \"Add staff member\" creates an account through the staff-admin edge function; opened from a hiring run's add_staff step (?hire=) a banner names the picked candidate and the role (app.protocol_step_detail, app.protocol_run_detail, app.hiring_candidates), \"Add the new staff member\" opens the form filled in with the role fixed, and the new account is sent as the step through app.submit_step, which finishes the run; \"Manage\" opens an editor (app.rename_staff, set_staff_role, set_staff_active, set_staff_pin, clear_staff_pin, set_station_staff for",
       "route": null
     },
     {
@@ -54358,7 +54390,7 @@
       "ref": "doc:docs/design/assistant/pages.md#42~2",
       "lang": "en",
       "title": "docs/design/assistant/pages.md › Setup section and admin (part 2 of 3)",
-      "body": "e owner's \"Staff\" screen listing accounts with role, PIN and status; \"Add staff member\" creates an account through the staff-admin edge function; opened from a \nset_staff_access for Access: second jobs and blocked pages), and the breaks panel's \"Save\" writes break_allowance_minutes. Kitchen (prep) is retired: it is not offered for a new account or a role change (kitchen staff are Head barista, Barista, Assistant barista, Head chef or Chef), and an account still on it shows a \"Retired\" badge and keeps working until it is moved.",
+      "body": "/admin/staff — The owner's \"Staff\" screen listing accounts with role, PIN and status; \"Add staff member\" creates an account through the staff-admin edge functio\ncover, set_staff_access for Access: second jobs and blocked pages), and the breaks panel's \"Save\" writes break_allowance_minutes. Kitchen (prep) is retired: it is not offered for a new account or a role change (kitchen staff are Head barista, Barista, Assistant barista, Head chef or Chef), and an account still on it shows a \"Retired\" badge and keeps working until it is moved.",
       "route": null
     },
     {
@@ -54366,7 +54398,7 @@
       "ref": "doc:docs/design/assistant/pages.md#42~3",
       "lang": "en",
       "title": "docs/design/assistant/pages.md › Setup section and admin (part 3 of 3)",
-      "body": "e owner's \"Staff\" screen listing accounts with role, PIN and status; \"Add staff member\" creates an account through the staff-admin edge function; opened from a \n- /assistant — The owner assistant: a full page with the list of chats, the thread, the context checkboxes with their pack sizes, and the usage meter; \"Ask\" sends a question (billed), \"Stop\" ends a streaming answer, \"Run this job\" accepts an estimate, and every answer lists the tools it read with a link to the page that shows the same numbers.\n- /assistant/usage — What the assistant has cost: tokens by kind (input, cache write, cache read, output) and cost per day for the month, month-to-date against the cap, and the price table each model is billed from.",
+      "body": "/admin/staff — The owner's \"Staff\" screen listing accounts with role, PIN and status; \"Add staff member\" creates an account through the staff-admin edge functio\n- /assistant — The owner assistant: a full page with the list of chats, the thread, the context checkboxes with their pack sizes, and the usage meter; \"Ask\" sends a question (billed), \"Stop\" ends a streaming answer, \"Run this job\" accepts an estimate, and every answer lists the tools it read with a link to the page that shows the same numbers.\n- /assistant/usage — What the assistant has cost: tokens by kind (input, cache write, cache read, output) and cost per day for the month, month-to-date against the cap, and the price table each model is billed from.",
       "route": null
     },
     {

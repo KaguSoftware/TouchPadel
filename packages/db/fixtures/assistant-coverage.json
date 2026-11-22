@@ -1753,6 +1753,7 @@
     "/admin/settings/matches": "map:page",
     "/admin/settings/offline": "map:page",
     "/admin/settings/stations": "map:page",
+    "/admin/settings/tournaments": "map:page",
     "/admin/staff": "map:page",
     "/admin/suggested": "map:page",
     "/admin/telegram": "map:page",
