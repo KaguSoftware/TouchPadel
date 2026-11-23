@@ -552,9 +552,10 @@ test.describe('operator cafe admin', () => {
       // The panel now offers access back rather than removal…
       await expect(editor.getByRole('button', { name: 'Give access back', exact: true })).toBeVisible({ timeout: 15_000 });
       // …and the row is still there, folded with the other people without access.
+      // The panel is modal and covers the page, so close it before unfolding the list.
+      await editor.getByRole('button', { name: 'Close', exact: true }).click();
       await page.getByRole('button', { name: /^Show people without access/ }).click();
       await expect(row.getByText('No access', { exact: true })).toBeVisible();
-      await editor.getByRole('button', { name: 'Close', exact: true }).click();
 
       // The owner cannot re-role or remove their OWN account: with one owner
       // that guard is all that stands between the venue and a lockout.
